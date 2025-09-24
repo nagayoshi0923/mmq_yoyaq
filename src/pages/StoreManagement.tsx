@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import { StoreEditModal } from '@/components/modals/StoreEditModal'
 import { storeApi } from '@/lib/api'
 import type { Store } from '@/types'
 import { 
@@ -119,6 +120,8 @@ export function StoreManagement() {
   const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [editingStore, setEditingStore] = useState<Store | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   useEffect(() => {
     loadStores()
@@ -170,6 +173,28 @@ export function StoreManagement() {
       console.error('Error deleting store:', err)
       alert('店舗の削除に失敗しました: ' + err.message)
     }
+  }
+
+  function handleEditStore(store: Store) {
+    setEditingStore(store)
+    setIsEditModalOpen(true)
+  }
+
+  async function handleSaveStore(updatedStore: Store) {
+    try {
+      const savedStore = await storeApi.update(updatedStore.id, updatedStore)
+      // 更新成功後、リストを更新
+      setStores(prev => prev.map(s => s.id === savedStore.id ? savedStore : s))
+    } catch (err: any) {
+      console.error('Error updating store:', err)
+      alert('店舗の更新に失敗しました: ' + err.message)
+      throw err // モーダルでエラーハンドリングするため再throw
+    }
+  }
+
+  function handleCloseEditModal() {
+    setIsEditModalOpen(false)
+    setEditingStore(null)
   }
 
   // 店舗識別色を返すヘルパー関数
@@ -423,7 +448,12 @@ export function StoreManagement() {
                     )}
 
                     <div className="flex gap-2 pt-2">
-                      <Button variant="outline" size="sm" className="flex-1">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => handleEditStore(store)}
+                      >
                         <Edit className="h-4 w-4 mr-2" />
                         編集
                       </Button>
@@ -444,6 +474,14 @@ export function StoreManagement() {
           </div>
         </div>
       </div>
+
+      {/* 編集モーダル */}
+      <StoreEditModal
+        store={editingStore}
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        onSave={handleSaveStore}
+      />
     </div>
   )
 }
