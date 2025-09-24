@@ -75,7 +75,7 @@ export function PerformanceCard({
           
           {/* 予約者数バッジ */}
           {reservationCount > 0 && !event.is_cancelled && (
-            <Badge className={`text-xs px-1 py-0 ${getReservationBadgeClass(reservationCount, maxCapacity)}`}>
+            <Badge size="sm" className={`font-normal ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'}`}>
               <Users className="w-3 h-3 mr-1" />
               {reservationCount}
             </Badge>

@@ -90,10 +90,10 @@ export function ScheduleManager() {
   // 予約状況によるバッジクラス取得
   const getReservationBadgeClass = (current: number, max: number): string => {
     const ratio = current / max
-    if (ratio >= 1) return 'bg-red-100 text-red-800' // 満席
-    if (ratio >= 0.8) return 'bg-yellow-100 text-yellow-800' // ほぼ満席
-    if (ratio >= 0.5) return 'bg-green-100 text-green-800' // 順調
-    return 'bg-gray-100 text-gray-800' // 空きあり
+    if (ratio >= 1) return 'bg-red-100' // 満席
+    if (ratio >= 0.8) return 'bg-yellow-100' // ほぼ満席
+    if (ratio >= 0.5) return 'bg-green-100' // 順調
+    return 'bg-gray-100' // 空きあり
   }
 
   // 月の変更
@@ -165,7 +165,9 @@ export function ScheduleManager() {
       start_time: '10:00',
       end_time: '13:00',
       category: 'gmtest',
-      is_cancelled: false
+      is_cancelled: false,
+      participant_count: 4,
+      max_participants: 6
     },
     {
       id: '4',
@@ -176,7 +178,9 @@ export function ScheduleManager() {
       start_time: '15:00',
       end_time: '18:00',
       category: 'testplay',
-      is_cancelled: false
+      is_cancelled: false,
+      participant_count: 2,
+      max_participants: 4
     }
   ]
 
