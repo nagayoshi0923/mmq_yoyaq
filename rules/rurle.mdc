@@ -1,0 +1,65 @@
+# PROJECT_RULES.md — 追加の“縛り”ルール（設計レビューを反映）
+
+## 1) データの単一情報源（SSOT）
+- **スタッフ×シナリオの担当関係**は `staff_scenario_assignments` を**唯一の正**とする。  
+  - `staff.available_scenarios` / `staff.special_scenarios` は**派生/キャッシュのみ**（直接書き込み禁止）。  
+  - FE は一覧表示で必要なら **READ-ONLY** に投影（保存先は常に `staff_scenario_assignments`）。
+- **予約とスケジュールの関連**は `reservations.schedule_event_id` で**一意に紐付け**る（1予約＝1枠）。  
+  - “仮予約/問い合わせ”は `schedule_event_id = NULL` を許可、確定時に必須化。  
+  - `schedule_events` 側に予約要約を**重複保持しない**（要約列を置く場合は生成/キャッシュ扱い）。
+
+## 2) 一意制約・整合性（DBに必ず制約を張る）
+- `customers.user_id` **UNIQUE**（同一ユーザー＝1顧客プロファイル）。  
+- `customers.email` **UNIQUE**、`customers.phone` は運用方針に応じて **UNIQUE** or 正規化チェック。  
+- `reservations.reservation_number` **UNIQUE**。  
+- `staff_scenario_assignments (staff_id, scenario_id)` **PRIMARY KEY**（複合主キー）。  
+- 外部キーは **ON UPDATE RESTRICT / ON DELETE RESTRICT** を原則（履歴保持のため）。どうしても削除連鎖が必要な場合のみ PR で合意。
+
+## 3) 変更禁止・冗長禁止
+- **同一情報の重複保存禁止**（DB/DTO/UI層どこか1か所のみを正とする）。  
+- `schedule_events` に「予約カウント/要約」を持つなら**派生列**として扱い、更新は DB トリガ or サービス層のみ。  
+- “ついで変更”での**命名変更/パス変更**禁止（レビュー不能化を防止）。
+
+## 4) 権限・RLS（最低限の必須）
+- **RLS必須**。  
+  - 顧客は `reservations.customer_id = auth.uid()` のみ参照/編集可。  
+  - スタッフは自店舗/自担当枠に限定（詳細はポリシー化）。  
+  - 管理者は全アクセス可。  
+- **PIIの最小化**：電話・住所・メールは**閲覧権限を役割別に制限**し、ログ/監視に送らない。
+
+## 5) API/フロント規約（radex式）
+- サーバーデータは **RTK Query** をSSOTに集約。コンポーネントは **selector で最小投影**（安定参照を返す）。  
+- DTO→ViewModel 変換は**mapper層**で行い、UIでのアドホック整形を禁止。  
+- フォームは **react-hook-form + zod**（型とバリデーションを一箇所に）。  
+- **削除は原則 Soft Delete**（`status` や `deleted_at`）— 履歴消滅は禁止。
+
+## 6) スキーマ運用
+- **スキーマ変更＝必ず SQL マイグレーション**（`/sql/migrations`）。PR に同梱し、ロールバックSQLも併記。  
+- ER 図（Mermaid/画像）は **PRで更新必須**。README / docs を“同時更新”しないPRは不可。
+
+## 7) 命名・型の統一
+- 連絡先カラムは全テーブルで名称統一：`email`, `phone`, `address`（`phone_number` など混在禁止）。  
+- 日時は **TIMESTAMPTZ**、日付は **DATE**。金額は **INTEGER（最小通貨単位）** とし、通貨は別管理 or 固定。  
+- 役割は当面 `staff.role TEXT[]` を維持するが、将来は `roles` マスタへ移行方針（PRで段階導入）。
+
+## 8) Tailwind / UI
+- Tailwind は **v3固定**（v4の `@apply` 制限回避）。  
+- グローバルCSSでの `@apply` は**使い過ぎない**。ユーティリティは**コンポーネント側へ付与**。  
+- コンポーネントは **Container / Presentational 分離**（ロジックはContainerに閉じ込める）。
+
+## 9) 監査・ログ
+- 予約・支払い・スタッフ割当の**監査ログ**（だれが・いつ・何を）をサービス層で記録。  
+- 例外は ErrorBoundary + 監視（Sentry等）。**PIIは送信禁止**。
+
+## 10) リリース・品質ゲート
+- `npm run typecheck && npm run lint && npm run build` を CI 必須。  
+- main 直 push 禁止、タグは SemVer。DB 変更を含むリリースは**逆マイグレーション**を同梱。
+
+---
+
+### ✅ 即時タスク（README/スキーマへ反映）
+1. `reservations` に `schedule_event_id UUID NULL` を追加（確定時 NOT NULL 運用）。  
+2. `customers.user_id` / `customers.email` に UNIQUE 制約を追加。  
+3. `staff.available_scenarios` / `special_scenarios` を **READ-ONLY（派生）と明記**。将来は削除予定の注記。  
+4. ER 図を更新（`reservations → schedule_events` のFKを追記）。  
+5. RLS ポリシーのドラフトを `docs/rls_policies.sql` に作成。
