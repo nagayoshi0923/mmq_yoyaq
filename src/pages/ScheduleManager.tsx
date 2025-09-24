@@ -366,7 +366,7 @@ export function ScheduleManager() {
                 <TableBody>
                   {monthDays.slice(0, 10).map(day => {
                     return stores.map((store, storeIndex) => (
-                      <TableRow key={`${day.date}-${store.id}`} className="hover:bg-muted/50">
+                      <TableRow key={`${day.date}-${store.id}`} className="">
                         {/* 日付セル */}
                         {storeIndex === 0 ? (
                           <TableCell className="schedule-table-cell border-r" rowSpan={stores.length}>
@@ -382,7 +382,7 @@ export function ScheduleManager() {
                         ) : null}
                         
                         {/* 店舗セル */}
-                        <TableCell className="schedule-table-cell border-r">
+                        <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors">
                           {store.short_name}
                         </TableCell>
                         

@@ -57,32 +57,34 @@ export function MemoCell({ date, venue, initialMemo = '', onSave }: MemoCellProp
 
   return (
     <TableCell className="schedule-table-cell p-2 align-top">
-      {isEditing ? (
-        <Textarea
-          value={memo}
-          onChange={(e) => handleMemoChange(e.target.value)}
-          onBlur={handleBlur}
-          placeholder="メモを入力..."
-          className="min-h-[60px] text-xs resize-none"
-          autoFocus
-        />
-      ) : (
-        <div
-          className="min-h-[60px] p-2 rounded border-2 border-dashed border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer transition-colors group"
-          onClick={handleEdit}
-        >
-          {memo ? (
-            <div className="text-xs text-gray-700 whitespace-pre-wrap">
-              {memo}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-xs text-gray-400 group-hover:text-gray-600">
-              <Edit3 className="w-3 h-3 mr-1" />
-              メモを追加
-            </div>
-          )}
-        </div>
-      )}
+      <div
+        className="min-h-[60px] p-2 cursor-pointer rounded-md"
+        style={{ backgroundColor: '#F6F9FB' }}
+        onClick={handleEdit}
+      >
+        {isEditing ? (
+          <Textarea
+            value={memo}
+            onChange={(e) => handleMemoChange(e.target.value)}
+            onBlur={handleBlur}
+            placeholder=""
+            className="w-full text-xs resize-none border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none text-left"
+            style={{ 
+              backgroundColor: '#F6F9FB',
+              height: '44px',
+              minHeight: '44px',
+              maxHeight: '44px',
+              lineHeight: '1.2',
+              textAlign: 'left'
+            }}
+            autoFocus
+          />
+        ) : (
+          <div className="text-xs text-gray-700 whitespace-pre-wrap text-left" style={{ minHeight: '44px' }}>
+            {memo}
+          </div>
+        )}
+      </div>
     </TableCell>
   )
 }
