@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import { storeApi } from '@/lib/api'
+import type { Store } from '@/types'
 import { 
   Store as StoreIcon, 
   Plus, 
@@ -114,9 +116,13 @@ const mockStores = [
 ]
 
 export function StoreManagement() {
-  const [stores, setStores] = useState(mockStores)
-  const [loading, setLoading] = useState(false)
+  const [stores, setStores] = useState<Store[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    loadStores()
+  }, [])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -134,6 +140,37 @@ export function StoreManagement() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  async function loadStores() {
+    try {
+      setLoading(true)
+      setError('')
+      const data = await storeApi.getAll()
+      setStores(data)
+    } catch (err: any) {
+      console.error('Error loading stores:', err)
+      setError('店舗データの読み込みに失敗しました: ' + err.message)
+      // エラー時はモックデータを使用
+      setStores(mockStores)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDeleteStore(store: Store) {
+    if (!confirm(`「${store.name}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
+      return
+    }
+
+    try {
+      await storeApi.delete(store.id)
+      // 削除成功後、リストから除去
+      setStores(prev => prev.filter(s => s.id !== store.id))
+    } catch (err: any) {
+      console.error('Error deleting store:', err)
+      alert('店舗の削除に失敗しました: ' + err.message)
+    }
+  }
 
   // 店舗識別色を返すヘルパー関数
   const getStoreThemeClasses = (shortName: string) => {
@@ -390,7 +427,12 @@ export function StoreManagement() {
                         <Edit className="h-4 w-4 mr-2" />
                         編集
                       </Button>
-                      <Button variant="destructive" size="sm" className="flex-1">
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => handleDeleteStore(store)}
+                      >
                         <Trash2 className="h-4 w-4 mr-2" />
                         削除
                       </Button>

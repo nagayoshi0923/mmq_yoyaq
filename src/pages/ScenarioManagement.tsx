@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import { scenarioApi } from '@/lib/api'
+import type { Scenario } from '@/types'
 import { 
   BookOpen, 
   Plus, 
@@ -55,11 +57,46 @@ const mockScenarios = [
 ]
 
 export function ScenarioManagement() {
-  const [scenarios, setScenarios] = useState(mockScenarios)
-  const [loading, setLoading] = useState(false)
+  const [scenarios, setScenarios] = useState<Scenario[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  useEffect(() => {
+    loadScenarios()
+  }, [])
+
+  async function loadScenarios() {
+    try {
+      setLoading(true)
+      setError('')
+      const data = await scenarioApi.getAll()
+      setScenarios(data)
+    } catch (err: any) {
+      console.error('Error loading scenarios:', err)
+      setError('シナリオデータの読み込みに失敗しました: ' + err.message)
+      // エラー時はモックデータを使用
+      setScenarios(mockScenarios)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDeleteScenario(scenario: Scenario) {
+    if (!confirm(`「${scenario.title}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
+      return
+    }
+
+    try {
+      await scenarioApi.delete(scenario.id)
+      // 削除成功後、リストから除去
+      setScenarios(prev => prev.filter(s => s.id !== scenario.id))
+    } catch (err: any) {
+      console.error('Error deleting scenario:', err)
+      alert('シナリオの削除に失敗しました: ' + err.message)
+    }
+  }
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -355,7 +392,12 @@ export function ScenarioManagement() {
                       <Edit className="h-4 w-4 mr-2" />
                       編集
                     </Button>
-                    <Button variant="destructive" size="sm" className="flex-1">
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => handleDeleteScenario(scenario)}
+                    >
                       <Trash2 className="h-4 w-4 mr-2" />
                       削除
                     </Button>

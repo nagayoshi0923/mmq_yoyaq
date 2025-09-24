@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import { staffApi } from '@/lib/api'
+import type { Staff } from '@/types'
 import { 
   Users, 
   Plus, 
@@ -59,13 +61,48 @@ const mockStaff = [
 ]
 
 export function StaffManagement() {
-  const [staff, setStaff] = useState(mockStaff)
-  const [loading, setLoading] = useState(false)
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [contactPassword, setContactPassword] = useState('')
   const [showContactInfo, setShowContactInfo] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    loadStaff()
+  }, [])
+
+  async function loadStaff() {
+    try {
+      setLoading(true)
+      setError('')
+      const data = await staffApi.getAll()
+      setStaff(data)
+    } catch (err: any) {
+      console.error('Error loading staff:', err)
+      setError('スタッフデータの読み込みに失敗しました: ' + err.message)
+      // エラー時はモックデータを使用
+      setStaff(mockStaff)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDeleteStaff(member: Staff) {
+    if (!confirm(`「${member.name}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
+      return
+    }
+
+    try {
+      await staffApi.delete(member.id)
+      // 削除成功後、リストから除去
+      setStaff(prev => prev.filter(s => s.id !== member.id))
+    } catch (err: any) {
+      console.error('Error deleting staff:', err)
+      alert('スタッフの削除に失敗しました: ' + err.message)
+    }
+  }
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -450,7 +487,12 @@ export function StaffManagement() {
                       <Edit className="h-4 w-4 mr-2" />
                       編集
                     </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => handleDeleteStaff(member)}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
