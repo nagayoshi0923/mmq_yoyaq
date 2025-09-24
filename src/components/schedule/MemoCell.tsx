@@ -63,22 +63,22 @@ export function MemoCell({ date, venue, initialMemo = '', onSave }: MemoCellProp
         onClick={handleEdit}
       >
         {isEditing ? (
-          <Textarea
-            value={memo}
-            onChange={(e) => handleMemoChange(e.target.value)}
-            onBlur={handleBlur}
-            placeholder=""
-            className="w-full text-xs resize-none border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none text-left"
-            style={{ 
-              backgroundColor: '#F6F9FB',
-              height: '44px',
-              minHeight: '44px',
-              maxHeight: '44px',
-              lineHeight: '1.2',
-              textAlign: 'left'
-            }}
-            autoFocus
-          />
+              <Textarea
+                value={memo}
+                onChange={(e) => handleMemoChange(e.target.value)}
+                onBlur={handleBlur}
+                placeholder=""
+                className="w-full text-xs resize-none border-0 p-0 text-left"
+                style={{ 
+                  backgroundColor: '#F6F9FB',
+                  height: '44px',
+                  minHeight: '44px',
+                  maxHeight: '44px',
+                  lineHeight: '1.2',
+                  textAlign: 'left'
+                }}
+                autoFocus
+              />
         ) : (
           <div className="text-xs text-gray-700 whitespace-pre-wrap text-left" style={{ minHeight: '44px' }}>
             {memo}

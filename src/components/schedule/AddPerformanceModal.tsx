@@ -34,6 +34,18 @@ export function AddPerformanceModal({
     notes: ''
   })
 
+  // 30分単位の時間オプションを生成
+  const generateTimeOptions = () => {
+    const times = []
+    for (let hour = 9; hour <= 23; hour++) {
+      times.push(`${hour.toString().padStart(2, '0')}:00`)
+      times.push(`${hour.toString().padStart(2, '0')}:30`)
+    }
+    return times
+  }
+
+  const timeOptions = generateTimeOptions()
+
   // 時間帯に応じたデフォルト時間
   function getDefaultStartTime(slot: string) {
     switch (slot) {
@@ -61,6 +73,16 @@ export function AddPerformanceModal({
     'okubo': '大久保店',
     'otsuka': '大塚店',
     'omiya': '埼玉大宮店'
+  }
+
+  // 店舗カラー設定
+  const storeColors: Record<string, string> = {
+    'takadanobaba': 'bg-blue-100 text-blue-800',
+    'bekkan1': 'bg-green-100 text-green-800',
+    'bekkan2': 'bg-purple-100 text-purple-800',
+    'okubo': 'bg-orange-100 text-orange-800',
+    'otsuka': 'bg-red-100 text-red-800',
+    'omiya': 'bg-amber-100 text-amber-800'
   }
 
   // 時間帯の表示用
@@ -145,7 +167,7 @@ export function AddPerformanceModal({
               <Calendar className="w-3 h-3" />
               {date}
             </Badge>
-            <Badge variant="outline" className="flex items-center gap-1">
+            <Badge className={`flex items-center gap-1 ${storeColors[venue] || 'bg-gray-100 text-gray-800'}`}>
               <MapPin className="w-3 h-3" />
               {storeNames[venue] || venue}
             </Badge>
@@ -172,7 +194,7 @@ export function AddPerformanceModal({
           <div className="space-y-2">
             <label className="text-sm font-medium">公演カテゴリ *</label>
             <Select value={formData.category} onValueChange={(value: any) => setFormData(prev => ({ ...prev, category: value }))}>
-              <SelectTrigger style={{ backgroundColor: '#F6F9FB' }}>
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -193,21 +215,33 @@ export function AddPerformanceModal({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">開始時間 *</label>
-              <Input
-                type="time"
-                value={formData.startTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
-                required
-              />
+              <Select value={formData.startTime} onValueChange={(value) => setFormData(prev => ({ ...prev, startTime: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">終了時間 *</label>
-              <Input
-                type="time"
-                value={formData.endTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
-                required
-              />
+              <Select value={formData.endTime} onValueChange={(value) => setFormData(prev => ({ ...prev, endTime: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -266,7 +300,6 @@ export function AddPerformanceModal({
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="特記事項があれば入力"
               className="min-h-[80px]"
-              style={{ backgroundColor: '#F6F9FB' }}
             />
           </div>
         </div>
