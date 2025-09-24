@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StoreManagement } from './StoreManagement'
 import { ScenarioManagement } from './ScenarioManagement'
+import { StaffManagement } from './StaffManagement'
+import { Header } from '@/components/layout/Header'
+import { NavigationBar } from '@/components/layout/NavigationBar'
 import { 
   Store, 
   Calendar, 
@@ -13,22 +15,32 @@ import {
   TrendingUp, 
   Package, 
   CreditCard,
-  Settings,
-  LogOut,
-  Bell
+  Settings
 } from 'lucide-react'
 
 export function AdminDashboard() {
-  const { user, signOut } = useAuth()
-  const [currentPage, setCurrentPage] = useState('dashboard')
+  const [currentPage, setCurrentPage] = useState(() => {
+    // URLのハッシュから初期ページを決定
+    const hash = window.location.hash.slice(1) // #を除去
+    return hash || 'dashboard'
+  })
 
-  const handleSignOut = async () => {
-    try {
-      await signOut()
-    } catch (error) {
-      console.error('Sign out error:', error)
-    }
+  // ページ変更時にURLのハッシュを更新
+  const handlePageChange = (pageId: string) => {
+    setCurrentPage(pageId)
+    window.location.hash = pageId === 'dashboard' ? '' : pageId
   }
+
+  // ブラウザの戻る/進むボタンに対応
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1)
+      setCurrentPage(hash || 'dashboard')
+    }
+
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
 
   // モックデータ（後でSupabaseから取得）
   const stats = {
@@ -39,14 +51,14 @@ export function AdminDashboard() {
   }
 
   const navigationTabs = [
-    { id: 'stores', label: '店舗管理', icon: Store, color: 'bg-blue-100 text-blue-800' },
+    { id: 'stores', label: '店舗', icon: Store, color: 'bg-blue-100 text-blue-800' },
     { id: 'schedule', label: 'スケジュール', icon: Calendar, color: 'bg-green-100 text-green-800' },
-    { id: 'staff', label: 'スタッフ管理', icon: Users, color: 'bg-purple-100 text-purple-800' },
-    { id: 'scenarios', label: 'シナリオ管理', icon: BookOpen, color: 'bg-orange-100 text-orange-800' },
-    { id: 'reservations', label: '予約管理', icon: Calendar, color: 'bg-red-100 text-red-800' },
-    { id: 'customers', label: '顧客管理', icon: Users, color: 'bg-amber-100 text-amber-800' },
-    { id: 'sales', label: '売上管理', icon: TrendingUp, color: 'bg-emerald-100 text-emerald-800' },
-    { id: 'inventory', label: '在庫管理', icon: Package, color: 'bg-cyan-100 text-cyan-800' },
+    { id: 'staff', label: 'スタッフ', icon: Users, color: 'bg-purple-100 text-purple-800' },
+    { id: 'scenarios', label: 'シナリオ', icon: BookOpen, color: 'bg-orange-100 text-orange-800' },
+    { id: 'reservations', label: '予約', icon: Calendar, color: 'bg-red-100 text-red-800' },
+    { id: 'customers', label: '顧客', icon: Users, color: 'bg-amber-100 text-amber-800' },
+    { id: 'sales', label: '売上', icon: TrendingUp, color: 'bg-emerald-100 text-emerald-800' },
+    { id: 'inventory', label: '在庫', icon: Package, color: 'bg-cyan-100 text-cyan-800' },
     { id: 'licenses', label: 'ライセンス', icon: CreditCard, color: 'bg-pink-100 text-pink-800' },
     { id: 'settings', label: '設定', icon: Settings, color: 'bg-gray-100 text-gray-800' }
   ]
@@ -59,41 +71,15 @@ export function AdminDashboard() {
   if (currentPage === 'scenarios') {
     return <ScenarioManagement />
   }
+  
+  if (currentPage === 'staff') {
+    return <StaffManagement />
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* ヘッダー */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1>Queens Waltz 管理システム</h1>
-              <p className="text-muted-foreground">マーダーミステリー店舗管理</p>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <Badge className={
-                  user?.role === 'admin' ? 'bg-blue-100 text-blue-800' :
-                  user?.role === 'staff' ? 'bg-green-100 text-green-800' :
-                  'bg-purple-100 text-purple-800'
-                }>
-                  {user?.role === 'admin' ? '管理者' : 
-                   user?.role === 'staff' ? 'スタッフ' : '顧客'}
-                </Badge>
-                <p className="text-sm text-muted-foreground">{user?.email}</p>
-              </div>
-              <Button variant="ghost" size="icon">
-                <Bell className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                ログアウト
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header onPageChange={handlePageChange} />
+      <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
 
       <main className="container mx-auto px-4 py-6">
         <div className="space-y-6">
@@ -167,7 +153,7 @@ export function AdminDashboard() {
                   <Card 
                     key={tab.id} 
                     className="hover:bg-accent cursor-pointer transition-colors"
-                    onClick={() => setCurrentPage(tab.id)}
+                        onClick={() => handlePageChange(tab.id)}
                   >
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2">
