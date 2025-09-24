@@ -24,7 +24,6 @@ interface TimeSlotCellProps {
   date: string
   venue: string
   timeSlot: 'morning' | 'afternoon' | 'evening'
-  getStoreCardClass: (storeId: string) => string
   categoryConfig: {
     [key: string]: {
       label: string
@@ -43,7 +42,6 @@ export function TimeSlotCell({
   date,
   venue,
   timeSlot,
-  getStoreCardClass,
   categoryConfig,
   getReservationBadgeClass,
   onCancel,
@@ -55,7 +53,6 @@ export function TimeSlotCell({
       {events.length > 0 ? (
         <PerformanceCard
           event={events[0]}
-          storeColors={getStoreCardClass(venue)}
           categoryConfig={categoryConfig}
           getReservationBadgeClass={getReservationBadgeClass}
           onCancel={onCancel}

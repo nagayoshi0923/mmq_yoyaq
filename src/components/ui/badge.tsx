@@ -23,13 +23,28 @@ const badgeVariants = cva(
   }
 )
 
+const sizeMap = {
+  sm: "text-xs px-1 py-0",
+  md: "text-sm px-2 py-1",
+  lg: "text-base px-3 py-2"
+}
+
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+    VariantProps<typeof badgeVariants> {
+  size?: "sm" | "md" | "lg"
+}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
+function Badge({ className, variant, size = "md", ...props }: BadgeProps) {
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+    <div
+      className={cn(
+        badgeVariants({ variant }),
+        sizeMap[size],
+        className
+      )}
+      {...props}
+    />
   )
 }
 

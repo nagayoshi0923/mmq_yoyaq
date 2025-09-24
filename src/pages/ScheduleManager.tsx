@@ -315,7 +315,6 @@ export function ScheduleManager() {
                           date={day.date}
                           venue={store.id}
                           timeSlot="morning"
-                          getStoreCardClass={getStoreCardClass}
                           categoryConfig={categoryConfig}
                           getReservationBadgeClass={getReservationBadgeClass}
                           onCancel={(event) => {
@@ -335,7 +334,6 @@ export function ScheduleManager() {
                           date={day.date}
                           venue={store.id}
                           timeSlot="afternoon"
-                          getStoreCardClass={getStoreCardClass}
                           categoryConfig={categoryConfig}
                           getReservationBadgeClass={getReservationBadgeClass}
                           onCancel={(event) => {
@@ -355,7 +353,6 @@ export function ScheduleManager() {
                           date={day.date}
                           venue={store.id}
                           timeSlot="evening"
-                          getStoreCardClass={getStoreCardClass}
                           categoryConfig={categoryConfig}
                           getReservationBadgeClass={getReservationBadgeClass}
                           onCancel={(event) => {

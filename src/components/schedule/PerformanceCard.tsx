@@ -21,7 +21,6 @@ interface ScheduleEvent {
 
 interface PerformanceCardProps {
   event: ScheduleEvent
-  storeColors: string
   categoryConfig: {
     [key: string]: {
       label: string
@@ -36,7 +35,6 @@ interface PerformanceCardProps {
 
 export function PerformanceCard({
   event,
-  storeColors,
   categoryConfig,
   getReservationBadgeClass,
   onCancel,
@@ -45,20 +43,26 @@ export function PerformanceCard({
   const reservationCount = event.participant_count || 0
   const maxCapacity = event.max_participants || 8
   const isIncomplete = !event.scenario || event.gms.length === 0
+  
+  // 公演カテゴリ色を取得
+  const categoryColors = categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor || 'bg-gray-50 border-gray-200'
+  
+  // バッジのテキストカラーを取得（例: 'bg-blue-100 text-blue-800' から 'text-blue-800' を抽出）
+  const badgeTextColor = categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor.split(' ').find(cls => cls.startsWith('text-')) || 'text-gray-800'
 
   return (
     <div
       className={`p-2 border rounded-md hover:shadow-sm transition-shadow text-xs relative ${
         event.is_cancelled 
           ? 'bg-gray-100 border-gray-300 opacity-75' 
-          : storeColors
+          : categoryColors
       } ${
         isIncomplete ? 'border-yellow-400 border-2' : ''
       }`}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
       <div className="flex items-center justify-between mb-1">
-        <span className={`font-mono text-xs ${event.is_cancelled ? 'line-through text-gray-500' : ''}`}>
+        <span className={`font-mono text-xs ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.start_time}-{event.end_time}
         </span>
         <div className="flex items-center gap-1">
@@ -78,25 +82,25 @@ export function PerformanceCard({
           )}
           
           {/* カテゴリバッジ */}
-          <Badge className={`text-xs px-1 py-0 ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'} ${event.is_cancelled ? 'opacity-60' : ''}`}>
+          <Badge size="sm" className={`${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'} ${event.is_cancelled ? 'opacity-60' : ''}`}>
             {categoryConfig[event.category as keyof typeof categoryConfig]?.label || event.category}
           </Badge>
         </div>
       </div>
       
       {/* シナリオタイトル */}
-      <div className={`font-medium line-clamp-2 mb-1 ${event.is_cancelled ? 'line-through text-gray-500' : ''}`}>
+      <div className={`font-medium line-clamp-2 mb-1 text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.scenario || '未定'}
       </div>
       
       {/* GM情報 */}
-      <div className={`text-xs text-muted-foreground mb-1 ${event.is_cancelled ? 'line-through' : ''}`}>
+      <div className={`text-xs mb-1 text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         GM: {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
       </div>
       
       {/* ノート情報 */}
       {event.notes && (
-        <div className={`text-xs text-muted-foreground truncate ${event.is_cancelled ? 'line-through' : ''}`}>
+        <div className={`text-xs truncate text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.notes}
         </div>
       )}
