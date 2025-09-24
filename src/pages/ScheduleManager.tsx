@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
+import { MemoCell } from '@/components/schedule/MemoCell'
+import { memoApi } from '@/lib/api'
 import { 
   ChevronLeft,
   ChevronRight
@@ -35,6 +37,8 @@ interface ScheduleEvent {
 export function ScheduleManager() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [memos, setMemos] = useState<Record<string, string>>({})
+  const [storeIdMap, setStoreIdMap] = useState<Record<string, string>>({})
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -51,7 +55,7 @@ export function ScheduleManager() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  // 店舗一覧
+  // 店舗一覧（実際のSupabaseのIDとマッピング）
   const stores = [
     { id: 'takadanobaba', name: '高田馬場店', short_name: '馬場', color: 'blue' },
     { id: 'bekkan1', name: '別館①', short_name: '別館①', color: 'green' },
@@ -60,6 +64,34 @@ export function ScheduleManager() {
     { id: 'otsuka', name: '大塚店', short_name: '大塚', color: 'red' },
     { id: 'omiya', name: '埼玉大宮店', short_name: '埼玉大宮', color: 'amber' }
   ]
+
+  // 初期データ読み込み（月が変わった時も実行）
+  useEffect(() => {
+    const loadMemos = async () => {
+      try {
+        const year = currentDate.getFullYear()
+        const month = currentDate.getMonth() + 1
+        const memoData = await memoApi.getByMonth(year, month)
+        
+        // メモデータを状態に変換
+        const memoMap: Record<string, string> = {}
+        const storeMap: Record<string, string> = {}
+        
+        memoData.forEach((memo: any) => {
+          const key = getMemoKey(memo.date, memo.stores.name)
+          memoMap[key] = memo.memo_text || ''
+          storeMap[memo.stores.name] = memo.venue_id
+        })
+        
+        setMemos(memoMap)
+        setStoreIdMap(storeMap)
+      } catch (error) {
+        console.error('メモ読み込みエラー:', error)
+      }
+    }
+
+    loadMemos()
+  }, [currentDate])
 
   // 公演カテゴリの色設定
   const categoryConfig = {
@@ -199,8 +231,48 @@ export function ScheduleManager() {
     return mockEvents.filter(event => 
       event.date === date && 
       event.venue === venue && 
-      getTimeSlot(event.start_time) === timeSlot
+      getTimeSlot(event.start_time) === timeSlot &&
+      (selectedCategory === 'all' || event.category === selectedCategory)
     )
+  }
+
+  // メモのキーを生成
+  const getMemoKey = (date: string, venue: string) => `${date}-${venue}`
+
+  // メモを保存
+  const handleSaveMemo = async (date: string, venue: string, memo: string) => {
+    const key = getMemoKey(date, venue)
+    setMemos(prev => ({
+      ...prev,
+      [key]: memo
+    }))
+
+    try {
+      // 店舗名から実際のSupabase IDを取得
+      const store = stores.find(s => s.name === venue)
+      let venueId = storeIdMap[venue]
+      
+      if (!venueId && store) {
+        // storeIdMapにない場合は、店舗名で検索（初回保存時）
+        console.warn(`店舗ID未取得: ${venue}, 店舗名で保存を試行`)
+        venueId = store.id // 仮のID、実際はSupabaseから取得が必要
+      }
+
+      if (venueId) {
+        await memoApi.save(date, venueId, memo)
+        console.log('メモ保存成功:', { date, venue, memo })
+      } else {
+        console.error('店舗IDが見つかりません:', venue)
+      }
+    } catch (error) {
+      console.error('メモ保存エラー:', error)
+    }
+  }
+
+  // メモを取得
+  const getMemo = (date: string, venue: string) => {
+    const key = getMemoKey(date, venue)
+    return memos[key] || ''
   }
 
   return (
@@ -208,7 +280,7 @@ export function ScheduleManager() {
       <Header />
       <NavigationBar currentPage="schedule" />
       
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto max-w-7xl px-8 py-6">
         <div className="space-y-6">
           {/* ヘッダー部分 */}
           <div className="flex items-center justify-between">
@@ -285,9 +357,10 @@ export function ScheduleManager() {
                     <TableHead className="w-20 border-r">日付</TableHead>
                     <TableHead className="w-16 border-r">曜日</TableHead>
                     <TableHead className="w-20 border-r">会場</TableHead>
-                    <TableHead>午前 (~12:00)</TableHead>
-                    <TableHead>午後 (12:00-17:00)</TableHead>
-                    <TableHead>夜間 (17:00~)</TableHead>
+                    <TableHead className="w-60">午前 (~12:00)</TableHead>
+                    <TableHead className="w-60">午後 (12:00-17:00)</TableHead>
+                    <TableHead className="w-60">夜間 (17:00~)</TableHead>
+                    <TableHead className="w-48">メモ</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -368,6 +441,14 @@ export function ScheduleManager() {
                           onAddPerformance={(date, venue, timeSlot) => {
                             // TODO: openAddPerformanceDialog(date, venue, timeSlot);
                           }}
+                        />
+                        
+                        {/* メモセル */}
+                        <MemoCell
+                          date={day.date}
+                          venue={store.id}
+                          initialMemo={getMemo(day.date, store.id)}
+                          onSave={handleSaveMemo}
                         />
                       </TableRow>
                     ))

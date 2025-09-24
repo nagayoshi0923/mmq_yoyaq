@@ -132,7 +132,7 @@ export function ScenarioManagement() {
         <Header />
         <NavigationBar currentPage="scenarios" />
         
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto max-w-7xl px-8 py-6">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h1>シナリオ管理</h1>
@@ -168,7 +168,7 @@ export function ScenarioManagement() {
         <Header />
         <NavigationBar currentPage="scenarios" />
         
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto max-w-7xl px-8 py-6">
           <div className="space-y-6">
             <h1>シナリオ管理</h1>
             <Card className="border-red-200 bg-red-50">
@@ -197,7 +197,7 @@ export function ScenarioManagement() {
       <Header />
       <NavigationBar currentPage="scenarios" />
       
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto max-w-7xl px-8 py-6">
         <div className="space-y-6">
           {/* ヘッダー */}
           <div className="flex items-center justify-between">

@@ -30,7 +30,7 @@ export function Header({ onPageChange }: HeaderProps) {
 
   return (
     <header className="border-b border-border bg-card">
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto max-w-7xl px-8 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 
