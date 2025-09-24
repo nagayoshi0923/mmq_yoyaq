@@ -68,7 +68,7 @@ export function PerformanceCard({
         <div className="flex items-center gap-1">
           {/* 中止バッジ */}
           {event.is_cancelled && (
-            <Badge variant="destructive" className="text-xs px-1 py-0">
+            <Badge variant="destructive" size="sm" className={`font-normal ${badgeTextColor}`}>
               中止
             </Badge>
           )}
@@ -82,7 +82,7 @@ export function PerformanceCard({
           )}
           
           {/* カテゴリバッジ */}
-          <Badge size="sm" className={`${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'} ${event.is_cancelled ? 'opacity-60' : ''}`}>
+          <Badge size="sm" className={`font-normal ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'} ${event.is_cancelled ? 'opacity-60' : ''}`}>
             {categoryConfig[event.category as keyof typeof categoryConfig]?.label || event.category}
           </Badge>
         </div>
