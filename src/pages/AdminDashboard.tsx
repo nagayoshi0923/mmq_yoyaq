@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { StoreManagement } from './StoreManagement'
 import { ScenarioManagement } from './ScenarioManagement'
 import { StaffManagement } from './StaffManagement'
+import { ScheduleManager } from './ScheduleManager'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { 
@@ -66,6 +67,10 @@ export function AdminDashboard() {
   // ページ切り替え処理
   if (currentPage === 'stores') {
     return <StoreManagement />
+  }
+  
+  if (currentPage === 'schedule') {
+    return <ScheduleManager />
   }
   
   if (currentPage === 'scenarios') {
