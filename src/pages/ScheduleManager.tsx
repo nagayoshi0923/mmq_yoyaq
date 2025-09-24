@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
+import { AddPerformanceModal } from '@/components/schedule/AddPerformanceModal'
 import { memoApi } from '@/lib/api'
 import { 
   ChevronLeft,
@@ -39,6 +40,12 @@ export function ScheduleManager() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [memos, setMemos] = useState<Record<string, string>>({})
   const [storeIdMap, setStoreIdMap] = useState<Record<string, string>>({})
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [addModalData, setAddModalData] = useState<{
+    date: string
+    venue: string
+    timeSlot: 'morning' | 'afternoon' | 'evening'
+  } | null>(null)
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -275,6 +282,30 @@ export function ScheduleManager() {
     return memos[key] || ''
   }
 
+  // 公演追加モーダルを開く
+  const handleAddPerformance = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
+    setAddModalData({ date, venue, timeSlot })
+    setIsAddModalOpen(true)
+  }
+
+  // 公演追加モーダルを閉じる
+  const handleCloseAddModal = () => {
+    setIsAddModalOpen(false)
+    setAddModalData(null)
+  }
+
+  // 新しい公演を保存
+  const handleSavePerformance = (performanceData: any) => {
+    // TODO: 実際のAPIに保存
+    console.log('新しい公演を保存:', performanceData)
+    
+    // モックデータに追加（開発用）
+    mockEvents.push(performanceData)
+    
+    // モーダルを閉じる
+    handleCloseAddModal()
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -400,9 +431,7 @@ export function ScheduleManager() {
                           onUncancel={(event) => {
                             // TODO: uncancelEvent(event);
                           }}
-                          onAddPerformance={(date, venue, timeSlot) => {
-                            // TODO: openAddPerformanceDialog(date, venue, timeSlot);
-                          }}
+                          onAddPerformance={handleAddPerformance}
                         />
                         
                         {/* 午後セル */}
@@ -419,9 +448,7 @@ export function ScheduleManager() {
                           onUncancel={(event) => {
                             // TODO: uncancelEvent(event);
                           }}
-                          onAddPerformance={(date, venue, timeSlot) => {
-                            // TODO: openAddPerformanceDialog(date, venue, timeSlot);
-                          }}
+                          onAddPerformance={handleAddPerformance}
                         />
                         
                         {/* 夜間セル */}
@@ -438,9 +465,7 @@ export function ScheduleManager() {
                           onUncancel={(event) => {
                             // TODO: uncancelEvent(event);
                           }}
-                          onAddPerformance={(date, venue, timeSlot) => {
-                            // TODO: openAddPerformanceDialog(date, venue, timeSlot);
-                          }}
+                          onAddPerformance={handleAddPerformance}
                         />
                         
                         {/* メモセル */}
@@ -459,6 +484,18 @@ export function ScheduleManager() {
           </Card>
         </div>
       </div>
+
+      {/* 公演追加モーダル */}
+      {addModalData && (
+        <AddPerformanceModal
+          isOpen={isAddModalOpen}
+          onClose={handleCloseAddModal}
+          date={addModalData.date}
+          venue={addModalData.venue}
+          timeSlot={addModalData.timeSlot}
+          onSave={handleSavePerformance}
+        />
+      )}
     </div>
   )
 }

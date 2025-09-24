@@ -117,25 +117,25 @@ export function PerformanceCard({
         <Button
           variant="ghost"
           size="sm"
-          className="absolute bottom-1 right-1 h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
+          className={`absolute bottom-1 right-1 h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600 ${badgeTextColor}`}
           onClick={(e) => {
             e.stopPropagation();
             onCancel?.(event);
           }}
         >
-          <Ban className="w-3 h-3" />
+          <Ban className={`w-3 h-3 ${badgeTextColor}`} />
         </Button>
       ) : (
         <Button
           variant="ghost"
           size="sm"
-          className="absolute bottom-1 right-1 h-6 w-6 p-0 hover:bg-green-100 hover:text-green-600"
+          className={`absolute bottom-1 right-1 h-6 w-6 p-0 hover:bg-green-100 hover:text-green-600 ${badgeTextColor}`}
           onClick={(e) => {
             e.stopPropagation();
             onUncancel?.(event);
           }}
         >
-          <Plus className="w-3 h-3" />
+          <Plus className={`w-3 h-3 ${badgeTextColor}`} />
         </Button>
       )}
     </div>
