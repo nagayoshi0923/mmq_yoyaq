@@ -1,8 +1,10 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { StoreManagement } from './StoreManagement'
+import { ScenarioManagement } from './ScenarioManagement'
 import { 
   Store, 
   Calendar, 
@@ -18,6 +20,7 @@ import {
 
 export function AdminDashboard() {
   const { user, signOut } = useAuth()
+  const [currentPage, setCurrentPage] = useState('dashboard')
 
   const handleSignOut = async () => {
     try {
@@ -47,6 +50,15 @@ export function AdminDashboard() {
     { id: 'licenses', label: 'ライセンス', icon: CreditCard, color: 'bg-pink-100 text-pink-800' },
     { id: 'settings', label: '設定', icon: Settings, color: 'bg-gray-100 text-gray-800' }
   ]
+
+  // ページ切り替え処理
+  if (currentPage === 'stores') {
+    return <StoreManagement />
+  }
+  
+  if (currentPage === 'scenarios') {
+    return <ScenarioManagement />
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,57 +101,57 @@ export function AdminDashboard() {
           <section>
             <h2>概要</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-              <Card className="bg-blue-50 border-blue-200">
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
-                    <Store className="h-5 w-5 text-blue-600" />
+                    <Store className="h-5 w-5 text-muted-foreground" />
                     店舗数
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-800">{stats.stores}</div>
-                  <p className="text-blue-600">店舗運営中</p>
+                  <div className="text-2xl font-bold">{stats.stores}</div>
+                  <p className="text-muted-foreground">店舗運営中</p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-green-50 border-green-200">
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-green-600" />
+                    <BookOpen className="h-5 w-5 text-muted-foreground" />
                     公演数
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-800">{stats.performances}</div>
-                  <p className="text-green-600">シナリオ登録済み</p>
+                  <div className="text-2xl font-bold">{stats.performances}</div>
+                  <p className="text-muted-foreground">シナリオ登録済み</p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-purple-50 border-purple-200">
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-purple-600" />
+                    <Calendar className="h-5 w-5 text-muted-foreground" />
                     今月の予約
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-purple-800">{stats.reservations}</div>
-                  <p className="text-purple-600">件の予約</p>
+                  <div className="text-2xl font-bold">{stats.reservations}</div>
+                  <p className="text-muted-foreground">件の予約</p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-orange-50 border-orange-200">
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-orange-600" />
+                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
                     今月の売上
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-orange-800">
+                  <div className="text-2xl font-bold">
                     ¥{stats.revenue.toLocaleString()}
                   </div>
-                  <p className="text-orange-600">前月比 +12%</p>
+                  <p className="text-muted-foreground">前月比 +12%</p>
                 </CardContent>
               </Card>
             </div>
@@ -155,6 +167,7 @@ export function AdminDashboard() {
                   <Card 
                     key={tab.id} 
                     className="hover:bg-accent cursor-pointer transition-colors"
+                    onClick={() => setCurrentPage(tab.id)}
                   >
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2">
@@ -192,7 +205,7 @@ export function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-blue-50 border-blue-200 rounded-md">
+                  <div className="flex items-center gap-3 p-3 border border-border rounded-md">
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     <div className="flex-1">
                       <p><strong>新規予約</strong> - 高田馬場店「人狼村の悲劇」</p>
@@ -201,7 +214,7 @@ export function AdminDashboard() {
                     <Badge className="bg-blue-100 text-blue-800">5分前</Badge>
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 bg-purple-50 border-purple-200 rounded-md">
+                  <div className="flex items-center gap-3 p-3 border border-border rounded-md">
                     <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                     <div className="flex-1">
                       <p><strong>貸切予約</strong> - 別館②「密室の謎」</p>
@@ -210,7 +223,7 @@ export function AdminDashboard() {
                     <Badge className="bg-purple-100 text-purple-800">15分前</Badge>
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 bg-orange-50 border-orange-200 rounded-md">
+                  <div className="flex items-center gap-3 p-3 border border-border rounded-md">
                     <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                     <div className="flex-1">
                       <p><strong>GMテスト</strong> - 大久保店「新シナリオ検証」</p>
