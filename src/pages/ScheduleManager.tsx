@@ -10,7 +10,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
-import { memoApi, scheduleApi, storeApi, scenarioApi } from '@/lib/api'
+import { memoApi, scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { 
   ChevronLeft,
@@ -151,6 +151,10 @@ export function ScheduleManager() {
   // シナリオ一覧の状態管理
   const [scenarios, setScenarios] = useState<any[]>([])
   const [scenariosLoading, setScenariosLoading] = useState(true)
+  
+  // スタッフ一覧の状態管理
+  const [staff, setStaff] = useState<any[]>([])
+  const [staffLoading, setStaffLoading] = useState(true)
 
   // 店舗データを読み込む
   useEffect(() => {
@@ -184,6 +188,23 @@ export function ScheduleManager() {
     }
     
     loadScenarios()
+  }, [])
+
+  // スタッフデータを読み込む
+  useEffect(() => {
+    const loadStaff = async () => {
+      try {
+        setStaffLoading(true)
+        const staffData = await staffApi.getAll()
+        setStaff(staffData)
+      } catch (err) {
+        console.error('スタッフデータの読み込みエラー:', err)
+      } finally {
+        setStaffLoading(false)
+      }
+    }
+    
+    loadStaff()
   }, [])
 
   // 初期データ読み込み（月が変わった時も実行）
@@ -702,6 +723,7 @@ export function ScheduleManager() {
             initialData={modalInitialData}
             stores={stores}
             scenarios={scenarios}
+            staff={staff}
           />
 
           {/* 削除確認ダイアログ */}

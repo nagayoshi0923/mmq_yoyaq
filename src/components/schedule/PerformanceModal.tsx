@@ -44,6 +44,16 @@ interface Scenario {
   status: string
 }
 
+interface Staff {
+  id: string
+  name: string
+  line_name: string
+  role: string[]
+  stores: string[]
+  experience: number
+  status: string
+}
+
 interface PerformanceModalProps {
   isOpen: boolean
   onClose: () => void
@@ -53,6 +63,7 @@ interface PerformanceModalProps {
   initialData?: { date: string, venue: string, timeSlot: string }  // 追加時のみ
   stores: Store[]
   scenarios: Scenario[]
+  staff: Staff[]
 }
 
 // 30分間隔の時間オプションを生成
@@ -77,7 +88,8 @@ export function PerformanceModal({
   event,
   initialData,
   stores,
-  scenarios
+  scenarios,
+  staff
 }: PerformanceModalProps) {
   const [formData, setFormData] = useState<any>({
     id: '',
@@ -92,7 +104,6 @@ export function PerformanceModal({
     max_participants: 8,
     notes: ''
   })
-  const [newGm, setNewGm] = useState('')
 
   // モードに応じてフォームを初期化
   useEffect(() => {
@@ -175,13 +186,12 @@ export function PerformanceModal({
     onClose()
   }
 
-  const addGm = () => {
-    if (newGm.trim() && !formData.gms.includes(newGm.trim())) {
+  const addGmFromSelect = (gmName: string) => {
+    if (gmName && !formData.gms.includes(gmName)) {
       setFormData((prev: any) => ({
         ...prev,
-        gms: [...prev.gms, newGm.trim()]
+        gms: [...prev.gms, gmName]
       }))
-      setNewGm('')
     }
   }
 
@@ -192,12 +202,6 @@ export function PerformanceModal({
     }))
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      addGm()
-    }
-  }
 
   // 店舗名を取得
   const getStoreName = (storeId: string) => {
@@ -243,6 +247,16 @@ export function PerformanceModal({
                 value={formData.date}
                 onChange={(e) => setFormData((prev: any) => ({ ...prev, date: e.target.value }))}
               />
+              {mode === 'edit' && formData.date && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  現在: {new Date(formData.date + 'T00:00:00').toLocaleDateString('ja-JP', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    weekday: 'short'
+                  })}
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="venue">店舗</Label>
@@ -281,7 +295,9 @@ export function PerformanceModal({
               <Label htmlFor="start_time">開始時間</Label>
               <Select value={formData.start_time} onValueChange={handleStartTimeChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="開始時間を選択" />
+                  <SelectValue placeholder="開始時間を選択">
+                    {formData.start_time ? formData.start_time.slice(0, 5) : "開始時間を選択"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
@@ -289,12 +305,19 @@ export function PerformanceModal({
                   ))}
                 </SelectContent>
               </Select>
+              {mode === 'edit' && formData.start_time && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  現在: {formData.start_time.slice(0, 5)}
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="end_time">終了時間</Label>
               <Select value={formData.end_time} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, end_time: value }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="終了時間を選択" />
+                  <SelectValue placeholder="終了時間を選択">
+                    {formData.end_time ? formData.end_time.slice(0, 5) : "終了時間を選択"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
@@ -302,6 +325,11 @@ export function PerformanceModal({
                   ))}
                 </SelectContent>
               </Select>
+              {mode === 'edit' && formData.end_time && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  現在: {formData.end_time.slice(0, 5)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -366,15 +394,26 @@ export function PerformanceModal({
           <div>
             <Label htmlFor="gms">GM</Label>
             <div className="flex gap-2 mb-2">
-              <Input
-                value={newGm}
-                onChange={(e) => setNewGm(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="GM名を入力してEnter"
-              />
-              <Button type="button" onClick={addGm} variant="outline">
-                追加
-              </Button>
+              <Select value="" onValueChange={addGmFromSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="GMを選択して追加" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staff
+                    .filter(s => s.role.includes('gm') && s.status === 'active')
+                    .filter(s => !formData.gms.includes(s.name))
+                    .map(staffMember => (
+                      <SelectItem key={staffMember.id} value={staffMember.name}>
+                        <div className="flex items-center justify-between w-full">
+                          <span>{staffMember.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            経験値{staffMember.experience} | {staffMember.line_name}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-wrap gap-2">
               {formData.gms.map((gm: string, index: number) => (
