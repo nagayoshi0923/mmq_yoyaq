@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { staffApi } from '@/lib/api'
-import type { Staff } from '@/types'
+import { StaffEditModal } from '@/components/modals/StaffEditModal'
+import { staffApi, storeApi, scenarioApi } from '@/lib/api'
+import type { Staff, Store } from '@/types'
 import { 
   Users, 
   Plus, 
@@ -62,15 +63,23 @@ const mockStaff = [
 
 export function StaffManagement() {
   const [staff, setStaff] = useState<Staff[]>([])
+  const [stores, setStores] = useState<Store[]>([])
+  const [scenarios, setScenarios] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [contactPassword, setContactPassword] = useState('')
   const [showContactInfo, setShowContactInfo] = useState<Record<string, boolean>>({})
+  
+  // 編集モーダル用のstate
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null)
 
   useEffect(() => {
     loadStaff()
+    loadStores()
+    loadScenarios()
   }, [])
 
   async function loadStaff() {
@@ -87,6 +96,54 @@ export function StaffManagement() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function loadStores() {
+    try {
+      const data = await storeApi.getAll()
+      setStores(data)
+    } catch (err: any) {
+      console.error('Error loading stores:', err)
+    }
+  }
+
+  async function loadScenarios() {
+    try {
+      const data = await scenarioApi.getAll()
+      setScenarios(data)
+    } catch (err: any) {
+      console.error('Error loading scenarios:', err)
+    }
+  }
+
+  // スタッフ編集
+  const handleEditStaff = (staffMember: Staff) => {
+    setEditingStaff(staffMember)
+    setIsEditModalOpen(true)
+  }
+
+  // スタッフ保存
+  const handleSaveStaff = async (staffData: Staff) => {
+    try {
+      if (staffData.id) {
+        // 更新
+        await staffApi.update(staffData.id, staffData)
+        setStaff(prev => prev.map(s => s.id === staffData.id ? staffData : s))
+      } else {
+        // 新規作成
+        const newStaff = await staffApi.create(staffData)
+        setStaff(prev => [...prev, newStaff])
+      }
+    } catch (err: any) {
+      console.error('Error saving staff:', err)
+      alert('スタッフの保存に失敗しました: ' + err.message)
+    }
+  }
+
+  // モーダルを閉じる
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false)
+    setEditingStaff(null)
   }
 
   async function handleDeleteStaff(member: Staff) {
@@ -124,27 +181,38 @@ export function StaffManagement() {
   function getStatusBadge(status: string) {
     switch (status) {
       case 'active':
-        return <Badge className="bg-green-100 text-green-800">在籍中</Badge>
+        return <Badge size="sm" className="bg-green-100 text-green-800 font-normal text-xs">在籍中</Badge>
       case 'inactive':
-        return <Badge className="bg-gray-100 text-gray-800">休職中</Badge>
-      case 'on-leave':
-        return <Badge className="bg-yellow-100 text-yellow-800">休暇中</Badge>
+        return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs">休職中</Badge>
+      case 'on_leave':
+        return <Badge size="sm" className="bg-yellow-100 text-yellow-800 font-normal text-xs">休暇中</Badge>
+      case 'resigned':
+        return <Badge size="sm" className="bg-red-100 text-red-800 font-normal text-xs">退職</Badge>
       default:
-        return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>
+        return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs">{status}</Badge>
     }
   }
 
   function getRoleBadges(roles: string[]) {
     const roleColors: Record<string, string> = {
-      'GM': 'bg-blue-100 text-blue-800',
-      'マネージャー': 'bg-purple-100 text-purple-800',
-      '企画スタッフ': 'bg-orange-100 text-orange-800',
-      'スタッフ': 'bg-green-100 text-green-800'
+      'gm': 'bg-blue-100 text-blue-800',
+      'manager': 'bg-purple-100 text-purple-800',
+      'staff': 'bg-green-100 text-green-800',
+      'trainee': 'bg-orange-100 text-orange-800',
+      'admin': 'bg-red-100 text-red-800'
+    }
+
+    const roleNames: Record<string, string> = {
+      'gm': 'GM',
+      'manager': 'マネージャー',
+      'staff': 'スタッフ',
+      'trainee': '研修生',
+      'admin': '管理者'
     }
 
     return roles.map((role, index) => (
-      <Badge key={index} className={roleColors[role] || 'bg-gray-100 text-gray-800'}>
-        {role}
+      <Badge key={index} size="sm" className={`font-normal text-xs ${roleColors[role] || 'bg-gray-100 text-gray-800'}`}>
+        {roleNames[role] || role}
       </Badge>
     ))
   }
@@ -364,137 +432,185 @@ export function StaffManagement() {
                 <option value="on-leave">休暇中</option>
               </select>
             </div>
+
+            <Button 
+              onClick={() => {
+                setEditingStaff(null)
+                setIsEditModalOpen(true)
+              }}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              新規作成
+            </Button>
           </div>
 
-          {/* スタッフ一覧 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* スタッフ一覧 - スプレッドシート形式 */}
+          {/* ヘッダー行 */}
+          <Card className="mb-2">
+            <CardContent className="p-0">
+              <div className="flex items-center h-[50px] bg-muted/30">
+                <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">基本情報</div>
+                <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">役割</div>
+                <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">担当店舗</div>
+                <div className="flex-shrink-0 w-20 px-3 py-2 border-r font-medium text-sm text-center">経験値</div>
+                <div className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0">担当シナリオ</div>
+                <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">連絡先</div>
+                <div className="flex-shrink-0 w-32 px-3 py-2 font-medium text-sm text-center">アクション</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* スタッフデータ行 */}
+          <div className="space-y-1">
             {filteredStaff.map((member) => (
-              <Card key={member.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        {member.name}
-                      </CardTitle>
-                      <CardDescription>
-                        {member.line_name && `LINE: ${member.line_name}`}
-                        {member.x_account && ` / X: ${member.x_account}`}
-                      </CardDescription>
-                    </div>
-                    {getStatusBadge(member.status)}
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  {/* 役割 */}
-                  {member.role && member.role.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">役割</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {getRoleBadges(member.role)}
+              <Card key={member.id} className="overflow-hidden hover:shadow-sm transition-shadow">
+                <CardContent className="p-0">
+                  <div className="flex items-center h-[50px]">
+                    {/* 基本情報 */}
+                    <div className="flex-shrink-0 w-40 px-3 py-2 border-r">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-sm truncate leading-tight">{member.name}</h3>
+                        </div>
+                        <div className="flex-shrink-0">
+                          {getStatusBadge(member.status)}
+                        </div>
                       </div>
                     </div>
-                  )}
 
-                  {/* 担当店舗 */}
-                  {member.stores && member.stores.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">担当店舗</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {member.stores.map((store, index) => (
-                          <div key={index} className="flex items-center gap-1">
-                            <div className={`w-2 h-2 rounded-full ${getStoreColors(store)}`}></div>
-                            <span className="text-sm">{store}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 経験・出勤情報 */}
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">経験年数</p>
-                      <p className="font-bold">{member.experience}年</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">出勤可能日</p>
-                      <p className="text-sm">{member.availability?.length || 0}日/週</p>
-                    </div>
-                  </div>
-
-                  {/* 連絡先（保護機能付き） */}
-                  <div className="pt-2 border-t border-border">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-muted-foreground">連絡先</p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleContactInfo(member.id)}
-                      >
-                        {showContactInfo[member.id] ? (
-                          <EyeOff className="h-4 w-4" />
+                    {/* 役割 */}
+                    <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
+                      <div className="flex flex-wrap gap-1">
+                        {member.role && member.role.length > 0 ? (
+                          <>
+                            {getRoleBadges(member.role.slice(0, 1))}
+                            {member.role.length > 1 && (
+                              <Badge size="sm" variant="outline" className="font-normal text-xs">
+                                +{member.role.length - 1}
+                              </Badge>
+                            )}
+                          </>
                         ) : (
-                          <Eye className="h-4 w-4" />
+                          <span className="text-xs text-muted-foreground">-</span>
                         )}
-                      </Button>
+                      </div>
                     </div>
-                    
-                    {showContactInfo[member.id] ? (
-                      <div className="space-y-1 mt-2">
+
+                    {/* 担当店舗 */}
+                    <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
+                      <div className="flex flex-wrap gap-1">
+                        {member.stores && member.stores.length > 0 ? (
+                          <>
+                            {member.stores.slice(0, 1).map((store, index) => (
+                              <Badge key={index} size="sm" variant="outline" className="font-normal text-xs">
+                                {store}
+                              </Badge>
+                            ))}
+                            {member.stores.length > 1 && (
+                              <Badge size="sm" variant="outline" className="font-normal text-xs">
+                                +{member.stores.length - 1}
+                              </Badge>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 経験値 */}
+                    <div className="flex-shrink-0 w-20 px-3 py-2 border-r text-center">
+                      {member.experience !== undefined ? (
+                        <div className="flex items-center justify-center gap-1">
+                          <Star className="h-3 w-3 text-yellow-500" />
+                          <span className="text-sm font-medium">{member.experience}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </div>
+
+                    {/* 担当シナリオ */}
+                    <div className="flex-1 px-3 py-2 border-r min-w-0">
+                      <div className="flex flex-wrap gap-1">
+                        {member.special_scenarios && member.special_scenarios.length > 0 ? (
+                          <>
+                            {member.special_scenarios.slice(0, 3).map((scenario, index) => (
+                              <Badge key={index} size="sm" variant="outline" className="font-normal text-xs">
+                                {scenario}
+                              </Badge>
+                            ))}
+                            {member.special_scenarios.length > 3 && (
+                              <Badge size="sm" variant="outline" className="font-normal text-xs">
+                                +{member.special_scenarios.length - 3}
+                              </Badge>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 連絡先 */}
+                    <div className="flex-shrink-0 w-40 px-3 py-2 border-r">
+                      <div className="space-y-0">
                         {member.phone && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="h-4 w-4" />
-                            <span>{member.phone}</span>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">
+                              {showContactInfo[member.id] ? member.phone : '***-****-****'}
+                            </span>
                           </div>
                         )}
                         {member.email && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Mail className="h-4 w-4" />
-                            <span>{member.email}</span>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Mail className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">
+                              {showContactInfo[member.id] ? member.email : '****@****.com'}
+                            </span>
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <div className="space-y-1 mt-2">
-                        {member.phone && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Phone className="h-4 w-4" />
-                            <span>***-****-****</span>
-                          </div>
-                        )}
-                        {member.email && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Mail className="h-4 w-4" />
-                            <span>****@****.com</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* メモ */}
-                  {member.notes && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">メモ</p>
-                      <p className="text-sm line-clamp-2">{member.notes}</p>
                     </div>
-                  )}
 
-                  {/* アクションボタン */}
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Edit className="h-4 w-4 mr-2" />
-                      編集
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => handleDeleteStaff(member)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {/* アクション */}
+                    <div className="flex-shrink-0 w-32 px-3 py-2">
+                      <div className="flex gap-1 justify-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleContactInfo(member.id)}
+                          className="h-6 w-6 p-0"
+                          title="連絡先表示切替"
+                        >
+                          {showContactInfo[member.id] ? (
+                            <EyeOff className="h-3 w-3" />
+                          ) : (
+                            <Eye className="h-3 w-3" />
+                          )}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleEditStaff(member)}
+                          className="h-6 w-6 p-0"
+                          title="編集"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteStaff(member)}
+                          title="削除"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -516,6 +632,16 @@ export function StaffManagement() {
           )}
         </div>
       </div>
+
+      {/* スタッフ編集モーダル */}
+      <StaffEditModal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        onSave={handleSaveStaff}
+        staff={editingStaff}
+        stores={stores}
+        scenarios={scenarios}
+      />
     </div>
   )
 }

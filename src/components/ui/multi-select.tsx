@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import { useState } from 'react'
+import { Check, ChevronDown, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   Popover,
   PopoverContent,
@@ -21,6 +22,7 @@ interface MultiSelectProps {
   placeholder?: string
   className?: string
   disabled?: boolean
+  showBadges?: boolean
 }
 
 export function MultiSelect({
@@ -29,7 +31,8 @@ export function MultiSelect({
   onSelectionChange,
   placeholder = "選択してください",
   className = "",
-  disabled = false
+  disabled = false,
+  showBadges = false
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
 
@@ -40,6 +43,10 @@ export function MultiSelect({
     } else {
       onSelectionChange([...selectedValues, value])
     }
+  }
+
+  const handleRemoveValue = (value: string) => {
+    onSelectionChange(selectedValues.filter(v => v !== value))
   }
 
   const getDisplayValue = () => {
@@ -53,53 +60,75 @@ export function MultiSelect({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn(
-            "w-full justify-between font-normal text-sm",
-            className
-          )}
-          disabled={disabled}
-          style={{ backgroundColor: '#F6F9FB' }}
-        >
-          <span className="truncate">{getDisplayValue()}</span>
-          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
-        <div className="max-h-60 overflow-auto">
-          {options.map(option => {
-            const isSelected = selectedValues.includes(option.name)
-            return (
-              <div
-                key={option.id}
-                className="flex items-center w-full px-2.5 py-2 cursor-pointer hover:bg-muted/50 text-sm"
-                onClick={() => handleToggleSelection(option.name)}
-              >
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="w-4 flex justify-center">
-                    {isSelected && (
-                      <Check className="w-4 h-4 text-green-600" />
-                    )}
+    <div className="space-y-2">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+              "w-full justify-between font-normal text-sm",
+              className
+            )}
+            disabled={disabled}
+            style={{ backgroundColor: '#F6F9FB' }}
+          >
+            <span className="truncate">{getDisplayValue()}</span>
+            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-0" align="start">
+          <div className="max-h-60 overflow-auto">
+            {options.map(option => {
+              const isSelected = selectedValues.includes(option.name)
+              return (
+                <div
+                  key={option.id}
+                  className="flex items-center w-full px-2.5 py-2 cursor-pointer hover:bg-muted/50 text-sm"
+                  onClick={() => handleToggleSelection(option.name)}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-4 flex justify-center">
+                      {isSelected && (
+                        <Check className="w-4 h-4 text-green-600" />
+                      )}
+                    </div>
+                    <span className={`truncate ${isSelected ? 'text-green-600 font-medium' : ''}`}>
+                      {option.name}
+                    </span>
                   </div>
-                  <span className={`truncate ${isSelected ? 'text-green-600 font-medium' : ''}`}>
-                    {option.name}
-                  </span>
+                  {option.displayInfo && (
+                    <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                      {option.displayInfo}
+                    </span>
+                  )}
                 </div>
-                {option.displayInfo && (
-                  <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-                    {option.displayInfo}
-                  </span>
-                )}
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* バッジ表示エリア */}
+      {showBadges && selectedValues.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {selectedValues.map((value, index) => (
+            <Badge key={index} variant="secondary" className="flex items-center gap-1 font-normal">
+              {value}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-0 hover:bg-red-100"
+                onClick={() => handleRemoveValue(value)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          ))}
         </div>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   )
 }

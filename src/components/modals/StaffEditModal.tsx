@@ -1,0 +1,333 @@
+import React, { useState, useEffect } from 'react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
+import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
+import type { Staff, Store } from '@/types'
+
+interface StaffEditModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSave: (staff: Staff) => void
+  staff: Staff | null
+  stores: Store[]
+  scenarios: Scenario[]
+}
+
+interface Scenario {
+  id: string
+  title: string
+  description: string
+  author: string
+  duration: number
+  player_count_min: number
+  player_count_max: number
+  difficulty: number
+  genre: string[]
+  status: string
+}
+
+const roleOptions: MultiSelectOption[] = [
+  { id: 'gm', name: 'GM', displayInfo: 'ゲームマスター' },
+  { id: 'manager', name: 'マネージャー', displayInfo: '店舗管理' },
+  { id: 'staff', name: 'スタッフ', displayInfo: '一般スタッフ' },
+  { id: 'trainee', name: '研修生', displayInfo: '新人研修中' },
+  { id: 'admin', name: '管理者', displayInfo: 'システム管理' }
+]
+
+const statusOptions = [
+  { value: 'active', label: 'アクティブ', color: 'bg-green-100 text-green-800' },
+  { value: 'inactive', label: '非アクティブ', color: 'bg-gray-100 text-gray-800' },
+  { value: 'on_leave', label: '休職中', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'resigned', label: '退職', color: 'bg-red-100 text-red-800' }
+]
+
+const weekDays = ['月', '火', '水', '木', '金', '土', '日']
+
+export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenarios }: StaffEditModalProps) {
+  const [formData, setFormData] = useState<Partial<Staff>>({
+    name: '',
+    line_name: '',
+    x_account: '',
+    email: '',
+    phone: '',
+    role: [],
+    store_ids: [],
+    status: 'active',
+    experience: 0,
+    availability: [],
+    ng_days: [],
+    special_scenarios: [],
+    notes: ''
+  })
+
+  // スタッフデータが変更されたときにフォームを初期化
+  useEffect(() => {
+    if (staff) {
+      setFormData({
+        ...staff,
+        role: Array.isArray(staff.role) ? staff.role : [staff.role],
+        store_ids: staff.store_ids || [],
+        availability: staff.availability || [],
+        ng_days: staff.ng_days || [],
+        special_scenarios: staff.special_scenarios || []
+      })
+    } else {
+      setFormData({
+        name: '',
+        line_name: '',
+        x_account: '',
+        email: '',
+        phone: '',
+        role: [],
+        store_ids: [],
+        status: 'active',
+        experience: 0,
+        availability: [],
+        ng_days: [],
+        special_scenarios: [],
+        notes: ''
+      })
+    }
+  }, [staff])
+
+  const handleSave = () => {
+    if (!formData.name || !formData.line_name || !formData.email) {
+      alert('必須項目を入力してください')
+      return
+    }
+
+    const staffData: Staff = {
+      id: staff?.id || '',
+      name: formData.name!,
+      line_name: formData.line_name!,
+      x_account: formData.x_account || '',
+      email: formData.email!,
+      phone: formData.phone || '',
+      role: formData.role!,
+      store_ids: formData.store_ids!,
+      status: formData.status!,
+      experience: formData.experience!,
+      availability: formData.availability!,
+      ng_days: formData.ng_days!,
+      special_scenarios: formData.special_scenarios!,
+      notes: formData.notes || '',
+      created_at: staff?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    onSave(staffData)
+    onClose()
+  }
+
+
+  const storeOptions: MultiSelectOption[] = stores.map(store => ({
+    id: store.id,
+    name: store.name,
+    displayInfo: store.short_name
+  }))
+
+  const availabilityOptions: MultiSelectOption[] = weekDays.map(day => ({
+    id: day,
+    name: day,
+    displayInfo: `${day}曜日`
+  }))
+
+  const ngDaysOptions: MultiSelectOption[] = weekDays.map(day => ({
+    id: day,
+    name: day,
+    displayInfo: `${day}曜日`
+  }))
+
+  const scenarioOptions: MultiSelectOption[] = scenarios.map(scenario => ({
+    id: scenario.id,
+    name: scenario.title,
+    displayInfo: `${scenario.duration}分 | ${scenario.player_count_min}-${scenario.player_count_max}人`
+  }))
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{staff ? 'スタッフ編集' : 'スタッフ新規作成'}</DialogTitle>
+          <DialogDescription>
+            スタッフの基本情報、役割、勤務可能日などを設定してください。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* 基本情報 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="name">名前 *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="田中 太郎"
+              />
+            </div>
+            <div>
+              <Label htmlFor="line_name">LINE名 *</Label>
+              <Input
+                id="line_name"
+                value={formData.line_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, line_name: e.target.value }))}
+                placeholder="tanaka_taro"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="email">メールアドレス *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="tanaka@example.com"
+              />
+            </div>
+            <div>
+              <Label htmlFor="phone">電話番号</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="090-1234-5678"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="x_account">X(Twitter)アカウント</Label>
+            <Input
+              id="x_account"
+              value={formData.x_account}
+              onChange={(e) => setFormData(prev => ({ ...prev, x_account: e.target.value }))}
+              placeholder="@tanaka_gm"
+            />
+          </div>
+
+          {/* 役割・ステータス */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="role">役割</Label>
+              <MultiSelect
+                options={roleOptions}
+                selectedValues={formData.role || []}
+                onSelectionChange={(values) => setFormData(prev => ({ ...prev, role: values }))}
+                placeholder="役割を選択"
+              />
+            </div>
+            <div>
+              <Label htmlFor="status">ステータス</Label>
+              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as any }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="ステータスを選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <Badge className={option.color} variant="static">
+                        {option.label}
+                      </Badge>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* 店舗・経験値 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="stores">担当店舗</Label>
+              <MultiSelect
+                options={storeOptions}
+                selectedValues={formData.store_ids?.map(id => stores.find(s => s.id === id)?.name || id) || []}
+                onSelectionChange={(values) => {
+                  const storeIds = values.map(name => stores.find(s => s.name === name)?.id || name)
+                  setFormData(prev => ({ ...prev, store_ids: storeIds }))
+                }}
+                placeholder="担当店舗を選択"
+              />
+            </div>
+            <div>
+              <Label htmlFor="experience">経験値</Label>
+              <Input
+                id="experience"
+                type="number"
+                min="0"
+                max="10"
+                value={formData.experience}
+                onChange={(e) => setFormData(prev => ({ ...prev, experience: parseInt(e.target.value) || 0 }))}
+              />
+            </div>
+          </div>
+
+          {/* 勤務可能日・NG日 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="availability">勤務可能日</Label>
+              <MultiSelect
+                options={availabilityOptions}
+                selectedValues={formData.availability || []}
+                onSelectionChange={(values) => setFormData(prev => ({ ...prev, availability: values }))}
+                placeholder="勤務可能日を選択"
+              />
+            </div>
+            <div>
+              <Label htmlFor="ng_days">NG日</Label>
+              <MultiSelect
+                options={ngDaysOptions}
+                selectedValues={formData.ng_days || []}
+                onSelectionChange={(values) => setFormData(prev => ({ ...prev, ng_days: values }))}
+                placeholder="NG日を選択"
+              />
+            </div>
+          </div>
+
+          {/* 担当シナリオ */}
+          <div>
+            <Label htmlFor="special_scenarios">担当シナリオ</Label>
+            <MultiSelect
+              options={scenarioOptions}
+              selectedValues={formData.special_scenarios || []}
+              onSelectionChange={(values) => setFormData(prev => ({ ...prev, special_scenarios: values }))}
+              placeholder="担当シナリオを選択"
+              showBadges={true}
+            />
+          </div>
+
+          {/* 備考 */}
+          <div>
+            <Label htmlFor="notes">備考</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="特記事項があれば入力してください"
+              rows={3}
+            />
+          </div>
+        </div>
+
+        {/* アクションボタン */}
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" onClick={onClose}>
+            キャンセル
+          </Button>
+          <Button onClick={handleSave}>
+            {staff ? '保存' : '作成'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
