@@ -181,18 +181,17 @@ export function AddPerformanceModal({
         <div className="space-y-6">
           {/* シナリオ名 */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">シナリオ名 *</label>
+            <label className="text-sm font-medium">シナリオ名</label>
             <Input
               value={formData.scenario}
               onChange={(e) => setFormData(prev => ({ ...prev, scenario: e.target.value }))}
-              placeholder="シナリオ名を入力"
-              required
+              placeholder="シナリオ名を入力（未定の場合は空欄可）"
             />
           </div>
 
           {/* カテゴリ */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">公演カテゴリ *</label>
+            <label className="text-sm font-medium">公演カテゴリ</label>
             <Select value={formData.category} onValueChange={(value: any) => setFormData(prev => ({ ...prev, category: value }))}>
               <SelectTrigger>
                 <SelectValue />
@@ -214,7 +213,7 @@ export function AddPerformanceModal({
           {/* 時間設定 */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">開始時間 *</label>
+              <label className="text-sm font-medium">開始時間</label>
               <Select value={formData.startTime} onValueChange={(value) => setFormData(prev => ({ ...prev, startTime: value }))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -229,7 +228,7 @@ export function AddPerformanceModal({
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">終了時間 *</label>
+              <label className="text-sm font-medium">終了時間</label>
               <Select value={formData.endTime} onValueChange={(value) => setFormData(prev => ({ ...prev, endTime: value }))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -248,7 +247,7 @@ export function AddPerformanceModal({
           {/* GM設定 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">GM *</label>
+              <label className="text-sm font-medium">GM</label>
               <Button type="button" variant="outline" size="sm" onClick={addGMField}>
                 GM追加
               </Button>
@@ -259,8 +258,7 @@ export function AddPerformanceModal({
                   <Input
                     value={gm}
                     onChange={(e) => updateGM(index, e.target.value)}
-                    placeholder={`GM${index + 1}の名前`}
-                    required={index === 0}
+                    placeholder={`GM${index + 1}の名前（未定の場合は空欄可）`}
                   />
                   {formData.gms.length > 1 && (
                     <Button
@@ -310,7 +308,6 @@ export function AddPerformanceModal({
           </Button>
           <Button 
             onClick={handleSave}
-            disabled={!formData.scenario.trim() || formData.gms.every(gm => !gm.trim())}
           >
             公演を追加
           </Button>
