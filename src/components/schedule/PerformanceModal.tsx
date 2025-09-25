@@ -31,6 +31,19 @@ interface Store {
   color: string
 }
 
+interface Scenario {
+  id: string
+  title: string
+  description: string
+  author: string
+  duration: number
+  player_count_min: number
+  player_count_max: number
+  difficulty: number
+  genre: string[]
+  status: string
+}
+
 interface PerformanceModalProps {
   isOpen: boolean
   onClose: () => void
@@ -39,6 +52,7 @@ interface PerformanceModalProps {
   event?: ScheduleEvent | null  // 編集時のみ
   initialData?: { date: string, venue: string, timeSlot: string }  // 追加時のみ
   stores: Store[]
+  scenarios: Scenario[]
 }
 
 // 30分間隔の時間オプションを生成
@@ -62,7 +76,8 @@ export function PerformanceModal({
   mode,
   event,
   initialData,
-  stores
+  stores,
+  scenarios
 }: PerformanceModalProps) {
   const [formData, setFormData] = useState<any>({
     id: '',
@@ -109,6 +124,51 @@ export function PerformanceModal({
       })
     }
   }, [mode, event, initialData])
+
+  // 終了時間を自動計算する関数
+  const calculateEndTime = (startTime: string, scenarioTitle: string) => {
+    const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
+    if (!selectedScenario) return startTime
+    
+    const [startHour, startMinute] = startTime.split(':').map(Number)
+    const startMinutes = startHour * 60 + startMinute
+    const endMinutes = startMinutes + selectedScenario.duration
+    const endHour = Math.floor(endMinutes / 60)
+    const endMinute = endMinutes % 60
+    return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`
+  }
+
+  // シナリオ選択時の自動設定
+  const handleScenarioChange = (scenarioTitle: string) => {
+    const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
+    
+    if (selectedScenario) {
+      const endTime = calculateEndTime(formData.start_time, scenarioTitle)
+      
+      setFormData((prev: any) => ({
+        ...prev,
+        scenario: scenarioTitle,
+        end_time: endTime,
+        max_participants: selectedScenario.player_count_max
+      }))
+    } else {
+      setFormData((prev: any) => ({
+        ...prev,
+        scenario: scenarioTitle
+      }))
+    }
+  }
+
+  // 開始時間変更時の自動設定
+  const handleStartTimeChange = (startTime: string) => {
+    const endTime = formData.scenario ? calculateEndTime(startTime, formData.scenario) : startTime
+    
+    setFormData((prev: any) => ({
+      ...prev,
+      start_time: startTime,
+      end_time: endTime
+    }))
+  }
 
   const handleSave = () => {
     onSave(formData)
@@ -219,7 +279,7 @@ export function PerformanceModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="start_time">開始時間</Label>
-              <Select value={formData.start_time} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, start_time: value }))}>
+              <Select value={formData.start_time} onValueChange={handleStartTimeChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="開始時間を選択" />
                 </SelectTrigger>
@@ -272,18 +332,34 @@ export function PerformanceModal({
                 value={formData.max_participants}
                 onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || 8 }))}
               />
+              {formData.scenario && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  ※ シナリオから自動設定されました
+                </p>
+              )}
             </div>
           </div>
 
           {/* シナリオ */}
           <div>
             <Label htmlFor="scenario">シナリオタイトル</Label>
-            <Input
-              id="scenario"
-              value={formData.scenario}
-              onChange={(e) => setFormData((prev: any) => ({ ...prev, scenario: e.target.value }))}
-              placeholder="シナリオタイトルを入力"
-            />
+            <Select value={formData.scenario} onValueChange={handleScenarioChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="シナリオを選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {scenarios.map(scenario => (
+                  <SelectItem key={scenario.id} value={scenario.title}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{scenario.title}</span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        {scenario.duration}分 / {scenario.player_count_min}-{scenario.player_count_max}人
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* GM管理 */}

@@ -10,7 +10,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
-import { memoApi, scheduleApi, storeApi } from '@/lib/api'
+import { memoApi, scheduleApi, storeApi, scenarioApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { 
   ChevronLeft,
@@ -147,6 +147,10 @@ export function ScheduleManager() {
   // 店舗一覧の状態管理
   const [stores, setStores] = useState<any[]>([])
   const [storesLoading, setStoresLoading] = useState(true)
+  
+  // シナリオ一覧の状態管理
+  const [scenarios, setScenarios] = useState<any[]>([])
+  const [scenariosLoading, setScenariosLoading] = useState(true)
 
   // 店舗データを読み込む
   useEffect(() => {
@@ -163,6 +167,23 @@ export function ScheduleManager() {
     }
     
     loadStores()
+  }, [])
+
+  // シナリオデータを読み込む
+  useEffect(() => {
+    const loadScenarios = async () => {
+      try {
+        setScenariosLoading(true)
+        const scenarioData = await scenarioApi.getAll()
+        setScenarios(scenarioData)
+      } catch (err) {
+        console.error('シナリオデータの読み込みエラー:', err)
+      } finally {
+        setScenariosLoading(false)
+      }
+    }
+    
+    loadScenarios()
   }, [])
 
   // 初期データ読み込み（月が変わった時も実行）
@@ -680,6 +701,7 @@ export function ScheduleManager() {
             event={editingEvent}
             initialData={modalInitialData}
             stores={stores}
+            scenarios={scenarios}
           />
 
           {/* 削除確認ダイアログ */}

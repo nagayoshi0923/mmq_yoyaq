@@ -15,7 +15,7 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
-        static: "border-transparent", // ホバーエフェクトなし（背景色はclassNameで指定）
+        static: "border-transparent bg-secondary text-secondary-foreground", // ホバーエフェクトなし
         cancelled: "border-transparent bg-red-100 text-red-800", // 中止専用
       },
     },
