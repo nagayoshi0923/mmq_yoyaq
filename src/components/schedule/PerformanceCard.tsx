@@ -50,6 +50,14 @@ export function PerformanceCard({
   const maxCapacity = event.max_participants || 8
   const isIncomplete = !event.scenario || event.gms.length === 0
   
+  // デバッグ用ログ
+  console.log('PerformanceCard Debug:', {
+    eventId: event.id,
+    participant_count: event.participant_count,
+    reservationCount,
+    is_cancelled: event.is_cancelled
+  })
+  
   // 公演カテゴリ色を取得
   const categoryColors = categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor || 'bg-gray-50 border-gray-200'
   
@@ -82,7 +90,7 @@ export function PerformanceCard({
           )}
           
           {/* 予約者数バッジ */}
-          {reservationCount > 0 && !event.is_cancelled && (
+          {(reservationCount > 0 || true) && !event.is_cancelled && (
             <Badge variant="static" size="sm" className={`font-normal ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'}`}>
               <Users className="w-3 h-3 mr-1" />
               {reservationCount}
