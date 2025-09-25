@@ -22,99 +22,6 @@ import {
   DoorOpen
 } from 'lucide-react'
 
-// モックデータ（後でAPIから取得）
-const mockStores = [
-  {
-    id: '1',
-    name: '高田馬場店',
-    short_name: '馬場',
-    address: '東京都新宿区高田馬場1-1-1',
-    phone_number: '03-1234-5678',
-    email: 'takadanobaba@mmq.com',
-    opening_date: '2020-04-01',
-    manager_name: '田中太郎',
-    status: 'active',
-    capacity: 24,
-    rooms: 4,
-    notes: 'メイン店舗。初心者向けシナリオが充実。',
-    color: 'blue'
-  },
-  {
-    id: '2',
-    name: '別館①',
-    short_name: '別館①',
-    address: '東京都新宿区高田馬場1-2-1',
-    phone_number: '03-2345-6789',
-    email: 'bekkan1@mmq.com',
-    opening_date: '2021-06-15',
-    manager_name: '山田花子',
-    status: 'active',
-    capacity: 18,
-    rooms: 3,
-    notes: '中級者向けシナリオ中心。',
-    color: 'green'
-  },
-  {
-    id: '3',
-    name: '別館②',
-    short_name: '別館②',
-    address: '東京都新宿区高田馬場1-3-1',
-    phone_number: '03-3456-7890',
-    email: 'bekkan2@mmq.com',
-    opening_date: '2022-01-10',
-    manager_name: '佐藤次郎',
-    status: 'active',
-    capacity: 20,
-    rooms: 3,
-    notes: '上級者向けシナリオ専門。',
-    color: 'purple'
-  },
-  {
-    id: '4',
-    name: '大久保店',
-    short_name: '大久保',
-    address: '東京都新宿区大久保2-1-1',
-    phone_number: '03-4567-8901',
-    email: 'okubo@mmq.com',
-    opening_date: '2022-08-20',
-    manager_name: '鈴木三郎',
-    status: 'active',
-    capacity: 16,
-    rooms: 2,
-    notes: '新店舗。アットホームな雰囲気。',
-    color: 'orange'
-  },
-  {
-    id: '5',
-    name: '大塚店',
-    short_name: '大塚',
-    address: '東京都豊島区大塚3-1-1',
-    phone_number: '03-5678-9012',
-    email: 'otsuka@mmq.com',
-    opening_date: '2023-03-01',
-    manager_name: '高橋四郎',
-    status: 'temporarily_closed',
-    capacity: 12,
-    rooms: 2,
-    notes: 'リニューアル工事中。',
-    color: 'red'
-  },
-  {
-    id: '6',
-    name: '埼玉大宮店',
-    short_name: '埼玉大宮',
-    address: '埼玉県さいたま市大宮区大宮1-1-1',
-    phone_number: '048-1234-5678',
-    email: 'omiya@mmq.com',
-    opening_date: '2023-10-15',
-    manager_name: '伊藤五郎',
-    status: 'active',
-    capacity: 30,
-    rooms: 5,
-    notes: '最大規模店舗。大型イベント対応可能。',
-    color: 'amber'
-  }
-]
 
 export function StoreManagement() {
   const [stores, setStores] = useState<Store[]>([])
@@ -153,8 +60,8 @@ export function StoreManagement() {
     } catch (err: any) {
       console.error('Error loading stores:', err)
       setError('店舗データの読み込みに失敗しました: ' + err.message)
-      // エラー時はモックデータを使用
-      setStores(mockStores)
+      // エラー時は空配列を設定
+      setStores([])
     } finally {
       setLoading(false)
     }

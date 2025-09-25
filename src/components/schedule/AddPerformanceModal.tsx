@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -160,6 +160,9 @@ export function AddPerformanceModal({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>新しい公演を追加</DialogTitle>
+          <DialogDescription>
+            公演の詳細情報を入力してください。未定の項目は空欄のままでも保存できます。
+          </DialogDescription>
           
           {/* 基本情報表示 */}
           <div className="flex flex-wrap gap-2 mt-4">

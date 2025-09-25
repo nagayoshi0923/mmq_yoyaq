@@ -10,7 +10,8 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
 import { AddPerformanceModal } from '@/components/schedule/AddPerformanceModal'
-import { memoApi } from '@/lib/api'
+import { memoApi, scheduleApi, storeApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { 
   ChevronLeft,
   ChevronRight
@@ -47,66 +48,80 @@ export function ScheduleManager() {
     timeSlot: 'morning' | 'afternoon' | 'evening'
   } | null>(null)
   const [events, setEvents] = useState<ScheduleEvent[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // 初期データ設定
+  // Supabaseからデータを読み込む
   useEffect(() => {
-    // モックデータを状態に設定
-    const mockEvents: ScheduleEvent[] = [
-      {
-        id: '1',
-        date: '2025-09-01',
-        venue: 'takadanobaba',
-        scenario: '人狼村の悲劇',
-        gms: ['田中太郎'],
-        start_time: '14:00',
-        end_time: '18:00',
-        category: 'private',
-        is_cancelled: false,
-        participant_count: 6,
-        max_participants: 8
-      },
-      {
-        id: '2',
-        date: '2025-09-01',
-        venue: 'bekkan1',
-        scenario: '密室の謎',
-        gms: ['山田花子'],
-        start_time: '19:00',
-        end_time: '22:00',
-        category: 'open',
-        is_cancelled: false,
-        participant_count: 8,
-        max_participants: 8
-      },
-      {
-        id: '3',
-        date: '2025-09-02',
-        venue: 'okubo',
-        scenario: '新シナリオ検証',
-        gms: ['佐藤次郎', '鈴木三郎'],
-        start_time: '10:00',
-        end_time: '13:00',
-        category: 'gmtest',
-        is_cancelled: false,
-        participant_count: 4,
-        max_participants: 6
-      },
-      {
-        id: '4',
-        date: '2025-09-02',
-        venue: 'otsuka',
-        scenario: 'テストプレイ用シナリオ',
-        gms: ['鈴木三郎'],
-        start_time: '15:00',
-        end_time: '18:00',
-        category: 'testplay',
-        is_cancelled: false,
-        participant_count: 2,
-        max_participants: 4
+    const loadEvents = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        
+        const year = currentDate.getFullYear()
+        const month = currentDate.getMonth() + 1
+        
+        const data = await scheduleApi.getByMonth(year, month)
+        
+        // Supabaseのデータを内部形式に変換
+        const formattedEvents: ScheduleEvent[] = data.map((event: any) => ({
+          id: event.id,
+          date: event.date,
+          venue: event.store_id, // store_idを直接使用
+          scenario: event.scenario || event.scenarios?.title || '',
+          gms: event.gms || [],
+          start_time: event.start_time,
+          end_time: event.end_time,
+          category: event.category,
+          is_cancelled: event.is_cancelled || false,
+          participant_count: event.current_participants || 0,
+          max_participants: event.max_participants || 8,
+          notes: event.notes || ''
+        }))
+        
+        
+        setEvents(formattedEvents)
+      } catch (err) {
+        console.error('公演データの読み込みエラー:', err)
+        setError('公演データの読み込みに失敗しました')
+        
+        // エラー時はモックデータを使用
+        const mockEvents: ScheduleEvent[] = [
+          {
+            id: '1',
+            date: '2025-09-01',
+            venue: 'takadanobaba',
+            scenario: '人狼村の悲劇',
+            gms: ['田中太郎'],
+            start_time: '14:00',
+            end_time: '18:00',
+            category: 'private',
+            is_cancelled: false,
+            participant_count: 6,
+            max_participants: 8
+          },
+          {
+            id: '2',
+            date: '2025-09-01',
+            venue: 'bekkan1',
+            scenario: '密室の謎',
+            gms: ['山田花子'],
+            start_time: '19:00',
+            end_time: '22:00',
+            category: 'open',
+            is_cancelled: false,
+            participant_count: 8,
+            max_participants: 8
+          }
+        ]
+        setEvents(mockEvents)
+      } finally {
+        setIsLoading(false)
       }
-    ]
-    setEvents(mockEvents)
-  }, [])
+    }
+
+    loadEvents()
+  }, [currentDate])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -123,15 +138,26 @@ export function ScheduleManager() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  // 店舗一覧（実際のSupabaseのIDとマッピング）
-  const stores = [
-    { id: 'takadanobaba', name: '高田馬場店', short_name: '馬場', color: 'blue' },
-    { id: 'bekkan1', name: '別館①', short_name: '別館①', color: 'green' },
-    { id: 'bekkan2', name: '別館②', short_name: '別館②', color: 'purple' },
-    { id: 'okubo', name: '大久保店', short_name: '大久保', color: 'orange' },
-    { id: 'otsuka', name: '大塚店', short_name: '大塚', color: 'red' },
-    { id: 'omiya', name: '埼玉大宮店', short_name: '埼玉大宮', color: 'amber' }
-  ]
+  // 店舗一覧の状態管理
+  const [stores, setStores] = useState<any[]>([])
+  const [storesLoading, setStoresLoading] = useState(true)
+
+  // 店舗データを読み込む
+  useEffect(() => {
+    const loadStores = async () => {
+      try {
+        setStoresLoading(true)
+        const storeData = await storeApi.getAll()
+        setStores(storeData)
+      } catch (err) {
+        console.error('店舗データの読み込みエラー:', err)
+      } finally {
+        setStoresLoading(false)
+      }
+    }
+    
+    loadStores()
+  }, [])
 
   // 初期データ読み込み（月が変わった時も実行）
   useEffect(() => {
@@ -218,13 +244,16 @@ export function ScheduleManager() {
     const days = []
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day)
+      // UTCではなくローカル時間で日付文字列を生成
+      const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       days.push({
-        date: date.toISOString().split('T')[0],
+        date: dateString,
         dayOfWeek: date.toLocaleDateString('ja-JP', { weekday: 'short' }),
         day: day,
         displayDate: `${month + 1}/${day}`
       })
     }
+    
     return days
   }
 
@@ -301,15 +330,95 @@ export function ScheduleManager() {
   }
 
   // 新しい公演を保存
-  const handleSavePerformance = (performanceData: any) => {
-    // TODO: 実際のAPIに保存
-    console.log('新しい公演を保存:', performanceData)
-    
-    // 状態に追加
-    setEvents(prev => [...prev, performanceData])
-    
-    // モーダルを閉じる
-    handleCloseAddModal()
+  const handleSavePerformance = async (performanceData: any) => {
+    try {
+      console.log('新しい公演を保存:', performanceData)
+      
+      // 店舗情報を取得
+      const store = stores.find(s => s.id === performanceData.venue)
+      if (!store) {
+        throw new Error('店舗が見つかりません')
+      }
+      
+      // 店舗IDマッピング（開発用）
+      const storeIdMapping: Record<string, string> = {
+        'takadanobaba': '高田馬場店',
+        'bekkan1': '別館①',
+        'bekkan2': '別館②',
+        'okubo': '大久保店',
+        'otsuka': '大塚店',
+        'omiya': '埼玉大宮店'
+      }
+      
+      // 実際の店舗UUIDを取得（Supabaseから）
+      const storeName = storeIdMapping[performanceData.venue] || store.name
+      
+      try {
+        const { data: storeData, error: storeError } = await supabase
+          .from('stores')
+          .select('id')
+          .eq('name', storeName)
+          .single()
+        
+        if (storeError || !storeData) {
+          console.error(`店舗データが見つかりません: ${storeName}`)
+          throw new Error(`店舗「${storeName}」が見つかりません。先に店舗管理で店舗を追加してください。`)
+        }
+        
+        var validStoreData = storeData
+      } catch (err) {
+        console.warn('Supabase保存をスキップ、ローカル状態のみ更新')
+        setEvents(prev => [...prev, performanceData])
+        handleCloseAddModal()
+        return
+      }
+      
+      // Supabaseに保存するデータ形式に変換
+      const eventData = {
+        date: performanceData.date,
+        store_id: validStoreData.id,
+        venue: storeName,
+        scenario: performanceData.scenario || '',
+        category: performanceData.category,
+        start_time: performanceData.start_time,
+        end_time: performanceData.end_time,
+        max_participants: performanceData.max_participants,
+        gms: performanceData.gms.filter((gm: string) => gm.trim() !== ''),
+        notes: performanceData.notes || null
+      }
+      
+      // Supabaseに保存
+      const savedEvent = await scheduleApi.create(eventData)
+      
+      // 内部形式に変換して状態に追加
+      const formattedEvent: ScheduleEvent = {
+        id: savedEvent.id,
+        date: savedEvent.date,
+        venue: savedEvent.store_id, // store_idを直接使用
+        scenario: savedEvent.scenario || '',
+        gms: savedEvent.gms || [],
+        start_time: savedEvent.start_time,
+        end_time: savedEvent.end_time,
+        category: savedEvent.category,
+        is_cancelled: savedEvent.is_cancelled || false,
+        participant_count: savedEvent.current_participants || 0,
+        max_participants: savedEvent.max_participants || 8,
+        notes: savedEvent.notes || ''
+      }
+      
+      setEvents(prev => [...prev, formattedEvent])
+      
+      // モーダルを閉じる
+      handleCloseAddModal()
+      
+    } catch (error) {
+      console.error('公演保存エラー:', error)
+      setError('公演の保存に失敗しました')
+      
+      // エラー時はローカル状態のみ更新（フォールバック）
+      setEvents(prev => [...prev, performanceData])
+      handleCloseAddModal()
+    }
   }
 
   return (
@@ -319,6 +428,19 @@ export function ScheduleManager() {
       
       <div className="container mx-auto max-w-7xl px-8 py-6">
         <div className="space-y-6">
+          {/* エラー表示 */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+              {error}
+            </div>
+          )}
+          
+          {/* ローディング表示 */}
+          {(isLoading || storesLoading) && (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">データを読み込み中...</div>
+            </div>
+          )}
           {/* ヘッダー部分 */}
           <div className="flex items-center justify-between">
             <h2>月間スケジュール管理</h2>

@@ -148,12 +148,136 @@ export const staffApi = {
   }
 }
 
+// 公演スケジュール関連のAPI
+export const scheduleApi = {
+  // 指定月の公演を取得
+  async getByMonth(year: number, month: number) {
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+    const lastDay = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    
+    const { data, error } = await supabase
+      .from('schedule_events')
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name
+        ),
+        scenarios:scenario_id (
+          id,
+          title
+        )
+      `)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+    
+    if (error) throw error
+    return data || []
+  },
+
+  // 公演を作成
+  async create(eventData: {
+    date: string
+    store_id: string
+    venue?: string
+    scenario?: string
+    category: string
+    start_time: string
+    end_time: string
+    max_participants?: number
+    gms?: string[]
+    notes?: string
+  }) {
+    const { data, error } = await supabase
+      .from('schedule_events')
+      .insert([eventData])
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name
+        ),
+        scenarios:scenario_id (
+          id,
+          title
+        )
+      `)
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // 公演を更新
+  async update(id: string, updates: Partial<{
+    scenario_id: string
+    scenario_title: string
+    category: string
+    start_time: string
+    end_time: string
+    max_participants: number
+    gm_names: string[]
+    notes: string
+    is_cancelled: boolean
+  }>) {
+    const { data, error } = await supabase
+      .from('schedule_events')
+      .update(updates)
+      .eq('id', id)
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name
+        ),
+        scenarios:scenario_id (
+          id,
+          title
+        )
+      `)
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // 公演を削除
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('schedule_events')
+      .delete()
+      .eq('id', id)
+    
+    if (error) throw error
+  },
+
+  // 公演をキャンセル/復活
+  async toggleCancel(id: string, isCancelled: boolean) {
+    const { data, error } = await supabase
+      .from('schedule_events')
+      .update({ is_cancelled: isCancelled })
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  }
+}
+
 // メモ関連のAPI
 export const memoApi = {
   // 指定月のメモを取得
   async getByMonth(year: number, month: number) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const endDate = `${year}-${String(month).padStart(2, '0')}-31`
+    const lastDay = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     
     const { data, error } = await supabase
       .from('daily_memos')
