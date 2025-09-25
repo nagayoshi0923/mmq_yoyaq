@@ -316,9 +316,9 @@ export function ScheduleManager() {
           {/* ヘッダー部分 */}
           <div className="flex items-center justify-between">
             <h2>月間スケジュール管理</h2>
-            <div className="flex gap-4 items-center">
-              {/* 月選択コントロール */}
-              <div className="flex items-center gap-2 border rounded-lg p-1">
+                <div className="flex gap-4 items-center">
+                  {/* 月選択コントロール */}
+                  <div className="flex items-center gap-2 border rounded-lg p-1">
                 <Button variant="ghost" size="sm" onClick={() => changeMonth('prev')}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -485,17 +485,17 @@ export function ScheduleManager() {
         </div>
       </div>
 
-      {/* 公演追加モーダル */}
-      {addModalData && (
-        <AddPerformanceModal
-          isOpen={isAddModalOpen}
-          onClose={handleCloseAddModal}
-          date={addModalData.date}
-          venue={addModalData.venue}
-          timeSlot={addModalData.timeSlot}
-          onSave={handleSavePerformance}
-        />
-      )}
+          {/* 公演追加モーダル */}
+          {addModalData && (
+            <AddPerformanceModal
+              isOpen={isAddModalOpen}
+              onClose={handleCloseAddModal}
+              date={addModalData.date}
+              venue={addModalData.venue}
+              timeSlot={addModalData.timeSlot}
+              onSave={handleSavePerformance}
+            />
+          )}
     </div>
   )
 }

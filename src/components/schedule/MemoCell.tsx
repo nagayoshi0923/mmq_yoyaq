@@ -57,34 +57,23 @@ export function MemoCell({ date, venue, initialMemo = '', onSave }: MemoCellProp
 
   return (
     <TableCell className="schedule-table-cell p-2 align-top">
-      <div
-        className="min-h-[60px] p-2 cursor-pointer rounded-md"
-        style={{ backgroundColor: '#F6F9FB' }}
-        onClick={handleEdit}
-      >
-        {isEditing ? (
-              <Textarea
-                value={memo}
-                onChange={(e) => handleMemoChange(e.target.value)}
-                onBlur={handleBlur}
-                placeholder=""
-                className="w-full text-xs resize-none border-0 p-0 text-left"
-                style={{ 
-                  backgroundColor: '#F6F9FB',
-                  height: '44px',
-                  minHeight: '44px',
-                  maxHeight: '44px',
-                  lineHeight: '1.2',
-                  textAlign: 'left'
-                }}
-                autoFocus
-              />
-        ) : (
-          <div className="text-xs text-gray-700 whitespace-pre-wrap text-left" style={{ minHeight: '44px' }}>
-            {memo}
-          </div>
-        )}
-      </div>
+      {isEditing ? (
+        <Textarea
+          value={memo}
+          onChange={(e) => handleMemoChange(e.target.value)}
+          onBlur={handleBlur}
+          placeholder=""
+          className="text-xs min-h-[60px] p-1"
+        />
+      ) : (
+        <div
+          className="min-h-[60px] cursor-pointer rounded-md border border-input p-1 text-xs text-gray-700 whitespace-pre-wrap text-left"
+          style={{ backgroundColor: '#F6F9FB' }}
+          onClick={handleEdit}
+        >
+          {memo || ''}
+        </div>
+      )}
     </TableCell>
   )
 }
