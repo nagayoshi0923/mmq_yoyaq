@@ -13,7 +13,7 @@ interface ScheduleEvent {
   start_time: string // HH:MM
   end_time: string // HH:MM
   category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' // 公演カテゴリ
-  is_cancelled?: boolean
+  is_cancelled: boolean
   participant_count?: number
   max_participants?: number
   notes?: string
@@ -32,8 +32,10 @@ interface TimeSlotCellProps {
     }
   }
   getReservationBadgeClass: (current: number, max: number) => string
-  onCancel?: (event: ScheduleEvent) => void
+  onCancelConfirm?: (event: ScheduleEvent) => void
   onUncancel?: (event: ScheduleEvent) => void
+  onEdit?: (event: ScheduleEvent) => void
+  onDelete?: (event: ScheduleEvent) => void
   onAddPerformance?: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => void
 }
 
@@ -44,8 +46,10 @@ export function TimeSlotCell({
   timeSlot,
   categoryConfig,
   getReservationBadgeClass,
-  onCancel,
+  onCancelConfirm,
   onUncancel,
+  onEdit,
+  onDelete,
   onAddPerformance
 }: TimeSlotCellProps) {
   return (
@@ -55,8 +59,11 @@ export function TimeSlotCell({
           event={events[0]}
           categoryConfig={categoryConfig}
           getReservationBadgeClass={getReservationBadgeClass}
-          onCancel={onCancel}
+          onCancelConfirm={onCancelConfirm}
           onUncancel={onUncancel}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onClick={onEdit}
         />
       ) : (
         <EmptySlot

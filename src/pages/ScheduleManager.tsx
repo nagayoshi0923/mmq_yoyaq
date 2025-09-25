@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -9,7 +9,7 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
-import { AddPerformanceModal } from '@/components/schedule/AddPerformanceModal'
+import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { memoApi, scheduleApi, storeApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { 
@@ -41,12 +41,18 @@ export function ScheduleManager() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [memos, setMemos] = useState<Record<string, string>>({})
   const [storeIdMap, setStoreIdMap] = useState<Record<string, string>>({})
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [addModalData, setAddModalData] = useState<{
+  const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
+  const [modalInitialData, setModalInitialData] = useState<{
     date: string
     venue: string
-    timeSlot: 'morning' | 'afternoon' | 'evening'
-  } | null>(null)
+    timeSlot: string
+  } | undefined>(undefined)
+  const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deletingEvent, setDeletingEvent] = useState<ScheduleEvent | null>(null)
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
+  const [cancellingEvent, setCancellingEvent] = useState<ScheduleEvent | null>(null)
   const [events, setEvents] = useState<ScheduleEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -197,21 +203,6 @@ export function ScheduleManager() {
   }
 
 
-  // 店舗色取得（店舗識別用）
-  const getStoreCardClass = (storeId: string): string => {
-    const store = stores.find(s => s.id === storeId)
-    if (!store) return 'bg-card border-border'
-    
-    switch (store.color) {
-      case 'blue': return 'bg-blue-50 border-blue-200'
-      case 'green': return 'bg-green-50 border-green-200'
-      case 'purple': return 'bg-purple-50 border-purple-200'
-      case 'orange': return 'bg-orange-50 border-orange-200'
-      case 'red': return 'bg-red-50 border-red-200'
-      case 'amber': return 'bg-amber-50 border-amber-200'
-      default: return 'bg-card border-border'
-    }
-  }
 
   // 予約状況によるバッジクラス取得
   const getReservationBadgeClass = (current: number, max: number): string => {
@@ -319,41 +310,37 @@ export function ScheduleManager() {
 
   // 公演追加モーダルを開く
   const handleAddPerformance = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
-    setAddModalData({ date, venue, timeSlot })
-    setIsAddModalOpen(true)
+    setModalMode('add')
+    setModalInitialData({ date, venue, timeSlot })
+    setEditingEvent(null)
+    setIsPerformanceModalOpen(true)
   }
 
-  // 公演追加モーダルを閉じる
-  const handleCloseAddModal = () => {
-    setIsAddModalOpen(false)
-    setAddModalData(null)
+  // 編集モーダルを開く
+  const handleEditPerformance = (event: ScheduleEvent) => {
+    setModalMode('edit')
+    setEditingEvent(event)
+    setModalInitialData(undefined)
+    setIsPerformanceModalOpen(true)
   }
 
-  // 新しい公演を保存
+  // モーダルを閉じる
+  const handleCloseModal = () => {
+    setIsPerformanceModalOpen(false)
+    setModalInitialData(undefined)
+    setEditingEvent(null)
+  }
+
+  // 公演を保存（追加・更新共通）
   const handleSavePerformance = async (performanceData: any) => {
     try {
-      console.log('新しい公演を保存:', performanceData)
-      
-      // 店舗情報を取得
-      const store = stores.find(s => s.id === performanceData.venue)
-      if (!store) {
-        throw new Error('店舗が見つかりません')
-      }
-      
-      // 店舗IDマッピング（開発用）
-      const storeIdMapping: Record<string, string> = {
-        'takadanobaba': '高田馬場店',
-        'bekkan1': '別館①',
-        'bekkan2': '別館②',
-        'okubo': '大久保店',
-        'otsuka': '大塚店',
-        'omiya': '埼玉大宮店'
-      }
-      
-      // 実際の店舗UUIDを取得（Supabaseから）
-      const storeName = storeIdMapping[performanceData.venue] || store.name
-      
-      try {
+      if (modalMode === 'add') {
+        // 新規追加
+        console.log('新しい公演を保存:', performanceData)
+        
+        const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
+        
+        // 店舗IDを取得
         const { data: storeData, error: storeError } = await supabase
           .from('stores')
           .select('id')
@@ -365,61 +352,138 @@ export function ScheduleManager() {
           throw new Error(`店舗「${storeName}」が見つかりません。先に店舗管理で店舗を追加してください。`)
         }
         
-        var validStoreData = storeData
-      } catch (err) {
-        console.warn('Supabase保存をスキップ、ローカル状態のみ更新')
-        setEvents(prev => [...prev, performanceData])
-        handleCloseAddModal()
-        return
+        // Supabaseに保存するデータ形式に変換
+        const eventData = {
+          date: performanceData.date,
+          store_id: storeData.id,
+          venue: storeName,
+          scenario: performanceData.scenario || '',
+          category: performanceData.category,
+          start_time: performanceData.start_time,
+          end_time: performanceData.end_time,
+          max_participants: performanceData.max_participants,
+          gms: performanceData.gms.filter((gm: string) => gm.trim() !== ''),
+          notes: performanceData.notes || null
+        }
+        
+        // Supabaseに保存
+        const savedEvent = await scheduleApi.create(eventData)
+        
+        // 内部形式に変換して状態に追加
+        const formattedEvent: ScheduleEvent = {
+          id: savedEvent.id,
+          date: savedEvent.date,
+          venue: savedEvent.store_id, // store_idを直接使用
+          scenario: savedEvent.scenario || '',
+          gms: savedEvent.gms || [],
+          start_time: savedEvent.start_time,
+          end_time: savedEvent.end_time,
+          category: savedEvent.category,
+          is_cancelled: savedEvent.is_cancelled || false,
+          participant_count: savedEvent.current_participants || 0,
+          max_participants: savedEvent.max_participants || 8,
+          notes: savedEvent.notes || ''
+        }
+        
+        setEvents(prev => [...prev, formattedEvent])
+      } else {
+        // 編集更新
+        await scheduleApi.update(performanceData.id, {
+          scenario_title: performanceData.scenario,
+          category: performanceData.category,
+          start_time: performanceData.start_time,
+          end_time: performanceData.end_time,
+          max_participants: performanceData.max_participants,
+          gm_names: performanceData.gms,
+          notes: performanceData.notes
+        })
+
+        // ローカル状態を更新
+        setEvents(prev => prev.map(event => 
+          event.id === performanceData.id ? performanceData : event
+        ))
       }
-      
-      // Supabaseに保存するデータ形式に変換
-      const eventData = {
-        date: performanceData.date,
-        store_id: validStoreData.id,
-        venue: storeName,
-        scenario: performanceData.scenario || '',
-        category: performanceData.category,
-        start_time: performanceData.start_time,
-        end_time: performanceData.end_time,
-        max_participants: performanceData.max_participants,
-        gms: performanceData.gms.filter((gm: string) => gm.trim() !== ''),
-        notes: performanceData.notes || null
-      }
-      
-      // Supabaseに保存
-      const savedEvent = await scheduleApi.create(eventData)
-      
-      // 内部形式に変換して状態に追加
-      const formattedEvent: ScheduleEvent = {
-        id: savedEvent.id,
-        date: savedEvent.date,
-        venue: savedEvent.store_id, // store_idを直接使用
-        scenario: savedEvent.scenario || '',
-        gms: savedEvent.gms || [],
-        start_time: savedEvent.start_time,
-        end_time: savedEvent.end_time,
-        category: savedEvent.category,
-        is_cancelled: savedEvent.is_cancelled || false,
-        participant_count: savedEvent.current_participants || 0,
-        max_participants: savedEvent.max_participants || 8,
-        notes: savedEvent.notes || ''
-      }
-      
-      setEvents(prev => [...prev, formattedEvent])
-      
-      // モーダルを閉じる
-      handleCloseAddModal()
-      
+
+      handleCloseModal()
     } catch (error) {
       console.error('公演保存エラー:', error)
-      setError('公演の保存に失敗しました')
-      
-      // エラー時はローカル状態のみ更新（フォールバック）
-      setEvents(prev => [...prev, performanceData])
-      handleCloseAddModal()
+      alert(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
     }
   }
+
+  // 削除確認ダイアログを開く
+  const handleDeletePerformance = (event: ScheduleEvent) => {
+    setDeletingEvent(event)
+    setIsDeleteDialogOpen(true)
+  }
+
+  // 中止確認ダイアログを開く
+  const handleCancelConfirmPerformance = (event: ScheduleEvent) => {
+    setCancellingEvent(event)
+    setIsCancelDialogOpen(true)
+  }
+
+  // 公演を削除
+  const handleConfirmDelete = async () => {
+    if (!deletingEvent) return
+
+    try {
+      // Supabaseから削除
+      await scheduleApi.delete(deletingEvent.id)
+
+      // ローカル状態から削除
+      setEvents(prev => prev.filter(event => event.id !== deletingEvent.id))
+
+      setIsDeleteDialogOpen(false)
+      setDeletingEvent(null)
+    } catch (error) {
+      console.error('公演削除エラー:', error)
+      alert('公演の削除に失敗しました')
+    }
+  }
+
+  // 中止を実行
+  const handleConfirmCancel = async () => {
+    if (!cancellingEvent) return
+
+    try {
+      // Supabaseで更新
+      await scheduleApi.toggleCancel(cancellingEvent.id, true)
+
+      // ローカル状態を更新
+      setEvents(prev => prev.map(e => 
+        e.id === cancellingEvent.id ? { ...e, is_cancelled: true } : e
+      ))
+
+      setIsCancelDialogOpen(false)
+      setCancellingEvent(null)
+    } catch (error) {
+      console.error('公演中止エラー:', error)
+      alert('公演の中止処理に失敗しました')
+    }
+  }
+
+  // 公演をキャンセル解除
+  const handleCancelPerformance = async (event: ScheduleEvent) => {
+    try {
+      // Supabaseで更新
+      await scheduleApi.toggleCancel(event.id, false)
+
+      // ローカル状態を更新
+      setEvents(prev => prev.map(e => 
+        e.id === event.id ? { ...e, is_cancelled: false } : e
+      ))
+    } catch (error) {
+      console.error('公演キャンセル解除エラー:', error)
+      alert('公演のキャンセル解除処理に失敗しました')
+    }
+  }
+
+  // 公演のキャンセルを解除
+  const handleUncancelPerformance = async (event: ScheduleEvent) => {
+    handleCancelPerformance(event) // キャンセル解除処理
+  }
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -553,12 +617,10 @@ export function ScheduleManager() {
                           timeSlot="morning"
                           categoryConfig={categoryConfig}
                           getReservationBadgeClass={getReservationBadgeClass}
-                          onCancel={(event) => {
-                            // TODO: openCancelDialog(event);
-                          }}
-                          onUncancel={(event) => {
-                            // TODO: uncancelEvent(event);
-                          }}
+                          onCancelConfirm={handleCancelConfirmPerformance}
+                          onUncancel={handleUncancelPerformance}
+                          onEdit={handleEditPerformance}
+                          onDelete={handleDeletePerformance}
                           onAddPerformance={handleAddPerformance}
                         />
                         
@@ -570,12 +632,10 @@ export function ScheduleManager() {
                           timeSlot="afternoon"
                           categoryConfig={categoryConfig}
                           getReservationBadgeClass={getReservationBadgeClass}
-                          onCancel={(event) => {
-                            // TODO: openCancelDialog(event);
-                          }}
-                          onUncancel={(event) => {
-                            // TODO: uncancelEvent(event);
-                          }}
+                          onCancelConfirm={handleCancelConfirmPerformance}
+                          onUncancel={handleUncancelPerformance}
+                          onEdit={handleEditPerformance}
+                          onDelete={handleDeletePerformance}
                           onAddPerformance={handleAddPerformance}
                         />
                         
@@ -587,12 +647,10 @@ export function ScheduleManager() {
                           timeSlot="evening"
                           categoryConfig={categoryConfig}
                           getReservationBadgeClass={getReservationBadgeClass}
-                          onCancel={(event) => {
-                            // TODO: openCancelDialog(event);
-                          }}
-                          onUncancel={(event) => {
-                            // TODO: uncancelEvent(event);
-                          }}
+                          onCancelConfirm={handleCancelConfirmPerformance}
+                          onUncancel={handleUncancelPerformance}
+                          onEdit={handleEditPerformance}
+                          onDelete={handleDeletePerformance}
                           onAddPerformance={handleAddPerformance}
                         />
                         
@@ -613,17 +671,73 @@ export function ScheduleManager() {
         </div>
       </div>
 
-          {/* 公演追加モーダル */}
-          {addModalData && (
-            <AddPerformanceModal
-              isOpen={isAddModalOpen}
-              onClose={handleCloseAddModal}
-              date={addModalData.date}
-              venue={addModalData.venue}
-              timeSlot={addModalData.timeSlot}
-              onSave={handleSavePerformance}
-            />
+          {/* 公演モーダル（追加・編集共通） */}
+          <PerformanceModal
+            isOpen={isPerformanceModalOpen}
+            onClose={handleCloseModal}
+            onSave={handleSavePerformance}
+            mode={modalMode}
+            event={editingEvent}
+            initialData={modalInitialData}
+            stores={stores}
+          />
+
+          {/* 削除確認ダイアログ */}
+          {isDeleteDialogOpen && deletingEvent && (
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>公演を削除</DialogTitle>
+                  <DialogDescription>
+                    この公演を削除してもよろしいですか？この操作は取り消せません。
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2">
+                  <p><strong>日付:</strong> {deletingEvent.date}</p>
+                  <p><strong>時間:</strong> {deletingEvent.start_time.slice(0, 5)} - {deletingEvent.end_time.slice(0, 5)}</p>
+                  <p><strong>シナリオ:</strong> {deletingEvent.scenario || '未定'}</p>
+                  <p><strong>GM:</strong> {deletingEvent.gms.join(', ') || '未定'}</p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                    キャンセル
+                  </Button>
+                  <Button variant="destructive" onClick={handleConfirmDelete}>
+                    削除
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* 中止確認ダイアログ */}
+          {isCancelDialogOpen && cancellingEvent && (
+            <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>公演を中止</DialogTitle>
+                  <DialogDescription>
+                    この公演を中止してもよろしいですか？中止後も復活させることができます。
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2">
+                  <p><strong>日付:</strong> {cancellingEvent.date}</p>
+                  <p><strong>時間:</strong> {cancellingEvent.start_time.slice(0, 5)} - {cancellingEvent.end_time.slice(0, 5)}</p>
+                  <p><strong>シナリオ:</strong> {cancellingEvent.scenario || '未定'}</p>
+                  <p><strong>GM:</strong> {cancellingEvent.gms.join(', ') || '未定'}</p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)}>
+                    キャンセル
+                  </Button>
+                  <Button variant="destructive" onClick={handleConfirmCancel}>
+                    中止
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           )}
     </div>
   )
 }
+
