@@ -46,21 +46,16 @@ const statusOptions = [
   { value: 'resigned', label: '退職', color: 'bg-red-100 text-red-800' }
 ]
 
-const weekDays = ['月', '火', '水', '木', '金', '土', '日']
 
 export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenarios }: StaffEditModalProps) {
   const [formData, setFormData] = useState<Partial<Staff>>({
     name: '',
-    line_name: '',
     x_account: '',
     email: '',
     phone: '',
     role: [],
     store_ids: [],
     status: 'active',
-    experience: 0,
-    availability: [],
-    ng_days: [],
     special_scenarios: [],
     notes: ''
   })
@@ -72,23 +67,17 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         ...staff,
         role: Array.isArray(staff.role) ? staff.role : [staff.role],
         store_ids: staff.store_ids || [],
-        availability: staff.availability || [],
-        ng_days: staff.ng_days || [],
         special_scenarios: staff.special_scenarios || []
       })
     } else {
       setFormData({
         name: '',
-        line_name: '',
         x_account: '',
         email: '',
         phone: '',
         role: [],
         store_ids: [],
         status: 'active',
-        experience: 0,
-        availability: [],
-        ng_days: [],
         special_scenarios: [],
         notes: ''
       })
@@ -96,7 +85,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
   }, [staff])
 
   const handleSave = () => {
-    if (!formData.name || !formData.line_name || !formData.email) {
+    if (!formData.name || !formData.email) {
       alert('必須項目を入力してください')
       return
     }
@@ -104,16 +93,16 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     const staffData: Staff = {
       id: staff?.id || '',
       name: formData.name!,
-      line_name: formData.line_name!,
+      line_name: '', // 削除された項目はデフォルト値
       x_account: formData.x_account || '',
       email: formData.email!,
       phone: formData.phone || '',
       role: formData.role!,
       store_ids: formData.store_ids!,
       status: formData.status!,
-      experience: formData.experience!,
-      availability: formData.availability!,
-      ng_days: formData.ng_days!,
+      experience: 0, // 削除された項目はデフォルト値
+      availability: [], // 削除された項目はデフォルト値
+      ng_days: [], // 削除された項目はデフォルト値
       special_scenarios: formData.special_scenarios!,
       notes: formData.notes || '',
       created_at: staff?.created_at || new Date().toISOString(),
@@ -129,18 +118,6 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     id: store.id,
     name: store.name,
     displayInfo: store.short_name
-  }))
-
-  const availabilityOptions: MultiSelectOption[] = weekDays.map(day => ({
-    id: day,
-    name: day,
-    displayInfo: `${day}曜日`
-  }))
-
-  const ngDaysOptions: MultiSelectOption[] = weekDays.map(day => ({
-    id: day,
-    name: day,
-    displayInfo: `${day}曜日`
   }))
 
   const scenarioOptions: MultiSelectOption[] = scenarios.map(scenario => ({
@@ -161,25 +138,14 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
 
         <div className="space-y-4">
           {/* 基本情報 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">名前 *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="田中 太郎"
-              />
-            </div>
-            <div>
-              <Label htmlFor="line_name">LINE名 *</Label>
-              <Input
-                id="line_name"
-                value={formData.line_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, line_name: e.target.value }))}
-                placeholder="tanaka_taro"
-              />
-            </div>
+          <div>
+            <Label htmlFor="name">名前 *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="田中 太郎"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -234,7 +200,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 <SelectContent>
                   {statusOptions.map(option => (
                     <SelectItem key={option.value} value={option.value}>
-                      <Badge className={option.color} variant="static">
+                      <Badge size="sm" className={option.color} variant="static">
                         {option.label}
                       </Badge>
                     </SelectItem>
@@ -244,54 +210,20 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             </div>
           </div>
 
-          {/* 店舗・経験値 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="stores">担当店舗</Label>
-              <MultiSelect
-                options={storeOptions}
-                selectedValues={formData.store_ids?.map(id => stores.find(s => s.id === id)?.name || id) || []}
-                onSelectionChange={(values) => {
-                  const storeIds = values.map(name => stores.find(s => s.name === name)?.id || name)
-                  setFormData(prev => ({ ...prev, store_ids: storeIds }))
-                }}
-                placeholder="担当店舗を選択"
-              />
-            </div>
-            <div>
-              <Label htmlFor="experience">経験値</Label>
-              <Input
-                id="experience"
-                type="number"
-                min="0"
-                max="10"
-                value={formData.experience}
-                onChange={(e) => setFormData(prev => ({ ...prev, experience: parseInt(e.target.value) || 0 }))}
-              />
-            </div>
+          {/* 担当店舗 */}
+          <div>
+            <Label htmlFor="stores">担当店舗</Label>
+            <MultiSelect
+              options={storeOptions}
+              selectedValues={formData.store_ids?.map(id => stores.find(s => s.id === id)?.name || id) || []}
+              onSelectionChange={(values) => {
+                const storeIds = values.map(name => stores.find(s => s.name === name)?.id || name)
+                setFormData(prev => ({ ...prev, store_ids: storeIds }))
+              }}
+              placeholder="担当店舗を選択"
+            />
           </div>
 
-          {/* 勤務可能日・NG日 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="availability">勤務可能日</Label>
-              <MultiSelect
-                options={availabilityOptions}
-                selectedValues={formData.availability || []}
-                onSelectionChange={(values) => setFormData(prev => ({ ...prev, availability: values }))}
-                placeholder="勤務可能日を選択"
-              />
-            </div>
-            <div>
-              <Label htmlFor="ng_days">NG日</Label>
-              <MultiSelect
-                options={ngDaysOptions}
-                selectedValues={formData.ng_days || []}
-                onSelectionChange={(values) => setFormData(prev => ({ ...prev, ng_days: values }))}
-                placeholder="NG日を選択"
-              />
-            </div>
-          </div>
 
           {/* 担当シナリオ */}
           <div>

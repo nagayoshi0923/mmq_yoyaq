@@ -12,13 +12,8 @@ import {
   Plus, 
   Edit, 
   Trash2, 
-  Phone, 
-  Mail,
-  Eye,
-  EyeOff,
   Calendar,
   MapPin,
-  Star,
   Search,
   Filter,
   Shield,
@@ -69,8 +64,6 @@ export function StaffManagement() {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [contactPassword, setContactPassword] = useState('')
-  const [showContactInfo, setShowContactInfo] = useState<Record<string, boolean>>({})
   
   // 編集モーダル用のstate
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -229,19 +222,6 @@ export function StaffManagement() {
     return storeColorMap[storeName] || 'bg-gray-500'
   }
 
-  function toggleContactInfo(staffId: string) {
-    if (contactPassword !== '0909') {
-      const password = prompt('連絡先を表示するにはパスワードを入力してください:')
-      if (password === '0909') {
-        setContactPassword('0909')
-        setShowContactInfo(prev => ({ ...prev, [staffId]: !prev[staffId] }))
-      } else {
-        alert('パスワードが正しくありません')
-      }
-    } else {
-      setShowContactInfo(prev => ({ ...prev, [staffId]: !prev[staffId] }))
-    }
-  }
 
   // フィルタリング
   const filteredStaff = staff.filter(member => {
@@ -380,7 +360,7 @@ export function StaffManagement() {
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-2">
-                  <Star className="h-5 w-5 text-muted-foreground" />
+                  <Shield className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <p className="text-2xl font-bold">
                       {staff.filter(s => s.role && s.role.includes('GM')).length}
@@ -446,23 +426,22 @@ export function StaffManagement() {
           </div>
 
           {/* スタッフ一覧 - スプレッドシート形式 */}
-          {/* ヘッダー行 */}
-          <Card className="mb-2">
-            <CardContent className="p-0">
-              <div className="flex items-center h-[50px] bg-muted/30">
-                <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">基本情報</div>
-                <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">役割</div>
-                <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">担当店舗</div>
-                <div className="flex-shrink-0 w-20 px-3 py-2 border-r font-medium text-sm text-center">経験値</div>
-                <div className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0">担当シナリオ</div>
-                <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">連絡先</div>
-                <div className="flex-shrink-0 w-32 px-3 py-2 font-medium text-sm text-center">アクション</div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* スタッフデータ行 */}
           <div className="space-y-1">
+            {/* ヘッダー行 */}
+            <Card>
+              <CardContent className="p-0">
+                <div className="flex items-center h-[50px] bg-muted/30">
+                  <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">基本情報</div>
+                  <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">役割</div>
+                  <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">担当店舗</div>
+                  <div className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0">担当シナリオ</div>
+                  <div className="flex-shrink-0 w-32 px-3 py-2 font-medium text-sm text-center">アクション</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* スタッフデータ行 */}
+            <div className="space-y-1">
             {filteredStaff.map((member) => (
               <Card key={member.id} className="overflow-hidden hover:shadow-sm transition-shadow">
                 <CardContent className="p-0">
@@ -519,17 +498,6 @@ export function StaffManagement() {
                       </div>
                     </div>
 
-                    {/* 経験値 */}
-                    <div className="flex-shrink-0 w-20 px-3 py-2 border-r text-center">
-                      {member.experience !== undefined ? (
-                        <div className="flex items-center justify-center gap-1">
-                          <Star className="h-3 w-3 text-yellow-500" />
-                          <span className="text-sm font-medium">{member.experience}</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                    </div>
 
                     {/* 担当シナリオ */}
                     <div className="flex-1 px-3 py-2 border-r min-w-0">
@@ -553,44 +521,10 @@ export function StaffManagement() {
                       </div>
                     </div>
 
-                    {/* 連絡先 */}
-                    <div className="flex-shrink-0 w-40 px-3 py-2 border-r">
-                      <div className="space-y-0">
-                        {member.phone && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Phone className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">
-                              {showContactInfo[member.id] ? member.phone : '***-****-****'}
-                            </span>
-                          </div>
-                        )}
-                        {member.email && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Mail className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">
-                              {showContactInfo[member.id] ? member.email : '****@****.com'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
 
                     {/* アクション */}
                     <div className="flex-shrink-0 w-32 px-3 py-2">
                       <div className="flex gap-1 justify-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleContactInfo(member.id)}
-                          className="h-6 w-6 p-0"
-                          title="連絡先表示切替"
-                        >
-                          {showContactInfo[member.id] ? (
-                            <EyeOff className="h-3 w-3" />
-                          ) : (
-                            <Eye className="h-3 w-3" />
-                          )}
-                        </Button>
                         <Button 
                           variant="ghost" 
                           size="sm" 
@@ -615,21 +549,22 @@ export function StaffManagement() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+            </div>
 
-          {/* 検索結果が空の場合 */}
-          {filteredStaff.length === 0 && (
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  {searchTerm || statusFilter !== 'all' 
-                    ? '検索条件に一致するスタッフが見つかりません' 
-                    : 'スタッフが登録されていません'}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+            {/* 検索結果が空の場合 */}
+            {filteredStaff.length === 0 && (
+              <Card>
+                <CardContent className="pt-6 text-center">
+                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    {searchTerm || statusFilter !== 'all' 
+                      ? '検索条件に一致するスタッフが見つかりません' 
+                      : 'スタッフが登録されていません'}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
 
