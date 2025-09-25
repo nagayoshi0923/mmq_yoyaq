@@ -188,7 +188,7 @@ export const scheduleApi = {
     category: string
     start_time: string
     end_time: string
-    max_participants?: number
+    capacity?: number
     gms?: string[]
     notes?: string
   }) {
@@ -216,12 +216,12 @@ export const scheduleApi = {
   // 公演を更新
   async update(id: string, updates: Partial<{
     scenario_id: string
-    scenario_title: string
+    scenario: string
     category: string
     start_time: string
     end_time: string
-    max_participants: number
-    gm_names: string[]
+    capacity: number
+    gms: string[]
     notes: string
     is_cancelled: boolean
   }>) {

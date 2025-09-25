@@ -81,7 +81,7 @@ export function ScheduleManager() {
           category: event.category,
           is_cancelled: event.is_cancelled || false,
           participant_count: event.current_participants || 0,
-          max_participants: event.max_participants || 8,
+          max_participants: event.capacity || 8,
           notes: event.notes || ''
         }))
         
@@ -403,7 +403,7 @@ export function ScheduleManager() {
           category: performanceData.category,
           start_time: performanceData.start_time,
           end_time: performanceData.end_time,
-          max_participants: performanceData.max_participants,
+          capacity: performanceData.max_participants,
           gms: performanceData.gms.filter((gm: string) => gm.trim() !== ''),
           notes: performanceData.notes || null
         }
@@ -423,7 +423,7 @@ export function ScheduleManager() {
           category: savedEvent.category,
           is_cancelled: savedEvent.is_cancelled || false,
           participant_count: savedEvent.current_participants || 0,
-          max_participants: savedEvent.max_participants || 8,
+          max_participants: savedEvent.capacity || 8,
           notes: savedEvent.notes || ''
         }
         
@@ -431,12 +431,12 @@ export function ScheduleManager() {
       } else {
         // 編集更新
         await scheduleApi.update(performanceData.id, {
-          scenario_title: performanceData.scenario,
+          scenario: performanceData.scenario,
           category: performanceData.category,
           start_time: performanceData.start_time,
           end_time: performanceData.end_time,
-          max_participants: performanceData.max_participants,
-          gm_names: performanceData.gms,
+          capacity: performanceData.max_participants,
+          gms: performanceData.gms,
           notes: performanceData.notes
         })
 
