@@ -46,6 +46,67 @@ export function ScheduleManager() {
     venue: string
     timeSlot: 'morning' | 'afternoon' | 'evening'
   } | null>(null)
+  const [events, setEvents] = useState<ScheduleEvent[]>([])
+
+  // 初期データ設定
+  useEffect(() => {
+    // モックデータを状態に設定
+    const mockEvents: ScheduleEvent[] = [
+      {
+        id: '1',
+        date: '2025-09-01',
+        venue: 'takadanobaba',
+        scenario: '人狼村の悲劇',
+        gms: ['田中太郎'],
+        start_time: '14:00',
+        end_time: '18:00',
+        category: 'private',
+        is_cancelled: false,
+        participant_count: 6,
+        max_participants: 8
+      },
+      {
+        id: '2',
+        date: '2025-09-01',
+        venue: 'bekkan1',
+        scenario: '密室の謎',
+        gms: ['山田花子'],
+        start_time: '19:00',
+        end_time: '22:00',
+        category: 'open',
+        is_cancelled: false,
+        participant_count: 8,
+        max_participants: 8
+      },
+      {
+        id: '3',
+        date: '2025-09-02',
+        venue: 'okubo',
+        scenario: '新シナリオ検証',
+        gms: ['佐藤次郎', '鈴木三郎'],
+        start_time: '10:00',
+        end_time: '13:00',
+        category: 'gmtest',
+        is_cancelled: false,
+        participant_count: 4,
+        max_participants: 6
+      },
+      {
+        id: '4',
+        date: '2025-09-02',
+        venue: 'otsuka',
+        scenario: 'テストプレイ用シナリオ',
+        gms: ['鈴木三郎'],
+        start_time: '15:00',
+        end_time: '18:00',
+        category: 'testplay',
+        is_cancelled: false,
+        participant_count: 2,
+        max_participants: 4
+      }
+    ]
+    setEvents(mockEvents)
+  }, [])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -167,61 +228,6 @@ export function ScheduleManager() {
     return days
   }
 
-  // モックデータ（後でSupabaseから取得）
-  const mockEvents: ScheduleEvent[] = [
-    {
-      id: '1',
-      date: '2025-09-01',
-      venue: 'takadanobaba',
-      scenario: '人狼村の悲劇',
-      gms: ['田中太郎'],
-      start_time: '14:00',
-      end_time: '18:00',
-      category: 'private',
-      is_cancelled: false,
-      participant_count: 6,
-      max_participants: 8
-    },
-    {
-      id: '2',
-      date: '2025-09-01',
-      venue: 'bekkan1',
-      scenario: '密室の謎',
-      gms: ['山田花子'],
-      start_time: '19:00',
-      end_time: '22:00',
-      category: 'open',
-      is_cancelled: false,
-      participant_count: 8,
-      max_participants: 8
-    },
-    {
-      id: '3',
-      date: '2025-09-02',
-      venue: 'okubo',
-      scenario: '新シナリオ検証',
-      gms: ['佐藤次郎', '鈴木三郎'],
-      start_time: '10:00',
-      end_time: '13:00',
-      category: 'gmtest',
-      is_cancelled: false,
-      participant_count: 4,
-      max_participants: 6
-    },
-    {
-      id: '4',
-      date: '2025-09-02',
-      venue: 'otsuka',
-      scenario: 'テストプレイ用シナリオ',
-      gms: ['鈴木三郎'],
-      start_time: '15:00',
-      end_time: '18:00',
-      category: 'testplay',
-      is_cancelled: false,
-      participant_count: 2,
-      max_participants: 4
-    }
-  ]
 
   const monthDays = generateMonthDays()
 
@@ -235,7 +241,7 @@ export function ScheduleManager() {
 
   // 特定の日付・店舗・時間帯の公演を取得
   const getEventsForSlot = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
-    return mockEvents.filter(event => 
+    return events.filter(event => 
       event.date === date && 
       event.venue === venue && 
       getTimeSlot(event.start_time) === timeSlot &&
@@ -299,8 +305,8 @@ export function ScheduleManager() {
     // TODO: 実際のAPIに保存
     console.log('新しい公演を保存:', performanceData)
     
-    // モックデータに追加（開発用）
-    mockEvents.push(performanceData)
+    // 状態に追加
+    setEvents(prev => [...prev, performanceData])
     
     // モーダルを閉じる
     handleCloseAddModal()
