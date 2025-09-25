@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { X } from 'lucide-react'
+import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -186,21 +187,6 @@ export function PerformanceModal({
     onClose()
   }
 
-  const addGmFromSelect = (gmName: string) => {
-    if (gmName && !formData.gms.includes(gmName)) {
-      setFormData((prev: any) => ({
-        ...prev,
-        gms: [...prev.gms, gmName]
-      }))
-    }
-  }
-
-  const removeGm = (gmToRemove: string) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      gms: prev.gms.filter((gm: string) => gm !== gmToRemove)
-    }))
-  }
 
 
   // 店舗名を取得
@@ -393,44 +379,39 @@ export function PerformanceModal({
           {/* GM管理 */}
           <div>
             <Label htmlFor="gms">GM</Label>
-            <div className="flex gap-2 mb-2">
-              <Select value="" onValueChange={addGmFromSelect}>
-                <SelectTrigger>
-                  <SelectValue placeholder="GMを選択して追加" />
-                </SelectTrigger>
-                <SelectContent>
-                  {staff
-                    .filter(s => s.role.includes('gm') && s.status === 'active')
-                    .filter(s => !formData.gms.includes(s.name))
-                    .map(staffMember => (
-                      <SelectItem key={staffMember.id} value={staffMember.name}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{staffMember.name}</span>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            経験値{staffMember.experience} | {staffMember.line_name}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.gms.map((gm: string, index: number) => (
-                <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                  {gm}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-4 w-4 p-0 hover:bg-red-100"
-                    onClick={() => removeGm(gm)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              ))}
-            </div>
+            <MultiSelect
+              options={staff
+                .filter(s => s.role.includes('gm') && s.status === 'active')
+                .map(staffMember => ({
+                  id: staffMember.id,
+                  name: staffMember.name,
+                  displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name}`
+                }))}
+              selectedValues={formData.gms}
+              onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
+              placeholder="GMを選択"
+            />
+            {formData.gms.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.gms.map((gm: string, index: number) => (
+                  <Badge key={index} variant="secondary" className="flex items-center gap-1 font-normal">
+                    {gm}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 hover:bg-red-100"
+                      onClick={() => {
+                        const newGms = formData.gms.filter((g: string) => g !== gm)
+                        setFormData((prev: any) => ({ ...prev, gms: newGms }))
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 備考 */}
