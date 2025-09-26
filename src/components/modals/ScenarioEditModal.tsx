@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Badge } from '@/components/ui/badge'
-import type { Scenario, FlexiblePricing, PricingModifier, GMConfiguration } from '@/types'
+import type { Scenario, FlexiblePricing, PricingModifier, GMConfiguration, Staff } from '@/types'
+import { staffApi } from '@/lib/api'
 
 interface ScenarioEditModalProps {
   scenario: Scenario | null
@@ -31,6 +32,7 @@ interface ScenarioFormData {
   genre: string[]
   required_props: { item: string; amount: number; frequency: 'recurring' | 'one-time' }[]
   has_pre_reading: boolean
+  available_gms: string[]
   // 時間帯別料金設定
   gm_costs: { time_slot: string; amount: number; role: 'main' | 'sub' }[]
   license_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed' }[]
@@ -60,6 +62,7 @@ const genreOptions = [
 ].map(genre => ({ id: genre, name: genre }))
 
 export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: ScenarioEditModalProps) {
+  const [staffList, setStaffList] = useState<Staff[]>([])
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
@@ -75,6 +78,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     genre: [],
     required_props: [],
     has_pre_reading: false,
+    available_gms: [],
     // 項目別料金設定
     gm_costs: [{ time_slot: '通常', amount: 2000, role: 'main' }],
     license_costs: [{ time_slot: '通常', amount: 0, type: 'fixed' }],
@@ -257,6 +261,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
               frequency: 'recurring' as const 
             })),
         has_pre_reading: scenario.has_pre_reading || false,
+        available_gms: scenario.available_gms || [],
         // 項目別料金設定の初期化
         gm_costs: scenario.gm_costs || [{ time_slot: '通常', amount: 2000, role: 'main' as const }],
         license_costs: scenario.license_costs || [{ time_slot: '通常', amount: 0, type: 'fixed' as const }],
@@ -297,6 +302,39 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     }
   }, [scenario])
 
+  // スタッフデータを取得
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        const staff = await staffApi.getAll()
+        console.log('取得したスタッフデータ:', staff)
+        setStaffList(staff)
+      } catch (error) {
+        console.error('スタッフデータの取得に失敗しました:', error)
+      }
+    }
+
+    if (isOpen) {
+      fetchStaff()
+    }
+  }, [isOpen])
+
+  // GMオプションを作成（GMの役割を持つスタッフのみ）
+  const gmOptions = staffList
+    .filter(staff => {
+      const hasGmRole = staff.role && Array.isArray(staff.role) && 
+        (staff.role.includes('GM') || staff.role.includes('gm'))
+      console.log(`スタッフ ${staff.name}: role=${JSON.stringify(staff.role)}, hasGmRole=${hasGmRole}`)
+      return hasGmRole
+    })
+    .map(staff => ({ id: staff.id, name: staff.name }))
+  
+  console.log('GMオプション:', gmOptions)
+
+  // デバッグ用：すべてのスタッフオプション
+  const allStaffOptions = staffList.map(staff => ({ id: staff.id, name: staff.name }))
+  console.log('全スタッフオプション:', allStaffOptions)
+
   const handleSave = () => {
     const totalProductionCost = formData.production_costs.reduce((sum, cost) => sum + cost.amount, 0)
     
@@ -322,7 +360,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       has_pre_reading: formData.has_pre_reading,
       // 柔軟な料金設定を保存
       flexible_pricing: formData.use_flexible_pricing ? formData.flexible_pricing : undefined,
-      available_gms: scenario?.available_gms || [],
+      available_gms: formData.available_gms,
       play_count: scenario?.play_count || 0,
       created_at: scenario?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -603,11 +641,26 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
               <Label htmlFor="genre">ジャンル</Label>
               <MultiSelect
                 options={genreOptions}
-                value={formData.genre}
-                onChange={(value) => setFormData(prev => ({ ...prev, genre: value }))}
+                selectedValues={formData.genre}
+                onSelectionChange={(value) => setFormData(prev => ({ ...prev, genre: value }))}
                 placeholder="ジャンルを選択してください"
                 showBadges={true}
               />
+            </div>
+
+            {/* 担当GM */}
+            <div>
+              <Label htmlFor="available_gms">担当GM</Label>
+              <MultiSelect
+                options={gmOptions}
+                selectedValues={formData.available_gms}
+                onSelectionChange={(value) => setFormData(prev => ({ ...prev, available_gms: value }))}
+                placeholder="担当GMを選択してください"
+                showBadges={true}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                デバッグ: GMオプション数: {gmOptions.length}
+              </p>
             </div>
           </div>
 
