@@ -16,7 +16,7 @@ export interface MultiSelectOption {
 }
 
 interface MultiSelectProps {
-  options: MultiSelectOption[]
+  options: MultiSelectOption[] | string[]
   selectedValues: string[]
   onSelectionChange: (values: string[]) => void
   placeholder?: string
@@ -35,6 +35,14 @@ export function MultiSelect({
   showBadges = false
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
+
+  // optionsを正規化（string[]の場合はMultiSelectOption[]に変換）
+  const normalizedOptions: MultiSelectOption[] = options.map((option) => {
+    if (typeof option === 'string') {
+      return { id: option, name: option }
+    }
+    return option
+  })
 
   const handleToggleSelection = (value: string) => {
     const isSelected = selectedValues.includes(value)
@@ -80,7 +88,7 @@ export function MultiSelect({
         </PopoverTrigger>
         <PopoverContent className="w-full p-0" align="start">
           <div className="max-h-60 overflow-auto">
-            {options.map(option => {
+            {normalizedOptions.map(option => {
               const isSelected = selectedValues.includes(option.name)
               return (
                 <div
@@ -113,8 +121,8 @@ export function MultiSelect({
       {/* バッジ表示エリア */}
       {showBadges && selectedValues.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {selectedValues.map((value, index) => (
-            <Badge key={index} variant="secondary" className="flex items-center gap-1 font-normal">
+          {selectedValues.map((value) => (
+            <Badge key={value} variant="secondary" className="flex items-center gap-1 font-normal">
               {value}
               <Button
                 type="button"

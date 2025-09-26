@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { SortableTableHeader } from '@/components/ui/sortable-table-header'
+import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { scenarioApi } from '@/lib/api'
@@ -44,7 +45,11 @@ const mockScenarios: Scenario[] = [
     available_gms: [],
     play_count: 0,
     required_props: [],
-    production_cost: 0,
+    production_cost: 800,
+    production_costs: [
+      { item: '小道具', amount: 500 },
+      { item: '印刷費', amount: 300 }
+    ],
     gm_fee: 2000,
     has_pre_reading: false,
     created_at: new Date().toISOString(),
@@ -67,7 +72,11 @@ const mockScenarios: Scenario[] = [
     available_gms: [],
     play_count: 0,
     required_props: [],
-    production_cost: 0,
+    production_cost: 1200,
+    production_costs: [
+      { item: '特殊道具', amount: 1000 },
+      { item: '資料印刷', amount: 200 }
+    ],
     gm_fee: 2500,
     has_pre_reading: true,
     created_at: new Date().toISOString(),
@@ -75,7 +84,7 @@ const mockScenarios: Scenario[] = [
   }
 ]
 
-type ScenarioSortField = 'title' | 'author' | 'duration' | 'difficulty' | 'rating' | 'license_amount' | 'participation_fee' | 'status'
+type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count_min' | 'difficulty' | 'license_amount' | 'participation_fee' | 'status' | 'available_gms'
 
 export function ScenarioManagement() {
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -83,6 +92,9 @@ export function ScenarioManagement() {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [displayMode, setDisplayMode] = useState<'compact' | 'detailed'>('compact')
   
   // 並び替え機能
   const { sortState, handleSort, sortData } = useSortableTable<ScenarioSortField>({
@@ -108,6 +120,37 @@ export function ScenarioManagement() {
       setScenarios(mockScenarios)
     } finally {
       setLoading(false)
+    }
+  }
+
+  function handleEditScenario(scenario: Scenario) {
+    setEditingScenario(scenario)
+    setIsEditModalOpen(true)
+  }
+
+  function handleNewScenario() {
+    setEditingScenario(null)
+    setIsEditModalOpen(true)
+  }
+
+  async function handleSaveScenario(scenario: Scenario) {
+    try {
+      // データベースに送信する前にproduction_costsフィールドを除外
+      const { production_costs, ...scenarioForDB } = scenario as any
+      
+      if (editingScenario) {
+        // 編集
+        await scenarioApi.update(scenario.id, scenarioForDB)
+        setScenarios(prev => prev.map(s => s.id === scenario.id ? scenario : s))
+      } else {
+        // 新規作成
+        const newScenario = await scenarioApi.create(scenarioForDB)
+        // ローカル状態には元のscenario（production_costs含む）を保存
+        setScenarios(prev => [...prev, { ...newScenario, production_costs: scenario.production_costs }])
+      }
+    } catch (err: any) {
+      console.error('Error saving scenario:', err)
+      alert('シナリオの保存に失敗しました: ' + err.message)
     }
   }
 
@@ -234,7 +277,7 @@ export function ScenarioManagement() {
                 </p>
               </div>
             </div>
-            <Button>
+            <Button onClick={handleNewScenario}>
               <Plus className="h-4 w-4 mr-2" />
               新規シナリオ
             </Button>
@@ -292,31 +335,51 @@ export function ScenarioManagement() {
           </div>
 
           {/* 検索・フィルター */}
-          <div className="flex gap-4 items-center">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="シナリオ名、作者で検索..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4"
-              />
+          <div className="flex justify-between items-center gap-4">
+            <div className="flex gap-4 items-center">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="シナリオ名、作者で検索..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全て</SelectItem>
+                    <SelectItem value="available">利用可能</SelectItem>
+                    <SelectItem value="maintenance">メンテナンス</SelectItem>
+                    <SelectItem value="retired">引退</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
+            {/* 表示切り替えボタン */}
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全て</SelectItem>
-                  <SelectItem value="available">利用可能</SelectItem>
-                  <SelectItem value="maintenance">メンテナンス</SelectItem>
-                  <SelectItem value="retired">引退</SelectItem>
-                </SelectContent>
-              </Select>
+              <Button
+                variant={displayMode === 'compact' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDisplayMode('compact')}
+              >
+                基本情報
+              </Button>
+              <Button
+                variant={displayMode === 'detailed' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDisplayMode('detailed')}
+              >
+                管理情報
+              </Button>
             </div>
           </div>
 
@@ -331,47 +394,92 @@ export function ScenarioManagement() {
                     currentField={sortState.field}
                     currentDirection={sortState.direction}
                     onSort={handleSort}
-                    className="flex-shrink-0 w-48 px-3 py-2 border-r font-medium text-sm"
+                    className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm"
                   >
-                    基本情報
+                    タイトル
+                  </SortableTableHeader>
+                  <SortableTableHeader
+                    field="author"
+                    currentField={sortState.field}
+                    currentDirection={sortState.direction}
+                    onSort={handleSort}
+                    className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm"
+                  >
+                    作者
                   </SortableTableHeader>
                   <SortableTableHeader
                     field="duration"
                     currentField={sortState.field}
                     currentDirection={sortState.direction}
                     onSort={handleSort}
-                    className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm"
+                    className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm"
                   >
-                    所要時間・人数
+                    所要時間
                   </SortableTableHeader>
                   <SortableTableHeader
-                    field="difficulty"
+                    field="player_count_min"
+                    currentField={sortState.field}
+                    currentDirection={sortState.direction}
+                    onSort={handleSort}
+                    className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm"
+                  >
+                    人数
+                  </SortableTableHeader>
+                {displayMode === 'compact' && (
+                  <SortableTableHeader
+                    field="available_gms"
                     currentField={sortState.field}
                     currentDirection={sortState.direction}
                     onSort={handleSort}
                     className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm"
                   >
-                    難易度・評価
+                    担当GM
                   </SortableTableHeader>
+                )}
+                  {displayMode === 'detailed' && (
+                    <>
+                      <SortableTableHeader
+                        field="difficulty"
+                        currentField={sortState.field}
+                        currentDirection={sortState.direction}
+                        onSort={handleSort}
+                        className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm"
+                      >
+                        難易度
+                      </SortableTableHeader>
+                      <SortableTableHeader
+                        field="license_amount"
+                        currentField={sortState.field}
+                        currentDirection={sortState.direction}
+                        onSort={handleSort}
+                        className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm"
+                      >
+                        ライセンス料
+                      </SortableTableHeader>
+                    </>
+                  )}
                   <SortableTableHeader
-                    field="license_amount"
+                    field="participation_fee"
                     currentField={sortState.field}
                     currentDirection={sortState.direction}
                     onSort={handleSort}
-                    className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm"
+                    className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm"
                   >
-                    料金
+                    参加費
                   </SortableTableHeader>
                   <SortableTableHeader
                     field="status"
                     currentField={sortState.field}
                     currentDirection={sortState.direction}
                     onSort={handleSort}
-                    className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0"
+                    className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm"
                   >
-                    ジャンル・ステータス
+                    ステータス
                   </SortableTableHeader>
-                  <div className="flex-shrink-0 w-32 px-3 py-2 font-medium text-sm text-center">アクション</div>
+                  {displayMode === 'detailed' && (
+                    <div className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0">ジャンル</div>
+                  )}
+                  <div className="flex-shrink-0 w-24 px-3 py-2 font-medium text-sm text-center">アクション</div>
                 </div>
               </CardContent>
             </Card>
@@ -382,75 +490,104 @@ export function ScenarioManagement() {
                 <Card key={scenario.id}>
                   <CardContent className="p-0">
                     <div className="flex items-center min-h-[60px]">
-                      {/* 基本情報 */}
-                      <div className="flex-shrink-0 w-48 px-3 py-2 border-r">
-                        <div className="space-y-1">
-                          <p className="font-medium text-sm truncate" title={scenario.title}>
-                            {scenario.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate" title={scenario.author}>
-                            {scenario.author}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* 所要時間・人数 */}
-                      <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
-                        <div className="space-y-1">
-                          <p className="text-sm flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> {scenario.duration}分
-                          </p>
-                          <p className="text-sm flex items-center gap-1">
-                            <Users className="h-3 w-3" /> {scenario.player_count_min}-{scenario.player_count_max}名
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* 難易度・評価 */}
-                      <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            {[...Array(5)].map((_, i) => (
-                              <Star 
-                                key={i} 
-                                className={`h-3 w-3 ${i < (scenario.difficulty || 0) ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} 
-                              />
-                            ))}
-                          </div>
-                          <p className="text-sm flex items-center gap-1">
-                            <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" /> {scenario.rating || 'N/A'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* 料金 */}
+                      {/* タイトル */}
                       <div className="flex-shrink-0 w-40 px-3 py-2 border-r">
-                        <div className="space-y-1">
-                          <p className="text-sm">
-                            ライセンス: ¥{scenario.license_amount?.toLocaleString() || 0}
-                          </p>
-                          <p className="text-sm">
-                            参加費: ¥{scenario.participation_fee?.toLocaleString() || 0}
-                          </p>
-                        </div>
+                        <p className="font-medium text-sm truncate" title={scenario.title}>
+                          {scenario.title}
+                        </p>
                       </div>
 
-                      {/* ジャンル・ステータス */}
-                      <div className="flex-1 px-3 py-2 border-r min-w-0">
-                        <div className="space-y-2">
-                          {/* ステータス */}
-                          <div className="flex items-center gap-2">
-                            <Badge className={
-                              scenario.status === 'available' ? 'bg-green-100 text-green-800 px-1 py-0.5' :
-                              scenario.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800 px-1 py-0.5' :
-                              'bg-red-100 text-red-800 px-1 py-0.5'
-                            }>
-                              {scenario.status === 'available' ? '利用可能' :
-                              scenario.status === 'maintenance' ? 'メンテナンス中' : '引退済み'}
-                            </Badge>
+                      {/* 作者 */}
+                      <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
+                        <p className="text-sm truncate" title={scenario.author}>
+                          {scenario.author}
+                        </p>
+                      </div>
+
+                      {/* 所要時間 */}
+                      <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
+                        <p className="text-sm flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> {(scenario.duration / 60) % 1 === 0 ? Math.floor(scenario.duration / 60) : (scenario.duration / 60).toFixed(1)}時間
+                        </p>
+                      </div>
+
+                      {/* 人数 */}
+                      <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
+                        <p className="text-sm flex items-center gap-1">
+                          <Users className="h-3 w-3" /> {scenario.player_count_min}-{scenario.player_count_max}名
+                        </p>
+                      </div>
+
+                      {/* 担当GM（基本情報時のみ） */}
+                        {displayMode === 'compact' && (
+                          <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
+                            <div className="text-sm">
+                              {scenario.available_gms && scenario.available_gms.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {scenario.available_gms.slice(0, 2).map((gm: string, i: number) => (
+                                    <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
+                                      {gm}
+                                    </Badge>
+                                  ))}
+                                  {scenario.available_gms.length > 2 && (
+                                    <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
+                                      +{scenario.available_gms.length - 2}
+                                    </Badge>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">未設定</span>
+                              )}
+                            </div>
                           </div>
-                          
-                          {/* ジャンル */}
+                        )}
+
+                      {/* 管理情報（詳細表示時のみ） */}
+                      {displayMode === 'detailed' && (
+                        <>
+                          {/* 難易度 */}
+                          <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star 
+                                  key={i} 
+                                  className={`h-3 w-3 ${i < (scenario.difficulty || 0) ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* ライセンス料 */}
+                          <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
+                            <p className="text-sm">
+                              ¥{scenario.license_amount?.toLocaleString() || 0}
+                            </p>
+                          </div>
+                        </>
+                      )}
+
+                      {/* 参加費 */}
+                      <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
+                        <p className="text-sm">
+                          ¥{scenario.participation_fee?.toLocaleString() || 0}
+                        </p>
+                      </div>
+
+                      {/* ステータス */}
+                      <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
+                        <Badge className={
+                          scenario.status === 'available' ? 'bg-green-100 text-green-800 px-1 py-0.5' :
+                          scenario.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800 px-1 py-0.5' :
+                          'bg-red-100 text-red-800 px-1 py-0.5'
+                        }>
+                          {scenario.status === 'available' ? '利用可能' :
+                          scenario.status === 'maintenance' ? 'メンテナンス中' : '引退済み'}
+                        </Badge>
+                      </div>
+
+                      {/* ジャンル（詳細表示時のみ） */}
+                      {displayMode === 'detailed' && (
+                        <div className="flex-1 px-3 py-2 border-r min-w-0">
                           {scenario.genre && scenario.genre.length > 0 && (
                             <div className="flex flex-wrap gap-1">
                               {scenario.genre.slice(0, 2).map((g: string, i: number) => (
@@ -466,16 +603,17 @@ export function ScenarioManagement() {
                             </div>
                           )}
                         </div>
-                      </div>
+                      )}
 
                       {/* アクション */}
-                      <div className="flex-shrink-0 w-32 px-3 py-2">
+                      <div className="flex-shrink-0 w-24 px-3 py-2">
                         <div className="flex gap-1 justify-center">
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             className="h-6 w-6 p-0"
                             title="編集"
+                            onClick={() => handleEditScenario(scenario)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -502,6 +640,14 @@ export function ScenarioManagement() {
             </Card>
           )}
         </div>
+
+        {/* 編集ダイアログ */}
+        <ScenarioEditModal
+          scenario={editingScenario}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={handleSaveScenario}
+        />
       </div>
     </div>
   )

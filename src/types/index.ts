@@ -39,6 +39,40 @@ export interface Staff {
   updated_at: string
 }
 
+// 料金修正ルール
+export interface PricingModifier {
+  id: string
+  condition: 'weekday' | 'weekend' | 'holiday' | 'time_range' | 'custom'
+  condition_details?: {
+    time_start?: string // "09:00"
+    time_end?: string   // "18:00"
+    custom_description?: string
+  }
+  modifier_type: 'fixed' | 'percentage'
+  license_modifier: number
+  participation_modifier: number
+  description: string
+  active: boolean
+}
+
+// GM設定
+export interface GMConfiguration {
+  required_count: number
+  optional_count: number
+  total_max: number
+  special_requirements?: string
+}
+
+// 柔軟な料金設定
+export interface FlexiblePricing {
+  base_pricing: {
+    license_amount: number
+    participation_fee: number
+  }
+  pricing_modifiers: PricingModifier[]
+  gm_configuration: GMConfiguration
+}
+
 // シナリオ関連の型定義
 export interface Scenario {
   id: string
@@ -54,7 +88,7 @@ export interface Scenario {
   rating?: number
   play_count: number
   status: 'available' | 'maintenance' | 'retired'
-  required_props: string[]
+  required_props: Array<{ item: string; amount: number; frequency: 'recurring' | 'one-time' }>
   props?: Array<{
     name: string
     cost: number
@@ -62,12 +96,14 @@ export interface Scenario {
   }>
   genre: string[]
   production_cost: number
-  production_cost_items?: Array<{
-    name: string
-    cost: number
+  production_costs?: Array<{
+    item: string
+    amount: number
   }>
   gm_fee: number
-  participation_fee: number
+  participation_fee: number // 基本料金（後方互換性のため保持）
+  // 新しい柔軟な料金設定
+  flexible_pricing?: FlexiblePricing
   notes?: string
   has_pre_reading: boolean
   release_date?: string
