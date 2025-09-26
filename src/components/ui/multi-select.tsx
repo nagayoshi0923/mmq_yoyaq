@@ -56,7 +56,7 @@ export function MultiSelect({
     if (selectedValues.length === 1) {
       return selectedValues[0]
     }
-    return `${selectedValues.length}名選択中`
+    return `${selectedValues.length}件選択中`
   }
 
   return (

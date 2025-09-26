@@ -20,6 +20,8 @@ import {
   Clock,
   ArrowLeft
 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 
 // モックデータ（後でAPIから取得）
 const mockStaff = [
@@ -187,14 +189,6 @@ export function StaffManagement() {
   }
 
   function getRoleBadges(roles: string[]) {
-    const roleColors: Record<string, string> = {
-      'gm': 'bg-blue-100 text-blue-800',
-      'manager': 'bg-purple-100 text-purple-800',
-      'staff': 'bg-green-100 text-green-800',
-      'trainee': 'bg-orange-100 text-orange-800',
-      'admin': 'bg-red-100 text-red-800'
-    }
-
     const roleNames: Record<string, string> = {
       'gm': 'GM',
       'manager': 'マネージャー',
@@ -204,7 +198,7 @@ export function StaffManagement() {
     }
 
     return roles.map((role, index) => (
-      <Badge key={index} size="sm" className={`font-normal text-xs ${roleColors[role] || 'bg-gray-100 text-gray-800'}`}>
+      <Badge key={index} size="sm" className="font-normal text-xs px-1 py-0.5 bg-gray-100 text-gray-800">
         {roleNames[role] || role}
       </Badge>
     ))
@@ -212,14 +206,14 @@ export function StaffManagement() {
 
   function getStoreColors(storeName: string) {
     const storeColorMap: Record<string, string> = {
-      '高田馬場店': 'bg-blue-500',
-      '別館①': 'bg-green-500',
-      '別館②': 'bg-purple-500',
-      '大久保店': 'bg-orange-500',
-      '大塚店': 'bg-red-500',
-      '埼玉大宮店': 'bg-amber-500'
+      '高田馬場店': 'bg-blue-100 text-blue-800',
+      '別館①': 'bg-green-100 text-green-800',
+      '別館②': 'bg-purple-100 text-purple-800',
+      '大久保店': 'bg-orange-100 text-orange-800',
+      '大塚店': 'bg-red-100 text-red-800',
+      '埼玉大宮店': 'bg-amber-100 text-amber-800'
     }
-    return storeColorMap[storeName] || 'bg-gray-500'
+    return storeColorMap[storeName] || 'bg-gray-100 text-gray-800'
   }
 
 
@@ -390,27 +384,28 @@ export function StaffManagement() {
           <div className="flex gap-4 items-center">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
+              <Input
                 type="text"
                 placeholder="スタッフ名・LINE名で検索..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="pl-10 pr-4"
               />
             </div>
             
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value="all">全ステータス</option>
-                <option value="active">在籍中</option>
-                <option value="inactive">休職中</option>
-                <option value="on-leave">休暇中</option>
-              </select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全ステータス</SelectItem>
+                  <SelectItem value="active">在籍中</SelectItem>
+                  <SelectItem value="inactive">休職中</SelectItem>
+                  <SelectItem value="on-leave">休暇中</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <Button 
@@ -465,7 +460,7 @@ export function StaffManagement() {
                           <>
                             {getRoleBadges(member.role.slice(0, 1))}
                             {member.role.length > 1 && (
-                              <Badge size="sm" variant="outline" className="font-normal text-xs">
+                              <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
                                 +{member.role.length - 1}
                               </Badge>
                             )}
@@ -481,13 +476,16 @@ export function StaffManagement() {
                       <div className="flex flex-wrap gap-1">
                         {member.stores && member.stores.length > 0 ? (
                           <>
-                            {member.stores.slice(0, 1).map((store, index) => (
-                              <Badge key={index} size="sm" variant="outline" className="font-normal text-xs">
-                                {store}
-                              </Badge>
-                            ))}
+                            {member.stores.slice(0, 1).map((storeId, index) => {
+                              const storeObj = stores.find(s => s.id === storeId)
+                              return (
+                                <Badge key={index} size="sm" variant="static" className={`font-normal text-xs px-1 py-0.5 ${getStoreColors(storeObj?.name || '')}`}>
+                                  {storeObj ? storeObj.name : storeId}
+                                </Badge>
+                              )
+                            })}
                             {member.stores.length > 1 && (
-                              <Badge size="sm" variant="outline" className="font-normal text-xs">
+                              <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
                                 +{member.stores.length - 1}
                               </Badge>
                             )}
@@ -505,12 +503,12 @@ export function StaffManagement() {
                         {member.special_scenarios && member.special_scenarios.length > 0 ? (
                           <>
                             {member.special_scenarios.slice(0, 3).map((scenario, index) => (
-                              <Badge key={index} size="sm" variant="outline" className="font-normal text-xs">
+                              <Badge key={index} size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
                                 {scenario}
                               </Badge>
                             ))}
                             {member.special_scenarios.length > 3 && (
-                              <Badge size="sm" variant="outline" className="font-normal text-xs">
+                              <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
                                 +{member.special_scenarios.length - 3}
                               </Badge>
                             )}
@@ -532,16 +530,7 @@ export function StaffManagement() {
                           className="h-6 w-6 p-0"
                           title="編集"
                         >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDeleteStaff(member)}
-                          title="削除"
-                        >
-                          <Trash2 className="h-3 w-3" />
+                          <Edit className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>

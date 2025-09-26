@@ -54,7 +54,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     email: '',
     phone: '',
     role: [],
-    store_ids: [],
+    stores: [],
     status: 'active',
     special_scenarios: [],
     notes: ''
@@ -66,7 +66,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       setFormData({
         ...staff,
         role: Array.isArray(staff.role) ? staff.role : [staff.role],
-        store_ids: staff.store_ids || [],
+        stores: staff.stores || [],
         special_scenarios: staff.special_scenarios || []
       })
     } else {
@@ -76,7 +76,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         email: '',
         phone: '',
         role: [],
-        store_ids: [],
+        stores: [],
         status: 'active',
         special_scenarios: [],
         notes: ''
@@ -98,7 +98,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       email: formData.email!,
       phone: formData.phone || '',
       role: formData.role!,
-      store_ids: formData.store_ids!,
+      stores: formData.stores!,
       status: formData.status!,
       experience: 0, // 削除された項目はデフォルト値
       availability: [], // 削除された項目はデフォルト値
@@ -189,6 +189,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 selectedValues={formData.role || []}
                 onSelectionChange={(values) => setFormData(prev => ({ ...prev, role: values }))}
                 placeholder="役割を選択"
+                showBadges={true}
               />
             </div>
             <div>
@@ -215,12 +216,13 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             <Label htmlFor="stores">担当店舗</Label>
             <MultiSelect
               options={storeOptions}
-              selectedValues={formData.store_ids?.map(id => stores.find(s => s.id === id)?.name || id) || []}
+              selectedValues={formData.stores?.map(id => stores.find(s => s.id === id)?.name || id) || []}
               onSelectionChange={(values) => {
                 const storeIds = values.map(name => stores.find(s => s.name === name)?.id || name)
-                setFormData(prev => ({ ...prev, store_ids: storeIds }))
+                setFormData(prev => ({ ...prev, stores: storeIds }))
               }}
               placeholder="担当店舗を選択"
+              showBadges={true}
             />
           </div>
 
