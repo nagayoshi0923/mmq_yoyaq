@@ -45,20 +45,21 @@ export function MultiSelect({
   })
 
   const handleToggleSelection = (value: string) => {
-    const isSelected = selectedValues.includes(value)
+    const currentValues = selectedValues || []
+    const isSelected = currentValues.includes(value)
     if (isSelected) {
-      onSelectionChange(selectedValues.filter(v => v !== value))
+      onSelectionChange(currentValues.filter(v => v !== value))
     } else {
-      onSelectionChange([...selectedValues, value])
+      onSelectionChange([...currentValues, value])
     }
   }
 
   const handleRemoveValue = (value: string) => {
-    onSelectionChange(selectedValues.filter(v => v !== value))
+    onSelectionChange((selectedValues || []).filter(v => v !== value))
   }
 
   const getDisplayValue = () => {
-    if (selectedValues.length === 0) {
+    if (!selectedValues || selectedValues.length === 0) {
       return placeholder
     }
     if (selectedValues.length === 1) {
@@ -89,7 +90,7 @@ export function MultiSelect({
         <PopoverContent className="w-full p-0" align="start">
           <div className="max-h-60 overflow-auto">
             {normalizedOptions.map(option => {
-              const isSelected = selectedValues.includes(option.name)
+              const isSelected = (selectedValues || []).includes(option.name)
               return (
                 <div
                   key={option.id}
@@ -119,7 +120,7 @@ export function MultiSelect({
       </Popover>
 
       {/* バッジ表示エリア */}
-      {showBadges && selectedValues.length > 0 && (
+      {showBadges && selectedValues && selectedValues.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {selectedValues.map((value) => (
             <Badge key={value} variant="secondary" className="flex items-center gap-1 font-normal">

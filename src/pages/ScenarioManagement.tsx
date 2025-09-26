@@ -39,7 +39,9 @@ const mockScenarios: Scenario[] = [
     difficulty: 3,
     rating: 4.2,
     status: 'available',
-    license_amount: 50000,
+    gm_costs: [{ time_slot: '通常', amount: 2000, role: 'main' }],
+    license_costs: [{ time_slot: '通常', amount: 50000, type: 'fixed' }],
+    participation_costs: [{ time_slot: '通常', amount: 3500, type: 'fixed' }],
     participation_fee: 3500,
     genre: ['ホラー', 'ミステリー'],
     available_gms: [],
@@ -50,7 +52,6 @@ const mockScenarios: Scenario[] = [
       { item: '小道具', amount: 500 },
       { item: '印刷費', amount: 300 }
     ],
-    gm_fee: 2000,
     has_pre_reading: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -66,7 +67,9 @@ const mockScenarios: Scenario[] = [
     difficulty: 4,
     rating: 4.5,
     status: 'available',
-    license_amount: 60000,
+    gm_costs: [{ time_slot: '通常', amount: 2500, role: 'main' }],
+    license_costs: [{ time_slot: '通常', amount: 60000, type: 'fixed' }],
+    participation_costs: [{ time_slot: '通常', amount: 4000, type: 'fixed' }],
     participation_fee: 4000,
     genre: ['クラシック', 'ミステリー'],
     available_gms: [],
@@ -77,14 +80,13 @@ const mockScenarios: Scenario[] = [
       { item: '特殊道具', amount: 1000 },
       { item: '資料印刷', amount: 200 }
     ],
-    gm_fee: 2500,
     has_pre_reading: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
 ]
 
-type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count_min' | 'difficulty' | 'license_amount' | 'participation_fee' | 'status' | 'available_gms'
+type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count_min' | 'difficulty' | 'participation_fee' | 'status' | 'available_gms'
 
 export function ScenarioManagement() {
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -247,7 +249,10 @@ export function ScenarioManagement() {
 
   const totalScenarios = scenarios.length
   const availableScenarios = scenarios.filter(s => s.status === 'available').length
-  const totalLicenseAmount = scenarios.reduce((sum, s) => sum + (s.license_amount || 0), 0)
+  const totalLicenseAmount = scenarios.reduce((sum, s) => {
+    const licenseAmount = s.license_costs?.find((cost: any) => cost.time_slot === '通常')?.amount || 0
+    return sum + licenseAmount
+  }, 0)
   const avgPlayers = totalScenarios > 0 
     ? (scenarios.reduce((sum, s) => sum + ((s.player_count_min || 0) + (s.player_count_max || 0)) / 2, 0) / totalScenarios).toFixed(1)
     : '0'
@@ -448,7 +453,7 @@ export function ScenarioManagement() {
                         難易度
                       </SortableTableHeader>
                       <SortableTableHeader
-                        field="license_amount"
+                        field="participation_fee"
                         currentField={sortState.field}
                         currentDirection={sortState.direction}
                         onSort={handleSort}
@@ -560,7 +565,7 @@ export function ScenarioManagement() {
                           {/* ライセンス料 */}
                           <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
                             <p className="text-sm">
-                              ¥{scenario.license_amount?.toLocaleString() || 0}
+                              ¥{scenario.license_costs?.find((cost: any) => cost.time_slot === '通常')?.amount?.toLocaleString() || 0}
                             </p>
                           </div>
                         </>
