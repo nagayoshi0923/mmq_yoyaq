@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { scenarioApi } from '@/lib/api'
@@ -10,7 +12,6 @@ import {
   BookOpen, 
   Plus, 
   Edit, 
-  Trash2, 
   Clock, 
   Users,
   Star,
@@ -23,7 +24,7 @@ import {
 } from 'lucide-react'
 
 // モックデータ（後でAPIから取得）
-const mockScenarios = [
+const mockScenarios: Scenario[] = [
   {
     id: '1',
     title: '人狼村の悲劇',
@@ -37,7 +38,15 @@ const mockScenarios = [
     status: 'available',
     license_amount: 50000,
     participation_fee: 3500,
-    genre: ['ホラー', 'ミステリー']
+    genre: ['ホラー', 'ミステリー'],
+    available_gms: [],
+    play_count: 0,
+    required_props: [],
+    production_cost: 0,
+    gm_fee: 2000,
+    has_pre_reading: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   },
   {
     id: '2', 
@@ -52,7 +61,15 @@ const mockScenarios = [
     status: 'available',
     license_amount: 60000,
     participation_fee: 4000,
-    genre: ['クラシック', 'ミステリー']
+    genre: ['クラシック', 'ミステリー'],
+    available_gms: [],
+    play_count: 0,
+    required_props: [],
+    production_cost: 0,
+    gm_fee: 2500,
+    has_pre_reading: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   }
 ]
 
@@ -83,20 +100,6 @@ export function ScenarioManagement() {
     }
   }
 
-  async function handleDeleteScenario(scenario: Scenario) {
-    if (!confirm(`「${scenario.title}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
-      return
-    }
-
-    try {
-      await scenarioApi.delete(scenario.id)
-      // 削除成功後、リストから除去
-      setScenarios(prev => prev.filter(s => s.id !== scenario.id))
-    } catch (err: any) {
-      console.error('Error deleting scenario:', err)
-      alert('シナリオの削除に失敗しました: ' + err.message)
-    }
-  }
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -278,133 +281,157 @@ export function ScenarioManagement() {
           <div className="flex gap-4 items-center">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
+              <Input
                 type="text"
                 placeholder="シナリオ名、作者で検索..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="pl-10 pr-4"
               />
             </div>
             
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value="all">全て</option>
-                <option value="available">利用可能</option>
-                <option value="maintenance">メンテナンス</option>
-                <option value="retired">引退</option>
-              </select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全て</SelectItem>
+                  <SelectItem value="available">利用可能</SelectItem>
+                  <SelectItem value="maintenance">メンテナンス</SelectItem>
+                  <SelectItem value="retired">引退</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* シナリオ一覧 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredScenarios.map((scenario) => (
-              <Card key={scenario.id} className="bg-card border-border">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <BookOpen className="h-5 w-5 text-muted-foreground" />
-                        {scenario.title}
-                      </CardTitle>
-                      <CardDescription className="text-muted-foreground">
-                        {scenario.author}
-                      </CardDescription>
-                    </div>
-                    <Badge className={
-                      scenario.status === 'available' ? 'bg-green-100 text-green-800' :
-                      scenario.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }>
-                      {scenario.status === 'available' ? '利用可能' :
-                      scenario.status === 'maintenance' ? 'メンテナンス中' : '引退済み'}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {scenario.description || '説明がありません。'}
-                  </p>
+          {/* シナリオ一覧 - スプレッドシート形式 */}
+          <div className="space-y-1">
+            {/* ヘッダー行 */}
+            <Card>
+              <CardContent className="p-0">
+                <div className="flex items-center h-[50px] bg-muted/30">
+                  <div className="flex-shrink-0 w-48 px-3 py-2 border-r font-medium text-sm">基本情報</div>
+                  <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">所要時間・人数</div>
+                  <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">難易度・評価</div>
+                  <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">料金</div>
+                  <div className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0">ジャンル・ステータス</div>
+                  <div className="flex-shrink-0 w-32 px-3 py-2 font-medium text-sm text-center">アクション</div>
+                </div>
+              </CardContent>
+            </Card>
 
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">所要時間</p>
-                      <p className="text-lg font-bold flex items-center gap-1">
-                        <Clock className="h-4 w-4" /> {scenario.duration}分
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">プレイヤー数</p>
-                      <p className="text-lg font-bold flex items-center gap-1">
-                        <Users className="h-4 w-4" /> {scenario.player_count_min}-{scenario.player_count_max}名
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">難易度</p>
-                      <div className="flex items-center gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star 
-                            key={i} 
-                            className={`h-4 w-4 ${i < (scenario.difficulty || 0) ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} 
-                          />
-                        ))}
+            {/* シナリオデータ行 */}
+            <div className="space-y-1">
+              {filteredScenarios.map((scenario) => (
+                <Card key={scenario.id}>
+                  <CardContent className="p-0">
+                    <div className="flex items-center min-h-[60px]">
+                      {/* 基本情報 */}
+                      <div className="flex-shrink-0 w-48 px-3 py-2 border-r">
+                        <div className="space-y-1">
+                          <p className="font-medium text-sm truncate" title={scenario.title}>
+                            {scenario.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate" title={scenario.author}>
+                            {scenario.author}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 所要時間・人数 */}
+                      <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
+                        <div className="space-y-1">
+                          <p className="text-sm flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> {scenario.duration}分
+                          </p>
+                          <p className="text-sm flex items-center gap-1">
+                            <Users className="h-3 w-3" /> {scenario.player_count_min}-{scenario.player_count_max}名
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 難易度・評価 */}
+                      <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            {[...Array(5)].map((_, i) => (
+                              <Star 
+                                key={i} 
+                                className={`h-3 w-3 ${i < (scenario.difficulty || 0) ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} 
+                              />
+                            ))}
+                          </div>
+                          <p className="text-sm flex items-center gap-1">
+                            <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" /> {scenario.rating || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 料金 */}
+                      <div className="flex-shrink-0 w-40 px-3 py-2 border-r">
+                        <div className="space-y-1">
+                          <p className="text-sm">
+                            ライセンス: ¥{scenario.license_amount?.toLocaleString() || 0}
+                          </p>
+                          <p className="text-sm">
+                            参加費: ¥{scenario.participation_fee?.toLocaleString() || 0}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* ジャンル・ステータス */}
+                      <div className="flex-1 px-3 py-2 border-r min-w-0">
+                        <div className="space-y-2">
+                          {/* ステータス */}
+                          <div className="flex items-center gap-2">
+                            <Badge className={
+                              scenario.status === 'available' ? 'bg-green-100 text-green-800 px-1 py-0.5' :
+                              scenario.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800 px-1 py-0.5' :
+                              'bg-red-100 text-red-800 px-1 py-0.5'
+                            }>
+                              {scenario.status === 'available' ? '利用可能' :
+                              scenario.status === 'maintenance' ? 'メンテナンス中' : '引退済み'}
+                            </Badge>
+                          </div>
+                          
+                          {/* ジャンル */}
+                          {scenario.genre && scenario.genre.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {scenario.genre.slice(0, 2).map((g, i) => (
+                                <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
+                                  {g}
+                                </Badge>
+                              ))}
+                              {scenario.genre.length > 2 && (
+                                <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
+                                  +{scenario.genre.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* アクション */}
+                      <div className="flex-shrink-0 w-32 px-3 py-2">
+                        <div className="flex gap-1 justify-center">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 w-6 p-0"
+                            title="編集"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">評価</p>
-                      <p className="text-lg font-bold flex items-center gap-1">
-                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" /> {scenario.rating || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">ライセンス料</p>
-                      <p className="text-lg font-bold">¥{scenario.license_amount?.toLocaleString() || 0}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">参加費</p>
-                      <p className="text-lg font-bold">¥{scenario.participation_fee?.toLocaleString() || 0}</p>
-                    </div>
-                  </div>
-
-                  {scenario.genre && scenario.genre.length > 0 && (
-                    <div className="pt-2 border-t border-border">
-                      <p className="text-sm font-medium text-muted-foreground mb-1">ジャンル</p>
-                      <div className="flex flex-wrap gap-2">
-                        {scenario.genre.map((g, i) => (
-                          <Badge key={i} variant="secondary">{g}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Edit className="h-4 w-4 mr-2" />
-                      編集
-                    </Button>
-                    <Button 
-                      variant="destructive" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => handleDeleteScenario(scenario)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      削除
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
 
           {/* 検索結果が空の場合 */}
