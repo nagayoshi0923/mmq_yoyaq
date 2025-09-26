@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
+import { SortableTableHeader } from '@/components/ui/sortable-table-header'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { scenarioApi } from '@/lib/api'
+import { useSortableTable } from '@/hooks/useSortableTable'
 import type { Scenario } from '@/types'
 import { 
   BookOpen, 
@@ -73,10 +75,7 @@ const mockScenarios: Scenario[] = [
   }
 ]
 
-type SortField = 'title' | 'author' | 'duration' | 'difficulty' | 'rating' | 'license_amount' | 'participation_fee' | 'status'
-type SortDirection = 'asc' | 'desc'
-
-const SORT_STORAGE_KEY = 'scenario_sort_state'
+type ScenarioSortField = 'title' | 'author' | 'duration' | 'difficulty' | 'rating' | 'license_amount' | 'participation_fee' | 'status'
 
 export function ScenarioManagement() {
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -85,31 +84,11 @@ export function ScenarioManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   
-  // localStorageから並び替え状態を復元、デフォルトは名前降順
-  const [sortField, setSortField] = useState<SortField>(() => {
-    try {
-      const saved = localStorage.getItem(SORT_STORAGE_KEY)
-      if (saved) {
-        const { field } = JSON.parse(saved)
-        return field || 'title'
-      }
-    } catch (error) {
-      console.warn('Failed to load sort state from localStorage:', error)
-    }
-    return 'title'
-  })
-  
-  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
-    try {
-      const saved = localStorage.getItem(SORT_STORAGE_KEY)
-      if (saved) {
-        const { direction } = JSON.parse(saved)
-        return direction || 'desc'
-      }
-    } catch (error) {
-      console.warn('Failed to load sort state from localStorage:', error)
-    }
-    return 'desc'
+  // 並び替え機能
+  const { sortState, handleSort, sortData } = useSortableTable<ScenarioSortField>({
+    storageKey: 'scenario_sort_state',
+    defaultField: 'title',
+    defaultDirection: 'desc'
   })
 
   useEffect(() => {
@@ -132,44 +111,6 @@ export function ScenarioManagement() {
     }
   }
 
-  function handleSort(field: SortField) {
-    let newDirection: SortDirection
-    
-    if (sortField === field) {
-      // 同じフィールドをクリックした場合：asc ↔ desc のサイクル
-      newDirection = sortDirection === 'asc' ? 'desc' : 'asc'
-    } else {
-      // 異なるフィールドをクリックした場合：昇順から開始
-      newDirection = 'asc'
-    }
-    
-    setSortField(field)
-    setSortDirection(newDirection)
-    
-    // localStorageに保存
-    try {
-      localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({
-        field,
-        direction: newDirection
-      }))
-    } catch (error) {
-      console.warn('Failed to save sort state to localStorage:', error)
-    }
-  }
-
-  function getSortHeaderStyle(field: SortField) {
-    const baseStyle = 'cursor-pointer hover:bg-muted/50'
-    
-    if (sortField !== field) {
-      return baseStyle
-    }
-    
-    if (sortDirection === 'asc') {
-      return `${baseStyle} border-t-2 border-t-blue-500`
-    } else {
-      return `${baseStyle} border-b-2 border-b-blue-500`
-    }
-  }
 
 
   // ハッシュ変更でページ切り替え
@@ -189,8 +130,8 @@ export function ScenarioManagement() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  const filteredAndSortedScenarios = scenarios
-    .filter(scenario => {
+  const filteredAndSortedScenarios = sortData(
+    scenarios.filter(scenario => {
       const matchesSearch = 
         scenario.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         scenario.author.toLowerCase().includes(searchTerm.toLowerCase())
@@ -200,30 +141,7 @@ export function ScenarioManagement() {
       
       return matchesSearch && matchesStatus
     })
-    .sort((a, b) => {
-      let aValue: any = a[sortField]
-      let bValue: any = b[sortField]
-      
-      // 文字列の場合は小文字で比較
-      if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase()
-        bValue = bValue.toLowerCase()
-      }
-      
-      // null/undefined の処理
-      if (aValue == null && bValue == null) return 0
-      if (aValue == null) return sortDirection === 'asc' ? 1 : -1
-      if (bValue == null) return sortDirection === 'asc' ? -1 : 1
-      
-      let comparison = 0
-      if (aValue < bValue) {
-        comparison = -1
-      } else if (aValue > bValue) {
-        comparison = 1
-      }
-      
-      return sortDirection === 'asc' ? comparison : -comparison
-    })
+  )
 
   if (loading) {
     return (
@@ -408,36 +326,51 @@ export function ScenarioManagement() {
             <Card>
               <CardContent className="p-0">
                 <div className="flex items-center h-[50px] bg-muted/30">
-                  <div 
-                    className={`flex-shrink-0 w-48 px-3 py-2 border-r font-medium text-sm ${getSortHeaderStyle('title')}`}
-                    onClick={() => handleSort('title')}
+                  <SortableTableHeader
+                    field="title"
+                    currentField={sortState.field}
+                    currentDirection={sortState.direction}
+                    onSort={handleSort}
+                    className="flex-shrink-0 w-48 px-3 py-2 border-r font-medium text-sm"
                   >
                     基本情報
-                  </div>
-                  <div 
-                    className={`flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm ${getSortHeaderStyle('duration')}`}
-                    onClick={() => handleSort('duration')}
+                  </SortableTableHeader>
+                  <SortableTableHeader
+                    field="duration"
+                    currentField={sortState.field}
+                    currentDirection={sortState.direction}
+                    onSort={handleSort}
+                    className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm"
                   >
                     所要時間・人数
-                  </div>
-                  <div 
-                    className={`flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm ${getSortHeaderStyle('difficulty')}`}
-                    onClick={() => handleSort('difficulty')}
+                  </SortableTableHeader>
+                  <SortableTableHeader
+                    field="difficulty"
+                    currentField={sortState.field}
+                    currentDirection={sortState.direction}
+                    onSort={handleSort}
+                    className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm"
                   >
                     難易度・評価
-                  </div>
-                  <div 
-                    className={`flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm ${getSortHeaderStyle('license_amount')}`}
-                    onClick={() => handleSort('license_amount')}
+                  </SortableTableHeader>
+                  <SortableTableHeader
+                    field="license_amount"
+                    currentField={sortState.field}
+                    currentDirection={sortState.direction}
+                    onSort={handleSort}
+                    className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm"
                   >
                     料金
-                  </div>
-                  <div 
-                    className={`flex-1 px-3 py-2 border-r font-medium text-sm min-w-0 ${getSortHeaderStyle('status')}`}
-                    onClick={() => handleSort('status')}
+                  </SortableTableHeader>
+                  <SortableTableHeader
+                    field="status"
+                    currentField={sortState.field}
+                    currentDirection={sortState.direction}
+                    onSort={handleSort}
+                    className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0"
                   >
                     ジャンル・ステータス
-                  </div>
+                  </SortableTableHeader>
                   <div className="flex-shrink-0 w-32 px-3 py-2 font-medium text-sm text-center">アクション</div>
                 </div>
               </CardContent>
@@ -520,7 +453,7 @@ export function ScenarioManagement() {
                           {/* ジャンル */}
                           {scenario.genre && scenario.genre.length > 0 && (
                             <div className="flex flex-wrap gap-1">
-                              {scenario.genre.slice(0, 2).map((g, i) => (
+                              {scenario.genre.slice(0, 2).map((g: string, i: number) => (
                                 <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
                                   {g}
                                 </Badge>
