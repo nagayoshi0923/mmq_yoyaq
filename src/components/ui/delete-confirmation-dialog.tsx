@@ -21,7 +21,7 @@ interface DeleteConfirmationDialogProps {
   status?: 'active' | 'legacy' | 'unused' | 'ready'
   scenarioName?: string // シナリオ名確認用
   requireScenarioNameConfirmation?: boolean // シナリオ名入力を必須にするか
-  onConfirm: () => void
+  onConfirm: (action: 'delete' | 'archive') => void // 削除またはアーカイブのアクション
 }
 
 export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
@@ -36,6 +36,7 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
   onConfirm
 }) => {
   const [scenarioNameInput, setScenarioNameInput] = useState('')
+  const [selectedAction, setSelectedAction] = useState<'delete' | 'archive'>('archive')
   
   const handleConfirm = () => {
     // シナリオ名確認が必要な場合、入力値をチェック
@@ -46,9 +47,10 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
       }
     }
     
-    onConfirm()
+    onConfirm(selectedAction)
     onOpenChange(false)
     setScenarioNameInput('') // リセット
+    setSelectedAction('archive') // リセット
   }
   
   // ダイアログが閉じられた時にリセット
@@ -169,12 +171,54 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
             </div>
           )}
 
-          {/* 削除可能な場合の説明 */}
+          {/* 削除オプション選択 */}
           {canDelete && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-gray-700 text-sm">
-                この操作は取り消せません。削除後は設定を復元することはできません。
-              </p>
+              <div className="flex items-center gap-2 text-gray-700 font-medium mb-3">
+                🔧 削除方法を選択してください
+              </div>
+              
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="deleteAction"
+                    value="archive"
+                    checked={selectedAction === 'archive'}
+                    onChange={(e) => setSelectedAction(e.target.value as 'delete' | 'archive')}
+                    className="mt-1"
+                  />
+                  <div>
+                    <div className="font-medium text-gray-700">アーカイブ（推奨）</div>
+                    <div className="text-sm text-gray-600">
+                      設定を「過去のみ」に変更します。過去の公演データは保持されます。
+                    </div>
+                  </div>
+                </label>
+                
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="deleteAction"
+                    value="delete"
+                    checked={selectedAction === 'delete'}
+                    onChange={(e) => setSelectedAction(e.target.value as 'delete' | 'archive')}
+                    className="mt-1"
+                  />
+                  <div>
+                    <div className="font-medium text-gray-700">完全削除</div>
+                    <div className="text-sm text-gray-600">
+                      設定を完全に削除し、過去の公演も再計算されます。
+                    </div>
+                  </div>
+                </label>
+              </div>
+              
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <p className="text-gray-600 text-xs">
+                  ⚠️ この操作は取り消せません。
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -188,11 +232,11 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
           </Button>
           {canDelete && (
             <Button
-              variant="destructive"
+              variant={selectedAction === 'delete' ? 'destructive' : 'default'}
               onClick={handleConfirm}
               disabled={requireScenarioNameConfirmation && scenarioName && scenarioNameInput !== scenarioName}
             >
-              削除する
+              {selectedAction === 'delete' ? '完全削除' : 'アーカイブ'}
             </Button>
           )}
         </DialogFooter>

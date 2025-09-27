@@ -47,7 +47,6 @@ interface ConditionalSettingsProps {
 // 金額を表示用にフォーマット（カンマ区切り + 円）
 const formatCurrency = (amount: number | string) => {
   const num = typeof amount === 'string' ? parseInt(amount) || 0 : amount
-  if (num === 0) return ''
   return `${num.toLocaleString()}円`
 }
 
@@ -113,6 +112,27 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
   
   // 表示する項目をフィルタリング
   const visibleItems = hideLegacy ? items.filter(item => item.status !== 'legacy') : items
+
+  // 「通常」設定のバリデーション
+  const validateNormalSetting = () => {
+    const hasNormalSetting = items.some(item => 
+      item.condition === '通常' && (item.status === 'active' || item.status === 'ready')
+    )
+    const hasOtherSettings = items.some(item => 
+      item.condition !== '通常' && (item.status === 'active' || item.status === 'ready')
+    )
+    
+    if (hasOtherSettings && !hasNormalSetting) {
+      return {
+        hasError: true,
+        message: '「通常」の設定が必要です。他の条件設定がある場合は、基本となる「通常」の設定を追加してください。'
+      }
+    }
+    
+    return { hasError: false, message: '' }
+  }
+
+  const validation = validateNormalSetting()
 
   // 削除ボタンクリック時の処理
   const handleDeleteClick = (index: number) => {
@@ -203,20 +223,8 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
 
   // シンプルな初期化処理
   useEffect(() => {
-    // 金額が0の場合は2000に設定
-    if (newItem.amount === 0) {
-      updateNewItem('amount', 2000)
-    }
     // 条件が未選択の場合は最初の選択肢に設定
     if (newItem.condition === '__unselected__' && conditionOptions.length > 0) {
-      updateNewItem('condition', conditionOptions[0].value)
-    }
-  }, [])
-
-  // 新規入力欄の初期値を必ずセット
-  useEffect(() => {
-    if (newItem.amount === 0) updateNewItem('amount', 2000)
-    if ((!newItem.condition || newItem.condition === '__unselected__') && conditionOptions.length > 0) {
       updateNewItem('condition', conditionOptions[0].value)
     }
     if (!newItem.status) updateNewItem('status', 'ready')
@@ -241,6 +249,18 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
         </div>
         {subtitle && (
           <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+        )}
+        
+        {/* バリデーションエラー表示 */}
+        {validation.hasError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
+            <div className="flex items-center gap-2 text-red-700 font-medium mb-1">
+              ⚠️ 設定エラー
+            </div>
+            <p className="text-red-600 text-sm">
+              {validation.message}
+            </p>
+          </div>
         )}
       </div>
       
@@ -277,7 +297,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
             <Input
               type="text"
               placeholder={placeholder}
-              value={item.type === 'percentage' ? (item.amount || '') : formatCurrency(item.amount || 0)}
+              value={item.type === 'percentage' ? (item.amount || '') : (item.amount === 0 ? '0円' : formatCurrency(item.amount || 0))}
               onChange={(e) => {
                 const inputValue = e.target.value
                 const value = item.type === 'percentage' 
@@ -423,7 +443,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
           <Input
             type="text"
             placeholder={placeholder}
-            value={newItem.type === 'percentage' ? (newItem.amount || '') : formatCurrency(newItem.amount || 0)}
+            value={newItem.type === 'percentage' ? (newItem.amount || '') : (newItem.amount === 0 ? '0円' : formatCurrency(newItem.amount || 0))}
             onChange={(e) => {
               const inputValue = e.target.value
               const value = newItem.type === 'percentage' 
@@ -522,7 +542,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
           <Button 
             type="button" 
             onClick={handleAddClick}
-            disabled={newItem.amount <= 0 || !newItem.condition || newItem.condition === '__unselected__'}
+            disabled={newItem.amount < 0 || !newItem.condition || newItem.condition === '__unselected__'}
           >
             {addButtonText}
           </Button>

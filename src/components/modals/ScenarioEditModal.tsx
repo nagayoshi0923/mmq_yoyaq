@@ -12,6 +12,30 @@ import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-di
 import { MigrationConfirmationDialog } from '@/components/ui/migration-confirmation-dialog'
 import type { Scenario, FlexiblePricing, PricingModifier } from '@/types'
 
+// 全角数字を半角数字に変換
+const convertFullWidthToHalfWidth = (str: string) => {
+  return str.replace(/[０-９]/g, (char) => {
+    return String.fromCharCode(char.charCodeAt(0) - 0xFEE0)
+  })
+}
+
+// 金額を表示用にフォーマット（カンマ区切り + 円）
+const formatCurrency = (amount: number | string) => {
+  const num = typeof amount === 'string' ? parseInt(amount) || 0 : amount
+  const result = `${num.toLocaleString()}円`
+  console.log('formatCurrency', { input: amount, num, result })
+  return result
+}
+
+// 表示用文字列から数値を抽出
+const parseCurrency = (value: string) => {
+  // 全角数字を半角に変換してから処理
+  const halfWidthValue = convertFullWidthToHalfWidth(value)
+  const result = parseInt(halfWidthValue.replace(/[^\d]/g, '')) || 0
+  console.log('parseCurrency', { input: value, halfWidth: halfWidthValue, result })
+  return result
+}
+
 interface ScenarioEditModalProps {
   scenario: Scenario | null
   isOpen: boolean
@@ -107,7 +131,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   
   // ライセンス報酬用
   const [newLicenseRewardItem, setNewLicenseRewardItem] = useState('通常')
-  const [newLicenseRewardAmount, setNewLicenseRewardAmount] = useState(0)
+  // 金額入力値stateを追加
+  const [newLicenseRewardAmountInput, setNewLicenseRewardAmountInput] = useState('')
   
   // 削除確認ダイアログ用
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -121,6 +146,27 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   
   // 過去のみ非表示状態管理
   const [hideLegacyRewards, setHideLegacyRewards] = useState(false)
+
+  // ライセンス報酬の「通常」設定バリデーション
+  const validateLicenseNormalSetting = () => {
+    const hasNormalSetting = formData.license_rewards.some(reward => 
+      reward.item === '通常' && (reward.status === 'active' || reward.status === 'ready')
+    )
+    const hasOtherSettings = formData.license_rewards.some(reward => 
+      reward.item !== '通常' && (reward.status === 'active' || reward.status === 'ready')
+    )
+    
+    if (hasOtherSettings && !hasNormalSetting) {
+      return {
+        hasError: true,
+        message: '「通常」の設定が必要です。他の条件設定がある場合は、基本となる「通常」の設定を追加してください。'
+      }
+    }
+    
+    return { hasError: false, message: '' }
+  }
+
+  const licenseValidation = validateLicenseNormalSetting()
   
   
   
@@ -175,10 +221,12 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   // ライセンス報酬管理
   const addLicenseReward = () => {
-    if (newLicenseRewardItem && newLicenseRewardAmount > 0) {
+    console.log('addLicenseReward called', newLicenseRewardItem, newLicenseRewardAmountInput)
+    if (newLicenseRewardItem && newLicenseRewardAmountInput !== '') {
+      const amount = parseCurrency(newLicenseRewardAmountInput)
       console.log('DEBUG: Adding license reward', {
         newItem: newLicenseRewardItem,
-        newAmount: newLicenseRewardAmount,
+        newAmount: amount,
         existingRewards: formData.license_rewards.map(r => ({ item: r.item, status: r.status, amount: r.amount }))
       })
       
@@ -207,13 +255,13 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           ...prev,
           license_rewards: [...prev.license_rewards, { 
             item: newLicenseRewardItem, 
-            amount: newLicenseRewardAmount,
-            status: getItemStatus(newLicenseRewardAmount, 0),
+            amount: amount,
+            status: getItemStatus(amount, 0),
             usageCount: 0
           }]
         }))
         setNewLicenseRewardItem('通常')
-        setNewLicenseRewardAmount(0)
+        setNewLicenseRewardAmountInput('')
       }
     }
   }
@@ -223,13 +271,13 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     setDeleteDialogOpen(true)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = (action: 'delete' | 'archive') => {
     if (deleteTargetIndex === null) return
     
     const reward = formData.license_rewards[deleteTargetIndex]
     
-    // 使用実績がある場合はlegacyステータスに変更、未使用の場合は完全削除
-    if (reward.usageCount && reward.usageCount > 0) {
+    if (action === 'archive') {
+      // アーカイブ: ステータスを「過去のみ」に変更
       setFormData(prev => ({
         ...prev,
         license_rewards: prev.license_rewards.map((item, i) => 
@@ -237,6 +285,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         )
       }))
     } else {
+      // 完全削除: 項目を完全に削除
       setFormData(prev => ({
         ...prev,
         license_rewards: prev.license_rewards.filter((_, i) => i !== deleteTargetIndex)
@@ -260,7 +309,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       // 新しい項目を「使用中」として追加
       const newActiveReward = {
         item: newLicenseRewardItem,
-        amount: newLicenseRewardAmount,
+        amount: parseCurrency(newLicenseRewardAmountInput),
         status: 'active' as const,
         usageCount: 0
       }
@@ -272,7 +321,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       
       // 入力欄をリセット
       setNewLicenseRewardItem('通常')
-      setNewLicenseRewardAmount(0)
+      setNewLicenseRewardAmountInput('')
       setExistingActiveReward(null)
     }
   }
@@ -1078,7 +1127,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 {/* ライセンス報酬 */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium">ライセンス報酬</h4>
+                    <div>
+                      <h4 className="font-medium">ライセンス報酬</h4>
+                      <p className="text-sm text-gray-500 mt-1">時間帯や曜日に応じて異なるライセンス料を設定できます</p>
+                    </div>
                     <label className="flex items-center gap-2 text-sm text-gray-600">
                       <input
                         type="checkbox"
@@ -1089,6 +1141,19 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                       過去のみを非表示
                     </label>
                   </div>
+                  
+                  {/* バリデーションエラー表示 */}
+                  {licenseValidation.hasError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-red-700 font-medium mb-1">
+                        ⚠️ 設定エラー
+                      </div>
+                      <p className="text-red-600 text-sm">
+                        {licenseValidation.message}
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="flex gap-2">
                     <Select value={newLicenseRewardItem} onValueChange={(value) => setNewLicenseRewardItem(value)}>
                       <SelectTrigger className="flex-1">
@@ -1105,14 +1170,35 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     <Input
                       type="text"
                       placeholder="金額"
-                      value={formatCurrency(newLicenseRewardAmount || 0)}
-                      onChange={(e) => setNewLicenseRewardAmount(parseCurrency(e.target.value))}
+                      value={newLicenseRewardAmountInput}
+                      onChange={e => {
+                        console.log('Input onChange', e.target.value)
+                        setNewLicenseRewardAmountInput(e.target.value)
+                      }}
+                      onBlur={() => {
+                        console.log('Input onBlur', newLicenseRewardAmountInput)
+                        const parsed = parseCurrency(newLicenseRewardAmountInput)
+                        console.log('Parsed result', parsed)
+                        
+                        // 0の場合は明示的に「0円」を設定
+                        const formatted = parsed === 0 ? '0円' : formatCurrency(parsed)
+                        console.log('Formatted result', formatted)
+                        setNewLicenseRewardAmountInput(formatted)
+                      }}
                       className="w-[120px]"
                     />
+                    <span className="text-xs text-gray-500">DEBUG: "{newLicenseRewardAmountInput}"</span>
                     <Button 
                       type="button" 
-                      onClick={addLicenseReward}
-                      disabled={!newLicenseRewardItem || newLicenseRewardAmount <= 0}
+                      onClick={() => {
+                        console.log('追加ボタンクリック', { 
+                          item: newLicenseRewardItem, 
+                          input: newLicenseRewardAmountInput,
+                          disabled: !newLicenseRewardItem || newLicenseRewardAmountInput === ''
+                        })
+                        addLicenseReward()
+                      }}
+                      disabled={false} // テスト用：常に有効
                     >
                       追加
                     </Button>
@@ -1162,9 +1248,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                         </div>
                           )
                         })}
-                      <div className="text-sm font-medium text-right">
-                        合計: {formatCurrency(formData.license_rewards.reduce((sum, reward) => sum + reward.amount, 0))}
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1395,7 +1478,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           itemName={existingActiveReward?.reward.item || ''}
           itemType="ライセンス報酬"
           existingAmount={existingActiveReward?.reward.amount || 0}
-          newAmount={newLicenseRewardAmount}
+          newAmount={parseCurrency(newLicenseRewardAmountInput)}
           usageCount={existingActiveReward?.reward.usageCount || 0}
           onConfirm={handleLicenseMigrationConfirm}
           onCancel={handleLicenseMigrationCancel}
