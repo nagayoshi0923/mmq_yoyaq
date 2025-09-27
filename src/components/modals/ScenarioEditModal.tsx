@@ -22,18 +22,14 @@ const convertFullWidthToHalfWidth = (str: string) => {
 // 金額を表示用にフォーマット（カンマ区切り + 円）
 const formatCurrency = (amount: number | string) => {
   const num = typeof amount === 'string' ? parseInt(amount) || 0 : amount
-  const result = `${num.toLocaleString()}円`
-  console.log('formatCurrency', { input: amount, num, result })
-  return result
+  return `${num.toLocaleString()}円`
 }
 
 // 表示用文字列から数値を抽出
 const parseCurrency = (value: string) => {
   // 全角数字を半角に変換してから処理
   const halfWidthValue = convertFullWidthToHalfWidth(value)
-  const result = parseInt(halfWidthValue.replace(/[^\d]/g, '')) || 0
-  console.log('parseCurrency', { input: value, halfWidth: halfWidthValue, result })
-  return result
+  return parseInt(halfWidthValue.replace(/[^\d]/g, '')) || 0
 }
 
 interface ScenarioEditModalProps {
@@ -57,7 +53,7 @@ interface ScenarioFormData {
   production_costs: { item: string; amount: number }[]
   genre: string[]
   required_props: { item: string; amount: number; frequency: 'recurring' | 'one-time' }[]
-  license_rewards: { item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
+  license_rewards: { item: string; amount: number; type?: 'fixed' | 'percentage'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   has_pre_reading: boolean
   gm_count: number
   gm_assignments: { role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
@@ -133,6 +129,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   const [newLicenseRewardItem, setNewLicenseRewardItem] = useState('通常')
   // 金額入力値stateを追加
   const [newLicenseRewardAmountInput, setNewLicenseRewardAmountInput] = useState('')
+  const [newLicenseRewardType, setNewLicenseRewardType] = useState<'fixed' | 'percentage'>('fixed')
   
   // 削除確認ダイアログ用
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -221,28 +218,17 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   // ライセンス報酬管理
   const addLicenseReward = () => {
-    console.log('addLicenseReward called', newLicenseRewardItem, newLicenseRewardAmountInput)
     if (newLicenseRewardItem && newLicenseRewardAmountInput !== '') {
       const amount = parseCurrency(newLicenseRewardAmountInput)
-      console.log('DEBUG: Adding license reward', {
-        newItem: newLicenseRewardItem,
-        newAmount: amount,
-        existingRewards: formData.license_rewards.map(r => ({ item: r.item, status: r.status, amount: r.amount }))
-      })
       
       // 同じ項目で使用中の設定があるかチェック
       const existingActiveIndex = formData.license_rewards.findIndex(reward => 
         reward.item === newLicenseRewardItem && reward.status === 'active'
       )
       
-      console.log('DEBUG: Existing active check', {
-        existingActiveIndex,
-        foundReward: existingActiveIndex !== -1 ? formData.license_rewards[existingActiveIndex] : null
-      })
       
       if (existingActiveIndex !== -1) {
         // 使用中の項目がある場合は移行確認ダイアログを表示
-        console.log('DEBUG: Showing migration dialog for license')
         setExistingActiveReward({
           index: existingActiveIndex,
           reward: formData.license_rewards[existingActiveIndex]
@@ -250,18 +236,19 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         setMigrationDialogOpen(true)
       } else {
         // 使用中の項目がない場合は通常の追加
-        console.log('DEBUG: Normal license add')
         setFormData(prev => ({
           ...prev,
           license_rewards: [...prev.license_rewards, { 
             item: newLicenseRewardItem, 
             amount: amount,
+            type: newLicenseRewardType,
             status: getItemStatus(amount, 0),
             usageCount: 0
           }]
         }))
         setNewLicenseRewardItem('通常')
         setNewLicenseRewardAmountInput('')
+        setNewLicenseRewardType('fixed')
       }
     }
   }
@@ -626,18 +613,21 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
               { 
                 item: '通常', 
                 amount: 1500, 
+                type: 'fixed',
                 status: 'active', 
                 usageCount: 12 
               },
               { 
                 item: '土日祝', 
-                amount: 2000, 
+                amount: 20, 
+                type: 'percentage',
                 status: 'legacy', 
                 usageCount: 8 
               },
               { 
                 item: '特別', 
                 amount: 2500, 
+                type: 'fixed',
                 status: 'ready', 
                 usageCount: 0 
               }
@@ -646,6 +636,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           return (scenario.license_rewards as any[]).map(reward => ({
             item: reward.item || '',
             amount: reward.amount || 0,
+            type: reward.type || 'fixed',
             status: reward.status || getItemStatus(reward.amount || 0, reward.usageCount || 0),
             usageCount: reward.usageCount || 0
           }))
@@ -1169,36 +1160,50 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     </Select>
                     <Input
                       type="text"
-                      placeholder="金額"
+                      placeholder={newLicenseRewardType === 'percentage' ? '割合' : '金額'}
                       value={newLicenseRewardAmountInput}
-                      onChange={e => {
-                        console.log('Input onChange', e.target.value)
-                        setNewLicenseRewardAmountInput(e.target.value)
-                      }}
+                      onChange={e => setNewLicenseRewardAmountInput(e.target.value)}
                       onBlur={() => {
-                        console.log('Input onBlur', newLicenseRewardAmountInput)
                         const parsed = parseCurrency(newLicenseRewardAmountInput)
-                        console.log('Parsed result', parsed)
-                        
-                        // 0の場合は明示的に「0円」を設定
-                        const formatted = parsed === 0 ? '0円' : formatCurrency(parsed)
-                        console.log('Formatted result', formatted)
-                        setNewLicenseRewardAmountInput(formatted)
+                        if (newLicenseRewardType === 'percentage') {
+                          const formatted = parsed === 0 ? '0%' : `${parsed}%`
+                          setNewLicenseRewardAmountInput(formatted)
+                        } else {
+                          const formatted = parsed === 0 ? '0円' : formatCurrency(parsed)
+                          setNewLicenseRewardAmountInput(formatted)
+                        }
                       }}
                       className="w-[120px]"
                     />
-                    <span className="text-xs text-gray-500">DEBUG: "{newLicenseRewardAmountInput}"</span>
+                    <Select 
+                      value={newLicenseRewardType} 
+                      onValueChange={(value: 'fixed' | 'percentage') => {
+                        setNewLicenseRewardType(value)
+                        // タイプ変更時に既存の入力値を適切にフォーマット
+                        if (newLicenseRewardAmountInput) {
+                          const parsed = parseCurrency(newLicenseRewardAmountInput)
+                          if (value === 'percentage') {
+                            const formatted = parsed === 0 ? '0%' : `${parsed}%`
+                            setNewLicenseRewardAmountInput(formatted)
+                          } else {
+                            const formatted = parsed === 0 ? '0円' : formatCurrency(parsed)
+                            setNewLicenseRewardAmountInput(formatted)
+                          }
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">固定額</SelectItem>
+                        <SelectItem value="percentage">割合</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button 
                       type="button" 
-                      onClick={() => {
-                        console.log('追加ボタンクリック', { 
-                          item: newLicenseRewardItem, 
-                          input: newLicenseRewardAmountInput,
-                          disabled: !newLicenseRewardItem || newLicenseRewardAmountInput === ''
-                        })
-                        addLicenseReward()
-                      }}
-                      disabled={false} // テスト用：常に有効
+                      onClick={addLicenseReward}
+                      disabled={!newLicenseRewardItem || newLicenseRewardAmountInput === ''}
                     >
                       追加
                     </Button>
@@ -1216,7 +1221,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                         <div key={originalIndex} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                           <div className="flex items-center gap-2">
                             <span className="text-sm">
-                              {reward.item}: {formatCurrency(reward.amount)}
+                              {reward.item}: {reward.type === 'percentage' ? `${reward.amount}%` : `${reward.amount.toLocaleString()}円`}
                             </span>
                             {reward.status && (
                               <Badge 
