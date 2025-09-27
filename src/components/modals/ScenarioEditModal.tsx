@@ -33,7 +33,7 @@ interface ScenarioFormData {
   required_props: { item: string; amount: number; frequency: 'recurring' | 'one-time' }[]
   has_pre_reading: boolean
   gm_count: number
-  gm_assignments: { role: 'main' | 'sub'; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
+  gm_assignments: { role: 'main' | 'sub1' | 'sub2' | 'sub3' | 'sub4'; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   // 時間帯別料金設定
   license_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   participation_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
@@ -268,22 +268,17 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }
 
   const handleAddGmAssignment = () => {
-    console.log('handleAddGmAssignment called!')
-    console.log('Current gm_assignments:', formData.gm_assignments)
-    setFormData(prev => {
-      const newAssignments = [...prev.gm_assignments, { 
-        role: 'sub' as const, 
+    const nextRole = getNextAvailableRole()
+    setFormData(prev => ({
+      ...prev,
+      gm_assignments: [...prev.gm_assignments, { 
+        role: nextRole, 
         reward: 2000,
         status: getItemStatus(2000, 0),
         usageCount: 0
-      }]
-      console.log('New gm_assignments:', newAssignments)
-      return {
-        ...prev,
-        gm_assignments: newAssignments,
-        gm_count: prev.gm_count + 1
-      }
-    })
+      }],
+      gm_count: prev.gm_count + 1
+    }))
   }
 
   const handleRemoveGmAssignment = (index: number) => {
@@ -291,14 +286,12 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }
 
   const handleClearNewGmAssignment = () => {
-    console.log('handleClearNewGmAssignment called!')
     // 新規入力欄をデフォルト状態にリセット
     // ConditionalSettingsコンポーネント内で管理されているnewItemの状態をリセット
     // 実際には、newItemの値を初期状態に戻すためのハンドラーを呼ぶ必要がある
   }
 
   const handleHideNewGmItem = () => {
-    console.log('handleHideNewGmItem called!')
     setShowNewGmItem(false)
   }
 
@@ -336,7 +329,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   const getGmRoleDescription = (role: string) => {
     const descriptions: { [key: string]: string } = {
       'main': 'ゲーム進行の主担当',
-      'sub': 'メインGMのサポート役'
+      'sub1': 'メインGMのサポート役',
+      'sub2': 'カスタム設定1',
+      'sub3': 'カスタム設定2',
+      'sub4': 'カスタム設定3'
     }
     return descriptions[role] || ''
   }
@@ -361,7 +357,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   // GM役割オプション
   const gmRoleOptions = [
     { value: 'main', label: 'メインGM' },
-    { value: 'sub', label: 'サブGM' }
+    { value: 'sub1', label: 'サブGM' },
+    { value: 'sub2', label: '設定1' },
+    { value: 'sub3', label: '設定2' },
+    { value: 'sub4', label: '設定3' }
   ]
 
   // 時間帯に応じた説明文を生成（参加費用）
@@ -416,17 +415,36 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   // ステータス判定ロジック
   const getItemStatus = (amount: number, usageCount?: number): 'active' | 'legacy' | 'unused' | 'ready' => {
-    console.log('getItemStatus called:', { amount, usageCount })
     if (usageCount && usageCount > 0) {
-      console.log('returning active')
       return 'active' // 使用実績あり
     }
     if (amount > 0) {
-      console.log('returning ready')
       return 'ready' // 金額設定済み、運用可能
     }
-    console.log('returning unused')
     return 'unused' // 未設定
+  }
+
+  // 利用可能なGM役割を取得（既存アイテム編集用）
+  const getAvailableGmRoles = (currentRole?: string) => {
+    const usedRoles = formData.gm_assignments.map(assignment => assignment.role)
+    return gmRoleOptions.filter(option => 
+      !usedRoles.includes(option.value as any) || option.value === currentRole
+    )
+  }
+
+  // 新規追加用の利用可能な役割を取得
+  const getAvailableGmRolesForNew = () => {
+    const usedRoles = formData.gm_assignments.map(assignment => assignment.role)
+    return gmRoleOptions.filter(option => !usedRoles.includes(option.value as any))
+  }
+
+  // 次に利用可能な役割を取得（新規追加用）
+  const getNextAvailableRole = (): 'main' | 'sub1' | 'sub2' | 'sub3' | 'sub4' => {
+    const availableRoles = getAvailableGmRolesForNew()
+    if (availableRoles.length > 0) {
+      return availableRoles[0].value as any
+    }
+    return 'sub1' // フォールバック
   }
 
   useEffect(() => {
@@ -472,7 +490,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             usageCount: 8
           },
           { 
-            role: 'sub' as const, 
+            role: 'sub1' as const, 
             reward: 1500,
             status: getItemStatus(1500, 3),
             usageCount: 3
@@ -844,18 +862,15 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 <ConditionalSettings
                   title="GM報酬"
                   subtitle="役割に応じて異なる報酬を設定できます"
-                  items={formData.gm_assignments.map((assignment, index) => {
-                    console.log(`GM Assignment ${index}:`, assignment)
-                    return {
-                      condition: assignment.role,
-                      amount: assignment.reward,
-                      type: 'fixed' as const,
-                      status: assignment.status,
-                      usageCount: assignment.usageCount
-                    }
-                  })}
+                  items={formData.gm_assignments.map(assignment => ({
+                    condition: assignment.role,
+                    amount: assignment.reward,
+                    type: 'fixed' as const,
+                    status: assignment.status,
+                    usageCount: assignment.usageCount
+                  }))}
                   newItem={{
-                    condition: 'sub',
+                    condition: getNextAvailableRole(),
                     amount: 2000,
                     type: 'fixed' as const,
                     status: getItemStatus(2000, 0),
@@ -863,7 +878,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                   }}
                   conditionOptions={gmRoleOptions}
                   showDescription={true}
-                  showNewItem={showNewGmItem}
+                  showNewItem={showNewGmItem && getAvailableGmRolesForNew().length > 0}
+                  preventDuplicates={true}
                   getDescription={getGmRoleDescription}
                   onItemsChange={handleGmAssignmentsChange}
                   onNewItemChange={handleNewGmAssignmentChange}

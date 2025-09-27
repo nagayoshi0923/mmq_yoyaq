@@ -21,7 +21,8 @@ interface ConditionalSettingsProps {
   showTypeSelector?: boolean
   showDescription?: boolean
   showItemLabels?: boolean
-  showNewItem?: boolean // Added showNewItem prop
+  showNewItem?: boolean
+  preventDuplicates?: boolean // Added preventDuplicates prop
   getDescription?: (condition: string) => string
   getItemLabel?: (index: number) => string
   onItemsChange: (items: ConditionalSetting[]) => void
@@ -29,7 +30,7 @@ interface ConditionalSettingsProps {
   onAddItem: () => void
   onRemoveItem: (index: number) => void
   onClearNewItem: () => void
-  onHideNewItem?: () => void // Added onHideNewItem prop
+  onHideNewItem?: () => void
   placeholder?: string
   addButtonText?: string
   className?: string
@@ -57,6 +58,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
   showDescription = false,
   showItemLabels = false,
   showNewItem = true,
+  preventDuplicates = false,
   getDescription,
   getItemLabel,
   onItemsChange,
@@ -79,6 +81,25 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
     onNewItemChange({ ...newItem, [field]: value })
   }
 
+  // 利用可能な選択肢を取得（重複制御）
+  const getAvailableOptions = (currentIndex?: number) => {
+    if (!preventDuplicates) return conditionOptions
+    
+    const usedConditions = items
+      .map((item, index) => index === currentIndex ? null : item.condition)
+      .filter(Boolean)
+    
+    return conditionOptions.filter(option => !usedConditions.includes(option.value))
+  }
+
+  // 新規入力欄用の利用可能な選択肢
+  const getAvailableOptionsForNew = () => {
+    if (!preventDuplicates) return conditionOptions
+    
+    const usedConditions = items.map(item => item.condition)
+    return conditionOptions.filter(option => !usedConditions.includes(option.value))
+  }
+
   return (
     <div className={`space-y-4 ${className}`}>
       <div>
@@ -98,21 +119,21 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
                 {getItemLabel(index)}
               </div>
             )}
-            <Select 
-              value={item.condition} 
-              onValueChange={(value: string) => updateItem(index, 'condition', value)}
-            >
-              <SelectTrigger className="w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {conditionOptions.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    <Select 
+                      value={item.condition} 
+                      onValueChange={(value: string) => updateItem(index, 'condition', value)}
+                    >
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getAvailableOptions(index).map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
             
             <Input
               type="text"
@@ -149,36 +170,30 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
             )}
             
             {/* ステータスバッジ */}
-            {item.status && (() => {
-              console.log('Rendering status badge:', item.status, 'for item:', item)
-              return (
-                <div className="flex items-center gap-1">
-                  {item.status === 'active' && (
-                    <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">
-                      🟢使用中{item.usageCount ? `${item.usageCount}件` : '0件'}
-                    </Badge>
-                  )}
-                  {item.status === 'legacy' && (
-                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
-                      🔵過去のみ{item.usageCount ? `${item.usageCount}件` : '0件'}
-                    </Badge>
-                  )}
-                  {item.status === 'ready' && (
-                    <div>
-                      <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
-                        ✅運用可能
-                      </Badge>
-                      <span style={{color: 'red', fontSize: '10px'}}>DEBUG:READY</span>
-                    </div>
-                  )}
-                  {item.status === 'unused' && (
-                    <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500 border-gray-200">
-                      未設定
-                    </Badge>
-                  )}
-                </div>
-              )
-            })()}
+            {item.status && (
+              <div className="flex items-center gap-1">
+                {item.status === 'active' && (
+                  <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">
+                    🟢使用中{item.usageCount ? `${item.usageCount}件` : '0件'}
+                  </Badge>
+                )}
+                {item.status === 'legacy' && (
+                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                    🔵過去のみ{item.usageCount ? `${item.usageCount}件` : '0件'}
+                  </Badge>
+                )}
+                {item.status === 'ready' && (
+                  <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
+                    ✅運用可能
+                  </Badge>
+                )}
+                {item.status === 'unused' && (
+                  <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500 border-gray-200">
+                    未設定
+                  </Badge>
+                )}
+              </div>
+            )}
             
             <Button
               type="button"
@@ -206,21 +221,21 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
               {getItemLabel(items.length)}
             </div>
           )}
-          <Select 
-            value={newItem.condition} 
-            onValueChange={(value: string) => updateNewItem('condition', value)}
-          >
-            <SelectTrigger className="w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {conditionOptions.map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                  <Select 
+                    value={newItem.condition} 
+                    onValueChange={(value: string) => updateNewItem('condition', value)}
+                  >
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getAvailableOptionsForNew().map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
           
           <Input
             type="text"
@@ -257,36 +272,30 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
           )}
           
           {/* 新規入力欄のステータスバッジ */}
-          {newItem.status && (() => {
-            console.log('Rendering NEW ITEM status badge:', newItem.status, 'for newItem:', newItem)
-            return (
-              <div className="flex items-center gap-1">
-                {newItem.status === 'active' && (
-                  <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">
-                    🟢使用中{newItem.usageCount ? `${newItem.usageCount}件` : '0件'}
-                  </Badge>
-                )}
-                {newItem.status === 'legacy' && (
-                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
-                    🔵過去のみ{newItem.usageCount ? `${newItem.usageCount}件` : '0件'}
-                  </Badge>
-                )}
-                {newItem.status === 'ready' && (
-                  <div>
-                    <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
-                      ✅運用可能
-                    </Badge>
-                    <span style={{color: 'red', fontSize: '10px'}}>DEBUG:NEW-READY</span>
-                  </div>
-                )}
-                {newItem.status === 'unused' && (
-                  <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500 border-gray-200">
-                    未設定
-                  </Badge>
-                )}
-              </div>
-            )
-          })()}
+          {newItem.status && (
+            <div className="flex items-center gap-1">
+              {newItem.status === 'active' && (
+                <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">
+                  🟢使用中{newItem.usageCount ? `${newItem.usageCount}件` : '0件'}
+                </Badge>
+              )}
+              {newItem.status === 'legacy' && (
+                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                  🔵過去のみ{newItem.usageCount ? `${newItem.usageCount}件` : '0件'}
+                </Badge>
+              )}
+              {newItem.status === 'ready' && (
+                <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
+                  ✅運用可能
+                </Badge>
+              )}
+              {newItem.status === 'unused' && (
+                <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500 border-gray-200">
+                  未設定
+                </Badge>
+              )}
+            </div>
+          )}
           
           <Button
             type="button"

@@ -100,7 +100,7 @@ export interface Scenario {
     amount: number
   }>
   // GM配置システム
-  gm_assignments: Array<{ role: 'main' | 'sub'; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
+  gm_assignments: Array<{ role: 'main' | 'sub1' | 'sub2' | 'sub3' | 'sub4'; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
   // 新しい時間帯別料金設定
   license_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
   participation_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
