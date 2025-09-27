@@ -43,9 +43,18 @@ const formatCurrency = (amount: number | string) => {
   return `${num.toLocaleString()}円`
 }
 
+// 全角数字を半角数字に変換
+const convertFullWidthToHalfWidth = (str: string) => {
+  return str.replace(/[０-９]/g, (char) => {
+    return String.fromCharCode(char.charCodeAt(0) - 0xFEE0)
+  })
+}
+
 // 表示用文字列から数値を抽出
 const parseCurrency = (value: string) => {
-  return parseInt(value.replace(/[^\d]/g, '')) || 0
+  // 全角数字を半角に変換してから処理
+  const halfWidthValue = convertFullWidthToHalfWidth(value)
+  return parseInt(halfWidthValue.replace(/[^\d]/g, '')) || 0
 }
 
 export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
@@ -140,9 +149,10 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
               placeholder={placeholder}
               value={item.type === 'percentage' ? (item.amount || '') : formatCurrency(item.amount || 0)}
               onChange={(e) => {
+                const inputValue = e.target.value
                 const value = item.type === 'percentage' 
-                  ? parseInt(e.target.value.replace(/[^\d]/g, '')) || 0
-                  : parseCurrency(e.target.value)
+                  ? parseInt(convertFullWidthToHalfWidth(inputValue).replace(/[^\d]/g, '')) || 0
+                  : parseCurrency(inputValue)
                 updateItem(index, 'amount', value)
               }}
               className="w-[120px]"
@@ -242,9 +252,10 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
             placeholder={placeholder}
             value={newItem.type === 'percentage' ? (newItem.amount || '') : formatCurrency(newItem.amount || 0)}
             onChange={(e) => {
+              const inputValue = e.target.value
               const value = newItem.type === 'percentage' 
-                ? parseInt(e.target.value.replace(/[^\d]/g, '')) || 0
-                : parseCurrency(e.target.value)
+                ? parseInt(convertFullWidthToHalfWidth(inputValue).replace(/[^\d]/g, '')) || 0
+                : parseCurrency(inputValue)
               updateNewItem('amount', value)
             }}
             className="w-[120px]"

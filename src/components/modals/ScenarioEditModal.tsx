@@ -33,7 +33,7 @@ interface ScenarioFormData {
   required_props: { item: string; amount: number; frequency: 'recurring' | 'one-time' }[]
   has_pre_reading: boolean
   gm_count: number
-  gm_assignments: { role: 'main' | 'sub1' | 'sub2' | 'sub3' | 'sub4'; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
+  gm_assignments: { role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   // 時間帯別料金設定
   license_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   participation_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
@@ -327,14 +327,16 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   // GM役割に応じた説明文を生成
   const getGmRoleDescription = (role: string) => {
-    const descriptions: { [key: string]: string } = {
-      'main': 'ゲーム進行の主担当',
-      'sub1': 'メインGMのサポート役',
-      'sub2': 'カスタム設定1',
-      'sub3': 'カスタム設定2',
-      'sub4': 'カスタム設定3'
+    if (role === 'main') return 'ゲーム進行の主担当'
+    if (role === 'sub1') return 'メインGMのサポート役'
+    
+    // sub2以降は動的に生成
+    const roleNumber = parseInt(role.replace('sub', ''))
+    if (roleNumber >= 2) {
+      return `カスタム設定${roleNumber - 1}`
     }
-    return descriptions[role] || ''
+    
+    return ''
   }
 
 
@@ -354,14 +356,38 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     { value: '土日祝夜', label: '土日祝夜' }
   ]
 
-  // GM役割オプション
-  const gmRoleOptions = [
-    { value: 'main', label: 'メインGM' },
-    { value: 'sub1', label: 'サブGM' },
-    { value: 'sub2', label: '設定1' },
-    { value: 'sub3', label: '設定2' },
-    { value: 'sub4', label: '設定3' }
-  ]
+  // GM役割オプションを動的に生成
+  const generateGmRoleOptions = (maxCount: number = 20) => {
+    const options = [
+      { value: 'main', label: 'メインGM' },
+      { value: 'sub1', label: 'サブGM' }
+    ]
+    
+    // 設定1から設定N-2まで動的に追加
+    for (let i = 2; i <= maxCount; i++) {
+      options.push({
+        value: `sub${i}`,
+        label: `設定${i - 1}`
+      })
+    }
+    
+    return options
+  }
+
+  // 現在必要な役割数に基づいてオプションを生成
+  const getCurrentGmRoleOptions = () => {
+    const currentMaxRole = Math.max(
+      ...formData.gm_assignments.map(assignment => {
+        if (assignment.role === 'main') return 0
+        if (assignment.role === 'sub1') return 1
+        return parseInt(assignment.role.replace('sub', ''))
+      }),
+      2 // 最低でも設定1まで表示
+    )
+    return generateGmRoleOptions(currentMaxRole + 2) // 次の設定も含める
+  }
+
+  const gmRoleOptions = getCurrentGmRoleOptions()
 
   // 時間帯に応じた説明文を生成（参加費用）
   const getTimeSlotDescription = (timeSlot: string) => {
@@ -408,9 +434,18 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     return `${num.toLocaleString()}円`
   }
 
+  // 全角数字を半角数字に変換
+  const convertFullWidthToHalfWidth = (str: string) => {
+    return str.replace(/[０-９]/g, (char) => {
+      return String.fromCharCode(char.charCodeAt(0) - 0xFEE0)
+    })
+  }
+
   // 表示用文字列から数値を抽出
   const parseCurrency = (value: string) => {
-    return parseInt(value.replace(/[^\d]/g, '')) || 0
+    // 全角数字を半角に変換してから処理
+    const halfWidthValue = convertFullWidthToHalfWidth(value)
+    return parseInt(halfWidthValue.replace(/[^\d]/g, '')) || 0
   }
 
   // ステータス判定ロジック
@@ -424,13 +459,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     return 'unused' // 未設定
   }
 
-  // 利用可能なGM役割を取得（既存アイテム編集用）
-  const getAvailableGmRoles = (currentRole?: string) => {
-    const usedRoles = formData.gm_assignments.map(assignment => assignment.role)
-    return gmRoleOptions.filter(option => 
-      !usedRoles.includes(option.value as any) || option.value === currentRole
-    )
-  }
 
   // 新規追加用の利用可能な役割を取得
   const getAvailableGmRolesForNew = () => {
@@ -439,12 +467,23 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }
 
   // 次に利用可能な役割を取得（新規追加用）
-  const getNextAvailableRole = (): 'main' | 'sub1' | 'sub2' | 'sub3' | 'sub4' => {
+  const getNextAvailableRole = (): string => {
     const availableRoles = getAvailableGmRolesForNew()
     if (availableRoles.length > 0) {
-      return availableRoles[0].value as any
+      return availableRoles[0].value
     }
-    return 'sub1' // フォールバック
+    
+    // 利用可能な役割がない場合、新しい設定Nを生成
+    const usedRoles = formData.gm_assignments.map(assignment => assignment.role)
+    const maxSubNumber = Math.max(
+      ...usedRoles
+        .filter(role => role.startsWith('sub'))
+        .map(role => parseInt(role.replace('sub', '')))
+        .filter(num => !isNaN(num)),
+      1 // 最低でもsub1から開始
+    )
+    
+    return `sub${maxSubNumber + 1}`
   }
 
   useEffect(() => {
@@ -481,8 +520,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           }
         })(),
         has_pre_reading: scenario.has_pre_reading || false,
-        gm_count: scenario.gm_assignments?.length || 2,
-        gm_assignments: scenario.gm_assignments || [
+        gm_count: scenario.gm_costs?.length || 2,
+        gm_assignments: scenario.gm_costs || [
           { 
             role: 'main' as const, 
             reward: 2000,
@@ -631,7 +670,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       genre: formData.genre,
       required_props: formData.required_props, // Keep as object array with frequency
       has_pre_reading: formData.has_pre_reading,
-      gm_assignments: formData.gm_assignments,
+      gm_costs: formData.gm_assignments,
       available_gms: scenario?.available_gms || [],
       // 柔軟な料金設定を保存
       flexible_pricing: formData.use_flexible_pricing ? formData.flexible_pricing : undefined,
@@ -878,7 +917,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                   }}
                   conditionOptions={gmRoleOptions}
                   showDescription={true}
-                  showNewItem={showNewGmItem && getAvailableGmRolesForNew().length > 0}
+                  showNewItem={showNewGmItem}
                   preventDuplicates={true}
                   getDescription={getGmRoleDescription}
                   onItemsChange={handleGmAssignmentsChange}
