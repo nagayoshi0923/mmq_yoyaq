@@ -8,6 +8,8 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Badge } from '@/components/ui/badge'
 import { ConditionalSettings, ConditionalSetting } from '@/components/ui/conditional-settings'
+import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
+import { MigrationConfirmationDialog } from '@/components/ui/migration-confirmation-dialog'
 import type { Scenario, FlexiblePricing, PricingModifier } from '@/types'
 
 interface ScenarioEditModalProps {
@@ -31,11 +33,11 @@ interface ScenarioFormData {
   production_costs: { item: string; amount: number }[]
   genre: string[]
   required_props: { item: string; amount: number; frequency: 'recurring' | 'one-time' }[]
+  license_rewards: { item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   has_pre_reading: boolean
   gm_count: number
   gm_assignments: { role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   // 時間帯別料金設定
-  license_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   participation_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   // 柔軟な料金設定
   use_flexible_pricing: boolean
@@ -76,16 +78,15 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     production_costs: [],
     genre: [],
     required_props: [],
+    license_rewards: [],
     has_pre_reading: false,
     gm_count: 1,
     gm_assignments: [{ role: 'main', reward: 2000 }],
     // 項目別料金設定
-    license_costs: [{ time_slot: '通常', amount: 0, type: 'fixed' }],
     participation_costs: [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
     use_flexible_pricing: false,
     flexible_pricing: {
       base_pricing: {
-        license_amount: 0,
         participation_fee: 3000
       },
       pricing_modifiers: [],
@@ -104,11 +105,24 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   const [newRequiredPropAmount, setNewRequiredPropAmount] = useState(0)
   const [newRequiredPropFrequency, setNewRequiredPropFrequency] = useState<'recurring' | 'one-time'>('recurring')
   
+  // ライセンス報酬用
+  const [newLicenseRewardItem, setNewLicenseRewardItem] = useState('通常')
+  const [newLicenseRewardAmount, setNewLicenseRewardAmount] = useState(0)
   
-  // ライセンス代項目別入力用
-  const [newLicenseCostTimeSlot, setNewLicenseCostTimeSlot] = useState<string>('通常')
-  const [newLicenseCostAmount, setNewLicenseCostAmount] = useState(0)
-  const [newLicenseCostType, setNewLicenseCostType] = useState<'percentage' | 'fixed'>('fixed')
+  // 削除確認ダイアログ用
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteTargetIndex, setDeleteTargetIndex] = useState<number | null>(null)
+  const [deleteItemName, setDeleteItemName] = useState('')
+  const [deleteItemType, setDeleteItemType] = useState('')
+  
+  // 移行確認ダイアログ用
+  const [migrationDialogOpen, setMigrationDialogOpen] = useState(false)
+  const [existingActiveReward, setExistingActiveReward] = useState<{ index: number; reward: any } | null>(null)
+  
+  // 過去のみ非表示状態管理
+  const [hideLegacyRewards, setHideLegacyRewards] = useState(false)
+  
+  
   
   // 参加費項目別入力用
   const [newParticipationCostTimeSlot, setNewParticipationCostTimeSlot] = useState<string>('通常')
@@ -159,6 +173,115 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     }))
   }
 
+  // ライセンス報酬管理
+  const addLicenseReward = () => {
+    if (newLicenseRewardItem && newLicenseRewardAmount > 0) {
+      console.log('DEBUG: Adding license reward', {
+        newItem: newLicenseRewardItem,
+        newAmount: newLicenseRewardAmount,
+        existingRewards: formData.license_rewards.map(r => ({ item: r.item, status: r.status, amount: r.amount }))
+      })
+      
+      // 同じ項目で使用中の設定があるかチェック
+      const existingActiveIndex = formData.license_rewards.findIndex(reward => 
+        reward.item === newLicenseRewardItem && reward.status === 'active'
+      )
+      
+      console.log('DEBUG: Existing active check', {
+        existingActiveIndex,
+        foundReward: existingActiveIndex !== -1 ? formData.license_rewards[existingActiveIndex] : null
+      })
+      
+      if (existingActiveIndex !== -1) {
+        // 使用中の項目がある場合は移行確認ダイアログを表示
+        console.log('DEBUG: Showing migration dialog for license')
+        setExistingActiveReward({
+          index: existingActiveIndex,
+          reward: formData.license_rewards[existingActiveIndex]
+        })
+        setMigrationDialogOpen(true)
+      } else {
+        // 使用中の項目がない場合は通常の追加
+        console.log('DEBUG: Normal license add')
+        setFormData(prev => ({
+          ...prev,
+          license_rewards: [...prev.license_rewards, { 
+            item: newLicenseRewardItem, 
+            amount: newLicenseRewardAmount,
+            status: getItemStatus(newLicenseRewardAmount, 0),
+            usageCount: 0
+          }]
+        }))
+        setNewLicenseRewardItem('通常')
+        setNewLicenseRewardAmount(0)
+      }
+    }
+  }
+
+  const handleDeleteClick = (index: number) => {
+    setDeleteTargetIndex(index)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (deleteTargetIndex === null) return
+    
+    const reward = formData.license_rewards[deleteTargetIndex]
+    
+    // 使用実績がある場合はlegacyステータスに変更、未使用の場合は完全削除
+    if (reward.usageCount && reward.usageCount > 0) {
+      setFormData(prev => ({
+        ...prev,
+        license_rewards: prev.license_rewards.map((item, i) => 
+          i === deleteTargetIndex ? { ...item, status: 'legacy' as const } : item
+        )
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        license_rewards: prev.license_rewards.filter((_, i) => i !== deleteTargetIndex)
+      }))
+    }
+    
+    setDeleteDialogOpen(false)
+    setDeleteTargetIndex(null)
+  }
+
+  // 移行確認後の処理
+  const handleLicenseMigrationConfirm = () => {
+    if (existingActiveReward) {
+      // 既存の項目を「過去のみ」に変更
+      const updatedRewards = [...formData.license_rewards]
+      updatedRewards[existingActiveReward.index] = {
+        ...existingActiveReward.reward,
+        status: 'legacy'
+      }
+      
+      // 新しい項目を「使用中」として追加
+      const newActiveReward = {
+        item: newLicenseRewardItem,
+        amount: newLicenseRewardAmount,
+        status: 'active' as const,
+        usageCount: 0
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        license_rewards: [...updatedRewards, newActiveReward]
+      }))
+      
+      // 入力欄をリセット
+      setNewLicenseRewardItem('通常')
+      setNewLicenseRewardAmount(0)
+      setExistingActiveReward(null)
+    }
+  }
+
+  // 移行キャンセル後の処理
+  const handleLicenseMigrationCancel = () => {
+    setExistingActiveReward(null)
+    // 新規入力欄はそのまま（キャンセルしただけ）
+  }
 
   // 個別GM削除ハンドラー
   const removeGmAssignment = (index: number) => {
@@ -169,31 +292,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     }))
   }
 
-  // ライセンス代項目別管理
-  const addLicenseCost = () => {
-    if (newLicenseCostAmount > 0) {
-      setFormData(prev => ({
-        ...prev,
-        license_costs: [...prev.license_costs, { 
-          time_slot: newLicenseCostTimeSlot, 
-          amount: newLicenseCostAmount,
-          type: newLicenseCostType,
-          status: getItemStatus(newLicenseCostAmount, 0),
-          usageCount: 0
-        }]
-      }))
-      setNewLicenseCostTimeSlot('通常')
-      setNewLicenseCostAmount(0)
-      setNewLicenseCostType('fixed')
-    }
-  }
-
-  const removeLicenseCost = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      license_costs: prev.license_costs.filter((_, i) => i !== index)
-    }))
-  }
 
   // 参加費項目別管理
   const addParticipationCost = () => {
@@ -295,35 +393,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     setShowNewGmItem(false)
   }
 
-  // ライセンス料の新しいコンポーネント用ハンドラー
-  const handleLicenseCostsChange = (costs: ConditionalSetting[]) => {
-    setFormData(prev => ({
-      ...prev,
-      license_costs: costs.map(cost => ({
-        time_slot: cost.condition,
-        amount: cost.amount,
-        type: cost.type || 'fixed' as const,
-        status: cost.status,
-        usageCount: cost.usageCount
-      }))
-    }))
-  }
-
-  const handleNewLicenseCostChange = (newCost: ConditionalSetting) => {
-    setNewLicenseCostTimeSlot(newCost.condition)
-    setNewLicenseCostAmount(newCost.amount)
-    setNewLicenseCostType(newCost.type as 'percentage' | 'fixed' || 'fixed')
-  }
-
-  const handleAddLicenseCost = () => {
-    addLicenseCost()
-  }
-
-  const handleClearNewLicenseCost = () => {
-    setNewLicenseCostTimeSlot('通常')
-    setNewLicenseCostAmount(0)
-    setNewLicenseCostType('fixed')
-  }
 
   // GM役割に応じた説明文を生成
   const getGmRoleDescription = (role: string) => {
@@ -408,24 +477,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     return descriptions[timeSlot] || ''
   }
 
-  // 時間帯に応じた説明文を生成（ライセンス料用）
-  const getLicenseTimeSlotDescription = (timeSlot: string) => {
-    const descriptions: { [key: string]: string } = {
-      '通常': '基本のライセンス料',
-      '朝': '朝の時間帯のライセンス料',
-      '昼': '昼の時間帯のライセンス料',
-      '夜': '夜の時間帯のライセンス料',
-      '平日': '平日のライセンス料',
-      '土日祝': '土日祝日のライセンス料',
-      '平日朝': '平日朝の時間帯のライセンス料',
-      '平日昼': '平日昼の時間帯のライセンス料',
-      '平日夜': '平日夜の時間帯のライセンス料',
-      '土日祝朝': '土日祝日朝の時間帯のライセンス料',
-      '土日祝昼': '土日祝日昼の時間帯のライセンス料',
-      '土日祝夜': '土日祝日夜の時間帯のライセンス料'
-    }
-    return descriptions[timeSlot] || ''
-  }
 
   // 金額を表示用にフォーマット（カンマ区切り + 円）
   const formatCurrency = (amount: number | string) => {
@@ -519,6 +570,37 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             }))
           }
         })(),
+        license_rewards: (() => {
+          if (!Array.isArray(scenario.license_rewards) || scenario.license_rewards.length === 0) {
+            // テスト用データを表示
+            return [
+              { 
+                item: '通常', 
+                amount: 1500, 
+                status: 'active', 
+                usageCount: 12 
+              },
+              { 
+                item: '土日祝', 
+                amount: 2000, 
+                status: 'legacy', 
+                usageCount: 8 
+              },
+              { 
+                item: '特別', 
+                amount: 2500, 
+                status: 'ready', 
+                usageCount: 0 
+              }
+            ]
+          }
+          return (scenario.license_rewards as any[]).map(reward => ({
+            item: reward.item || '',
+            amount: reward.amount || 0,
+            status: reward.status || getItemStatus(reward.amount || 0, reward.usageCount || 0),
+            usageCount: reward.usageCount || 0
+          }))
+        })(),
         has_pre_reading: scenario.has_pre_reading || false,
         gm_count: scenario.gm_costs?.length || 2,
         gm_assignments: scenario.gm_costs || [
@@ -536,29 +618,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           }
         ],
         // 項目別料金設定の初期化
-        license_costs: scenario.license_costs || [
-          { 
-            time_slot: '通常', 
-            amount: 500, 
-            type: 'fixed' as const,
-            status: getItemStatus(500, 12),
-            usageCount: 12
-          },
-          { 
-            time_slot: '平日', 
-            amount: 300, 
-            type: 'fixed' as const,
-            status: getItemStatus(300, 5),
-            usageCount: 5
-          },
-          { 
-            time_slot: '土日祝', 
-            amount: 800, 
-            type: 'fixed' as const,
-            status: getItemStatus(800, 0),
-            usageCount: 0
-          }
-        ],
         participation_costs: scenario.participation_costs || (scenario.participation_fee > 0 ? [
           { 
             time_slot: '通常', 
@@ -578,7 +637,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         use_flexible_pricing: !!scenario.flexible_pricing,
         flexible_pricing: scenario.flexible_pricing || {
           base_pricing: {
-            license_amount: 0,
             participation_fee: scenario.participation_fee || 3000
           },
           pricing_modifiers: [],
@@ -606,19 +664,35 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         production_costs: [],
         genre: [],
         required_props: [],
+        license_rewards: [
+          // テスト用: 使用中データ
+          { 
+            item: '通常', 
+            amount: 1500, 
+            status: 'active', 
+            usageCount: 12 
+          },
+          // テスト用: 過去のみデータ
+          { 
+            item: '土日祝', 
+            amount: 2000, 
+            status: 'legacy', 
+            usageCount: 8 
+          },
+          // テスト用: 運用可能データ
+          { 
+            item: '特別', 
+            amount: 2500, 
+            status: 'ready', 
+            usageCount: 0 
+          }
+        ],
         has_pre_reading: false,
         gm_count: 1,
         gm_assignments: [{ 
           role: 'main' as const, 
           reward: 2000,
           status: getItemStatus(2000, 0),
-          usageCount: 0
-        }],
-        license_costs: [{ 
-          time_slot: '通常', 
-          amount: 0, 
-          type: 'fixed' as const,
-          status: getItemStatus(0, 0),
           usageCount: 0
         }],
         participation_costs: [{ 
@@ -631,7 +705,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         use_flexible_pricing: false,
         flexible_pricing: {
           base_pricing: {
-            license_amount: 0,
             participation_fee: 3000
           },
           pricing_modifiers: [],
@@ -663,12 +736,12 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       rating: formData.rating,
       status: formData.status as 'available' | 'maintenance' | 'retired',
       participation_fee: formData.participation_fee,
-      license_costs: formData.license_costs,
       participation_costs: formData.participation_costs,
       production_cost: totalProductionCost,
       // production_costs: formData.production_costs, // データベースに存在しないため一時的にコメントアウト
       genre: formData.genre,
       required_props: formData.required_props, // Keep as object array with frequency
+      license_rewards: formData.license_rewards, // ライセンス報酬を保存
       has_pre_reading: formData.has_pre_reading,
       gm_costs: formData.gm_assignments,
       available_gms: scenario?.available_gms || [],
@@ -691,6 +764,23 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   const handleClose = () => {
     onClose()
   }
+
+  // GM報酬用state
+  const [gmRewards, setGmRewards] = useState<ConditionalSetting[]>([])
+  const [newGmReward, setNewGmReward] = useState<ConditionalSetting>({ condition: '', amount: 0, type: 'fixed', status: 'ready' })
+
+  // GM報酬用ハンドラ
+  const handleGmRewardsChange = (items: ConditionalSetting[]) => setGmRewards(items)
+  const handleNewGmRewardChange = (item: ConditionalSetting) => setNewGmReward(item)
+  const handleAddGmReward = () => {
+    setGmRewards(prev => [...prev, newGmReward])
+    setNewGmReward({ condition: '', amount: 0, type: 'fixed', status: 'ready' })
+  }
+  const handleRemoveGmReward = (index: number) => {
+    setGmRewards(prev => prev.filter((_, i) => i !== index))
+  }
+  const handleClearNewGmReward = () => setNewGmReward({ condition: '', amount: 0, type: 'fixed', status: 'ready' })
+
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -877,7 +967,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     id: `modifier-${Date.now()}`,
                     condition: 'weekend',
                     modifier_type: 'fixed',
-                    license_modifier: 0,
                     participation_modifier: 0,
                     description: '土日祝日料金',
                     active: true
@@ -900,63 +989,22 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 {/* GM報酬 */}
                 <ConditionalSettings
                   title="GM報酬"
-                  subtitle="役割に応じて異なる報酬を設定できます"
-                  items={formData.gm_assignments.map(assignment => ({
-                    condition: assignment.role,
-                    amount: assignment.reward,
-                    type: 'fixed' as const,
-                    status: assignment.status,
-                    usageCount: assignment.usageCount
-                  }))}
-                  newItem={{
-                    condition: getNextAvailableRole(),
-                    amount: 2000,
-                    type: 'fixed' as const,
-                    status: getItemStatus(2000, 0),
-                    usageCount: 0
-                  }}
-                  conditionOptions={gmRoleOptions}
+                  subtitle="役割や条件ごとにGM報酬を設定できます"
+                  items={gmRewards}
+                  newItem={newGmReward}
+                  conditionOptions={timeSlotOptions} // ここは必要に応じてGM用の選択肢に変更可
                   showDescription={true}
-                  showNewItem={showNewGmItem}
-                  preventDuplicates={true}
-                  getDescription={getGmRoleDescription}
-                  onItemsChange={handleGmAssignmentsChange}
-                  onNewItemChange={handleNewGmAssignmentChange}
-                  onAddItem={handleAddGmAssignment}
-                  onRemoveItem={handleRemoveGmAssignment}
-                  onClearNewItem={handleClearNewGmAssignment}
-                  onHideNewItem={handleHideNewGmItem}
-                  addButtonText="GMを追加"
-                  placeholder="報酬"
+                  showStatusSelector={true}
+                  itemType="GM報酬"
+                  getDescription={getTimeSlotDescription}
+                  onItemsChange={handleGmRewardsChange}
+                  onNewItemChange={handleNewGmRewardChange}
+                  onAddItem={handleAddGmReward}
+                  onRemoveItem={handleRemoveGmReward}
+                  onClearNewItem={handleClearNewGmReward}
+                  addButtonText="GM報酬を追加"
                 />
 
-                {/* ライセンス料 */}
-                <ConditionalSettings
-                  title="ライセンス料"
-                  subtitle="時間帯や曜日に応じて異なる料金を設定できます"
-                  items={(formData.license_costs || []).map(cost => ({
-                    condition: cost.time_slot,
-                    amount: cost.amount,
-                    type: cost.type,
-                    status: cost.status,
-                    usageCount: cost.usageCount
-                  }))}
-                  newItem={{
-                    condition: newLicenseCostTimeSlot,
-                    amount: newLicenseCostAmount,
-                    type: newLicenseCostType
-                  }}
-                  conditionOptions={timeSlotOptions}
-                  showTypeSelector={true}
-                  showDescription={true}
-                  getDescription={getLicenseTimeSlotDescription}
-                  onItemsChange={handleLicenseCostsChange}
-                  onNewItemChange={handleNewLicenseCostChange}
-                  onAddItem={handleAddLicenseCost}
-                  onRemoveItem={removeLicenseCost}
-                  onClearNewItem={handleClearNewLicenseCost}
-                  addButtonText="条件を追加"
-                />
 
                 {/* 必要道具 */}
                 <div className="space-y-4">
@@ -1027,6 +1075,100 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                   )}
                 </div>
 
+                {/* ライセンス報酬 */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">ライセンス報酬</h4>
+                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={hideLegacyRewards}
+                        onChange={(e) => setHideLegacyRewards(e.target.checked)}
+                        className="rounded"
+                      />
+                      過去のみを非表示
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={newLicenseRewardItem} onValueChange={(value) => setNewLicenseRewardItem(value)}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="時間帯を選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeSlotOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="text"
+                      placeholder="金額"
+                      value={formatCurrency(newLicenseRewardAmount || 0)}
+                      onChange={(e) => setNewLicenseRewardAmount(parseCurrency(e.target.value))}
+                      className="w-[120px]"
+                    />
+                    <Button 
+                      type="button" 
+                      onClick={addLicenseReward}
+                      disabled={!newLicenseRewardItem || newLicenseRewardAmount <= 0}
+                    >
+                      追加
+                    </Button>
+                  </div>
+                  
+                  {/* ライセンス報酬リスト */}
+                  {formData.license_rewards.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {formData.license_rewards
+                        .filter(reward => hideLegacyRewards ? reward.status !== 'legacy' : true)
+                        .map((reward, displayIndex) => {
+                          // 元のindexを取得（削除時に正しいindexを使用するため）
+                          const originalIndex = formData.license_rewards.findIndex(original => original === reward)
+                          return (
+                        <div key={originalIndex} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">
+                              {reward.item}: {formatCurrency(reward.amount)}
+                            </span>
+                            {reward.status && (
+                              <Badge 
+                                variant={
+                                  reward.status === 'active' ? 'default' :
+                                  reward.status === 'ready' ? 'secondary' :
+                                  reward.status === 'legacy' ? 'outline' : 'destructive'
+                                }
+                                className="text-xs"
+                              >
+                                {reward.status === 'active' ? '使用中' :
+                                 reward.status === 'ready' ? '待機設定' :
+                                 reward.status === 'legacy' ? '過去のみ' : '無効'}
+                                {reward.usageCount ? ` (${reward.usageCount}回)` : ''}
+                              </Badge>
+                            )}
+                          </div>
+                          {reward.status !== 'legacy' && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(originalIndex)}
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                            >
+                              ×
+                            </Button>
+                          )}
+                        </div>
+                          )
+                        })}
+                      <div className="text-sm font-medium text-right">
+                        合計: {formatCurrency(formData.license_rewards.reduce((sum, reward) => sum + reward.amount, 0))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* 制作費・購入費 */}
                 <div className="space-y-4">
                   <h4 className="font-medium">制作費・購入費</h4>
@@ -1078,6 +1220,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     </div>
                   )}
                 </div>
+
 
                 {/* 料金修正ルール */}
                 {formData.flexible_pricing?.pricing_modifiers && formData.flexible_pricing.pricing_modifiers.length > 0 && (
@@ -1184,27 +1327,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                           
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <Label>ライセンス料修正 {modifier.modifier_type === 'percentage' ? '(%)' : '(円)'}</Label>
-                              <Input
-                                type="text"
-                                value={modifier.modifier_type === 'percentage' ? (modifier.license_modifier || '') : formatCurrency(modifier.license_modifier || 0)}
-                                onChange={(e) => {
-                                  const value = modifier.modifier_type === 'percentage' 
-                                    ? parseInt(e.target.value.replace(/[^\d]/g, '')) || 0
-                                    : parseCurrency(e.target.value)
-                                  const updatedModifiers = [...formData.flexible_pricing.pricing_modifiers]
-                                  updatedModifiers[index] = { ...modifier, license_modifier: value }
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    flexible_pricing: {
-                                      ...prev.flexible_pricing,
-                                      pricing_modifiers: updatedModifiers
-                                    }
-                                  }))
-                                }}
-                              />
-                            </div>
-                            <div>
                               <Label>参加費修正 {modifier.modifier_type === 'percentage' ? '(%)' : '(円)'}</Label>
                               <Input
                                 type="text"
@@ -1247,6 +1369,37 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             {scenario ? '更新' : '作成'}
           </Button>
         </div>
+
+        {/* 削除確認ダイアログ */}
+        <DeleteConfirmationDialog
+          open={deleteDialogOpen}
+          onOpenChange={(open) => {
+            setDeleteDialogOpen(open)
+            if (!open) {
+              setDeleteTargetIndex(null)
+            }
+          }}
+          itemName={deleteTargetIndex !== null ? formData.license_rewards[deleteTargetIndex]?.item || '' : ''}
+          itemType="ライセンス報酬"
+          usageCount={deleteTargetIndex !== null ? formData.license_rewards[deleteTargetIndex]?.usageCount : 0}
+          status={deleteTargetIndex !== null ? formData.license_rewards[deleteTargetIndex]?.status : undefined}
+          scenarioName={formData.title}
+          requireScenarioNameConfirmation={deleteTargetIndex !== null && formData.license_rewards[deleteTargetIndex]?.status === 'active'}
+          onConfirm={confirmDelete}
+        />
+
+        {/* 移行確認ダイアログ */}
+        <MigrationConfirmationDialog
+          open={migrationDialogOpen}
+          onOpenChange={setMigrationDialogOpen}
+          itemName={existingActiveReward?.reward.item || ''}
+          itemType="ライセンス報酬"
+          existingAmount={existingActiveReward?.reward.amount || 0}
+          newAmount={newLicenseRewardAmount}
+          usageCount={existingActiveReward?.reward.usageCount || 0}
+          onConfirm={handleLicenseMigrationConfirm}
+          onCancel={handleLicenseMigrationCancel}
+        />
       </DialogContent>
     </Dialog>
   )

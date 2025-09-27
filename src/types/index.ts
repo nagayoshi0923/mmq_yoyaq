@@ -49,7 +49,6 @@ export interface PricingModifier {
     custom_description?: string
   }
   modifier_type: 'fixed' | 'percentage'
-  license_modifier: number
   participation_modifier: number
   description: string
   active: boolean
@@ -66,7 +65,6 @@ export interface GMConfiguration {
 // 柔軟な料金設定
 export interface FlexiblePricing {
   base_pricing: {
-    license_amount: number
     participation_fee: number
   }
   pricing_modifiers: PricingModifier[]
@@ -88,6 +86,7 @@ export interface Scenario {
   play_count: number
   status: 'available' | 'maintenance' | 'retired'
   required_props: Array<{ item: string; amount: number; frequency: 'recurring' | 'one-time' }>
+  license_rewards: Array<{ item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
   props?: Array<{
     name: string
     cost: number
@@ -102,7 +101,6 @@ export interface Scenario {
   // GM配置システム
   gm_costs: Array<{ role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
   // 新しい時間帯別料金設定
-  license_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
   participation_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
   participation_fee: number // 基本料金（後方互換性のため保持）
   // 新しい柔軟な料金設定
