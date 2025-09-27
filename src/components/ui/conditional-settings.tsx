@@ -1,0 +1,316 @@
+import React from 'react'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+
+export interface ConditionalSetting {
+  condition: string
+  amount: number
+  type?: 'percentage' | 'fixed'
+  usageCount?: number
+  status?: 'active' | 'legacy' | 'unused' | 'ready'
+}
+
+interface ConditionalSettingsProps {
+  title: string
+  subtitle?: string
+  items: ConditionalSetting[]
+  newItem: ConditionalSetting
+  conditionOptions: { value: string; label: string }[]
+  showTypeSelector?: boolean
+  showDescription?: boolean
+  showItemLabels?: boolean
+  showNewItem?: boolean // Added showNewItem prop
+  getDescription?: (condition: string) => string
+  getItemLabel?: (index: number) => string
+  onItemsChange: (items: ConditionalSetting[]) => void
+  onNewItemChange: (item: ConditionalSetting) => void
+  onAddItem: () => void
+  onRemoveItem: (index: number) => void
+  onClearNewItem: () => void
+  onHideNewItem?: () => void // Added onHideNewItem prop
+  placeholder?: string
+  addButtonText?: string
+  className?: string
+}
+
+// 金額を表示用にフォーマット（カンマ区切り + 円）
+const formatCurrency = (amount: number | string) => {
+  const num = typeof amount === 'string' ? parseInt(amount) || 0 : amount
+  if (num === 0) return ''
+  return `${num.toLocaleString()}円`
+}
+
+// 表示用文字列から数値を抽出
+const parseCurrency = (value: string) => {
+  return parseInt(value.replace(/[^\d]/g, '')) || 0
+}
+
+export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
+  title,
+  subtitle,
+  items,
+  newItem,
+  conditionOptions,
+  showTypeSelector = false,
+  showDescription = false,
+  showItemLabels = false,
+  showNewItem = true,
+  getDescription,
+  getItemLabel,
+  onItemsChange,
+  onNewItemChange,
+  onAddItem,
+  onRemoveItem,
+  onClearNewItem,
+  onHideNewItem,
+  placeholder = "金額",
+  addButtonText = "条件を追加",
+  className = ""
+}) => {
+  const updateItem = (index: number, field: keyof ConditionalSetting, value: string | number) => {
+    const updatedItems = [...items]
+    updatedItems[index] = { ...updatedItems[index], [field]: value }
+    onItemsChange(updatedItems)
+  }
+
+  const updateNewItem = (field: keyof ConditionalSetting, value: string | number) => {
+    onNewItemChange({ ...newItem, [field]: value })
+  }
+
+  return (
+    <div className={`space-y-4 ${className}`}>
+      <div>
+        <h4 className="font-medium">{title}</h4>
+        {subtitle && (
+          <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+        )}
+      </div>
+      
+      {/* 設定済みアイテム入力欄 */}
+      <div className="space-y-2">
+        {/* 確定済みアイテム */}
+        {items.map((item, index) => (
+          <div key={index} className="flex gap-2 items-center">
+            {showItemLabels && getItemLabel && (
+              <div className="w-[60px] text-sm font-medium">
+                {getItemLabel(index)}
+              </div>
+            )}
+            <Select 
+              value={item.condition} 
+              onValueChange={(value: string) => updateItem(index, 'condition', value)}
+            >
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {conditionOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Input
+              type="text"
+              placeholder={placeholder}
+              value={item.type === 'percentage' ? (item.amount || '') : formatCurrency(item.amount || 0)}
+              onChange={(e) => {
+                const value = item.type === 'percentage' 
+                  ? parseInt(e.target.value.replace(/[^\d]/g, '')) || 0
+                  : parseCurrency(e.target.value)
+                updateItem(index, 'amount', value)
+              }}
+              className="w-[120px]"
+            />
+            
+            {showTypeSelector && (
+              <Select 
+                value={item.type || 'fixed'} 
+                onValueChange={(value: 'percentage' | 'fixed') => updateItem(index, 'type', value)}
+              >
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixed">固定額</SelectItem>
+                  <SelectItem value="percentage">割合</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+            
+            {showDescription && getDescription && (
+              <span className="text-sm text-gray-600 flex-1">
+                {getDescription(item.condition)}
+              </span>
+            )}
+            
+            {/* ステータスバッジ */}
+            {item.status && (() => {
+              console.log('Rendering status badge:', item.status, 'for item:', item)
+              return (
+                <div className="flex items-center gap-1">
+                  {item.status === 'active' && (
+                    <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">
+                      🟢使用中{item.usageCount ? `${item.usageCount}件` : '0件'}
+                    </Badge>
+                  )}
+                  {item.status === 'legacy' && (
+                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                      🔵過去のみ{item.usageCount ? `${item.usageCount}件` : '0件'}
+                    </Badge>
+                  )}
+                  {item.status === 'ready' && (
+                    <div>
+                      <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
+                        ✅運用可能
+                      </Badge>
+                      <span style={{color: 'red', fontSize: '10px'}}>DEBUG:READY</span>
+                    </div>
+                  )}
+                  {item.status === 'unused' && (
+                    <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500 border-gray-200">
+                      未設定
+                    </Badge>
+                  )}
+                </div>
+              )
+            })()}
+            
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemoveItem(index)}
+              disabled={item.status === 'legacy'}
+              className={`h-8 w-8 p-0 ${
+                item.status === 'legacy' 
+                  ? 'text-gray-400 cursor-not-allowed' 
+                  : 'text-red-500 hover:text-red-700'
+              }`}
+              title={item.status === 'legacy' ? '過去データで使用中のため削除できません' : '削除'}
+            >
+              {item.status === 'legacy' ? '🔒' : '×'}
+            </Button>
+          </div>
+        ))}
+        
+        {/* 新規入力欄 */}
+        {showNewItem && (
+        <div className="flex gap-2 items-center">
+          {showItemLabels && getItemLabel && (
+            <div className="w-[60px] text-sm font-medium">
+              {getItemLabel(items.length)}
+            </div>
+          )}
+          <Select 
+            value={newItem.condition} 
+            onValueChange={(value: string) => updateNewItem('condition', value)}
+          >
+            <SelectTrigger className="w-[120px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {conditionOptions.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Input
+            type="text"
+            placeholder={placeholder}
+            value={newItem.type === 'percentage' ? (newItem.amount || '') : formatCurrency(newItem.amount || 0)}
+            onChange={(e) => {
+              const value = newItem.type === 'percentage' 
+                ? parseInt(e.target.value.replace(/[^\d]/g, '')) || 0
+                : parseCurrency(e.target.value)
+              updateNewItem('amount', value)
+            }}
+            className="w-[120px]"
+          />
+          
+          {showTypeSelector && (
+            <Select 
+              value={newItem.type || 'fixed'} 
+              onValueChange={(value: 'percentage' | 'fixed') => updateNewItem('type', value)}
+            >
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fixed">固定額</SelectItem>
+                <SelectItem value="percentage">割合</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          
+          {showDescription && getDescription && (
+            <span className="text-sm text-gray-600 flex-1">
+              {getDescription(newItem.condition)}
+            </span>
+          )}
+          
+          {/* 新規入力欄のステータスバッジ */}
+          {newItem.status && (() => {
+            console.log('Rendering NEW ITEM status badge:', newItem.status, 'for newItem:', newItem)
+            return (
+              <div className="flex items-center gap-1">
+                {newItem.status === 'active' && (
+                  <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">
+                    🟢使用中{newItem.usageCount ? `${newItem.usageCount}件` : '0件'}
+                  </Badge>
+                )}
+                {newItem.status === 'legacy' && (
+                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                    🔵過去のみ{newItem.usageCount ? `${newItem.usageCount}件` : '0件'}
+                  </Badge>
+                )}
+                {newItem.status === 'ready' && (
+                  <div>
+                    <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
+                      ✅運用可能
+                    </Badge>
+                    <span style={{color: 'red', fontSize: '10px'}}>DEBUG:NEW-READY</span>
+                  </div>
+                )}
+                {newItem.status === 'unused' && (
+                  <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500 border-gray-200">
+                    未設定
+                  </Badge>
+                )}
+              </div>
+            )
+          })()}
+          
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onHideNewItem || onClearNewItem}
+            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+          >
+            ×
+          </Button>
+        </div>
+        )}
+        
+        {/* 条件を追加ボタン */}
+        <div className="flex justify-end">
+          <Button 
+            type="button" 
+            onClick={onAddItem}
+            disabled={newItem.amount <= 0}
+          >
+            {addButtonText}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}

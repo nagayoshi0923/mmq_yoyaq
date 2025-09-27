@@ -39,7 +39,7 @@ const mockScenarios: Scenario[] = [
     difficulty: 3,
     rating: 4.2,
     status: 'available',
-    gm_costs: [{ time_slot: '通常', amount: 2000, role: 'main' }],
+    gm_assignments: [{ role: 'main', reward: 2000 }],
     license_costs: [{ time_slot: '通常', amount: 50000, type: 'fixed' }],
     participation_costs: [{ time_slot: '通常', amount: 3500, type: 'fixed' }],
     participation_fee: 3500,
@@ -67,7 +67,7 @@ const mockScenarios: Scenario[] = [
     difficulty: 4,
     rating: 4.5,
     status: 'available',
-    gm_costs: [{ time_slot: '通常', amount: 2500, role: 'main' }],
+    gm_assignments: [{ role: 'main', reward: 2500 }],
     license_costs: [{ time_slot: '通常', amount: 60000, type: 'fixed' }],
     participation_costs: [{ time_slot: '通常', amount: 4000, type: 'fixed' }],
     participation_fee: 4000,
@@ -564,7 +564,7 @@ export function ScenarioManagement() {
 
                           {/* ライセンス料 */}
                           <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
-                            <p className="text-sm">
+                            <p className="text-sm text-right">
                               ¥{scenario.license_costs?.find((cost: any) => cost.time_slot === '通常')?.amount?.toLocaleString() || 0}
                             </p>
                           </div>
@@ -573,7 +573,7 @@ export function ScenarioManagement() {
 
                       {/* 参加費 */}
                       <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
-                        <p className="text-sm">
+                        <p className="text-sm text-right">
                           ¥{scenario.participation_fee?.toLocaleString() || 0}
                         </p>
                       </div>

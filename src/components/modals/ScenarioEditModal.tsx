@@ -7,8 +7,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Badge } from '@/components/ui/badge'
-import type { Scenario, FlexiblePricing, PricingModifier, GMConfiguration, Staff } from '@/types'
-import { staffApi } from '@/lib/api'
+import { ConditionalSettings, ConditionalSetting } from '@/components/ui/conditional-settings'
+import type { Scenario, FlexiblePricing, PricingModifier } from '@/types'
 
 interface ScenarioEditModalProps {
   scenario: Scenario | null
@@ -32,11 +32,11 @@ interface ScenarioFormData {
   genre: string[]
   required_props: { item: string; amount: number; frequency: 'recurring' | 'one-time' }[]
   has_pre_reading: boolean
-  available_gms: string[]
+  gm_count: number
+  gm_assignments: { role: 'main' | 'sub'; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   // 時間帯別料金設定
-  gm_costs: { time_slot: string; amount: number; role: 'main' | 'sub' }[]
-  license_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed' }[]
-  participation_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed' }[]
+  license_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
+  participation_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
   // 柔軟な料金設定
   use_flexible_pricing: boolean
   flexible_pricing: FlexiblePricing
@@ -62,7 +62,6 @@ const genreOptions = [
 ].map(genre => ({ id: genre, name: genre }))
 
 export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: ScenarioEditModalProps) {
-  const [staffList, setStaffList] = useState<Staff[]>([])
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
@@ -78,9 +77,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     genre: [],
     required_props: [],
     has_pre_reading: false,
-    available_gms: [],
+    gm_count: 1,
+    gm_assignments: [{ role: 'main', reward: 2000 }],
     // 項目別料金設定
-    gm_costs: [{ time_slot: '通常', amount: 2000, role: 'main' }],
     license_costs: [{ time_slot: '通常', amount: 0, type: 'fixed' }],
     participation_costs: [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
     use_flexible_pricing: false,
@@ -105,10 +104,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   const [newRequiredPropAmount, setNewRequiredPropAmount] = useState(0)
   const [newRequiredPropFrequency, setNewRequiredPropFrequency] = useState<'recurring' | 'one-time'>('recurring')
   
-  // GM報酬項目別入力用
-  const [newGmCostTimeSlot, setNewGmCostTimeSlot] = useState<string>('通常')
-  const [newGmCostAmount, setNewGmCostAmount] = useState(0)
-  const [newGmCostRole, setNewGmCostRole] = useState<'main' | 'sub'>('main')
   
   // ライセンス代項目別入力用
   const [newLicenseCostTimeSlot, setNewLicenseCostTimeSlot] = useState<string>('通常')
@@ -118,7 +113,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   // 参加費項目別入力用
   const [newParticipationCostTimeSlot, setNewParticipationCostTimeSlot] = useState<string>('通常')
   const [newParticipationCostAmount, setNewParticipationCostAmount] = useState(0)
-  const [newParticipationCostType, setNewParticipationCostType] = useState<'percentage' | 'fixed'>('fixed')
+  
+  // 新規入力欄の表示制御
+  const [showNewGmItem, setShowNewGmItem] = useState(true)
   
 
   const addProductionCost = () => {
@@ -162,27 +159,13 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     }))
   }
 
-  // GM報酬項目別管理
-  const addGmCost = () => {
-    if (newGmCostAmount > 0) {
-      setFormData(prev => ({
-        ...prev,
-        gm_costs: [...prev.gm_costs, { 
-          time_slot: newGmCostTimeSlot, 
-          amount: newGmCostAmount,
-          role: newGmCostRole
-        }]
-      }))
-      setNewGmCostTimeSlot('通常')
-      setNewGmCostAmount(0)
-      setNewGmCostRole('main')
-    }
-  }
 
-  const removeGmCost = (index: number) => {
+  // 個別GM削除ハンドラー
+  const removeGmAssignment = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      gm_costs: prev.gm_costs.filter((_, i) => i !== index)
+      gm_count: prev.gm_count - 1,
+      gm_assignments: prev.gm_assignments.filter((_, i) => i !== index)
     }))
   }
 
@@ -194,7 +177,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         license_costs: [...prev.license_costs, { 
           time_slot: newLicenseCostTimeSlot, 
           amount: newLicenseCostAmount,
-          type: newLicenseCostType
+          type: newLicenseCostType,
+          status: getItemStatus(newLicenseCostAmount, 0),
+          usageCount: 0
         }]
       }))
       setNewLicenseCostTimeSlot('通常')
@@ -215,23 +200,233 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     if (newParticipationCostAmount > 0) {
       setFormData(prev => ({
         ...prev,
-        participation_costs: [...prev.participation_costs, { 
+        participation_costs: [...(prev.participation_costs || []), { 
           time_slot: newParticipationCostTimeSlot, 
           amount: newParticipationCostAmount,
-          type: newParticipationCostType
+          type: 'fixed',
+          status: getItemStatus(newParticipationCostAmount, 0),
+          usageCount: 0
         }]
       }))
       setNewParticipationCostTimeSlot('通常')
       setNewParticipationCostAmount(0)
-      setNewParticipationCostType('fixed')
     }
   }
 
   const removeParticipationCost = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      participation_costs: prev.participation_costs.filter((_, i) => i !== index)
+      participation_costs: (prev.participation_costs || []).filter((_, i) => i !== index)
     }))
+  }
+
+  // 参加費の新しいコンポーネント用ハンドラー
+  const handleParticipationCostsChange = (costs: ConditionalSetting[]) => {
+    setFormData(prev => ({
+      ...prev,
+      participation_costs: costs.map(cost => ({
+        time_slot: cost.condition,
+        amount: cost.amount,
+        type: 'fixed' as const,
+        status: cost.status,
+        usageCount: cost.usageCount
+      }))
+    }))
+  }
+
+  const handleNewParticipationCostChange = (newCost: ConditionalSetting) => {
+    setNewParticipationCostTimeSlot(newCost.condition)
+    setNewParticipationCostAmount(newCost.amount)
+  }
+
+  const handleAddParticipationCost = () => {
+    addParticipationCost()
+  }
+
+  const handleClearNewParticipationCost = () => {
+    setNewParticipationCostTimeSlot('通常')
+    setNewParticipationCostAmount(0)
+  }
+
+  // GM設定の新しいコンポーネント用ハンドラー
+  const handleGmAssignmentsChange = (assignments: ConditionalSetting[]) => {
+    const gmAssignments = assignments.map(assignment => ({
+      role: assignment.condition as 'main' | 'sub',
+      reward: assignment.amount,
+      status: assignment.status,
+      usageCount: assignment.usageCount
+    }))
+    setFormData(prev => ({
+      ...prev,
+      gm_assignments: gmAssignments,
+      gm_count: gmAssignments.length
+    }))
+  }
+
+  const handleNewGmAssignmentChange = (_newAssignment: ConditionalSetting) => {
+    // 新しいGM配置の変更は特に処理しない（追加時に処理）
+  }
+
+  const handleAddGmAssignment = () => {
+    console.log('handleAddGmAssignment called!')
+    console.log('Current gm_assignments:', formData.gm_assignments)
+    setFormData(prev => {
+      const newAssignments = [...prev.gm_assignments, { 
+        role: 'sub' as const, 
+        reward: 2000,
+        status: getItemStatus(2000, 0),
+        usageCount: 0
+      }]
+      console.log('New gm_assignments:', newAssignments)
+      return {
+        ...prev,
+        gm_assignments: newAssignments,
+        gm_count: prev.gm_count + 1
+      }
+    })
+  }
+
+  const handleRemoveGmAssignment = (index: number) => {
+    removeGmAssignment(index)
+  }
+
+  const handleClearNewGmAssignment = () => {
+    console.log('handleClearNewGmAssignment called!')
+    // 新規入力欄をデフォルト状態にリセット
+    // ConditionalSettingsコンポーネント内で管理されているnewItemの状態をリセット
+    // 実際には、newItemの値を初期状態に戻すためのハンドラーを呼ぶ必要がある
+  }
+
+  const handleHideNewGmItem = () => {
+    console.log('handleHideNewGmItem called!')
+    setShowNewGmItem(false)
+  }
+
+  // ライセンス料の新しいコンポーネント用ハンドラー
+  const handleLicenseCostsChange = (costs: ConditionalSetting[]) => {
+    setFormData(prev => ({
+      ...prev,
+      license_costs: costs.map(cost => ({
+        time_slot: cost.condition,
+        amount: cost.amount,
+        type: cost.type || 'fixed' as const,
+        status: cost.status,
+        usageCount: cost.usageCount
+      }))
+    }))
+  }
+
+  const handleNewLicenseCostChange = (newCost: ConditionalSetting) => {
+    setNewLicenseCostTimeSlot(newCost.condition)
+    setNewLicenseCostAmount(newCost.amount)
+    setNewLicenseCostType(newCost.type as 'percentage' | 'fixed' || 'fixed')
+  }
+
+  const handleAddLicenseCost = () => {
+    addLicenseCost()
+  }
+
+  const handleClearNewLicenseCost = () => {
+    setNewLicenseCostTimeSlot('通常')
+    setNewLicenseCostAmount(0)
+    setNewLicenseCostType('fixed')
+  }
+
+  // GM役割に応じた説明文を生成
+  const getGmRoleDescription = (role: string) => {
+    const descriptions: { [key: string]: string } = {
+      'main': 'ゲーム進行の主担当',
+      'sub': 'メインGMのサポート役'
+    }
+    return descriptions[role] || ''
+  }
+
+
+  // 時間帯オプション
+  const timeSlotOptions = [
+    { value: '通常', label: '通常' },
+    { value: '朝', label: '朝' },
+    { value: '昼', label: '昼' },
+    { value: '夜', label: '夜' },
+    { value: '平日', label: '平日' },
+    { value: '土日祝', label: '土日祝' },
+    { value: '平日朝', label: '平日朝' },
+    { value: '平日昼', label: '平日昼' },
+    { value: '平日夜', label: '平日夜' },
+    { value: '土日祝朝', label: '土日祝朝' },
+    { value: '土日祝昼', label: '土日祝昼' },
+    { value: '土日祝夜', label: '土日祝夜' }
+  ]
+
+  // GM役割オプション
+  const gmRoleOptions = [
+    { value: 'main', label: 'メインGM' },
+    { value: 'sub', label: 'サブGM' }
+  ]
+
+  // 時間帯に応じた説明文を生成（参加費用）
+  const getTimeSlotDescription = (timeSlot: string) => {
+    const descriptions: { [key: string]: string } = {
+      '通常': '基本の参加費',
+      '朝': '朝の時間帯の参加費',
+      '昼': '昼の時間帯の参加費',
+      '夜': '夜の時間帯の参加費',
+      '平日': '平日の参加費',
+      '土日祝': '土日祝日の参加費',
+      '平日朝': '平日朝の時間帯の参加費',
+      '平日昼': '平日昼の時間帯の参加費',
+      '平日夜': '平日夜の時間帯の参加費',
+      '土日祝朝': '土日祝日朝の時間帯の参加費',
+      '土日祝昼': '土日祝日昼の時間帯の参加費',
+      '土日祝夜': '土日祝日夜の時間帯の参加費'
+    }
+    return descriptions[timeSlot] || ''
+  }
+
+  // 時間帯に応じた説明文を生成（ライセンス料用）
+  const getLicenseTimeSlotDescription = (timeSlot: string) => {
+    const descriptions: { [key: string]: string } = {
+      '通常': '基本のライセンス料',
+      '朝': '朝の時間帯のライセンス料',
+      '昼': '昼の時間帯のライセンス料',
+      '夜': '夜の時間帯のライセンス料',
+      '平日': '平日のライセンス料',
+      '土日祝': '土日祝日のライセンス料',
+      '平日朝': '平日朝の時間帯のライセンス料',
+      '平日昼': '平日昼の時間帯のライセンス料',
+      '平日夜': '平日夜の時間帯のライセンス料',
+      '土日祝朝': '土日祝日朝の時間帯のライセンス料',
+      '土日祝昼': '土日祝日昼の時間帯のライセンス料',
+      '土日祝夜': '土日祝日夜の時間帯のライセンス料'
+    }
+    return descriptions[timeSlot] || ''
+  }
+
+  // 金額を表示用にフォーマット（カンマ区切り + 円）
+  const formatCurrency = (amount: number | string) => {
+    const num = typeof amount === 'string' ? parseInt(amount) || 0 : amount
+    if (num === 0) return ''
+    return `${num.toLocaleString()}円`
+  }
+
+  // 表示用文字列から数値を抽出
+  const parseCurrency = (value: string) => {
+    return parseInt(value.replace(/[^\d]/g, '')) || 0
+  }
+
+  // ステータス判定ロジック
+  const getItemStatus = (amount: number, usageCount?: number): 'active' | 'legacy' | 'unused' | 'ready' => {
+    console.log('getItemStatus called:', { amount, usageCount })
+    if (usageCount && usageCount > 0) {
+      console.log('returning active')
+      return 'active' // 使用実績あり
+    }
+    if (amount > 0) {
+      console.log('returning ready')
+      return 'ready' // 金額設定済み、運用可能
+    }
+    console.log('returning unused')
+    return 'unused' // 未設定
   }
 
   useEffect(() => {
@@ -245,27 +440,84 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         player_count_max: scenario.player_count_max || 8,
         difficulty: scenario.difficulty || 3,
         rating: scenario.rating,
-        status: scenario.status || 'available',
+        status: (scenario.status as 'available' | 'maintenance' | 'retired') || 'available',
         participation_fee: scenario.participation_fee || 3000,
         production_costs: scenario.production_costs || (scenario.production_cost > 0 ? [{ item: '制作費', amount: scenario.production_cost }] : []),
         genre: scenario.genre || [],
-        required_props: Array.isArray(scenario.required_props) && scenario.required_props.length > 0 && typeof scenario.required_props[0] === 'object' 
-          ? (scenario.required_props as any[]).map(prop => ({
+        required_props: (() => {
+          if (!Array.isArray(scenario.required_props) || scenario.required_props.length === 0) {
+            return []
+          }
+          if (typeof scenario.required_props[0] === 'object') {
+            return (scenario.required_props as any[]).map(prop => ({
               item: prop.item || prop,
               amount: prop.amount || 0,
               frequency: prop.frequency || 'recurring'
             }))
-          : (scenario.required_props as string[] || []).map(prop => ({ 
+          } else {
+            return (scenario.required_props as unknown as string[]).map(prop => ({ 
               item: prop, 
               amount: 0, 
               frequency: 'recurring' as const 
-            })),
+            }))
+          }
+        })(),
         has_pre_reading: scenario.has_pre_reading || false,
-        available_gms: scenario.available_gms || [],
+        gm_count: scenario.gm_assignments?.length || 2,
+        gm_assignments: scenario.gm_assignments || [
+          { 
+            role: 'main' as const, 
+            reward: 2000,
+            status: getItemStatus(2000, 8),
+            usageCount: 8
+          },
+          { 
+            role: 'sub' as const, 
+            reward: 1500,
+            status: getItemStatus(1500, 3),
+            usageCount: 3
+          }
+        ],
         // 項目別料金設定の初期化
-        gm_costs: scenario.gm_costs || [{ time_slot: '通常', amount: 2000, role: 'main' as const }],
-        license_costs: scenario.license_costs || [{ time_slot: '通常', amount: 0, type: 'fixed' as const }],
-        participation_costs: scenario.participation_costs || (scenario.participation_fee > 0 ? [{ time_slot: '通常', amount: scenario.participation_fee, type: 'fixed' as const }] : []),
+        license_costs: scenario.license_costs || [
+          { 
+            time_slot: '通常', 
+            amount: 500, 
+            type: 'fixed' as const,
+            status: getItemStatus(500, 12),
+            usageCount: 12
+          },
+          { 
+            time_slot: '平日', 
+            amount: 300, 
+            type: 'fixed' as const,
+            status: getItemStatus(300, 5),
+            usageCount: 5
+          },
+          { 
+            time_slot: '土日祝', 
+            amount: 800, 
+            type: 'fixed' as const,
+            status: getItemStatus(800, 0),
+            usageCount: 0
+          }
+        ],
+        participation_costs: scenario.participation_costs || (scenario.participation_fee > 0 ? [
+          { 
+            time_slot: '通常', 
+            amount: scenario.participation_fee, 
+            type: 'fixed' as const,
+            status: getItemStatus(scenario.participation_fee, 15),
+            usageCount: 15
+          },
+          { 
+            time_slot: '平日', 
+            amount: scenario.participation_fee - 500, 
+            type: 'fixed' as const,
+            status: getItemStatus(scenario.participation_fee - 500, 8),
+            usageCount: 8
+          }
+        ] : []),
         use_flexible_pricing: !!scenario.flexible_pricing,
         flexible_pricing: scenario.flexible_pricing || {
           base_pricing: {
@@ -292,48 +544,52 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         player_count_max: 8,
         difficulty: 3,
         rating: undefined,
-        status: 'available',
+        status: 'available' as const,
         participation_fee: 3000,
         production_costs: [],
         genre: [],
         required_props: [],
-        has_pre_reading: false
+        has_pre_reading: false,
+        gm_count: 1,
+        gm_assignments: [{ 
+          role: 'main' as const, 
+          reward: 2000,
+          status: getItemStatus(2000, 0),
+          usageCount: 0
+        }],
+        license_costs: [{ 
+          time_slot: '通常', 
+          amount: 0, 
+          type: 'fixed' as const,
+          status: getItemStatus(0, 0),
+          usageCount: 0
+        }],
+        participation_costs: [{ 
+          time_slot: '通常', 
+          amount: 3000, 
+          type: 'fixed' as const,
+          status: getItemStatus(3000, 0),
+          usageCount: 0
+        }],
+        use_flexible_pricing: false,
+        flexible_pricing: {
+          base_pricing: {
+            license_amount: 0,
+            participation_fee: 3000
+          },
+          pricing_modifiers: [],
+          gm_configuration: {
+            required_count: 1,
+            optional_count: 0,
+            total_max: 2,
+            special_requirements: ''
+          }
+        }
       })
     }
   }, [scenario])
 
-  // スタッフデータを取得
-  useEffect(() => {
-    const fetchStaff = async () => {
-      try {
-        const staff = await staffApi.getAll()
-        console.log('取得したスタッフデータ:', staff)
-        setStaffList(staff)
-      } catch (error) {
-        console.error('スタッフデータの取得に失敗しました:', error)
-      }
-    }
 
-    if (isOpen) {
-      fetchStaff()
-    }
-  }, [isOpen])
-
-  // GMオプションを作成（GMの役割を持つスタッフのみ）
-  const gmOptions = staffList
-    .filter(staff => {
-      const hasGmRole = staff.role && Array.isArray(staff.role) && 
-        (staff.role.includes('GM') || staff.role.includes('gm'))
-      console.log(`スタッフ ${staff.name}: role=${JSON.stringify(staff.role)}, hasGmRole=${hasGmRole}`)
-      return hasGmRole
-    })
-    .map(staff => ({ id: staff.id, name: staff.name }))
-  
-  console.log('GMオプション:', gmOptions)
-
-  // デバッグ用：すべてのスタッフオプション
-  const allStaffOptions = staffList.map(staff => ({ id: staff.id, name: staff.name }))
-  console.log('全スタッフオプション:', allStaffOptions)
 
   const handleSave = () => {
     const totalProductionCost = formData.production_costs.reduce((sum, cost) => sum + cost.amount, 0)
@@ -348,9 +604,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       player_count_max: formData.player_count_max,
       difficulty: formData.difficulty,
       rating: formData.rating,
-      status: formData.status,
+      status: formData.status as 'available' | 'maintenance' | 'retired',
       participation_fee: formData.participation_fee,
-      gm_costs: formData.gm_costs,
       license_costs: formData.license_costs,
       participation_costs: formData.participation_costs,
       production_cost: totalProductionCost,
@@ -358,9 +613,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       genre: formData.genre,
       required_props: formData.required_props, // Keep as object array with frequency
       has_pre_reading: formData.has_pre_reading,
+      gm_assignments: formData.gm_assignments,
+      available_gms: scenario?.available_gms || [],
       // 柔軟な料金設定を保存
       flexible_pricing: formData.use_flexible_pricing ? formData.flexible_pricing : undefined,
-      available_gms: formData.available_gms,
       play_count: scenario?.play_count || 0,
       created_at: scenario?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -509,132 +765,32 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
               <Label htmlFor="has_pre_reading">事前読み込みあり</Label>
             </div>
 
-            {/* GM設定 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="gm_required">必須GM人数</Label>
-                <Input
-                  id="gm_required"
-                  type="number"
-                  value={formData.flexible_pricing?.gm_configuration?.required_count || 1}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    flexible_pricing: {
-                      ...prev.flexible_pricing,
-                      gm_configuration: {
-                        ...prev.flexible_pricing?.gm_configuration,
-                        required_count: parseInt(e.target.value) || 1,
-                        optional_count: prev.flexible_pricing?.gm_configuration?.optional_count || 0,
-                        total_max: Math.max(parseInt(e.target.value) || 1, prev.flexible_pricing?.gm_configuration?.total_max || 2)
-                      }
-                    }
-                  }))}
-                  min="1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="gm_max">最大GM人数</Label>
-                <Input
-                  id="gm_max"
-                  type="number"
-                  value={formData.flexible_pricing?.gm_configuration?.total_max || 2}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    flexible_pricing: {
-                      ...prev.flexible_pricing,
-                      gm_configuration: {
-                        ...prev.flexible_pricing?.gm_configuration,
-                        required_count: prev.flexible_pricing?.gm_configuration?.required_count || 1,
-                        optional_count: Math.max(0, (parseInt(e.target.value) || 2) - (prev.flexible_pricing?.gm_configuration?.required_count || 1)),
-                        total_max: parseInt(e.target.value) || 2
-                      }
-                    }
-                  }))}
-                  min={formData.flexible_pricing?.gm_configuration?.required_count || 1}
-                />
-              </div>
-            </div>
-
-
             {/* 参加費（項目別） */}
-            <div className="space-y-4">
-              <h4 className="font-medium">参加費</h4>
-              <div className="flex gap-2">
-                <Select value={newParticipationCostTimeSlot} onValueChange={(value: string) => setNewParticipationCostTimeSlot(value)}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="通常">通常</SelectItem>
-                    <SelectItem value="朝">朝</SelectItem>
-                    <SelectItem value="昼">昼</SelectItem>
-                    <SelectItem value="夜">夜</SelectItem>
-                    <SelectItem value="平日">平日</SelectItem>
-                    <SelectItem value="土日祝">土日祝</SelectItem>
-                    <SelectItem value="平日朝">平日朝</SelectItem>
-                    <SelectItem value="平日昼">平日昼</SelectItem>
-                    <SelectItem value="平日夜">平日夜</SelectItem>
-                    <SelectItem value="土日祝朝">土日祝朝</SelectItem>
-                    <SelectItem value="土日祝昼">土日祝昼</SelectItem>
-                    <SelectItem value="土日祝夜">土日祝夜</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="number"
-                  placeholder="金額"
-                  value={newParticipationCostAmount || ''}
-                  onChange={(e) => setNewParticipationCostAmount(parseInt(e.target.value) || 0)}
-                  min="0"
-                  className="w-[120px]"
-                />
-                <Select value={newParticipationCostType} onValueChange={(value: 'percentage' | 'fixed') => setNewParticipationCostType(value)}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fixed">固定額</SelectItem>
-                    <SelectItem value="percentage">パーセンテージ</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button 
-                  type="button" 
-                  onClick={addParticipationCost}
-                  disabled={newParticipationCostAmount <= 0}
-                >
-                  追加
-                </Button>
-              </div>
-              
-              {/* 参加費リスト */}
-              {formData.participation_costs && formData.participation_costs.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {formData.participation_costs.map((cost, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">
-                          {cost.time_slot}: {cost.type === 'percentage' ? `${cost.amount}%` : `¥${cost.amount.toLocaleString()}`}
-                        </span>
-                        <Badge 
-                          variant="outline"
-                          className="text-xs px-1 py-0.5"
-                        >
-                          {cost.type === 'percentage' ? 'パーセンテージ' : '固定額'}
-                        </Badge>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeParticipationCost(index)}
-                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ConditionalSettings
+              title="参加費"
+              subtitle="時間帯や曜日に応じて異なる参加費を設定できます"
+              items={(formData.participation_costs || []).map(cost => ({
+                condition: cost.time_slot,
+                amount: cost.amount,
+                type: 'fixed' as const,
+                status: cost.status,
+                usageCount: cost.usageCount
+              }))}
+              newItem={{
+                condition: newParticipationCostTimeSlot,
+                amount: newParticipationCostAmount,
+                type: 'fixed' as const
+              }}
+              conditionOptions={timeSlotOptions}
+              showDescription={true}
+              getDescription={getTimeSlotDescription}
+              onItemsChange={handleParticipationCostsChange}
+              onNewItemChange={handleNewParticipationCostChange}
+              onAddItem={handleAddParticipationCost}
+              onRemoveItem={removeParticipationCost}
+              onClearNewItem={handleClearNewParticipationCost}
+              addButtonText="条件を追加"
+            />
 
             {/* ジャンル */}
             <div>
@@ -648,20 +804,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
               />
             </div>
 
-            {/* 担当GM */}
-            <div>
-              <Label htmlFor="available_gms">担当GM</Label>
-              <MultiSelect
-                options={gmOptions}
-                selectedValues={formData.available_gms}
-                onSelectionChange={(value) => setFormData(prev => ({ ...prev, available_gms: value }))}
-                placeholder="担当GMを選択してください"
-                showBadges={true}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                デバッグ: GMオプション数: {gmOptions.length}
-              </p>
-            </div>
           </div>
 
           {/* コスト */}
@@ -698,6 +840,69 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
             {/* 必要道具・制作費 */}
             <div className="space-y-6">
+                {/* GM報酬 */}
+                <ConditionalSettings
+                  title="GM報酬"
+                  subtitle="役割に応じて異なる報酬を設定できます"
+                  items={formData.gm_assignments.map((assignment, index) => {
+                    console.log(`GM Assignment ${index}:`, assignment)
+                    return {
+                      condition: assignment.role,
+                      amount: assignment.reward,
+                      type: 'fixed' as const,
+                      status: assignment.status,
+                      usageCount: assignment.usageCount
+                    }
+                  })}
+                  newItem={{
+                    condition: 'sub',
+                    amount: 2000,
+                    type: 'fixed' as const,
+                    status: getItemStatus(2000, 0),
+                    usageCount: 0
+                  }}
+                  conditionOptions={gmRoleOptions}
+                  showDescription={true}
+                  showNewItem={showNewGmItem}
+                  getDescription={getGmRoleDescription}
+                  onItemsChange={handleGmAssignmentsChange}
+                  onNewItemChange={handleNewGmAssignmentChange}
+                  onAddItem={handleAddGmAssignment}
+                  onRemoveItem={handleRemoveGmAssignment}
+                  onClearNewItem={handleClearNewGmAssignment}
+                  onHideNewItem={handleHideNewGmItem}
+                  addButtonText="GMを追加"
+                  placeholder="報酬"
+                />
+
+                {/* ライセンス料 */}
+                <ConditionalSettings
+                  title="ライセンス料"
+                  subtitle="時間帯や曜日に応じて異なる料金を設定できます"
+                  items={(formData.license_costs || []).map(cost => ({
+                    condition: cost.time_slot,
+                    amount: cost.amount,
+                    type: cost.type,
+                    status: cost.status,
+                    usageCount: cost.usageCount
+                  }))}
+                  newItem={{
+                    condition: newLicenseCostTimeSlot,
+                    amount: newLicenseCostAmount,
+                    type: newLicenseCostType
+                  }}
+                  conditionOptions={timeSlotOptions}
+                  showTypeSelector={true}
+                  showDescription={true}
+                  getDescription={getLicenseTimeSlotDescription}
+                  onItemsChange={handleLicenseCostsChange}
+                  onNewItemChange={handleNewLicenseCostChange}
+                  onAddItem={handleAddLicenseCost}
+                  onRemoveItem={removeLicenseCost}
+                  onClearNewItem={handleClearNewLicenseCost}
+                  addButtonText="条件を追加"
+                />
+
                 {/* 必要道具 */}
                 <div className="space-y-4">
                   <h4 className="font-medium">必要道具</h4>
@@ -709,11 +914,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                       className="flex-1"
                     />
                     <Input
-                      type="number"
+                      type="text"
                       placeholder="金額"
-                      value={newRequiredPropAmount || ''}
-                      onChange={(e) => setNewRequiredPropAmount(parseInt(e.target.value) || 0)}
-                      min="0"
+                      value={formatCurrency(newRequiredPropAmount || 0)}
+                      onChange={(e) => setNewRequiredPropAmount(parseCurrency(e.target.value))}
                       className="w-[120px]"
                     />
                     <Select value={newRequiredPropFrequency} onValueChange={(value: 'recurring' | 'one-time') => setNewRequiredPropFrequency(value)}>
@@ -741,7 +945,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                         <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                           <div className="flex items-center gap-2">
                             <span className="text-sm">
-                              {prop.item}: ¥{prop.amount.toLocaleString()}
+                              {prop.item}: {formatCurrency(prop.amount)}
                             </span>
                             <Badge 
                               variant={prop.frequency === 'recurring' ? 'default' : 'secondary'}
@@ -762,7 +966,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                         </div>
                       ))}
                       <div className="text-sm font-medium text-right">
-                        合計: ¥{formData.required_props.reduce((sum, prop) => sum + prop.amount, 0).toLocaleString()}
+                        合計: {formatCurrency(formData.required_props.reduce((sum, prop) => sum + prop.amount, 0))}
                       </div>
                     </div>
                   )}
@@ -779,11 +983,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                       className="flex-1"
                     />
                     <Input
-                      type="number"
+                      type="text"
                       placeholder="金額"
-                      value={newProductionAmount || ''}
-                      onChange={(e) => setNewProductionAmount(parseInt(e.target.value) || 0)}
-                      min="0"
+                      value={formatCurrency(newProductionAmount || 0)}
+                      onChange={(e) => setNewProductionAmount(parseCurrency(e.target.value))}
                       className="w-[120px]"
                     />
                     <Button 
@@ -801,7 +1004,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                       {formData.production_costs.map((cost, index) => (
                         <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                           <span className="text-sm">
-                            {cost.item}: ¥{cost.amount.toLocaleString()}
+                            {cost.item}: {formatCurrency(cost.amount)}
                           </span>
                           <Button
                             type="button"
@@ -815,92 +1018,11 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                         </div>
                       ))}
                       <div className="text-sm font-medium text-right">
-                        合計: ¥{formData.production_costs.reduce((sum, cost) => sum + cost.amount, 0).toLocaleString()}
+                        合計: {formatCurrency(formData.production_costs.reduce((sum, cost) => sum + cost.amount, 0))}
                       </div>
                     </div>
                   )}
                 </div>
-
-                {/* ライセンス料（項目別） */}
-                <div className="space-y-4">
-                  <h4 className="font-medium">ライセンス料</h4>
-                  <div className="flex gap-2">
-                    <Select value={newLicenseCostTimeSlot} onValueChange={(value: string) => setNewLicenseCostTimeSlot(value)}>
-                      <SelectTrigger className="w-[120px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="通常">通常</SelectItem>
-                        <SelectItem value="朝">朝</SelectItem>
-                        <SelectItem value="昼">昼</SelectItem>
-                        <SelectItem value="夜">夜</SelectItem>
-                        <SelectItem value="平日">平日</SelectItem>
-                        <SelectItem value="土日祝">土日祝</SelectItem>
-                        <SelectItem value="平日朝">平日朝</SelectItem>
-                        <SelectItem value="平日昼">平日昼</SelectItem>
-                        <SelectItem value="平日夜">平日夜</SelectItem>
-                        <SelectItem value="土日祝朝">土日祝朝</SelectItem>
-                        <SelectItem value="土日祝昼">土日祝昼</SelectItem>
-                        <SelectItem value="土日祝夜">土日祝夜</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="number"
-                      placeholder="金額"
-                      value={newLicenseCostAmount || ''}
-                      onChange={(e) => setNewLicenseCostAmount(parseInt(e.target.value) || 0)}
-                      min="0"
-                      className="w-[120px]"
-                    />
-                    <Select value={newLicenseCostType} onValueChange={(value: 'percentage' | 'fixed') => setNewLicenseCostType(value)}>
-                      <SelectTrigger className="w-[120px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fixed">固定額</SelectItem>
-                        <SelectItem value="percentage">パーセンテージ</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button 
-                      type="button" 
-                      onClick={addLicenseCost}
-                      disabled={newLicenseCostAmount <= 0}
-                    >
-                      追加
-                    </Button>
-                  </div>
-                  
-                  {/* ライセンス料リスト */}
-                  {formData.license_costs && formData.license_costs.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                      {formData.license_costs.map((cost, index) => (
-                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm">
-                              {cost.time_slot}: {cost.type === 'percentage' ? `${cost.amount}%` : `¥${cost.amount.toLocaleString()}`}
-                            </span>
-                            <Badge 
-                              variant="outline"
-                              className="text-xs px-1 py-0.5"
-                            >
-                              {cost.type === 'percentage' ? 'パーセンテージ' : '固定額'}
-                            </Badge>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeLicenseCost(index)}
-                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
 
                 {/* 料金修正ルール */}
                 {formData.flexible_pricing?.pricing_modifiers && formData.flexible_pricing.pricing_modifiers.length > 0 && (
@@ -1009,11 +1131,14 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                             <div>
                               <Label>ライセンス料修正 {modifier.modifier_type === 'percentage' ? '(%)' : '(円)'}</Label>
                               <Input
-                                type="number"
-                                value={modifier.license_modifier}
+                                type="text"
+                                value={modifier.modifier_type === 'percentage' ? (modifier.license_modifier || '') : formatCurrency(modifier.license_modifier || 0)}
                                 onChange={(e) => {
+                                  const value = modifier.modifier_type === 'percentage' 
+                                    ? parseInt(e.target.value.replace(/[^\d]/g, '')) || 0
+                                    : parseCurrency(e.target.value)
                                   const updatedModifiers = [...formData.flexible_pricing.pricing_modifiers]
-                                  updatedModifiers[index] = { ...modifier, license_modifier: parseInt(e.target.value) || 0 }
+                                  updatedModifiers[index] = { ...modifier, license_modifier: value }
                                   setFormData(prev => ({
                                     ...prev,
                                     flexible_pricing: {
@@ -1027,11 +1152,14 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                             <div>
                               <Label>参加費修正 {modifier.modifier_type === 'percentage' ? '(%)' : '(円)'}</Label>
                               <Input
-                                type="number"
-                                value={modifier.participation_modifier}
+                                type="text"
+                                value={modifier.modifier_type === 'percentage' ? (modifier.participation_modifier || '') : formatCurrency(modifier.participation_modifier || 0)}
                                 onChange={(e) => {
+                                  const value = modifier.modifier_type === 'percentage' 
+                                    ? parseInt(e.target.value.replace(/[^\d]/g, '')) || 0
+                                    : parseCurrency(e.target.value)
                                   const updatedModifiers = [...formData.flexible_pricing.pricing_modifiers]
-                                  updatedModifiers[index] = { ...modifier, participation_modifier: parseInt(e.target.value) || 0 }
+                                  updatedModifiers[index] = { ...modifier, participation_modifier: value }
                                   setFormData(prev => ({
                                     ...prev,
                                     flexible_pricing: {
@@ -1049,85 +1177,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                   </div>
                 )}
 
-                {/* GM報酬（項目別） */}
-                <div className="space-y-4">
-                  <h4 className="font-medium">GM報酬</h4>
-                  <div className="flex gap-2">
-                    <Select value={newGmCostRole} onValueChange={(value: 'main' | 'sub') => setNewGmCostRole(value)}>
-                      <SelectTrigger className="w-[120px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="main">メインGM</SelectItem>
-                        <SelectItem value="sub">サブGM</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={newGmCostTimeSlot} onValueChange={(value: string) => setNewGmCostTimeSlot(value)}>
-                      <SelectTrigger className="w-[120px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="通常">通常</SelectItem>
-                        <SelectItem value="朝">朝</SelectItem>
-                        <SelectItem value="昼">昼</SelectItem>
-                        <SelectItem value="夜">夜</SelectItem>
-                        <SelectItem value="平日">平日</SelectItem>
-                        <SelectItem value="土日祝">土日祝</SelectItem>
-                        <SelectItem value="平日朝">平日朝</SelectItem>
-                        <SelectItem value="平日昼">平日昼</SelectItem>
-                        <SelectItem value="平日夜">平日夜</SelectItem>
-                        <SelectItem value="土日祝朝">土日祝朝</SelectItem>
-                        <SelectItem value="土日祝昼">土日祝昼</SelectItem>
-                        <SelectItem value="土日祝夜">土日祝夜</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="number"
-                      placeholder="金額"
-                      value={newGmCostAmount || ''}
-                      onChange={(e) => setNewGmCostAmount(parseInt(e.target.value) || 0)}
-                      min="0"
-                      className="w-[120px]"
-                    />
-                    <Button 
-                      type="button" 
-                      onClick={addGmCost}
-                      disabled={newGmCostAmount <= 0}
-                    >
-                      追加
-                    </Button>
-                  </div>
-                  
-                  {/* GM報酬リスト */}
-                  {formData.gm_costs && formData.gm_costs.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                      {formData.gm_costs.map((cost, index) => (
-                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                          <div className="flex items-center gap-2">
-                            <Badge 
-                              variant={cost.role === 'main' ? 'default' : 'secondary'}
-                              className="text-xs px-1 py-0.5"
-                            >
-                              {cost.role === 'main' ? 'メインGM' : 'サブGM'}
-                            </Badge>
-                            <span className="text-sm">
-                              {cost.time_slot}: ¥{cost.amount.toLocaleString()}
-                            </span>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeGmCost(index)}
-                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </div>
 
 

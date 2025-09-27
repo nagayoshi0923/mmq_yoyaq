@@ -99,10 +99,11 @@ export interface Scenario {
     item: string
     amount: number
   }>
+  // GM配置システム
+  gm_assignments: Array<{ role: 'main' | 'sub'; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
   // 新しい時間帯別料金設定
-  gm_costs: Array<{ time_slot: string; amount: number; role: 'main' | 'sub' }>
-  license_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed' }>
-  participation_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed' }>
+  license_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
+  participation_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
   participation_fee: number // 基本料金（後方互換性のため保持）
   // 新しい柔軟な料金設定
   flexible_pricing?: FlexiblePricing
