@@ -326,3 +326,116 @@ export const memoApi = {
     if (error) throw error
   }
 }
+
+// 売上分析関連のAPI
+export const salesApi = {
+  // 期間別売上データを取得
+  async getSalesByPeriod(startDate: string, endDate: string) {
+    const { data, error } = await supabase
+      .from('schedule_events')
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name
+        ),
+        scenarios:scenario_id (
+          id,
+          title,
+          author,
+          participation_fee
+        )
+      `)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('is_cancelled', false)
+      .order('date', { ascending: true })
+    
+    if (error) throw error
+    return data || []
+  },
+
+  // 店舗別売上データを取得
+  async getSalesByStore(startDate: string, endDate: string) {
+    const { data, error } = await supabase
+      .from('schedule_events')
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name
+        ),
+        scenarios:scenario_id (
+          id,
+          title,
+          author,
+          participation_fee
+        )
+      `)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('is_cancelled', false)
+    
+    if (error) throw error
+    return data || []
+  },
+
+  // シナリオ別売上データを取得
+  async getSalesByScenario(startDate: string, endDate: string) {
+    const { data, error } = await supabase
+      .from('schedule_events')
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name
+        ),
+        scenarios:scenario_id (
+          id,
+          title,
+          author,
+          participation_fee
+        )
+      `)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('is_cancelled', false)
+    
+    if (error) throw error
+    return data || []
+  },
+
+  // 作者別公演実行回数を取得
+  async getPerformanceCountByAuthor(startDate: string, endDate: string) {
+    const { data, error } = await supabase
+      .from('schedule_events')
+      .select(`
+        date,
+        scenarios:scenario_id (
+          id,
+          title,
+          author
+        )
+      `)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('is_cancelled', false)
+    
+    if (error) throw error
+    return data || []
+  },
+
+  // 店舗一覧を取得
+  async getStores() {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('id, name, short_name')
+      .order('name', { ascending: true })
+    
+    if (error) throw error
+    return data || []
+  }
+}

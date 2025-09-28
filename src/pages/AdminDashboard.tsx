@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StoreManagement } from './StoreManagement'
 import { ScenarioManagement } from './ScenarioManagement'
 import { StaffManagement } from './StaffManagement'
 import { ScheduleManager } from './ScheduleManager'
+import SalesManagement from './SalesManagement'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { 
@@ -79,6 +79,10 @@ export function AdminDashboard() {
   
   if (currentPage === 'staff') {
     return <StaffManagement />
+  }
+  
+  if (currentPage === 'sales') {
+    return <SalesManagement />
   }
 
   return (
