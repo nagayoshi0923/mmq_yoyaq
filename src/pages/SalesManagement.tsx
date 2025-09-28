@@ -200,14 +200,30 @@ const SalesManagement: React.FC = () => {
   const fetchSalesData = async () => {
     setLoading(true)
     try {
-      // 月別グラフ用に1年分のデータを取得
+      // 期間に応じてグラフ用のデータ取得期間を決定
       const startDate = new Date(dateRange.startDate)
-      const extendedStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
-      const extendedEndDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), 0)
+      const endDate = new Date(dateRange.endDate)
+      const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+      
+      let chartStartDate: Date
+      let chartEndDate: Date
+      let isMonthlyChart = false
+      
+      if (daysDiff <= 31) {
+        // 31日以内の場合は日別グラフ（選択期間のデータ）
+        chartStartDate = new Date(startDate)
+        chartEndDate = new Date(endDate)
+        isMonthlyChart = false
+      } else {
+        // 32日以上の場合は月別グラフ（1年分）
+        chartStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+        chartEndDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), 0)
+        isMonthlyChart = true
+      }
       
       let events = await salesApi.getSalesByPeriod(
-        extendedStartDate.toISOString().split('T')[0],
-        extendedEndDate.toISOString().split('T')[0]
+        chartStartDate.toISOString().split('T')[0],
+        chartEndDate.toISOString().split('T')[0]
       )
       
       // 店舗フィルタリング
@@ -312,33 +328,69 @@ const SalesManagement: React.FC = () => {
         }
       })
 
-      // 月別集計（1年分のデータを生成）
-      const monthlyMap = new Map()
+      // 期間に応じて日別または月別集計
+      let chartData: Array<{ month: string; revenue: number; eventCount: number }> = []
       
-      // 1年分の月を生成（開始月から12ヶ月分）
-      const currentDateForYear = new Date(extendedStartDate)
-      for (let i = 0; i < 12; i++) {
-        const monthKey = `${currentDateForYear.getFullYear()}-${String(currentDateForYear.getMonth() + 1).padStart(2, '0')}`
-        monthlyMap.set(monthKey, {
-          month: monthKey,
-          revenue: 0,
-          eventCount: 0
-        })
-        currentDateForYear.setMonth(currentDateForYear.getMonth() + 1)
-      }
-      
-      // 実際のイベントデータを集計（1年分のデータから）
-      events.forEach(event => {
-        const date = new Date(event.date)
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-        const participationFee = event.scenarios?.participation_fee || 0
+      if (isMonthlyChart) {
+        // 月別集計（1年分のデータを生成）
+        const monthlyMap = new Map()
         
-        if (monthlyMap.has(monthKey)) {
-          const existing = monthlyMap.get(monthKey)
-          existing.revenue += participationFee
-          existing.eventCount += 1
+        // 1年分の月を生成（開始月から12ヶ月分）
+        const currentDateForYear = new Date(chartStartDate)
+        for (let i = 0; i < 12; i++) {
+          const monthKey = `${currentDateForYear.getFullYear()}-${String(currentDateForYear.getMonth() + 1).padStart(2, '0')}`
+          monthlyMap.set(monthKey, {
+            month: monthKey,
+            revenue: 0,
+            eventCount: 0
+          })
+          currentDateForYear.setMonth(currentDateForYear.getMonth() + 1)
         }
-      })
+        
+        // 実際のイベントデータを集計（1年分のデータから）
+        events.forEach(event => {
+          const date = new Date(event.date)
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+          const participationFee = event.scenarios?.participation_fee || 0
+          
+          if (monthlyMap.has(monthKey)) {
+            const existing = monthlyMap.get(monthKey)
+            existing.revenue += participationFee
+            existing.eventCount += 1
+          }
+        })
+        
+        chartData = Array.from(monthlyMap.values())
+      } else {
+        // 日別集計
+        const dailyMap = new Map()
+        
+        // 期間内の日を生成
+        const currentDate = new Date(chartStartDate)
+        while (currentDate <= chartEndDate) {
+          const dayKey = currentDate.toISOString().split('T')[0]
+          dailyMap.set(dayKey, {
+            month: dayKey,
+            revenue: 0,
+            eventCount: 0
+          })
+          currentDate.setDate(currentDate.getDate() + 1)
+        }
+        
+        // 実際のイベントデータを集計
+        events.forEach(event => {
+          const dayKey = event.date
+          const participationFee = event.scenarios?.participation_fee || 0
+          
+          if (dailyMap.has(dayKey)) {
+            const existing = dailyMap.get(dayKey)
+            existing.revenue += participationFee
+            existing.eventCount += 1
+          }
+        })
+        
+        chartData = Array.from(dailyMap.values())
+      }
 
       setSalesData({
         totalRevenue,
@@ -346,7 +398,7 @@ const SalesManagement: React.FC = () => {
         averageRevenuePerEvent,
         storeBreakdown: Array.from(storeMap.values()).sort((a, b) => b.revenue - a.revenue),
         scenarioBreakdown: Array.from(scenarioMap.values()).sort((a, b) => b.revenue - a.revenue),
-        monthlyRevenue: Array.from(monthlyMap.values()).sort((a, b) => a.month.localeCompare(b.month)),
+        monthlyRevenue: chartData.sort((a, b) => a.month.localeCompare(b.month)),
         previousYearData: {
           totalRevenue: previousYearRevenue,
           totalEvents: previousYearEventsCount,
@@ -508,9 +560,21 @@ const SalesManagement: React.FC = () => {
   const prepareChartData = () => {
     if (!salesData) return null
 
-    const labels = salesData.monthlyRevenue.map(month => {
-      const [year, monthNum] = month.month.split('-')
-      return `${year}/${monthNum}`
+    // 期間に応じてラベルを変更
+    const startDate = new Date(dateRange.startDate)
+    const endDate = new Date(dateRange.endDate)
+    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    
+    const labels = salesData.monthlyRevenue.map(item => {
+      if (daysDiff <= 31) {
+        // 日別表示
+        const [, month, day] = item.month.split('-')
+        return `${month}/${day}`
+      } else {
+        // 月別表示
+        const [year, monthNum] = item.month.split('-')
+        return `${year}/${monthNum}`
+      }
     })
 
     const revenueData = salesData.monthlyRevenue.map(month => month.revenue)
@@ -669,22 +733,32 @@ const SalesManagement: React.FC = () => {
     link.click()
   }
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'index' as const,
-      intersect: false,
-    },
-    plugins: {
-      title: {
-        display: true,
-        text: `月別売上・公演数推移（1年分）(${getSelectedStoreName()})`,
-        font: {
-          size: 16,
-          weight: 'bold' as const
-        }
+  const chartOptions = (() => {
+    const startDate = new Date(dateRange.startDate)
+    const endDate = new Date(dateRange.endDate)
+    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    
+    const isDailyChart = daysDiff <= 31
+    const chartTitle = isDailyChart 
+      ? `日別売上・公演数推移（${getSelectedStoreName()}）`
+      : `月別売上・公演数推移（1年分）（${getSelectedStoreName()}）`
+    
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index' as const,
+        intersect: false,
       },
+      plugins: {
+        title: {
+          display: true,
+          text: chartTitle,
+          font: {
+            size: 16,
+            weight: 'bold' as const
+          }
+        },
       legend: {
         position: 'top' as const,
         labels: {
@@ -717,7 +791,7 @@ const SalesManagement: React.FC = () => {
         display: true,
         title: {
           display: true,
-          text: '月',
+          text: isDailyChart ? '日' : '月',
           font: {
             size: 12,
             weight: 'bold' as const
@@ -774,6 +848,7 @@ const SalesManagement: React.FC = () => {
       },
     },
   }
+  })()
 
   return (
     <div className="min-h-screen bg-background">
@@ -1062,7 +1137,14 @@ const SalesManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5" />
-                    月別売上・公演数推移（1年分）({getSelectedStoreName()})
+                    {(() => {
+                      const startDate = new Date(dateRange.startDate)
+                      const endDate = new Date(dateRange.endDate)
+                      const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+                      return daysDiff <= 31 
+                        ? `日別売上・公演数推移（${getSelectedStoreName()}）`
+                        : `月別売上・公演数推移（1年分）（${getSelectedStoreName()}）`
+                    })()}
                   </CardTitle>
                   <TrendDisplay data={salesData.monthlyRevenue} />
                 </div>
