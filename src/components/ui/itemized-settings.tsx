@@ -125,6 +125,13 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
         (item.originalRole === newItem || item.originalTimeSlot === newItem || item.item === newItem) && (item.status === 'active' || item.status === 'ready')
       )
       
+      // 同じ項目で複数の待機設定がある場合は古いものを削除
+      const existingReadyItems = items.filter((item, index) => 
+        (item.originalRole === newItem || item.originalTimeSlot === newItem || item.item === newItem) && 
+        item.status === 'ready' && 
+        index !== existingActiveIndex
+      )
+      
       // デバッグログ（開発時のみ）
       // console.log('DEBUG: Existing active check', {
       //   newItem,
@@ -148,6 +155,13 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
         setMigrationDialogOpen(true)
       } else {
         // 使用中の項目がない場合は即座に使用中として追加
+        // 同じ項目の古い待機設定を削除（複数の待機設定を防ぐ）
+        const filteredItems = items.filter(item => {
+          const isSameItem = (item.originalRole === newItem || item.originalTimeSlot === newItem || item.item === newItem)
+          const isOldReady = item.status === 'ready'
+          return !(isSameItem && isOldReady)
+        })
+        
         const selectedOption = conditionOptions.find(opt => opt.value === newItem)
         const newItemData: ItemizedSetting = {
           item: selectedOption ? selectedOption.label : newItem, // 日本語表示名を使用
@@ -158,7 +172,7 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
           originalRole: newItem, // 元の英語値を保持
           originalTimeSlot: newItem // 元の時間帯値を保持
         }
-        onItemsChange([...items, newItemData])
+        onItemsChange([...filteredItems, newItemData])
         
         // 入力欄をリセット
         setNewItem(conditionOptions[0]?.value || '')
@@ -216,6 +230,13 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
         }
       })
       
+      // 同じ項目の古い待機設定を削除（複数の待機設定を防ぐ）
+      const filteredItems = updatedItems.filter((item, index) => {
+        const isSameItem = (item.originalRole === newItem || item.originalTimeSlot === newItem || item.item === newItem)
+        const isOldReady = item.status === 'ready' && index !== existingActiveItem.index
+        return !(isSameItem && isOldReady)
+      })
+      
       // 新しい項目を「待機設定」として追加（開始時期指定）
       const selectedOption = conditionOptions.find(opt => opt.value === newItem)
       const newActiveItem: ItemizedSetting = {
@@ -235,7 +256,7 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
       // console.log('Creating newActiveItem - startDate:', newActiveItem.startDate)
       // console.log('Creating newActiveItem - endDate:', newActiveItem.endDate)
       // console.log('Creating newActiveItem - startDate param:', startDate)
-      onItemsChange([...updatedItems, newActiveItem])
+      onItemsChange([...filteredItems, newActiveItem])
       
       // 入力欄をリセット
       setNewItem(conditionOptions[0]?.value || '')
