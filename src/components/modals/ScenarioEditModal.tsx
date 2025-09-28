@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { ConditionalSettings, ConditionalSetting } from '@/components/ui/conditional-settings'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { MigrationConfirmationDialog } from '@/components/ui/migration-confirmation-dialog'
+import { ItemizedSettings } from '@/components/ui/itemized-settings'
 import type { Scenario, FlexiblePricing, PricingModifier } from '@/types'
 
 // 全角数字を半角数字に変換
@@ -164,6 +165,40 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }
 
   const licenseValidation = validateLicenseNormalSetting()
+
+  // GM報酬用の選択肢
+  const gmRoleOptions = [
+    { value: 'main', label: 'メインGM' },
+    { value: 'sub', label: 'サブGM' },
+    { value: 'special1', label: '設定1' },
+    { value: 'special2', label: '設定2' },
+    { value: 'special3', label: '設定3' }
+  ]
+
+  // GM役割の英語値を日本語表示に変換
+  const getGmRoleLabel = (roleValue: string) => {
+    const option = gmRoleOptions.find(opt => opt.value === roleValue)
+    return option ? option.label : roleValue
+  }
+
+  // GM報酬の「メインGM」設定バリデーション
+  const validateGmMainSetting = (items: any[]) => {
+    const hasMainSetting = items.some(item => 
+      (item.originalRole === 'main' || item.item === 'メインGM') && (item.status === 'active' || item.status === 'ready')
+    )
+    const hasOtherSettings = items.some(item => 
+      (item.originalRole !== 'main' && item.item !== 'メインGM') && (item.status === 'active' || item.status === 'ready')
+    )
+    
+    if (hasOtherSettings && !hasMainSetting) {
+      return {
+        hasError: true,
+        message: '「メインGM」の設定が必要です。他の役割設定がある場合は、基本となる「メインGM」の設定を追加してください。'
+      }
+    }
+    
+    return { hasError: false, message: '' }
+  }
   
   
   
@@ -318,6 +353,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     setExistingActiveReward(null)
     // 新規入力欄はそのまま（キャンセルしただけ）
   }
+
 
   // 個別GM削除ハンドラー
   const removeGmAssignment = (index: number) => {
@@ -492,7 +528,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     return generateGmRoleOptions(currentMaxRole + 2) // 次の設定も含める
   }
 
-  const gmRoleOptions = getCurrentGmRoleOptions()
 
   // 時間帯に応じた説明文を生成（参加費用）
   const getTimeSlotDescription = (timeSlot: string) => {
@@ -540,10 +575,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     if (usageCount && usageCount > 0) {
       return 'active' // 使用実績あり
     }
-    if (amount > 0) {
-      return 'ready' // 金額設定済み、運用可能
+    if (amount >= 0) {
+      return 'ready' // 金額設定済み、運用可能（0円も含む）
     }
-    return 'unused' // 未設定
+    return 'unused' // 未設定（マイナス値など）
   }
 
 
@@ -805,21 +840,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     onClose()
   }
 
-  // GM報酬用state
-  const [gmRewards, setGmRewards] = useState<ConditionalSetting[]>([])
-  const [newGmReward, setNewGmReward] = useState<ConditionalSetting>({ condition: '', amount: 0, type: 'fixed', status: 'ready' })
-
-  // GM報酬用ハンドラ
-  const handleGmRewardsChange = (items: ConditionalSetting[]) => setGmRewards(items)
-  const handleNewGmRewardChange = (item: ConditionalSetting) => setNewGmReward(item)
-  const handleAddGmReward = () => {
-    setGmRewards(prev => [...prev, newGmReward])
-    setNewGmReward({ condition: '', amount: 0, type: 'fixed', status: 'ready' })
-  }
-  const handleRemoveGmReward = (index: number) => {
-    setGmRewards(prev => prev.filter((_, i) => i !== index))
-  }
-  const handleClearNewGmReward = () => setNewGmReward({ condition: '', amount: 0, type: 'fixed', status: 'ready' })
 
 
   return (
@@ -1027,22 +1047,33 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             {/* 必要道具・制作費 */}
             <div className="space-y-6">
                 {/* GM報酬 */}
-                <ConditionalSettings
+                <ItemizedSettings
                   title="GM報酬"
-                  subtitle="役割や条件ごとにGM報酬を設定できます"
-                  items={gmRewards}
-                  newItem={newGmReward}
-                  conditionOptions={timeSlotOptions} // ここは必要に応じてGM用の選択肢に変更可
-                  showDescription={true}
-                  showStatusSelector={true}
+                  subtitle="役割に応じて異なる報酬を設定できます"
+                  items={formData.gm_assignments.map(assignment => ({
+                    item: getGmRoleLabel(assignment.role),
+                    amount: assignment.reward,
+                    type: 'fixed',
+                    status: assignment.status,
+                    usageCount: assignment.usageCount,
+                    originalRole: assignment.role // 元の英語値を保持
+                  }))}
+                  conditionOptions={gmRoleOptions}
+                  showTypeSelector={false}
+                  showHideLegacyToggle={true}
                   itemType="GM報酬"
-                  getDescription={getTimeSlotDescription}
-                  onItemsChange={handleGmRewardsChange}
-                  onNewItemChange={handleNewGmRewardChange}
-                  onAddItem={handleAddGmReward}
-                  onRemoveItem={handleRemoveGmReward}
-                  onClearNewItem={handleClearNewGmReward}
-                  addButtonText="GM報酬を追加"
+                  scenarioName={formData.title}
+                  getItemStatus={getItemStatus}
+                  validateNormalSetting={(items) => validateGmMainSetting(items)}
+                  onItemsChange={(items) => setFormData(prev => ({ 
+                    ...prev, 
+                    gm_assignments: items.map(item => ({
+                      role: item.originalRole || item.item, // 元の英語値を使用
+                      reward: item.amount,
+                      status: item.status,
+                      usageCount: item.usageCount
+                    }))
+                  }))}
                 />
 
 
@@ -1056,13 +1087,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                       onChange={(e) => setNewRequiredPropItem(e.target.value)}
                       className="flex-1"
                     />
-                    <Input
-                      type="text"
-                      placeholder="金額"
-                      value={formatCurrency(newRequiredPropAmount || 0)}
-                      onChange={(e) => setNewRequiredPropAmount(parseCurrency(e.target.value))}
-                      className="w-[120px]"
-                    />
                     <Select value={newRequiredPropFrequency} onValueChange={(value: 'recurring' | 'one-time') => setNewRequiredPropFrequency(value)}>
                       <SelectTrigger className="w-[120px]">
                         <SelectValue />
@@ -1072,6 +1096,13 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                         <SelectItem value="one-time">1回のみ</SelectItem>
                       </SelectContent>
                     </Select>
+                    <Input
+                      type="text"
+                      placeholder="円"
+                      value={formatCurrency(newRequiredPropAmount || 0)}
+                      onChange={(e) => setNewRequiredPropAmount(parseCurrency(e.target.value))}
+                      className="w-[120px]"
+                    />
                     <Button 
                       type="button" 
                       onClick={addRequiredProp}
@@ -1116,146 +1147,19 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 </div>
 
                 {/* ライセンス報酬 */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">ライセンス報酬</h4>
-                      <p className="text-sm text-gray-500 mt-1">時間帯や曜日に応じて異なるライセンス料を設定できます</p>
-                    </div>
-                    <label className="flex items-center gap-2 text-sm text-gray-600">
-                      <input
-                        type="checkbox"
-                        checked={hideLegacyRewards}
-                        onChange={(e) => setHideLegacyRewards(e.target.checked)}
-                        className="rounded"
-                      />
-                      過去のみを非表示
-                    </label>
-                  </div>
-                  
-                  {/* バリデーションエラー表示 */}
-                  {licenseValidation.hasError && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <div className="flex items-center gap-2 text-red-700 font-medium mb-1">
-                        ⚠️ 設定エラー
-                      </div>
-                      <p className="text-red-600 text-sm">
-                        {licenseValidation.message}
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-2">
-                    <Select value={newLicenseRewardItem} onValueChange={(value) => setNewLicenseRewardItem(value)}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="時間帯を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeSlotOptions.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="text"
-                      placeholder={newLicenseRewardType === 'percentage' ? '割合' : '金額'}
-                      value={newLicenseRewardAmountInput}
-                      onChange={e => setNewLicenseRewardAmountInput(e.target.value)}
-                      onBlur={() => {
-                        const parsed = parseCurrency(newLicenseRewardAmountInput)
-                        if (newLicenseRewardType === 'percentage') {
-                          const formatted = parsed === 0 ? '0%' : `${parsed}%`
-                          setNewLicenseRewardAmountInput(formatted)
-                        } else {
-                          const formatted = parsed === 0 ? '0円' : formatCurrency(parsed)
-                          setNewLicenseRewardAmountInput(formatted)
-                        }
-                      }}
-                      className="w-[120px]"
-                    />
-                    <Select 
-                      value={newLicenseRewardType} 
-                      onValueChange={(value: 'fixed' | 'percentage') => {
-                        setNewLicenseRewardType(value)
-                        // タイプ変更時に既存の入力値を適切にフォーマット
-                        if (newLicenseRewardAmountInput) {
-                          const parsed = parseCurrency(newLicenseRewardAmountInput)
-                          if (value === 'percentage') {
-                            const formatted = parsed === 0 ? '0%' : `${parsed}%`
-                            setNewLicenseRewardAmountInput(formatted)
-                          } else {
-                            const formatted = parsed === 0 ? '0円' : formatCurrency(parsed)
-                            setNewLicenseRewardAmountInput(formatted)
-                          }
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-[120px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fixed">固定額</SelectItem>
-                        <SelectItem value="percentage">割合</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button 
-                      type="button" 
-                      onClick={addLicenseReward}
-                      disabled={!newLicenseRewardItem || newLicenseRewardAmountInput === ''}
-                    >
-                      追加
-                    </Button>
-                  </div>
-                  
-                  {/* ライセンス報酬リスト */}
-                  {formData.license_rewards.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                      {formData.license_rewards
-                        .filter(reward => hideLegacyRewards ? reward.status !== 'legacy' : true)
-                        .map((reward, displayIndex) => {
-                          // 元のindexを取得（削除時に正しいindexを使用するため）
-                          const originalIndex = formData.license_rewards.findIndex(original => original === reward)
-                          return (
-                        <div key={originalIndex} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm">
-                              {reward.item}: {reward.type === 'percentage' ? `${reward.amount}%` : `${reward.amount.toLocaleString()}円`}
-                            </span>
-                            {reward.status && (
-                              <Badge 
-                                variant={
-                                  reward.status === 'active' ? 'default' :
-                                  reward.status === 'ready' ? 'secondary' :
-                                  reward.status === 'legacy' ? 'outline' : 'destructive'
-                                }
-                                className="text-xs"
-                              >
-                                {reward.status === 'active' ? '使用中' :
-                                 reward.status === 'ready' ? '待機設定' :
-                                 reward.status === 'legacy' ? '過去のみ' : '無効'}
-                                {reward.usageCount ? ` (${reward.usageCount}回)` : ''}
-                              </Badge>
-                            )}
-                          </div>
-                          {reward.status !== 'legacy' && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteClick(originalIndex)}
-                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                            >
-                              ×
-                            </Button>
-                          )}
-                        </div>
-                          )
-                        })}
-                    </div>
-                  )}
-                </div>
+                <ItemizedSettings
+                  title="ライセンス報酬"
+                  subtitle="時間帯や曜日に応じて異なるライセンス料を設定できます"
+                  items={formData.license_rewards}
+                  conditionOptions={timeSlotOptions}
+                  showTypeSelector={true}
+                  showHideLegacyToggle={true}
+                  itemType="ライセンス報酬"
+                  scenarioName={formData.title}
+                  getItemStatus={getItemStatus}
+                  validateNormalSetting={validateLicenseNormalSetting}
+                  onItemsChange={(items) => setFormData(prev => ({ ...prev, license_rewards: items }))}
+                />
 
                 {/* 制作費・購入費 */}
                 <div className="space-y-4">
@@ -1476,18 +1380,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           onConfirm={confirmDelete}
         />
 
-        {/* 移行確認ダイアログ */}
-        <MigrationConfirmationDialog
-          open={migrationDialogOpen}
-          onOpenChange={setMigrationDialogOpen}
-          itemName={existingActiveReward?.reward.item || ''}
-          itemType="ライセンス報酬"
-          existingAmount={existingActiveReward?.reward.amount || 0}
-          newAmount={parseCurrency(newLicenseRewardAmountInput)}
-          usageCount={existingActiveReward?.reward.usageCount || 0}
-          onConfirm={handleLicenseMigrationConfirm}
-          onCancel={handleLicenseMigrationCancel}
-        />
       </DialogContent>
     </Dialog>
   )
