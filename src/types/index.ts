@@ -218,3 +218,34 @@ export type CategoryColorTheme = {
   card: string
   accent: string
 }
+
+// 売上データの型定義
+export interface SalesData {
+  totalRevenue: number
+  totalEvents: number
+  averageRevenuePerEvent: number
+  monthlyRevenue: Array<{
+    month: string
+    revenue: number
+    events: number
+  }>
+  dailyRevenue: Array<{
+    date: string
+    revenue: number
+    events: number
+  }>
+  storeRanking: Array<{
+    id: string
+    name: string
+    revenue: number
+    events: number
+    averageRevenue: number
+  }>
+  scenarioRanking: Array<{
+    id: string
+    title: string
+    revenue: number
+    events: number
+    averageRevenue: number
+  }>
+}

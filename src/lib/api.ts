@@ -437,5 +437,57 @@ export const salesApi = {
     
     if (error) throw error
     return data || []
+  },
+
+  // シナリオ別公演数データ取得
+  async getScenarioPerformance(startDate: string, endDate: string, storeId?: string) {
+    let query = supabase
+      .from('schedule_events')
+      .select(`
+        id,
+        scenario,
+        date,
+        stores!inner(id, name),
+        scenarios!inner(id, title, author)
+      `)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('is_cancelled', false)
+
+    if (storeId && storeId !== 'all') {
+      query = query.eq('store_id', storeId)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    // シナリオ別に集計
+    const scenarioMap = new Map()
+    
+    data?.forEach(event => {
+      const scenarioId = event.scenario
+      const scenarioTitle = event.scenarios?.title || '未定'
+      const author = event.scenarios?.author || '不明'
+      
+      if (scenarioMap.has(scenarioId)) {
+        const existing = scenarioMap.get(scenarioId)
+        existing.events += 1
+        existing.stores.add(event.stores.name)
+      } else {
+        scenarioMap.set(scenarioId, {
+          id: scenarioId,
+          title: scenarioTitle,
+          author: author,
+          events: 1,
+          stores: new Set([event.stores.name])
+        })
+      }
+    })
+
+    return Array.from(scenarioMap.values()).map(item => ({
+      ...item,
+      stores: Array.from(item.stores)
+    }))
   }
 }

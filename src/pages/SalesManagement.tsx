@@ -6,10 +6,11 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { salesApi } from '@/lib/api'
+import { SalesData } from '@/types'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import SalesSidebar from '@/components/layout/SalesSidebar'
-import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download } from 'lucide-react'
+import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, FileText, Users } from 'lucide-react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -47,37 +48,6 @@ ChartJS.register(
   Legend
 )
 
-interface SalesData {
-  totalRevenue: number
-  totalEvents: number
-  averageRevenuePerEvent: number
-  storeBreakdown: Array<{
-    storeName: string
-    revenue: number
-    eventCount: number
-  }>
-  scenarioBreakdown: Array<{
-    scenarioTitle: string
-    author: string
-    revenue: number
-    eventCount: number
-  }>
-  monthlyRevenue: Array<{
-    month: string
-    revenue: number
-    eventCount: number
-  }>
-  previousYearData?: {
-    totalRevenue: number
-    totalEvents: number
-    averageRevenuePerEvent: number
-  }
-  previousMonthData?: {
-    totalRevenue: number
-    totalEvents: number
-    averageRevenuePerEvent: number
-  }
-}
 
 interface Store {
   id: string
@@ -97,6 +67,687 @@ const SalesManagement: React.FC = () => {
     endDate: ''
   })
   const [activeTab, setActiveTab] = useState('overview')
+
+  // コンテンツの条件分岐表示
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return renderOverviewContent()
+      case 'license':
+        return renderLicenseContent()
+      case 'scenario-performance':
+        return renderScenarioPerformanceContent()
+      case 'monthly-performance':
+        return renderMonthlyPerformanceContent()
+      case 'author-report':
+        return renderAuthorReportContent()
+      default:
+        return renderOverviewContent()
+    }
+  }
+
+  // 売上概要コンテンツ
+  const renderOverviewContent = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">売上管理</h1>
+        <div className="flex items-center gap-4">
+          <Select value={selectedPeriod} onValueChange={handlePeriodChange}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="thisMonth">今月</SelectItem>
+              <SelectItem value="lastMonth">先月</SelectItem>
+              <SelectItem value="thisWeek">今週</SelectItem>
+              <SelectItem value="lastWeek">先週</SelectItem>
+              <SelectItem value="past7days">過去7日間</SelectItem>
+              <SelectItem value="past30days">過去30日間</SelectItem>
+              <SelectItem value="past90days">過去90日間</SelectItem>
+              <SelectItem value="past180days">過去180日間</SelectItem>
+              <SelectItem value="thisYear">今年</SelectItem>
+              <SelectItem value="lastYear">昨年</SelectItem>
+              <SelectItem value="custom">カスタム</SelectItem>
+            </SelectContent>
+          </Select>
+          {selectedPeriod === 'custom' && (
+            <div className="flex items-center gap-2">
+              <Label htmlFor="startDate">開始日</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={dateRange.startDate}
+                onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                className="w-40"
+              />
+              <Label htmlFor="endDate">終了日</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={dateRange.endDate}
+                onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                className="w-40"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 期間表示 */}
+      <div className="text-sm text-muted-foreground">
+        期間: {dateRange.startDate} ～ {dateRange.endDate}
+      </div>
+
+      {/* 店舗選択 */}
+      <div className="flex items-center gap-4">
+        <Label htmlFor="storeSelect">店舗選択</Label>
+        <Select value={selectedStore} onValueChange={setSelectedStore}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="店舗を選択" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全店舗</SelectItem>
+            {stores.map((store) => (
+              <SelectItem key={store.id} value={store.id.toString()}>
+                {store.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* 売上概要カード */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">総売上</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(salesData?.totalRevenue || 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {salesData?.totalEvents || 0}回の公演
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">平均売上</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(salesData?.averageRevenuePerEvent || 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              1公演あたり
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">総公演数</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {salesData?.totalEvents || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              期間内の公演数
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">店舗数</CardTitle>
+            <Store className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stores.length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              登録店舗数
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ランキング表示（2カラム） */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 店舗別売上ランキング */}
+        <Card>
+          <CardHeader>
+            <CardTitle>店舗別売上ランキング</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {salesData?.storeRanking?.map((store, index) => (
+                <div key={store.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <div className="font-medium">{store.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {store.events}回の公演
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold">{formatCurrency(store.revenue)}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatCurrency(store.averageRevenue)}/回
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* シナリオ別売上ランキング */}
+        <Card>
+          <CardHeader>
+            <CardTitle>シナリオ別売上ランキング</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {salesData?.scenarioRanking?.map((scenario, index) => (
+                <div key={scenario.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <div className="font-medium">{scenario.title}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {scenario.events}回の公演
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold">{formatCurrency(scenario.revenue)}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatCurrency(scenario.averageRevenue)}/回
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 売上推移グラフ */}
+      <Card>
+        <CardHeader>
+          <CardTitle>売上推移</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-96">
+            <Line data={prepareChartData() || { labels: [], datasets: [] }} options={chartOptions} ref={setChartRef} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* データエクスポート */}
+      <Card>
+        <CardHeader>
+          <CardTitle>データエクスポート</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <Button onClick={exportToCSV} disabled={loading}>
+              CSVエクスポート
+            </Button>
+            <Button onClick={exportToExcel} disabled={loading}>
+              Excelエクスポート
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+
+  // ライセンス管理コンテンツ
+  const renderLicenseContent = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">ライセンス管理</h1>
+      </div>
+      <div className="text-center py-12">
+        <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <p className="text-lg text-muted-foreground">
+          ライセンス管理機能は準備中です
+        </p>
+      </div>
+    </div>
+  )
+
+  // シナリオ別公演数の状態管理
+  const [scenarioData, setScenarioData] = useState<any[]>([])
+  const [scenarioLoading, setScenarioLoading] = useState(false)
+  const [scenarioPeriod, setScenarioPeriod] = useState('thisMonth')
+  const [scenarioStore, setScenarioStore] = useState('all')
+
+  const fetchScenarioData = useCallback(async () => {
+    if (!dateRange.startDate || !dateRange.endDate) return
+    
+    setScenarioLoading(true)
+    try {
+      const data = await salesApi.getScenarioPerformance(
+        dateRange.startDate,
+        dateRange.endDate,
+        scenarioStore
+      )
+      setScenarioData(data)
+    } catch (error) {
+      console.error('シナリオ別公演データの取得に失敗しました:', error)
+    } finally {
+      setScenarioLoading(false)
+    }
+  }, [dateRange.startDate, dateRange.endDate, scenarioStore])
+
+  // 期間選択の同期
+  const handleScenarioPeriodChange = (period: string) => {
+    setScenarioPeriod(period)
+    handlePeriodChange(period)
+  }
+
+  useEffect(() => {
+    if (activeTab === 'scenario-performance') {
+      fetchScenarioData()
+    }
+  }, [activeTab, fetchScenarioData])
+
+  // シナリオ別公演数コンテンツ
+  const renderScenarioPerformanceContent = () => {
+
+    const totalEvents = scenarioData.reduce((sum, scenario) => sum + scenario.events, 0)
+    const totalScenarios = scenarioData.length
+    const averageEventsPerScenario = totalScenarios > 0 ? Math.round(totalEvents / totalScenarios * 10) / 10 : 0
+    const topScenario = scenarioData.length > 0 ? scenarioData[0] : null
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">シナリオ分析</h1>
+          <div className="flex items-center gap-4">
+            <Select value={scenarioPeriod} onValueChange={handleScenarioPeriodChange}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="thisMonth">今月</SelectItem>
+                <SelectItem value="lastMonth">先月</SelectItem>
+                <SelectItem value="thisWeek">今週</SelectItem>
+                <SelectItem value="lastWeek">先週</SelectItem>
+                <SelectItem value="past7days">過去7日間</SelectItem>
+                <SelectItem value="past30days">過去30日間</SelectItem>
+                <SelectItem value="past90days">過去90日間</SelectItem>
+                <SelectItem value="past180days">過去180日間</SelectItem>
+                <SelectItem value="thisYear">今年</SelectItem>
+                <SelectItem value="lastYear">昨年</SelectItem>
+                <SelectItem value="custom">カスタム</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={scenarioStore} onValueChange={setScenarioStore}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="店舗を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全店舗</SelectItem>
+                {stores.map((store) => (
+                  <SelectItem key={store.id} value={store.id.toString()}>
+                    {store.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* 期間表示 */}
+        <div className="text-sm text-muted-foreground">
+          期間: {dateRange.startDate} ～ {dateRange.endDate}
+        </div>
+
+        {/* フィルター機能 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>フィルター</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="authorFilter">作者で絞り込み</Label>
+                <Select onValueChange={(value) => {
+                  // 作者フィルターの実装
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="作者を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">すべての作者</SelectItem>
+                    {Array.from(new Set(scenarioData.map(s => s.author))).map(author => (
+                      <SelectItem key={author} value={author}>{author}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="minEvents">最小公演数</Label>
+                <Input
+                  id="minEvents"
+                  type="number"
+                  placeholder="最小公演数を入力"
+                  min="0"
+                />
+              </div>
+              <div>
+                <Label htmlFor="maxEvents">最大公演数</Label>
+                <Input
+                  id="maxEvents"
+                  type="number"
+                  placeholder="最大公演数を入力"
+                  min="0"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 統計カード */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">総公演数</CardTitle>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalEvents}</div>
+              <p className="text-xs text-muted-foreground">
+                期間内の全公演数
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">シナリオ数</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalScenarios}</div>
+              <p className="text-xs text-muted-foreground">
+                公演されたシナリオ数
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">平均公演数</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{averageEventsPerScenario}</div>
+              <p className="text-xs text-muted-foreground">
+                シナリオあたり
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">最多公演</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{topScenario?.events || 0}</div>
+              <p className="text-xs text-muted-foreground truncate">
+                {topScenario?.title || 'なし'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* シナリオ分析グラフ */}
+        <Card>
+          <CardHeader>
+            <CardTitle>シナリオ分析グラフ</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {scenarioLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-lg">データを読み込み中...</div>
+              </div>
+            ) : scenarioData.length > 0 ? (
+              <div className="h-96">
+                <Line 
+                  data={{
+                    labels: scenarioData.slice(0, 10).map(scenario => scenario.title),
+                    datasets: [{
+                      label: '公演数',
+                      data: scenarioData.slice(0, 10).map(scenario => scenario.events),
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      borderColor: 'rgba(59, 130, 246, 1)',
+                      borderWidth: 2,
+                      fill: true
+                    }]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: (context) => {
+                            const scenario = scenarioData[context.dataIndex]
+                            return [
+                              `シナリオ: ${scenario.title}`,
+                              `作者: ${scenario.author}`,
+                              `公演数: ${scenario.events}回`,
+                              `店舗: ${scenario.stores.join(', ')}`
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          stepSize: 1
+                        }
+                      },
+                      x: {
+                        ticks: {
+                          maxRotation: 45,
+                          minRotation: 45
+                        }
+                      }
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-lg text-muted-foreground">データがありません</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* シナリオ分析テーブル */}
+        <Card>
+          <CardHeader>
+            <CardTitle>シナリオ分析一覧</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {scenarioLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-lg">データを読み込み中...</div>
+              </div>
+            ) : scenarioData.length > 0 ? (
+              <div className="space-y-4">
+                {scenarioData.map((scenario, index) => (
+                  <div key={scenario.id} className="p-4 border rounded-lg hover:bg-slate-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-4">
+                        <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-lg">{scenario.title}</div>
+                          <div className="text-sm text-muted-foreground mb-2">
+                            作者: {scenario.author} | 店舗: {scenario.stores.join(', ')}
+                          </div>
+                          <div className="flex gap-4 text-sm">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              <span>公演数: {scenario.events}回</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <TrendingUp className="h-4 w-4" />
+                              <span>割合: {((scenario.events / totalEvents) * 100).toFixed(1)}%</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Store className="h-4 w-4" />
+                              <span>店舗数: {scenario.stores.length}店舗</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-primary">{scenario.events}回</div>
+                        <div className="text-sm text-muted-foreground">
+                          {scenario.events >= totalEvents * 0.1 ? '人気' : scenario.events >= totalEvents * 0.05 ? '普通' : '少ない'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-lg text-muted-foreground">データがありません</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* シナリオ分析サマリー */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>人気シナリオTOP5</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {scenarioData.slice(0, 5).map((scenario, index) => (
+                  <div key={scenario.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div className="font-medium">{scenario.title}</div>
+                        <div className="text-xs text-muted-foreground">{scenario.author}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold">{scenario.events}回</div>
+                      <div className="text-xs text-muted-foreground">
+                        {((scenario.events / totalEvents) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>作者別公演数</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {Object.entries(
+                  scenarioData.reduce((acc, scenario) => {
+                    acc[scenario.author] = (acc[scenario.author] || 0) + scenario.events
+                    return acc
+                  }, {} as Record<string, number>)
+                )
+                .sort(([,a], [,b]) => (b as number) - (a as number))
+                .slice(0, 5)
+                .map(([author, events], index) => (
+                  <div key={author} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center text-xs font-bold">
+                        {index + 1}
+                      </div>
+                      <div className="font-medium">{author}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold">{events as number}回</div>
+                      <div className="text-xs text-muted-foreground">
+                        {(((events as number) / totalEvents) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // 月次公演管理コンテンツ
+  const renderMonthlyPerformanceContent = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">月次公演管理</h1>
+      </div>
+      <div className="text-center py-12">
+        <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <p className="text-lg text-muted-foreground">
+          月次公演管理機能は準備中です
+        </p>
+      </div>
+    </div>
+  )
+
+  // 作者レポートコンテンツ
+  const renderAuthorReportContent = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">作者レポート</h1>
+      </div>
+      <div className="text-center py-12">
+        <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <p className="text-lg text-muted-foreground">
+          作者レポート機能は準備中です
+        </p>
+      </div>
+    </div>
+  )
 
   // dateRangeの変化を監視（デバッグ用）
   // useEffect(() => {
@@ -264,18 +915,18 @@ const SalesManagement: React.FC = () => {
       // 店舗別集計（選択期間内のデータのみ）
       const storeMap = new Map()
       selectedPeriodEvents.forEach(event => {
-        const storeName = event.stores?.name || '不明な店舗'
+        const name = event.stores?.name || '不明な店舗'
         const participationFee = event.scenarios?.participation_fee || 0
         
-        if (storeMap.has(storeName)) {
-          const existing = storeMap.get(storeName)
+        if (storeMap.has(name)) {
+          const existing = storeMap.get(name)
           existing.revenue += participationFee
-          existing.eventCount += 1
+          existing.events += 1
         } else {
-          storeMap.set(storeName, {
-            storeName,
+          storeMap.set(name, {
+            name,
             revenue: participationFee,
-            eventCount: 1
+            events: 1
           })
         }
       })
@@ -283,27 +934,27 @@ const SalesManagement: React.FC = () => {
       // シナリオ別集計（選択期間内のデータのみ）
       const scenarioMap = new Map()
       selectedPeriodEvents.forEach(event => {
-        const scenarioTitle = event.scenarios?.title || '不明なシナリオ'
+        const title = event.scenarios?.title || '不明なシナリオ'
         const author = event.scenarios?.author || '不明な作者'
         const participationFee = event.scenarios?.participation_fee || 0
-        const key = `${scenarioTitle}-${author}`
+        const key = `${title}-${author}`
         
         if (scenarioMap.has(key)) {
           const existing = scenarioMap.get(key)
           existing.revenue += participationFee
-          existing.eventCount += 1
+          existing.events += 1
         } else {
           scenarioMap.set(key, {
-            scenarioTitle,
+            title,
             author,
             revenue: participationFee,
-            eventCount: 1
+            events: 1
           })
         }
       })
 
       // 期間に応じて日別または月別集計
-      let chartData: Array<{ month: string; revenue: number; eventCount: number }> = []
+      let chartData: Array<{ month: string; revenue: number; events: number }> = []
       
       if (isMonthlyChart) {
         // 月別集計（1年分のデータを生成）
@@ -316,7 +967,7 @@ const SalesManagement: React.FC = () => {
           monthlyMap.set(monthKey, {
             month: monthKey,
             revenue: 0,
-            eventCount: 0
+            events: 0
           })
           currentDateForYear.setMonth(currentDateForYear.getMonth() + 1)
         }
@@ -330,7 +981,7 @@ const SalesManagement: React.FC = () => {
           if (monthlyMap.has(monthKey)) {
             const existing = monthlyMap.get(monthKey)
             existing.revenue += participationFee
-            existing.eventCount += 1
+            existing.events += 1
           }
         })
         
@@ -346,7 +997,7 @@ const SalesManagement: React.FC = () => {
           dailyMap.set(dayKey, {
             month: dayKey,
             revenue: 0,
-            eventCount: 0
+            events: 0
           })
           currentDate.setDate(currentDate.getDate() + 1)
         }
@@ -360,7 +1011,7 @@ const SalesManagement: React.FC = () => {
           if (dailyMap.has(dayKey)) {
             const existing = dailyMap.get(dayKey)
             existing.revenue += participationFee
-            existing.eventCount += 1
+            existing.events += 1
           }
         })
         
@@ -371,19 +1022,10 @@ const SalesManagement: React.FC = () => {
         totalRevenue,
         totalEvents,
         averageRevenuePerEvent,
-        storeBreakdown: Array.from(storeMap.values()).sort((a, b) => b.revenue - a.revenue),
-        scenarioBreakdown: Array.from(scenarioMap.values()).sort((a, b) => b.revenue - a.revenue),
+        storeRanking: Array.from(storeMap.values()).sort((a, b) => b.revenue - a.revenue),
+        scenarioRanking: Array.from(scenarioMap.values()).sort((a, b) => b.revenue - a.revenue),
         monthlyRevenue: chartData.sort((a, b) => a.month.localeCompare(b.month)),
-        previousYearData: {
-          totalRevenue: previousYearRevenue,
-          totalEvents: previousYearEventsCount,
-          averageRevenuePerEvent: previousYearAverageRevenuePerEvent
-        },
-        previousMonthData: {
-          totalRevenue: previousMonthRevenue,
-          totalEvents: previousMonthEventsCount,
-          averageRevenuePerEvent: previousMonthAverageRevenuePerEvent
-        }
+        dailyRevenue: [],
       })
     } catch (error) {
       console.error('売上データの取得に失敗しました:', error)
@@ -406,6 +1048,10 @@ const SalesManagement: React.FC = () => {
       currency: 'JPY',
       minimumFractionDigits: 0
     }).format(amount)
+  }
+
+  const cn = (...classes: (string | undefined | null | false)[]) => {
+    return classes.filter(Boolean).join(' ')
   }
 
   // 成長率計算
@@ -525,7 +1171,7 @@ const SalesManagement: React.FC = () => {
     })
 
     const revenueData = salesData.monthlyRevenue.map(month => month.revenue)
-    const eventData = salesData.monthlyRevenue.map(month => month.eventCount)
+    const eventData = salesData.monthlyRevenue.map(month => month.events)
 
     return {
       labels,
@@ -573,21 +1219,20 @@ const SalesManagement: React.FC = () => {
       [''],
       ['店舗別売上ランキング'],
       ['順位', '店舗名', '売上', '公演数'],
-      ...salesData.storeBreakdown.map((store, index) => [
+      ...salesData.storeRanking.map((store, index) => [
         index + 1,
-        store.storeName,
+        store.name,
         formatCurrency(store.revenue),
-        `${store.eventCount}回`
+        `${store.events}回`
       ]),
       [''],
       ['シナリオ別売上ランキング'],
       ['順位', 'シナリオ名', '作者', '売上', '公演数'],
-      ...salesData.scenarioBreakdown.map((scenario, index) => [
+      ...salesData.scenarioRanking.map((scenario, index) => [
         index + 1,
-        scenario.scenarioTitle,
-        scenario.author,
+        scenario.title,
         formatCurrency(scenario.revenue),
-        `${scenario.eventCount}回`
+        `${scenario.events}回`
       ]),
       [''],
       ['月別売上推移'],
@@ -595,7 +1240,7 @@ const SalesManagement: React.FC = () => {
       ...salesData.monthlyRevenue.map(month => [
         month.month,
         formatCurrency(month.revenue),
-        `${month.eventCount}回`
+        `${month.events}回`
       ])
     ]
 
@@ -628,11 +1273,11 @@ const SalesManagement: React.FC = () => {
     // 店舗別ランキングシート
     const storeData = [
       ['順位', '店舗名', '売上', '公演数'],
-      ...salesData.storeBreakdown.map((store, index) => [
+      ...salesData.storeRanking.map((store, index) => [
         index + 1,
-        store.storeName,
+        store.name,
         store.revenue,
-        store.eventCount
+        store.events
       ])
     ]
     const storeSheet = XLSX.utils.aoa_to_sheet(storeData)
@@ -641,12 +1286,11 @@ const SalesManagement: React.FC = () => {
     // シナリオ別ランキングシート
     const scenarioData = [
       ['順位', 'シナリオ名', '作者', '売上', '公演数'],
-      ...salesData.scenarioBreakdown.map((scenario, index) => [
+      ...salesData.scenarioRanking.map((scenario, index) => [
         index + 1,
-        scenario.scenarioTitle,
-        scenario.author,
+        scenario.title,
         scenario.revenue,
-        scenario.eventCount
+        scenario.events
       ])
     ]
     const scenarioSheet = XLSX.utils.aoa_to_sheet(scenarioData)
@@ -658,7 +1302,7 @@ const SalesManagement: React.FC = () => {
       ...salesData.monthlyRevenue.map(month => [
         month.month,
         month.revenue,
-        month.eventCount
+        month.events
       ])
     ]
     const monthlySheet = XLSX.utils.aoa_to_sheet(monthlyData)
@@ -719,7 +1363,7 @@ const SalesManagement: React.FC = () => {
 
     const maxEvents = hasData
       ? Math.max(
-          Math.max(...salesData.monthlyRevenue.map(month => month.eventCount)) * 2,
+          Math.max(...salesData.monthlyRevenue.map(month => month.events)) * 2,
           defaultMaxEvents * 0.5 // デフォルトの50%以上は確保
         )
       : defaultMaxEvents
@@ -845,282 +1489,47 @@ const SalesManagement: React.FC = () => {
         window.location.hash = pageId
       }} />
       <div className="flex">
+        {/* デスクトップサイドバー */}
         <div className="hidden lg:block">
           <SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="container mx-auto max-w-6xl px-4 lg:px-6 py-6">
-            <div className="space-y-6">
-          <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">売上管理</h1>
-          <div className="flex items-center gap-4">
-            <Select value={selectedPeriod} onValueChange={handlePeriodChange}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="thisMonth">今月</SelectItem>
-                <SelectItem value="lastMonth">先月</SelectItem>
-                <SelectItem value="thisWeek">今週</SelectItem>
-                <SelectItem value="lastWeek">先週</SelectItem>
-                <SelectItem value="past7days">過去7日間</SelectItem>
-                <SelectItem value="past30days">過去30日間</SelectItem>
-                <SelectItem value="past90days">過去90日間</SelectItem>
-                <SelectItem value="past180days">過去180日間</SelectItem>
-                <SelectItem value="thisYear">今年</SelectItem>
-                <SelectItem value="lastYear">昨年</SelectItem>
-                <SelectItem value="custom">カスタム</SelectItem>
-              </SelectContent>
-            </Select>
-            {selectedPeriod === 'custom' && (
-              <div className="flex items-center gap-2">
-                <Label htmlFor="startDate">開始日</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={dateRange.startDate}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="w-40"
-                />
-                <Label htmlFor="endDate">終了日</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={dateRange.endDate}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="w-40"
-                />
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <Label htmlFor="store">店舗</Label>
-              <Select value={selectedStore} onValueChange={setSelectedStore}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全店舗</SelectItem>
-                  {stores.map((store) => (
-                    <SelectItem key={store.id} value={store.id}>
-                      {store.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        
+        {/* モバイルタブバー */}
+        <div className="lg:hidden w-full">
+          <div className="bg-slate-50 border-b border-slate-200 p-4">
+            <h2 className="text-lg font-semibold mb-4 text-slate-800">売上管理</h2>
+            <div className="flex gap-2 overflow-x-auto">
+              {[
+                { id: 'overview', label: '概要', icon: BarChart3 },
+                { id: 'license', label: 'ライセンス', icon: FileText },
+                { id: 'scenario-performance', label: '分析', icon: BookOpen },
+                { id: 'monthly-performance', label: '月次', icon: Calendar },
+                { id: 'author-report', label: '作者', icon: Users }
+              ].map((item) => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors",
+                      activeTab === item.id
+                        ? "bg-blue-100 text-blue-800 border border-blue-200"
+                        : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                )
+              })}
             </div>
-            <Button onClick={fetchSalesData} disabled={loading}>
-              {loading ? '読み込み中...' : '更新'}
-            </Button>
-            {salesData && (
-              <div className="flex gap-2">
-                <Button onClick={exportToCSV} variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  CSV
-                </Button>
-                <Button onClick={exportToExcel} variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Excel
-                </Button>
-                <Button onClick={exportChartAsImage} variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  グラフ画像
-                </Button>
-              </div>
-            )}
           </div>
         </div>
-
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-lg">データを読み込み中...</div>
-          </div>
-        ) : salesData ? (
-          <>
-            {/* 売上概要カード */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">総売上</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-2xl font-bold">{formatCurrency(salesData.totalRevenue)}</div>
-                      <p className="text-xs text-muted-foreground">
-                        期間: {dateRange.startDate} ～ {dateRange.endDate}
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      {salesData.previousYearData && salesData.previousMonthData && (
-                        <MultiComparisonDisplay
-                          current={salesData.totalRevenue}
-                          previousYear={salesData.previousYearData.totalRevenue}
-                          previousMonth={salesData.previousMonthData.totalRevenue}
-                          label="比較"
-                        />
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">総公演数</CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-2xl font-bold">{salesData.totalEvents}回</div>
-                      <p className="text-xs text-muted-foreground">
-                        平均 {salesData.averageRevenuePerEvent > 0 ? formatCurrency(salesData.averageRevenuePerEvent) : '0円'}/回
-                      </p>
-                    </div>
-                    {salesData.previousYearData && salesData.previousMonthData && (
-                      <MultiComparisonDisplay
-                        current={salesData.totalEvents}
-                        previousYear={salesData.previousYearData.totalEvents}
-                        previousMonth={salesData.previousMonthData.totalEvents}
-                        label="比較"
-                      />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">店舗数</CardTitle>
-                  <Store className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{salesData.storeBreakdown.length}店舗</div>
-                  <p className="text-xs text-muted-foreground">
-                    稼働店舗数
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">シナリオ数</CardTitle>
-                  <BookOpen className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{salesData.scenarioBreakdown.length}作品</div>
-                  <p className="text-xs text-muted-foreground">
-                    実行されたシナリオ数
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* ランキングセクション - 2カラムレイアウト */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* 店舗別売上ランキング */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Store className="h-5 w-5" />
-                    店舗別売上ランキング
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {salesData.storeBreakdown.slice(0, 10).map((store, index) => (
-                      <div key={store.storeName} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Badge variant={index < 3 ? "default" : "secondary"}>
-                            {index + 1}位
-                          </Badge>
-                          <span className="font-medium">{store.storeName}</span>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold">{formatCurrency(store.revenue)}</div>
-                          <div className="text-sm text-muted-foreground">{store.eventCount}回</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* シナリオ別売上ランキング */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5" />
-                    シナリオ別売上ランキング
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {salesData.scenarioBreakdown.slice(0, 10).map((scenario, index) => (
-                      <div key={`${scenario.scenarioTitle}-${scenario.author}`} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Badge variant={index < 3 ? "default" : "secondary"}>
-                            {index + 1}位
-                          </Badge>
-                          <div>
-                            <div className="font-medium">{scenario.scenarioTitle}</div>
-                            <div className="text-sm text-muted-foreground">作者: {scenario.author}</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold">{formatCurrency(scenario.revenue)}</div>
-                          <div className="text-sm text-muted-foreground">{scenario.eventCount}回</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* 月別売上推移グラフ */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    {(() => {
-                      const startDate = new Date(dateRange.startDate)
-                      const endDate = new Date(dateRange.endDate)
-                      const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-                      return daysDiff <= 31 
-                        ? `日別売上・公演数推移（${getSelectedStoreName()}）`
-                        : `月別売上・公演数推移（1年分）（${getSelectedStoreName()}）`
-                    })()}
-                  </CardTitle>
-                  <TrendDisplay data={salesData.monthlyRevenue} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-96">
-                  {prepareChartData() ? (
-                    <Line 
-                      ref={setChartRef}
-                      data={prepareChartData()!} 
-                      options={chartOptions} 
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                      データがありません
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        ) : (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-lg text-muted-foreground">データがありません</div>
-          </div>
-        )}
-            </div>
+        
+        <div className="flex-1 min-w-0">
+          <div className="container mx-auto max-w-6xl px-4 lg:px-6 py-6">
+            {renderContent()}
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { 
   BarChart3, 
   FileText, 
@@ -30,9 +31,9 @@ const SalesSidebar: React.FC<SalesSidebarProps> = ({ activeTab, onTabChange }) =
     },
     {
       id: 'scenario-performance',
-      label: 'シナリオ別公演数',
+      label: 'シナリオ分析',
       icon: BookOpen,
-      description: 'シナリオごとの公演実績'
+      description: 'シナリオの詳細分析と実績'
     },
     {
       id: 'monthly-performance',
@@ -49,9 +50,9 @@ const SalesSidebar: React.FC<SalesSidebarProps> = ({ activeTab, onTabChange }) =
   ]
 
   return (
-    <div className="w-72 bg-card border-r border-border h-full flex-shrink-0">
+    <div className="w-72 bg-slate-50 border-r border-slate-200 h-full flex-shrink-0">
       <div className="p-4">
-        <h2 className="text-lg font-semibold mb-4">売上管理</h2>
+        <h2 className="text-lg font-semibold mb-4 text-slate-800">売上管理</h2>
         <nav className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon
@@ -59,14 +60,19 @@ const SalesSidebar: React.FC<SalesSidebarProps> = ({ activeTab, onTabChange }) =
               <Button
                 key={item.id}
                 variant={activeTab === item.id ? "default" : "ghost"}
-                className="w-full justify-start h-auto p-3"
+                className={cn(
+                  "w-full justify-start h-auto p-3",
+                  activeTab === item.id 
+                    ? "bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200" 
+                    : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
+                )}
                 onClick={() => onTabChange(item.id)}
               >
                 <div className="flex items-start gap-3">
                   <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
                   <div className="text-left">
                     <div className="font-medium">{item.label}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
+                    <div className="text-xs text-slate-500 mt-1">
                       {item.description}
                     </div>
                   </div>
