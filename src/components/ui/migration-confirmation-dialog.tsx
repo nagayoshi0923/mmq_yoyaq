@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
@@ -70,9 +71,9 @@ export const MigrationConfirmationDialog: React.FC<MigrationConfirmationDialogPr
     let startDate: string | undefined
     
     if (startTiming === 'tomorrow') {
-      const tomorrow = new Date()
+      const tomorrow = getCurrentJST()
       tomorrow.setDate(tomorrow.getDate() + 1)
-      startDate = tomorrow.toISOString().split('T')[0]
+      startDate = formatDateJST(tomorrow)
     } else if (startTiming === 'custom') {
       startDate = customDate
     }
@@ -191,7 +192,7 @@ export const MigrationConfirmationDialog: React.FC<MigrationConfirmationDialogPr
                       value={customDate}
                       onChange={(e) => setCustomDate(e.target.value)}
                       className="w-full"
-                      min={new Date().toISOString().split('T')[0]}
+                      min={formatDateJST(getCurrentJST())}
                     />
                   )}
                 </div>

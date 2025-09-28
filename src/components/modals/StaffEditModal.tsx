@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
 import type { Staff, Store } from '@/types'
+import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 
 interface StaffEditModalProps {
   isOpen: boolean
@@ -105,8 +106,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       ng_days: [], // 削除された項目はデフォルト値
       special_scenarios: formData.special_scenarios!,
       notes: formData.notes || '',
-      created_at: staff?.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      created_at: staff?.created_at || formatDateJST(getCurrentJST()),
+      updated_at: formatDateJST(getCurrentJST())
     }
 
     onSave(staffData)

@@ -23,6 +23,17 @@ import {
 import { Line } from 'react-chartjs-2'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
+import {
+  getThisMonthRangeJST,
+  getLastMonthRangeJST,
+  getThisWeekRangeJST,
+  getLastWeekRangeJST,
+  getPastDaysRangeJST,
+  getThisYearRangeJST,
+  getLastYearRangeJST,
+  getDaysDiff,
+  formatDateJST
+} from '@/utils/dateUtils'
 
 ChartJS.register(
   CategoryScale,
@@ -87,14 +98,13 @@ const SalesManagement: React.FC = () => {
     endDate: ''
   })
 
-  // dateRangeの変化を監視
-  useEffect(() => {
-    console.log('dateRange変化:', dateRange.startDate, '～', dateRange.endDate)
-  }, [dateRange])
+  // dateRangeの変化を監視（デバッグ用）
+  // useEffect(() => {
+  //   console.log('dateRange変化:', dateRange.startDate, '～', dateRange.endDate)
+  // }, [dateRange])
 
   // 期間選択の初期化
   useEffect(() => {
-    console.log('初期化開始')
     // 初期化時にhandlePeriodChangeを呼び出して統一する
     handlePeriodChange('thisMonth')
   }, [])
@@ -117,8 +127,17 @@ const SalesManagement: React.FC = () => {
     const savedTarget = localStorage.getItem('salesTarget')
     if (savedTarget) {
       setSalesTarget(parseInt(savedTarget, 10))
+    } else {
+      // デフォルトの売上目標を設定（1店舗1日10万円基準）
+      const startDate = new Date(dateRange.startDate + 'T00:00:00+09:00')
+      const endDate = new Date(dateRange.endDate + 'T23:59:59+09:00')
+      const daysDiff = getDaysDiff(startDate, endDate)
+      const defaultTarget = selectedStore === 'all' 
+        ? 100000 * stores.length * Math.max(1, daysDiff) // 全店舗：10万円 × 店舗数 × 日数
+        : 100000 * Math.max(1, daysDiff) // 単店舗：10万円 × 日数
+      setSalesTarget(defaultTarget)
     }
-  }, [])
+  }, [selectedStore, dateRange, stores.length])
 
   // 売上目標を保存
   const saveSalesTarget = () => {
@@ -128,99 +147,48 @@ const SalesManagement: React.FC = () => {
 
   // 期間変更ハンドラー
   const handlePeriodChange = useCallback((period: string) => {
-    console.log('handlePeriodChange呼び出し:', period)
     setSelectedPeriod(period)
-    // 日本時間で現在の日付を取得
-    const now = new Date()
-    const japanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)) // UTC+9
-    let startDate: Date
-    let endDate: Date
+    
+    let range: { start: Date; end: Date; startDateStr: string; endDateStr: string }
 
     switch (period) {
       case 'thisMonth':
-        // 日本時間で今月の1日を取得
-        const year = japanTime.getFullYear()
-        const month = japanTime.getMonth()
-        // 今月の最後の日を取得（次の月の0日目）
-        const lastDay = new Date(year, month + 1, 0).getDate()
-        // 文字列として正しい日付を作成
-        const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`
-        const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`
-        // 文字列をそのまま使用（タイムゾーン変換を避ける）
-        startDate = new Date(startStr)
-        endDate = new Date(endStr)
-        console.log('今月の計算詳細:', {
-          now: now.toISOString(),
-          japanTime: japanTime.toISOString(),
-          year: year,
-          month: month,
-          monthName: japanTime.toLocaleDateString('ja-JP', { month: 'long' }),
-          lastDay: lastDay,
-          startStr: startStr,
-          endStr: endStr,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          startDateStr: startDate.toISOString().split('T')[0],
-          endDateStr: endDate.toISOString().split('T')[0]
-        })
-        console.log('今月の期間:', startDate.toISOString().split('T')[0], '～', endDate.toISOString().split('T')[0])
+        range = getThisMonthRangeJST()
         break
       case 'lastMonth':
-        startDate = new Date(japanTime.getFullYear(), japanTime.getMonth() - 1, 1)
-        endDate = new Date(japanTime.getFullYear(), japanTime.getMonth(), 0)
+        range = getLastMonthRangeJST()
         break
       case 'thisWeek':
-        // 今週の月曜日から日曜日まで
-        const thisWeekStart = new Date(japanTime)
-        thisWeekStart.setDate(japanTime.getDate() - japanTime.getDay() + 1) // 月曜日
-        startDate = thisWeekStart
-        endDate = new Date(thisWeekStart)
-        endDate.setDate(thisWeekStart.getDate() + 6) // 日曜日
+        range = getThisWeekRangeJST()
         break
       case 'lastWeek':
-        // 先週の月曜日から日曜日まで
-        const lastWeekStart = new Date(japanTime)
-        lastWeekStart.setDate(japanTime.getDate() - japanTime.getDay() - 6) // 先週の月曜日
-        startDate = lastWeekStart
-        endDate = new Date(lastWeekStart)
-        endDate.setDate(lastWeekStart.getDate() + 6) // 先週の日曜日
+        range = getLastWeekRangeJST()
         break
       case 'past7days':
-        endDate = new Date(japanTime)
-        startDate = new Date(japanTime)
-        startDate.setDate(japanTime.getDate() - 6) // 7日前
+        range = getPastDaysRangeJST(7)
         break
       case 'past30days':
-        endDate = new Date(japanTime)
-        startDate = new Date(japanTime)
-        startDate.setDate(japanTime.getDate() - 29) // 30日前
+        range = getPastDaysRangeJST(30)
         break
       case 'past90days':
-        endDate = new Date(japanTime)
-        startDate = new Date(japanTime)
-        startDate.setDate(japanTime.getDate() - 89) // 90日前
+        range = getPastDaysRangeJST(90)
         break
       case 'past180days':
-        endDate = new Date(japanTime)
-        startDate = new Date(japanTime)
-        startDate.setDate(japanTime.getDate() - 179) // 180日前
+        range = getPastDaysRangeJST(180)
         break
       case 'thisYear':
-        startDate = new Date(japanTime.getFullYear(), 0, 1)
-        endDate = new Date(japanTime.getFullYear(), 11, 31)
+        range = getThisYearRangeJST()
         break
       case 'lastYear':
-        startDate = new Date(japanTime.getFullYear() - 1, 0, 1)
-        endDate = new Date(japanTime.getFullYear() - 1, 11, 31)
+        range = getLastYearRangeJST()
         break
       default:
         return // カスタムの場合は何もしない
     }
 
-    console.log('setDateRange呼び出し:', startDate.toISOString().split('T')[0], '～', endDate.toISOString().split('T')[0])
     setDateRange({
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0]
+      startDate: range.startDateStr,
+      endDate: range.endDateStr
     })
   }, [])
 
@@ -229,9 +197,9 @@ const SalesManagement: React.FC = () => {
     setLoading(true)
     try {
       // 期間に応じてグラフ用のデータ取得期間を決定
-      const startDate = new Date(dateRange.startDate)
-      const endDate = new Date(dateRange.endDate)
-      const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+      const startDate = new Date(dateRange.startDate + 'T00:00:00+09:00')
+      const endDate = new Date(dateRange.endDate + 'T23:59:59+09:00')
+      const daysDiff = getDaysDiff(startDate, endDate)
       
       let chartStartDate: Date
       let chartEndDate: Date
@@ -250,8 +218,8 @@ const SalesManagement: React.FC = () => {
       }
       
       let events = await salesApi.getSalesByPeriod(
-        chartStartDate.toISOString().split('T')[0],
-        chartEndDate.toISOString().split('T')[0]
+        formatDateJST(chartStartDate),
+        formatDateJST(chartEndDate)
       )
       
       // 店舗フィルタリング
@@ -268,7 +236,7 @@ const SalesManagement: React.FC = () => {
       })
 
       // 前年同期データを取得
-      const currentYear = new Date(dateRange.startDate).getFullYear()
+      const currentYear = new Date(dateRange.startDate + 'T00:00:00+09:00').getFullYear()
       const previousYearStart = dateRange.startDate.replace(currentYear.toString(), (currentYear - 1).toString())
       const previousYearEnd = dateRange.endDate.replace(currentYear.toString(), (currentYear - 1).toString())
       
@@ -278,13 +246,13 @@ const SalesManagement: React.FC = () => {
       }
 
       // 前月データを取得
-      const currentDateForMonth = new Date(dateRange.startDate)
+      const currentDateForMonth = new Date(dateRange.startDate + 'T00:00:00+09:00')
       const previousMonthStart = new Date(currentDateForMonth.getFullYear(), currentDateForMonth.getMonth() - 1, 1)
       const previousMonthEnd = new Date(currentDateForMonth.getFullYear(), currentDateForMonth.getMonth(), 0)
       
       let previousMonthEvents = await salesApi.getSalesByPeriod(
-        previousMonthStart.toISOString().split('T')[0],
-        previousMonthEnd.toISOString().split('T')[0]
+        formatDateJST(previousMonthStart),
+        formatDateJST(previousMonthEnd)
       )
       if (selectedStore !== 'all') {
         previousMonthEvents = previousMonthEvents.filter(event => event.store_id === selectedStore)
@@ -589,9 +557,9 @@ const SalesManagement: React.FC = () => {
     if (!salesData) return null
 
     // 期間に応じてラベルを変更
-    const startDate = new Date(dateRange.startDate)
-    const endDate = new Date(dateRange.endDate)
-    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    const startDate = new Date(dateRange.startDate + 'T00:00:00+09:00')
+    const endDate = new Date(dateRange.endDate + 'T23:59:59+09:00')
+    const daysDiff = getDaysDiff(startDate, endDate)
     
     const labels = salesData.monthlyRevenue.map(item => {
       if (daysDiff <= 31) {
@@ -762,14 +730,51 @@ const SalesManagement: React.FC = () => {
   }
 
   const chartOptions = (() => {
-    const startDate = new Date(dateRange.startDate)
-    const endDate = new Date(dateRange.endDate)
-    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    const startDate = new Date(dateRange.startDate + 'T00:00:00+09:00')
+    const endDate = new Date(dateRange.endDate + 'T23:59:59+09:00')
+    const daysDiff = getDaysDiff(startDate, endDate)
     
     const isDailyChart = daysDiff <= 31
     const chartTitle = isDailyChart 
       ? `日別売上・公演数推移（${getSelectedStoreName()}）`
       : `月別売上・公演数推移（1年分）（${getSelectedStoreName()}）`
+    
+    // 店舗数に応じてレンジを調整
+    const storeCount = selectedStore === 'all' ? stores.length : 1
+    
+    // データがある場合のみ動的計算、ない場合はデフォルト値
+    const hasData = salesData && salesData.monthlyRevenue && salesData.monthlyRevenue.length > 0
+    
+    // 動的な基準額計算（1店舗1日10万円、3公演基準）
+    const chartDaysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    const baseRevenuePerDay = 100000 // 1店舗1日10万円
+    const baseEventsPerDay = 3 // 1店舗1日3公演
+    
+    // グラフの表示方式に応じて基準値を調整
+    const defaultMaxRevenue = isDailyChart 
+      ? baseRevenuePerDay * storeCount // 日別グラフ：1日分の基準（全店舗で60万円）
+      : baseRevenuePerDay * storeCount * Math.max(1, chartDaysDiff) // 月別グラフ：期間全体の基準
+    
+    const defaultMaxEvents = isDailyChart
+      ? baseEventsPerDay * storeCount // 日別グラフ：1日分の基準（全店舗で18公演）
+      : baseEventsPerDay * storeCount * Math.max(1, chartDaysDiff) // 月別グラフ：期間全体の基準
+    
+    const maxRevenue = hasData 
+      ? Math.max(
+          Math.max(...salesData.monthlyRevenue.map(month => month.revenue)) * 2,
+          defaultMaxRevenue * 0.5 // デフォルトの50%以上は確保
+        )
+      : defaultMaxRevenue
+
+    const maxEvents = hasData
+      ? Math.max(
+          Math.max(...salesData.monthlyRevenue.map(month => month.eventCount)) * 2,
+          defaultMaxEvents * 0.5 // デフォルトの50%以上は確保
+        )
+      : defaultMaxEvents
+    
+    // デバッグログ（本番では削除）
+    // console.log('グラフレンジ計算:', { hasData, storeCount, chartDaysDiff, isDailyChart, maxRevenue, maxEvents })
     
     return {
       responsive: true,
@@ -833,6 +838,8 @@ const SalesManagement: React.FC = () => {
         type: 'linear' as const,
         display: true,
         position: 'left' as const,
+        min: 0,
+        max: maxRevenue, // 店舗数に応じて調整
         title: {
           display: true,
           text: '売上 (円)',
@@ -857,6 +864,8 @@ const SalesManagement: React.FC = () => {
         type: 'linear' as const,
         display: true,
         position: 'right' as const,
+        min: 0,
+        max: maxEvents, // 店舗数に応じて調整
         title: {
           display: true,
           text: '公演数 (回)',
@@ -1043,6 +1052,7 @@ const SalesManagement: React.FC = () => {
                           label="目標達成率"
                         />
                       )}
+                      {/* 売上目標表示チェック: {salesTarget}, showTarget: {salesTarget > 0} */}
                     </div>
                   </div>
                 </CardContent>

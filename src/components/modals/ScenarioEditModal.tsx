@@ -12,6 +12,7 @@ import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-di
 import { MigrationConfirmationDialog } from '@/components/ui/migration-confirmation-dialog'
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
 import type { Scenario, FlexiblePricing, PricingModifier } from '@/types'
+import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 
 // 全角数字を半角数字に変換
 const convertFullWidthToHalfWidth = (str: string) => {
@@ -842,8 +843,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       // 柔軟な料金設定を保存
       flexible_pricing: formData.use_flexible_pricing ? formData.flexible_pricing : undefined,
       play_count: scenario?.play_count || 0,
-      created_at: scenario?.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      created_at: scenario?.created_at || formatDateJST(getCurrentJST()),
+      updated_at: formatDateJST(getCurrentJST())
     }
 
     // production_costsはローカルでのみ管理（データベースには保存しない）
