@@ -4,20 +4,40 @@ import { Badge } from '@/components/ui/badge'
 interface StatusBadgeProps {
   status: 'active' | 'legacy' | 'unused' | 'ready'
   usageCount?: number
+  startDate?: string // 待機設定の開始日
+  endDate?: string // 使用中設定の終了日
   className?: string
+}
+
+// 日付フォーマット関数
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  return `${month}月${day}日`
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ 
   status, 
   usageCount = 0, 
+  startDate,
+  endDate,
   className = "" 
 }) => {
+  // console.log('StatusBadge render', { status, usageCount, startDate, endDate })
   switch (status) {
     case 'active':
       return (
-        <Badge variant="default" className={`text-xs bg-green-100 text-green-700 border-green-200 ${className}`}>
-          使用中{usageCount > 0 ? `${usageCount}件` : '0件'}
-        </Badge>
+        <div className="flex items-center gap-1">
+          <Badge variant="default" className={`text-xs bg-green-100 text-green-700 border-green-200 ${className}`}>
+            使用中{usageCount > 0 ? `${usageCount}件` : '0件'}
+          </Badge>
+          {endDate && (
+            <span className="text-xs text-gray-500">
+              {formatDate(endDate)}まで
+            </span>
+          )}
+        </div>
       )
     case 'legacy':
       return (
@@ -27,9 +47,16 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       )
     case 'ready':
       return (
-        <Badge variant="outline" className={`text-xs bg-blue-50 text-blue-600 border-blue-200 ${className}`}>
-          待機設定
-        </Badge>
+        <div className="flex items-center gap-1">
+          <Badge variant="outline" className={`text-xs bg-blue-50 text-blue-600 border-blue-200 ${className}`}>
+            待機設定
+          </Badge>
+          {startDate && (
+            <span className="text-xs text-gray-500">
+              {formatDate(startDate)}から
+            </span>
+          )}
+        </div>
       )
     case 'unused':
       return (

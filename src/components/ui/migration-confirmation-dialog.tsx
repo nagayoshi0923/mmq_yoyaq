@@ -76,7 +76,9 @@ export const MigrationConfirmationDialog: React.FC<MigrationConfirmationDialogPr
     } else if (startTiming === 'custom') {
       startDate = customDate
     }
+    // 'now'の場合はstartDate = undefinedのまま
     
+    // console.log('Migration confirm', { startTiming, startDate, customDate })
     onConfirm(startDate)
     onOpenChange(false)
   }

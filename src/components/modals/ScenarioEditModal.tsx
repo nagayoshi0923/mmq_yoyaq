@@ -54,12 +54,12 @@ interface ScenarioFormData {
   production_costs: { item: string; amount: number }[]
   genre: string[]
   required_props: { item: string; amount: number; frequency: 'recurring' | 'one-time' }[]
-  license_rewards: { item: string; amount: number; type?: 'fixed' | 'percentage'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
+  license_rewards: { item: string; amount: number; type?: 'fixed' | 'percentage'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }[]
   has_pre_reading: boolean
   gm_count: number
-  gm_assignments: { role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
+  gm_assignments: { role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }[]
   // 時間帯別料金設定
-  participation_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }[]
+  participation_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }[]
   // 柔軟な料金設定
   use_flexible_pricing: boolean
   flexible_pricing: FlexiblePricing
@@ -1001,7 +1001,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 type: cost.type,
                 status: cost.status,
                 usageCount: cost.usageCount,
-                originalTimeSlot: cost.time_slot // 元の時間帯値を保持
+                originalTimeSlot: cost.time_slot, // 元の時間帯値を保持
+                startDate: cost.startDate, // 開始日を保持
+                endDate: cost.endDate // 終了日を保持
               }))}
               conditionOptions={timeSlotOptions}
               showTypeSelector={true}
@@ -1017,7 +1019,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                   amount: item.amount,
                   type: item.type || 'fixed',
                   status: item.status,
-                  usageCount: item.usageCount
+                  usageCount: item.usageCount,
+                  startDate: item.startDate, // 開始日を保持
+                  endDate: item.endDate // 終了日を保持
                 }))
               }))}
             />
@@ -1079,7 +1083,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     type: 'fixed',
                     status: assignment.status,
                     usageCount: assignment.usageCount,
-                    originalRole: assignment.role // 元の英語値を保持
+                    originalRole: assignment.role, // 元の英語値を保持
+                    startDate: assignment.startDate, // 開始日を保持
+                    endDate: assignment.endDate // 終了日を保持
                   }))}
                   conditionOptions={gmRoleOptions}
                   showTypeSelector={false}
@@ -1094,7 +1100,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                       role: item.originalRole || item.item, // 元の英語値を使用
                       reward: item.amount,
                       status: item.status,
-                      usageCount: item.usageCount
+                      usageCount: item.usageCount,
+                      startDate: item.startDate, // 開始日を保持
+                      endDate: item.endDate // 終了日を保持
                     }))
                   }))}
                 />

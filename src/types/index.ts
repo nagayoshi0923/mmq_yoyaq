@@ -86,7 +86,7 @@ export interface Scenario {
   play_count: number
   status: 'available' | 'maintenance' | 'retired'
   required_props: Array<{ item: string; amount: number; frequency: 'recurring' | 'one-time' }>
-  license_rewards: Array<{ item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
+  license_rewards: Array<{ item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   props?: Array<{
     name: string
     cost: number
@@ -99,9 +99,9 @@ export interface Scenario {
     amount: number
   }>
   // GM配置システム
-  gm_costs: Array<{ role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
+  gm_costs: Array<{ role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   // 新しい時間帯別料金設定
-  participation_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number }>
+  participation_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   participation_fee: number // 基本料金（後方互換性のため保持）
   // 新しい柔軟な料金設定
   flexible_pricing?: FlexiblePricing
