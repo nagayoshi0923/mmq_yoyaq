@@ -87,10 +87,41 @@ GMテスト: オレンジ系（注意・研修を表現）
 ```
 
 ### 状態色（全ページ共通）
-- 成功: `bg-green-100 text-green-800` (淡いグリーン)
-- 警告: `bg-yellow-100 text-yellow-800` (淡いイエロー)
-- エラー: `bg-red-100 text-red-800` (淡いレッド)
-- 情報: `bg-blue-100 text-blue-800` (淡いブルー)
+- **🔴 赤色**: エラー・警告・削除・危険 `bg-red-50 text-red-700 border-red-200`
+- **🟡 黄色**: 注意・確認・変更内容 `bg-yellow-50 text-yellow-700 border-yellow-200`
+- **🟢 緑色**: 成功・使用中・アクティブ `bg-green-50 text-green-700 border-green-200`
+- **🔵 青色**: 情報・待機・将来予定 `bg-blue-50 text-blue-700 border-blue-200`
+- **⚫ グレー**: 無効・未設定・過去 `bg-gray-50 text-gray-600 border-gray-200`
+
+### ステータスバッジ色システム（全ページ必須統一）
+```css
+使用中（active）: 緑色
+  - Badge: bg-green-100 text-green-700 border-green-200
+  - 意味: 現在アクティブに使用されている設定
+
+待機設定（ready）: 青色  
+  - Badge: bg-blue-50 text-blue-600 border-blue-200
+  - 意味: 将来使用予定、開始時期が設定された状態
+
+以前の設定（legacy）: グレー
+  - Badge: bg-gray-50 text-gray-600 border-gray-200  
+  - 意味: 過去に使用されていた設定、履歴として保持
+
+未設定（unused）: グレー
+  - Badge: bg-gray-50 text-gray-500 border-gray-200
+  - 意味: 無効な設定、設定されていない状態
+```
+
+### UI要素別色使用ルール
+```css
+削除ボタン: 赤色 text-red-500 hover:text-red-700
+編集ボタン: 青色 text-blue-500 hover:text-blue-700  
+保存ボタン: 緑色 bg-green-600 text-white
+キャンセルボタン: グレー variant="outline"
+警告メッセージ: 赤背景 bg-red-50 border-red-200
+注意メッセージ: 黄背景 bg-yellow-50 border-yellow-200
+情報メッセージ: 青背景 bg-blue-50 border-blue-200
+```
 
 ## タイポグラフィ
 
