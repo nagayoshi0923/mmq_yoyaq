@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { salesApi } from '@/lib/api'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import SalesSidebar from '@/components/layout/SalesSidebar'
 import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download } from 'lucide-react'
 import {
   Chart as ChartJS,
@@ -95,6 +96,7 @@ const SalesManagement: React.FC = () => {
     startDate: '',
     endDate: ''
   })
+  const [activeTab, setActiveTab] = useState('overview')
 
   // dateRangeの変化を監視（デバッグ用）
   // useEffect(() => {
@@ -842,8 +844,13 @@ const SalesManagement: React.FC = () => {
       <NavigationBar currentPage="sales" onPageChange={(pageId) => {
         window.location.hash = pageId
       }} />
-      <div className="container mx-auto max-w-7xl px-8 py-6">
-        <div className="space-y-6">
+      <div className="flex">
+        <div className="hidden lg:block">
+          <SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="container mx-auto max-w-6xl px-4 lg:px-6 py-6">
+            <div className="space-y-6">
           <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">売上管理</h1>
           <div className="flex items-center gap-4">
@@ -1113,6 +1120,8 @@ const SalesManagement: React.FC = () => {
             <div className="text-lg text-muted-foreground">データがありません</div>
           </div>
         )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
