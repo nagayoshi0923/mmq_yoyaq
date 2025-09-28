@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 // アイコンコンポーネント
 const ClipboardIcon = () => (
@@ -106,17 +107,13 @@ export const MigrationConfirmationDialog: React.FC<MigrationConfirmationDialogPr
           <div className="flex items-center gap-2 mb-4">
             <span className="text-sm font-medium">現在の設定:</span>
             <span className="text-sm">{itemName} {existingAmount.toLocaleString()}円</span>
-            <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">
-              使用中{usageCount}件
-            </Badge>
+            <StatusBadge status="active" usageCount={usageCount} />
           </div>
 
           <div className="flex items-center gap-2 mb-4">
             <span className="text-sm font-medium">変更後の設定:</span>
             <span className="text-sm">{itemName} {newAmount.toLocaleString()}円</span>
-            <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
-              待機設定
-            </Badge>
+            <StatusBadge status="ready" />
           </div>
 
           {/* 警告メッセージ */}
@@ -208,7 +205,7 @@ export const MigrationConfirmationDialog: React.FC<MigrationConfirmationDialogPr
               変更内容の詳細
             </div>
             <ul className="text-gray-600 text-sm space-y-1">
-              <li>• 既存の設定（{existingAmount.toLocaleString()}円）は「過去のみ」ステータスに変更されます</li>
+              <li>• 既存の設定（{existingAmount.toLocaleString()}円）は「以前の設定」ステータスに変更されます</li>
               <li>• 新しい設定（{newAmount.toLocaleString()}円）が「使用中」ステータスになります</li>
               <li>• 過去{usageCount}件の公演データは既存の金額で保持されます</li>
               <li>• {startTiming === 'now' ? '今後の公演は即座に' : 

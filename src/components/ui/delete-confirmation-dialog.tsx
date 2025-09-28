@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 interface DeleteConfirmationDialogProps {
   open: boolean
@@ -63,35 +64,7 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
 
   const getStatusBadge = () => {
     if (!status) return null
-
-    switch (status) {
-      case 'active':
-        return (
-          <Badge variant="default" className="bg-green-100 text-green-700 border-green-200">
-            使用中{usageCount}件
-          </Badge>
-        )
-      case 'legacy':
-        return (
-          <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
-            🔵過去のみ{usageCount}件
-          </Badge>
-        )
-      case 'ready':
-        return (
-          <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
-            待機設定
-          </Badge>
-        )
-      case 'unused':
-        return (
-          <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200">
-            未設定
-          </Badge>
-        )
-      default:
-        return null
-    }
+    return <StatusBadge status={status} usageCount={usageCount} />
   }
 
   const getWarningMessage = () => {
@@ -191,7 +164,7 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
                   <div>
                     <div className="font-medium text-gray-700">アーカイブ（推奨）</div>
                     <div className="text-sm text-gray-600">
-                      設定を「過去のみ」に変更します。過去の公演データは保持されます。
+                      設定を「以前の設定」に変更します。過去の公演データは保持されます。
                     </div>
                   </div>
                 </label>

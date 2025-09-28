@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { MigrationConfirmationDialog } from '@/components/ui/migration-confirmation-dialog'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 // 全角数字を半角数字に変換
 const convertFullWidthToHalfWidth = (str: string) => {
@@ -33,6 +34,7 @@ export interface ItemizedSetting {
   status?: 'active' | 'legacy' | 'unused' | 'ready'
   usageCount?: number
   originalRole?: string // GM報酬用：元の英語値を保持
+  originalTimeSlot?: string // 参加費用：元の時間帯値を保持
   startDate?: string // 適用開始日
 }
 
@@ -104,7 +106,7 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
       
       // 同じ項目で使用中または待機設定の項目があるかチェック
       const existingActiveIndex = items.findIndex(item => 
-        (item.originalRole === newItem || item.item === newItem) && (item.status === 'active' || item.status === 'ready')
+        (item.originalRole === newItem || item.originalTimeSlot === newItem || item.item === newItem) && (item.status === 'active' || item.status === 'ready')
       )
       
       console.log('DEBUG: Existing active check', {
@@ -121,15 +123,16 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
         })
         setMigrationDialogOpen(true)
       } else {
-        // 使用中の項目がない場合は通常の追加
+        // 使用中の項目がない場合は即座に使用中として追加
         const selectedOption = conditionOptions.find(opt => opt.value === newItem)
         const newItemData: ItemizedSetting = {
           item: selectedOption ? selectedOption.label : newItem, // 日本語表示名を使用
           amount: amount,
           type: newType,
-          status: getItemStatus(amount, 0),
+          status: 'active', // 使用中の設定がない場合は即座に使用中
           usageCount: 0,
-          originalRole: newItem // 元の英語値を保持
+          originalRole: newItem, // 元の英語値を保持
+          originalTimeSlot: newItem // 元の時間帯値を保持
         }
         onItemsChange([...items, newItemData])
         
@@ -176,15 +179,16 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
         status: 'legacy'
       }
       
-      // 新しい項目を「使用中」として追加
+      // 新しい項目を「待機設定」として追加（開始時期指定）
       const selectedOption = conditionOptions.find(opt => opt.value === newItem)
       const newActiveItem: ItemizedSetting = {
         item: selectedOption ? selectedOption.label : newItem, // 日本語表示名を使用
         amount: parseCurrency(newAmountInput),
         type: newType,
-        status: 'active',
+        status: startDate ? 'ready' : 'active', // 開始時期指定がある場合は待機設定
         usageCount: 0,
         originalRole: newItem, // 元の英語値を保持
+        originalTimeSlot: newItem, // 元の時間帯値を保持
         startDate: startDate // 適用開始日を保持
       }
       
@@ -220,7 +224,7 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
                 onChange={(e) => setHideLegacy(e.target.checked)}
                 className="rounded"
               />
-              過去のみを非表示
+                      以前の設定を非表示
             </label>
           )}
         </div>
@@ -321,19 +325,7 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
                     {item.item}: {item.type === 'percentage' ? `${item.amount}%` : `${item.amount.toLocaleString()}円`}
                   </span>
                   {item.status && (
-                    <Badge 
-                      variant={
-                        item.status === 'active' ? 'default' :
-                        item.status === 'ready' ? 'secondary' :
-                        item.status === 'legacy' ? 'outline' : 'destructive'
-                      }
-                      className="text-xs"
-                    >
-                      {item.status === 'active' ? '使用中' :
-                       item.status === 'ready' ? '待機設定' :
-                       item.status === 'legacy' ? '過去のみ' : '無効'}
-                      {item.usageCount ? ` (${item.usageCount}回)` : ''}
-                    </Badge>
+                    <StatusBadge status={item.status} usageCount={item.usageCount} />
                   )}
                 </div>
                 {item.status !== 'legacy' && (

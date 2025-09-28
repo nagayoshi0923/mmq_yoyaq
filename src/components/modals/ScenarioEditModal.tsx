@@ -166,6 +166,25 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   const licenseValidation = validateLicenseNormalSetting()
 
+  // 参加費の「通常」設定バリデーション
+  const validateParticipationNormalSetting = (items: any[]) => {
+    const hasNormalSetting = items.some(item => 
+      (item.originalTimeSlot === '通常' || item.item === '通常') && (item.status === 'active' || item.status === 'ready')
+    )
+    const hasOtherSettings = items.some(item => 
+      (item.originalTimeSlot !== '通常' && item.item !== '通常') && (item.status === 'active' || item.status === 'ready')
+    )
+    
+    if (hasOtherSettings && !hasNormalSetting) {
+      return {
+        hasError: true,
+        message: '「通常」の設定が必要です。他の時間帯設定がある場合は、基本となる「通常」の設定を追加してください。'
+      }
+    }
+    
+    return { hasError: false, message: '' }
+  }
+
   // GM報酬用の選択肢
   const gmRoleOptions = [
     { value: 'main', label: 'メインGM' },
@@ -973,30 +992,34 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             </div>
 
             {/* 参加費（項目別） */}
-            <ConditionalSettings
+            <ItemizedSettings
               title="参加費"
               subtitle="時間帯や曜日に応じて異なる参加費を設定できます"
-              items={(formData.participation_costs || []).map(cost => ({
-                condition: cost.time_slot,
+              items={formData.participation_costs.map(cost => ({
+                item: cost.time_slot,
                 amount: cost.amount,
-                type: 'fixed' as const,
+                type: cost.type,
                 status: cost.status,
-                usageCount: cost.usageCount
+                usageCount: cost.usageCount,
+                originalTimeSlot: cost.time_slot // 元の時間帯値を保持
               }))}
-              newItem={{
-                condition: newParticipationCostTimeSlot,
-                amount: newParticipationCostAmount,
-                type: 'fixed' as const
-              }}
               conditionOptions={timeSlotOptions}
-              showDescription={true}
-              getDescription={getTimeSlotDescription}
-              onItemsChange={handleParticipationCostsChange}
-              onNewItemChange={handleNewParticipationCostChange}
-              onAddItem={handleAddParticipationCost}
-              onRemoveItem={removeParticipationCost}
-              onClearNewItem={handleClearNewParticipationCost}
-              addButtonText="条件を追加"
+              showTypeSelector={true}
+              showHideLegacyToggle={true}
+              itemType="参加費"
+              scenarioName={formData.title}
+              getItemStatus={getItemStatus}
+              validateNormalSetting={(items) => validateParticipationNormalSetting(items)}
+              onItemsChange={(items) => setFormData(prev => ({ 
+                ...prev, 
+                participation_costs: items.map(item => ({
+                  time_slot: item.originalTimeSlot || item.item, // 元の時間帯値を使用
+                  amount: item.amount,
+                  type: item.type || 'fixed',
+                  status: item.status,
+                  usageCount: item.usageCount
+                }))
+              }))}
             />
 
             {/* ジャンル */}

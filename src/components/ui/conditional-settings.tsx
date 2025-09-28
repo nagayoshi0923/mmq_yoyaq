@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { MigrationConfirmationDialog } from '@/components/ui/migration-confirmation-dialog'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 export interface ConditionalSetting {
   condition: string
@@ -243,7 +244,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
                 onChange={(e) => setHideLegacy(e.target.checked)}
                 className="rounded"
               />
-              過去のみを非表示
+                      以前の設定を非表示
             </label>
           )}
         </div>
@@ -367,26 +368,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
             {/* ステータスバッジ（ステータスプルダウンがない場合のみ表示） */}
             {!showStatusSelector && item.status && (
               <div className="flex items-center gap-1">
-                {item.status === 'active' && (
-                  <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">
-                    使用中{item.usageCount ? `${item.usageCount}件` : '0件'}
-                  </Badge>
-                )}
-                {item.status === 'legacy' && (
-                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
-                    🔵過去のみ{item.usageCount ? `${item.usageCount}件` : '0件'}
-                  </Badge>
-                )}
-                {item.status === 'ready' && (
-                  <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
-                    待機設定
-                  </Badge>
-                )}
-                {item.status === 'unused' && (
-                  <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500 border-gray-200">
-                    未設定
-                  </Badge>
-                )}
+                <StatusBadge status={item.status} usageCount={item.usageCount} />
               </div>
             )}
 
@@ -495,26 +477,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
           {/* 新規入力欄のステータスバッジ（ステータスプルダウンがない場合のみ表示） */}
           {!showStatusSelector && newItem.status && (
             <div className="flex items-center gap-1">
-              {newItem.status === 'active' && (
-                <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">
-                  使用中{newItem.usageCount ? `${newItem.usageCount}件` : '0件'}
-                </Badge>
-              )}
-              {newItem.status === 'legacy' && (
-                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
-                  🔵過去のみ{newItem.usageCount ? `${newItem.usageCount}件` : '0件'}
-                </Badge>
-              )}
-              {newItem.status === 'ready' && (
-                <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
-                  待機設定
-                </Badge>
-              )}
-              {newItem.status === 'unused' && (
-                <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500 border-gray-200">
-                  未設定
-                </Badge>
-              )}
+              <StatusBadge status={newItem.status} usageCount={newItem.usageCount} />
             </div>
           )}
 
