@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -87,16 +87,16 @@ const SalesManagement: React.FC = () => {
     endDate: ''
   })
 
+  // dateRangeの変化を監視
+  useEffect(() => {
+    console.log('dateRange変化:', dateRange.startDate, '～', dateRange.endDate)
+  }, [dateRange])
+
   // 期間選択の初期化
   useEffect(() => {
-    const now = new Date()
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    
-    setDateRange({
-      startDate: thisMonthStart.toISOString().split('T')[0],
-      endDate: thisMonthEnd.toISOString().split('T')[0]
-    })
+    console.log('初期化開始')
+    // 初期化時にhandlePeriodChangeを呼び出して統一する
+    handlePeriodChange('thisMonth')
   }, [])
 
   // 店舗一覧を取得
@@ -127,77 +127,105 @@ const SalesManagement: React.FC = () => {
   }
 
   // 期間変更ハンドラー
-  const handlePeriodChange = (period: string) => {
+  const handlePeriodChange = useCallback((period: string) => {
+    console.log('handlePeriodChange呼び出し:', period)
     setSelectedPeriod(period)
+    // 日本時間で現在の日付を取得
     const now = new Date()
+    const japanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)) // UTC+9
     let startDate: Date
     let endDate: Date
 
     switch (period) {
       case 'thisMonth':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        // 日本時間で今月の1日を取得
+        const year = japanTime.getFullYear()
+        const month = japanTime.getMonth()
+        // 今月の最後の日を取得（次の月の0日目）
+        const lastDay = new Date(year, month + 1, 0).getDate()
+        // 文字列として正しい日付を作成
+        const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`
+        const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`
+        // 文字列をそのまま使用（タイムゾーン変換を避ける）
+        startDate = new Date(startStr)
+        endDate = new Date(endStr)
+        console.log('今月の計算詳細:', {
+          now: now.toISOString(),
+          japanTime: japanTime.toISOString(),
+          year: year,
+          month: month,
+          monthName: japanTime.toLocaleDateString('ja-JP', { month: 'long' }),
+          lastDay: lastDay,
+          startStr: startStr,
+          endStr: endStr,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          startDateStr: startDate.toISOString().split('T')[0],
+          endDateStr: endDate.toISOString().split('T')[0]
+        })
+        console.log('今月の期間:', startDate.toISOString().split('T')[0], '～', endDate.toISOString().split('T')[0])
         break
       case 'lastMonth':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0)
+        startDate = new Date(japanTime.getFullYear(), japanTime.getMonth() - 1, 1)
+        endDate = new Date(japanTime.getFullYear(), japanTime.getMonth(), 0)
         break
       case 'thisWeek':
         // 今週の月曜日から日曜日まで
-        const thisWeekStart = new Date(now)
-        thisWeekStart.setDate(now.getDate() - now.getDay() + 1) // 月曜日
+        const thisWeekStart = new Date(japanTime)
+        thisWeekStart.setDate(japanTime.getDate() - japanTime.getDay() + 1) // 月曜日
         startDate = thisWeekStart
         endDate = new Date(thisWeekStart)
         endDate.setDate(thisWeekStart.getDate() + 6) // 日曜日
         break
       case 'lastWeek':
         // 先週の月曜日から日曜日まで
-        const lastWeekStart = new Date(now)
-        lastWeekStart.setDate(now.getDate() - now.getDay() - 6) // 先週の月曜日
+        const lastWeekStart = new Date(japanTime)
+        lastWeekStart.setDate(japanTime.getDate() - japanTime.getDay() - 6) // 先週の月曜日
         startDate = lastWeekStart
         endDate = new Date(lastWeekStart)
         endDate.setDate(lastWeekStart.getDate() + 6) // 先週の日曜日
         break
       case 'past7days':
-        endDate = new Date(now)
-        startDate = new Date(now)
-        startDate.setDate(now.getDate() - 6) // 7日前
+        endDate = new Date(japanTime)
+        startDate = new Date(japanTime)
+        startDate.setDate(japanTime.getDate() - 6) // 7日前
         break
       case 'past30days':
-        endDate = new Date(now)
-        startDate = new Date(now)
-        startDate.setDate(now.getDate() - 29) // 30日前
+        endDate = new Date(japanTime)
+        startDate = new Date(japanTime)
+        startDate.setDate(japanTime.getDate() - 29) // 30日前
         break
       case 'past90days':
-        endDate = new Date(now)
-        startDate = new Date(now)
-        startDate.setDate(now.getDate() - 89) // 90日前
+        endDate = new Date(japanTime)
+        startDate = new Date(japanTime)
+        startDate.setDate(japanTime.getDate() - 89) // 90日前
         break
       case 'past180days':
-        endDate = new Date(now)
-        startDate = new Date(now)
-        startDate.setDate(now.getDate() - 179) // 180日前
+        endDate = new Date(japanTime)
+        startDate = new Date(japanTime)
+        startDate.setDate(japanTime.getDate() - 179) // 180日前
         break
       case 'thisYear':
-        startDate = new Date(now.getFullYear(), 0, 1)
-        endDate = new Date(now.getFullYear(), 11, 31)
+        startDate = new Date(japanTime.getFullYear(), 0, 1)
+        endDate = new Date(japanTime.getFullYear(), 11, 31)
         break
       case 'lastYear':
-        startDate = new Date(now.getFullYear() - 1, 0, 1)
-        endDate = new Date(now.getFullYear() - 1, 11, 31)
+        startDate = new Date(japanTime.getFullYear() - 1, 0, 1)
+        endDate = new Date(japanTime.getFullYear() - 1, 11, 31)
         break
       default:
         return // カスタムの場合は何もしない
     }
 
+    console.log('setDateRange呼び出し:', startDate.toISOString().split('T')[0], '～', endDate.toISOString().split('T')[0])
     setDateRange({
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0]
     })
-  }
+  }, [])
 
   // 売上データを取得
-  const fetchSalesData = async () => {
+  const fetchSalesData = useCallback(async () => {
     setLoading(true)
     try {
       // 期間に応じてグラフ用のデータ取得期間を決定
@@ -415,14 +443,14 @@ const SalesManagement: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [dateRange, selectedStore])
 
   // 初期データ読み込み
   useEffect(() => {
     if (dateRange.startDate && dateRange.endDate) {
       fetchSalesData()
     }
-  }, [dateRange, selectedStore])
+  }, [fetchSalesData])
 
   // 通貨フォーマット
   const formatCurrency = (amount: number) => {
