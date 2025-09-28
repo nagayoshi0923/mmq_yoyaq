@@ -91,8 +91,6 @@ const SalesManagement: React.FC = () => {
   const [selectedStore, setSelectedStore] = useState('all')
   const [stores, setStores] = useState<Store[]>([])
   const [chartRef, setChartRef] = useState<any>(null)
-  const [salesTarget, setSalesTarget] = useState<number>(0)
-  const [showTargetInput, setShowTargetInput] = useState(false)
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
@@ -122,28 +120,6 @@ const SalesManagement: React.FC = () => {
     fetchStores()
   }, [])
 
-  // 売上目標をlocalStorageから読み込み
-  useEffect(() => {
-    const savedTarget = localStorage.getItem('salesTarget')
-    if (savedTarget) {
-      setSalesTarget(parseInt(savedTarget, 10))
-    } else {
-      // デフォルトの売上目標を設定（1店舗1日10万円基準）
-      const startDate = new Date(dateRange.startDate + 'T00:00:00+09:00')
-      const endDate = new Date(dateRange.endDate + 'T23:59:59+09:00')
-      const daysDiff = getDaysDiff(startDate, endDate)
-      const defaultTarget = selectedStore === 'all' 
-        ? 100000 * stores.length * Math.max(1, daysDiff) // 全店舗：10万円 × 店舗数 × 日数
-        : 100000 * Math.max(1, daysDiff) // 単店舗：10万円 × 日数
-      setSalesTarget(defaultTarget)
-    }
-  }, [selectedStore, dateRange, stores.length])
-
-  // 売上目標を保存
-  const saveSalesTarget = () => {
-    localStorage.setItem('salesTarget', salesTarget.toString())
-    setShowTargetInput(false)
-  }
 
   // 期間変更ハンドラー
   const handlePeriodChange = useCallback((period: string) => {
@@ -364,7 +340,7 @@ const SalesManagement: React.FC = () => {
         // 期間内の日を生成
         const currentDate = new Date(chartStartDate)
         while (currentDate <= chartEndDate) {
-          const dayKey = currentDate.toISOString().split('T')[0]
+          const dayKey = formatDateJST(currentDate)
           dailyMap.set(dayKey, {
             month: dayKey,
             revenue: 0,
@@ -375,7 +351,8 @@ const SalesManagement: React.FC = () => {
         
         // 実際のイベントデータを集計
         events.forEach(event => {
-          const dayKey = event.date
+          const date = new Date(event.date)
+          const dayKey = formatDateJST(date)
           const participationFee = event.scenarios?.participation_fee || 0
           
           if (dailyMap.has(dayKey)) {
@@ -461,34 +438,6 @@ const SalesManagement: React.FC = () => {
     )
   }
 
-  // 売上目標比較表示コンポーネント
-  const TargetComparisonDisplay: React.FC<{ 
-    current: number; 
-    target: number; 
-    label: string 
-  }> = ({ current, target, label }) => {
-    const achievementRate = target > 0 ? (current / target) * 100 : 0
-    const isAchieved = achievementRate >= 100
-    const isNearTarget = achievementRate >= 80 && achievementRate < 100
-    
-    return (
-      <div className="text-right space-y-1">
-        <div className="text-sm text-muted-foreground">{label}</div>
-        <div className={`text-sm font-medium ${isAchieved ? 'text-green-600' : isNearTarget ? 'text-yellow-600' : 'text-red-600'}`}>
-          {achievementRate.toFixed(1)}%
-        </div>
-        <div className="text-xs text-muted-foreground">
-          目標: {formatCurrency(target)}
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className={`h-2 rounded-full ${isAchieved ? 'bg-green-500' : isNearTarget ? 'bg-yellow-500' : 'bg-red-500'}`}
-            style={{ width: `${Math.min(achievementRate, 100)}%` }}
-          ></div>
-        </div>
-      </div>
-    )
-  }
 
   // トレンド分析機能
   const analyzeTrend = (data: Array<{ month: string; revenue: number }>) => {
@@ -746,7 +695,7 @@ const SalesManagement: React.FC = () => {
     const hasData = salesData && salesData.monthlyRevenue && salesData.monthlyRevenue.length > 0
     
     // 動的な基準額計算（1店舗1日10万円、3公演基準）
-    const chartDaysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    const chartDaysDiff = getDaysDiff(startDate, endDate)
     const baseRevenuePerDay = 100000 // 1店舗1日10万円
     const baseEventsPerDay = 3 // 1店舗1日3公演
     
@@ -893,8 +842,9 @@ const SalesManagement: React.FC = () => {
       <NavigationBar currentPage="sales" onPageChange={(pageId) => {
         window.location.hash = pageId
       }} />
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="container mx-auto max-w-7xl px-8 py-6">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">売上管理</h1>
           <div className="flex items-center gap-4">
             <Select value={selectedPeriod} onValueChange={handlePeriodChange}>
@@ -954,13 +904,6 @@ const SalesManagement: React.FC = () => {
             <Button onClick={fetchSalesData} disabled={loading}>
               {loading ? '読み込み中...' : '更新'}
             </Button>
-            <Button 
-              onClick={() => setShowTargetInput(!showTargetInput)} 
-              variant="outline" 
-              size="sm"
-            >
-              目標設定
-            </Button>
             {salesData && (
               <div className="flex gap-2">
                 <Button onClick={exportToCSV} variant="outline" size="sm">
@@ -980,40 +923,6 @@ const SalesManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* 売上目標設定 */}
-        {showTargetInput && (
-          <Card>
-            <CardHeader>
-              <CardTitle>売上目標設定</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="salesTarget">目標売上</Label>
-                  <Input
-                    id="salesTarget"
-                    type="number"
-                    value={salesTarget}
-                    onChange={(e) => setSalesTarget(parseInt(e.target.value, 10) || 0)}
-                    className="w-40"
-                    placeholder="目標金額を入力"
-                  />
-                  <span className="text-sm text-muted-foreground">円</span>
-                </div>
-                <Button onClick={saveSalesTarget} size="sm">
-                  保存
-                </Button>
-                <Button 
-                  onClick={() => setShowTargetInput(false)} 
-                  variant="outline" 
-                  size="sm"
-                >
-                  キャンセル
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -1045,14 +954,6 @@ const SalesManagement: React.FC = () => {
                           label="比較"
                         />
                       )}
-                      {salesTarget > 0 && (
-                        <TargetComparisonDisplay
-                          current={salesData.totalRevenue}
-                          target={salesTarget}
-                          label="目標達成率"
-                        />
-                      )}
-                      {/* 売上目標表示チェック: {salesTarget}, showTarget: {salesTarget > 0} */}
                     </div>
                   </div>
                 </CardContent>
@@ -1110,64 +1011,67 @@ const SalesManagement: React.FC = () => {
               </Card>
             </div>
 
-            {/* 店舗別売上ランキング */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Store className="h-5 w-5" />
-                  店舗別売上ランキング
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {salesData.storeBreakdown.slice(0, 10).map((store, index) => (
-                    <div key={store.storeName} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Badge variant={index < 3 ? "default" : "secondary"}>
-                          {index + 1}位
-                        </Badge>
-                        <span className="font-medium">{store.storeName}</span>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold">{formatCurrency(store.revenue)}</div>
-                        <div className="text-sm text-muted-foreground">{store.eventCount}回</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* シナリオ別売上ランキング */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  シナリオ別売上ランキング
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {salesData.scenarioBreakdown.slice(0, 10).map((scenario, index) => (
-                    <div key={`${scenario.scenarioTitle}-${scenario.author}`} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Badge variant={index < 3 ? "default" : "secondary"}>
-                          {index + 1}位
-                        </Badge>
-                        <div>
-                          <div className="font-medium">{scenario.scenarioTitle}</div>
-                          <div className="text-sm text-muted-foreground">作者: {scenario.author}</div>
+            {/* ランキングセクション - 2カラムレイアウト */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 店舗別売上ランキング */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Store className="h-5 w-5" />
+                    店舗別売上ランキング
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {salesData.storeBreakdown.slice(0, 10).map((store, index) => (
+                      <div key={store.storeName} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Badge variant={index < 3 ? "default" : "secondary"}>
+                            {index + 1}位
+                          </Badge>
+                          <span className="font-medium">{store.storeName}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold">{formatCurrency(store.revenue)}</div>
+                          <div className="text-sm text-muted-foreground">{store.eventCount}回</div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold">{formatCurrency(scenario.revenue)}</div>
-                        <div className="text-sm text-muted-foreground">{scenario.eventCount}回</div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* シナリオ別売上ランキング */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    シナリオ別売上ランキング
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {salesData.scenarioBreakdown.slice(0, 10).map((scenario, index) => (
+                      <div key={`${scenario.scenarioTitle}-${scenario.author}`} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Badge variant={index < 3 ? "default" : "secondary"}>
+                            {index + 1}位
+                          </Badge>
+                          <div>
+                            <div className="font-medium">{scenario.scenarioTitle}</div>
+                            <div className="text-sm text-muted-foreground">作者: {scenario.author}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold">{formatCurrency(scenario.revenue)}</div>
+                          <div className="text-sm text-muted-foreground">{scenario.eventCount}回</div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* 月別売上推移グラフ */}
             <Card>
@@ -1209,6 +1113,7 @@ const SalesManagement: React.FC = () => {
             <div className="text-lg text-muted-foreground">データがありません</div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )
