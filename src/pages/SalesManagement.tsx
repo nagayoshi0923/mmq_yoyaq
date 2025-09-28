@@ -200,12 +200,28 @@ const SalesManagement: React.FC = () => {
   const fetchSalesData = async () => {
     setLoading(true)
     try {
-      let events = await salesApi.getSalesByPeriod(dateRange.startDate, dateRange.endDate)
+      // 月別グラフ用に1年分のデータを取得
+      const startDate = new Date(dateRange.startDate)
+      const extendedStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+      const extendedEndDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), 0)
+      
+      let events = await salesApi.getSalesByPeriod(
+        extendedStartDate.toISOString().split('T')[0],
+        extendedEndDate.toISOString().split('T')[0]
+      )
       
       // 店舗フィルタリング
       if (selectedStore !== 'all') {
         events = events.filter(event => event.store_id === selectedStore)
       }
+
+      // 選択期間内のデータのみで売上計算（概要カード用）
+      const selectedPeriodEvents = events.filter(event => {
+        const eventDate = new Date(event.date)
+        const start = new Date(dateRange.startDate)
+        const end = new Date(dateRange.endDate)
+        return eventDate >= start && eventDate <= end
+      })
 
       // 前年同期データを取得
       const currentYear = new Date(dateRange.startDate).getFullYear()
@@ -218,9 +234,9 @@ const SalesManagement: React.FC = () => {
       }
 
       // 前月データを取得
-      const currentDate = new Date(dateRange.startDate)
-      const previousMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-      const previousMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0)
+      const currentDateForMonth = new Date(dateRange.startDate)
+      const previousMonthStart = new Date(currentDateForMonth.getFullYear(), currentDateForMonth.getMonth() - 1, 1)
+      const previousMonthEnd = new Date(currentDateForMonth.getFullYear(), currentDateForMonth.getMonth(), 0)
       
       let previousMonthEvents = await salesApi.getSalesByPeriod(
         previousMonthStart.toISOString().split('T')[0],
@@ -230,13 +246,13 @@ const SalesManagement: React.FC = () => {
         previousMonthEvents = previousMonthEvents.filter(event => event.store_id === selectedStore)
       }
       
-      // 売上データを計算
-      const totalRevenue = events.reduce((sum, event) => {
+      // 売上データを計算（選択期間内のデータのみ）
+      const totalRevenue = selectedPeriodEvents.reduce((sum, event) => {
         const participationFee = event.scenarios?.participation_fee || 0
         return sum + participationFee
       }, 0)
 
-      const totalEvents = events.length
+      const totalEvents = selectedPeriodEvents.length
       const averageRevenuePerEvent = totalEvents > 0 ? totalRevenue / totalEvents : 0
 
       // 前年同期データを計算
@@ -255,9 +271,9 @@ const SalesManagement: React.FC = () => {
       const previousMonthEventsCount = previousMonthEvents.length
       const previousMonthAverageRevenuePerEvent = previousMonthEventsCount > 0 ? previousMonthRevenue / previousMonthEventsCount : 0
 
-      // 店舗別集計
+      // 店舗別集計（選択期間内のデータのみ）
       const storeMap = new Map()
-      events.forEach(event => {
+      selectedPeriodEvents.forEach(event => {
         const storeName = event.stores?.name || '不明な店舗'
         const participationFee = event.scenarios?.participation_fee || 0
         
@@ -274,9 +290,9 @@ const SalesManagement: React.FC = () => {
         }
       })
 
-      // シナリオ別集計
+      // シナリオ別集計（選択期間内のデータのみ）
       const scenarioMap = new Map()
-      events.forEach(event => {
+      selectedPeriodEvents.forEach(event => {
         const scenarioTitle = event.scenarios?.title || '不明なシナリオ'
         const author = event.scenarios?.author || '不明な作者'
         const participationFee = event.scenarios?.participation_fee || 0
@@ -296,8 +312,22 @@ const SalesManagement: React.FC = () => {
         }
       })
 
-      // 月別集計
+      // 月別集計（1年分のデータを生成）
       const monthlyMap = new Map()
+      
+      // 1年分の月を生成（開始月から12ヶ月分）
+      const currentDateForYear = new Date(extendedStartDate)
+      for (let i = 0; i < 12; i++) {
+        const monthKey = `${currentDateForYear.getFullYear()}-${String(currentDateForYear.getMonth() + 1).padStart(2, '0')}`
+        monthlyMap.set(monthKey, {
+          month: monthKey,
+          revenue: 0,
+          eventCount: 0
+        })
+        currentDateForYear.setMonth(currentDateForYear.getMonth() + 1)
+      }
+      
+      // 実際のイベントデータを集計（1年分のデータから）
       events.forEach(event => {
         const date = new Date(event.date)
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -307,12 +337,6 @@ const SalesManagement: React.FC = () => {
           const existing = monthlyMap.get(monthKey)
           existing.revenue += participationFee
           existing.eventCount += 1
-        } else {
-          monthlyMap.set(monthKey, {
-            month: monthKey,
-            revenue: participationFee,
-            eventCount: 1
-          })
         }
       })
 
@@ -363,24 +387,6 @@ const SalesManagement: React.FC = () => {
     return ((current - previous) / previous) * 100
   }
 
-  // 成長率表示コンポーネント
-  const GrowthRateDisplay: React.FC<{ current: number; previous: number; label: string; previousLabel?: string }> = ({ current, previous, label, previousLabel }) => {
-    const growthRate = calculateGrowthRate(current, previous)
-    const isPositive = growthRate > 0
-    const isNegative = growthRate < 0
-    
-    return (
-      <div className="text-right">
-        <div className="text-sm text-muted-foreground">{label}</div>
-        <div className={`text-sm font-medium ${isPositive ? 'text-green-600' : isNegative ? 'text-red-600' : 'text-gray-600'}`}>
-          {isPositive ? '+' : ''}{growthRate.toFixed(1)}%
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {previousLabel || '前年同期'}: {formatCurrency(previous)}
-        </div>
-      </div>
-    )
-  }
 
   // 複数比較表示コンポーネント
   const MultiComparisonDisplay: React.FC<{ 
@@ -673,7 +679,7 @@ const SalesManagement: React.FC = () => {
     plugins: {
       title: {
         display: true,
-        text: `月別売上・公演数推移 (${getSelectedStoreName()})`,
+        text: `月別売上・公演数推移（1年分）(${getSelectedStoreName()})`,
         font: {
           size: 16,
           weight: 'bold' as const
@@ -1056,7 +1062,7 @@ const SalesManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5" />
-                    月別売上・公演数推移 ({getSelectedStoreName()})
+                    月別売上・公演数推移（1年分）({getSelectedStoreName()})
                   </CardTitle>
                   <TrendDisplay data={salesData.monthlyRevenue} />
                 </div>
