@@ -79,18 +79,6 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
   const [migrationDialogOpen, setMigrationDialogOpen] = useState(false)
   const [existingActiveItem, setExistingActiveItem] = useState<{ index: number; item: ItemizedSetting } | null>(null)
 
-  // デバッグ用：itemsの変更を監視（開発時のみ）
-  // React.useEffect(() => {
-  //   console.log('Items updated - count:', items.length)
-  //   items.forEach((item, index) => {
-  //     console.log(`Items updated - [${index}]:`, {
-  //       item: item.item,
-  //       status: item.status,
-  //       startDate: item.startDate,
-  //       endDate: item.endDate
-  //     })
-  //   })
-  // }, [items])
   
   // 過去のみ非表示state
   const [hideLegacy, setHideLegacy] = useState(false)
@@ -106,19 +94,6 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
     if (newItem && newAmountInput !== '') {
       const amount = parseCurrency(newAmountInput)
       
-      // デバッグログ（開発時のみ）
-      // console.log('DEBUG: Adding item', {
-      //   newItem,
-      //   newAmountInput,
-      //   amount,
-      //   allItems: items.map(item => ({ 
-      //     item: item.item, 
-      //     originalRole: item.originalRole, 
-      //     status: item.status,
-      //     amount: item.amount
-      //   })),
-      //   conditionOptions: conditionOptions.map(opt => ({ value: opt.value, label: opt.label }))
-      // })
       
       // 同じ項目で使用中または待機設定の項目があるかチェック
       const existingActiveIndex = items.findIndex(item => 
@@ -132,22 +107,9 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
         index !== existingActiveIndex
       )
       
-      // デバッグログ（開発時のみ）
-      // console.log('DEBUG: Existing active check', {
-      //   newItem,
-      //   existingActiveIndex,
-      //   foundItem: existingActiveIndex !== -1 ? items[existingActiveIndex] : null,
-      //   allItems: items.map(item => ({
-      //     item: item.item,
-      //     originalRole: item.originalRole,
-      //     originalTimeSlot: item.originalTimeSlot,
-      //     status: item.status
-      //   }))
-      // })
       
       if (existingActiveIndex !== -1) {
         // 使用中の項目がある場合は移行確認ダイアログを表示
-        // console.log('DEBUG: Showing migration dialog')
         setExistingActiveItem({
           index: existingActiveIndex,
           item: items[existingActiveIndex]
@@ -209,7 +171,6 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
 
   // 移行確認処理
   const handleMigrationConfirm = (startDate?: string) => {
-    // console.log('handleMigrationConfirm called', { startDate })
     if (existingActiveItem) {
       // 既存の使用中設定に終了日を設定（ステータスは使用中のまま）
       const updatedItems = [...items]
@@ -250,12 +211,6 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
         startDate: startDate // 適用開始日を保持
       }
       
-      // デバッグログ（開発時のみ）
-      // console.log('Creating newActiveItem - item:', newActiveItem.item)
-      // console.log('Creating newActiveItem - status:', newActiveItem.status)
-      // console.log('Creating newActiveItem - startDate:', newActiveItem.startDate)
-      // console.log('Creating newActiveItem - endDate:', newActiveItem.endDate)
-      // console.log('Creating newActiveItem - startDate param:', startDate)
       onItemsChange([...filteredItems, newActiveItem])
       
       // 入力欄をリセット
@@ -396,10 +351,6 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
                         startDate={item.startDate}
                         endDate={item.endDate}
                       />
-                      {/* デバッグ情報 */}
-                      <span className="text-xs text-gray-400 ml-2">
-                        DEBUG: start={item.startDate}, end={item.endDate}
-                      </span>
                     </div>
                   )}
                 </div>

@@ -24,7 +24,6 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   endDate,
   className = "" 
 }) => {
-  // console.log('StatusBadge render', { status, usageCount, startDate, endDate })
   switch (status) {
     case 'active':
       return (
