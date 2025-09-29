@@ -755,7 +755,7 @@ const SalesManagement: React.FC = () => {
           </Card>
 
           {/* シナリオデータ行 */}
-          <div className="space-y-1">
+          <div className="h-[800px] overflow-y-auto space-y-1">
             {scenariosLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-lg">シナリオ一覧を読み込み中...</div>
