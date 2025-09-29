@@ -109,7 +109,7 @@ export function getPastDaysRangeJST(days: number) {
   end.setHours(23, 59, 59, 999);
   
   const start = new Date(now);
-  start.setDate(now.getDate() - (days - 1));
+  start.setDate(now.getDate() - days + 1);
   start.setHours(0, 0, 0, 0);
   
   return {
@@ -124,12 +124,30 @@ export function getPastDaysRangeJST(days: number) {
 export function getThisYearRangeJST() {
   const now = getCurrentJST();
   const year = now.getFullYear();
-  return getMonthRangeJST(year, 1); // 1月1日
+  
+  const start = new Date(year, 0, 1, 0, 0, 0, 0); // 1月1日
+  const end = new Date(year, 11, 31, 23, 59, 59, 999); // 12月31日
+  
+  return {
+    start,
+    end,
+    startDateStr: formatDateJST(start),
+    endDateStr: formatDateJST(end),
+  };
 }
 
 // 昨年の範囲を取得
 export function getLastYearRangeJST() {
   const now = getCurrentJST();
   const year = now.getFullYear() - 1;
-  return getMonthRangeJST(year, 1); // 1月1日
+  
+  const start = new Date(year, 0, 1, 0, 0, 0, 0); // 1月1日
+  const end = new Date(year, 11, 31, 23, 59, 59, 999); // 12月31日
+  
+  return {
+    start,
+    end,
+    startDateStr: formatDateJST(start),
+    endDateStr: formatDateJST(end),
+  };
 }

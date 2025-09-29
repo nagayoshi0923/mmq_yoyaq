@@ -1660,36 +1660,45 @@ const SalesManagement: React.FC = () => {
     // データがある場合のみ動的計算、ない場合はデフォルト値
     const hasData = salesData && salesData.monthlyRevenue && salesData.monthlyRevenue.length > 0
     
-    // 動的な基準額計算（1店舗1日10万円、3公演基準）
-    const chartDaysDiff = getDaysDiff(startDate, endDate)
+    // 動的な基準額計算
     const baseRevenuePerDay = 100000 // 1店舗1日10万円
     const baseEventsPerDay = 3 // 1店舗1日3公演
     
     // グラフの表示方式に応じて基準値を調整
     const defaultMaxRevenue = isDailyChart 
-      ? baseRevenuePerDay * storeCount // 日別グラフ：1日分の基準（全店舗で60万円）
-      : baseRevenuePerDay * storeCount * Math.max(1, chartDaysDiff) // 月別グラフ：期間全体の基準
+      ? baseRevenuePerDay * storeCount // 日別グラフ：1日分の基準
+      : baseRevenuePerDay * storeCount * 30 // 月別グラフ：1ヶ月分の基準（30日分）
     
     const defaultMaxEvents = isDailyChart
-      ? baseEventsPerDay * storeCount // 日別グラフ：1日分の基準（全店舗で18公演）
-      : baseEventsPerDay * storeCount * Math.max(1, chartDaysDiff) // 月別グラフ：期間全体の基準
+      ? baseEventsPerDay * storeCount // 日別グラフ：1日分の基準
+      : baseEventsPerDay * storeCount * 30 // 月別グラフ：1ヶ月分の基準（30日分）
     
     const maxRevenue = hasData 
       ? Math.max(
-          Math.max(...salesData.monthlyRevenue.map(month => month.revenue)) * 2,
+          Math.max(...salesData.monthlyRevenue.map(month => month.revenue)) * 1.5,
           defaultMaxRevenue * 0.5 // デフォルトの50%以上は確保
         )
       : defaultMaxRevenue
 
     const maxEvents = hasData
       ? Math.max(
-          Math.max(...salesData.monthlyRevenue.map(month => month.events)) * 2,
+          Math.max(...salesData.monthlyRevenue.map(month => month.events)) * 1.5,
           defaultMaxEvents * 0.5 // デフォルトの50%以上は確保
         )
       : defaultMaxEvents
     
-    // デバッグログ（本番では削除）
-    // console.log('グラフレンジ計算:', { hasData, storeCount, chartDaysDiff, isDailyChart, maxRevenue, maxEvents })
+    // デバッグログ
+    console.log('グラフレンジ計算:', { 
+      hasData, 
+      storeCount, 
+      isDailyChart, 
+      defaultMaxRevenue, 
+      defaultMaxEvents,
+      actualMaxRevenue: hasData ? Math.max(...salesData.monthlyRevenue.map(month => month.revenue)) : 0,
+      actualMaxEvents: hasData ? Math.max(...salesData.monthlyRevenue.map(month => month.events)) : 0,
+      maxRevenue, 
+      maxEvents 
+    })
     
     return {
       responsive: true,
