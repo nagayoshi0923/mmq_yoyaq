@@ -13,7 +13,7 @@ export function EmptySlot({ onAddPerformance, date, venue, timeSlot }: EmptySlot
   return (
     <Button
       variant="ghost"
-      className="w-full h-full min-h-[48px] m-1 border border-dashed border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+      className="w-full h-full min-h-[32px] hover:bg-gray-50 border border-transparent"
       onClick={() => onAddPerformance?.(date, venue, timeSlot)}
     >
       <Plus className="w-3 h-3 mr-1" />

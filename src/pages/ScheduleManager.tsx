@@ -631,7 +631,7 @@ export function ScheduleManager() {
                 <TableBody>
                   {monthDays.map(day => {
                     return stores.map((store, storeIndex) => (
-                      <TableRow key={`${day.date}-${store.id}`} className="h-12">
+                      <TableRow key={`${day.date}-${store.id}`} className="h-16">
                         {/* 日付セル */}
                         {storeIndex === 0 ? (
                           <TableCell className="schedule-table-cell border-r text-sm" rowSpan={stores.length}>
