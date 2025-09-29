@@ -232,7 +232,7 @@ const SalesManagement: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {salesData?.storeRanking?.map((store, index) => (
+              {salesData?.storeRanking?.slice(0, 3).map((store, index) => (
                 <div key={store.id || `store-${index}`} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
@@ -253,6 +253,35 @@ const SalesManagement: React.FC = () => {
                   </div>
                 </div>
               ))}
+              {salesData?.storeRanking && salesData.storeRanking.length > 3 && (
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-bold">
+                      ...
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-600">その他 {salesData.storeRanking.length - 3}店舗</div>
+                      <div className="text-sm text-muted-foreground">
+                        {salesData.storeRanking.slice(3).reduce((sum, store) => sum + store.events, 0)}回の公演
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-gray-600">
+                      {formatCurrency(salesData.storeRanking.slice(3).reduce((sum, store) => sum + store.revenue, 0))}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {(() => {
+                        const otherStores = salesData.storeRanking.slice(3)
+                        const totalRevenue = otherStores.reduce((sum, store) => sum + store.revenue, 0)
+                        const totalEvents = otherStores.reduce((sum, store) => sum + store.events, 0)
+                        const avgRevenue = totalEvents > 0 ? totalRevenue / totalEvents : 0
+                        return formatCurrency(avgRevenue)
+                      })()}/回
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -264,7 +293,7 @@ const SalesManagement: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {salesData?.scenarioRanking?.map((scenario, index) => (
+              {salesData?.scenarioRanking?.slice(0, 3).map((scenario, index) => (
                 <div key={scenario.id || `scenario-${index}`} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
