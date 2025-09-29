@@ -591,14 +591,15 @@ const SalesManagement: React.FC = () => {
           <Card>
             <CardContent className="p-0">
               <div className="flex items-center h-[50px] bg-muted/30">
-                <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">タイトル</div>
-                <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">作者</div>
-                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm">所要時間</div>
-                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm">人数</div>
-                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm">参加費</div>
-                <div className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm">ステータス</div>
-                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm">公演数</div>
-                <div className="flex-1 px-3 py-2 font-medium text-sm">ジャンル</div>
+                <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">シナリオ名</div>
+                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm text-right">公演数</div>
+                <div className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm text-right">累計売上</div>
+                <div className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm text-right">コスト</div>
+                <div className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm text-right">営業利益</div>
+                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm text-right">制作費</div>
+                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm text-right">純利益</div>
+                <div className="flex-shrink-0 w-20 px-3 py-2 border-r font-medium text-sm text-right">回収率</div>
+                <div className="flex-shrink-0 w-24 px-3 py-2 font-medium text-sm text-right">損益分岐点</div>
               </div>
             </CardContent>
           </Card>
@@ -617,97 +618,88 @@ const SalesManagement: React.FC = () => {
                 return matchesSearch && matchesCategory
               })
               .map((scenario) => {
-                const performanceData = scenarioData.find(s => s.id === scenario.id)
+                const performanceData = scenarioData.find(s => s.title === scenario.title)
+                
+                // 利益計算
+                const events = performanceData ? (performanceData.events as number) : 0
+                const avgParticipants = 6 // 仮の平均参加者数
+                const revenuePerEvent = scenario.participation_fee * avgParticipants
+                const totalRevenue = revenuePerEvent * events
+
+                const gmCost = scenario.gm_assignments?.[0]?.reward || 0
+                const licenseCost = scenario.license_costs?.find((c: any) => c.time_slot === '通常')?.amount || 0
+                const productionCost = scenario.production_cost || 0
+                const variableCostPerEvent = gmCost + licenseCost
+                const totalVariableCost = variableCostPerEvent * events
+
+                const operatingProfit = totalRevenue - totalVariableCost
+                const netProfit = operatingProfit - productionCost
+                const recoveryRate = productionCost > 0 ? (netProfit / productionCost) * 100 : 0
+                const breakEvenPoint = variableCostPerEvent > 0 ? Math.ceil(productionCost / (revenuePerEvent - variableCostPerEvent)) : 0
+
                 return (
                   <Card key={scenario.id}>
                     <CardContent className="p-0">
                       <div className="flex items-center min-h-[60px]">
-                        {/* タイトル */}
+                        {/* シナリオ名 */}
                         <div className="flex-shrink-0 w-40 px-3 py-2 border-r">
                           <p className="font-medium text-sm truncate" title={scenario.title}>
                             {scenario.title}
                           </p>
                         </div>
 
-                        {/* 作者 */}
-                        <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
-                          <p className="text-sm truncate" title={scenario.author}>
-                            {scenario.author || '不明'}
-                          </p>
-                        </div>
-
-                        {/* 所要時間 */}
-                        <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
-                          <p className="text-sm flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> 
-                            {scenario.duration ? 
-                              (scenario.duration / 60) % 1 === 0 ? 
-                                Math.floor(scenario.duration / 60) : 
-                                (scenario.duration / 60).toFixed(1) + '時間' :
-                              '未設定'
-                            }
-                          </p>
-                        </div>
-
-                        {/* 人数 */}
-                        <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
-                          <p className="text-sm flex items-center gap-1">
-                            <Users className="h-3 w-3" /> 
-                            {scenario.player_count_min && scenario.player_count_max ? 
-                              `${scenario.player_count_min}-${scenario.player_count_max}名` : 
-                              '未設定'
-                            }
-                          </p>
-                        </div>
-
-                        {/* 参加費 */}
-                        <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
-                          <p className="text-sm text-right">
-                            ¥{scenario.participation_fee?.toLocaleString() || 0}
-                          </p>
-                        </div>
-
-                        {/* ステータス */}
-                        <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
-                          <Badge className={
-                            scenario.status === 'available' ? 'bg-green-100 text-green-800 px-1 py-0.5' :
-                            scenario.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800 px-1 py-0.5' :
-                            'bg-red-100 text-red-800 px-1 py-0.5'
-                          }>
-                            {scenario.status === 'available' ? '利用可能' :
-                            scenario.status === 'maintenance' ? 'メンテナンス中' : '引退済み'}
-                          </Badge>
-                        </div>
-
                         {/* 公演数 */}
                         <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
-                          {performanceData ? (
-                            <Badge variant="secondary" className="px-1 py-0.5">
-                              {performanceData.events}回
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">-</span>
-                          )}
+                          <p className="text-sm text-right">{events}</p>
                         </div>
 
-                        {/* ジャンル */}
-                        <div className="flex-1 px-3 py-2 min-w-0">
-                          {scenario.genre && scenario.genre.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {scenario.genre.slice(0, 2).map((g: string, i: number) => (
-                                <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
-                                  {g}
-                                </Badge>
-                              ))}
-                              {scenario.genre.length > 2 && (
-                                <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
-                                  +{scenario.genre.length - 2}
-                                </Badge>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">未設定</span>
-                          )}
+                        {/* 累計売上 */}
+                        <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
+                          <p className="text-sm text-right">¥{totalRevenue.toLocaleString()}</p>
+                        </div>
+
+                        {/* コスト */}
+                        <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
+                          <div className="text-right">
+                            <p className="text-sm font-medium">¥{totalVariableCost.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">¥{variableCostPerEvent.toLocaleString()}/回</p>
+                          </div>
+                        </div>
+
+                        {/* 営業利益 */}
+                        <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
+                          <div className="text-right">
+                            <p className={`text-sm font-medium ${operatingProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              ¥{operatingProfit.toLocaleString()}
+                            </p>
+                            <p className={`text-xs ${(revenuePerEvent - variableCostPerEvent) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              ¥{(revenuePerEvent - variableCostPerEvent).toLocaleString()}/回
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* 制作費 */}
+                        <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
+                          <p className="text-sm text-right">¥{productionCost.toLocaleString()}</p>
+                        </div>
+
+                        {/* 純利益 */}
+                        <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
+                          <p className={`text-sm text-right ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            ¥{netProfit.toLocaleString()}
+                          </p>
+                        </div>
+
+                        {/* 回収率 */}
+                        <div className="flex-shrink-0 w-20 px-3 py-2 border-r">
+                          <p className={`text-sm text-right ${recoveryRate >= 100 ? 'text-green-600' : 'text-red-600'}`}>
+                            {recoveryRate.toFixed(1)}%
+                          </p>
+                        </div>
+
+                        {/* 損益分岐点 */}
+                        <div className="flex-shrink-0 w-24 px-3 py-2">
+                          <p className="text-sm text-right">{breakEvenPoint}回</p>
                         </div>
                       </div>
                     </CardContent>
