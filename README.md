@@ -82,10 +82,50 @@ VITE_SUPABASE_URL=https://lgyhbagdfdyycerijtmk.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key
 ```
 
-### 3. 開発サーバー起動
+### 3. データベーススキーマ確認
+```bash
+# スキーマの確認
+npm run db:check
+
+# データベースの差分確認
+npm run db:diff
+
+# データベースリセット（必要に応じて）
+npm run db:reset
+```
+
+### 4. 開発サーバー起動
 ```bash
 npm run dev
 ```
+
+## 🗄️ データベース管理
+
+### スキーマ管理
+- **スキーマ定義**: `database/create_tables.sql`
+- **詳細ドキュメント**: `database/README.md`
+- **スキーマ確認**: `npm run db:check`
+
+### よくある問題と解決方法
+
+#### 1. カラム名の変更
+- **問題**: `gm_fee` → `gm_assignments`への移行
+- **解決**: マイグレーションで段階的に移行
+- **注意**: 既存データの移行が必要
+
+#### 2. データ型の変更
+- **問題**: `INTEGER` → `JSONB`への変更
+- **解決**: 一時的なカラムを作成してデータを移行
+
+#### 3. 制約の追加
+- **問題**: `CHECK`制約の追加
+- **解決**: 既存データを確認してから制約を追加
+
+### 開発時の注意事項
+1. **スキーマ変更時は必ず`database/README.md`を更新**
+2. **マイグレーションファイルは必ず作成**
+3. **本番環境への適用前にローカルでテスト**
+4. **カラム名の変更は慎重に行う**
 
 ## 📦 デプロイ
 
