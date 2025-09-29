@@ -56,19 +56,20 @@ export function MemoCell({ date, venue, initialMemo = '', onSave }: MemoCellProp
   }
 
   return (
-    <TableCell className="schedule-table-cell align-top">
+    <TableCell className="schedule-table-cell p-0.5 align-top">
       {isEditing ? (
         <Textarea
           value={memo}
           onChange={(e) => handleMemoChange(e.target.value)}
           onBlur={handleBlur}
           placeholder=""
-          className="text-xs min-h-[40px] p-1"
+          className="w-full text-xs p-1 resize-none"
+          style={{ minHeight: '60px', height: '60px' }}
         />
       ) : (
         <div
-          className="min-h-[40px] cursor-pointer rounded-md border border-input p-1 text-xs text-gray-700 whitespace-pre-wrap text-left"
-          style={{ backgroundColor: '#F6F9FB' }}
+          className="w-full cursor-pointer rounded-md border border-input p-1 text-xs text-gray-700 whitespace-pre-wrap text-left"
+          style={{ backgroundColor: '#F6F9FB', minHeight: '60px' }}
           onClick={handleEdit}
         >
           {memo || ''}
