@@ -12,7 +12,7 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import SalesSidebar from '@/components/layout/SalesSidebar'
 import AuthorReport from './AuthorReport'
-import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, FileText, Users, Search, Filter, Clock, Play, Star } from 'lucide-react'
+import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, Users, Search, Filter } from 'lucide-react'
 import { SortableTableHeader } from '@/components/ui/sortable-table-header'
 import { useSortableTable } from '@/hooks/useSortableTable'
 import {
@@ -77,12 +77,8 @@ const SalesManagement: React.FC = () => {
     switch (activeTab) {
       case 'overview':
         return renderOverviewContent()
-      case 'license':
-        return renderLicenseContent()
       case 'scenario-performance':
         return renderScenarioPerformanceContent()
-      case 'monthly-performance':
-        return renderMonthlyPerformanceContent()
       case 'author-report':
         return renderAuthorReportContent()
       default:
@@ -321,20 +317,6 @@ const SalesManagement: React.FC = () => {
     </div>
   )
 
-  // ライセンス管理コンテンツ
-  const renderLicenseContent = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">ライセンス管理</h1>
-      </div>
-      <div className="text-center py-12">
-        <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <p className="text-lg text-muted-foreground">
-          ライセンス管理機能は準備中です
-        </p>
-      </div>
-    </div>
-  )
 
   // シナリオ別公演数の状態管理
   const [scenarioData, setScenarioData] = useState<any[]>([])
@@ -1012,20 +994,6 @@ const SalesManagement: React.FC = () => {
     )
   }
 
-  // 月次公演管理コンテンツ
-  const renderMonthlyPerformanceContent = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">月次公演管理</h1>
-      </div>
-      <div className="text-center py-12">
-        <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <p className="text-lg text-muted-foreground">
-          月次公演管理機能は準備中です
-        </p>
-      </div>
-    </div>
-  )
 
   // 作者レポートコンテンツ
   const renderAuthorReportContent = () => <AuthorReport />
@@ -1812,9 +1780,7 @@ const SalesManagement: React.FC = () => {
             <div className="flex gap-2 overflow-x-auto">
               {[
                 { id: 'overview', label: '概要', icon: BarChart3 },
-                { id: 'license', label: 'ライセンス', icon: FileText },
                 { id: 'scenario-performance', label: '分析', icon: BookOpen },
-                { id: 'monthly-performance', label: '月次', icon: Calendar },
                 { id: 'author-report', label: '作者', icon: Users }
               ].map((item) => {
                 const Icon = item.icon

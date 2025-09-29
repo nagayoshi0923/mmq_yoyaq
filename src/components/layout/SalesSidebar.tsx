@@ -3,11 +3,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { 
   BarChart3, 
-  FileText, 
-  Calendar,
   BookOpen,
-  Users,
-  TrendingUp
+  Users
 } from 'lucide-react'
 
 interface SalesSidebarProps {
@@ -24,22 +21,10 @@ const SalesSidebar: React.FC<SalesSidebarProps> = ({ activeTab, onTabChange }) =
       description: '売上データの概要とグラフ'
     },
     {
-      id: 'license',
-      label: 'ライセンス管理',
-      icon: FileText,
-      description: 'ライセンス料金の管理'
-    },
-    {
       id: 'scenario-performance',
       label: 'シナリオ分析',
       icon: BookOpen,
       description: 'シナリオの詳細分析と実績'
-    },
-    {
-      id: 'monthly-performance',
-      label: '月次公演管理',
-      icon: Calendar,
-      description: '月別公演実績の管理'
     },
     {
       id: 'author-report',
