@@ -629,7 +629,7 @@ export function ScheduleManager() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {monthDays.slice(0, 10).map(day => {
+                  {monthDays.map(day => {
                     return stores.map((store, storeIndex) => (
                       <TableRow key={`${day.date}-${store.id}`} className="">
                         {/* 日付セル */}
