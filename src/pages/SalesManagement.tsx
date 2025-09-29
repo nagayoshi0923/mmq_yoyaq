@@ -253,35 +253,6 @@ const SalesManagement: React.FC = () => {
                   </div>
                 </div>
               ))}
-              {salesData?.storeRanking && salesData.storeRanking.length > 3 && (
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-bold">
-                      ...
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-600">その他 {salesData.storeRanking.length - 3}店舗</div>
-                      <div className="text-sm text-muted-foreground">
-                        {salesData.storeRanking.slice(3).reduce((sum, store) => sum + store.events, 0)}回の公演
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-gray-600">
-                      {formatCurrency(salesData.storeRanking.slice(3).reduce((sum, store) => sum + store.revenue, 0))}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {(() => {
-                        const otherStores = salesData.storeRanking.slice(3)
-                        const totalRevenue = otherStores.reduce((sum, store) => sum + store.revenue, 0)
-                        const totalEvents = otherStores.reduce((sum, store) => sum + store.events, 0)
-                        const avgRevenue = totalEvents > 0 ? totalRevenue / totalEvents : 0
-                        return formatCurrency(avgRevenue)
-                      })()}/回
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -1225,16 +1196,27 @@ const SalesManagement: React.FC = () => {
       // 店舗別集計（選択期間内のデータのみ）
       const storeMap = new Map()
       selectedPeriodEvents.forEach(event => {
-        const name = event.stores?.name || '不明な店舗'
+        // 店舗名をvenueフィールドから直接取得
+        const storeName = event.venue || '不明な店舗'
+        const scenarioTitle = event.scenarios?.title
         const participationFee = event.scenarios?.participation_fee || 0
         
-        if (storeMap.has(name)) {
-          const existing = storeMap.get(name)
+        // デバッグログ
+        console.log('店舗別集計デバッグ:', {
+          eventId: event.id,
+          venue: event.venue,
+          storeName: storeName,
+          scenarioTitle: scenarioTitle,
+          participationFee
+        })
+        
+        if (storeMap.has(storeName)) {
+          const existing = storeMap.get(storeName)
           existing.revenue += participationFee
           existing.events += 1
         } else {
-          storeMap.set(name, {
-            name,
+          storeMap.set(storeName, {
+            name: storeName,
             revenue: participationFee,
             events: 1
           })
