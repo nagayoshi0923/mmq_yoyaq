@@ -504,6 +504,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   // 時間帯オプション
   const timeSlotOptions = [
     { value: '通常', label: '通常' },
+    { value: 'GMテスト', label: 'GMテスト' },
     { value: '朝', label: '朝' },
     { value: '昼', label: '昼' },
     { value: '夜', label: '夜' },

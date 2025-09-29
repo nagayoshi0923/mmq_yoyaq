@@ -447,6 +447,7 @@ export const salesApi = {
         id,
         scenario,
         scenario_id,
+        category,
         date,
         stores!inner(id, name),
         scenarios!inner(id, title, author)
@@ -464,25 +465,39 @@ export const salesApi = {
 
     if (error) throw error
 
-    // console.log('getScenarioPerformance 取得データ:', data?.length || 0, '件')
+    console.log('getScenarioPerformance 取得データ:', data?.length || 0, '件')
+    console.log('GMテストデータ:', data?.filter(d => d.category === 'gmtest'))
+    console.log('全データ詳細:', data?.map(d => ({
+      id: d.id,
+      scenario: d.scenario,
+      scenario_id: d.scenario_id,
+      category: d.category,
+      title: d.scenarios?.title,
+      author: d.scenarios?.author
+    })))
 
-    // シナリオ別に集計
+    // シナリオ別に集計（カテゴリも考慮）
     const scenarioMap = new Map()
     
     data?.forEach(event => {
       const scenarioId = event.scenario_id || event.scenario // scenario_idを優先、なければscenario
       const scenarioTitle = event.scenarios?.title || event.scenario || '未定'
       const author = event.scenarios?.author || '不明'
+      const category = event.category || 'open'
       
-      if (scenarioMap.has(scenarioId)) {
-        const existing = scenarioMap.get(scenarioId)
+      // シナリオID + カテゴリの組み合わせでキーを作成
+      const key = `${scenarioId}_${category}`
+      
+      if (scenarioMap.has(key)) {
+        const existing = scenarioMap.get(key)
         existing.events += 1
         existing.stores.add(event.stores.name)
       } else {
-        scenarioMap.set(scenarioId, {
+        scenarioMap.set(key, {
           id: scenarioId,
           title: scenarioTitle,
           author: author,
+          category: category,
           events: 1,
           stores: new Set([event.stores.name])
         })
@@ -494,7 +509,31 @@ export const salesApi = {
       stores: Array.from(item.stores)
     }))
 
-    // console.log('集計結果:', result.length, '件')
+    console.log('集計結果:', result.length, '件')
+    console.log('GMテスト集計結果:', result.filter(r => r.category === 'gmtest'))
+    console.log('集計詳細:', result.map(r => ({
+      title: r.title,
+      author: r.author,
+      category: r.category,
+      events: r.events,
+      stores: r.stores
+    })))
+    
+    // 作者別の集計も確認
+    const authorSummary = result.reduce((acc, item) => {
+      if (!acc[item.author]) {
+        acc[item.author] = { totalEvents: 0, scenarios: [] }
+      }
+      acc[item.author].totalEvents += item.events
+      acc[item.author].scenarios.push({
+        title: item.title,
+        category: item.category,
+        events: item.events
+      })
+      return acc
+    }, {} as Record<string, { totalEvents: number, scenarios: any[] }>)
+    
+    console.log('作者別集計:', authorSummary)
     return result
   }
 }
