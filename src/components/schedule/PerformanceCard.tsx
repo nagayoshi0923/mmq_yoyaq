@@ -58,7 +58,7 @@ export function PerformanceCard({
 
   return (
     <div
-      className={`p-2 border rounded-md hover:shadow-sm transition-shadow text-xs relative cursor-pointer ${
+      className={`p-1 h-full m-1 border rounded-md hover:shadow-sm transition-shadow text-xs relative cursor-pointer ${
         event.is_cancelled 
           ? 'bg-gray-100 border-gray-300 opacity-75' 
           : categoryColors
@@ -68,11 +68,11 @@ export function PerformanceCard({
       onClick={() => onClick?.(event)}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-0.5">
         <span className={`font-mono text-xs ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {/* 中止バッジ */}
           {event.is_cancelled && (
             <Badge variant="cancelled" size="sm" className="font-normal">
@@ -97,18 +97,18 @@ export function PerformanceCard({
       </div>
       
       {/* シナリオタイトル */}
-      <div className={`font-medium line-clamp-2 mb-1 text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`font-medium line-clamp-2 mb-0.5 text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.scenario || '未定'}
       </div>
       
       {/* GM情報 */}
-      <div className={`text-xs mb-1 text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`text-xs mb-0.5 text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         GM: {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
       </div>
       
       {/* ノート情報 */}
       {event.notes && (
-        <div className={`text-xs truncate text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+        <div className={`text-[10px] truncate text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.notes}
         </div>
       )}
@@ -121,7 +121,7 @@ export function PerformanceCard({
       )}
 
       {/* アクションボタン群（右下） */}
-      <div className="absolute bottom-1 right-1 flex gap-1">
+      <div className="absolute bottom-0.5 right-0.5 flex gap-0.5">
         {/* 削除ボタン */}
         <Button
           variant="ghost"

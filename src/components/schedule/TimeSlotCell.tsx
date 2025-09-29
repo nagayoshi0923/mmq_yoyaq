@@ -53,7 +53,7 @@ export function TimeSlotCell({
   onAddPerformance
 }: TimeSlotCellProps) {
   return (
-    <TableCell className="schedule-table-cell">
+    <TableCell className="schedule-table-cell p-1">
       {events.length > 0 ? (
         <PerformanceCard
           event={events[0]}

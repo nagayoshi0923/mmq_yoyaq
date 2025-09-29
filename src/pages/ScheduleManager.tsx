@@ -631,23 +631,23 @@ export function ScheduleManager() {
                 <TableBody>
                   {monthDays.map(day => {
                     return stores.map((store, storeIndex) => (
-                      <TableRow key={`${day.date}-${store.id}`} className="">
+                      <TableRow key={`${day.date}-${store.id}`} className="h-12">
                         {/* 日付セル */}
                         {storeIndex === 0 ? (
-                          <TableCell className="schedule-table-cell border-r" rowSpan={stores.length}>
+                          <TableCell className="schedule-table-cell border-r text-sm" rowSpan={stores.length}>
                             {day.displayDate}
                           </TableCell>
                         ) : null}
                         
                         {/* 曜日セル */}
                         {storeIndex === 0 ? (
-                          <TableCell className={`schedule-table-cell border-r ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
+                          <TableCell className={`schedule-table-cell border-r text-sm ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
                             {day.dayOfWeek}
                           </TableCell>
                         ) : null}
                         
                         {/* 店舗セル */}
-                        <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors">
+                        <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-sm">
                           {store.short_name}
                         </TableCell>
                         

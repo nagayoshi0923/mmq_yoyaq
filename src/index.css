@@ -81,7 +81,7 @@
 
   /* スケジュールテーブル専用スタイル */
   .schedule-table-cell {
-    @apply p-2 text-center align-middle;
+    @apply p-0 text-center align-middle;
   }
 
   /* テーブルセルのフォーカス時背景色変更を無効化 */
