@@ -11,7 +11,9 @@ import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import SalesSidebar from '@/components/layout/SalesSidebar'
-import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, FileText, Users, Search, Filter, Clock } from 'lucide-react'
+import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, FileText, Users, Search, Filter, Clock, Play, Star } from 'lucide-react'
+import { SortableTableHeader } from '@/components/ui/sortable-table-header'
+import { useSortableTable } from '@/hooks/useSortableTable'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -343,6 +345,10 @@ const SalesManagement: React.FC = () => {
   const [scenarioSearch, setScenarioSearch] = useState('')
   const [scenarioCategory, setScenarioCategory] = useState('all')
 
+  // ソート機能の設定（トップレベルで定義）
+  type ScenarioSortField = 'title' | 'events' | 'totalRevenue' | 'totalCost' | 'operatingProfit' | 'productionCost' | 'netProfit' | 'recoveryRate' | 'breakEvenPoint'
+  const { sortState, handleSort } = useSortableTable<ScenarioSortField>('title', 'desc')
+
   const fetchScenarioData = useCallback(async () => {
     if (!dateRange.startDate || !dateRange.endDate) return
     
@@ -394,7 +400,6 @@ const SalesManagement: React.FC = () => {
 
   // シナリオ別公演数コンテンツ
   const renderScenarioPerformanceContent = () => {
-
     const totalEvents = scenarioData.reduce((sum, scenario) => sum + scenario.events, 0)
     const totalScenarios = scenarioData.length
     const averageEventsPerScenario = totalScenarios > 0 ? Math.round(totalEvents / totalScenarios * 10) / 10 : 0
@@ -404,39 +409,6 @@ const SalesManagement: React.FC = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">シナリオ分析</h1>
-          <div className="flex items-center gap-4">
-            <Select value={scenarioPeriod} onValueChange={handleScenarioPeriodChange}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="thisMonth">今月</SelectItem>
-                <SelectItem value="lastMonth">先月</SelectItem>
-                <SelectItem value="thisWeek">今週</SelectItem>
-                <SelectItem value="lastWeek">先週</SelectItem>
-                <SelectItem value="past7days">過去7日間</SelectItem>
-                <SelectItem value="past30days">過去30日間</SelectItem>
-                <SelectItem value="past90days">過去90日間</SelectItem>
-                <SelectItem value="past180days">過去180日間</SelectItem>
-                <SelectItem value="thisYear">今年</SelectItem>
-                <SelectItem value="lastYear">昨年</SelectItem>
-                <SelectItem value="custom">カスタム</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={scenarioStore} onValueChange={setScenarioStore}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="店舗を選択" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全店舗</SelectItem>
-                {stores.map((store) => (
-                  <SelectItem key={store.id} value={store.id.toString()}>
-                    {store.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {/* 期間表示 */}
@@ -444,101 +416,220 @@ const SalesManagement: React.FC = () => {
           期間: {dateRange.startDate} ～ {dateRange.endDate}
         </div>
 
-        {/* フィルター機能 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>フィルター</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="authorFilter">作者で絞り込み</Label>
-                <Select onValueChange={(value) => {
-                  // 作者フィルターの実装
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="作者を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">すべての作者</SelectItem>
-                    {Array.from(new Set(scenarioData.map(s => s.author))).map(author => (
-                      <SelectItem key={author} value={author}>{author}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="minEvents">最小公演数</Label>
-                <Input
-                  id="minEvents"
-                  type="number"
-                  placeholder="最小公演数を入力"
-                  min="0"
-                />
-              </div>
-              <div>
-                <Label htmlFor="maxEvents">最大公演数</Label>
-                <Input
-                  id="maxEvents"
-                  type="number"
-                  placeholder="最大公演数を入力"
-                  min="0"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* 統計カード */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">総公演数</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">期間営業利益</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalEvents}</div>
+              <div className={`text-2xl font-bold ${(() => {
+                const totalOperatingProfit = allScenarios
+                  .map(scenario => {
+                    const performanceData = scenarioData.find(s => s.title === scenario.title)
+                    if (!performanceData) return 0
+                    const events = performanceData.events as number
+                    const avgParticipants = 6
+                    const revenuePerEvent = scenario.participation_fee * avgParticipants
+                    const totalRevenue = revenuePerEvent * events
+                    const gmCost = scenario.gm_assignments?.[0]?.reward || 0
+                    const licenseCost = scenario.license_costs?.find((c: any) => c.time_slot === '通常')?.amount || 0
+                    const variableCostPerEvent = gmCost + licenseCost
+                    const totalVariableCost = variableCostPerEvent * events
+                    return totalRevenue - totalVariableCost
+                  })
+                  .reduce((sum, profit) => sum + profit, 0)
+                return totalOperatingProfit >= 0 ? 'text-green-600' : 'text-red-600'
+              })()}`}>
+                ¥{(() => {
+                  const totalOperatingProfit = allScenarios
+                    .map(scenario => {
+                      const performanceData = scenarioData.find(s => s.title === scenario.title)
+                      if (!performanceData) return 0
+                      const events = performanceData.events as number
+                      const avgParticipants = 6
+                      const revenuePerEvent = scenario.participation_fee * avgParticipants
+                      const totalRevenue = revenuePerEvent * events
+                      const gmCost = scenario.gm_assignments?.[0]?.reward || 0
+                      const licenseCost = scenario.license_costs?.find((c: any) => c.time_slot === '通常')?.amount || 0
+                      const variableCostPerEvent = gmCost + licenseCost
+                      const totalVariableCost = variableCostPerEvent * events
+                      return totalRevenue - totalVariableCost
+                    })
+                    .reduce((sum, profit) => sum + profit, 0)
+                  return totalOperatingProfit.toLocaleString()
+                })()}
+              </div>
               <p className="text-xs text-muted-foreground">
-                期間内の全公演数
+                {dateRange.startDate} ～ {dateRange.endDate}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">シナリオ数</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalScenarios}</div>
-              <p className="text-xs text-muted-foreground">
-                公演されたシナリオ数
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">平均公演数</CardTitle>
+              <CardTitle className="text-sm font-medium">期間純利益</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{averageEventsPerScenario}</div>
+              <div className={`text-2xl font-bold ${(() => {
+                const totalNetProfit = allScenarios
+                  .map(scenario => {
+                    const performanceData = scenarioData.find(s => s.title === scenario.title)
+                    if (!performanceData) return 0
+                    const events = performanceData.events as number
+                    const avgParticipants = 6
+                    const revenuePerEvent = scenario.participation_fee * avgParticipants
+                    const totalRevenue = revenuePerEvent * events
+                    const gmCost = scenario.gm_assignments?.[0]?.reward || 0
+                    const licenseCost = scenario.license_costs?.find((c: any) => c.time_slot === '通常')?.amount || 0
+                    const productionCost = scenario.production_cost || 0
+                    const variableCostPerEvent = gmCost + licenseCost
+                    const totalVariableCost = variableCostPerEvent * events
+                    const operatingProfit = totalRevenue - totalVariableCost
+                    return operatingProfit - productionCost
+                  })
+                  .reduce((sum, profit) => sum + profit, 0)
+                return totalNetProfit >= 0 ? 'text-green-600' : 'text-red-600'
+              })()}`}>
+                ¥{(() => {
+                  const totalNetProfit = allScenarios
+                    .map(scenario => {
+                      const performanceData = scenarioData.find(s => s.title === scenario.title)
+                      if (!performanceData) return 0
+                      const events = performanceData.events as number
+                      const avgParticipants = 6
+                      const revenuePerEvent = scenario.participation_fee * avgParticipants
+                      const totalRevenue = revenuePerEvent * events
+                      const gmCost = scenario.gm_assignments?.[0]?.reward || 0
+                      const licenseCost = scenario.license_costs?.find((c: any) => c.time_slot === '通常')?.amount || 0
+                      const productionCost = scenario.production_cost || 0
+                      const variableCostPerEvent = gmCost + licenseCost
+                      const totalVariableCost = variableCostPerEvent * events
+                      const operatingProfit = totalRevenue - totalVariableCost
+                      return operatingProfit - productionCost
+                    })
+                    .reduce((sum, profit) => sum + profit, 0)
+                  return totalNetProfit.toLocaleString()
+                })()}
+              </div>
               <p className="text-xs text-muted-foreground">
-                シナリオあたり
+                制作費を差し引いた純利益
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">最多公演</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">収益性シナリオ</CardTitle>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{topScenario?.events || 0}</div>
-              <p className="text-xs text-muted-foreground truncate">
-                {topScenario?.title || 'なし'}
+              <div className="text-2xl font-bold">{(() => {
+                const profitableScenarios = allScenarios.filter(scenario => {
+                  const performanceData = scenarioData.find(s => s.title === scenario.title)
+                  if (!performanceData) return false
+                  const events = performanceData.events as number
+                  const avgParticipants = 6
+                  const revenuePerEvent = scenario.participation_fee * avgParticipants
+                  const totalRevenue = revenuePerEvent * events
+                  const gmCost = scenario.gm_assignments?.[0]?.reward || 0
+                  const licenseCost = scenario.license_costs?.find((c: any) => c.time_slot === '通常')?.amount || 0
+                  const productionCost = scenario.production_cost || 0
+                  const variableCostPerEvent = gmCost + licenseCost
+                  const totalVariableCost = variableCostPerEvent * events
+                  const operatingProfit = totalRevenue - totalVariableCost
+                  const netProfit = operatingProfit - productionCost
+                  return netProfit >= 0
+                }).length
+                const totalScenarios = allScenarios.length
+                return `${profitableScenarios}/${totalScenarios}`
+              })()}</div>
+              <p className="text-xs text-muted-foreground">
+                {(() => {
+                  const profitableScenarios = allScenarios.filter(scenario => {
+                    const performanceData = scenarioData.find(s => s.title === scenario.title)
+                    if (!performanceData) return false
+                    const events = performanceData.events as number
+                    const avgParticipants = 6
+                    const revenuePerEvent = scenario.participation_fee * avgParticipants
+                    const totalRevenue = revenuePerEvent * events
+                    const gmCost = scenario.gm_assignments?.[0]?.reward || 0
+                    const licenseCost = scenario.license_costs?.find((c: any) => c.time_slot === '通常')?.amount || 0
+                    const productionCost = scenario.production_cost || 0
+                    const variableCostPerEvent = gmCost + licenseCost
+                    const totalVariableCost = variableCostPerEvent * events
+                    const operatingProfit = totalRevenue - totalVariableCost
+                    const netProfit = operatingProfit - productionCost
+                    return netProfit >= 0
+                  }).length
+                  const totalScenarios = allScenarios.length
+                  const percentage = totalScenarios > 0 ? Math.round((profitableScenarios / totalScenarios) * 100) : 0
+                  return `利益出てるシナリオ ${percentage}%`
+                })()}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">投資効率</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${(() => {
+                const avgRecoveryRate = (() => {
+                  const recoveryRates = allScenarios
+                    .map(scenario => {
+                      const performanceData = scenarioData.find(s => s.title === scenario.title)
+                      if (!performanceData) return 0
+                      const events = performanceData.events as number
+                      const avgParticipants = 6
+                      const revenuePerEvent = scenario.participation_fee * avgParticipants
+                      const totalRevenue = revenuePerEvent * events
+                      const gmCost = scenario.gm_assignments?.[0]?.reward || 0
+                      const licenseCost = scenario.license_costs?.find((c: any) => c.time_slot === '通常')?.amount || 0
+                      const productionCost = scenario.production_cost || 0
+                      const variableCostPerEvent = gmCost + licenseCost
+                      const totalVariableCost = variableCostPerEvent * events
+                      const operatingProfit = totalRevenue - totalVariableCost
+                      const netProfit = operatingProfit - productionCost
+                      return productionCost > 0 ? (netProfit / productionCost) * 100 : 0
+                    })
+                    .filter(rate => rate > 0)
+                  return recoveryRates.length > 0 ? recoveryRates.reduce((sum, rate) => sum + rate, 0) / recoveryRates.length : 0
+                })()
+                return avgRecoveryRate >= 100 ? 'text-green-600' : 'text-red-600'
+              })()}`}>
+                {(() => {
+                  const avgRecoveryRate = (() => {
+                    const recoveryRates = allScenarios
+                      .map(scenario => {
+                        const performanceData = scenarioData.find(s => s.title === scenario.title)
+                        if (!performanceData) return 0
+                        const events = performanceData.events as number
+                        const avgParticipants = 6
+                        const revenuePerEvent = scenario.participation_fee * avgParticipants
+                        const totalRevenue = revenuePerEvent * events
+                        const gmCost = scenario.gm_assignments?.[0]?.reward || 0
+                        const licenseCost = scenario.license_costs?.find((c: any) => c.time_slot === '通常')?.amount || 0
+                        const productionCost = scenario.production_cost || 0
+                        const variableCostPerEvent = gmCost + licenseCost
+                        const totalVariableCost = variableCostPerEvent * events
+                        const operatingProfit = totalRevenue - totalVariableCost
+                        const netProfit = operatingProfit - productionCost
+                        return productionCost > 0 ? (netProfit / productionCost) * 100 : 0
+                      })
+                      .filter(rate => rate > 0)
+                    return recoveryRates.length > 0 ? recoveryRates.reduce((sum, rate) => sum + rate, 0) / recoveryRates.length : 0
+                  })()
+                  return avgRecoveryRate.toFixed(1) + '%'
+                })()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                投資回収率（100%で回収）
               </p>
             </CardContent>
           </Card>
@@ -591,15 +682,87 @@ const SalesManagement: React.FC = () => {
           <Card>
             <CardContent className="p-0">
               <div className="flex items-center h-[50px] bg-muted/30">
-                <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">シナリオ名</div>
-                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm text-right">公演数</div>
-                <div className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm text-right">累計売上</div>
-                <div className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm text-right">コスト</div>
-                <div className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm text-right">営業利益</div>
-                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm text-right">制作費</div>
-                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm text-right">純利益</div>
-                <div className="flex-shrink-0 w-20 px-3 py-2 border-r font-medium text-sm text-right">回収率</div>
-                <div className="flex-shrink-0 w-24 px-3 py-2 font-medium text-sm text-right">損益分岐点</div>
+                <SortableTableHeader
+                  field="title"
+                  currentField={sortState.field}
+                  currentDirection={sortState.direction}
+                  onSort={handleSort}
+                  className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm"
+                >
+                  シナリオ名
+                </SortableTableHeader>
+                <SortableTableHeader
+                  field="events"
+                  currentField={sortState.field}
+                  currentDirection={sortState.direction}
+                  onSort={handleSort}
+                  className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm text-right"
+                >
+                  公演数
+                </SortableTableHeader>
+                <SortableTableHeader
+                  field="totalRevenue"
+                  currentField={sortState.field}
+                  currentDirection={sortState.direction}
+                  onSort={handleSort}
+                  className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm text-right"
+                >
+                  売上
+                </SortableTableHeader>
+                <SortableTableHeader
+                  field="totalCost"
+                  currentField={sortState.field}
+                  currentDirection={sortState.direction}
+                  onSort={handleSort}
+                  className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm text-right"
+                >
+                  コスト
+                </SortableTableHeader>
+                <SortableTableHeader
+                  field="operatingProfit"
+                  currentField={sortState.field}
+                  currentDirection={sortState.direction}
+                  onSort={handleSort}
+                  className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm text-right"
+                >
+                  営業利益
+                </SortableTableHeader>
+                <SortableTableHeader
+                  field="productionCost"
+                  currentField={sortState.field}
+                  currentDirection={sortState.direction}
+                  onSort={handleSort}
+                  className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm text-right"
+                >
+                  制作費
+                </SortableTableHeader>
+                <SortableTableHeader
+                  field="netProfit"
+                  currentField={sortState.field}
+                  currentDirection={sortState.direction}
+                  onSort={handleSort}
+                  className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm text-right"
+                >
+                  純利益
+                </SortableTableHeader>
+                <SortableTableHeader
+                  field="recoveryRate"
+                  currentField={sortState.field}
+                  currentDirection={sortState.direction}
+                  onSort={handleSort}
+                  className="flex-shrink-0 w-20 px-3 py-2 border-r font-medium text-sm text-right"
+                >
+                  回収率
+                </SortableTableHeader>
+                <SortableTableHeader
+                  field="breakEvenPoint"
+                  currentField={sortState.field}
+                  currentDirection={sortState.direction}
+                  onSort={handleSort}
+                  className="flex-shrink-0 w-24 px-3 py-2 font-medium text-sm text-right"
+                >
+                  損益分岐点
+                </SortableTableHeader>
               </div>
             </CardContent>
           </Card>
@@ -637,6 +800,50 @@ const SalesManagement: React.FC = () => {
                 const recoveryRate = productionCost > 0 ? (netProfit / productionCost) * 100 : 0
                 const breakEvenPoint = variableCostPerEvent > 0 ? Math.ceil(productionCost / (revenuePerEvent - variableCostPerEvent)) : 0
 
+                return {
+                  ...scenario,
+                  events,
+                  totalRevenue,
+                  totalCost: totalVariableCost,
+                  operatingProfit,
+                  productionCost,
+                  netProfit,
+                  recoveryRate,
+                  breakEvenPoint
+                }
+              })
+              .sort((a, b) => {
+                const { field, direction } = sortState
+                let aValue = a[field as keyof typeof a]
+                let bValue = b[field as keyof typeof b]
+
+                if (typeof aValue === 'string') {
+                  aValue = aValue.toLowerCase()
+                  bValue = (bValue as string).toLowerCase()
+                }
+
+                if (aValue < bValue) return direction === 'asc' ? -1 : 1
+                if (aValue > bValue) return direction === 'asc' ? 1 : -1
+                return 0
+              })
+              .map((scenario) => {
+                // ソート済みデータから値を取得
+                const events = scenario.events
+                const totalRevenue = scenario.totalRevenue
+                const totalVariableCost = scenario.totalCost
+                const operatingProfit = scenario.operatingProfit
+                const productionCost = scenario.productionCost
+                const netProfit = scenario.netProfit
+                const recoveryRate = scenario.recoveryRate
+                const breakEvenPoint = scenario.breakEvenPoint
+                
+                // 1回あたりの計算
+                const avgParticipants = 6
+                const revenuePerEvent = scenario.participation_fee * avgParticipants
+                const gmCost = scenario.gm_assignments?.[0]?.reward || 0
+                const licenseCost = scenario.license_costs?.find((c: any) => c.time_slot === '通常')?.amount || 0
+                const variableCostPerEvent = gmCost + licenseCost
+
                 return (
                   <Card key={scenario.id}>
                     <CardContent className="p-0">
@@ -653,9 +860,12 @@ const SalesManagement: React.FC = () => {
                           <p className="text-sm text-right">{events}</p>
                         </div>
 
-                        {/* 累計売上 */}
+                        {/* 売上 */}
                         <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
-                          <p className="text-sm text-right">¥{totalRevenue.toLocaleString()}</p>
+                          <div className="text-right">
+                            <p className="text-sm font-medium">¥{totalRevenue.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">¥{revenuePerEvent.toLocaleString()}/回</p>
+                          </div>
                         </div>
 
                         {/* コスト */}
