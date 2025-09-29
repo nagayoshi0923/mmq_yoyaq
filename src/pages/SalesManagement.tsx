@@ -348,7 +348,11 @@ const SalesManagement: React.FC = () => {
 
   // ソート機能の設定（トップレベルで定義）
   type ScenarioSortField = 'title' | 'events' | 'totalRevenue' | 'totalCost' | 'operatingProfit' | 'productionCost' | 'netProfit' | 'recoveryRate' | 'breakEvenPoint'
-  const { sortState, handleSort } = useSortableTable<ScenarioSortField>('title', 'desc')
+  const { sortState, handleSort } = useSortableTable<ScenarioSortField>({
+    storageKey: 'scenario-performance-sort',
+    defaultField: 'title',
+    defaultDirection: 'desc'
+  })
 
   const fetchScenarioData = useCallback(async () => {
     if (!dateRange.startDate || !dateRange.endDate) return
@@ -1208,6 +1212,11 @@ const SalesManagement: React.FC = () => {
         }
       })
 
+      // 店舗別の平均売上を計算
+      storeMap.forEach(store => {
+        store.averageRevenue = store.events > 0 ? store.revenue / store.events : 0
+      })
+
       // シナリオ別集計（選択期間内のデータのみ）
       const scenarioMap = new Map()
       selectedPeriodEvents.forEach(event => {
@@ -1228,6 +1237,11 @@ const SalesManagement: React.FC = () => {
             events: 1
           })
         }
+      })
+
+      // シナリオ別の平均売上を計算
+      scenarioMap.forEach(scenario => {
+        scenario.averageRevenue = scenario.events > 0 ? scenario.revenue / scenario.events : 0
       })
 
       // 期間に応じて日別または月別集計
