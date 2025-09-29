@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { salesApi } from '@/lib/api'
 import { SalesData } from '@/types'
+import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import SalesSidebar from '@/components/layout/SalesSidebar'
-import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, FileText, Users } from 'lucide-react'
+import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, FileText, Users, Search, Filter, Clock } from 'lucide-react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -337,6 +338,10 @@ const SalesManagement: React.FC = () => {
   const [scenarioLoading, setScenarioLoading] = useState(false)
   const [scenarioPeriod, setScenarioPeriod] = useState('thisMonth')
   const [scenarioStore, setScenarioStore] = useState('all')
+  const [allScenarios, setAllScenarios] = useState<any[]>([])
+  const [scenariosLoading, setScenariosLoading] = useState(false)
+  const [scenarioSearch, setScenarioSearch] = useState('')
+  const [scenarioCategory, setScenarioCategory] = useState('all')
 
   const fetchScenarioData = useCallback(async () => {
     if (!dateRange.startDate || !dateRange.endDate) return
@@ -362,11 +367,30 @@ const SalesManagement: React.FC = () => {
     handlePeriodChange(period)
   }
 
+  // 全シナリオ一覧を取得
+  const fetchAllScenarios = useCallback(async () => {
+    setScenariosLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('scenarios')
+        .select('*')
+        .order('title')
+      
+      if (error) throw error
+      setAllScenarios(data || [])
+    } catch (error) {
+      console.error('シナリオ一覧の取得に失敗しました:', error)
+    } finally {
+      setScenariosLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (activeTab === 'scenario-performance') {
       fetchScenarioData()
+      fetchAllScenarios()
     }
-  }, [activeTab, fetchScenarioData])
+  }, [activeTab, fetchScenarioData, fetchAllScenarios])
 
   // シナリオ別公演数コンテンツ
   const renderScenarioPerformanceContent = () => {
@@ -520,135 +544,197 @@ const SalesManagement: React.FC = () => {
           </Card>
         </div>
 
-        {/* シナリオ分析グラフ */}
-        <Card>
-          <CardHeader>
-            <CardTitle>シナリオ分析グラフ</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {scenarioLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-lg">データを読み込み中...</div>
-              </div>
-            ) : scenarioData.length > 0 ? (
-              <div className="h-96">
-                <Line 
-                  data={{
-                    labels: scenarioData.slice(0, 10).map(scenario => scenario.title),
-                    datasets: [{
-                      label: '公演数',
-                      data: scenarioData.slice(0, 10).map(scenario => scenario.events),
-                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                      borderColor: 'rgba(59, 130, 246, 1)',
-                      borderWidth: 2,
-                      fill: true
-                    }]
-                  }}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        display: false
-                      },
-                      tooltip: {
-                        callbacks: {
-                          label: (context) => {
-                            const scenario = scenarioData[context.dataIndex]
-                            return [
-                              `シナリオ: ${scenario.title}`,
-                              `作者: ${scenario.author}`,
-                              `公演数: ${scenario.events}回`,
-                              `店舗: ${scenario.stores.join(', ')}`
-                            ]
-                          }
-                        }
-                      }
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        ticks: {
-                          stepSize: 1
-                        }
-                      },
-                      x: {
-                        ticks: {
-                          maxRotation: 45,
-                          minRotation: 45
-                        }
-                      }
-                    }
-                  }}
+
+        {/* シナリオ一覧 - シナリオ管理ページと同じテーブル形式 */}
+        <div className="space-y-1">
+          {/* 検索・フィルター */}
+          <div className="flex justify-between items-center gap-4 mb-4">
+            <div className="flex gap-4 items-center">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="シナリオ名、作者で検索..."
+                  value={scenarioSearch}
+                  onChange={(e) => setScenarioSearch(e.target.value)}
+                  className="pl-10 pr-4"
                 />
               </div>
-            ) : (
-              <div className="text-center py-12">
-                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-lg text-muted-foreground">データがありません</p>
+              
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={scenarioCategory} onValueChange={setScenarioCategory}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全て</SelectItem>
+                    {Array.from(new Set(allScenarios.map(s => s.category).filter(Boolean))).map(category => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              表示件数: {allScenarios.filter(scenario => {
+                const matchesSearch = scenario.title.toLowerCase().includes(scenarioSearch.toLowerCase()) ||
+                                    (scenario.author && scenario.author.toLowerCase().includes(scenarioSearch.toLowerCase()))
+                const matchesCategory = scenarioCategory === 'all' || scenario.category === scenarioCategory
+                return matchesSearch && matchesCategory
+              }).length}件
+            </div>
+          </div>
 
-        {/* シナリオ分析テーブル */}
-        <Card>
-          <CardHeader>
-            <CardTitle>シナリオ分析一覧</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {scenarioLoading ? (
+          {/* ヘッダー行 */}
+          <Card>
+            <CardContent className="p-0">
+              <div className="flex items-center h-[50px] bg-muted/30">
+                <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">タイトル</div>
+                <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">作者</div>
+                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm">所要時間</div>
+                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm">人数</div>
+                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm">参加費</div>
+                <div className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm">ステータス</div>
+                <div className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm">公演数</div>
+                <div className="flex-1 px-3 py-2 font-medium text-sm">ジャンル</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* シナリオデータ行 */}
+          <div className="space-y-1">
+            {scenariosLoading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="text-lg">データを読み込み中...</div>
+                <div className="text-lg">シナリオ一覧を読み込み中...</div>
               </div>
-            ) : scenarioData.length > 0 ? (
-              <div className="space-y-4">
-                {scenarioData.map((scenario, index) => (
-                  <div key={scenario.id} className="p-4 border rounded-lg hover:bg-slate-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-4">
-                        <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
-                          {index + 1}
+            ) : allScenarios
+              .filter(scenario => {
+                const matchesSearch = scenario.title.toLowerCase().includes(scenarioSearch.toLowerCase()) ||
+                                    (scenario.author && scenario.author.toLowerCase().includes(scenarioSearch.toLowerCase()))
+                const matchesCategory = scenarioCategory === 'all' || scenario.category === scenarioCategory
+                return matchesSearch && matchesCategory
+              })
+              .map((scenario) => {
+                const performanceData = scenarioData.find(s => s.id === scenario.id)
+                return (
+                  <Card key={scenario.id}>
+                    <CardContent className="p-0">
+                      <div className="flex items-center min-h-[60px]">
+                        {/* タイトル */}
+                        <div className="flex-shrink-0 w-40 px-3 py-2 border-r">
+                          <p className="font-medium text-sm truncate" title={scenario.title}>
+                            {scenario.title}
+                          </p>
                         </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-lg">{scenario.title}</div>
-                          <div className="text-sm text-muted-foreground mb-2">
-                            作者: {scenario.author} | 店舗: {scenario.stores.join(', ')}
-                          </div>
-                          <div className="flex gap-4 text-sm">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-4 w-4" />
-                              <span>公演数: {scenario.events}回</span>
+
+                        {/* 作者 */}
+                        <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
+                          <p className="text-sm truncate" title={scenario.author}>
+                            {scenario.author || '不明'}
+                          </p>
+                        </div>
+
+                        {/* 所要時間 */}
+                        <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
+                          <p className="text-sm flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> 
+                            {scenario.duration ? 
+                              (scenario.duration / 60) % 1 === 0 ? 
+                                Math.floor(scenario.duration / 60) : 
+                                (scenario.duration / 60).toFixed(1) + '時間' :
+                              '未設定'
+                            }
+                          </p>
+                        </div>
+
+                        {/* 人数 */}
+                        <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
+                          <p className="text-sm flex items-center gap-1">
+                            <Users className="h-3 w-3" /> 
+                            {scenario.player_count_min && scenario.player_count_max ? 
+                              `${scenario.player_count_min}-${scenario.player_count_max}名` : 
+                              '未設定'
+                            }
+                          </p>
+                        </div>
+
+                        {/* 参加費 */}
+                        <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
+                          <p className="text-sm text-right">
+                            ¥{scenario.participation_fee?.toLocaleString() || 0}
+                          </p>
+                        </div>
+
+                        {/* ステータス */}
+                        <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
+                          <Badge className={
+                            scenario.status === 'available' ? 'bg-green-100 text-green-800 px-1 py-0.5' :
+                            scenario.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800 px-1 py-0.5' :
+                            'bg-red-100 text-red-800 px-1 py-0.5'
+                          }>
+                            {scenario.status === 'available' ? '利用可能' :
+                            scenario.status === 'maintenance' ? 'メンテナンス中' : '引退済み'}
+                          </Badge>
+                        </div>
+
+                        {/* 公演数 */}
+                        <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
+                          {performanceData ? (
+                            <Badge variant="secondary" className="px-1 py-0.5">
+                              {performanceData.events}回
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </div>
+
+                        {/* ジャンル */}
+                        <div className="flex-1 px-3 py-2 min-w-0">
+                          {scenario.genre && scenario.genre.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {scenario.genre.slice(0, 2).map((g: string, i: number) => (
+                                <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
+                                  {g}
+                                </Badge>
+                              ))}
+                              {scenario.genre.length > 2 && (
+                                <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
+                                  +{scenario.genre.length - 2}
+                                </Badge>
+                              )}
                             </div>
-                            <div className="flex items-center gap-1">
-                              <TrendingUp className="h-4 w-4" />
-                              <span>割合: {((scenario.events / totalEvents) * 100).toFixed(1)}%</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Store className="h-4 w-4" />
-                              <span>店舗数: {scenario.stores.length}店舗</span>
-                            </div>
-                          </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">未設定</span>
+                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-primary">{scenario.events}回</div>
-                        <div className="text-sm text-muted-foreground">
-                          {scenario.events >= totalEvents * 0.1 ? '人気' : scenario.events >= totalEvents * 0.05 ? '普通' : '少ない'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
+                    </CardContent>
+                  </Card>
+                )
+              })}
+          </div>
+
+          {/* 検索結果が空の場合 */}
+          {allScenarios.filter(scenario => {
+            const matchesSearch = scenario.title.toLowerCase().includes(scenarioSearch.toLowerCase()) ||
+                                (scenario.author && scenario.author.toLowerCase().includes(scenarioSearch.toLowerCase()))
+            const matchesCategory = scenarioCategory === 'all' || scenario.category === scenarioCategory
+            return matchesSearch && matchesCategory
+          }).length === 0 && !scenariosLoading && (
+            <Card>
+              <CardContent className="pt-6 text-center">
                 <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-lg text-muted-foreground">データがありません</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                <p className="text-muted-foreground">
+                  {scenarioSearch || scenarioCategory !== 'all' 
+                    ? '検索条件に一致するシナリオが見つかりません' 
+                    : 'シナリオが登録されていません'}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* シナリオ分析サマリー */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
