@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import SalesSidebar from '@/components/layout/SalesSidebar'
+import AuthorReport from './AuthorReport'
 import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, FileText, Users, Search, Filter, Clock, Play, Star } from 'lucide-react'
 import { SortableTableHeader } from '@/components/ui/sortable-table-header'
 import { useSortableTable } from '@/hooks/useSortableTable'
@@ -232,7 +233,7 @@ const SalesManagement: React.FC = () => {
           <CardContent>
             <div className="space-y-4">
               {salesData?.storeRanking?.map((store, index) => (
-                <div key={store.id} className="flex items-center justify-between">
+                <div key={store.id || `store-${index}`} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
                       {index + 1}
@@ -264,7 +265,7 @@ const SalesManagement: React.FC = () => {
           <CardContent>
             <div className="space-y-4">
               {salesData?.scenarioRanking?.map((scenario, index) => (
-                <div key={scenario.id} className="flex items-center justify-between">
+                <div key={scenario.id || `scenario-${index}`} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
                       {index + 1}
@@ -780,7 +781,7 @@ const SalesManagement: React.FC = () => {
                 const matchesCategory = scenarioCategory === 'all' || scenario.category === scenarioCategory
                 return matchesSearch && matchesCategory
               })
-              .map((scenario) => {
+              .map((scenario, index) => {
                 const performanceData = scenarioData.find(s => s.title === scenario.title)
                 
                 // 利益計算
@@ -826,7 +827,7 @@ const SalesManagement: React.FC = () => {
                 if (aValue > bValue) return direction === 'asc' ? 1 : -1
                 return 0
               })
-              .map((scenario) => {
+              .map((scenario, index) => {
                 // ソート済みデータから値を取得
                 const events = scenario.events
                 const totalRevenue = scenario.totalRevenue
@@ -1023,19 +1024,7 @@ const SalesManagement: React.FC = () => {
   )
 
   // 作者レポートコンテンツ
-  const renderAuthorReportContent = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">作者レポート</h1>
-      </div>
-      <div className="text-center py-12">
-        <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <p className="text-lg text-muted-foreground">
-          作者レポート機能は準備中です
-        </p>
-      </div>
-    </div>
-  )
+  const renderAuthorReportContent = () => <AuthorReport />
 
   // dateRangeの変化を監視（デバッグ用）
   // useEffect(() => {

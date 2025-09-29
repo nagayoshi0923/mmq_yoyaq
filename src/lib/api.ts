@@ -446,6 +446,7 @@ export const salesApi = {
       .select(`
         id,
         scenario,
+        scenario_id,
         date,
         stores!inner(id, name),
         scenarios!inner(id, title, author)
@@ -453,6 +454,7 @@ export const salesApi = {
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)
+      .not('scenario_id', 'is', null) // scenario_idがnullでないもののみ
 
     if (storeId && storeId !== 'all') {
       query = query.eq('store_id', storeId)
@@ -462,12 +464,14 @@ export const salesApi = {
 
     if (error) throw error
 
+    // console.log('getScenarioPerformance 取得データ:', data?.length || 0, '件')
+
     // シナリオ別に集計
     const scenarioMap = new Map()
     
     data?.forEach(event => {
-      const scenarioId = event.scenario
-      const scenarioTitle = event.scenarios?.title || '未定'
+      const scenarioId = event.scenario_id || event.scenario // scenario_idを優先、なければscenario
+      const scenarioTitle = event.scenarios?.title || event.scenario || '未定'
       const author = event.scenarios?.author || '不明'
       
       if (scenarioMap.has(scenarioId)) {
@@ -485,9 +489,12 @@ export const salesApi = {
       }
     })
 
-    return Array.from(scenarioMap.values()).map(item => ({
+    const result = Array.from(scenarioMap.values()).map(item => ({
       ...item,
       stores: Array.from(item.stores)
     }))
+
+    // console.log('集計結果:', result.length, '件')
+    return result
   }
 }
