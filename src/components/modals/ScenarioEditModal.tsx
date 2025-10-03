@@ -1211,23 +1211,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                   />
                 )
               })()}
-              
-              {/* 現在の担当GM一覧（担当開始日表示） */}
-              {currentAssignments.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  <div className="text-sm font-medium">現在の担当GM:</div>
-                  {currentAssignments.map((assignment, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
-                      <div>
-                        <span className="font-medium">{assignment.staff?.name}</span>
-                        <span className="text-muted-foreground ml-2">
-                          ({new Date(assignment.assigned_at).toLocaleDateString('ja-JP')}から担当)
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
           </div>
