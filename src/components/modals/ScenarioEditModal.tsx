@@ -13,6 +13,7 @@ import { MigrationConfirmationDialog } from '@/components/ui/migration-confirmat
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
 import type { Scenario, FlexiblePricing, PricingModifier, Staff } from '@/types'
 import { staffApi, scenarioApi } from '@/lib/api'
+import { assignmentApi } from '@/lib/assignmentApi'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 
 // 全角数字を半角数字に変換
@@ -133,6 +134,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   // スタッフデータ用のstate
   const [staff, setStaff] = useState<Staff[]>([])
   const [loadingStaff, setLoadingStaff] = useState(false)
+  
+  // 担当関係データ用のstate
+  const [currentAssignments, setCurrentAssignments] = useState<any[]>([])
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
   
   // ライセンス報酬用
   const [newLicenseRewardItem, setNewLicenseRewardItem] = useState('通常')
@@ -829,24 +834,38 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }, [scenario])
 
 
-  // スタッフデータを取得
+  // スタッフデータと担当関係データを取得
   useEffect(() => {
-    const loadStaff = async () => {
+    const loadData = async () => {
       try {
         setLoadingStaff(true)
+        
+        // スタッフデータを取得
         const staffData = await staffApi.getAll()
         setStaff(staffData)
+        
+        // 既存シナリオの場合、担当関係データを取得
+        if (scenario?.id) {
+          const assignments = await assignmentApi.getScenarioAssignments(scenario.id)
+          setCurrentAssignments(assignments)
+          // スタッフIDを設定
+          setSelectedStaffIds(assignments.map(a => a.staff_id))
+        } else {
+          // 新規作成の場合は空に
+          setCurrentAssignments([])
+          setSelectedStaffIds([])
+        }
       } catch (error) {
-        console.error('Error loading staff:', error)
+        console.error('Error loading data:', error)
       } finally {
         setLoadingStaff(false)
       }
     }
 
     if (isOpen) {
-      loadStaff()
+      loadData()
     }
-  }, [isOpen])
+  }, [isOpen, scenario?.id])
 
   const handleSave = async () => {
     try {
@@ -885,19 +904,24 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         (updatedScenario as any).production_costs = formData.production_costs
       }
 
-      // シナリオが既存の場合、担当GMの同期更新を実行
-      if (scenario?.id && updatedScenario.id) {
-        const originalGms = scenario.available_gms || []
-        const newGms = formData.available_gms || []
+      // 担当GM関係をリレーションテーブルで更新
+      if (updatedScenario.id) {
+        const originalStaffIds = currentAssignments.map(a => a.staff_id).sort()
+        const newStaffIds = selectedStaffIds.sort()
         
-        // 担当GMが変更された場合、同期更新APIを使用
-        if (JSON.stringify(originalGms.sort()) !== JSON.stringify(newGms.sort())) {
+        // 担当GMが変更された場合、リレーションテーブルを更新
+        if (JSON.stringify(originalStaffIds) !== JSON.stringify(newStaffIds)) {
           try {
-            await scenarioApi.updateAvailableGmsWithSync(updatedScenario.id, newGms)
+            if (scenario?.id) {
+              // 既存シナリオの場合
+              await assignmentApi.updateScenarioAssignments(updatedScenario.id, selectedStaffIds)
+            } else {
+              // 新規作成の場合（保存後にIDが確定してから担当関係を追加）
+              // 新規作成時はupdatedScenario.idが仮のIDなので、実際のシナリオ保存後に処理する
+            }
           } catch (syncError) {
-            console.error('Error syncing GM assignments:', syncError)
-            // 同期エラーは警告として表示するが、メインの保存は続行
-            alert('シナリオは保存されましたが、担当GMの同期に失敗しました。手動で確認してください。')
+            console.error('Error updating GM assignments:', syncError)
+            alert('シナリオは保存されましたが、担当GMの更新に失敗しました。手動で確認してください。')
           }
         }
       }
@@ -1102,29 +1126,58 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             {/* 担当GM */}
             <div>
               <Label htmlFor="available_gms">担当GM</Label>
+              <div className="text-sm text-muted-foreground mb-2">
+                担当開始時期は自動的に記録されます
+              </div>
               {(() => {
                 const gmOptions = staff
                   .filter(s => s.role.includes('gm') && s.status === 'active')
                   .map(staffMember => ({
-                    id: staffMember.name,
+                    id: staffMember.id,
                     name: staffMember.name,
                     displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name}`
                   }))
                 
-                // formData.available_gmsが設定されている場合はそれを優先、そうでなければシナリオのavailable_gmsを使用
-                const selectedGms = formData.available_gms !== undefined ? formData.available_gms : (scenario?.available_gms || [])
-                
+                // selectedStaffIds（UUID）をスタッフ名に変換してMultiSelectに渡す
+                const selectedStaffNames = selectedStaffIds.map(staffId => {
+                  const staffMember = staff.find(s => s.id === staffId)
+                  return staffMember?.name || staffId
+                })
                 
                 return (
                   <MultiSelect
                     options={gmOptions}
-                    selectedValues={selectedGms}
-                    onSelectionChange={(values) => setFormData(prev => ({ ...prev, available_gms: values }))}
+                    selectedValues={selectedStaffNames}
+                    onSelectionChange={(selectedNames) => {
+                      // スタッフ名をIDに変換
+                      const staffIds = selectedNames.map(name => {
+                        const staffMember = staff.find(s => s.name === name)
+                        return staffMember?.id || name
+                      })
+                      setSelectedStaffIds(staffIds)
+                    }}
                     placeholder="担当GMを選択してください"
                     showBadges={true}
                   />
                 )
               })()}
+              
+              {/* 現在の担当GM一覧（担当開始日表示） */}
+              {currentAssignments.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  <div className="text-sm font-medium">現在の担当GM:</div>
+                  {currentAssignments.map((assignment, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
+                      <div>
+                        <span className="font-medium">{assignment.staff?.name}</span>
+                        <span className="text-muted-foreground ml-2">
+                          ({new Date(assignment.assigned_at).toLocaleDateString('ja-JP')}から担当)
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>

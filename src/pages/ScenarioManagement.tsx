@@ -9,6 +9,7 @@ import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { scenarioApi } from '@/lib/api'
+import { assignmentApi } from '@/lib/assignmentApi'
 import { useSortableTable } from '@/hooks/useSortableTable'
 import type { Scenario } from '@/types'
 import { 
@@ -114,7 +115,28 @@ export function ScenarioManagement() {
       setLoading(true)
       setError('')
       const data = await scenarioApi.getAll()
-      setScenarios(data)
+      
+      // 各シナリオの担当GM情報をリレーションテーブルから取得
+      const scenariosWithGMs = await Promise.all(
+        data.map(async (scenario) => {
+          try {
+            const assignments = await assignmentApi.getScenarioAssignments(scenario.id)
+            const assignedGMs = assignments.map(a => a.staff?.name).filter(Boolean)
+            return {
+              ...scenario,
+              available_gms: assignedGMs // リレーションテーブルから取得した担当GM名を設定
+            }
+          } catch (error) {
+            console.error(`Error loading assignments for scenario ${scenario.id}:`, error)
+            return {
+              ...scenario,
+              available_gms: scenario.available_gms || [] // エラー時は既存の値を使用
+            }
+          }
+        })
+      )
+      
+      setScenarios(scenariosWithGMs)
     } catch (err: any) {
       console.error('Error loading scenarios:', err)
       setError('シナリオデータの読み込みに失敗しました: ' + err.message)
@@ -143,13 +165,13 @@ export function ScenarioManagement() {
       if (editingScenario) {
         // 編集
         await scenarioApi.update(scenario.id, scenarioForDB)
-        setScenarios(prev => prev.map(s => s.id === scenario.id ? scenario : s))
       } else {
         // 新規作成
-        const newScenario = await scenarioApi.create(scenarioForDB)
-        // ローカル状態には元のscenario（production_costs含む）を保存
-        setScenarios(prev => [...prev, { ...newScenario, production_costs: scenario.production_costs }])
+        await scenarioApi.create(scenarioForDB)
       }
+      
+      // シナリオ保存後、担当GM情報を含めてリストを再読み込み
+      await loadScenarios()
     } catch (err: any) {
       console.error('Error saving scenario:', err)
       alert('シナリオの保存に失敗しました: ' + err.message)

@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { staffApi, storeApi, scenarioApi } from '@/lib/api'
+import { assignmentApi } from '@/lib/assignmentApi'
 import type { Staff, Store } from '@/types'
 import { 
   Users, 
@@ -82,7 +83,28 @@ export function StaffManagement() {
       setLoading(true)
       setError('')
       const data = await staffApi.getAll()
-      setStaff(data)
+      
+      // 各スタッフの担当シナリオ情報をリレーションテーブルから取得
+      const staffWithScenarios = await Promise.all(
+        data.map(async (staffMember) => {
+          try {
+            const assignments = await assignmentApi.getStaffAssignments(staffMember.id)
+            const assignedScenarios = assignments.map(a => a.scenarios?.id).filter(Boolean)
+            return {
+              ...staffMember,
+              special_scenarios: assignedScenarios // リレーションテーブルから取得した担当シナリオIDを設定
+            }
+          } catch (error) {
+            console.error(`Error loading assignments for staff ${staffMember.id}:`, error)
+            return {
+              ...staffMember,
+              special_scenarios: staffMember.special_scenarios || [] // エラー時は既存の値を使用
+            }
+          }
+        })
+      )
+      
+      setStaff(staffWithScenarios)
     } catch (err: any) {
       console.error('Error loading staff:', err)
       setError('スタッフデータの読み込みに失敗しました: ' + err.message)
@@ -126,23 +148,24 @@ export function StaffManagement() {
         const specialScenariosChanged = JSON.stringify(originalStaff?.special_scenarios?.sort()) !== JSON.stringify(staffData.special_scenarios?.sort())
         
         if (specialScenariosChanged) {
-          // 担当シナリオが変更された場合、同期更新APIを使用
-          await staffApi.updateSpecialScenarios(staffData.id, staffData.special_scenarios || [])
+          // 担当シナリオが変更された場合、リレーションテーブルを更新
+          await assignmentApi.updateStaffAssignments(staffData.id, staffData.special_scenarios || [])
         } else {
           // 担当シナリオが変更されていない場合、通常の更新APIを使用
           await staffApi.update(staffData.id, staffData)
         }
-        setStaff(prev => prev.map(s => s.id === staffData.id ? staffData : s))
       } else {
         // 新規作成
         const newStaff = await staffApi.create(staffData)
-        setStaff(prev => [...prev, newStaff])
         
-        // 新規作成時も担当シナリオがあれば同期更新
+        // 新規作成時も担当シナリオがあればリレーションテーブルに追加
         if (staffData.special_scenarios && staffData.special_scenarios.length > 0) {
-          await staffApi.updateSpecialScenarios(newStaff.id, staffData.special_scenarios)
+          await assignmentApi.updateStaffAssignments(newStaff.id, staffData.special_scenarios)
         }
       }
+      
+      // スタッフ保存後、担当シナリオ情報を含めてリストを再読み込み
+      await loadStaff()
     } catch (err: any) {
       console.error('Error saving staff:', err)
       alert('スタッフの保存に失敗しました: ' + err.message)
