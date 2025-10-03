@@ -638,9 +638,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   useEffect(() => {
     if (scenario) {
-      console.log('シナリオデータ:', scenario)
-      console.log('シナリオのavailable_gms:', scenario.available_gms)
-      console.log('シナリオの全プロパティ:', Object.keys(scenario))
       setFormData({
         title: scenario.title || '',
         author: scenario.author || '',
@@ -823,7 +820,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         },
         available_gms: scenario?.available_gms || []
       })
-      console.log('フォームデータ初期化後のavailable_gms:', scenario?.available_gms || [])
     }
   }, [scenario])
 
@@ -1113,10 +1109,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 // formData.available_gmsが更新されている場合はそれを優先、そうでなければシナリオのavailable_gmsを使用
                 const selectedGms = formData.available_gms?.length > 0 ? formData.available_gms : (scenario?.available_gms || [])
                 
-                console.log('担当GM選択肢:', gmOptions.length, '件')
-                console.log('現在の選択値:', selectedGms)
-                console.log('シナリオのavailable_gms:', scenario?.available_gms)
-                console.log('formData.available_gms:', formData.available_gms)
                 
                 return (
                   <MultiSelect
