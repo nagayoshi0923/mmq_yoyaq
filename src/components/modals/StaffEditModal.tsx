@@ -231,13 +231,30 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
           {/* 担当シナリオ */}
           <div>
             <Label htmlFor="special_scenarios">担当シナリオ</Label>
-            <MultiSelect
-              options={scenarioOptions}
-              selectedValues={formData.special_scenarios || []}
-              onSelectionChange={(values) => setFormData(prev => ({ ...prev, special_scenarios: values }))}
-              placeholder="担当シナリオを選択"
-              showBadges={true}
-            />
+            {(() => {
+              // selectedScenarioIds（UUID）をシナリオタイトルに変換してMultiSelectに渡す
+              const selectedScenarioTitles = (formData.special_scenarios || []).map(scenarioId => {
+                const scenario = scenarios.find(s => s.id === scenarioId)
+                return scenario?.title || scenarioId
+              })
+              
+              return (
+                <MultiSelect
+                  options={scenarioOptions}
+                  selectedValues={selectedScenarioTitles}
+                  onSelectionChange={(selectedTitles) => {
+                    // シナリオタイトルをIDに変換
+                    const scenarioIds = selectedTitles.map(title => {
+                      const scenario = scenarios.find(s => s.title === title)
+                      return scenario?.id || title
+                    })
+                    setFormData(prev => ({ ...prev, special_scenarios: scenarioIds }))
+                  }}
+                  placeholder="担当シナリオを選択"
+                  showBadges={true}
+                />
+              )
+            })()}
           </div>
 
           {/* 備考 */}
