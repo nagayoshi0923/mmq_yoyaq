@@ -6,6 +6,7 @@ import { ScenarioManagement } from './ScenarioManagement'
 import { StaffManagement } from './StaffManagement'
 import { ScheduleManager } from './ScheduleManager'
 import SalesManagement from './SalesManagement'
+import { ShiftSubmission } from './ShiftSubmission'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { 
@@ -16,6 +17,7 @@ import {
   TrendingUp, 
   Package, 
   CreditCard,
+  Clock,
   Settings
 } from 'lucide-react'
 
@@ -56,6 +58,7 @@ export function AdminDashboard() {
     { id: 'schedule', label: 'スケジュール', icon: Calendar, color: 'bg-green-100 text-green-800' },
     { id: 'staff', label: 'スタッフ', icon: Users, color: 'bg-purple-100 text-purple-800' },
     { id: 'scenarios', label: 'シナリオ', icon: BookOpen, color: 'bg-orange-100 text-orange-800' },
+    { id: 'shift-submission', label: 'シフト提出', icon: Clock, color: 'bg-indigo-100 text-indigo-800' },
     { id: 'reservations', label: '予約', icon: Calendar, color: 'bg-red-100 text-red-800' },
     { id: 'customers', label: '顧客', icon: Users, color: 'bg-amber-100 text-amber-800' },
     { id: 'sales', label: '売上', icon: TrendingUp, color: 'bg-emerald-100 text-emerald-800' },
@@ -83,6 +86,10 @@ export function AdminDashboard() {
   
   if (currentPage === 'sales') {
     return <SalesManagement />
+  }
+  
+  if (currentPage === 'shift-submission') {
+    return <ShiftSubmission />
   }
 
   return (

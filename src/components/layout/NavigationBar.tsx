@@ -8,6 +8,7 @@ import {
   TrendingUp, 
   Package, 
   CreditCard,
+  Clock,
   Settings
 } from 'lucide-react'
 
@@ -22,6 +23,7 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
     { id: 'schedule', label: 'スケジュール', icon: Calendar },
     { id: 'staff', label: 'スタッフ', icon: Users },
     { id: 'scenarios', label: 'シナリオ', icon: BookOpen },
+    { id: 'shift-submission', label: 'シフト提出', icon: Clock },
     { id: 'reservations', label: '予約', icon: Calendar },
     { id: 'customers', label: '顧客', icon: Users },
     { id: 'sales', label: '売上', icon: TrendingUp },
