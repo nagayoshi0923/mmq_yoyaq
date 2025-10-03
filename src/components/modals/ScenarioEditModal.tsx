@@ -867,6 +867,25 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     }
   }, [isOpen, scenario?.id])
 
+  // モーダルが開かれる度に担当関係データを再取得
+  useEffect(() => {
+    const reloadAssignments = async () => {
+      if (isOpen && scenario?.id) {
+        try {
+          const assignments = await assignmentApi.getScenarioAssignments(scenario.id)
+          setCurrentAssignments(assignments)
+          setSelectedStaffIds(assignments.map(a => a.staff_id))
+        } catch (error) {
+          console.error('Error reloading assignments:', error)
+        }
+      }
+    }
+
+    if (isOpen) {
+      reloadAssignments()
+    }
+  }, [isOpen])
+
   const handleSave = async () => {
     try {
       const totalProductionCost = formData.production_costs.reduce((sum, cost) => sum + cost.amount, 0)
@@ -1130,19 +1149,50 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 担当開始時期は自動的に記録されます
               </div>
               {(() => {
-                const gmOptions = staff
-                  .filter(s => s.role.includes('gm') && s.status === 'active')
-                  .map(staffMember => ({
-                    id: staffMember.id,
-                    name: staffMember.name,
-                    displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name}`
-                  }))
+                // 通常のGMスタッフ
+                const activeGMs = staff.filter(s => s.role.includes('gm') && s.status === 'active')
+                
+                // 既に担当GMとして設定されているスタッフ（role/statusに関係なく含める）
+                const assignedStaff = staff.filter(s => selectedStaffIds.includes(s.id))
+                
+                // 重複を除いて結合
+                const allAvailableStaff = [...activeGMs]
+                assignedStaff.forEach(assignedStaff => {
+                  if (!allAvailableStaff.some(s => s.id === assignedStaff.id)) {
+                    allAvailableStaff.push(assignedStaff)
+                  }
+                })
+                
+                const gmOptions = allAvailableStaff.map(staffMember => ({
+                  id: staffMember.id,
+                  name: staffMember.name,
+                  displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name}${
+                    !staffMember.role.includes('gm') || staffMember.status !== 'active' 
+                      ? ' (非アクティブGM)' 
+                      : ''
+                  }`
+                }))
                 
                 // selectedStaffIds（UUID）をスタッフ名に変換してMultiSelectに渡す
                 const selectedStaffNames = selectedStaffIds.map(staffId => {
                   const staffMember = staff.find(s => s.id === staffId)
+                  if (!staffMember) {
+                    console.warn('担当GMとして設定されているスタッフが見つかりません:', staffId)
+                  }
                   return staffMember?.name || staffId
+                }).filter(name => {
+                  // 存在しないスタッフ名（UUID）を除外
+                  const isValidStaff = staff.some(s => s.name === name)
+                  if (!isValidStaff && name.length > 10) { // UUIDっぽい場合
+                    console.warn('存在しないスタッフ名を除外:', name)
+                    return false
+                  }
+                  return true
                 })
+                
+                console.log('選択されたスタッフID:', selectedStaffIds)
+                console.log('変換後のスタッフ名:', selectedStaffNames)
+                console.log('利用可能なGM:', gmOptions.map(g => g.name))
                 
                 return (
                   <MultiSelect
