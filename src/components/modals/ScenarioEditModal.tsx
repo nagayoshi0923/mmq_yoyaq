@@ -1184,34 +1184,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
           {/* コスト */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">コスト</h3>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  // ルール追加：新しいルールを追加
-                  const newModifier: PricingModifier = {
-                    id: `modifier-${Date.now()}`,
-                    condition: 'weekend',
-                    modifier_type: 'fixed',
-                    participation_modifier: 0,
-                    description: '土日祝日料金',
-                    active: true
-                  }
-                  setFormData(prev => ({
-                    ...prev,
-                    flexible_pricing: {
-                      ...prev.flexible_pricing,
-                      pricing_modifiers: [...prev.flexible_pricing.pricing_modifiers, newModifier]
-                    }
-                  }))
-                }}
-              >
-                ルール追加
-              </Button>
-            </div>
+            <h3 className="text-lg font-medium">コスト</h3>
 
             {/* 必要道具・制作費 */}
             <div className="space-y-6">
