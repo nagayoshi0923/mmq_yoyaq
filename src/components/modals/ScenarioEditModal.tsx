@@ -61,7 +61,6 @@ interface ScenarioFormData {
   has_pre_reading: boolean
   gm_count: number
   gm_assignments: { role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }[]
-  available_gms: string[] // 担当GMリスト
   // 時間帯別料金設定
   participation_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }[]
   // 柔軟な料金設定
@@ -107,7 +106,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     has_pre_reading: false,
     gm_count: 1,
     gm_assignments: [{ role: 'main', reward: 2000 }],
-    available_gms: [], // 担当GMリスト
     // 項目別料金設定
     participation_costs: [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
     use_flexible_pricing: false,
@@ -277,10 +275,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }
 
   const removeRequiredProp = (index: number) => {
-    console.log('削除前のrequired_props:', formData.required_props)
     setFormData(prev => {
       const newProps = prev.required_props.filter((prop, i) => i !== index && prop != null)
-      console.log('削除後のrequired_props:', newProps)
       return {
         ...prev,
         required_props: newProps
@@ -827,8 +823,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             total_max: 2,
             special_requirements: ''
           }
-        },
-        available_gms: scenario?.available_gms || []
+        }
       })
     }
   }, [scenario])
@@ -910,7 +905,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         license_rewards: formData.license_rewards, // ライセンス報酬を保存
         has_pre_reading: formData.has_pre_reading,
         gm_costs: formData.gm_assignments,
-        available_gms: formData.available_gms || [],
+        available_gms: [],
         // 柔軟な料金設定を保存
         flexible_pricing: formData.use_flexible_pricing ? formData.flexible_pricing : undefined,
         play_count: scenario?.play_count || 0,
@@ -979,175 +974,185 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
         <div className="space-y-6">
           {/* 基本情報 */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">基本情報</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="title">タイトル *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="シナリオタイトル"
-                />
-              </div>
-              <div>
-                <Label htmlFor="author">作者 *</Label>
-                <Input
-                  id="author"
-                  value={formData.author}
-                  onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
-                  placeholder="作者名"
-                />
-              </div>
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">基本情報</h3>
             </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="title">タイトル *</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="シナリオタイトル"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="author">作者 *</Label>
+                  <Input
+                    id="author"
+                    value={formData.author}
+                    onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
+                    placeholder="作者名"
+                  />
+                </div>
+              </div>
 
-            <div>
-              <Label htmlFor="description">説明</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="シナリオの説明"
-                rows={3}
-              />
+              <div>
+                <Label htmlFor="description">説明</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="シナリオの説明"
+                  rows={3}
+                />
+              </div>
             </div>
           </div>
 
           {/* ゲーム設定 */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">ゲーム設定</h3>
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">ゲーム設定</h3>
+            </div>
             
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="duration">所要時間（分）</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  value={formData.duration}
-                  onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 0 }))}
-                  min="30"
-                  max="480"
-                />
+            <div className="space-y-6">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="duration">所要時間（分）</Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    value={formData.duration}
+                    onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 0 }))}
+                    min="30"
+                    max="480"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="player_count_min">最小人数</Label>
+                  <Input
+                    id="player_count_min"
+                    type="number"
+                    value={formData.player_count_min}
+                    onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseInt(e.target.value) || 1 }))}
+                    min="1"
+                    max="20"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="player_count_max">最大人数</Label>
+                  <Input
+                    id="player_count_max"
+                    type="number"
+                    value={formData.player_count_max}
+                    onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseInt(e.target.value) || 1 }))}
+                    min="1"
+                    max="20"
+                  />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="player_count_min">最小人数</Label>
-                <Input
-                  id="player_count_min"
-                  type="number"
-                  value={formData.player_count_min}
-                  onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseInt(e.target.value) || 1 }))}
-                  min="1"
-                  max="20"
-                />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="difficulty">難易度（1-5）</Label>
+                  <Input
+                    id="difficulty"
+                    type="number"
+                    value={formData.difficulty}
+                    onChange={(e) => setFormData(prev => ({ ...prev, difficulty: parseInt(e.target.value) || 1 }))}
+                    min="1"
+                    max="5"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="status">ステータス</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="player_count_max">最大人数</Label>
-                <Input
-                  id="player_count_max"
-                  type="number"
-                  value={formData.player_count_max}
-                  onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseInt(e.target.value) || 1 }))}
-                  min="1"
-                  max="20"
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="has_pre_reading"
+                  checked={formData.has_pre_reading}
+                  onChange={(e) => setFormData(prev => ({ ...prev, has_pre_reading: e.target.checked }))}
+                  className="h-4 w-4"
                 />
+                <Label htmlFor="has_pre_reading">事前読み込みあり</Label>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="difficulty">難易度（1-5）</Label>
-                <Input
-                  id="difficulty"
-                  type="number"
-                  value={formData.difficulty}
-                  onChange={(e) => setFormData(prev => ({ ...prev, difficulty: parseInt(e.target.value) || 1 }))}
-                  min="1"
-                  max="5"
+              {/* 参加費（項目別） */}
+              <div className="mt-6">
+                <ItemizedSettings
+                  title="参加費"
+                  subtitle="時間帯や曜日に応じて異なる参加費を設定できます"
+                  items={formData.participation_costs.map(cost => ({
+                    item: cost.time_slot,
+                    amount: cost.amount,
+                    type: cost.type,
+                    status: cost.status,
+                    usageCount: cost.usageCount,
+                    originalTimeSlot: cost.time_slot, // 元の時間帯値を保持
+                    startDate: cost.startDate, // 開始日を保持
+                    endDate: cost.endDate // 終了日を保持
+                  }))}
+                  conditionOptions={timeSlotOptions}
+                  showTypeSelector={true}
+                  showHideLegacyToggle={true}
+                  itemType="参加費"
+                  scenarioName={formData.title}
+                  getItemStatus={getItemStatus}
+                  validateNormalSetting={(items) => validateParticipationNormalSetting(items)}
+                  onItemsChange={(items) => setFormData(prev => ({ 
+                    ...prev, 
+                    participation_costs: items.map(item => ({
+                      time_slot: item.originalTimeSlot || item.item, // 元の時間帯値を使用
+                      amount: item.amount,
+                      type: item.type || 'fixed',
+                      status: item.status,
+                      usageCount: item.usageCount,
+                      startDate: item.startDate, // 開始日を保持
+                      endDate: item.endDate // 終了日を保持
+                    }))
+                  }))}
                 />
               </div>
-              <div>
-                <Label htmlFor="status">ステータス</Label>
-                <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              {/* ジャンル */}
+              <div className="mt-6">
+                <Label htmlFor="genre">ジャンル</Label>
+                <MultiSelect
+                  options={genreOptions}
+                  selectedValues={formData.genre}
+                  onSelectionChange={(value) => setFormData(prev => ({ ...prev, genre: value }))}
+                  placeholder="ジャンルを選択してください"
+                  showBadges={true}
+                />
               </div>
-            </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="has_pre_reading"
-                checked={formData.has_pre_reading}
-                onChange={(e) => setFormData(prev => ({ ...prev, has_pre_reading: e.target.checked }))}
-                className="h-4 w-4"
-              />
-              <Label htmlFor="has_pre_reading">事前読み込みあり</Label>
-            </div>
-
-            {/* 参加費（項目別） */}
-            <ItemizedSettings
-              title="参加費"
-              subtitle="時間帯や曜日に応じて異なる参加費を設定できます"
-              items={formData.participation_costs.map(cost => ({
-                item: cost.time_slot,
-                amount: cost.amount,
-                type: cost.type,
-                status: cost.status,
-                usageCount: cost.usageCount,
-                originalTimeSlot: cost.time_slot, // 元の時間帯値を保持
-                startDate: cost.startDate, // 開始日を保持
-                endDate: cost.endDate // 終了日を保持
-              }))}
-              conditionOptions={timeSlotOptions}
-              showTypeSelector={true}
-              showHideLegacyToggle={true}
-              itemType="参加費"
-              scenarioName={formData.title}
-              getItemStatus={getItemStatus}
-              validateNormalSetting={(items) => validateParticipationNormalSetting(items)}
-              onItemsChange={(items) => setFormData(prev => ({ 
-                ...prev, 
-                participation_costs: items.map(item => ({
-                  time_slot: item.originalTimeSlot || item.item, // 元の時間帯値を使用
-                  amount: item.amount,
-                  type: item.type || 'fixed',
-                  status: item.status,
-                  usageCount: item.usageCount,
-                  startDate: item.startDate, // 開始日を保持
-                  endDate: item.endDate // 終了日を保持
-                }))
-              }))}
-            />
-
-            {/* ジャンル */}
-            <div>
-              <Label htmlFor="genre">ジャンル</Label>
-              <MultiSelect
-                options={genreOptions}
-                selectedValues={formData.genre}
-                onSelectionChange={(value) => setFormData(prev => ({ ...prev, genre: value }))}
-                placeholder="ジャンルを選択してください"
-                showBadges={true}
-              />
-            </div>
-
-            {/* 担当GM */}
-            <div>
-              <Label htmlFor="available_gms">担当GM</Label>
-              <div className="text-sm text-muted-foreground mb-2">
-                担当開始時期は自動的に記録されます
-              </div>
+              {/* 担当GM */}
+              <div className="mt-6">
+                <Label htmlFor="available_gms">担当GM</Label>
+                <div className="text-sm text-muted-foreground mb-2">
+                  担当開始時期は自動的に記録されます
+                </div>
               {(() => {
                 // 通常のGMスタッフ
                 const activeGMs = staff.filter(s => s.role.includes('gm') && s.status === 'active')
@@ -1176,23 +1181,16 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 // selectedStaffIds（UUID）をスタッフ名に変換してMultiSelectに渡す
                 const selectedStaffNames = selectedStaffIds.map(staffId => {
                   const staffMember = staff.find(s => s.id === staffId)
-                  if (!staffMember) {
-                    console.warn('担当GMとして設定されているスタッフが見つかりません:', staffId)
-                  }
                   return staffMember?.name || staffId
                 }).filter(name => {
                   // 存在しないスタッフ名（UUID）を除外
                   const isValidStaff = staff.some(s => s.name === name)
                   if (!isValidStaff && name.length > 10) { // UUIDっぽい場合
-                    console.warn('存在しないスタッフ名を除外:', name)
                     return false
                   }
                   return true
                 })
                 
-                console.log('選択されたスタッフID:', selectedStaffIds)
-                console.log('変換後のスタッフ名:', selectedStaffNames)
-                console.log('利用可能なGM:', gmOptions.map(g => g.name))
                 
                 return (
                   <MultiSelect
@@ -1216,10 +1214,11 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           </div>
 
           {/* コスト */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">コスト</h3>
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">コスト</h3>
+            </div>
 
-            {/* 必要道具・制作費 */}
             <div className="space-y-6">
                 {/* GM報酬 */}
                 <ItemizedSettings
@@ -1258,7 +1257,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
                 {/* 必要道具 */}
                 <div className="space-y-4">
-                  <h4 className="font-medium">必要道具</h4>
+                  <h4 className="font-medium text-gray-800">必要道具</h4>
                   <div className="flex gap-2">
                     <Input
                       placeholder="道具名"
@@ -1342,7 +1341,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
                 {/* 制作費・購入費 */}
                 <div className="space-y-4">
-                  <h4 className="font-medium">制作費・購入費</h4>
+                  <h4 className="font-medium text-gray-800">制作費・購入費</h4>
                   <div className="flex gap-2">
                     <Input
                       placeholder="項目名"
@@ -1397,7 +1396,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 {formData.flexible_pricing?.pricing_modifiers && formData.flexible_pricing.pricing_modifiers.length > 0 && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium">料金修正ルール</h4>
+                      <h4 className="font-medium text-gray-800">料金修正ルール</h4>
                     </div>
                     
                     <div className="space-y-3">
@@ -1532,7 +1531,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
         </div>
 
-        <div className="flex justify-end space-x-2 pt-4">
+        <div className="flex justify-end space-x-2 pt-6 mt-6 border-t border-gray-200">
           <Button variant="outline" onClick={handleClose}>
             キャンセル
           </Button>
