@@ -96,6 +96,74 @@ export const scenarioApi = {
       .eq('id', id)
     
     if (error) throw error
+  },
+
+  // シナリオの担当GMを更新
+  async updateAvailableGms(id: string, availableGms: string[]): Promise<Scenario> {
+    const { data, error } = await supabase
+      .from('scenarios')
+      .update({ available_gms: availableGms })
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // シナリオの担当GMを更新（スタッフのspecial_scenariosも同期更新）
+  async updateAvailableGmsWithSync(id: string, availableGms: string[]): Promise<Scenario> {
+    // シナリオの担当GMを更新
+    const { data: updatedScenario, error: updateError } = await supabase
+      .from('scenarios')
+      .update({ available_gms: availableGms })
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (updateError) throw updateError
+
+    // 全スタッフを取得して、各スタッフのspecial_scenariosを更新
+    const { data: allStaff, error: staffError } = await supabase
+      .from('staff')
+      .select('id, name, special_scenarios')
+    
+    if (staffError) throw staffError
+
+    // 各スタッフのspecial_scenariosを更新
+    const updatePromises = allStaff?.map(async (staff) => {
+      const currentScenarios = staff.special_scenarios || []
+      const staffName = staff.name
+      
+      // このスタッフが担当GMに含まれているかチェック
+      const isAssigned = availableGms.includes(staffName)
+      const isCurrentlyAssigned = currentScenarios.includes(id)
+      
+      let newScenarios = [...currentScenarios]
+      
+      if (isAssigned && !isCurrentlyAssigned) {
+        // 担当GMに追加された場合、special_scenariosに追加
+        newScenarios.push(id)
+      } else if (!isAssigned && isCurrentlyAssigned) {
+        // 担当GMから削除された場合、special_scenariosから削除
+        newScenarios = newScenarios.filter(scenarioId => scenarioId !== id)
+      }
+      
+      // 変更がある場合のみ更新
+      if (JSON.stringify(newScenarios.sort()) !== JSON.stringify(currentScenarios.sort())) {
+        return supabase
+          .from('staff')
+          .update({ special_scenarios: newScenarios })
+          .eq('id', staff.id)
+      }
+      
+      return Promise.resolve()
+    }) || []
+
+    // 全てのスタッフ更新を実行
+    await Promise.all(updatePromises)
+
+    return updatedScenario
   }
 }
 
@@ -145,6 +213,71 @@ export const staffApi = {
       .eq('id', id)
     
     if (error) throw error
+  },
+
+  // スタッフの担当シナリオを更新（シナリオのavailable_gmsも同期更新）
+  async updateSpecialScenarios(id: string, specialScenarios: string[]): Promise<Staff> {
+    // スタッフ情報を取得
+    const { data: staffData, error: staffError } = await supabase
+      .from('staff')
+      .select('name')
+      .eq('id', id)
+      .single()
+    
+    if (staffError) throw staffError
+    if (!staffData) throw new Error('スタッフが見つかりません')
+
+    // スタッフの担当シナリオを更新
+    const { data: updatedStaff, error: updateError } = await supabase
+      .from('staff')
+      .update({ special_scenarios: specialScenarios })
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (updateError) throw updateError
+
+    // 全シナリオを取得して、各シナリオのavailable_gmsを更新
+    const { data: allScenarios, error: scenariosError } = await supabase
+      .from('scenarios')
+      .select('id, available_gms')
+    
+    if (scenariosError) throw scenariosError
+
+    // 各シナリオのavailable_gmsを更新
+    const updatePromises = allScenarios?.map(async (scenario) => {
+      const currentGms = scenario.available_gms || []
+      const staffName = staffData.name
+      
+      // このシナリオが担当シナリオに含まれているかチェック
+      const isAssigned = specialScenarios.includes(scenario.id)
+      const isCurrentlyAssigned = currentGms.includes(staffName)
+      
+      let newGms = [...currentGms]
+      
+      if (isAssigned && !isCurrentlyAssigned) {
+        // 担当シナリオに追加された場合、available_gmsに追加
+        newGms.push(staffName)
+      } else if (!isAssigned && isCurrentlyAssigned) {
+        // 担当シナリオから削除された場合、available_gmsから削除
+        newGms = newGms.filter(gm => gm !== staffName)
+      }
+      
+      // 変更がある場合のみ更新
+      if (JSON.stringify(newGms.sort()) !== JSON.stringify(currentGms.sort())) {
+        return supabase
+          .from('scenarios')
+          .update({ available_gms: newGms })
+          .eq('id', scenario.id)
+      }
+      
+      return Promise.resolve()
+    }) || []
+
+    // 全てのシナリオ更新を実行
+    await Promise.all(updatePromises)
+
+    return updatedStaff
   }
 }
 

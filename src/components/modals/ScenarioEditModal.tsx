@@ -11,7 +11,8 @@ import { ConditionalSettings, ConditionalSetting } from '@/components/ui/conditi
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { MigrationConfirmationDialog } from '@/components/ui/migration-confirmation-dialog'
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
-import type { Scenario, FlexiblePricing, PricingModifier } from '@/types'
+import type { Scenario, FlexiblePricing, PricingModifier, Staff } from '@/types'
+import { staffApi, scenarioApi } from '@/lib/api'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 
 // 全角数字を半角数字に変換
@@ -59,6 +60,7 @@ interface ScenarioFormData {
   has_pre_reading: boolean
   gm_count: number
   gm_assignments: { role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }[]
+  available_gms: string[] // 担当GMリスト
   // 時間帯別料金設定
   participation_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }[]
   // 柔軟な料金設定
@@ -104,6 +106,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     has_pre_reading: false,
     gm_count: 1,
     gm_assignments: [{ role: 'main', reward: 2000 }],
+    available_gms: [], // 担当GMリスト
     // 項目別料金設定
     participation_costs: [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
     use_flexible_pricing: false,
@@ -126,6 +129,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   const [newRequiredPropItem, setNewRequiredPropItem] = useState('')
   const [newRequiredPropAmount, setNewRequiredPropAmount] = useState(0)
   const [newRequiredPropFrequency, setNewRequiredPropFrequency] = useState<'recurring' | 'one-time'>('recurring')
+  
+  // スタッフデータ用のstate
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [loadingStaff, setLoadingStaff] = useState(false)
   
   // ライセンス報酬用
   const [newLicenseRewardItem, setNewLicenseRewardItem] = useState('通常')
@@ -631,6 +638,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   useEffect(() => {
     if (scenario) {
+      console.log('シナリオデータ:', scenario)
+      console.log('シナリオのavailable_gms:', scenario.available_gms)
+      console.log('シナリオの全プロパティ:', Object.keys(scenario))
       setFormData({
         title: scenario.title || '',
         author: scenario.author || '',
@@ -810,51 +820,99 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             total_max: 2,
             special_requirements: ''
           }
-        }
+        },
+        available_gms: scenario?.available_gms || []
       })
+      console.log('フォームデータ初期化後のavailable_gms:', scenario?.available_gms || [])
     }
   }, [scenario])
 
 
-
-  const handleSave = () => {
-    const totalProductionCost = formData.production_costs.reduce((sum, cost) => sum + cost.amount, 0)
-    
-    const updatedScenario: Scenario = {
-      id: scenario?.id || `new-${Date.now()}`,
-      title: formData.title,
-      author: formData.author,
-      description: formData.description,
-      duration: formData.duration,
-      player_count_min: formData.player_count_min,
-      player_count_max: formData.player_count_max,
-      difficulty: formData.difficulty,
-      rating: formData.rating,
-      status: formData.status as 'available' | 'maintenance' | 'retired',
-      participation_fee: formData.participation_fee,
-      participation_costs: formData.participation_costs,
-      production_cost: totalProductionCost,
-      // production_costs: formData.production_costs, // データベースに存在しないため一時的にコメントアウト
-      genre: formData.genre,
-      required_props: formData.required_props, // Keep as object array with frequency
-      license_rewards: formData.license_rewards, // ライセンス報酬を保存
-      has_pre_reading: formData.has_pre_reading,
-      gm_costs: formData.gm_assignments,
-      available_gms: scenario?.available_gms || [],
-      // 柔軟な料金設定を保存
-      flexible_pricing: formData.use_flexible_pricing ? formData.flexible_pricing : undefined,
-      play_count: scenario?.play_count || 0,
-      created_at: scenario?.created_at || formatDateJST(getCurrentJST()),
-      updated_at: formatDateJST(getCurrentJST())
+  // スタッフデータを取得
+  useEffect(() => {
+    const loadStaff = async () => {
+      try {
+        setLoadingStaff(true)
+        const staffData = await staffApi.getAll()
+        setStaff(staffData)
+      } catch (error) {
+        console.error('Error loading staff:', error)
+      } finally {
+        setLoadingStaff(false)
+      }
     }
 
-    // production_costsはローカルでのみ管理（データベースには保存しない）
-    if (formData.production_costs.length > 0) {
-      (updatedScenario as any).production_costs = formData.production_costs
+    if (isOpen) {
+      loadStaff()
     }
+  }, [isOpen])
 
-    onSave(updatedScenario)
-    onClose()
+  const handleSave = async () => {
+    try {
+      const totalProductionCost = formData.production_costs.reduce((sum, cost) => sum + cost.amount, 0)
+      
+      const updatedScenario: Scenario = {
+        id: scenario?.id || `new-${Date.now()}`,
+        title: formData.title,
+        author: formData.author,
+        description: formData.description,
+        duration: formData.duration,
+        player_count_min: formData.player_count_min,
+        player_count_max: formData.player_count_max,
+        difficulty: formData.difficulty,
+        rating: formData.rating,
+        status: formData.status as 'available' | 'maintenance' | 'retired',
+        participation_fee: formData.participation_fee,
+        participation_costs: formData.participation_costs,
+        production_cost: totalProductionCost,
+        // production_costs: formData.production_costs, // データベースに存在しないため一時的にコメントアウト
+        genre: formData.genre,
+        required_props: formData.required_props, // Keep as object array with frequency
+        license_rewards: formData.license_rewards, // ライセンス報酬を保存
+        has_pre_reading: formData.has_pre_reading,
+        gm_costs: formData.gm_assignments,
+        available_gms: formData.available_gms || [],
+        // 柔軟な料金設定を保存
+        flexible_pricing: formData.use_flexible_pricing ? formData.flexible_pricing : undefined,
+        play_count: scenario?.play_count || 0,
+        created_at: scenario?.created_at || formatDateJST(getCurrentJST()),
+        updated_at: formatDateJST(getCurrentJST())
+      }
+
+      // production_costsはローカルでのみ管理（データベースには保存しない）
+      if (formData.production_costs.length > 0) {
+        (updatedScenario as any).production_costs = formData.production_costs
+      }
+
+      // シナリオが既存の場合、担当GMの同期更新を実行
+      if (scenario?.id && updatedScenario.id) {
+        const originalGms = scenario.available_gms || []
+        const newGms = formData.available_gms || []
+        
+        // 担当GMが変更された場合、同期更新APIを使用
+        if (JSON.stringify(originalGms.sort()) !== JSON.stringify(newGms.sort())) {
+          try {
+            await scenarioApi.updateAvailableGmsWithSync(updatedScenario.id, newGms)
+          } catch (syncError) {
+            console.error('Error syncing GM assignments:', syncError)
+            // 同期エラーは警告として表示するが、メインの保存は続行
+            alert('シナリオは保存されましたが、担当GMの同期に失敗しました。手動で確認してください。')
+          }
+        }
+      }
+
+      // シナリオを保存
+      onSave(updatedScenario)
+      onClose()
+    } catch (error) {
+      console.error('Error saving scenario:', error)
+      console.error('Error details:', {
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        error: error
+      })
+      alert('シナリオの保存に失敗しました: ' + (error as Error).message || 'Unknown error')
+    }
   }
 
   const handleClose = () => {
@@ -1038,6 +1096,38 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 placeholder="ジャンルを選択してください"
                 showBadges={true}
               />
+            </div>
+
+            {/* 担当GM */}
+            <div>
+              <Label htmlFor="available_gms">担当GM</Label>
+              {(() => {
+                const gmOptions = staff
+                  .filter(s => s.role.includes('gm') && s.status === 'active')
+                  .map(staffMember => ({
+                    id: staffMember.name,
+                    name: staffMember.name,
+                    displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name}`
+                  }))
+                
+                // formData.available_gmsが更新されている場合はそれを優先、そうでなければシナリオのavailable_gmsを使用
+                const selectedGms = formData.available_gms?.length > 0 ? formData.available_gms : (scenario?.available_gms || [])
+                
+                console.log('担当GM選択肢:', gmOptions.length, '件')
+                console.log('現在の選択値:', selectedGms)
+                console.log('シナリオのavailable_gms:', scenario?.available_gms)
+                console.log('formData.available_gms:', formData.available_gms)
+                
+                return (
+                  <MultiSelect
+                    options={gmOptions}
+                    selectedValues={selectedGms}
+                    onSelectionChange={(values) => setFormData(prev => ({ ...prev, available_gms: values }))}
+                    placeholder="担当GMを選択してください"
+                    showBadges={true}
+                  />
+                )
+              })()}
             </div>
 
           </div>

@@ -122,12 +122,26 @@ export function StaffManagement() {
     try {
       if (staffData.id) {
         // 更新
-        await staffApi.update(staffData.id, staffData)
+        const originalStaff = staff.find(s => s.id === staffData.id)
+        const specialScenariosChanged = JSON.stringify(originalStaff?.special_scenarios?.sort()) !== JSON.stringify(staffData.special_scenarios?.sort())
+        
+        if (specialScenariosChanged) {
+          // 担当シナリオが変更された場合、同期更新APIを使用
+          await staffApi.updateSpecialScenarios(staffData.id, staffData.special_scenarios || [])
+        } else {
+          // 担当シナリオが変更されていない場合、通常の更新APIを使用
+          await staffApi.update(staffData.id, staffData)
+        }
         setStaff(prev => prev.map(s => s.id === staffData.id ? staffData : s))
       } else {
         // 新規作成
         const newStaff = await staffApi.create(staffData)
         setStaff(prev => [...prev, newStaff])
+        
+        // 新規作成時も担当シナリオがあれば同期更新
+        if (staffData.special_scenarios && staffData.special_scenarios.length > 0) {
+          await staffApi.updateSpecialScenarios(newStaff.id, staffData.special_scenarios)
+        }
       }
     } catch (err: any) {
       console.error('Error saving staff:', err)
@@ -139,6 +153,12 @@ export function StaffManagement() {
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false)
     setEditingStaff(null)
+  }
+
+  // シナリオIDをシナリオ名に変換する関数
+  const getScenarioName = (scenarioId: string) => {
+    const scenario = scenarios.find(s => s.id === scenarioId)
+    return scenario ? scenario.title : scenarioId
   }
 
   async function handleDeleteStaff(member: Staff) {
@@ -502,9 +522,9 @@ export function StaffManagement() {
                       <div className="flex flex-wrap gap-1">
                         {member.special_scenarios && member.special_scenarios.length > 0 ? (
                           <>
-                            {member.special_scenarios.slice(0, 3).map((scenario, index) => (
+                            {member.special_scenarios.slice(0, 3).map((scenarioId, index) => (
                               <Badge key={index} size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
-                                {scenario}
+                                {getScenarioName(scenarioId)}
                               </Badge>
                             ))}
                             {member.special_scenarios.length > 3 && (
