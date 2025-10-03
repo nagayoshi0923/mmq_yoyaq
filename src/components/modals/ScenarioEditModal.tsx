@@ -272,10 +272,15 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }
 
   const removeRequiredProp = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      required_props: prev.required_props.filter((_, i) => i !== index)
-    }))
+    console.log('削除前のrequired_props:', formData.required_props)
+    setFormData(prev => {
+      const newProps = prev.required_props.filter((prop, i) => i !== index && prop != null)
+      console.log('削除後のrequired_props:', newProps)
+      return {
+        ...prev,
+        required_props: newProps
+      }
+    })
   }
 
   // ライセンス報酬管理
@@ -1106,8 +1111,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name}`
                   }))
                 
-                // formData.available_gmsが更新されている場合はそれを優先、そうでなければシナリオのavailable_gmsを使用
-                const selectedGms = formData.available_gms?.length > 0 ? formData.available_gms : (scenario?.available_gms || [])
+                // formData.available_gmsが設定されている場合はそれを優先、そうでなければシナリオのavailable_gmsを使用
+                const selectedGms = formData.available_gms !== undefined ? formData.available_gms : (scenario?.available_gms || [])
                 
                 
                 return (
@@ -1230,17 +1235,17 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                   {/* 必要道具リスト */}
                   {formData.required_props.length > 0 && (
                     <div className="mt-2 space-y-2">
-                      {formData.required_props.map((prop, index) => (
+                      {formData.required_props.filter(prop => prop != null).map((prop, index) => (
                         <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                           <div className="flex items-center gap-2">
                             <span className="text-sm">
-                              {prop.item}: {formatCurrency(prop.amount)}
+                              {prop?.item || ''}: {formatCurrency(prop?.amount || 0)}
                             </span>
                             <Badge 
-                              variant={prop.frequency === 'recurring' ? 'default' : 'secondary'}
+                              variant={prop?.frequency === 'recurring' ? 'default' : 'secondary'}
                               className="text-xs"
                             >
-                              {prop.frequency === 'recurring' ? '毎回' : '1回のみ'}
+                              {prop?.frequency === 'recurring' ? '毎回' : '1回のみ'}
                             </Badge>
                           </div>
                           <Button
