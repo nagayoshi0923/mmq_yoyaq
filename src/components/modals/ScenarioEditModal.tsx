@@ -976,7 +976,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           {/* 基本情報 */}
           <div className="border border-gray-200 rounded-lg p-4">
             <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">基本情報</h3>
+              <h3 className="text-lg font-semibold text-blue-600">基本情報</h3>
             </div>
             
             <div className="space-y-4">
@@ -1017,7 +1017,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           {/* ゲーム設定 */}
           <div className="border border-gray-200 rounded-lg p-4">
             <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">ゲーム設定</h3>
+              <h3 className="text-lg font-semibold text-green-600">ゲーム設定</h3>
             </div>
             
             <div className="space-y-6">
@@ -1216,7 +1216,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           {/* コスト */}
           <div className="border border-gray-200 rounded-lg p-4">
             <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">コスト</h3>
+              <h3 className="text-lg font-semibold text-orange-600">コスト</h3>
             </div>
 
             <div className="space-y-6">
