@@ -105,7 +105,12 @@ export function StaffManagement() {
         })
       )
       
-      setStaff(staffWithScenarios)
+        console.log('📥 読み込んだスタッフデータ（最初の1件）:', staffWithScenarios[0] ? {
+          name: staffWithScenarios[0].name,
+          avatar_color: staffWithScenarios[0].avatar_color,
+          avatar_url: staffWithScenarios[0].avatar_url
+        } : 'データなし')
+        setStaff(staffWithScenarios)
     } catch (err: any) {
       console.error('Error loading staff:', err)
       setError('スタッフデータの読み込みに失敗しました: ' + err.message)
@@ -148,12 +153,13 @@ export function StaffManagement() {
         const originalStaff = staff.find(s => s.id === staffData.id)
         const specialScenariosChanged = JSON.stringify(originalStaff?.special_scenarios?.sort()) !== JSON.stringify(staffData.special_scenarios?.sort())
         
+        // まず基本情報を更新
+        console.log('💾 保存するスタッフデータ:', { id: staffData.id, avatar_color: staffData.avatar_color, name: staffData.name })
+        await staffApi.update(staffData.id, staffData)
+        
+        // 担当シナリオが変更された場合、リレーションテーブルも更新
         if (specialScenariosChanged) {
-          // 担当シナリオが変更された場合、リレーションテーブルを更新
           await assignmentApi.updateStaffAssignments(staffData.id, staffData.special_scenarios || [])
-        } else {
-          // 担当シナリオが変更されていない場合、通常の更新APIを使用
-          await staffApi.update(staffData.id, staffData)
         }
       } else {
         // 新規作成

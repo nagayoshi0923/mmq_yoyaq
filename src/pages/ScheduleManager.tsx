@@ -261,13 +261,11 @@ export function ScheduleManager() {
               const assignments = await assignmentApi.getStaffAssignments(staffMember.id)
               // シナリオIDの配列を抽出
               const scenarioIds = assignments.map((a: any) => a.scenario_id)
-              console.log(`✅ ${staffMember.name} の担当シナリオ:`, scenarioIds)
               return {
                 ...staffMember,
                 special_scenarios: scenarioIds
               }
             } catch (error) {
-              console.error(`スタッフ ${staffMember.name} の担当シナリオ取得エラー:`, error)
               return {
                 ...staffMember,
                 special_scenarios: []
@@ -317,10 +315,6 @@ export function ScheduleManager() {
       const key = `${date}-${timeSlot}`
       const availableStaff = shiftData[key] || []
       
-      console.log('🔍 GM計算:', { date, timeSlot, key, availableStaffCount: availableStaff.length, scenariosCount: scenarios.length })
-      console.log('👥 出勤可能スタッフ:', availableStaff.map(s => ({ name: s.name, special_scenarios: s.special_scenarios })))
-      console.log('📚 シナリオリスト:', scenarios.map(s => ({ id: s.id, title: s.title })))
-      
       // シナリオごとに、そのシナリオを担当できるGMをフィルタリング
       const staffByScenario: Record<string, Staff[]> = {}
       
@@ -330,27 +324,11 @@ export function ScheduleManager() {
           const specialScenarios = staffMember.special_scenarios || []
           const hasScenarioById = specialScenarios.includes(scenario.id)
           const hasScenarioByTitle = specialScenarios.includes(scenario.title)
-          const hasScenario = hasScenarioById || hasScenarioByTitle
-          
-          console.log(`🔎 チェック: ${staffMember.name} x ${scenario.title}`, {
-            special_scenarios: specialScenarios,
-            scenario_id: scenario.id,
-            scenario_title: scenario.title,
-            hasScenarioById,
-            hasScenarioByTitle,
-            result: hasScenario
-          })
-          
-          if (hasScenario) {
-            console.log('✅ GM発見:', staffMember.name, 'for', scenario.title)
-          }
-          return hasScenario
+          return hasScenarioById || hasScenarioByTitle
         })
         staffByScenario[scenario.title] = gmList
-        console.log('📋 シナリオ:', scenario.title, 'GM数:', gmList.length)
       }
       
-      console.log('📊 最終結果:', staffByScenario)
       setAvailableStaffByScenario(staffByScenario)
     }
     

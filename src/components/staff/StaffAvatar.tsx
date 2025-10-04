@@ -77,26 +77,42 @@ export function StaffAvatar({
   
   // avatarColorが設定されていればそれを使用、なければ名前から自動選択
   let bgColor: string
-  let textColor: string
+  let textColorClass: string
+  let textColorHex: string
   
   if (avatarColor) {
     // カスタム色が設定されている場合
     bgColor = avatarColor
-    // 明るい背景色なので濃いめのテキスト色を使用
-    textColor = 'text-gray-700'
+    // 各背景色に対応する文字色を設定
+    const colorMap: Record<string, string> = {
+      '#EFF6FF': '#2563EB', // blue
+      '#F0FDF4': '#16A34A', // green
+      '#FFFBEB': '#D97706', // amber
+      '#FEF2F2': '#DC2626', // red
+      '#F5F3FF': '#7C3AED', // violet
+      '#FDF2F8': '#DB2777', // pink
+      '#ECFEFF': '#0891B2', // cyan
+      '#F7FEE7': '#65A30D', // lime
+    }
+    textColorHex = colorMap[avatarColor] || '#374151' // デフォルトはgray-700
+    textColorClass = ''
   } else {
     // カスタム色がない場合は名前から自動選択
     const colorIndex = getColorIndexFromName(name)
     bgColor = defaultColors[colorIndex]
-    textColor = textColors[colorIndex]
+    textColorClass = textColors[colorIndex]
+    textColorHex = ''
   }
   
   return (
     <Avatar className={`${sizeClasses[size]} ${className || ''}`}>
       {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
       <AvatarFallback 
-        style={{ backgroundColor: bgColor }}
-        className={`${textColor} font-semibold !bg-transparent`}
+        style={{ 
+          backgroundColor: bgColor,
+          ...(textColorHex ? { color: textColorHex } : {})
+        }}
+        className={`${textColorClass} font-semibold`}
       >
         {initials}
       </AvatarFallback>

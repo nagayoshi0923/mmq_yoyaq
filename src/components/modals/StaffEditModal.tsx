@@ -186,32 +186,55 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
 
           {/* アバター色選択 */}
           <div>
-            <Label htmlFor="avatar_color">アバター背景色</Label>
-            <div className="flex items-center gap-3">
-              <Input
-                id="avatar_color"
-                type="color"
-                value={formData.avatar_color || '#EFF6FF'}
-                onChange={(e) => setFormData(prev => ({ ...prev, avatar_color: e.target.value }))}
-                className="w-20 h-10 cursor-pointer"
-              />
-              <span className="text-sm text-muted-foreground">
-                {formData.avatar_color || '未設定（自動選択）'}
-              </span>
-              {formData.avatar_color && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFormData(prev => ({ ...prev, avatar_color: undefined }))}
-                  className="text-xs"
+            <Label>アバター色</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {[
+                { bg: '#EFF6FF', text: '#2563EB', name: '青' },
+                { bg: '#F0FDF4', text: '#16A34A', name: '緑' },
+                { bg: '#FFFBEB', text: '#D97706', name: '黄' },
+                { bg: '#FEF2F2', text: '#DC2626', name: '赤' },
+                { bg: '#F5F3FF', text: '#7C3AED', name: '紫' },
+                { bg: '#FDF2F8', text: '#DB2777', name: 'ピンク' }
+              ].map((color) => (
+                <Badge
+                  key={color.bg}
+                  variant="outline"
+                  className={`cursor-pointer px-3 py-1.5 font-normal transition-all border ${
+                    formData.avatar_color === color.bg 
+                      ? 'ring-2 ring-offset-2' 
+                      : 'hover:scale-105'
+                  }`}
+                  style={{
+                    backgroundColor: color.bg,
+                    color: color.text,
+                    borderColor: color.text + '40'
+                  }}
+                  onClick={() => setFormData(prev => ({ ...prev, avatar_color: color.bg }))}
                 >
-                  リセット
-                </Button>
-              )}
+                  {color.name}
+                </Badge>
+              ))}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setFormData(prev => ({ ...prev, avatar_color: undefined }))}
+                className="text-xs h-auto py-1.5"
+              >
+                自動選択に戻す
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              未設定の場合は名前から自動的に色が選択されます
+            <p className="text-xs text-muted-foreground mt-2">
+              {formData.avatar_color 
+                ? `選択中: ${[
+                    { bg: '#EFF6FF', name: '青' },
+                    { bg: '#F0FDF4', name: '緑' },
+                    { bg: '#FFFBEB', name: '黄' },
+                    { bg: '#FEF2F2', name: '赤' },
+                    { bg: '#F5F3FF', name: '紫' },
+                    { bg: '#FDF2F8', name: 'ピンク' }
+                  ].find(c => c.bg === formData.avatar_color)?.name || ''}` 
+                : '未設定（名前から自動選択）'}
             </p>
           </div>
 
