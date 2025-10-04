@@ -289,8 +289,6 @@ export const scheduleApi = {
     const lastDay = new Date(year, month, 0).getDate() // monthは1-12なので、翌月の0日目=当月末日
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     
-    console.log('getByMonth 期間計算:', { year, month, startDate, endDate, lastDay })
-    
     const { data, error } = await supabase
       .from('schedule_events')
       .select(`

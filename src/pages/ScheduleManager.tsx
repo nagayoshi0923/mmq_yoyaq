@@ -11,6 +11,7 @@ import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { memoApi, scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
+import { assignmentApi } from '@/lib/assignmentApi'
 import { shiftApi } from '@/lib/shiftApi'
 import { supabase } from '@/lib/supabase'
 import type { Staff } from '@/types'
@@ -59,6 +60,15 @@ export function ScheduleManager() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [shiftData, setShiftData] = useState<Record<string, Array<Staff & { timeSlot: string }>>>({})
+  const [availableStaffByScenario, setAvailableStaffByScenario] = useState<Record<string, Staff[]>>({})
+  
+  // 店舗・シナリオ・スタッフのデータ
+  const [stores, setStores] = useState<any[]>([])
+  const [storesLoading, setStoresLoading] = useState(true)
+  const [scenarios, setScenarios] = useState<any[]>([])
+  const [scenariosLoading, setScenariosLoading] = useState(true)
+  const [staff, setStaff] = useState<any[]>([])
+  const [staffLoading, setStaffLoading] = useState(true)
 
   // Supabaseからデータを読み込む
   useEffect(() => {
@@ -132,10 +142,13 @@ export function ScheduleManager() {
     loadEvents()
   }, [currentDate])
 
-  // シフトデータを読み込む
+  // シフトデータを読み込む（staffデータの後に実行）
   useEffect(() => {
     const loadShiftData = async () => {
       try {
+        // staffが読み込まれるまで待つ
+        if (!staff || staff.length === 0) return
+        
         const year = currentDate.getFullYear()
         const month = currentDate.getMonth() + 1
         
@@ -146,8 +159,12 @@ export function ScheduleManager() {
         const shiftMap: Record<string, Array<Staff & { timeSlot: string }>> = {}
         
         for (const shift of shifts) {
-          const staff = (shift as any).staff
-          if (!staff) continue
+          const shiftStaff = (shift as any).staff
+          if (!shiftStaff) continue
+          
+          // staffステートから完全なスタッフデータ（special_scenariosを含む）を取得
+          const fullStaffData = staff.find(s => s.id === shiftStaff.id)
+          if (!fullStaffData) continue
           
           const dateKey = shift.date
           
@@ -155,19 +172,19 @@ export function ScheduleManager() {
           if (shift.morning || shift.all_day) {
             const key = `${dateKey}-morning`
             if (!shiftMap[key]) shiftMap[key] = []
-            shiftMap[key].push({ ...staff, timeSlot: 'morning' })
+            shiftMap[key].push({ ...fullStaffData, timeSlot: 'morning' })
           }
           
           if (shift.afternoon || shift.all_day) {
             const key = `${dateKey}-afternoon`
             if (!shiftMap[key]) shiftMap[key] = []
-            shiftMap[key].push({ ...staff, timeSlot: 'afternoon' })
+            shiftMap[key].push({ ...fullStaffData, timeSlot: 'afternoon' })
           }
           
           if (shift.evening || shift.all_day) {
             const key = `${dateKey}-evening`
             if (!shiftMap[key]) shiftMap[key] = []
-            shiftMap[key].push({ ...staff, timeSlot: 'evening' })
+            shiftMap[key].push({ ...fullStaffData, timeSlot: 'evening' })
           }
         }
         
@@ -178,7 +195,7 @@ export function ScheduleManager() {
     }
     
     loadShiftData()
-  }, [currentDate])
+  }, [currentDate, staff])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -195,17 +212,6 @@ export function ScheduleManager() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  // 店舗一覧の状態管理
-  const [stores, setStores] = useState<any[]>([])
-  const [storesLoading, setStoresLoading] = useState(true)
-  
-  // シナリオ一覧の状態管理
-  const [scenarios, setScenarios] = useState<any[]>([])
-  const [scenariosLoading, setScenariosLoading] = useState(true)
-  
-  // スタッフ一覧の状態管理
-  const [staff, setStaff] = useState<any[]>([])
-  const [staffLoading, setStaffLoading] = useState(true)
 
   // 店舗データを読み込む
   useEffect(() => {
@@ -247,7 +253,30 @@ export function ScheduleManager() {
       try {
         setStaffLoading(true)
         const staffData = await staffApi.getAll()
-        setStaff(staffData)
+        
+        // 各スタッフの担当シナリオをassignmentApiから取得
+        const staffWithScenarios = await Promise.all(
+          staffData.map(async (staffMember) => {
+            try {
+              const assignments = await assignmentApi.getStaffAssignments(staffMember.id)
+              // シナリオIDの配列を抽出
+              const scenarioIds = assignments.map((a: any) => a.scenario_id)
+              console.log(`✅ ${staffMember.name} の担当シナリオ:`, scenarioIds)
+              return {
+                ...staffMember,
+                special_scenarios: scenarioIds
+              }
+            } catch (error) {
+              console.error(`スタッフ ${staffMember.name} の担当シナリオ取得エラー:`, error)
+              return {
+                ...staffMember,
+                special_scenarios: []
+              }
+            }
+          })
+        )
+        
+        setStaff(staffWithScenarios)
       } catch (err) {
         console.error('スタッフデータの読み込みエラー:', err)
       } finally {
@@ -257,6 +286,76 @@ export function ScheduleManager() {
     
     loadStaff()
   }, [])
+
+  // シナリオごとの出勤可能GMを計算
+  useEffect(() => {
+    const calculateAvailableGMs = async () => {
+      if (!isPerformanceModalOpen || !scenarios.length) return
+      
+      // 日付とタイムスロットの取得
+      let date: string
+      let timeSlot: string
+      
+      if (modalInitialData) {
+        date = modalInitialData.date
+        timeSlot = modalInitialData.timeSlot
+      } else if (editingEvent) {
+        date = editingEvent.date
+        // 開始時刻からタイムスロットを判定
+        const startHour = parseInt(editingEvent.start_time.split(':')[0])
+        if (startHour < 12) {
+          timeSlot = 'morning'
+        } else if (startHour < 17) {
+          timeSlot = 'afternoon'
+        } else {
+          timeSlot = 'evening'
+        }
+      } else {
+        return
+      }
+      
+      const key = `${date}-${timeSlot}`
+      const availableStaff = shiftData[key] || []
+      
+      console.log('🔍 GM計算:', { date, timeSlot, key, availableStaffCount: availableStaff.length, scenariosCount: scenarios.length })
+      console.log('👥 出勤可能スタッフ:', availableStaff.map(s => ({ name: s.name, special_scenarios: s.special_scenarios })))
+      console.log('📚 シナリオリスト:', scenarios.map(s => ({ id: s.id, title: s.title })))
+      
+      // シナリオごとに、そのシナリオを担当できるGMをフィルタリング
+      const staffByScenario: Record<string, Staff[]> = {}
+      
+      for (const scenario of scenarios) {
+        const gmList = availableStaff.filter(staffMember => {
+          // 担当シナリオに含まれているかチェック
+          const specialScenarios = staffMember.special_scenarios || []
+          const hasScenarioById = specialScenarios.includes(scenario.id)
+          const hasScenarioByTitle = specialScenarios.includes(scenario.title)
+          const hasScenario = hasScenarioById || hasScenarioByTitle
+          
+          console.log(`🔎 チェック: ${staffMember.name} x ${scenario.title}`, {
+            special_scenarios: specialScenarios,
+            scenario_id: scenario.id,
+            scenario_title: scenario.title,
+            hasScenarioById,
+            hasScenarioByTitle,
+            result: hasScenario
+          })
+          
+          if (hasScenario) {
+            console.log('✅ GM発見:', staffMember.name, 'for', scenario.title)
+          }
+          return hasScenario
+        })
+        staffByScenario[scenario.title] = gmList
+        console.log('📋 シナリオ:', scenario.title, 'GM数:', gmList.length)
+      }
+      
+      console.log('📊 最終結果:', staffByScenario)
+      setAvailableStaffByScenario(staffByScenario)
+    }
+    
+    calculateAvailableGMs()
+  }, [isPerformanceModalOpen, modalInitialData, editingEvent, shiftData, scenarios])
 
   // 初期データ読み込み（月が変わった時も実行）
   useEffect(() => {
@@ -778,6 +877,7 @@ export function ScheduleManager() {
             stores={stores}
             scenarios={scenarios}
             staff={staff}
+            availableStaffByScenario={availableStaffByScenario}
           />
 
           {/* 削除確認ダイアログ */}

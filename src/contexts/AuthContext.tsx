@@ -66,8 +66,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // メールアドレスに基づいてロールを決定（開発用）
       let role: 'admin' | 'staff' | 'customer' = 'customer'
       
-      console.log('🔍 ロール判定中:', supabaseUser.email)
-      
       // 開発者・管理者のメールアドレスリスト
       const adminEmails = [
         'mai.nagayoshi@gmail.com',
@@ -82,12 +80,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
         role = 'admin'
-        console.log('✅ 管理者権限を設定')
       } else if (staffEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('staff')) {
         role = 'staff'
-        console.log('✅ スタッフ権限を設定')
-      } else {
-        console.log('ℹ️ 顧客権限を設定（デフォルト）')
       }
 
       setUser({
@@ -95,8 +89,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: supabaseUser.email!,
         role: role
       })
-      
-      console.log('👤 最終ユーザー情報:', { email: supabaseUser.email, role })
 
       // TODO: 将来的には実際のSupabaseテーブルからロール情報を取得
       // const { data: profile } = await supabase

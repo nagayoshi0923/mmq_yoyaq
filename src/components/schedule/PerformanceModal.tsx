@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { X } from 'lucide-react'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
+import { StaffAvatar } from '@/components/staff/StaffAvatar'
+import type { Staff as StaffType } from '@/types'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -65,6 +67,7 @@ interface PerformanceModalProps {
   stores: Store[]
   scenarios: Scenario[]
   staff: Staff[]
+  availableStaffByScenario?: Record<string, StaffType[]>  // シナリオごとの出勤可能GM
 }
 
 // 30分間隔の時間オプションを生成
@@ -90,7 +93,8 @@ export function PerformanceModal({
   initialData,
   stores,
   scenarios,
-  staff
+  staff,
+  availableStaffByScenario = {}
 }: PerformanceModalProps) {
   const [formData, setFormData] = useState<any>({
     id: '',
@@ -362,16 +366,36 @@ export function PerformanceModal({
                 <SelectValue placeholder="シナリオを選択" />
               </SelectTrigger>
               <SelectContent>
-                {scenarios.map(scenario => (
-                  <SelectItem key={scenario.id} value={scenario.title}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{scenario.title}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        {scenario.duration}分 / {scenario.player_count_min}-{scenario.player_count_max}人
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {scenarios.map(scenario => {
+                  const availableGMs = availableStaffByScenario[scenario.title] || []
+                  return (
+                    <SelectItem key={scenario.id} value={scenario.title}>
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <div className="flex items-center gap-2 flex-1">
+                          <span>{scenario.title}</span>
+                          {/* 出勤可能GMのアバター表示 */}
+                          {availableGMs.length > 0 && (
+                            <div className="flex gap-0.5">
+                              {availableGMs.map((gm) => (
+                                <StaffAvatar
+                                  key={gm.id}
+                                  name={gm.name}
+                                  avatarUrl={gm.avatar_url}
+                                  avatarColor={gm.avatar_color}
+                                  size="sm"
+                                  className="h-[16px] w-[16px] text-[7px]"
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {scenario.duration}分 / {scenario.player_count_min}-{scenario.player_count_max}人
+                        </span>
+                      </div>
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
           </div>
