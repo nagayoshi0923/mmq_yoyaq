@@ -1,7 +1,7 @@
 import { TableCell } from '@/components/ui/table'
 import { PerformanceCard } from './PerformanceCard'
 import { EmptySlot } from './EmptySlot'
-import { StaffAvatar } from '@/components/staff/StaffAvatar'
+import { Badge } from '@/components/ui/badge'
 import type { Staff } from '@/types'
 
 // スケジュールイベントの型定義
@@ -84,20 +84,55 @@ export function TimeSlotCell({
             />
           </div>
           
-          {/* 3行目: 出勤可能スタッフのアバター表示 (10px) */}
+          {/* 3行目: 出勤可能スタッフのバッジ表示 (10px) */}
           {availableStaff.length > 0 ? (
             <div className="flex flex-wrap gap-0.5 justify-end items-end p-1">
-              {availableStaff.map((staff) => (
-                <div key={staff.id} title={staff.name}>
-                  <StaffAvatar
-                    name={staff.name}
-                    avatarUrl={staff.avatar_url}
-                    avatarColor={staff.avatar_color}
-                    size="sm"
-                    className="h-[18px] w-[18px] text-[8px]"
-                  />
-                </div>
-              ))}
+              {availableStaff.map((staff) => {
+                // 背景色と文字色を計算
+                const defaultColors = [
+                  '#EFF6FF', '#F0FDF4', '#FFFBEB', '#FEF2F2',
+                  '#F5F3FF', '#FDF2F8', '#ECFEFF', '#F7FEE7'
+                ]
+                const textColors = [
+                  '#2563EB', '#16A34A', '#D97706', '#DC2626',
+                  '#7C3AED', '#DB2777', '#0891B2', '#65A30D'
+                ]
+                
+                let bgColor: string
+                let textColorHex: string
+                
+                if (staff.avatar_color) {
+                  bgColor = staff.avatar_color
+                  const colorMap: Record<string, string> = {
+                    '#EFF6FF': '#2563EB', '#F0FDF4': '#16A34A',
+                    '#FFFBEB': '#D97706', '#FEF2F2': '#DC2626',
+                    '#F5F3FF': '#7C3AED', '#FDF2F8': '#DB2777',
+                    '#ECFEFF': '#0891B2', '#F7FEE7': '#65A30D',
+                  }
+                  textColorHex = colorMap[staff.avatar_color] || '#374151'
+                } else {
+                  const hash = staff.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+                  const colorIndex = hash % defaultColors.length
+                  bgColor = defaultColors[colorIndex]
+                  textColorHex = textColors[colorIndex]
+                }
+                
+                return (
+                  <Badge
+                    key={staff.id}
+                    variant="outline"
+                    title={staff.name}
+                    style={{
+                      backgroundColor: bgColor,
+                      color: textColorHex,
+                      borderColor: textColorHex + '40'
+                    }}
+                    className="text-[8px] px-1 py-0 h-4 font-normal border"
+                  >
+                    {staff.name.slice(0, 2)}
+                  </Badge>
+                )
+              })}
             </div>
           ) : (
             <div className="p-1"></div>
