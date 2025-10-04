@@ -82,10 +82,14 @@ export function PerformanceCard({
           )}
           
           {/* 予約者数バッジ */}
-          {reservationCount > 0 && !event.is_cancelled && (
-            <Badge size="sm" className={`font-normal ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'}`}>
+          {!event.is_cancelled && (
+            <Badge size="sm" className={`font-normal ${
+              reservationCount >= maxCapacity 
+                ? 'bg-red-100 text-red-800' 
+                : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
+            }`}>
               <Users className="w-3 h-3 mr-1" />
-              {reservationCount}
+              {reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}
             </Badge>
           )}
           

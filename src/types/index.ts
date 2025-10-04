@@ -252,3 +252,94 @@ export interface SalesData {
     averageRevenue: number
   }>
 }
+
+// 顧客関連の型定義
+export interface Customer {
+  id: string
+  user_id?: string | null
+  name: string
+  email?: string | null
+  email_verified?: boolean
+  phone?: string | null
+  line_id?: string | null
+  notes?: string | null
+  visit_count: number
+  total_spent: number
+  last_visit?: string | null
+  preferences?: string[]
+  created_at: string
+  updated_at: string
+}
+
+// 予約関連の型定義
+export interface Reservation {
+  id: string
+  reservation_number: string
+  reservation_page_id?: string | null
+  title: string
+  scenario_id?: string | null
+  store_id?: string | null
+  customer_id?: string | null
+  schedule_event_id?: string | null // 新規追加
+  requested_datetime: string
+  actual_datetime?: string | null
+  duration: number
+  participant_count: number
+  participant_names?: string[]
+  assigned_staff?: string[]
+  gm_staff?: string | null
+  base_price: number
+  options_price: number
+  total_price: number
+  discount_amount: number
+  final_price: number
+  payment_status: 'pending' | 'paid' | 'refunded' | 'cancelled'
+  payment_method?: string | null
+  payment_datetime?: string | null
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
+  customer_notes?: string | null
+  staff_notes?: string | null
+  special_requests?: string | null
+  cancellation_reason?: string | null
+  cancelled_at?: string | null
+  external_reservation_id?: string | null
+  reservation_source: 'web' | 'phone' | 'walk_in' | 'external'
+  created_at: string
+  updated_at: string
+}
+
+// 予約サマリー（ビューから取得）
+export interface ReservationSummary {
+  schedule_event_id: string
+  date: string
+  venue: string
+  scenario: string
+  start_time: string
+  end_time: string
+  max_participants?: number | null
+  current_reservations: number
+  available_seats: number
+  reservation_count: number
+}
+
+// スケジュールイベントに予約関連フィールドを追加
+export interface ScheduleEventWithReservations {
+  id: string
+  date: string
+  venue: string
+  scenario: string
+  gms: string[]
+  start_time: string
+  end_time: string
+  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite'
+  status: string
+  participant_count?: number
+  max_participants?: number // 新規追加
+  reservation_deadline_hours?: number // 新規追加
+  is_reservation_enabled?: boolean // 新規追加
+  reservation_notes?: string // 新規追加
+  current_reservations?: number // 計算値
+  available_seats?: number // 計算値
+  notes?: string
+  is_cancelled: boolean
+}
