@@ -31,27 +31,39 @@ const getInitials = (name: string): string => {
   }
 }
 
-// デフォルトカラーパレット
+// 淡い8色パレット（背景色用）
 const defaultColors = [
-  '#3B82F6', // blue-500
-  '#10B981', // green-500
-  '#F59E0B', // amber-500
-  '#EF4444', // red-500
-  '#8B5CF6', // violet-500
-  '#EC4899', // pink-500
-  '#06B6D4', // cyan-500
-  '#84CC16', // lime-500
+  '#EFF6FF', // blue-50 - 薄青
+  '#F0FDF4', // green-50 - 薄緑
+  '#FFFBEB', // amber-50 - 薄黄
+  '#FEF2F2', // red-50 - 薄赤
+  '#F5F3FF', // violet-50 - 薄紫
+  '#FDF2F8', // pink-50 - 薄ピンク
+  '#ECFEFF', // cyan-50 - 薄シアン
+  '#F7FEE7', // lime-50 - 薄ライム
 ]
 
-// 名前からカラーを決定
-const getColorFromName = (name: string): string => {
-  if (!name) return defaultColors[0]
+// 各背景色に対応する文字色
+const textColors = [
+  'text-blue-600',   // blue用
+  'text-green-600',  // green用
+  'text-amber-600',  // amber用
+  'text-red-600',    // red用
+  'text-violet-600', // violet用
+  'text-pink-600',   // pink用
+  'text-cyan-600',   // cyan用
+  'text-lime-600',   // lime用
+]
+
+// 名前からカラーインデックスを決定
+const getColorIndexFromName = (name: string): number => {
+  if (!name) return 0
   
   // 名前の文字コードの合計を計算
   const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
   
   // ハッシュ値をカラーパレットのインデックスに変換
-  return defaultColors[hash % defaultColors.length]
+  return hash % defaultColors.length
 }
 
 export function StaffAvatar({ 
@@ -62,14 +74,18 @@ export function StaffAvatar({
   className 
 }: StaffAvatarProps) {
   const initials = getInitials(name)
-  const bgColor = avatarColor || getColorFromName(name)
+  
+  // 名前から色を自動選択（淡い色パレットを常に使用）
+  const colorIndex = getColorIndexFromName(name)
+  const bgColor = defaultColors[colorIndex]  // avatarColorを無視して常にパレットから選択
+  const textColor = textColors[colorIndex]
   
   return (
     <Avatar className={`${sizeClasses[size]} ${className || ''}`}>
       {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
       <AvatarFallback 
         style={{ backgroundColor: bgColor }}
-        className="text-white font-semibold"
+        className={`${textColor} font-semibold`}
       >
         {initials}
       </AvatarFallback>
