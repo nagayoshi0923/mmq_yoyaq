@@ -405,9 +405,9 @@ export function PerformanceModal({
                               const unavailableGMs = allGMsForScenario.filter(gm => !availableStaffIds.has(gm.id))
                               const sortedGMs = [...availableGMs, ...unavailableGMs]
                               
-                              // 最大10人まで表示
-                              const displayGMs = sortedGMs.slice(0, 10)
-                              const remainingCount = sortedGMs.length - 10
+                              // 最大8人まで表示
+                              const displayGMs = sortedGMs.slice(0, 8)
+                              const remainingCount = sortedGMs.length - 8
                               
                               // アバターと同じ色を計算
                               const defaultColors = [
@@ -448,7 +448,7 @@ export function PerformanceModal({
                                       variant="outline"
                                       className="text-[10px] px-1.5 py-0 h-5 font-normal bg-gray-100 text-gray-500 border-gray-200"
                                     >
-                                      他{remainingCount}人
+                                      +{remainingCount}
                                     </Badge>
                                   )}
                                 </>
