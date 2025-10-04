@@ -1,7 +1,7 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, Ban, Plus, AlertTriangle, Trash2 } from 'lucide-react'
+import { Users, Ban, Plus, AlertTriangle, Trash2, Globe, Check } from 'lucide-react'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -17,6 +17,7 @@ interface ScheduleEvent {
   participant_count?: number
   max_participants?: number
   notes?: string
+  is_reservation_enabled?: boolean
 }
 
 interface PerformanceCardProps {
@@ -34,6 +35,7 @@ interface PerformanceCardProps {
   onEdit?: (event: ScheduleEvent) => void
   onDelete?: (event: ScheduleEvent) => void
   onClick?: (event: ScheduleEvent) => void
+  onToggleReservation?: (event: ScheduleEvent) => void
 }
 
 export function PerformanceCard({
@@ -44,7 +46,8 @@ export function PerformanceCard({
   onUncancel,
   onEdit,
   onDelete,
-  onClick
+  onClick,
+  onToggleReservation
 }: PerformanceCardProps) {
   const reservationCount = event.participant_count || 0
   const maxCapacity = event.max_participants || 8
@@ -55,6 +58,9 @@ export function PerformanceCard({
   
   // バッジのテキストカラーを取得（例: 'bg-blue-100 text-blue-800' から 'text-blue-800' を抽出）
   const badgeTextColor = categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor.split(' ').find(cls => cls.startsWith('text-')) || 'text-gray-800'
+  
+  // ボーダー色を取得（テキスト色から対応するボーダー色を生成）
+  const borderColorClass = badgeTextColor.replace('text-', 'ring-')
 
   return (
     <div
@@ -126,44 +132,61 @@ export function PerformanceCard({
 
       {/* アクションボタン群（右下） */}
       <div className="absolute bottom-0.5 right-0.5 flex gap-0.5">
+        {/* 予約サイト公開チェックボックス */}
+        <button
+          className={`h-5 w-5 rounded flex items-center justify-center transition-all ring-1 ring-inset ${
+            event.is_reservation_enabled 
+              ? 'ring-green-500' 
+              : borderColorClass
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleReservation?.(event);
+          }}
+          title={event.is_reservation_enabled ? '予約サイトに公開中（クリックで非公開）' : '予約サイトに非公開（クリックで公開）'}
+        >
+          {event.is_reservation_enabled ? (
+            <Check className={`w-3 h-3 stroke-[3] ${badgeTextColor}`} />
+          ) : (
+            <Globe className={`w-3 h-3 ${badgeTextColor}`} />
+          )}
+        </button>
+        
         {/* 削除ボタン */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className={`h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600 ${badgeTextColor}`}
+        <button
+          className={`h-5 w-5 rounded flex items-center justify-center ring-1 ring-inset ${borderColorClass} transition-all`}
           onClick={(e) => {
             e.stopPropagation();
             onDelete?.(event);
           }}
+          title="公演を削除"
         >
           <Trash2 className={`w-3 h-3 ${badgeTextColor}`} />
-        </Button>
+        </button>
         
         {/* キャンセル/復活ボタン */}
         {!event.is_cancelled ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`h-6 w-6 p-0 hover:bg-orange-100 hover:text-orange-600 ${badgeTextColor}`}
+          <button
+            className={`h-5 w-5 rounded flex items-center justify-center ring-1 ring-inset ${borderColorClass} transition-all`}
             onClick={(e) => {
               e.stopPropagation();
               onCancelConfirm?.(event);
             }}
+            title="公演を中止"
           >
             <Ban className={`w-3 h-3 ${badgeTextColor}`} />
-          </Button>
+          </button>
         ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`h-6 w-6 p-0 hover:bg-green-100 hover:text-green-600 ${badgeTextColor}`}
+          <button
+            className={`h-5 w-5 rounded flex items-center justify-center ring-1 ring-inset ${borderColorClass} transition-all`}
             onClick={(e) => {
               e.stopPropagation();
               onUncancel?.(event);
             }}
+            title="公演を復活"
           >
             <Plus className={`w-3 h-3 ${badgeTextColor}`} />
-          </Button>
+          </button>
         )}
       </div>
     </div>

@@ -18,6 +18,7 @@ interface ScheduleEvent {
   participant_count?: number
   max_participants?: number
   notes?: string
+  is_reservation_enabled?: boolean
 }
 
 interface TimeSlotCellProps {
@@ -39,6 +40,7 @@ interface TimeSlotCellProps {
   onEdit?: (event: ScheduleEvent) => void
   onDelete?: (event: ScheduleEvent) => void
   onAddPerformance?: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => void
+  onToggleReservation?: (event: ScheduleEvent) => void
 }
 
 export function TimeSlotCell({
@@ -53,7 +55,8 @@ export function TimeSlotCell({
   onUncancel,
   onEdit,
   onDelete,
-  onAddPerformance
+  onAddPerformance,
+  onToggleReservation
 }: TimeSlotCellProps) {
   return (
     <TableCell className="schedule-table-cell p-1 border-r border-gray-200">
@@ -68,6 +71,7 @@ export function TimeSlotCell({
           onEdit={onEdit}
           onDelete={onDelete}
           onClick={onEdit}
+          onToggleReservation={onToggleReservation}
         />
       ) : (
         <div className="grid grid-rows-[10px_10px_10px] gap-0 h-full">

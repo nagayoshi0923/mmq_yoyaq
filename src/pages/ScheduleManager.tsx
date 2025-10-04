@@ -35,6 +35,7 @@ interface ScheduleEvent {
   is_cancelled: boolean
   participant_count?: number
   max_participants?: number
+  is_reservation_enabled?: boolean
 }
 
 
@@ -95,7 +96,8 @@ export function ScheduleManager() {
           is_cancelled: event.is_cancelled || false,
           participant_count: event.current_participants || 0,
           max_participants: event.capacity || 8,
-          notes: event.notes || ''
+          notes: event.notes || '',
+          is_reservation_enabled: event.is_reservation_enabled || false
         }))
         
         
@@ -654,6 +656,26 @@ export function ScheduleManager() {
     handleCancelPerformance(event) // キャンセル解除処理
   }
 
+  // 予約サイト公開/非公開トグル
+  const handleToggleReservation = async (event: ScheduleEvent) => {
+    try {
+      const newStatus = !event.is_reservation_enabled
+      
+      // Supabaseで更新
+      await scheduleApi.update(event.id, {
+        is_reservation_enabled: newStatus
+      })
+
+      // ローカル状態を更新
+      setEvents(prev => prev.map(e => 
+        e.id === event.id ? { ...e, is_reservation_enabled: newStatus } : e
+      ))
+    } catch (error) {
+      console.error('予約サイト公開状態の更新エラー:', error)
+      alert('予約サイト公開状態の更新に失敗しました')
+    }
+  }
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -793,6 +815,7 @@ export function ScheduleManager() {
                           onEdit={handleEditPerformance}
                           onDelete={handleDeletePerformance}
                           onAddPerformance={handleAddPerformance}
+                          onToggleReservation={handleToggleReservation}
                         />
                         
                         {/* 午後セル */}
@@ -809,6 +832,7 @@ export function ScheduleManager() {
                           onEdit={handleEditPerformance}
                           onDelete={handleDeletePerformance}
                           onAddPerformance={handleAddPerformance}
+                          onToggleReservation={handleToggleReservation}
                         />
                         
                         {/* 夜間セル */}
@@ -823,6 +847,7 @@ export function ScheduleManager() {
                           onCancelConfirm={handleCancelConfirmPerformance}
                           onUncancel={handleUncancelPerformance}
                           onEdit={handleEditPerformance}
+                          onToggleReservation={handleToggleReservation}
                           onDelete={handleDeletePerformance}
                           onAddPerformance={handleAddPerformance}
                         />

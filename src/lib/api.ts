@@ -357,6 +357,7 @@ export const scheduleApi = {
     gms: string[]
     notes: string
     is_cancelled: boolean
+    is_reservation_enabled: boolean
   }>) {
     const { data, error } = await supabase
       .from('schedule_events')
