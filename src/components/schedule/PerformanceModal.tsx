@@ -250,32 +250,9 @@ export function PerformanceModal({
             </div>
             <div>
               <Label htmlFor="venue">店舗</Label>
-              {mode === 'edit' ? (
-                <div className="flex items-center gap-2">
-                  <Badge className={getStoreColor(formData.venue)}>
-                    {getStoreName(formData.venue)}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">(変更不可)</span>
-                </div>
-              ) : (
-                <Select value={formData.venue} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, venue: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="店舗を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stores.map(store => (
-                      <SelectItem key={store.id} value={store.id}>
-                        <div className="flex items-center gap-2">
-                          <Badge className={getStoreColor(store.id)} size="sm">
-                            {store.short_name}
-                          </Badge>
-                          {store.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Badge className={getStoreColor(formData.venue)}>
+                {getStoreName(formData.venue)}
+              </Badge>
             </div>
           </div>
 
