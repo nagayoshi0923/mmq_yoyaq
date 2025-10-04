@@ -58,7 +58,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     stores: [],
     status: 'active',
     special_scenarios: [],
-    notes: ''
+    notes: '',
+    avatar_color: undefined
   })
 
   // スタッフデータが変更されたときにフォームを初期化
@@ -80,7 +81,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         stores: [],
         status: 'active',
         special_scenarios: [],
-        notes: ''
+        notes: '',
+        avatar_color: undefined
       })
     }
   }, [staff])
@@ -106,6 +108,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       ng_days: [], // 削除された項目はデフォルト値
       special_scenarios: formData.special_scenarios!,
       notes: formData.notes || '',
+      avatar_color: formData.avatar_color || null,
       created_at: staff?.created_at || formatDateJST(getCurrentJST()),
       updated_at: formatDateJST(getCurrentJST())
     }
@@ -179,6 +182,37 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
               onChange={(e) => setFormData(prev => ({ ...prev, x_account: e.target.value }))}
               placeholder="@tanaka_gm"
             />
+          </div>
+
+          {/* アバター色選択 */}
+          <div>
+            <Label htmlFor="avatar_color">アバター背景色</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                id="avatar_color"
+                type="color"
+                value={formData.avatar_color || '#EFF6FF'}
+                onChange={(e) => setFormData(prev => ({ ...prev, avatar_color: e.target.value }))}
+                className="w-20 h-10 cursor-pointer"
+              />
+              <span className="text-sm text-muted-foreground">
+                {formData.avatar_color || '未設定（自動選択）'}
+              </span>
+              {formData.avatar_color && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFormData(prev => ({ ...prev, avatar_color: undefined }))}
+                  className="text-xs"
+                >
+                  リセット
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              未設定の場合は名前から自動的に色が選択されます
+            </p>
           </div>
 
           {/* 役割・ステータス */}

@@ -75,17 +75,28 @@ export function StaffAvatar({
 }: StaffAvatarProps) {
   const initials = getInitials(name)
   
-  // 名前から色を自動選択（淡い色パレットを常に使用）
-  const colorIndex = getColorIndexFromName(name)
-  const bgColor = defaultColors[colorIndex]  // avatarColorを無視して常にパレットから選択
-  const textColor = textColors[colorIndex]
+  // avatarColorが設定されていればそれを使用、なければ名前から自動選択
+  let bgColor: string
+  let textColor: string
+  
+  if (avatarColor) {
+    // カスタム色が設定されている場合
+    bgColor = avatarColor
+    // 明るい背景色なので濃いめのテキスト色を使用
+    textColor = 'text-gray-700'
+  } else {
+    // カスタム色がない場合は名前から自動選択
+    const colorIndex = getColorIndexFromName(name)
+    bgColor = defaultColors[colorIndex]
+    textColor = textColors[colorIndex]
+  }
   
   return (
     <Avatar className={`${sizeClasses[size]} ${className || ''}`}>
       {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
       <AvatarFallback 
         style={{ backgroundColor: bgColor }}
-        className={`${textColor} font-semibold`}
+        className={`${textColor} font-semibold !bg-transparent`}
       >
         {initials}
       </AvatarFallback>

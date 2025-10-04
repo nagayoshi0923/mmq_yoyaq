@@ -423,10 +423,20 @@ export function PerformanceModal({
                                 <>
                                   {displayGMs.map((gm) => {
                                     const isAvailable = availableStaffIds.has(gm.id)
-                                    const hash = gm.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-                                    const colorIndex = hash % defaultColors.length
-                                    const bgColor = defaultColors[colorIndex]
-                                    const textColor = textColors[colorIndex]
+                                    
+                                    // avatarColorが設定されていればそれを使用、なければ名前から自動選択
+                                    let bgColor: string
+                                    let textColorHex: string
+                                    
+                                    if (gm.avatar_color) {
+                                      bgColor = gm.avatar_color
+                                      textColorHex = '#374151' // gray-700
+                                    } else {
+                                      const hash = gm.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+                                      const colorIndex = hash % defaultColors.length
+                                      bgColor = defaultColors[colorIndex]
+                                      textColorHex = textColors[colorIndex]
+                                    }
                                     
                                     return (
                                       <Badge 
@@ -434,8 +444,8 @@ export function PerformanceModal({
                                         variant="outline"
                                         style={isAvailable ? { 
                                           backgroundColor: bgColor, 
-                                          color: textColor,
-                                          borderColor: textColor + '40' // 25% opacity
+                                          color: textColorHex,
+                                          borderColor: textColorHex + '40' // 25% opacity
                                         } : undefined}
                                         className={`text-[10px] px-1.5 py-0 h-5 font-normal ${!isAvailable ? 'bg-gray-100 text-gray-400 border-gray-200' : 'border'}`}
                                       >
