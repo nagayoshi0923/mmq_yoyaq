@@ -132,12 +132,14 @@ export function PerformanceCard({
 
       {/* アクションボタン群（右下） */}
       <div className="absolute bottom-0.5 right-0.5 flex gap-0.5">
-        {/* 予約サイト公開チェックボックス */}
-        <button
-          className={`h-5 w-5 rounded flex items-center justify-center transition-all ring-1 ring-inset ${
+        {/* 予約サイト公開バッジ */}
+        <Badge
+          variant="outline"
+          size="sm"
+          className={`h-5 px-1.5 py-0 font-normal cursor-pointer transition-all ${
             event.is_reservation_enabled 
-              ? 'ring-green-500' 
-              : borderColorClass
+              ? 'bg-green-100 text-green-800 border-green-500' 
+              : 'bg-gray-100 text-gray-600 border-gray-400'
           }`}
           onClick={(e) => {
             e.stopPropagation();
@@ -145,12 +147,8 @@ export function PerformanceCard({
           }}
           title={event.is_reservation_enabled ? '予約サイトに公開中（クリックで非公開）' : '予約サイトに非公開（クリックで公開）'}
         >
-          {event.is_reservation_enabled ? (
-            <Check className={`w-3 h-3 stroke-[3] ${badgeTextColor}`} />
-          ) : (
-            <Globe className={`w-3 h-3 ${badgeTextColor}`} />
-          )}
-        </button>
+          {event.is_reservation_enabled ? '公開中' : '公開前'}
+        </Badge>
         
         {/* 削除ボタン */}
         <button
