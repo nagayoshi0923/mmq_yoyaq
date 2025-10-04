@@ -418,8 +418,7 @@ export function PerformanceModal({
                 .filter(s => s.role.includes('gm') && s.status === 'active')
                 .map(staffMember => ({
                   id: staffMember.id,
-                  name: staffMember.name,
-                  displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name}`
+                  name: staffMember.name
                 }))}
               selectedValues={formData.gms}
               onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
