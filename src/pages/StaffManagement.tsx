@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
+import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import { staffApi, storeApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import type { Staff, Store } from '@/types'
@@ -487,6 +488,12 @@ export function StaffManagement() {
                     {/* 基本情報 */}
                     <div className="flex-shrink-0 w-40 px-3 py-2 border-r">
                       <div className="flex items-center gap-2">
+                        <StaffAvatar
+                          name={member.name}
+                          avatarUrl={member.avatar_url}
+                          avatarColor={member.avatar_color}
+                          size="sm"
+                        />
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-sm truncate leading-tight">{member.name}</h3>
                         </div>
