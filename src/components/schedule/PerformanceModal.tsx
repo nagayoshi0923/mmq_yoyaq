@@ -430,7 +430,18 @@ export function PerformanceModal({
                                     
                                     if (gm.avatar_color) {
                                       bgColor = gm.avatar_color
-                                      textColorHex = '#374151' // gray-700
+                                      // 各背景色に対応する文字色を設定
+                                      const colorMap: Record<string, string> = {
+                                        '#EFF6FF': '#2563EB', // blue
+                                        '#F0FDF4': '#16A34A', // green
+                                        '#FFFBEB': '#D97706', // amber
+                                        '#FEF2F2': '#DC2626', // red
+                                        '#F5F3FF': '#7C3AED', // violet
+                                        '#FDF2F8': '#DB2777', // pink
+                                        '#ECFEFF': '#0891B2', // cyan
+                                        '#F7FEE7': '#65A30D', // lime
+                                      }
+                                      textColorHex = colorMap[gm.avatar_color] || '#374151' // デフォルトはgray-700
                                     } else {
                                       const hash = gm.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
                                       const colorIndex = hash % defaultColors.length
