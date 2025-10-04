@@ -371,6 +371,15 @@ export function PerformanceModal({
                   const hours = scenario.duration / 60
                   const displayHours = hours % 1 === 0 ? hours.toFixed(1) : hours.toFixed(1)
                   
+                  // このシナリオを担当できる全スタッフ（GM役割 + このシナリオのspecial_scenarios含む）
+                  const allGMsForScenario = staff.filter(s => 
+                    s.role.includes('gm') && 
+                    (s.special_scenarios?.includes(scenario.id) || s.special_scenarios?.includes(scenario.title))
+                  )
+                  
+                  // 出勤可能なスタッフのIDセット
+                  const availableStaffIds = new Set(availableGMs.map(gm => gm.id))
+                  
                   return (
                     <SelectItem key={scenario.id} value={scenario.title}>
                       <div className="flex items-center gap-3 w-full">
@@ -387,19 +396,23 @@ export function PerformanceModal({
                           {scenario.player_count_min}-{scenario.player_count_max}人
                         </span>
                         
-                        {/* 出勤可能GMのアバター表示 */}
-                        {availableGMs.length > 0 && (
+                        {/* 全担当GMのアバター表示（出勤可能=カラー、不可=灰色） */}
+                        {allGMsForScenario.length > 0 && (
                           <div className="flex gap-0.5">
-                            {availableGMs.map((gm) => (
-                              <StaffAvatar
-                                key={gm.id}
-                                name={gm.name}
-                                avatarUrl={gm.avatar_url}
-                                avatarColor={gm.avatar_color}
-                                size="sm"
-                                className="h-[16px] w-[16px] text-[7px]"
-                              />
-                            ))}
+                            {allGMsForScenario.map((gm) => {
+                              const isAvailable = availableStaffIds.has(gm.id)
+                              return (
+                                <div key={gm.id} className={!isAvailable ? 'opacity-30 grayscale' : ''}>
+                                  <StaffAvatar
+                                    name={gm.name}
+                                    avatarUrl={gm.avatar_url}
+                                    avatarColor={gm.avatar_color}
+                                    size="sm"
+                                    className="h-[16px] w-[16px] text-[7px]"
+                                  />
+                                </div>
+                              )
+                            })}
                           </div>
                         )}
                       </div>
