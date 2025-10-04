@@ -11,7 +11,9 @@ import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { memoApi, scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
+import { shiftApi } from '@/lib/shiftApi'
 import { supabase } from '@/lib/supabase'
+import type { Staff } from '@/types'
 import { 
   ChevronLeft,
   ChevronRight
@@ -56,6 +58,7 @@ export function ScheduleManager() {
   const [events, setEvents] = useState<ScheduleEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [shiftData, setShiftData] = useState<Record<string, Array<Staff & { timeSlot: string }>>>({})
 
   // Supabaseからデータを読み込む
   useEffect(() => {
@@ -127,6 +130,54 @@ export function ScheduleManager() {
     }
 
     loadEvents()
+  }, [currentDate])
+
+  // シフトデータを読み込む
+  useEffect(() => {
+    const loadShiftData = async () => {
+      try {
+        const year = currentDate.getFullYear()
+        const month = currentDate.getMonth() + 1
+        
+        // 全スタッフのシフトを取得
+        const shifts = await shiftApi.getAllStaffShifts(year, month)
+        
+        // 日付とタイムスロットごとにスタッフを整理
+        const shiftMap: Record<string, Array<Staff & { timeSlot: string }>> = {}
+        
+        for (const shift of shifts) {
+          const staff = (shift as any).staff
+          if (!staff) continue
+          
+          const dateKey = shift.date
+          
+          // 各タイムスロットをチェック
+          if (shift.morning || shift.all_day) {
+            const key = `${dateKey}-morning`
+            if (!shiftMap[key]) shiftMap[key] = []
+            shiftMap[key].push({ ...staff, timeSlot: 'morning' })
+          }
+          
+          if (shift.afternoon || shift.all_day) {
+            const key = `${dateKey}-afternoon`
+            if (!shiftMap[key]) shiftMap[key] = []
+            shiftMap[key].push({ ...staff, timeSlot: 'afternoon' })
+          }
+          
+          if (shift.evening || shift.all_day) {
+            const key = `${dateKey}-evening`
+            if (!shiftMap[key]) shiftMap[key] = []
+            shiftMap[key].push({ ...staff, timeSlot: 'evening' })
+          }
+        }
+        
+        setShiftData(shiftMap)
+      } catch (error) {
+        console.error('Error loading shift data:', error)
+      }
+    }
+    
+    loadShiftData()
   }, [currentDate])
 
   // ハッシュ変更でページ切り替え
@@ -657,6 +708,7 @@ export function ScheduleManager() {
                           date={day.date}
                           venue={store.id}
                           timeSlot="morning"
+                          availableStaff={shiftData[`${day.date}-morning`] || []}
                           categoryConfig={categoryConfig}
                           getReservationBadgeClass={getReservationBadgeClass}
                           onCancelConfirm={handleCancelConfirmPerformance}
@@ -672,6 +724,7 @@ export function ScheduleManager() {
                           date={day.date}
                           venue={store.id}
                           timeSlot="afternoon"
+                          availableStaff={shiftData[`${day.date}-afternoon`] || []}
                           categoryConfig={categoryConfig}
                           getReservationBadgeClass={getReservationBadgeClass}
                           onCancelConfirm={handleCancelConfirmPerformance}
@@ -687,6 +740,7 @@ export function ScheduleManager() {
                           date={day.date}
                           venue={store.id}
                           timeSlot="evening"
+                          availableStaff={shiftData[`${day.date}-evening`] || []}
                           categoryConfig={categoryConfig}
                           getReservationBadgeClass={getReservationBadgeClass}
                           onCancelConfirm={handleCancelConfirmPerformance}

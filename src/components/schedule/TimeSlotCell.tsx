@@ -1,7 +1,8 @@
-import React from 'react'
 import { TableCell } from '@/components/ui/table'
 import { PerformanceCard } from './PerformanceCard'
 import { EmptySlot } from './EmptySlot'
+import { StaffAvatar } from '@/components/staff/StaffAvatar'
+import type { Staff } from '@/types'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -24,6 +25,7 @@ interface TimeSlotCellProps {
   date: string
   venue: string
   timeSlot: 'morning' | 'afternoon' | 'evening'
+  availableStaff?: Array<Staff & { timeSlot: string }>
   categoryConfig: {
     [key: string]: {
       label: string
@@ -44,6 +46,7 @@ export function TimeSlotCell({
   date,
   venue,
   timeSlot,
+  availableStaff = [],
   categoryConfig,
   getReservationBadgeClass,
   onCancelConfirm,
@@ -54,25 +57,44 @@ export function TimeSlotCell({
 }: TimeSlotCellProps) {
   return (
     <TableCell className="schedule-table-cell p-0.5 border-r border-gray-200">
-      {events.length > 0 ? (
-        <PerformanceCard
-          event={events[0]}
-          categoryConfig={categoryConfig}
-          getReservationBadgeClass={getReservationBadgeClass}
-          onCancelConfirm={onCancelConfirm}
-          onUncancel={onUncancel}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onClick={onEdit}
-        />
-      ) : (
-        <EmptySlot
-          date={date}
-          venue={venue}
-          timeSlot={timeSlot}
-          onAddPerformance={onAddPerformance}
-        />
-      )}
+      <div className="flex flex-col gap-1">
+        {events.length > 0 ? (
+          <PerformanceCard
+            event={events[0]}
+            categoryConfig={categoryConfig}
+            getReservationBadgeClass={getReservationBadgeClass}
+            onCancelConfirm={onCancelConfirm}
+            onUncancel={onUncancel}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onClick={onEdit}
+          />
+        ) : (
+          <EmptySlot
+            date={date}
+            venue={venue}
+            timeSlot={timeSlot}
+            onAddPerformance={onAddPerformance}
+          />
+        )}
+        
+        {/* 出勤可能スタッフのアバター表示 */}
+        {availableStaff.length > 0 && (
+          <div className="flex flex-wrap gap-1 p-1 bg-gray-50 rounded">
+            {availableStaff.map((staff) => (
+              <div key={staff.id} title={staff.name}>
+                <StaffAvatar
+                  name={staff.name}
+                  avatarUrl={staff.avatar_url}
+                  avatarColor={staff.avatar_color}
+                  size="sm"
+                  className="h-[50px] w-[50px]"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </TableCell>
   )
 }

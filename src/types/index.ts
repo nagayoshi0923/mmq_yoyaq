@@ -31,6 +31,7 @@ export interface Staff {
   notes?: string
   phone?: string
   email?: string
+  user_id?: string | null
   availability: string[]
   experience: number
   special_scenarios: string[]
