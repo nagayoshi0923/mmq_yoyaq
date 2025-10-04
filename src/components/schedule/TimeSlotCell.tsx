@@ -56,45 +56,54 @@ export function TimeSlotCell({
   onAddPerformance
 }: TimeSlotCellProps) {
   return (
-    <TableCell className="schedule-table-cell p-0.5 border-r border-gray-200">
-      <div className="flex flex-col gap-1">
-        {events.length > 0 ? (
-          <PerformanceCard
-            event={events[0]}
-            categoryConfig={categoryConfig}
-            getReservationBadgeClass={getReservationBadgeClass}
-            onCancelConfirm={onCancelConfirm}
-            onUncancel={onUncancel}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onClick={onEdit}
-          />
-        ) : (
-          <EmptySlot
-            date={date}
-            venue={venue}
-            timeSlot={timeSlot}
-            onAddPerformance={onAddPerformance}
-          />
-        )}
-        
-        {/* 出勤可能スタッフのアバター表示 */}
-        {availableStaff.length > 0 && (
-          <div className="flex flex-wrap gap-1 p-1 bg-gray-50 rounded">
-            {availableStaff.map((staff) => (
-              <div key={staff.id} title={staff.name}>
-                <StaffAvatar
-                  name={staff.name}
-                  avatarUrl={staff.avatar_url}
-                  avatarColor={staff.avatar_color}
-                  size="sm"
-                  className="h-[50px] w-[50px]"
-                />
-              </div>
-            ))}
+    <TableCell className="schedule-table-cell p-1 border-r border-gray-200">
+      {events.length > 0 ? (
+        // 公演ありの場合: アバター非表示
+        <PerformanceCard
+          event={events[0]}
+          categoryConfig={categoryConfig}
+          getReservationBadgeClass={getReservationBadgeClass}
+          onCancelConfirm={onCancelConfirm}
+          onUncancel={onUncancel}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onClick={onEdit}
+        />
+      ) : (
+        <div className="grid grid-rows-[10px_10px_10px] gap-0 h-full">
+          {/* 1行目: 空スペース (10px) */}
+          <div className="p-1"></div>
+          
+          {/* 2行目: 公演追加ボタン (10px) */}
+          <div className="flex items-center justify-center p-1">
+            <EmptySlot
+              date={date}
+              venue={venue}
+              timeSlot={timeSlot}
+              onAddPerformance={onAddPerformance}
+            />
           </div>
-        )}
-      </div>
+          
+          {/* 3行目: 出勤可能スタッフのアバター表示 (10px) */}
+          {availableStaff.length > 0 ? (
+            <div className="flex flex-wrap gap-0.5 justify-end items-end p-1">
+              {availableStaff.map((staff) => (
+                <div key={staff.id} title={staff.name}>
+                  <StaffAvatar
+                    name={staff.name}
+                    avatarUrl={staff.avatar_url}
+                    avatarColor={staff.avatar_color}
+                    size="sm"
+                    className="h-[18px] w-[18px] text-[8px]"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-1"></div>
+          )}
+        </div>
+      )}
     </TableCell>
   )
 }
