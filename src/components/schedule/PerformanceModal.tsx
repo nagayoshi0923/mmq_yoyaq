@@ -396,23 +396,64 @@ export function PerformanceModal({
                           {scenario.player_count_min}-{scenario.player_count_max}人
                         </span>
                         
-                        {/* 全担当GMのアバター表示（出勤可能=カラー、不可=灰色） */}
+                        {/* 全担当GMのバッジ表示（出勤可能=カラー、不可=灰色） */}
                         {allGMsForScenario.length > 0 && (
-                          <div className="flex gap-0.5">
-                            {allGMsForScenario.map((gm) => {
-                              const isAvailable = availableStaffIds.has(gm.id)
+                          <div className="flex gap-1 flex-wrap">
+                            {(() => {
+                              // 出勤可能なGMを左に、不可を右に並べる
+                              const availableGMs = allGMsForScenario.filter(gm => availableStaffIds.has(gm.id))
+                              const unavailableGMs = allGMsForScenario.filter(gm => !availableStaffIds.has(gm.id))
+                              const sortedGMs = [...availableGMs, ...unavailableGMs]
+                              
+                              // 最大10人まで表示
+                              const displayGMs = sortedGMs.slice(0, 10)
+                              const remainingCount = sortedGMs.length - 10
+                              
+                              // アバターと同じ色を計算
+                              const defaultColors = [
+                                '#EFF6FF', '#F0FDF4', '#FFFBEB', '#FEF2F2',
+                                '#F5F3FF', '#FDF2F8', '#ECFEFF', '#F7FEE7'
+                              ]
+                              const textColors = [
+                                '#2563EB', '#16A34A', '#D97706', '#DC2626',
+                                '#7C3AED', '#DB2777', '#0891B2', '#65A30D'
+                              ]
+                              
                               return (
-                                <div key={gm.id} className={!isAvailable ? 'opacity-30 grayscale' : ''}>
-                                  <StaffAvatar
-                                    name={gm.name}
-                                    avatarUrl={gm.avatar_url}
-                                    avatarColor={gm.avatar_color}
-                                    size="sm"
-                                    className="h-[16px] w-[16px] text-[7px]"
-                                  />
-                                </div>
+                                <>
+                                  {displayGMs.map((gm) => {
+                                    const isAvailable = availableStaffIds.has(gm.id)
+                                    const hash = gm.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+                                    const colorIndex = hash % defaultColors.length
+                                    const bgColor = defaultColors[colorIndex]
+                                    const textColor = textColors[colorIndex]
+                                    
+                                    return (
+                                      <Badge 
+                                        key={gm.id} 
+                                        variant="outline"
+                                        style={isAvailable ? { 
+                                          backgroundColor: bgColor, 
+                                          color: textColor,
+                                          borderColor: textColor + '40' // 25% opacity
+                                        } : undefined}
+                                        className={`text-[10px] px-1.5 py-0 h-5 font-normal ${!isAvailable ? 'bg-gray-100 text-gray-400 border-gray-200' : 'border'}`}
+                                      >
+                                        {gm.name.slice(0, 3)}
+                                      </Badge>
+                                    )
+                                  })}
+                                  {remainingCount > 0 && (
+                                    <Badge 
+                                      variant="outline"
+                                      className="text-[10px] px-1.5 py-0 h-5 font-normal bg-gray-100 text-gray-500 border-gray-200"
+                                    >
+                                      他{remainingCount}人
+                                    </Badge>
+                                  )}
+                                </>
                               )
-                            })}
+                            })()}
                           </div>
                         )}
                       </div>
