@@ -111,8 +111,47 @@ export interface Scenario {
   notes?: string
   has_pre_reading: boolean
   release_date?: string
+  // 顧客向け予約サイト用の追加フィールド
+  key_visual_url?: string // キービジュアル画像URL
+  synopsis?: string // あらすじ（description より詳細）
+  official_site_url?: string // 公式サイトURL
   created_at: string
   updated_at: string
+}
+
+// 顧客向け公演情報（予約サイト用）
+export interface PublicScenarioEvent {
+  id: string
+  scenario_id: string
+  scenario_title: string
+  scenario_description?: string
+  synopsis?: string
+  key_visual_url?: string
+  author: string
+  genre: string[]
+  duration: number
+  player_count_min: number
+  player_count_max: number
+  difficulty: number
+  rating?: number
+  has_pre_reading: boolean
+  official_site_url?: string
+  // 公演情報
+  events: Array<{
+    event_id: string
+    date: string
+    start_time: string
+    end_time: string
+    store_name: string
+    store_short_name: string
+    store_color?: string
+    store_address?: string
+    max_participants: number
+    current_participants: number
+    available_seats: number
+    participation_fee: number
+    reservation_deadline_hours: number
+  }>
 }
 
 // スケジュール関連の型定義

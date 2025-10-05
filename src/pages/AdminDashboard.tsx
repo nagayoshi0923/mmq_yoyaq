@@ -8,7 +8,8 @@ import { ScheduleManager } from './ScheduleManager'
 import SalesManagement from './SalesManagement'
 import { ShiftSubmission } from './ShiftSubmission'
 import { ReservationManagement } from './ReservationManagement'
-import { CustomerBookingPage } from './CustomerBookingPage'
+import { PublicBookingTop } from './PublicBookingTop'
+import { ScenarioDetailPage } from './ScenarioDetailPage'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -38,18 +39,48 @@ export function AdminDashboard() {
     
     return hash || 'dashboard'
   })
+  
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(() => {
+    // URLハッシュからシナリオIDを取得（例: #customer-booking/scenario/abc123）
+    const hash = window.location.hash.slice(1)
+    const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/]+)/)
+    return scenarioMatch ? scenarioMatch[1] : null
+  })
 
   // ページ変更時にURLのハッシュを更新
   const handlePageChange = (pageId: string) => {
     setCurrentPage(pageId)
+    setSelectedScenarioId(null) // ページ変更時はシナリオ選択をクリア
     window.location.hash = pageId === 'dashboard' ? '' : pageId
+  }
+
+  // シナリオ選択時のハンドラー
+  const handleScenarioSelect = (scenarioId: string) => {
+    setSelectedScenarioId(scenarioId)
+    window.location.hash = `customer-booking/scenario/${scenarioId}`
+  }
+
+  // シナリオ詳細を閉じる
+  const handleScenarioClose = () => {
+    setSelectedScenarioId(null)
+    window.location.hash = 'customer-booking'
   }
 
   // ブラウザの戻る/進むボタンに対応
   React.useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
-      setCurrentPage(hash || 'dashboard')
+      
+      // シナリオ詳細ページの場合
+      const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/]+)/)
+      if (scenarioMatch) {
+        setCurrentPage('customer-booking')
+        setSelectedScenarioId(scenarioMatch[1])
+      } else {
+        // 通常のページ遷移
+        setCurrentPage(hash || 'dashboard')
+        setSelectedScenarioId(null)
+      }
     }
 
     window.addEventListener('hashchange', handleHashChange)
@@ -105,7 +136,17 @@ export function AdminDashboard() {
   }
   
   if (currentPage === 'customer-booking') {
-    return <CustomerBookingPage />
+    // シナリオ詳細が選択されている場合
+    if (selectedScenarioId) {
+      return (
+        <ScenarioDetailPage 
+          scenarioId={selectedScenarioId}
+          onClose={handleScenarioClose}
+        />
+      )
+    }
+    // トップページを表示
+    return <PublicBookingTop onScenarioSelect={handleScenarioSelect} />
   }
   
   if (currentPage === 'reservations') {
