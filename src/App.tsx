@@ -24,23 +24,9 @@ function AppContent() {
   }
 
   // ロールに応じてルーティング
-  switch (user.role) {
-    case 'admin':
-      return <AdminDashboard />
-    case 'staff':
-      return <AdminDashboard /> // 現在は管理者と同じ画面（後で分離）
-    case 'customer':
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="text-center space-y-4">
-            <h1>顧客向けページ</h1>
-            <p className="text-muted-foreground">顧客向け機能は今後実装予定です</p>
-          </div>
-        </div>
-      )
-    default:
-      return <LoginForm />
-  }
+  // ログインしていない、またはcustomerロールの場合は、
+  // AdminDashboard内で自動的に予約サイトが表示される
+  return <AdminDashboard />
 }
 
 function App() {

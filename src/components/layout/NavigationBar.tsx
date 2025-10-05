@@ -1,5 +1,6 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/contexts/AuthContext'
 import { 
   Store, 
   Calendar, 
@@ -18,19 +19,28 @@ interface NavigationBarProps {
 }
 
 export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps) {
-  const navigationTabs = [
-    { id: 'stores', label: '店舗', icon: Store },
-    { id: 'schedule', label: 'スケジュール', icon: Calendar },
-    { id: 'staff', label: 'スタッフ', icon: Users },
-    { id: 'scenarios', label: 'シナリオ', icon: BookOpen },
-    { id: 'shift-submission', label: 'シフト提出', icon: Clock },
-    { id: 'reservations', label: '予約', icon: Calendar },
-    { id: 'customers', label: '顧客', icon: Users },
-    { id: 'sales', label: '売上', icon: TrendingUp },
-    { id: 'inventory', label: '在庫', icon: Package },
-    { id: 'licenses', label: 'ライセンス', icon: CreditCard },
-    { id: 'settings', label: '設定', icon: Settings }
+  const { user } = useAuth()
+  
+  // 全タブ定義
+  const allTabs = [
+    { id: 'stores', label: '店舗', icon: Store, roles: ['admin', 'staff'] },
+    { id: 'schedule', label: 'スケジュール', icon: Calendar, roles: ['admin', 'staff'] },
+    { id: 'staff', label: 'スタッフ', icon: Users, roles: ['admin', 'staff'] },
+    { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin', 'staff'] },
+    { id: 'shift-submission', label: 'シフト提出', icon: Clock, roles: ['admin', 'staff'] },
+    { id: 'customer-booking', label: '予約サイト', icon: Calendar, roles: ['admin', 'staff', 'customer'] },
+    { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin', 'staff'] },
+    { id: 'customers', label: '顧客', icon: Users, roles: ['admin', 'staff'] },
+    { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin', 'staff'] },
+    { id: 'inventory', label: '在庫', icon: Package, roles: ['admin', 'staff'] },
+    { id: 'licenses', label: 'ライセンス', icon: CreditCard, roles: ['admin', 'staff'] },
+    { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] }
   ]
+  
+  // ユーザーのロールに応じてタブをフィルタリング
+  const navigationTabs = allTabs.filter(tab => 
+    !user || tab.roles.includes(user.role)
+  )
 
   const handlePageChange = (pageId: string) => {
     if (onPageChange) {
