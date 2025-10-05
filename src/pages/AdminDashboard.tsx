@@ -7,6 +7,7 @@ import { StaffManagement } from './StaffManagement'
 import { ScheduleManager } from './ScheduleManager'
 import SalesManagement from './SalesManagement'
 import { ShiftSubmission } from './ShiftSubmission'
+import { ReservationManagement } from './ReservationManagement'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { 
@@ -90,6 +91,10 @@ export function AdminDashboard() {
   
   if (currentPage === 'shift-submission') {
     return <ShiftSubmission />
+  }
+  
+  if (currentPage === 'reservations') {
+    return <ReservationManagement />
   }
 
   return (
