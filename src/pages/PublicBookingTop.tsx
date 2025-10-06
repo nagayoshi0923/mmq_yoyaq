@@ -317,7 +317,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   )
 
   return (
-    <div className="min-h-screen bg-background" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
+    <div className="min-h-screen bg-background">
       <Header />
       <NavigationBar currentPage="customer-booking" />
 
