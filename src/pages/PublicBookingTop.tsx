@@ -22,7 +22,7 @@ interface ScenarioCard {
   store_name?: string
   store_color?: string
   available_seats?: number
-  status: 'available' | 'few_seats' | 'sold_out'
+  status: 'available' | 'few_seats' | 'sold_out' | 'private_booking'
   is_new?: boolean
 }
 
@@ -81,6 +81,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       const scenarioMap = new Map<string, ScenarioCard>()
       
       scenariosData.forEach((scenario: any) => {
+        // ステータスがavailableでないシナリオはスキップ
+        if (scenario.status !== 'available') return
+        
         // このシナリオの公演を探す（scenario_idまたはタイトルで照合）
         const scenarioEvents = publicEvents.filter((event: any) => {
           // scenario_idで照合（リレーション）
@@ -94,39 +97,54 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         
         console.log(`シナリオ「${scenario.title}」の公演数:`, scenarioEvents.length)
         
-        if (scenarioEvents.length === 0) return
-        
-        // 最も近い公演を取得
-        const nextEvent = scenarioEvents.sort((a: any, b: any) => {
-          const dateCompare = a.date.localeCompare(b.date)
-          if (dateCompare !== 0) return dateCompare
-          return a.start_time.localeCompare(b.start_time)
-        })[0]
-        
-        const store = storesData.find((s: any) => s.id === nextEvent.venue || s.short_name === nextEvent.venue)
-        
         // 新着判定（リリース日から30日以内）
         const isNew = scenario.release_date ? 
           (new Date().getTime() - new Date(scenario.release_date).getTime()) / (1000 * 60 * 60 * 24) <= 30 : 
           false
         
-        scenarioMap.set(scenario.id, {
-          scenario_id: scenario.id,
-          scenario_title: scenario.title,
-          key_visual_url: scenario.key_visual_url,
-          author: scenario.author,
-          duration: scenario.duration,
-          player_count_min: scenario.player_count_min,
-          player_count_max: scenario.player_count_max,
-          genre: scenario.genre || [],
-          next_event_date: nextEvent.date,
-          next_event_time: nextEvent.start_time,
-          store_name: store?.name || nextEvent.venue,
-          store_color: store?.color,
-          available_seats: (nextEvent.max_participants || 8) - (nextEvent.current_participants || 0),
-          status: getAvailabilityStatus(nextEvent.max_participants || 8, nextEvent.current_participants || 0),
-          is_new: isNew
-        })
+        // 公演がある場合
+        if (scenarioEvents.length > 0) {
+          // 最も近い公演を取得
+          const nextEvent = scenarioEvents.sort((a: any, b: any) => {
+            const dateCompare = a.date.localeCompare(b.date)
+            if (dateCompare !== 0) return dateCompare
+            return a.start_time.localeCompare(b.start_time)
+          })[0]
+          
+          const store = storesData.find((s: any) => s.id === nextEvent.venue || s.short_name === nextEvent.venue)
+          
+          scenarioMap.set(scenario.id, {
+            scenario_id: scenario.id,
+            scenario_title: scenario.title,
+            key_visual_url: scenario.key_visual_url,
+            author: scenario.author,
+            duration: scenario.duration,
+            player_count_min: scenario.player_count_min,
+            player_count_max: scenario.player_count_max,
+            genre: scenario.genre || [],
+            next_event_date: nextEvent.date,
+            next_event_time: nextEvent.start_time,
+            store_name: store?.name || nextEvent.venue,
+            store_color: store?.color,
+            available_seats: (nextEvent.max_participants || 8) - (nextEvent.current_participants || 0),
+            status: getAvailabilityStatus(nextEvent.max_participants || 8, nextEvent.current_participants || 0),
+            is_new: isNew
+          })
+        } else {
+          // 公演がない場合でも、全タイトル用にシナリオ情報を追加
+          scenarioMap.set(scenario.id, {
+            scenario_id: scenario.id,
+            scenario_title: scenario.title,
+            key_visual_url: scenario.key_visual_url,
+            author: scenario.author,
+            duration: scenario.duration,
+            player_count_min: scenario.player_count_min,
+            player_count_max: scenario.player_count_max,
+            genre: scenario.genre || [],
+            status: 'private_booking', // 公演予定なしは「貸切受付中」
+            is_new: isNew
+          })
+        }
       })
       
       const scenarioList = Array.from(scenarioMap.values())
@@ -211,6 +229,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         return <Badge variant="outline" className="bg-gray-500 text-white border-0 text-xs px-1.5 py-0 rounded-sm">完売</Badge>
       case 'few_seats':
         return <Badge variant="outline" className="bg-orange-500 text-white border-0 text-xs px-1.5 py-0 rounded-sm">残りわずか</Badge>
+      case 'private_booking':
+        return <Badge variant="outline" className="bg-purple-600 text-white border-0 text-xs px-1.5 py-0 rounded-sm">貸切受付中</Badge>
       default:
         return <Badge variant="outline" className="bg-green-600 text-white border-0 text-xs px-1.5 py-0 rounded-sm">発売中</Badge>
     }
