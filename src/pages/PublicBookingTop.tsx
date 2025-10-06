@@ -226,13 +226,13 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'sold_out':
-        return <Badge variant="outline" className="bg-gray-500 text-white border-0 text-xs px-1.5 py-0 rounded-sm">完売</Badge>
+        return <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200 text-xs px-1.5 py-0 rounded-sm">完売</Badge>
       case 'few_seats':
-        return <Badge variant="outline" className="bg-orange-500 text-white border-0 text-xs px-1.5 py-0 rounded-sm">残りわずか</Badge>
+        return <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 text-xs px-1.5 py-0 rounded-sm">残りわずか</Badge>
       case 'private_booking':
-        return <Badge variant="outline" className="bg-purple-600 text-white border-0 text-xs px-1.5 py-0 rounded-sm">貸切受付中</Badge>
+        return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs px-1.5 py-0 rounded-sm">貸切受付中</Badge>
       default:
-        return <Badge variant="outline" className="bg-green-600 text-white border-0 text-xs px-1.5 py-0 rounded-sm">発売中</Badge>
+        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs px-1.5 py-0 rounded-sm">発売中</Badge>
     }
   }
 
@@ -259,7 +259,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         {/* NEW バッジ */}
         {scenario.is_new && (
           <div className="absolute top-1.5 left-1.5">
-            <Badge className="bg-red-600 text-white border-0 font-bold text-xs px-1.5 py-0 rounded-sm">NEW</Badge>
+            <Badge className="bg-red-100 text-red-800 border-red-200 font-bold text-xs px-1.5 py-0 rounded-sm">NEW</Badge>
           </div>
         )}
       </div>
@@ -322,10 +322,10 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       <NavigationBar currentPage="customer-booking" />
 
       {/* メインビジュアル */}
-      <div className="relative bg-gradient-to-r from-purple-900 via-blue-900 to-teal-900 text-white py-12">
+      <div className="relative bg-blue-50 border-b-2 border-blue-200 py-12">
         <div className="container mx-auto max-w-7xl px-6 text-center">
-          <h1 className="text-4xl font-bold mb-2">今日はどの事件を解く？</h1>
-          <p className="text-lg opacity-90">真実を追い求めるあなたのためのマーダーミステリーポータルサイト</p>
+          <h1 className="text-4xl font-bold mb-2 text-blue-800">今日はどの事件を解く？</h1>
+          <p className="text-lg text-blue-700">真実を追い求めるあなたのためのマーダーミステリーポータルサイト</p>
         </div>
       </div>
 
