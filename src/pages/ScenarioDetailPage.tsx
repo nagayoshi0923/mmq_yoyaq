@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, MapPin, ExternalLink, X as XIcon, Star, ArrowLeft } from 'lucide-react'
@@ -34,6 +35,7 @@ interface EventSchedule {
   store_short_name: string
   store_color?: string
   store_address?: string
+  scenario_title?: string
   max_participants: number
   current_participants: number
   available_seats: number
@@ -312,94 +314,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
       {/* メインコンテンツ */}
       <div className="container mx-auto max-w-7xl px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* 左サイドバー - チケット購入 */}
-          <div className="lg:col-span-4 space-y-4">
-            <Card className="sticky top-4">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">チケット購入</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* 公演期間 */}
-                {events.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">公演期間</p>
-                    <p className="text-sm font-medium">
-                      {formatDate(events[0].date)} 〜 {formatDate(events[events.length - 1].date)}
-                    </p>
-                  </div>
-                )}
-
-                {/* 参加費 */}
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">参加費</p>
-                  <p className="text-2xl font-bold text-primary">
-                    ¥{scenario.participation_fee.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-muted-foreground">/ 1名</p>
-                </div>
-
-                {/* 開催日選択 */}
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">開催日</p>
-                  <div className="space-y-1.5 max-h-96 overflow-y-auto">
-                    {getUniqueDates().map((date) => {
-                      const dateEvents = getEventsByDate(date)
-                      const hasAvailable = dateEvents.some(e => e.is_available)
-                      
-                      return (
-                        <div key={date} className="border rounded p-2 hover:bg-accent cursor-pointer transition-colors">
-                          <div
-                            onClick={() => setSelectedDate(selectedDate === date ? null : date)}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="text-sm font-medium">{formatDate(date)}</span>
-                            </div>
-                            {!hasAvailable && (
-                              <Badge variant="outline" className="bg-gray-100 text-gray-600 text-xs px-1.5 py-0 rounded-sm">
-                                満席
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          {/* 時間帯選択 */}
-                          {selectedDate === date && (
-                            <div className="mt-2 space-y-1.5 pl-5">
-                              {dateEvents.map((event) => (
-                                <div
-                                  key={event.event_id}
-                                  className="flex items-center justify-between p-1.5 bg-background rounded border"
-                                >
-                                  <div className="flex items-center gap-1.5 text-xs">
-                                    <Clock className="w-3 h-3" />
-                                    <span>{formatTime(event.start_time)}</span>
-                                    <span className="text-muted-foreground">
-                                      残{event.available_seats}席
-                                    </span>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    className="h-7 text-xs px-2"
-                                    disabled={!event.is_available}
-                                    onClick={() => handleBooking(event)}
-                                  >
-                                    {event.is_available ? '予約' : '満席'}
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* 右メインエリア - 詳細情報 */}
+          {/* 左メインエリア - 詳細情報 */}
           <div className="lg:col-span-8 space-y-6">
             {/* ABOUT */}
             <Card>
@@ -408,28 +323,38 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 <p className="text-xs text-red-600">公演について</p>
               </CardHeader>
               <CardContent className="space-y-3">
+                {/* 概要（基本情報） */}
+                <div className="bg-muted/50 p-3 rounded space-y-2">
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-muted-foreground" />
+                      <span>{scenario.player_count_min}〜{scenario.player_count_max}人</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <span>{(scenario.duration / 60).toFixed(1)}時間</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {scenario.genre.map((g, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {g}
+                      </Badge>
+                    ))}
+                    {scenario.has_pre_reading && (
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs">
+                        事前読解あり
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* あらすじ */}
                 {scenario.synopsis && (
                   <div>
                     <p className="leading-relaxed whitespace-pre-wrap">{scenario.synopsis}</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* 主催者情報 */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">主催</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                    {scenario.author.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-bold">{scenario.author}</p>
-                  </div>
-                </div>
               </CardContent>
             </Card>
 
@@ -479,6 +404,131 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 </ul>
               </CardContent>
             </Card>
+
+            {/* 主催者情報 - 一番下 */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">主催</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                    {scenario.author.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{scenario.author}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 右サイドバー - チケット購入 */}
+          <div className="lg:col-span-4">
+            <div className="sticky top-4 space-y-4">
+              {/* 人数を選択 */}
+              <div>
+                <h3 className="font-bold text-lg mb-3">人数を選択</h3>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">予約人数</span>
+                      <select className="border rounded px-3 py-1 text-sm">
+                        {Array.from({ length: scenario.player_count_max - scenario.player_count_min + 1 }, (_, i) => (
+                          <option key={i} value={scenario.player_count_min + i}>
+                            {scenario.player_count_min + i}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 日付を選択 */}
+              <div>
+                <h3 className="font-bold text-lg mb-3">日付を選択</h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {events.map((event) => {
+                    const isSelected = selectedDate === event.date
+                    return (
+                      <Card 
+                        key={event.event_id}
+                        className={`cursor-pointer transition-all ${
+                          isSelected ? 'border-red-500 bg-red-50' : 'hover:bg-accent'
+                        }`}
+                        onClick={() => setSelectedDate(isSelected ? null : event.date)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-bold">{event.store_short_name}　{formatTime(event.start_time)}</div>
+                              <div className="text-sm text-muted-foreground">{event.scenario_title || scenario.scenario_title}</div>
+                            </div>
+                            <Button
+                              variant={isSelected ? "default" : "outline"}
+                              size="sm"
+                              className={isSelected ? "bg-red-500 hover:bg-red-600" : ""}
+                            >
+                              選択
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* お客様情報 */}
+              <div>
+                <h3 className="font-bold text-lg mb-3">お客様情報</h3>
+                <Card>
+                  <CardContent className="p-4 space-y-3">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">お名前</label>
+                      <Input placeholder="なまえたろう" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">メール</label>
+                      <Input type="email" placeholder="m@example.com" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">電話番号</label>
+                      <Input type="tel" placeholder="0000000000" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 決済方法 */}
+              <div>
+                <h3 className="font-bold text-lg mb-3">決済方法</h3>
+                <Card className="border-red-500 bg-red-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-bold">現地決済</span>
+                        <span className="ml-3 font-bold text-lg">
+                          {scenario.participation_fee.toLocaleString()}円
+                        </span>
+                      </div>
+                      <div className="w-6 h-6 rounded-full border-2 border-red-500 flex items-center justify-center">
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 予約確認ボタン */}
+              <Button 
+                className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-lg font-bold"
+                onClick={() => handleBooking(events[0])}
+              >
+                予約確認
+              </Button>
+            </div>
           </div>
         </div>
       </div>
