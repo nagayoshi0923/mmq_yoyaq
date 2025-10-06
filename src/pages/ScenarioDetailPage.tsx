@@ -251,7 +251,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" style={{ fontFamily: "'Noto Sans JP', sans-serif" }}>
       <Header />
       <NavigationBar currentPage="customer-booking" />
 
