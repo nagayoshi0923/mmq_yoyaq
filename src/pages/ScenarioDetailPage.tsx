@@ -7,6 +7,8 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, MapPin, ExternalLink, X as XIcon, Star, ArrowLeft } from 'lucide-react'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 interface ScenarioDetail {
   scenario_id: string
@@ -49,14 +51,56 @@ interface ScenarioDetailPageProps {
 }
 
 export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPageProps) {
+  const { user } = useAuth()
   const [scenario, setScenario] = useState<ScenarioDetail | null>(null)
   const [events, setEvents] = useState<EventSchedule[]>([])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [customerInfo, setCustomerInfo] = useState<{ name: string; email: string; phone: string } | null>(null)
 
   useEffect(() => {
     loadScenarioDetail()
   }, [scenarioId])
+
+  useEffect(() => {
+    if (user) {
+      loadCustomerInfo()
+    }
+  }, [user])
+
+  const loadCustomerInfo = async () => {
+    if (!user) return
+    
+    try {
+      // customersテーブルからユーザー情報を取得
+      const { data, error } = await supabase
+        .from('customers')
+        .select('name, email, phone')
+        .eq('user_id', user.id)
+        .single()
+      
+      if (error) {
+        console.error('顧客情報の取得エラー:', error)
+        // データがない場合は、auth.usersのメールアドレスのみ設定
+        setCustomerInfo({
+          name: '',
+          email: user.email,
+          phone: ''
+        })
+        return
+      }
+      
+      if (data) {
+        setCustomerInfo({
+          name: data.name || '',
+          email: data.email || user.email,
+          phone: data.phone || ''
+        })
+      }
+    } catch (error) {
+      console.error('顧客情報の取得に失敗:', error)
+    }
+  }
 
   const loadScenarioDetail = async () => {
     try {
@@ -483,22 +527,64 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
               {/* お客様情報 */}
               <div>
                 <h3 className="font-bold text-lg mb-3">お客様情報</h3>
-                <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">お名前</label>
-                      <Input placeholder="なまえたろう" />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">メール</label>
-                      <Input type="email" placeholder="m@example.com" />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">電話番号</label>
-                      <Input type="tel" placeholder="0000000000" />
-                    </div>
-                  </CardContent>
-                </Card>
+                {user && customerInfo ? (
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">お名前</label>
+                        <Input 
+                          value={customerInfo.name} 
+                          onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
+                          placeholder="なまえたろう" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">メール</label>
+                        <Input 
+                          type="email" 
+                          value={customerInfo.email}
+                          onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
+                          placeholder="m@example.com" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">電話番号</label>
+                        <Input 
+                          type="tel" 
+                          value={customerInfo.phone}
+                          onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+                          placeholder="0000000000" 
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">お名前</label>
+                        <Input placeholder="なまえたろう" disabled />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">メール</label>
+                        <Input type="email" placeholder="m@example.com" disabled />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">電話番号</label>
+                        <Input type="tel" placeholder="0000000000" disabled />
+                      </div>
+                      <Button 
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => {
+                          // ログインページへ遷移
+                          window.location.hash = '#login'
+                        }}
+                      >
+                        ログインして予約する
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
               {/* 決済方法 */}

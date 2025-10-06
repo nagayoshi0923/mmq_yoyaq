@@ -5,6 +5,15 @@ import { AdminDashboard } from '@/pages/AdminDashboard'
 
 function AppContent() {
   const { user, loading } = useAuth()
+  const [currentHash, setCurrentHash] = React.useState(window.location.hash.slice(1))
+
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentHash(window.location.hash.slice(1))
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
 
   if (loading) {
     return (
@@ -19,6 +28,22 @@ function AppContent() {
     )
   }
 
+  // ログインページを明示的に要求された場合
+  if (currentHash === 'login') {
+    if (user) {
+      // すでにログイン済みの場合は予約サイトへリダイレクト
+      window.location.hash = 'customer-booking'
+      return null
+    }
+    return <LoginForm />
+  }
+
+  // 未ログインで予約サイトにアクセスした場合は閲覧可能
+  if (!user && (currentHash === 'customer-booking' || currentHash.startsWith('customer-booking/'))) {
+    return <AdminDashboard />
+  }
+
+  // 未ログインで管理画面にアクセスしようとした場合はログインフォームを表示
   if (!user) {
     return <LoginForm />
   }

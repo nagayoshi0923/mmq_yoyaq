@@ -32,6 +32,8 @@ export function LoginForm() {
       } else {
         // ログイン処理
         await signIn(email, password)
+        // ログイン成功後、予約サイトへリダイレクト
+        window.location.hash = 'customer-booking'
       }
     } catch (error: any) {
       if (isSignUp) {

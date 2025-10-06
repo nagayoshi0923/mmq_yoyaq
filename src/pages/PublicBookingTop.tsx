@@ -304,8 +304,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       {/* メインビジュアル */}
       <div className="relative bg-gradient-to-r from-purple-900 via-blue-900 to-teal-900 text-white py-12">
         <div className="container mx-auto max-w-7xl px-6 text-center">
-          <h1 className="text-4xl font-bold mb-2">今日はどこから脱出する？</h1>
-          <p className="text-lg opacity-90">閉じ込められたいあなたのための謎解きポータルサイト</p>
+          <h1 className="text-4xl font-bold mb-2">今日はどの事件を解く？</h1>
+          <p className="text-lg opacity-90">真実を追い求めるあなたのためのマーダーミステリーポータルサイト</p>
         </div>
       </div>
 
