@@ -32,18 +32,12 @@ interface PublicBookingTopProps {
 
 export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
-  const [filteredScenarios, setFilteredScenarios] = useState<ScenarioCard[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState<'new' | 'upcoming' | 'all'>('new')
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     loadScenarios()
   }, [])
-
-  useEffect(() => {
-    applyFilters()
-  }, [scenarios, searchTerm, activeTab])
 
   const loadScenarios = async () => {
     try {
@@ -163,33 +157,38 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     return 'available'
   }
 
-  const applyFilters = () => {
-    let filtered = [...scenarios]
+  // 検索フィルター
+  const getFilteredScenarios = () => {
+    if (!searchTerm) return scenarios
+    
+    return scenarios.filter(s =>
+      s.scenario_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.genre.some(g => g.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+  }
 
-    // タブフィルター
-    if (activeTab === 'new') {
-      filtered = filtered.filter(s => s.is_new)
-    } else if (activeTab === 'upcoming') {
-      // 直近7日以内の公演
-      const weekLater = new Date()
-      weekLater.setDate(weekLater.getDate() + 7)
-      filtered = filtered.filter(s => {
-        if (!s.next_event_date) return false
-        const eventDate = new Date(s.next_event_date)
-        return eventDate <= weekLater
-      })
-    }
+  // 新着公演（リリース日から30日以内）
+  const getNewScenarios = () => {
+    const filtered = getFilteredScenarios()
+    return filtered.filter(s => s.is_new)
+  }
 
-    // 検索フィルター
-    if (searchTerm) {
-      filtered = filtered.filter(s =>
-        s.scenario_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.genre.some(g => g.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    }
+  // 直近公演（7日以内）
+  const getUpcomingScenarios = () => {
+    const filtered = getFilteredScenarios()
+    const weekLater = new Date()
+    weekLater.setDate(weekLater.getDate() + 7)
+    return filtered.filter(s => {
+      if (!s.next_event_date) return false
+      const eventDate = new Date(s.next_event_date)
+      return eventDate <= weekLater
+    })
+  }
 
-    setFilteredScenarios(filtered)
+  // 全タイトル
+  const getAllScenarios = () => {
+    return getFilteredScenarios()
   }
 
   const formatDate = (dateStr?: string): string => {
@@ -216,6 +215,86 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         return <Badge variant="outline" className="bg-green-600 text-white border-0 text-xs px-1.5 py-0 rounded-sm">発売中</Badge>
     }
   }
+
+  // シナリオカードコンポーネント
+  const ScenarioCard = ({ scenario, onClick }: { scenario: ScenarioCard; onClick: (id: string) => void }) => (
+    <Card
+      className="cursor-pointer hover:shadow-xl transition-all duration-300 overflow-hidden group flex flex-col"
+      onClick={() => onClick(scenario.scenario_id)}
+    >
+      <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden">
+        {scenario.key_visual_url ? (
+          <img
+            src={scenario.key_visual_url}
+            alt={scenario.scenario_title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-400">
+            <div className="text-center p-4">
+              <p className="font-bold text-lg">{scenario.scenario_title}</p>
+            </div>
+          </div>
+        )}
+        {/* NEW バッジ */}
+        {scenario.is_new && (
+          <div className="absolute top-1.5 left-1.5">
+            <Badge className="bg-red-600 text-white border-0 font-bold text-xs px-1.5 py-0 rounded-sm">NEW</Badge>
+          </div>
+        )}
+      </div>
+      
+      <CardContent className="p-1 flex-1 flex flex-col">
+        <div className="text-xs text-muted-foreground">{scenario.author}</div>
+        <h3 className="font-bold text-sm line-clamp-2 mb-0.5">
+          {scenario.scenario_title}
+        </h3>
+        
+        {/* アイコン情報 */}
+        <div className="flex flex-wrap gap-1 text-xs text-muted-foreground mb-1">
+          <div className="flex items-center gap-0.5">
+            <Users className="w-3 h-3" />
+            <span>{scenario.player_count_min}〜{scenario.player_count_max}人</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <Clock className="w-3 h-3" />
+            <span>{(scenario.duration / 60).toFixed(1)}h</span>
+          </div>
+        </div>
+        
+        {scenario.store_name && (
+          <div className="flex items-center gap-0.5 text-xs mb-1">
+            <MapPin className="w-3 h-3" />
+            <span className="font-medium" style={{ color: scenario.store_color }}>
+              {scenario.store_name}
+            </span>
+          </div>
+        )}
+        
+        {scenario.next_event_date && (
+          <div className="flex items-center gap-0.5 text-xs text-muted-foreground mb-1">
+            <Calendar className="w-3 h-3" />
+            <span>次回: {formatDate(scenario.next_event_date)}</span>
+          </div>
+        )}
+        
+        {scenario.genre.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-1">
+            {scenario.genre.slice(0, 2).map((g, i) => (
+              <Badge key={i} variant="outline" className="text-xs px-1.5 py-0 rounded-sm">
+                {g}
+              </Badge>
+            ))}
+          </div>
+        )}
+        
+        {/* ステータスバッジ - カードの一番下 */}
+        <div className="mt-auto pt-1">
+          {getStatusBadge(scenario.status)}
+        </div>
+      </CardContent>
+    </Card>
+  )
 
   return (
     <div className="min-h-screen bg-background">
@@ -246,129 +325,54 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       </div>
 
       <div className="container mx-auto max-w-7xl px-6 py-4">
-        {/* タブナビゲーション */}
-        <div className="flex gap-3 mb-4 border-b">
-          <button
-            onClick={() => setActiveTab('new')}
-            className={`px-4 py-2 font-bold transition-colors border-b-2 ${
-              activeTab === 'new'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            新着公演
-          </button>
-          <button
-            onClick={() => setActiveTab('upcoming')}
-            className={`px-4 py-2 font-bold transition-colors border-b-2 ${
-              activeTab === 'upcoming'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            直近公演
-          </button>
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 font-bold transition-colors border-b-2 ${
-              activeTab === 'all'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            全タイトル
-          </button>
-        </div>
-
-        {/* シナリオカード一覧 */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">読み込み中...</p>
           </div>
-        ) : filteredScenarios.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">シナリオが見つかりませんでした</p>
-          </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {filteredScenarios.map((scenario) => (
-              <Card
-                key={scenario.scenario_id}
-                className="cursor-pointer hover:shadow-xl transition-all duration-300 overflow-hidden group"
-                onClick={() => handleCardClick(scenario.scenario_id)}
-              >
-                <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden">
-                  {scenario.key_visual_url ? (
-                    <img
-                      src={scenario.key_visual_url}
-                      alt={scenario.scenario_title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <div className="text-center p-4">
-                        <p className="font-bold text-lg">{scenario.scenario_title}</p>
-                      </div>
-                    </div>
-                  )}
-                  {/* ステータスバッジ */}
-                  <div className="absolute top-1.5 right-1.5">
-                    {getStatusBadge(scenario.status)}
-                  </div>
-                  {/* NEW バッジ */}
-                  {scenario.is_new && (
-                    <div className="absolute top-1.5 left-1.5">
-                      <Badge className="bg-red-600 text-white border-0 font-bold text-xs px-1.5 py-0 rounded-sm">NEW</Badge>
-                    </div>
-                  )}
+          <div className="space-y-8">
+            {/* 新着公演セクション */}
+            {getNewScenarios().length > 0 && (
+              <section>
+                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                  <span>新着公演</span>
+                  <Badge className="bg-red-600 text-white border-0 text-xs px-2 py-0.5 rounded-sm">NEW</Badge>
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {getNewScenarios().map((scenario) => (
+                    <ScenarioCard key={scenario.scenario_id} scenario={scenario} onClick={handleCardClick} />
+                  ))}
                 </div>
-                
-                <CardContent className="p-2.5 space-y-1.5">
-                  <div className="text-xs text-muted-foreground">{scenario.author}</div>
-                  <h3 className="font-bold text-sm line-clamp-2 min-h-[2.5rem]">
-                    {scenario.scenario_title}
-                  </h3>
-                  
-                  {/* アイコン情報 */}
-                  <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-0.5">
-                      <Users className="w-3 h-3" />
-                      <span>{scenario.player_count_min}〜{scenario.player_count_max}人</span>
-                    </div>
-                    <div className="flex items-center gap-0.5">
-                      <Clock className="w-3 h-3" />
-                      <span>{(scenario.duration / 60).toFixed(1)}h</span>
-                    </div>
-                  </div>
-                  
-                  {scenario.store_name && (
-                    <div className="flex items-center gap-0.5 text-xs">
-                      <MapPin className="w-3 h-3" />
-                      <span className="font-medium" style={{ color: scenario.store_color }}>
-                        {scenario.store_name}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {scenario.next_event_date && (
-                    <div className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      <span>次回: {formatDate(scenario.next_event_date)}</span>
-                    </div>
-                  )}
-                  
-                  {scenario.genre.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {scenario.genre.slice(0, 2).map((g, i) => (
-                        <Badge key={i} variant="outline" className="text-xs px-1.5 py-0 rounded-sm">
-                          {g}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+              </section>
+            )}
+
+            {/* 直近公演セクション */}
+            {getUpcomingScenarios().length > 0 && (
+              <section>
+                <h2 className="text-2xl font-bold mb-4">直近公演</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {getUpcomingScenarios().map((scenario) => (
+                    <ScenarioCard key={scenario.scenario_id} scenario={scenario} onClick={handleCardClick} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 全タイトルセクション */}
+            {getAllScenarios().length > 0 ? (
+              <section>
+                <h2 className="text-2xl font-bold mb-4">全タイトル</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {getAllScenarios().map((scenario) => (
+                    <ScenarioCard key={scenario.scenario_id} scenario={scenario} onClick={handleCardClick} />
+                  ))}
+                </div>
+              </section>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">シナリオが見つかりませんでした</p>
+              </div>
+            )}
           </div>
         )}
       </div>
