@@ -232,7 +232,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       case 'private_booking':
         return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs px-1.5 py-0 rounded-sm">貸切受付中</Badge>
       default:
-        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs px-1.5 py-0 rounded-sm">発売中</Badge>
+        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs px-1.5 py-0 rounded-sm">開催中</Badge>
     }
   }
 

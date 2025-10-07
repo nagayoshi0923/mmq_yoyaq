@@ -384,7 +384,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                       </Badge>
                     ))}
                     {scenario.has_pre_reading && (
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs">
+                      <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
                         事前読解あり
                       </Badge>
                     )}
@@ -486,7 +486,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                         <Card 
                           key={event.event_id}
                           className={`cursor-pointer transition-all overflow-hidden ${
-                            isSelected ? 'border-red-500 bg-red-50' : 'hover:bg-accent'
+                            isSelected ? 'border-2 border-blue-200 bg-blue-50' : 'hover:bg-accent'
                           }`}
                           onClick={() => setSelectedDate(isSelected ? null : event.date)}
                         >
@@ -609,17 +609,17 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
               {/* 決済方法 */}
               <div>
                 <h3 className="font-bold mb-3">決済方法</h3>
-                <Card className="border-2 border-red-200 bg-red-50">
+                <Card className="border-2 border-blue-200 bg-blue-50">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="font-bold">現地決済</span>
-                        <span className="ml-3 font-bold text-lg">
+                        <span className="font-bold text-blue-800">現地決済</span>
+                        <span className="ml-3 font-bold text-lg text-blue-800">
                           {scenario.participation_fee.toLocaleString()}円
                         </span>
                       </div>
-                      <div className="w-5 h-5 rounded-full border-2 border-gray-800 flex items-center justify-center">
-                        <div className="w-2.5 h-2.5 rounded-full bg-gray-800"></div>
+                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
+                        <div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
                       </div>
                     </div>
                   </CardContent>
@@ -628,7 +628,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
               {/* 予約確認ボタン */}
               <Button 
-                className="w-full bg-red-600 text-white hover:bg-red-700 h-12 font-bold"
+                className="w-full bg-blue-100 text-blue-800 border-2 border-blue-200 hover:bg-blue-200 h-12 font-bold"
                 onClick={() => handleBooking(events[0])}
               >
                 予約確認
