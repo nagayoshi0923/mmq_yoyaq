@@ -2,6 +2,7 @@ import React from 'react'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { AdminDashboard } from '@/pages/AdminDashboard'
+import { ResetPassword } from '@/pages/ResetPassword'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -28,13 +29,13 @@ function AppContent() {
     )
   }
 
+  // パスワードリセットページ
+  if (currentHash.startsWith('reset-password') || currentHash.includes('type=recovery')) {
+    return <ResetPassword />
+  }
+
   // ログインページを明示的に要求された場合
   if (currentHash === 'login') {
-    if (user) {
-      // すでにログイン済みの場合は予約サイトへリダイレクト
-      window.location.hash = 'customer-booking'
-      return null
-    }
     return <LoginForm />
   }
 
