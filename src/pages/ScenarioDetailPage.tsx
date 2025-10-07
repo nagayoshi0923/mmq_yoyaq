@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -361,12 +361,10 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
           {/* 左メインエリア - 詳細情報 */}
           <div className="lg:col-span-8 space-y-6">
             {/* ABOUT */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-xl text-red-600">ABOUT</CardTitle>
-                <p className="text-xs text-red-600">公演について</p>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <div>
+              <h3 className="font-bold mb-3">ABOUT</h3>
+              <Card>
+                <CardContent className="p-4 space-y-3">
                 {/* 概要（基本情報） */}
                 <div className="bg-muted/50 p-3 rounded space-y-2">
                   <div className="flex items-center gap-4 text-sm">
@@ -399,16 +397,16 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                     <p className="leading-relaxed whitespace-pre-wrap">{scenario.synopsis}</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* 会場アクセス */}
             {events.length > 0 && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">会場アクセス</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
+              <div>
+                <h3 className="font-bold mb-3">会場アクセス</h3>
+                <Card>
+                  <CardContent className="p-4 space-y-3">
                   {/* ユニークな会場のリスト */}
                   {Array.from(new Set(events.map(e => e.store_name))).map((storeName) => {
                     const event = events.find(e => e.store_name === storeName)!
@@ -428,16 +426,16 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                       </div>
                     )
                   })}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
             )}
 
             {/* 注意事項 */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">注意事項</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div>
+              <h3 className="font-bold mb-3">注意事項</h3>
+              <Card>
+                <CardContent className="p-4">
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li>• 予約は公演開始の{events[0]?.reservation_deadline_hours || 24}時間前まで可能です</li>
                   <li>• キャンセルは公演開始の24時間前まで無料で可能です</li>
@@ -446,15 +444,15 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                     <li>• 事前読解が必要なシナリオです。予約確定後に資料をお送りします</li>
                   )}
                 </ul>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* 主催者情報 - 一番下 */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">主催</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div>
+              <h3 className="font-bold mb-3 text-muted-foreground">主催</h3>
+              <Card>
+                <CardContent className="p-4">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                     {scenario.author.charAt(0)}
@@ -463,8 +461,9 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                     <p className="text-sm font-medium">{scenario.author}</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           {/* 右サイドバー - チケット購入 */}
@@ -546,7 +545,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
               {/* お客様情報 */}
               <div>
-                <h3 className="font-bold text-lg mb-3">お客様情報</h3>
+                <h3 className="font-bold mb-3">お客様情報</h3>
                 {user && customerInfo ? (
                   <Card>
                     <CardContent className="p-4 space-y-3">
@@ -609,18 +608,18 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
               {/* 決済方法 */}
               <div>
-                <h3 className="font-bold text-lg mb-3">決済方法</h3>
-                <Card className="border-2 border-blue-200 bg-blue-50">
+                <h3 className="font-bold mb-3">決済方法</h3>
+                <Card className="border-2 border-red-200 bg-red-50">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="font-bold text-blue-800">現地決済</span>
-                        <span className="ml-3 font-bold text-lg text-blue-800">
+                        <span className="font-bold">現地決済</span>
+                        <span className="ml-3 font-bold text-lg">
                           {scenario.participation_fee.toLocaleString()}円
                         </span>
                       </div>
-                      <div className="w-6 h-6 rounded-full border-2 border-blue-600 flex items-center justify-center">
-                        <div className="w-3 h-3 rounded-full bg-blue-600"></div>
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-800 flex items-center justify-center">
+                        <div className="w-2.5 h-2.5 rounded-full bg-gray-800"></div>
                       </div>
                     </div>
                   </CardContent>
@@ -629,7 +628,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
               {/* 予約確認ボタン */}
               <Button 
-                className="w-full bg-blue-100 text-blue-800 border-2 border-blue-200 hover:bg-blue-200 h-12 text-lg font-bold"
+                className="w-full bg-red-600 text-white hover:bg-red-700 h-12 font-bold"
                 onClick={() => handleBooking(events[0])}
               >
                 予約確認
