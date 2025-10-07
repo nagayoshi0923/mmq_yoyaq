@@ -533,46 +533,50 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                           }`}
                           onClick={() => setSelectedDate(isSelected ? null : event.date)}
                         >
-                          <div className="flex gap-0">
-                            {/* 店舗カラーバー */}
-                            <div 
-                              className="flex-shrink-0"
-                              style={{ 
-                                backgroundColor: event.store_color || '#9CA3AF',
-                                width: '6px'
-                              }}
-                            />
-                            <div className="flex-1 flex items-center justify-between gap-3 p-3">
-                              {/* 左側：日付と店舗情報 */}
+                          <div className="flex items-center justify-between gap-3 p-3">
+                            {/* 左側：日付と店舗情報 */}
+                            <div className="flex-1 min-w-0 flex items-start gap-3">
+                              {/* 店舗カラーの正方形あしらい */}
+                              <div 
+                                className="flex-shrink-0 w-3 h-3 rounded-sm mt-1"
+                                style={{ 
+                                  backgroundColor: event.store_color || '#9CA3AF'
+                                }}
+                              />
                               <div className="flex-1 min-w-0">
                                 <div className="font-semibold text-base mb-0.5">
                                   {month}月{day}日({weekday})　{formatTime(event.start_time)}〜
                                 </div>
-                                <div className="text-sm text-muted-foreground">
+                                <div 
+                                  className="text-sm font-medium"
+                                  style={{ 
+                                    color: event.store_color || '#6B7280'
+                                  }}
+                                >
                                   {event.store_short_name} {event.scenario_title || scenario.scenario_title}
                                 </div>
                               </div>
-                              
-                              {/* 中央：残り人数 */}
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <div className="text-right">
-                                  <div className="font-semibold text-base">
-                                    残り{event.available_seats}人
-                                  </div>
+                            </div>
+                            
+                            {/* 中央：残り人数 */}
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <div className="text-right">
+                                <div className="font-semibold text-base">
+                                  残り{event.available_seats}人
                                 </div>
                               </div>
-                              
-                              {/* 右側：選択ボタン */}
-                              <Button
-                                variant={isSelected ? "default" : "outline"}
-                                size="sm"
-                                className={`flex-shrink-0 min-w-[70px] ${
-                                  isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
-                                }`}
-                              >
-                                選択
-                              </Button>
                             </div>
+                            
+                            {/* 右側：選択ボタン */}
+                            <Button
+                              variant={isSelected ? "default" : "outline"}
+                              size="sm"
+                              className={`flex-shrink-0 min-w-[70px] ${
+                                isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
+                              }`}
+                            >
+                              選択
+                            </Button>
                           </div>
                         </Card>
                       )
