@@ -545,7 +545,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                             <div className="flex-1 flex items-center justify-between gap-3 p-3">
                               {/* 左側：日付と店舗情報 */}
                               <div className="flex-1 min-w-0">
-                                <div className="font-bold text-lg mb-1">
+                                <div className="font-semibold text-base mb-0.5">
                                   {month}月{day}日({weekday})　{formatTime(event.start_time)}〜
                                 </div>
                                 <div className="text-sm text-muted-foreground">
@@ -556,7 +556,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                               {/* 中央：残り人数 */}
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <div className="text-right">
-                                  <div className="font-bold text-xl">
+                                  <div className="font-semibold text-base">
                                     残り{event.available_seats}人
                                   </div>
                                 </div>
@@ -565,8 +565,8 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                               {/* 右側：選択ボタン */}
                               <Button
                                 variant={isSelected ? "default" : "outline"}
-                                size="lg"
-                                className={`flex-shrink-0 min-w-[80px] ${
+                                size="sm"
+                                className={`flex-shrink-0 min-w-[70px] ${
                                   isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
                                 }`}
                               >
