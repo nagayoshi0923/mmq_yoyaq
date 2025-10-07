@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// 店舗識別色の取得
+// 店舗識別色の取得（店舗ID用）
 export function getStoreColors(storeId: string) {
   const storeColorMap = {
     'takadanobaba': {
@@ -47,6 +47,20 @@ export function getStoreColors(storeId: string) {
   }
   
   return storeColorMap[storeId as keyof typeof storeColorMap] || storeColorMap.takadanobaba
+}
+
+// 色名から色コードを取得
+export function getColorFromName(colorName: string): string {
+  const colorMap: Record<string, string> = {
+    'blue': '#3B82F6',
+    'green': '#10B981',
+    'purple': '#8B5CF6',
+    'orange': '#F97316',
+    'red': '#EF4444',
+    'amber': '#F59E0B'
+  }
+  
+  return colorMap[colorName] || '#6B7280'
 }
 
 // 公演カテゴリ色の取得

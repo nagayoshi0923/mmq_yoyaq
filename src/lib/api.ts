@@ -296,7 +296,8 @@ export const scheduleApi = {
         stores:store_id (
           id,
           name,
-          short_name
+          short_name,
+          color
         ),
         scenarios:scenario_id (
           id,

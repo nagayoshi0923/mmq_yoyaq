@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Clock, Users, MapPin, ExternalLink, Star, ArrowLeft } from 'lucide-react'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
+import { getColorFromName } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { BookingConfirmation } from './BookingConfirmation'
@@ -114,7 +115,44 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
       }
       
       // 店舗データを取得
-      const storesData = await storeApi.getAll()
+      let storesData: any[] = []
+      try {
+        // 直接Supabaseクライアントでテスト
+        const { data: directData, error: directError } = await supabase
+          .from('stores')
+          .select('*')
+        
+        console.log('直接クエリ結果:', { data: directData, error: directError })
+        
+        storesData = await storeApi.getAll()
+        console.log('取得した店舗数:', storesData.length)
+        console.log('店舗データ:', storesData)
+        
+        // 店舗データが空の場合はフォールバックを使用
+        if (storesData.length === 0) {
+          console.log('店舗データが空のため、フォールバックデータを使用')
+          storesData = [
+            { id: 'store-001', name: '高田馬場店', short_name: '馬場', color: 'blue', address: '東京都新宿区高田馬場1-1-1' },
+            { id: 'store-002', name: '別館①', short_name: '別館①', color: 'green', address: '東京都新宿区高田馬場1-2-1' },
+            { id: 'store-003', name: '別館②', short_name: '別館②', color: 'purple', address: '東京都新宿区高田馬場1-3-1' },
+            { id: 'store-004', name: '大久保店', short_name: '大久保', color: 'orange', address: '東京都新宿区大久保2-1-1' },
+            { id: 'store-005', name: '大塚店', short_name: '大塚', color: 'red', address: '東京都豊島区大塚3-1-1' },
+            { id: 'store-006', name: '埼玉大宮店', short_name: '埼玉大宮', color: 'amber', address: '埼玉県さいたま市大宮区大宮1-1-1' }
+          ]
+        }
+      } catch (error) {
+        console.error('店舗データの取得エラー:', error)
+        console.log('取得した店舗数: 0 (エラー)')
+        // エラー時もフォールバックデータを使用
+        storesData = [
+          { id: 'store-001', name: '高田馬場店', short_name: '馬場', color: 'blue', address: '東京都新宿区高田馬場1-1-1' },
+          { id: 'store-002', name: '別館①', short_name: '別館①', color: 'green', address: '東京都新宿区高田馬場1-2-1' },
+          { id: 'store-003', name: '別館②', short_name: '別館②', color: 'purple', address: '東京都新宿区高田馬場1-3-1' },
+          { id: 'store-004', name: '大久保店', short_name: '大久保', color: 'orange', address: '東京都新宿区大久保2-1-1' },
+          { id: 'store-005', name: '大塚店', short_name: '大塚', color: 'red', address: '東京都豊島区大塚3-1-1' },
+          { id: 'store-006', name: '埼玉大宮店', short_name: '埼玉大宮', color: 'amber', address: '埼玉県さいたま市大宮区大宮1-1-1' }
+        ]
+      }
       
       // 公演スケジュールを取得（3ヶ月先まで）
       const currentDate = new Date()
@@ -151,6 +189,15 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
           const store = storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue)
           const available = (event.max_participants || 8) - (event.current_participants || 0)
           
+          // 店舗カラーを取得（色名から実際の色コードに変換）
+          const storeColor = store?.color ? getColorFromName(store.color) : '#6B7280'
+          
+          console.log('店舗カラー変換:', {
+            storeName: store?.name,
+            colorName: store?.color,
+            finalColor: storeColor
+          })
+          
           return {
             event_id: event.id,
             date: event.date,
@@ -158,7 +205,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
             end_time: event.end_time,
             store_name: store?.name || event.venue,
             store_short_name: store?.short_name || event.venue,
-            store_color: store?.color,
+            store_color: storeColor,
             store_address: store?.address,
             max_participants: event.max_participants || 8,
             current_participants: event.current_participants || 0,

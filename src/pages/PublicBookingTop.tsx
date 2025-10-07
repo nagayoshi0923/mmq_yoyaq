@@ -45,10 +45,18 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       
       // シナリオと公演データを取得
       const scenariosData = await scenarioApi.getAll()
-      const storesData = await storeApi.getAll()
       
-      console.log('シナリオ数:', scenariosData.length)
-      console.log('店舗数:', storesData.length)
+      let storesData: any[] = []
+      try {
+        storesData = await storeApi.getAll()
+        console.log('シナリオ数:', scenariosData.length)
+        console.log('店舗数:', storesData.length)
+        console.log('店舗データ:', storesData)
+      } catch (error) {
+        console.error('店舗データの取得エラー:', error)
+        console.log('シナリオ数:', scenariosData.length)
+        console.log('店舗数: 0 (エラー)')
+      }
       
       // 現在の月から3ヶ月先までの公演を取得
       const currentDate = new Date()
