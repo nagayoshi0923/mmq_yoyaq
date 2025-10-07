@@ -519,11 +519,17 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                   ) : (
                     events.map((event) => {
                       const isSelected = selectedDate === event.date
+                      const eventDate = new Date(event.date)
+                      const month = eventDate.getMonth() + 1
+                      const day = eventDate.getDate()
+                      const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+                      const weekday = weekdays[eventDate.getDay()]
+                      
                       return (
                         <Card 
                           key={event.event_id}
                           className={`cursor-pointer transition-all overflow-hidden ${
-                            isSelected ? 'border-2 border-blue-200 bg-blue-50' : 'hover:bg-accent'
+                            isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'hover:bg-accent border'
                           }`}
                           onClick={() => setSelectedDate(isSelected ? null : event.date)}
                         >
@@ -533,22 +539,36 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                               className="flex-shrink-0"
                               style={{ 
                                 backgroundColor: event.store_color || '#9CA3AF',
-                                width: '3px'
+                                width: '6px'
                               }}
                             />
-                            <div className="flex-1 flex items-center justify-between p-3">
-                              <div className="flex-1">
-                                <div className="font-medium mb-0.5">
-                                  {event.store_short_name}　{formatTime(event.start_time)}
+                            <div className="flex-1 flex items-center justify-between gap-3 p-3">
+                              {/* 左側：日付と店舗情報 */}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-lg mb-1">
+                                  {month}月{day}日({weekday})　{formatTime(event.start_time)}〜
                                 </div>
-                                <div className="text-sm">
-                                  {event.scenario_title || scenario.scenario_title}
+                                <div className="text-sm text-muted-foreground">
+                                  {event.store_short_name} {event.scenario_title || scenario.scenario_title}
                                 </div>
                               </div>
+                              
+                              {/* 中央：残り人数 */}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="text-right">
+                                  <div className="font-bold text-xl">
+                                    残り{event.available_seats}人
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* 右側：選択ボタン */}
                               <Button
                                 variant={isSelected ? "default" : "outline"}
-                                size="sm"
-                                className={isSelected ? "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200" : ""}
+                                size="lg"
+                                className={`flex-shrink-0 min-w-[80px] ${
+                                  isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
+                                }`}
                               >
                                 選択
                               </Button>
