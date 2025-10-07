@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ExternalLink, X as XIcon, Star, ArrowLeft } from 'lucide-react'
+import { Clock, Users, MapPin, ExternalLink, Star, ArrowLeft } from 'lucide-react'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { BookingConfirmation } from './BookingConfirmation'
 
 interface ScenarioDetail {
   scenario_id: string
@@ -55,8 +56,13 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const [scenario, setScenario] = useState<ScenarioDetail | null>(null)
   const [events, setEvents] = useState<EventSchedule[]>([])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<EventSchedule | null>(null)
+  const [participantCount, setParticipantCount] = useState(1)
+  const [customerName, setCustomerName] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
   const [isLoading, setIsLoading] = useState(true)
-  const [customerInfo, setCustomerInfo] = useState<{ name: string; email: string; phone: string } | null>(null)
+  const [showBookingConfirmation, setShowBookingConfirmation] = useState(false)
 
   useEffect(() => {
     loadScenarioDetail()
@@ -72,7 +78,6 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
     if (!user) return
     
     try {
-      // customersテーブルからユーザー情報を取得
       const { data, error } = await supabase
         .from('customers')
         .select('name, email, phone')
@@ -81,21 +86,14 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
       
       if (error) {
         console.error('顧客情報の取得エラー:', error)
-        // データがない場合は、auth.usersのメールアドレスのみ設定
-        setCustomerInfo({
-          name: '',
-          email: user.email,
-          phone: ''
-        })
+        setCustomerEmail(user.email)
         return
       }
       
       if (data) {
-        setCustomerInfo({
-          name: data.name || '',
-          email: data.email || user.email,
-          phone: data.phone || ''
-        })
+        setCustomerName(data.name || '')
+        setCustomerEmail(data.email || user.email)
+        setCustomerPhone(data.phone || '')
       }
     } catch (error) {
       console.error('顧客情報の取得に失敗:', error)
@@ -201,29 +199,68 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
     }
   }
 
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${date.getMonth() + 1}月${date.getDate()}日(${weekdays[date.getDay()]})`
-  }
-
   const formatTime = (timeStr: string): string => {
     return timeStr.slice(0, 5)
   }
 
-  const getUniqueDates = (): string[] => {
-    const dates = new Set(events.map(e => e.date))
-    return Array.from(dates).sort()
+  const handleBooking = () => {
+    if (!selectedDate) {
+      alert('日付を選択してください')
+      return
+    }
+    
+    const event = events.find(e => e.date === selectedDate)
+    if (!event) {
+      alert('選択された日付の公演が見つかりません')
+      return
+    }
+    
+    if (!event.is_available) {
+      alert('この公演は満席です')
+      return
+    }
+    
+    setSelectedEvent(event)
+    setShowBookingConfirmation(true)
   }
 
-  const getEventsByDate = (date: string): EventSchedule[] => {
-    return events.filter(e => e.date === date)
+  const handleBookingComplete = () => {
+    setShowBookingConfirmation(false)
+    setSelectedEvent(null)
+    setSelectedDate(null)
+    // データを再読み込み
+    loadScenarioDetail()
   }
 
-  const handleBooking = (event: EventSchedule) => {
-    // TODO: 予約フォームへ遷移
-    console.log('予約:', event)
-    alert(`予約機能は実装中です\n\n日時: ${formatDate(event.date)} ${formatTime(event.start_time)}\n会場: ${event.store_name}`)
+  const handleBackFromBooking = () => {
+    setShowBookingConfirmation(false)
+    setSelectedEvent(null)
+  }
+
+  // 予約確認画面を表示
+  if (showBookingConfirmation && selectedEvent && scenario) {
+    return (
+      <BookingConfirmation
+        eventId={selectedEvent.event_id}
+        scenarioTitle={scenario.scenario_title}
+        scenarioId={scenario.scenario_id}
+        eventDate={selectedEvent.date}
+        startTime={selectedEvent.start_time}
+        endTime={selectedEvent.end_time}
+        storeName={selectedEvent.store_name}
+        storeAddress={selectedEvent.store_address}
+        storeColor={selectedEvent.store_color}
+        maxParticipants={selectedEvent.max_participants}
+        currentParticipants={selectedEvent.current_participants}
+        participationFee={scenario.participation_fee}
+        initialParticipantCount={participantCount}
+        initialCustomerName={customerName}
+        initialCustomerEmail={customerEmail}
+        initialCustomerPhone={customerPhone}
+        onBack={handleBackFromBooking}
+        onComplete={handleBookingComplete}
+      />
+    )
   }
 
   if (isLoading) {
@@ -531,10 +568,14 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">予約人数</span>
-                      <select className="border rounded px-3 py-1 text-sm">
+                      <select 
+                        className="border rounded px-3 py-1.5 text-sm"
+                        value={participantCount}
+                        onChange={(e) => setParticipantCount(Number(e.target.value))}
+                      >
                         {Array.from({ length: scenario.player_count_max }, (_, i) => (
                           <option key={i + 1} value={i + 1}>
-                            {i + 1}
+                            {i + 1}名
                           </option>
                         ))}
                       </select>
@@ -546,33 +587,41 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
               {/* お客様情報 */}
               <div>
                 <h3 className="font-bold mb-3">お客様情報</h3>
-                {user && customerInfo ? (
+                {user ? (
                   <Card>
                     <CardContent className="p-4 space-y-3">
                       <div>
-                        <label className="text-sm font-medium mb-1 block">お名前</label>
+                        <label className="text-sm font-medium mb-1.5 block">
+                          お名前 <span className="text-red-500">*</span>
+                        </label>
                         <Input 
-                          value={customerInfo.name} 
-                          onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-                          placeholder="なまえたろう" 
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="山田太郎"
                         />
                       </div>
+                      
                       <div>
-                        <label className="text-sm font-medium mb-1 block">メール</label>
+                        <label className="text-sm font-medium mb-1.5 block">
+                          メールアドレス <span className="text-red-500">*</span>
+                        </label>
                         <Input 
-                          type="email" 
-                          value={customerInfo.email}
-                          onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-                          placeholder="m@example.com" 
+                          type="email"
+                          value={customerEmail}
+                          onChange={(e) => setCustomerEmail(e.target.value)}
+                          placeholder="example@email.com"
                         />
                       </div>
+                      
                       <div>
-                        <label className="text-sm font-medium mb-1 block">電話番号</label>
+                        <label className="text-sm font-medium mb-1.5 block">
+                          電話番号 <span className="text-red-500">*</span>
+                        </label>
                         <Input 
-                          type="tel" 
-                          value={customerInfo.phone}
-                          onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-                          placeholder="0000000000" 
+                          type="tel"
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          placeholder="09012345678"
                         />
                       </div>
                     </CardContent>
@@ -581,45 +630,60 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                   <Card>
                     <CardContent className="p-4 space-y-3">
                       <div>
-                        <label className="text-sm font-medium mb-1 block">お名前</label>
-                        <Input placeholder="なまえたろう" disabled />
+                        <label className="text-sm font-medium mb-1.5 block">お名前</label>
+                        <Input placeholder="山田太郎" disabled />
                       </div>
+                      
                       <div>
-                        <label className="text-sm font-medium mb-1 block">メール</label>
-                        <Input type="email" placeholder="m@example.com" disabled />
+                        <label className="text-sm font-medium mb-1.5 block">メールアドレス</label>
+                        <Input type="email" placeholder="example@email.com" disabled />
                       </div>
+                      
                       <div>
-                        <label className="text-sm font-medium mb-1 block">電話番号</label>
-                        <Input type="tel" placeholder="0000000000" disabled />
+                        <label className="text-sm font-medium mb-1.5 block">電話番号</label>
+                        <Input type="tel" placeholder="09012345678" disabled />
                       </div>
+                      
+                      <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
+                        予約にはログインが必要です
+                      </div>
+                      
                       <Button 
-                        className="w-full bg-blue-100 text-blue-800 border-2 border-blue-200 hover:bg-blue-200"
-                        onClick={() => {
-                          // ログインページへ遷移
-                          window.location.hash = '#login'
-                        }}
+                        className="w-full"
+                        onClick={() => window.location.hash = 'login'}
                       >
-                        ログインして予約する
+                        ログインする
                       </Button>
                     </CardContent>
                   </Card>
                 )}
               </div>
 
-              {/* 決済方法 */}
+              {/* 料金情報 */}
               <div>
-                <h3 className="font-bold mb-3">決済方法</h3>
-                <Card className="border-2 border-blue-200 bg-blue-50">
+                <h3 className="font-bold mb-3">料金</h3>
+                <Card>
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-bold text-blue-800">現地決済</span>
-                        <span className="ml-3 font-bold text-lg text-blue-800">
-                          {scenario.participation_fee.toLocaleString()}円
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">参加費（1名）</span>
+                        <span className="font-medium">
+                          ¥{scenario.participation_fee.toLocaleString()}
                         </span>
                       </div>
-                      <div className="w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
-                        <div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">人数</span>
+                        <span className="font-medium">× {participantCount}名</span>
+                      </div>
+                      <div className="border-t pt-2 flex justify-between items-center">
+                        <span className="font-bold">合計</span>
+                        <span className="text-2xl font-bold text-blue-600">
+                          ¥{(scenario.participation_fee * participantCount).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+                        <p className="font-medium mb-1">現地決済</p>
+                        <p className="text-xs">当日会場にてお支払いください</p>
                       </div>
                     </div>
                   </CardContent>
@@ -628,10 +692,11 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
               {/* 予約確認ボタン */}
               <Button 
-                className="w-full bg-blue-100 text-blue-800 border-2 border-blue-200 hover:bg-blue-200 h-12 font-bold"
-                onClick={() => handleBooking(events[0])}
+                className="w-full bg-blue-600 text-white hover:bg-blue-700 h-12 font-bold"
+                onClick={handleBooking}
+                disabled={!selectedDate || !user}
               >
-                予約確認
+                {!user ? 'ログインして予約する' : !selectedDate ? '日付を選択してください' : '予約確認へ進む'}
               </Button>
             </div>
           </div>
