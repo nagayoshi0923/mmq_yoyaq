@@ -469,59 +469,79 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
           {/* 右サイドバー - チケット購入 */}
           <div className="lg:col-span-4">
-            <div className="sticky top-4 space-y-4">
+            <div className="sticky top-4 space-y-6">
+              {/* 日付を選択 */}
+              <div>
+                <h3 className="font-bold mb-3">日付を選択</h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {events.length === 0 ? (
+                    <Card>
+                      <CardContent className="p-4 text-center text-muted-foreground">
+                        現在予約可能な公演はありません
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    events.map((event) => {
+                      const isSelected = selectedDate === event.date
+                      return (
+                        <Card 
+                          key={event.event_id}
+                          className={`cursor-pointer transition-all overflow-hidden ${
+                            isSelected ? 'border-red-500 bg-red-50' : 'hover:bg-accent'
+                          }`}
+                          onClick={() => setSelectedDate(isSelected ? null : event.date)}
+                        >
+                          <div className="flex gap-0">
+                            {/* 店舗カラーバー */}
+                            <div 
+                              className="flex-shrink-0"
+                              style={{ 
+                                backgroundColor: event.store_color || '#9CA3AF',
+                                width: '3px'
+                              }}
+                            />
+                            <div className="flex-1 flex items-center justify-between p-3">
+                              <div className="flex-1">
+                                <div className="font-medium mb-0.5">
+                                  {event.store_short_name}　{formatTime(event.start_time)}
+                                </div>
+                                <div className="text-sm">
+                                  {event.scenario_title || scenario.scenario_title}
+                                </div>
+                              </div>
+                              <Button
+                                variant={isSelected ? "default" : "outline"}
+                                size="sm"
+                                className={isSelected ? "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200" : ""}
+                              >
+                                選択
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
               {/* 人数を選択 */}
               <div>
-                <h3 className="font-bold text-lg mb-3">人数を選択</h3>
+                <h3 className="font-bold mb-3">人数を選択</h3>
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">予約人数</span>
                       <select className="border rounded px-3 py-1 text-sm">
-                        {Array.from({ length: scenario.player_count_max - scenario.player_count_min + 1 }, (_, i) => (
-                          <option key={i} value={scenario.player_count_min + i}>
-                            {scenario.player_count_min + i}
+                        {Array.from({ length: scenario.player_count_max }, (_, i) => (
+                          <option key={i + 1} value={i + 1}>
+                            {i + 1}
                           </option>
                         ))}
                       </select>
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-
-              {/* 日付を選択 */}
-              <div>
-                <h3 className="font-bold text-lg mb-3">日付を選択</h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {events.map((event) => {
-                    const isSelected = selectedDate === event.date
-                    return (
-                      <Card 
-                        key={event.event_id}
-                        className={`cursor-pointer transition-all ${
-                          isSelected ? 'border-red-500 bg-red-50' : 'hover:bg-accent'
-                        }`}
-                        onClick={() => setSelectedDate(isSelected ? null : event.date)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-bold">{event.store_short_name}　{formatTime(event.start_time)}</div>
-                              <div className="text-sm text-muted-foreground">{event.scenario_title || scenario.scenario_title}</div>
-                            </div>
-                            <Button
-                              variant={isSelected ? "default" : "outline"}
-                              size="sm"
-                              className={isSelected ? "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200" : ""}
-                            >
-                              選択
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
               </div>
 
               {/* お客様情報 */}
