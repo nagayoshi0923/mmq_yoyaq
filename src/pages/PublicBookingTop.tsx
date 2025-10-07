@@ -49,13 +49,10 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       let storesData: any[] = []
       try {
         storesData = await storeApi.getAll()
-        console.log('シナリオ数:', scenariosData.length)
-        console.log('店舗数:', storesData.length)
-        console.log('店舗データ:', storesData)
+        
       } catch (error) {
         console.error('店舗データの取得エラー:', error)
-        console.log('シナリオ数:', scenariosData.length)
-        console.log('店舗数: 0 (エラー)')
+        storesData = []
       }
       
       // 現在の月から3ヶ月先までの公演を取得
@@ -73,7 +70,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         allEvents.push(...events)
       }
       
-      console.log('取得した公演数:', allEvents.length)
+      // console.log('取得した公演数:', allEvents.length)
       
       // 予約可能な公演のみフィルタリング（is_reservation_enabledがない場合はcategoryで判定）
       const publicEvents = allEvents.filter((event: any) => {
@@ -83,7 +80,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         return isEnabled && isNotCancelled && isOpen
       })
       
-      console.log('予約可能な公演数:', publicEvents.length)
+      // console.log('予約可能な公演数:', publicEvents.length)
       
       // シナリオごとにグループ化
       const scenarioMap = new Map<string, ScenarioCard>()
@@ -103,7 +100,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
           return false
         })
         
-        console.log(`シナリオ「${scenario.title}」の公演数:`, scenarioEvents.length)
+        // console.log(`シナリオ「${scenario.title}」の公演数:`, scenarioEvents.length)
         
         // 新着判定（リリース日から30日以内）
         const isNew = scenario.release_date ? 
@@ -156,7 +153,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       })
       
       const scenarioList = Array.from(scenarioMap.values())
-      console.log('最終的なシナリオ数:', scenarioList.length)
+      // console.log('最終的なシナリオ数:', scenarioList.length)
       
       setScenarios(scenarioList)
       
@@ -227,7 +224,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     if (onScenarioSelect) {
       onScenarioSelect(scenarioId)
     } else {
-      console.log('シナリオ詳細へ:', scenarioId)
+      // console.log('シナリオ詳細へ:', scenarioId)
     }
   }
 
