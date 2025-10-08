@@ -215,29 +215,52 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
   // 特定の日付と時間枠が空いているかチェック（店舗フィルター対応）
   const checkTimeSlotAvailability = (date: string, slot: TimeSlot, storeIds?: string[]): boolean => {
-    // その日のイベントを取得（店舗フィルターを適用）
-    let dayEvents = events.filter(e => e.date === date)
-    
-    // 店舗が選択されている場合、選択された店舗のみチェック
+    // 店舗が選択されている場合
     if (storeIds && storeIds.length > 0) {
-      dayEvents = dayEvents.filter(e => storeIds.includes(e.store_id))
+      // 選択された店舗のいずれかで空いていればtrue
+      return storeIds.some(storeId => {
+        // その店舗のその日のイベントを取得
+        const storeEvents = events.filter(e => e.date === date && e.store_id === storeId)
+        
+        // その店舗にイベントがなければ空き
+        if (storeEvents.length === 0) return true
+        
+        // 時間枠と重複するイベントがあるかチェック
+        const hasConflict = storeEvents.some(event => {
+          const eventStart = event.start_time.slice(0, 5)
+          const eventEnd = event.end_time.slice(0, 5)
+          const slotStart = slot.startTime
+          const slotEnd = slot.endTime
+          
+          // 時間の重複をチェック
+          return !(eventEnd <= slotStart || eventStart >= slotEnd)
+        })
+        
+        // 重複がなければ空き
+        return !hasConflict
+      })
     }
     
-    // イベントがなければ空き
-    if (dayEvents.length === 0) return true
+    // 店舗が選択されていない場合：すべての店舗を対象
+    // 少なくとも1つの店舗で空いていればtrue
+    const allStoreIds = stores.map(s => s.id)
     
-    // 時間枠と重複するイベントがあるかチェック
-    const hasConflict = dayEvents.some(event => {
-      const eventStart = event.start_time.slice(0, 5)
-      const eventEnd = event.end_time.slice(0, 5)
-      const slotStart = slot.startTime
-      const slotEnd = slot.endTime
+    return allStoreIds.some(storeId => {
+      const storeEvents = events.filter(e => e.date === date && e.store_id === storeId)
       
-      // 時間の重複をチェック
-      return !(eventEnd <= slotStart || eventStart >= slotEnd)
+      if (storeEvents.length === 0) return true
+      
+      const hasConflict = storeEvents.some(event => {
+        const eventStart = event.start_time.slice(0, 5)
+        const eventEnd = event.end_time.slice(0, 5)
+        const slotStart = slot.startTime
+        const slotEnd = slot.endTime
+        
+        return !(eventEnd <= slotStart || eventStart >= slotEnd)
+      })
+      
+      return !hasConflict
     })
-    
-    return !hasConflict
   }
 
   // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）
@@ -694,6 +717,23 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                         placeholder="店舗を選択（未選択=すべて）"
                         showBadges={false}
                       />
+                      {/* 選択された店舗を小さいバッジで表示 */}
+                      {selectedStoreIds.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {selectedStoreIds.map(id => {
+                            const store = stores.find(s => s.id === id)
+                            return store ? (
+                              <Badge 
+                                key={id} 
+                                variant="secondary" 
+                                className="text-[10px] px-1.5 py-0 h-auto"
+                              >
+                                {store.short_name || store.name}
+                              </Badge>
+                            ) : null
+                          })}
+                        </div>
+                      )}
                     </div>
                     
                     {/* 月切り替え */}
