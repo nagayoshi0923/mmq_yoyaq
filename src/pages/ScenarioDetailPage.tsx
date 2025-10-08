@@ -556,10 +556,15 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                       return (
                         <Card 
                           key={event.event_id}
-                          className={`cursor-pointer transition-all overflow-hidden ${
-                            isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'hover:bg-accent border'
+                          className={`transition-all overflow-hidden ${
+                            event.available_seats === 0
+                              ? 'opacity-50 cursor-not-allowed bg-gray-50 border border-gray-200'
+                              : `cursor-pointer ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'hover:bg-accent border'}`
                           }`}
-                          onClick={() => setSelectedDate(isSelected ? null : event.date)}
+                          onClick={() => {
+                            if (event.available_seats === 0) return
+                            setSelectedDate(isSelected ? null : event.date)
+                          }}
                         >
                           <div className="flex items-center justify-between gap-3 p-3">
                             {/* 左側：日付と店舗情報 */}
@@ -586,24 +591,31 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                               </div>
                             </div>
                             
-                            {/* 中央：残り人数 */}
+                            {/* 中央：残り人数 / 満席バッジ */}
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              <div className="text-right">
-                                <div className="font-semibold text-base">
-                                  残り{event.available_seats}人
+                              {event.available_seats === 0 ? (
+                                <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-sm px-3 py-1">
+                                  満席
+                                </Badge>
+                              ) : (
+                                <div className="text-right">
+                                  <div className="font-semibold text-base">
+                                    残り{event.available_seats}人
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                             </div>
                             
                             {/* 右側：選択ボタン */}
                             <Button
                               variant={isSelected ? "default" : "outline"}
                               size="sm"
+                              disabled={event.available_seats === 0}
                               className={`flex-shrink-0 min-w-[70px] ${
                                 isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
                               }`}
                             >
-                              選択
+                              {event.available_seats === 0 ? '満席' : '選択'}
                             </Button>
                           </div>
                         </Card>
