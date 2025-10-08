@@ -696,43 +696,66 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                         const weekdays = ['日', '月', '火', '水', '木', '金', '土']
                         const weekday = weekdays[dateObj.getDay()]
                         
+                        // 曜日の色分け
+                        const dayOfWeek = dateObj.getDay()
+                        const weekdayColor = dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
+                        
                         return (
                           <Card key={date}>
-                            <CardContent className="p-3">
-                              <div className="font-semibold text-sm mb-2">
-                                {month}月{day}日({weekday})
-                              </div>
-                              <div className="grid grid-cols-3 gap-1.5">
-                                {TIME_SLOTS.map((slot) => {
-                                  const isAvailable = checkTimeSlotAvailability(date, slot)
-                                  
-                                  return (
-                                    <Button
-                                      key={slot.label}
-                                      variant="outline"
-                                      size="sm"
-                                      className={`flex flex-col items-center py-1.5 h-auto text-xs ${
-                                        isAvailable 
-                                          ? 'hover:bg-green-50 hover:border-green-400' 
-                                          : 'opacity-50 cursor-not-allowed'
-                                      }`}
-                                      disabled={!isAvailable}
-                                      onClick={() => {
-                                        if (isAvailable) {
-                                          alert(`${date} ${slot.label}の貸切リクエスト`)
-                                          // TODO: 貸切リクエストフォームへ遷移
-                                        }
-                                      }}
-                                    >
-                                      <span className="text-xs font-medium">
-                                        {slot.label} {isAvailable ? '🟢' : '⚫'}
-                                      </span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {slot.startTime}
-                                      </span>
-                                    </Button>
-                                  )
-                                })}
+                            <CardContent className="p-2">
+                              <div className="flex items-center gap-2">
+                                {/* 日付 */}
+                                <div className="font-semibold text-sm whitespace-nowrap min-w-[45px] text-center">
+                                  <div>{month}/{day}</div>
+                                  <div className={`text-xs ${weekdayColor}`}>
+                                    ({weekday})
+                                  </div>
+                                </div>
+                                
+                                {/* 時間枠ボタン */}
+                                <div className="flex gap-1 flex-1">
+                                  {TIME_SLOTS.map((slot) => {
+                                    const isAvailable = checkTimeSlotAvailability(date, slot)
+                                    
+                                    return (
+                                      <Button
+                                        key={slot.label}
+                                        variant="outline"
+                                        size="sm"
+                                        className={`flex-1 py-1.5 h-auto text-xs px-1 ${
+                                          isAvailable 
+                                            ? 'hover:bg-green-50 hover:border-green-400' 
+                                            : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                                        }`}
+                                        disabled={!isAvailable}
+                                        onClick={() => {
+                                          if (isAvailable) {
+                                            alert(`${date} ${slot.label}の貸切リクエスト`)
+                                            // TODO: 貸切リクエストフォームへ遷移
+                                          }
+                                        }}
+                                      >
+                                        <div className="flex flex-col items-center leading-tight gap-0.5">
+                                          <span className="font-semibold">
+                                            {slot.label}
+                                          </span>
+                                          <div className="flex items-center gap-1">
+                                            <span className={`text-[10px] font-medium ${
+                                              isAvailable ? 'text-green-600' : 'text-gray-500'
+                                            }`}>
+                                              {slot.startTime}〜
+                                            </span>
+                                            {!isAvailable && (
+                                              <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-[9px] px-1 py-0 h-auto">
+                                                満席
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </Button>
+                                    )
+                                  })}
+                                </div>
                               </div>
                             </CardContent>
                           </Card>
