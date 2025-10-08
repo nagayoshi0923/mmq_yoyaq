@@ -144,20 +144,33 @@ export function BookingConfirmation({
       // 予約番号を生成（日付 + タイムスタンプ）
       const reservationNumber = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-6)}`
       
+      // 現在の日時を取得
+      const now = new Date().toISOString()
+      
+      // 公演の日時を組み合わせる
+      const eventDateTime = `${eventDate}T${startTime}`
+      
       // 予約データを作成
       const { data: reservationData, error: reservationError } = await supabase
         .from('reservations')
         .insert({
           event_id: eventId,
+          title: `${scenarioTitle} - ${formatDate(eventDate)}`,
           reservation_number: reservationNumber,
+          scenario_id: scenarioId,
+          requested_datetime: eventDateTime,
+          actual_datetime: eventDateTime,
+          duration: 180, // デフォルト3時間
+          participant_count: participantCount,
+          base_price: participationFee * participantCount,
+          total_price: participationFee * participantCount,
+          final_price: participationFee * participantCount,
+          status: 'confirmed',
+          customer_notes: notes || null,
+          created_by: user.id,
           customer_name: customerName,
           customer_email: customerEmail,
-          customer_phone: customerPhone,
-          participant_count: participantCount,
-          total_amount: participationFee * participantCount,
-          status: 'confirmed',
-          notes: notes || null,
-          created_by: user.id
+          customer_phone: customerPhone
         })
         .select()
         .single()
