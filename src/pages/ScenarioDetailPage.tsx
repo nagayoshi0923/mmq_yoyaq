@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MultiSelect } from '@/components/ui/multi-select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Clock, Users, MapPin, ExternalLink, Star, ArrowLeft } from 'lucide-react'
@@ -77,6 +78,8 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const [isLoading, setIsLoading] = useState(true)
   const [showBookingConfirmation, setShowBookingConfirmation] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [stores, setStores] = useState<any[]>([])
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
 
   useEffect(() => {
     loadScenarioDetail()
@@ -109,10 +112,11 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         // }
         
         storesData = await storeApi.getAll()
-        
+        setStores(storesData)
       } catch (error) {
         console.error('店舗データの取得エラー:', error)
         storesData = []
+        setStores([])
       }
       
       // 公演スケジュールを取得（3ヶ月先まで）
@@ -209,10 +213,15 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
     return timeStr.slice(0, 5)
   }
 
-  // 特定の日付と時間枠が空いているかチェック
-  const checkTimeSlotAvailability = (date: string, slot: TimeSlot): boolean => {
-    // その日のイベントを取得
-    const dayEvents = events.filter(e => e.date === date)
+  // 特定の日付と時間枠が空いているかチェック（店舗フィルター対応）
+  const checkTimeSlotAvailability = (date: string, slot: TimeSlot, storeIds?: string[]): boolean => {
+    // その日のイベントを取得（店舗フィルターを適用）
+    let dayEvents = events.filter(e => e.date === date)
+    
+    // 店舗が選択されている場合、選択された店舗のみチェック
+    if (storeIds && storeIds.length > 0) {
+      dayEvents = dayEvents.filter(e => storeIds.includes(e.store_id))
+    }
     
     // イベントがなければ空き
     if (dayEvents.length === 0) return true
@@ -667,6 +676,26 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 {/* 貸切リクエストタブ */}
                 <TabsContent value="private">
                   <div>
+                    {/* 店舗選択 */}
+                    <div className="mb-3">
+                      <label className="text-sm font-medium mb-1.5 block">店舗を選択</label>
+                      <MultiSelect
+                        options={stores.map(store => ({
+                          id: store.id,
+                          name: store.name
+                        }))}
+                        selectedValues={selectedStoreIds.map(id => stores.find(s => s.id === id)?.name || '').filter(Boolean)}
+                        onSelectionChange={(storeNames) => {
+                          const storeIds = storeNames.map(name => 
+                            stores.find(s => s.name === name)?.id || ''
+                          ).filter(Boolean)
+                          setSelectedStoreIds(storeIds)
+                        }}
+                        placeholder="店舗を選択（未選択=すべて）"
+                        showBadges={false}
+                      />
+                    </div>
+                    
                     {/* 月切り替え */}
                     <div className="flex items-center justify-between mb-3">
                       <Button
@@ -715,7 +744,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                                 {/* 時間枠ボタン */}
                                 <div className="flex gap-1 flex-1">
                                   {TIME_SLOTS.map((slot) => {
-                                    const isAvailable = checkTimeSlotAvailability(date, slot)
+                                    const isAvailable = checkTimeSlotAvailability(date, slot, selectedStoreIds.length > 0 ? selectedStoreIds : undefined)
                                     
                                     return (
                                       <Button
