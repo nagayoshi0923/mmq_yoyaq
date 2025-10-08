@@ -25,9 +25,6 @@ interface BookingConfirmationProps {
   currentParticipants: number
   participationFee: number
   initialParticipantCount?: number
-  initialCustomerName?: string
-  initialCustomerEmail?: string
-  initialCustomerPhone?: string
   onBack: () => void
   onComplete?: () => void
 }
@@ -47,17 +44,14 @@ export function BookingConfirmation({
   currentParticipants,
   participationFee,
   initialParticipantCount = 1,
-  initialCustomerName = '',
-  initialCustomerEmail = '',
-  initialCustomerPhone = '',
   onBack,
   onComplete
 }: BookingConfirmationProps) {
   const { user } = useAuth()
   const [participantCount, setParticipantCount] = useState(initialParticipantCount)
-  const [customerName, setCustomerName] = useState(initialCustomerName)
-  const [customerEmail, setCustomerEmail] = useState(initialCustomerEmail)
-  const [customerPhone, setCustomerPhone] = useState(initialCustomerPhone)
+  const [customerName, setCustomerName] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
   const [notes, setNotes] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)

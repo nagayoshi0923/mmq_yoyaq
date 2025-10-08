@@ -60,48 +60,12 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<EventSchedule | null>(null)
   const [participantCount, setParticipantCount] = useState(1)
-  const [customerName, setCustomerName] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [showBookingConfirmation, setShowBookingConfirmation] = useState(false)
 
   useEffect(() => {
     loadScenarioDetail()
   }, [scenarioId])
-
-  useEffect(() => {
-    if (user) {
-      loadCustomerInfo()
-    }
-  }, [user])
-
-  const loadCustomerInfo = async () => {
-    if (!user) return
-    
-    try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('name, email, phone')
-        .eq('user_id', user.id)
-        .single()
-      
-      if (error) {
-        // customersテーブルにデータがない場合はログインユーザーのメールのみ設定
-        setCustomerEmail(user.email || '')
-        return
-      }
-      
-      if (data) {
-        setCustomerName(data.name || '')
-        setCustomerEmail(data.email || user.email || '')
-        setCustomerPhone(data.phone || '')
-      }
-    } catch (error) {
-      // エラーの場合もログインユーザーのメールを設定
-      setCustomerEmail(user.email || '')
-    }
-  }
 
   const loadScenarioDetail = async () => {
     try {
@@ -282,9 +246,6 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         currentParticipants={selectedEvent.current_participants}
         participationFee={scenario.participation_fee}
         initialParticipantCount={participantCount}
-        initialCustomerName={customerName}
-        initialCustomerEmail={customerEmail}
-        initialCustomerPhone={customerPhone}
         onBack={handleBackFromBooking}
         onComplete={handleBookingComplete}
       />
@@ -646,81 +607,6 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-
-              {/* お客様情報 */}
-              <div>
-                <h3 className="font-bold mb-3">お客様情報</h3>
-                {user ? (
-                  <Card>
-                    <CardContent className="p-4 space-y-3">
-                      <div>
-                        <label className="text-sm font-medium mb-1.5 block">
-                          お名前 <span className="text-red-500">*</span>
-                        </label>
-                        <Input 
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          placeholder="山田太郎"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="text-sm font-medium mb-1.5 block">
-                          メールアドレス <span className="text-red-500">*</span>
-                        </label>
-                        <Input 
-                          type="email"
-                          value={customerEmail}
-                          onChange={(e) => setCustomerEmail(e.target.value)}
-                          placeholder="example@email.com"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="text-sm font-medium mb-1.5 block">
-                          電話番号 <span className="text-red-500">*</span>
-                        </label>
-                        <Input 
-                          type="tel"
-                          value={customerPhone}
-                          onChange={(e) => setCustomerPhone(e.target.value)}
-                          placeholder="09012345678"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card>
-                    <CardContent className="p-4 space-y-3">
-                      <div>
-                        <label className="text-sm font-medium mb-1.5 block">お名前</label>
-                        <Input placeholder="山田太郎" disabled />
-                      </div>
-                      
-                      <div>
-                        <label className="text-sm font-medium mb-1.5 block">メールアドレス</label>
-                        <Input type="email" placeholder="example@email.com" disabled />
-                      </div>
-                      
-                      <div>
-                        <label className="text-sm font-medium mb-1.5 block">電話番号</label>
-                        <Input type="tel" placeholder="09012345678" disabled />
-                      </div>
-                      
-                      <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
-                        予約にはログインが必要です
-                      </div>
-                      
-                      <Button 
-                        className="w-full"
-                        onClick={() => window.location.hash = 'login'}
-                      >
-                        ログインする
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
 
               {/* 料金情報 */}
