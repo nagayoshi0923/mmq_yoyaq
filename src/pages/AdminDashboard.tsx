@@ -32,6 +32,11 @@ export function AdminDashboard() {
     // URLのハッシュから初期ページを決定
     const hash = window.location.hash.slice(1) // #を除去
     
+    // シナリオ詳細ページの場合はcustomer-bookingとして扱う
+    if (hash.startsWith('customer-booking')) {
+      return 'customer-booking'
+    }
+    
     // 顧客ロールの場合は予約サイトをデフォルトに
     if (!hash && user?.role === 'customer') {
       return 'customer-booking'
