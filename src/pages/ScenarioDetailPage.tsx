@@ -35,6 +35,7 @@ interface EventSchedule {
   date: string
   start_time: string
   end_time: string
+  store_id: string
   store_name: string
   store_short_name: string
   store_color?: string
@@ -181,6 +182,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
             date: event.date,
             start_time: event.start_time,
             end_time: event.end_time,
+            store_id: event.store_id,
             store_name: store?.name || event.venue,
             store_short_name: store?.short_name || event.venue,
             store_color: storeColor,
@@ -269,6 +271,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         eventId={selectedEvent.event_id}
         scenarioTitle={scenario.scenario_title}
         scenarioId={scenario.scenario_id}
+        storeId={selectedEvent.store_id}
         eventDate={selectedEvent.date}
         startTime={selectedEvent.start_time}
         endTime={selectedEvent.end_time}

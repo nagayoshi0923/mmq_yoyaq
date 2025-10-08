@@ -14,6 +14,7 @@ interface BookingConfirmationProps {
   eventId: string
   scenarioTitle: string
   scenarioId: string
+  storeId?: string
   eventDate: string
   startTime: string
   endTime: string
@@ -35,6 +36,7 @@ export function BookingConfirmation({
   eventId,
   scenarioTitle,
   scenarioId,
+  storeId,
   eventDate,
   startTime,
   endTime,
@@ -150,14 +152,62 @@ export function BookingConfirmation({
       // 公演の日時を組み合わせる
       const eventDateTime = `${eventDate}T${startTime}`
       
+      // 顧客レコードを取得または作成
+      let customerId: string | null = null
+      
+      try {
+        // 既存の顧客レコードを検索
+        const { data: existingCustomer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('user_id', user.id)
+          .single()
+        
+        if (existingCustomer) {
+          customerId = existingCustomer.id
+          
+          // 顧客情報を更新
+          await supabase
+            .from('customers')
+            .update({
+              name: customerName,
+              phone: customerPhone,
+              email: customerEmail
+            })
+            .eq('id', customerId)
+        } else {
+          // 新規顧客レコードを作成
+          const { data: newCustomer, error: customerError } = await supabase
+            .from('customers')
+            .insert({
+              user_id: user.id,
+              name: customerName,
+              phone: customerPhone,
+              email: customerEmail
+            })
+            .select('id')
+            .single()
+          
+          if (!customerError && newCustomer) {
+            customerId = newCustomer.id
+          }
+        }
+      } catch (error) {
+        console.error('顧客レコードの作成/更新エラー:', error)
+        // エラーでも予約は続行（customer_idなしで）
+      }
+      
       // 予約データを作成
       const { data: reservationData, error: reservationError } = await supabase
         .from('reservations')
         .insert({
           event_id: eventId,
+          schedule_event_id: eventId, // schedule_event_idも設定
           title: `${scenarioTitle} - ${formatDate(eventDate)}`,
           reservation_number: reservationNumber,
           scenario_id: scenarioId,
+          store_id: storeId || null,
+          customer_id: customerId,
           requested_datetime: eventDateTime,
           actual_datetime: eventDateTime,
           duration: 180, // デフォルト3時間
