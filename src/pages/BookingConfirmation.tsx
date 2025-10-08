@@ -80,18 +80,19 @@ export function BookingConfirmation({
         .single()
       
       if (error) {
-        console.error('顧客情報の取得エラー:', error)
-        setCustomerEmail(user.email)
+        // customersテーブルにデータがない場合はログインユーザーのメールのみ設定
+        setCustomerEmail(user.email || '')
         return
       }
       
       if (data) {
         setCustomerName(data.name || '')
-        setCustomerEmail(data.email || user.email)
+        setCustomerEmail(data.email || user.email || '')
         setCustomerPhone(data.phone || '')
       }
     } catch (error) {
-      console.error('顧客情報の取得に失敗:', error)
+      // エラーの場合もログインユーザーのメールを設定
+      setCustomerEmail(user.email || '')
     }
   }
 
@@ -140,11 +141,15 @@ export function BookingConfirmation({
     setIsSubmitting(true)
 
     try {
+      // 予約番号を生成（日付 + タイムスタンプ）
+      const reservationNumber = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-6)}`
+      
       // 予約データを作成
       const { data: reservationData, error: reservationError } = await supabase
         .from('reservations')
         .insert({
           event_id: eventId,
+          reservation_number: reservationNumber,
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,

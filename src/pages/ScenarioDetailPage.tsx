@@ -86,18 +86,19 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         .single()
       
       if (error) {
-        console.error('顧客情報の取得エラー:', error)
-        setCustomerEmail(user.email)
+        // customersテーブルにデータがない場合はログインユーザーのメールのみ設定
+        setCustomerEmail(user.email || '')
         return
       }
       
       if (data) {
         setCustomerName(data.name || '')
-        setCustomerEmail(data.email || user.email)
+        setCustomerEmail(data.email || user.email || '')
         setCustomerPhone(data.phone || '')
       }
     } catch (error) {
-      console.error('顧客情報の取得に失敗:', error)
+      // エラーの場合もログインユーザーのメールを設定
+      setCustomerEmail(user.email || '')
     }
   }
 
