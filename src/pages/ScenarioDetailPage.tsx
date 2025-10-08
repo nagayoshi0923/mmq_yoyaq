@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Clock, Users, MapPin, ExternalLink, Star, ArrowLeft } from 'lucide-react'
@@ -48,6 +49,19 @@ interface EventSchedule {
   is_available: boolean
 }
 
+// 時間枠の定義
+interface TimeSlot {
+  label: string
+  startTime: string
+  endTime: string
+}
+
+const TIME_SLOTS: TimeSlot[] = [
+  { label: '朝', startTime: '10:00', endTime: '13:00' },
+  { label: '昼', startTime: '14:00', endTime: '17:00' },
+  { label: '夜', startTime: '18:00', endTime: '21:00' },
+]
+
 interface ScenarioDetailPageProps {
   scenarioId: string
   onClose?: () => void
@@ -62,6 +76,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const [participantCount, setParticipantCount] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [showBookingConfirmation, setShowBookingConfirmation] = useState(false)
+  const [currentMonth, setCurrentMonth] = useState(new Date())
 
   useEffect(() => {
     loadScenarioDetail()
@@ -192,6 +207,60 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
   const formatTime = (timeStr: string): string => {
     return timeStr.slice(0, 5)
+  }
+
+  // 特定の日付と時間枠が空いているかチェック
+  const checkTimeSlotAvailability = (date: string, slot: TimeSlot): boolean => {
+    // その日のイベントを取得
+    const dayEvents = events.filter(e => e.date === date)
+    
+    // イベントがなければ空き
+    if (dayEvents.length === 0) return true
+    
+    // 時間枠と重複するイベントがあるかチェック
+    const hasConflict = dayEvents.some(event => {
+      const eventStart = event.start_time.slice(0, 5)
+      const eventEnd = event.end_time.slice(0, 5)
+      const slotStart = slot.startTime
+      const slotEnd = slot.endTime
+      
+      // 時間の重複をチェック
+      return !(eventEnd <= slotStart || eventStart >= slotEnd)
+    })
+    
+    return !hasConflict
+  }
+
+  // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）
+  const generatePrivateDates = () => {
+    const dates: string[] = []
+    const year = currentMonth.getFullYear()
+    const month = currentMonth.getMonth()
+    
+    // 月の最初の日
+    const firstDay = new Date(year, month, 1)
+    // 月の最後の日
+    const lastDay = new Date(year, month + 1, 0)
+    
+    // 今日より前の日は表示しない
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+      const date = new Date(year, month, day)
+      if (date >= today) {
+        dates.push(date.toISOString().split('T')[0])
+      }
+    }
+    
+    return dates
+  }
+
+  // 月を切り替え
+  const changeMonth = (offset: number) => {
+    const newMonth = new Date(currentMonth)
+    newMonth.setMonth(currentMonth.getMonth() + offset)
+    setCurrentMonth(newMonth)
   }
 
   const handleBooking = () => {
@@ -495,10 +564,18 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
           {/* 右サイドバー - チケット購入 */}
           <div className="lg:col-span-4">
             <div className="sticky top-4 space-y-6">
-              {/* 日付を選択 */}
-              <div>
-                <h3 className="font-bold mb-3">日付を選択</h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
+              {/* タブ: 公演日程 / 貸切リクエスト */}
+              <Tabs defaultValue="schedule" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="schedule">公演日程</TabsTrigger>
+                  <TabsTrigger value="private">💎 貸切リクエスト</TabsTrigger>
+                </TabsList>
+                
+                {/* 公演日程タブ */}
+                <TabsContent value="schedule">
+                  <div>
+                    <h3 className="font-bold mb-3">日付を選択</h3>
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
                   {events.length === 0 ? (
                     <Card>
                       <CardContent className="p-4 text-center text-muted-foreground">
@@ -583,8 +660,88 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                       )
                     })
                   )}
-                </div>
-              </div>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                {/* 貸切リクエストタブ */}
+                <TabsContent value="private">
+                  <div>
+                    {/* 月切り替え */}
+                    <div className="flex items-center justify-between mb-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => changeMonth(-1)}
+                        disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
+                      >
+                        &lt; 前月
+                      </Button>
+                      <h3 className="font-bold">
+                        {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => changeMonth(1)}
+                      >
+                        次月 &gt;
+                      </Button>
+                    </div>
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {generatePrivateDates().map((date) => {
+                        const dateObj = new Date(date)
+                        const month = dateObj.getMonth() + 1
+                        const day = dateObj.getDate()
+                        const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+                        const weekday = weekdays[dateObj.getDay()]
+                        
+                        return (
+                          <Card key={date}>
+                            <CardContent className="p-3">
+                              <div className="font-semibold text-sm mb-2">
+                                {month}月{day}日({weekday})
+                              </div>
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {TIME_SLOTS.map((slot) => {
+                                  const isAvailable = checkTimeSlotAvailability(date, slot)
+                                  
+                                  return (
+                                    <Button
+                                      key={slot.label}
+                                      variant="outline"
+                                      size="sm"
+                                      className={`flex flex-col items-center py-1.5 h-auto text-xs ${
+                                        isAvailable 
+                                          ? 'hover:bg-green-50 hover:border-green-400' 
+                                          : 'opacity-50 cursor-not-allowed'
+                                      }`}
+                                      disabled={!isAvailable}
+                                      onClick={() => {
+                                        if (isAvailable) {
+                                          alert(`${date} ${slot.label}の貸切リクエスト`)
+                                          // TODO: 貸切リクエストフォームへ遷移
+                                        }
+                                      }}
+                                    >
+                                      <span className="text-xs font-medium">
+                                        {slot.label} {isAvailable ? '🟢' : '⚫'}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {slot.startTime}
+                                      </span>
+                                    </Button>
+                                  )
+                                })}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               {/* 人数を選択 */}
               <div>
