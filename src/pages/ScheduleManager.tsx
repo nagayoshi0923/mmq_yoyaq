@@ -36,6 +36,7 @@ interface ScheduleEvent {
   participant_count?: number
   max_participants?: number
   is_reservation_enabled?: boolean
+  is_private_request?: boolean // 貸切リクエストかどうか
 }
 
 
@@ -100,8 +101,59 @@ export function ScheduleManager() {
           is_reservation_enabled: event.is_reservation_enabled || false
         }))
         
+        // 貸切リクエストを取得して追加
+        const startDate = new Date(year, month - 1, 1)
+        const endDate = new Date(year, month, 0)
         
-        setEvents(formattedEvents)
+        const { data: privateRequests } = await supabase
+          .from('reservations')
+          .select(`
+            id,
+            title,
+            customer_name,
+            status,
+            candidate_datetimes,
+            scenarios:scenario_id (title)
+          `)
+          .eq('reservation_source', 'web_private')
+          .gte('requested_datetime', startDate.toISOString())
+          .lte('requested_datetime', endDate.toISOString())
+        
+        // 貸切リクエストをスケジュールイベントに変換
+        const privateEvents: ScheduleEvent[] = []
+        if (privateRequests) {
+          privateRequests.forEach((request: any) => {
+            if (request.candidate_datetimes?.candidates) {
+              request.candidate_datetimes.candidates.forEach((candidate: any) => {
+                const candidateDate = new Date(candidate.date)
+                const candidateMonth = candidateDate.getMonth() + 1
+                const candidateYear = candidateDate.getFullYear()
+                
+                // 表示対象の月のみ追加
+                if (candidateYear === year && candidateMonth === month) {
+                  privateEvents.push({
+                    id: `${request.id}-${candidate.order}`,
+                    date: candidate.date,
+                    venue: '', // 店舗未定
+                    scenario: request.scenarios?.title || request.title,
+                    gms: [],
+                    start_time: candidate.startTime,
+                    end_time: candidate.endTime,
+                    category: 'private' as any, // 貸切
+                    is_cancelled: false,
+                    participant_count: 0,
+                    notes: `【貸切${request.status === 'confirmed' ? '確定' : '希望'}】${request.customer_name || ''}`,
+                    is_reservation_enabled: false,
+                    is_private_request: true, // 貸切リクエストフラグ
+                    reservation_info: request.status === 'confirmed' ? '確定' : 'GM確認待ち'
+                  })
+                }
+              })
+            }
+          })
+        }
+        
+        setEvents([...formattedEvents, ...privateEvents])
       } catch (err) {
         console.error('公演データの読み込みエラー:', err)
         setError('公演データの読み込みに失敗しました')

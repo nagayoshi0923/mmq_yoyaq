@@ -18,6 +18,8 @@ interface ScheduleEvent {
   max_participants?: number
   notes?: string
   is_reservation_enabled?: boolean
+  is_private_request?: boolean // 貸切リクエストかどうか
+  reservation_info?: string
 }
 
 interface PerformanceCardProps {
@@ -53,11 +55,15 @@ export function PerformanceCard({
   const maxCapacity = event.max_participants || 8
   const isIncomplete = !event.scenario || event.gms.length === 0
   
-  // 公演カテゴリ色を取得
-  const categoryColors = categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor || 'bg-gray-50 border-gray-200'
+  // 貸切リクエストの場合は紫色で表示
+  const categoryColors = event.is_private_request 
+    ? 'bg-purple-50 border-purple-200'
+    : categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor || 'bg-gray-50 border-gray-200'
   
   // バッジのテキストカラーを取得（例: 'bg-blue-100 text-blue-800' から 'text-blue-800' を抽出）
-  const badgeTextColor = categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor.split(' ').find(cls => cls.startsWith('text-')) || 'text-gray-800'
+  const badgeTextColor = event.is_private_request
+    ? 'text-purple-800'
+    : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor.split(' ').find(cls => cls.startsWith('text-')) || 'text-gray-800'
   
   // ボーダー色を取得（テキスト色から対応するボーダー色を生成）
   const borderColorClass = badgeTextColor.replace('text-', 'ring-')
@@ -87,22 +93,31 @@ export function PerformanceCard({
             </Badge>
           )}
           
-          {/* 予約者数バッジ */}
-          {!event.is_cancelled && (
-            <Badge size="sm" className={`font-normal ${
-              reservationCount >= maxCapacity 
-                ? 'bg-red-100 text-red-800' 
-                : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
-            }`}>
-              <Users className="w-3 h-3 mr-1" />
-              {reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}
+          {/* 貸切リクエストの場合 */}
+          {event.is_private_request ? (
+            <Badge size="sm" className="font-normal bg-purple-100 text-purple-800 border-purple-200">
+              {event.reservation_info || 'GM確認待ち'}
             </Badge>
+          ) : (
+            <>
+              {/* 予約者数バッジ */}
+              {!event.is_cancelled && (
+                <Badge size="sm" className={`font-normal ${
+                  reservationCount >= maxCapacity 
+                    ? 'bg-red-100 text-red-800' 
+                    : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
+                }`}>
+                  <Users className="w-3 h-3 mr-1" />
+                  {reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}
+                </Badge>
+              )}
+              
+              {/* カテゴリバッジ */}
+              <Badge variant="static" size="sm" className={`font-normal ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'} ${event.is_cancelled ? 'opacity-60' : ''}`}>
+                {categoryConfig[event.category as keyof typeof categoryConfig]?.label || event.category}
+              </Badge>
+            </>
           )}
-          
-          {/* カテゴリバッジ */}
-          <Badge variant="static" size="sm" className={`font-normal ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'} ${event.is_cancelled ? 'opacity-60' : ''}`}>
-            {categoryConfig[event.category as keyof typeof categoryConfig]?.label || event.category}
-          </Badge>
         </div>
       </div>
       

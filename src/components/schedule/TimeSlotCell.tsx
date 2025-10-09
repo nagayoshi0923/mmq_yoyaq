@@ -19,6 +19,8 @@ interface ScheduleEvent {
   max_participants?: number
   notes?: string
   is_reservation_enabled?: boolean
+  is_private_request?: boolean // 貸切リクエストかどうか
+  reservation_info?: string
 }
 
 interface TimeSlotCellProps {
