@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Search, Calendar, User, DollarSign, Filter } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import type { Reservation } from '@/types'
 
 // 予約管理画面用の拡張型
@@ -23,6 +24,7 @@ export function ReservationManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [paymentFilter, setPaymentFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all') // 通常予約 or 貸切リクエスト
   const [isLoading, setIsLoading] = useState(true)
 
   // 予約データを読み込む
@@ -33,66 +35,40 @@ export function ReservationManagement() {
   const loadReservations = async () => {
     try {
       setIsLoading(true)
-      // TODO: API実装後に置き換え
-      // const data = await reservationApi.getAll()
       
-      // モックデータ
-      const mockData: ReservationWithDetails[] = [
-        {
-          id: '1',
-          reservation_number: 'RES-2025-0001',
-          customer_id: 'customer-1',
-          customer_name: '山田太郎',
-          schedule_event_id: 'event-1',
-          event_date: '2025-10-12',
-          event_time: '14:00',
-          scenario_title: '人狼村の悲劇',
-          store_name: '高田馬場店',
-          title: '人狼村の悲劇',
-          requested_datetime: '2025-10-12T14:00:00Z',
-          duration: 240,
-          participant_count: 6,
-          base_price: 18000,
-          options_price: 0,
-          total_price: 18000,
-          discount_amount: 0,
-          final_price: 18000,
-          payment_status: 'paid',
-          status: 'confirmed',
-          reservation_source: 'web',
-          created_at: '2025-10-01T10:00:00Z',
-          updated_at: '2025-10-01T10:00:00Z'
-        },
-        {
-          id: '2',
-          reservation_number: 'RES-2025-0002',
-          customer_id: 'customer-2',
-          customer_name: '佐藤花子',
-          schedule_event_id: 'event-2',
-          event_date: '2025-10-15',
-          event_time: '19:00',
-          scenario_title: '密室の謎',
-          store_name: '別館1',
-          title: '密室の謎',
-          requested_datetime: '2025-10-15T19:00:00Z',
-          duration: 180,
-          participant_count: 4,
-          base_price: 12000,
-          options_price: 0,
-          total_price: 12000,
-          discount_amount: 0,
-          final_price: 12000,
-          payment_status: 'pending',
-          status: 'pending',
-          reservation_source: 'web',
-          created_at: '2025-10-02T15:30:00Z',
-          updated_at: '2025-10-02T15:30:00Z'
+      // Supabaseから予約データを取得
+      const { data, error } = await supabase
+        .from('reservations')
+        .select(`
+          *,
+          scenarios:scenario_id (title),
+          stores:store_id (name)
+        `)
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('予約データ取得エラー:', error)
+        setReservations([])
+        return
+      }
+      
+      // データを整形
+      const formattedData: ReservationWithDetails[] = (data || []).map((reservation: any) => {
+        const requestedDate = reservation.requested_datetime ? new Date(reservation.requested_datetime) : null
+        
+        return {
+          ...reservation,
+          scenario_title: reservation.scenarios?.title || reservation.title,
+          store_name: reservation.stores?.name || '',
+          event_date: requestedDate ? requestedDate.toISOString().split('T')[0] : '',
+          event_time: requestedDate ? requestedDate.toTimeString().slice(0, 5) : ''
         }
-      ]
+      })
       
-      setReservations(mockData)
+      setReservations(formattedData)
     } catch (error) {
       console.error('予約データの読み込みエラー:', error)
+      setReservations([])
     } finally {
       setIsLoading(false)
     }
@@ -102,13 +78,16 @@ export function ReservationManagement() {
   const filteredReservations = reservations.filter(reservation => {
     const matchesSearch = 
       reservation.reservation_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reservation.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reservation.scenario_title.toLowerCase().includes(searchTerm.toLowerCase())
+      (reservation.customer_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (reservation.scenario_title?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     
     const matchesStatus = statusFilter === 'all' || reservation.status === statusFilter
     const matchesPayment = paymentFilter === 'all' || reservation.payment_status === paymentFilter
+    const matchesType = typeFilter === 'all' || 
+      (typeFilter === 'private' && reservation.reservation_source === 'web_private') ||
+      (typeFilter === 'regular' && reservation.reservation_source !== 'web_private')
     
-    return matchesSearch && matchesStatus && matchesPayment
+    return matchesSearch && matchesStatus && matchesPayment && matchesType
   })
 
   // ステータスバッジのスタイル
@@ -173,11 +152,19 @@ export function ReservationManagement() {
           </div>
 
           {/* 統計カード */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>総予約数</CardDescription>
                 <CardTitle className="text-3xl">{reservations.length}</CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>💎 貸切希望</CardDescription>
+                <CardTitle className="text-3xl text-purple-600">
+                  {reservations.filter(r => r.reservation_source === 'web_private').length}
+                </CardTitle>
               </CardHeader>
             </Card>
             <Card>
@@ -212,7 +199,7 @@ export function ReservationManagement() {
               <CardTitle className="text-lg">検索・フィルター</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {/* 検索 */}
                 <div className="relative md:col-span-2">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -223,6 +210,18 @@ export function ReservationManagement() {
                     className="pl-10"
                   />
                 </div>
+
+                {/* 予約タイプフィルター */}
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="予約タイプ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">すべて</SelectItem>
+                    <SelectItem value="regular">通常予約</SelectItem>
+                    <SelectItem value="private">💎 貸切希望</SelectItem>
+                  </SelectContent>
+                </Select>
 
                 {/* ステータスフィルター */}
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -293,8 +292,13 @@ export function ReservationManagement() {
                     >
                       <CardContent className="p-4">
                         <div className="grid grid-cols-12 gap-4 items-center text-sm">
-                          <div className="col-span-2 font-mono text-xs">
-                            {reservation.reservation_number}
+                          <div className="col-span-2">
+                            <div className="font-mono text-xs">{reservation.reservation_number}</div>
+                            {reservation.reservation_source === 'web_private' && (
+                              <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] mt-1">
+                                💎 貸切希望
+                              </Badge>
+                            )}
                           </div>
                           <div className="col-span-2 flex items-center gap-2">
                             <User className="w-4 h-4 text-muted-foreground" />
