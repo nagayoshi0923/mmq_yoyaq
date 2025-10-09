@@ -81,6 +81,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
+  const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
   const MAX_SELECTIONS = 10
 
   useEffect(() => {
@@ -627,7 +628,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
           <div className="lg:col-span-4">
             <div className="sticky top-4 space-y-6">
               {/* タブ: 公演日程 / 貸切リクエスト */}
-              <Tabs defaultValue="schedule" className="w-full">
+              <Tabs defaultValue="schedule" className="w-full" onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}>
                 <TabsList className="grid w-full grid-cols-2 mb-4">
                   <TabsTrigger value="schedule">公演日程</TabsTrigger>
                   <TabsTrigger value="private">💎 貸切リクエスト</TabsTrigger>
@@ -826,8 +827,8 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                                           !isAvailable 
                                             ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
                                             : isSelected
-                                            ? 'bg-blue-500 text-white hover:bg-blue-600'
-                                            : ''
+                                            ? 'bg-purple-500 text-white hover:bg-purple-600 border-purple-500'
+                                            : 'hover:border-purple-300'
                                         }`}
                                         disabled={!isAvailable}
                                         onClick={() => {
@@ -842,7 +843,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                                           </span>
                                           <div className="flex items-center gap-1">
                                             <span className={`text-[10px] font-medium ${
-                                              isSelected ? 'text-white' : isAvailable ? 'text-green-600' : 'text-gray-500'
+                                              isSelected ? 'text-white' : isAvailable ? 'text-purple-600' : 'text-gray-500'
                                             }`}>
                                               {slot.startTime}〜
                                             </span>
@@ -866,8 +867,8 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                     
                     {/* 選択された時間枠の表示 */}
                     {selectedTimeSlots.length > 0 && (
-                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                        <div className="text-xs font-medium text-blue-900 mb-2">
+                      <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
+                        <div className="text-xs font-medium text-purple-900 mb-2">
                           選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                         </div>
                         <div className="space-y-1">
@@ -880,7 +881,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                             
                             return (
                               <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs">
-                                <span className="text-blue-900">
+                                <span className="text-purple-900">
                                   {index + 1}. {month}/{day}({weekday}) {item.slot.label} {item.slot.startTime}〜
                                 </span>
                                 <Button
@@ -901,68 +902,128 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 </TabsContent>
               </Tabs>
 
-              {/* 人数を選択 */}
-              <div>
-                <h3 className="font-bold mb-3">人数を選択</h3>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">予約人数</span>
-                      <select 
-                        className="border rounded px-3 py-1.5 text-sm"
-                        value={participantCount}
-                        onChange={(e) => setParticipantCount(Number(e.target.value))}
-                      >
-                        {Array.from({ length: scenario.player_count_max }, (_, i) => (
-                          <option key={i + 1} value={i + 1}>
-                            {i + 1}名
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              {/* タブの内容に応じて表示を切り替え */}
+              <div className="mt-6">
+                {/* 公演日程タブの場合 */}
+                {activeTab === 'schedule' && (
+                <div className="space-y-6">
+                  {/* 人数を選択 */}
+                  <div>
+                    <h3 className="font-bold mb-3">人数を選択</h3>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">予約人数</span>
+                          <select 
+                            className="border rounded px-3 py-1.5 text-sm"
+                            value={participantCount}
+                            onChange={(e) => setParticipantCount(Number(e.target.value))}
+                          >
+                            {Array.from({ length: scenario.player_count_max }, (_, i) => (
+                              <option key={i + 1} value={i + 1}>
+                                {i + 1}名
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
 
-              {/* 料金情報 */}
-              <div>
-                <h3 className="font-bold mb-3">料金</h3>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">参加費（1名）</span>
-                        <span className="font-medium">
-                          ¥{scenario.participation_fee.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">人数</span>
-                        <span className="font-medium">× {participantCount}名</span>
-                      </div>
-                      <div className="border-t pt-2 flex justify-between items-center">
-                        <span className="font-bold">合計</span>
-                        <span className="text-2xl font-bold text-blue-600">
-                          ¥{(scenario.participation_fee * participantCount).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-                        <p className="font-medium mb-1">現地決済</p>
-                        <p className="text-xs">当日会場にてお支払いください</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  {/* 料金情報 */}
+                  <div>
+                    <h3 className="font-bold mb-3">料金</h3>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">参加費（1名）</span>
+                            <span className="font-medium">
+                              ¥{scenario.participation_fee.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">人数</span>
+                            <span className="font-medium">× {participantCount}名</span>
+                          </div>
+                          <div className="border-t pt-2 flex justify-between items-center">
+                            <span className="font-bold">合計</span>
+                            <span className="text-2xl font-bold text-blue-600">
+                              ¥{(scenario.participation_fee * participantCount).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+                            <p className="font-medium mb-1">現地決済</p>
+                            <p className="text-xs">当日会場にてお支払いください</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
 
-              {/* 予約確認ボタン */}
-              <Button 
-                className="w-full bg-blue-600 text-white hover:bg-blue-700 h-12 font-bold"
-                onClick={handleBooking}
-                disabled={!selectedDate || !user}
-              >
-                {!user ? 'ログインして予約する' : !selectedDate ? '日付を選択してください' : '予約確認へ進む'}
-              </Button>
+                  {/* 予約確認ボタン */}
+                  <Button 
+                    className="w-full bg-blue-600 text-white hover:bg-blue-700 h-12 font-bold"
+                    onClick={handleBooking}
+                    disabled={!selectedDate || !user}
+                  >
+                    {!user ? 'ログインして予約する' : !selectedDate ? '日付を選択してください' : '予約確認へ進む'}
+                  </Button>
+                </div>
+                )}
+
+                {/* 貸切リクエストタブの場合 */}
+                {activeTab === 'private' && (
+                <div className="space-y-6">
+                  {/* 貸切料金情報 */}
+                  <div>
+                    <h3 className="font-bold mb-3">料金（目安）</h3>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">参加費（1名）</span>
+                            <span className="font-medium">
+                              ¥{scenario.participation_fee.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">最大人数</span>
+                            <span className="font-medium">× {scenario.player_count_max}名</span>
+                          </div>
+                          <div className="border-t pt-2 flex justify-between items-center">
+                            <span className="font-bold">合計</span>
+                            <span className="text-2xl font-bold text-purple-600">
+                              ¥{(scenario.participation_fee * scenario.player_count_max).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="bg-purple-50 border border-purple-200 rounded p-3 text-sm text-purple-800">
+                            <p className="font-medium mb-1">貸切料金</p>
+                            <p className="text-xs">詳細はリクエスト後にご相談</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* 貸切リクエスト送信ボタン */}
+                  <Button 
+                    className="w-full bg-purple-600 text-white hover:bg-purple-700 h-12 font-bold"
+                    onClick={() => {
+                      if (!user) {
+                        window.location.hash = 'login'
+                        return
+                      }
+                      alert(`${selectedTimeSlots.length}件の候補日時でリクエストを送信`)
+                      // TODO: 貸切リクエストフォームへ遷移
+                    }}
+                    disabled={!user || selectedTimeSlots.length === 0}
+                  >
+                    {!user ? 'ログインして貸切リクエスト' : selectedTimeSlots.length === 0 ? '候補日時を選択してください' : `貸切リクエストを送信 (${selectedTimeSlots.length}件)`}
+                  </Button>
+                </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
