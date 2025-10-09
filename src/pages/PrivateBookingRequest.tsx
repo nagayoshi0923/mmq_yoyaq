@@ -218,6 +218,26 @@ export function PrivateBookingRequest({
         return
       }
 
+      // このシナリオを担当できるGMを取得
+      const { data: gmAssignments, error: gmError } = await supabase
+        .from('staff_scenario_assignments')
+        .select('staff_id')
+        .eq('scenario_id', scenarioId)
+      
+      if (!gmError && gmAssignments && gmAssignments.length > 0 && parentReservation) {
+        // 各GMに対して確認レコードを作成
+        const gmResponses = gmAssignments.map(assignment => ({
+          reservation_id: parentReservation.id,
+          staff_id: assignment.staff_id,
+          response_status: 'pending',
+          notified_at: new Date().toISOString()
+        }))
+        
+        await supabase
+          .from('gm_availability_responses')
+          .insert(gmResponses)
+      }
+
       setSuccess(true)
       
       setTimeout(() => {

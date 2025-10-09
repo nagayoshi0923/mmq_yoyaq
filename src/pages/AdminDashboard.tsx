@@ -10,6 +10,7 @@ import { ShiftSubmission } from './ShiftSubmission'
 import { ReservationManagement } from './ReservationManagement'
 import { PublicBookingTop } from './PublicBookingTop'
 import { ScenarioDetailPage } from './ScenarioDetailPage'
+import { GMAvailabilityCheck } from './GMAvailabilityCheck'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -156,6 +157,10 @@ export function AdminDashboard() {
   
   if (currentPage === 'reservations') {
     return <ReservationManagement />
+  }
+
+  if (currentPage === 'gm-availability') {
+    return <GMAvailabilityCheck />
   }
 
   return (

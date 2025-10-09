@@ -28,6 +28,7 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
     { id: 'staff', label: 'スタッフ', icon: Users, roles: ['admin', 'staff'] },
     { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin', 'staff'] },
     { id: 'shift-submission', label: 'シフト提出', icon: Clock, roles: ['admin', 'staff'] },
+    { id: 'gm-availability', label: 'GM確認', icon: Clock, roles: ['admin', 'staff'] },
     { id: 'customer-booking', label: '予約サイト', icon: Calendar, roles: ['admin', 'staff', 'customer'] },
     { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin', 'staff'] },
     { id: 'customers', label: '顧客', icon: Users, roles: ['admin', 'staff'] },
