@@ -80,6 +80,8 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
+  const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
+  const MAX_SELECTIONS = 10
 
   useEffect(() => {
     loadScenarioDetail()
@@ -293,6 +295,34 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
     const newMonth = new Date(currentMonth)
     newMonth.setMonth(currentMonth.getMonth() + offset)
     setCurrentMonth(newMonth)
+  }
+
+  // 時間枠の選択/解除を切り替え
+  const toggleTimeSlot = (date: string, slot: TimeSlot) => {
+    const exists = selectedTimeSlots.some(
+      s => s.date === date && s.slot.label === slot.label
+    )
+    
+    if (exists) {
+      // 既に選択されている場合は解除
+      setSelectedTimeSlots(selectedTimeSlots.filter(
+        s => !(s.date === date && s.slot.label === slot.label)
+      ))
+    } else {
+      // 未選択の場合は追加（最大10枠まで）
+      if (selectedTimeSlots.length < MAX_SELECTIONS) {
+        setSelectedTimeSlots([...selectedTimeSlots, { date, slot }])
+      } else {
+        alert(`最大${MAX_SELECTIONS}枠まで選択できます`)
+      }
+    }
+  }
+
+  // 時間枠が選択されているかチェック
+  const isTimeSlotSelected = (date: string, slot: TimeSlot): boolean => {
+    return selectedTimeSlots.some(
+      s => s.date === date && s.slot.label === slot.label
+    )
   }
 
   const handleBooking = () => {
@@ -785,32 +815,34 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                                 <div className="flex gap-1 flex-1">
                                   {TIME_SLOTS.map((slot) => {
                                     const isAvailable = checkTimeSlotAvailability(date, slot, selectedStoreIds.length > 0 ? selectedStoreIds : undefined)
+                                    const isSelected = isTimeSlotSelected(date, slot)
                                     
                                     return (
                                       <Button
                                         key={slot.label}
-                                        variant="outline"
+                                        variant={isSelected ? "default" : "outline"}
                                         size="sm"
                                         className={`flex-1 py-1.5 h-auto text-xs px-1 ${
                                           !isAvailable 
                                             ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                                            : isSelected
+                                            ? 'bg-blue-500 text-white hover:bg-blue-600'
                                             : ''
                                         }`}
                                         disabled={!isAvailable}
                                         onClick={() => {
                                           if (isAvailable) {
-                                            alert(`${date} ${slot.label}の貸切リクエスト`)
-                                            // TODO: 貸切リクエストフォームへ遷移
+                                            toggleTimeSlot(date, slot)
                                           }
                                         }}
                                       >
                                         <div className="flex flex-col items-center leading-tight gap-0.5">
-                                          <span className="font-semibold">
+                                          <span className={`font-semibold ${isSelected ? 'text-white' : ''}`}>
                                             {slot.label}
                                           </span>
                                           <div className="flex items-center gap-1">
                                             <span className={`text-[10px] font-medium ${
-                                              isAvailable ? 'text-green-600' : 'text-gray-500'
+                                              isSelected ? 'text-white' : isAvailable ? 'text-green-600' : 'text-gray-500'
                                             }`}>
                                               {slot.startTime}〜
                                             </span>
@@ -831,6 +863,40 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                         )
                       })}
                     </div>
+                    
+                    {/* 選択された時間枠の表示 */}
+                    {selectedTimeSlots.length > 0 && (
+                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <div className="text-xs font-medium text-blue-900 mb-2">
+                          選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
+                        </div>
+                        <div className="space-y-1">
+                          {selectedTimeSlots.map((item, index) => {
+                            const dateObj = new Date(item.date)
+                            const month = dateObj.getMonth() + 1
+                            const day = dateObj.getDate()
+                            const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+                            const weekday = weekdays[dateObj.getDay()]
+                            
+                            return (
+                              <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs">
+                                <span className="text-blue-900">
+                                  {index + 1}. {month}/{day}({weekday}) {item.slot.label} {item.slot.startTime}〜
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0 hover:bg-red-100"
+                                  onClick={() => toggleTimeSlot(item.date, item.slot)}
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>
