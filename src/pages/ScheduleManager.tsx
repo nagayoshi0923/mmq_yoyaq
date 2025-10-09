@@ -113,7 +113,7 @@ export function ScheduleManager() {
             scenarios:scenario_id (title)
           `)
           .eq('reservation_source', 'web_private')
-          .in('status', ['pending', 'gm_confirmed', 'confirmed']) // pending, GM確認済み, 確定を表示
+          .in('status', ['gm_confirmed', 'confirmed']) // GM確認済み、確定のみ表示（pendingは非表示）
         
         if (privateError) {
           console.error('貸切リクエスト取得エラー:', privateError)
