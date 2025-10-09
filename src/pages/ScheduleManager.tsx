@@ -131,10 +131,16 @@ export function ScheduleManager() {
                 
                 // 表示対象の月のみ追加
                 if (candidateYear === year && candidateMonth === month) {
+                  // 確定済み/GM確認済みの場合は、確定店舗を使用
+                  const confirmedStoreId = request.candidate_datetimes?.confirmedStore?.storeId
+                  const venueId = (request.status === 'confirmed' || request.status === 'gm_confirmed') && confirmedStoreId 
+                    ? confirmedStoreId 
+                    : '' // 店舗未定
+                  
                   privateEvents.push({
                     id: `${request.id}-${candidate.order}`,
                     date: candidate.date,
-                    venue: '', // 店舗未定
+                    venue: venueId,
                     scenario: request.scenarios?.title || request.title,
                     gms: [],
                     start_time: candidate.startTime,
@@ -491,8 +497,18 @@ export function ScheduleManager() {
       const timeSlotMatch = getTimeSlot(event.start_time) === timeSlot
       const categoryMatch = selectedCategory === 'all' || event.category === selectedCategory
       
-      // 貸切リクエストは全ての店舗に表示（venue が空の場合）
-      const venueMatch = event.venue === venue || (event.is_private_request && event.venue === '')
+      // 貸切リクエストの場合
+      if (event.is_private_request) {
+        // 店舗が確定している場合（venue が空でない）は、その店舗のセルにのみ表示
+        if (event.venue) {
+          return dateMatch && event.venue === venue && timeSlotMatch && categoryMatch
+        }
+        // 店舗が未確定の場合（venue が空）は、全ての店舗に表示
+        return dateMatch && timeSlotMatch && categoryMatch
+      }
+      
+      // 通常公演は厳密に店舗が一致する場合のみ
+      const venueMatch = event.venue === venue
       
       return dateMatch && venueMatch && timeSlotMatch && categoryMatch
     })
