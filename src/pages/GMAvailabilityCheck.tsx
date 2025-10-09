@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { Calendar, Clock, Users, CheckCircle2, XCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 
@@ -33,6 +33,7 @@ interface GMRequest {
   response_status: string
   available_candidates: number[]
   notes: string
+  reservation_status?: string // 予約全体のステータス（pending, confirmed, etc.）
 }
 
 export function GMAvailabilityCheck() {
@@ -91,7 +92,8 @@ export function GMAvailabilityCheck() {
             reservation_number,
             title,
             customer_name,
-            candidate_datetimes
+            candidate_datetimes,
+            status
           )
         `)
         .eq('staff_id', staffId)
@@ -113,7 +115,8 @@ export function GMAvailabilityCheck() {
         candidate_datetimes: response.reservations?.candidate_datetimes || { candidates: [] },
         response_status: response.response_status || 'pending',
         available_candidates: response.available_candidates || [],
-        notes: response.notes || ''
+        notes: response.notes || '',
+        reservation_status: response.reservations?.status || 'pending'
       }))
       
       setRequests(formattedRequests)
@@ -244,18 +247,32 @@ export function GMAvailabilityCheck() {
           <div className="space-y-6">
             {requests.map((request) => {
               const isResponded = request.response_status !== 'pending'
+              const isConfirmed = request.reservation_status === 'confirmed'
               const currentSelections = selectedCandidates[request.id] || []
               
               return (
-                <Card key={request.id} className={isResponded ? 'border-green-200 bg-green-50/30' : ''}>
+                <Card key={request.id} className={
+                  isConfirmed 
+                    ? 'border-blue-200 bg-blue-50/30' 
+                    : isResponded 
+                      ? 'border-green-200 bg-green-50/30' 
+                      : ''
+                }>
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-xl">{request.scenario_title}</CardTitle>
-                      {isResponded && (
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-                          回答済み
-                        </Badge>
-                      )}
+                      <div className="flex gap-2">
+                        {isConfirmed && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+                            確定済み
+                          </Badge>
+                        )}
+                        {isResponded && !isConfirmed && (
+                          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+                            回答済み
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="text-sm text-muted-foreground space-y-1 mt-2">
                       <div>予約番号: {request.reservation_number}</div>
@@ -280,7 +297,7 @@ export function GMAvailabilityCheck() {
                       {/* 候補日時 */}
                       <div>
                         <p className="text-sm font-medium mb-3 text-purple-800">
-                          以下の候補から出勤可能な日時を選択してください（複数選択可）
+                          {isConfirmed ? '確定した候補日時' : '以下の候補から出勤可能な日時を選択してください（複数選択可）'}
                         </p>
                         <div className="space-y-2">
                           {request.candidate_datetimes?.candidates?.map((candidate: any) => {
@@ -289,16 +306,18 @@ export function GMAvailabilityCheck() {
                             return (
                               <div
                                 key={candidate.order}
-                                className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors ${
-                                  isSelected 
-                                    ? 'bg-purple-50 border-purple-300' 
-                                    : 'bg-accent border-border hover:bg-accent/80'
+                                className={`flex items-center gap-3 p-3 rounded border ${
+                                  isConfirmed 
+                                    ? 'bg-gray-50 border-gray-200 cursor-default'
+                                    : isSelected 
+                                      ? 'bg-purple-50 border-purple-300 cursor-pointer' 
+                                      : 'bg-accent border-border hover:bg-accent/80 cursor-pointer'
                                 }`}
-                                onClick={() => !isResponded && toggleCandidate(request.id, candidate.order)}
+                                onClick={() => !isResponded && !isConfirmed && toggleCandidate(request.id, candidate.order)}
                               >
                                 <Checkbox
                                   checked={isSelected}
-                                  disabled={isResponded}
+                                  disabled={isResponded || isConfirmed}
                                   className="pointer-events-none"
                                 />
                                 <div className="flex-1">
@@ -351,7 +370,7 @@ export function GMAvailabilityCheck() {
                       )}
 
                       {/* ボタン */}
-                      {!isResponded && (
+                      {!isResponded && !isConfirmed && (
                         <div className="flex gap-3">
                           <Button
                             variant="outline"
@@ -373,8 +392,20 @@ export function GMAvailabilityCheck() {
                         </div>
                       )}
 
-                      {/* 回答済みの表示 */}
-                      {isResponded && (
+                      {/* 確定済みの表示 */}
+                      {isConfirmed && (
+                        <div className="p-3 rounded border bg-blue-50 border-blue-200">
+                          <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                            <span className="font-medium text-blue-800">
+                              この予約は確定されました
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 回答済みの表示（未確定） */}
+                      {isResponded && !isConfirmed && (
                         <div className={`p-3 rounded border ${
                           request.response_status === 'available' 
                             ? 'bg-green-50 border-green-200' 

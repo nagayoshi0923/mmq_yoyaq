@@ -666,9 +666,9 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
-                  <div>
-                    <h3 className="font-bold mb-3">日付を選択</h3>
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div>
+                <h3 className="font-bold mb-3">日付を選択</h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
                   {events.length === 0 ? (
                     <Card>
                       <CardContent className="p-4 text-center text-muted-foreground">
@@ -715,7 +715,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                                 <div className="flex items-center gap-1.5 mb-0.5">
                                   <div 
                                     className="flex-shrink-0 w-3 h-3 rounded-sm"
-                                    style={{ 
+                              style={{ 
                                       backgroundColor: event.store_color || '#9CA3AF'
                                     }}
                                   />
@@ -753,23 +753,23 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                             </div>
                             
                             {/* 右側：選択ボタン */}
-                            <Button
-                              variant={isSelected ? "default" : "outline"}
-                              size="sm"
+                              <Button
+                                variant={isSelected ? "default" : "outline"}
+                                size="sm"
                               disabled={event.available_seats === 0}
                               className={`flex-shrink-0 min-w-[70px] ${
                                 isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
                               }`}
-                            >
+                              >
                               {event.available_seats === 0 ? '満席' : '選択'}
-                            </Button>
+                              </Button>
                           </div>
                         </Card>
                       )
                     })
                   )}
-                    </div>
-                  </div>
+                </div>
+              </div>
                 </TabsContent>
                 
                 {/* 貸切リクエストタブ */}
@@ -952,33 +952,33 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 {/* 公演日程タブの場合 */}
                 {activeTab === 'schedule' && (
                 <div className="space-y-6">
-                  {/* 人数を選択 */}
-                  <div>
-                    <h3 className="font-bold mb-3">人数を選択</h3>
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">予約人数</span>
+              {/* 人数を選択 */}
+              <div>
+                <h3 className="font-bold mb-3">人数を選択</h3>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">予約人数</span>
                           <select 
                             className="border rounded px-3 py-1.5 text-sm"
                             value={participantCount}
                             onChange={(e) => setParticipantCount(Number(e.target.value))}
                           >
-                            {Array.from({ length: scenario.player_count_max }, (_, i) => (
-                              <option key={i + 1} value={i + 1}>
+                        {Array.from({ length: scenario.player_count_max }, (_, i) => (
+                          <option key={i + 1} value={i + 1}>
                                 {i + 1}名
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
                   {/* 料金情報 */}
-                  <div>
+              <div>
                     <h3 className="font-bold mb-3">料金</h3>
-                    <Card>
+                  <Card>
                       <CardContent className="p-4">
                         <div className="space-y-2">
                           <div className="flex justify-between items-center text-sm">
@@ -986,11 +986,11 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                             <span className="font-medium">
                               ¥{scenario.participation_fee.toLocaleString()}
                             </span>
-                          </div>
+                      </div>
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">人数</span>
                             <span className="font-medium">× {participantCount}名</span>
-                          </div>
+                      </div>
                           <div className="border-t pt-2 flex justify-between items-center">
                             <span className="font-bold">合計</span>
                             <span className="text-2xl font-bold text-blue-600">
@@ -1001,37 +1001,37 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                             <p className="font-medium mb-1">現地決済</p>
                             <p className="text-xs">当日会場にてお支払いください</p>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                      </div>
 
                   {/* 予約確認ボタン */}
-                  <Button 
+                      <Button 
                     className="w-full bg-blue-600 text-white hover:bg-blue-700 h-12 font-bold"
                     onClick={handleBooking}
                     disabled={!selectedDate || !user}
                   >
                     {!user ? 'ログインして予約する' : !selectedDate ? '日付を選択してください' : '予約確認へ進む'}
-                  </Button>
-                </div>
+                      </Button>
+              </div>
                 )}
 
                 {/* 貸切リクエストタブの場合 */}
                 {activeTab === 'private' && (
                 <div className="space-y-6">
                   {/* 貸切料金情報 */}
-                  <div>
+              <div>
                     <h3 className="font-bold mb-3">料金（目安）</h3>
                     <Card>
-                      <CardContent className="p-4">
+                  <CardContent className="p-4">
                         <div className="space-y-2">
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">参加費（1名）</span>
                             <span className="font-medium">
                               ¥{scenario.participation_fee.toLocaleString()}
-                            </span>
-                          </div>
+                        </span>
+                      </div>
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">最大人数</span>
                             <span className="font-medium">× {scenario.player_count_max}名</span>
@@ -1045,14 +1045,14 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                           <div className="bg-purple-50 border border-purple-200 rounded p-3 text-sm text-purple-800">
                             <p className="font-medium mb-1">貸切料金</p>
                             <p className="text-xs">詳細はリクエスト後にご相談</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
                   {/* 貸切リクエスト送信ボタン */}
-                  <Button 
+              <Button 
                     className="w-full bg-purple-600 text-white hover:bg-purple-700 h-12 font-bold"
                     onClick={() => {
                       if (!user) {
@@ -1064,7 +1064,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                     disabled={!user || selectedTimeSlots.length === 0}
                   >
                     {!user ? 'ログインして貸切リクエスト' : selectedTimeSlots.length === 0 ? '候補日時を選択してください' : `貸切リクエスト確認へ (${selectedTimeSlots.length}件)`}
-                  </Button>
+              </Button>
                 </div>
                 )}
               </div>
