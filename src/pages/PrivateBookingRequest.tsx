@@ -22,6 +22,8 @@ interface PrivateBookingRequestProps {
   participationFee: number
   maxParticipants: number
   selectedTimeSlots: Array<{date: string, slot: TimeSlot}>
+  selectedStoreIds: string[]
+  stores: any[]
   onBack: () => void
   onComplete?: () => void
 }
@@ -32,6 +34,8 @@ export function PrivateBookingRequest({
   participationFee,
   maxParticipants,
   selectedTimeSlots,
+  selectedStoreIds,
+  stores,
   onBack,
   onComplete
 }: PrivateBookingRequestProps) {
@@ -169,7 +173,15 @@ export function PrivateBookingRequest({
           startTime: slot.slot.startTime,
           endTime: slot.slot.endTime,
           status: 'pending' // pending, confirmed, rejected
-        }))
+        })),
+        requestedStores: selectedStoreIds.map(id => {
+          const store = stores.find(s => s.id === id)
+          return {
+            storeId: id,
+            storeName: store?.name || '',
+            storeShortName: store?.short_name || ''
+          }
+        })
       }
       
       const { data: parentReservation, error: parentError } = await supabase
@@ -295,6 +307,31 @@ export function PrivateBookingRequest({
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Users className="w-4 h-4" />
                     <span>最大{maxParticipants}名</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 希望店舗 */}
+            <div>
+              <h2 className="font-bold text-lg mb-3">希望店舗</h2>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap gap-2">
+                    {selectedStoreIds.length > 0 ? (
+                      selectedStoreIds.map(id => {
+                        const store = stores.find(s => s.id === id)
+                        return store ? (
+                          <Badge key={id} variant="outline" className="bg-purple-50 text-purple-800 border-purple-200">
+                            {store.name}
+                          </Badge>
+                        ) : null
+                      })
+                    ) : (
+                      <Badge variant="outline" className="bg-purple-50 text-purple-800 border-purple-200">
+                        すべて
+                      </Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -401,17 +401,50 @@ export function ReservationManagement() {
                           </div>
                         </div>
                         
-                        {/* 貸切リクエストの候補日時を展開表示 */}
-                        {isPrivate && isExpanded && candidateDates.length > 0 && (
-                          <div className="mt-4 pt-4 border-t">
-                            <div className="text-sm font-medium mb-2 text-purple-800">候補日時一覧</div>
-                            <div className="space-y-1">
-                              {candidateDates.map((candidate, index) => (
-                                <div key={index} className="text-xs text-muted-foreground pl-4">
-                                  {candidate}
-                                </div>
-                              ))}
+                        {/* 貸切リクエストの詳細を展開表示 */}
+                        {isPrivate && isExpanded && (
+                          <div className="mt-4 pt-4 border-t space-y-3">
+                            {/* 希望店舗 */}
+                            <div>
+                              <div className="text-sm font-medium mb-2 text-purple-800">希望店舗</div>
+                              <div className="flex flex-wrap gap-1 pl-4">
+                                {reservation.candidate_datetimes?.requestedStores && reservation.candidate_datetimes.requestedStores.length > 0 ? (
+                                  reservation.candidate_datetimes.requestedStores.map((store: any, index: number) => (
+                                    <Badge key={index} variant="outline" className="bg-purple-50 text-purple-800 border-purple-200 text-xs">
+                                      {store.storeName}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <Badge variant="outline" className="bg-purple-50 text-purple-800 border-purple-200 text-xs">
+                                    すべて
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
+                            
+                            {/* 候補日時 */}
+                            {candidateDates.length > 0 && (
+                              <div>
+                                <div className="text-sm font-medium mb-2 text-purple-800">候補日時一覧</div>
+                                <div className="space-y-1">
+                                  {candidateDates.map((candidate, index) => (
+                                    <div key={index} className="text-xs text-muted-foreground pl-4">
+                                      {candidate}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* お客様からのご要望 */}
+                            {reservation.customer_notes && (
+                              <div>
+                                <div className="text-sm font-medium mb-2 text-purple-800">お客様からのご要望</div>
+                                <div className="text-xs text-muted-foreground pl-4 whitespace-pre-wrap">
+                                  {reservation.customer_notes}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </CardContent>

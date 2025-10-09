@@ -406,6 +406,8 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         participationFee={scenario.participation_fee}
         maxParticipants={scenario.player_count_max}
         selectedTimeSlots={selectedTimeSlots}
+        selectedStoreIds={selectedStoreIds}
+        stores={stores}
         onBack={handleBackFromPrivateBooking}
         onComplete={handlePrivateBookingComplete}
       />
