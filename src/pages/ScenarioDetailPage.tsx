@@ -13,6 +13,7 @@ import { getColorFromName } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { BookingConfirmation } from './BookingConfirmation'
+import { PrivateBookingRequest } from './PrivateBookingRequest'
 
 interface ScenarioDetail {
   scenario_id: string
@@ -82,6 +83,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
+  const [showPrivateBookingRequest, setShowPrivateBookingRequest] = useState(false)
   const MAX_SELECTIONS = 10
 
   useEffect(() => {
@@ -360,6 +362,17 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
     setSelectedEvent(null)
   }
 
+  const handlePrivateBookingComplete = () => {
+    setShowPrivateBookingRequest(false)
+    setSelectedTimeSlots([])
+    // データを再読み込み
+    loadScenarioDetail()
+  }
+
+  const handleBackFromPrivateBooking = () => {
+    setShowPrivateBookingRequest(false)
+  }
+
   // 予約確認画面を表示
   if (showBookingConfirmation && selectedEvent && scenario) {
     return (
@@ -380,6 +393,21 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         initialParticipantCount={participantCount}
         onBack={handleBackFromBooking}
         onComplete={handleBookingComplete}
+      />
+    )
+  }
+
+  // 貸切リクエスト確認画面を表示
+  if (showPrivateBookingRequest && scenario) {
+    return (
+      <PrivateBookingRequest
+        scenarioTitle={scenario.scenario_title}
+        scenarioId={scenario.scenario_id}
+        participationFee={scenario.participation_fee}
+        maxParticipants={scenario.player_count_max}
+        selectedTimeSlots={selectedTimeSlots}
+        onBack={handleBackFromPrivateBooking}
+        onComplete={handlePrivateBookingComplete}
       />
     )
   }
@@ -1029,12 +1057,11 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                         window.location.hash = 'login'
                         return
                       }
-                      alert(`${selectedTimeSlots.length}件の候補日時でリクエストを送信`)
-                      // TODO: 貸切リクエストフォームへ遷移
+                      setShowPrivateBookingRequest(true)
                     }}
                     disabled={!user || selectedTimeSlots.length === 0}
                   >
-                    {!user ? 'ログインして貸切リクエスト' : selectedTimeSlots.length === 0 ? '候補日時を選択してください' : `貸切リクエストを送信 (${selectedTimeSlots.length}件)`}
+                    {!user ? 'ログインして貸切リクエスト' : selectedTimeSlots.length === 0 ? '候補日時を選択してください' : `貸切リクエスト確認へ (${selectedTimeSlots.length}件)`}
                   </Button>
                 </div>
                 )}
