@@ -159,6 +159,7 @@ export function GMAvailabilityCheck() {
       const availableCandidates = allUnavailable ? [] : (selectedCandidates[requestId] || [])
       const responseStatus = allUnavailable ? 'all_unavailable' : (availableCandidates.length > 0 ? 'available' : 'pending')
       
+      // GM回答を更新
       const { error } = await supabase
         .from('gm_availability_responses')
         .update({
@@ -175,9 +176,29 @@ export function GMAvailabilityCheck() {
         return
       }
       
+      // GMが1つでも出勤可能な候補を選択した場合、予約を確定する
+      if (availableCandidates.length > 0) {
+        // 該当するリクエストを取得
+        const request = requests.find(r => r.id === requestId)
+        if (request) {
+          const { error: reservationError } = await supabase
+            .from('reservations')
+            .update({
+              status: 'confirmed',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', request.reservation_id)
+          
+          if (reservationError) {
+            console.error('予約確定エラー:', reservationError)
+            // エラーでも回答は送信済みなのでアラートは出さない
+          }
+        }
+      }
+      
       // 成功したらリロード
       await loadGMRequests()
-      alert('回答を送信しました')
+      alert(availableCandidates.length > 0 ? '回答を送信し、予約を確定しました' : '回答を送信しました')
     } catch (error) {
       console.error('送信エラー:', error)
       alert('エラーが発生しました')
