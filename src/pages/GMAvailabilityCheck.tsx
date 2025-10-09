@@ -179,30 +179,51 @@ export function GMAvailabilityCheck() {
         return
       }
       
-      // GMが1つでも出勤可能な候補を選択した場合、予約を確定する
+      // GMが1つでも出勤可能な候補を選択した場合、ステータスを更新
       if (availableCandidates.length > 0) {
         // 該当するリクエストを取得
         const request = requests.find(r => r.id === requestId)
         
         if (request) {
+          // GMが選択した候補のみを残す（他の候補は削除）
+          const confirmedCandidates = request.candidate_datetimes?.candidates?.filter(
+            (c: any) => availableCandidates.includes(c.order)
+          ) || []
+          
+          const updatedCandidateDatetimes = {
+            ...request.candidate_datetimes,
+            candidates: confirmedCandidates
+          }
+          
+          // GMが1日だけ選択した場合は即確定、複数日の場合は店側確認待ち
+          const newStatus = availableCandidates.length === 1 ? 'confirmed' : 'gm_confirmed'
+          
           const { error: reservationError } = await supabase
             .from('reservations')
             .update({
-              status: 'confirmed',
+              status: newStatus,
+              candidate_datetimes: updatedCandidateDatetimes,
               updated_at: new Date().toISOString()
             })
             .eq('id', request.reservation_id)
           
           if (reservationError) {
-            console.error('予約確定エラー:', reservationError)
-            alert(`予約の確定に失敗しました: ${reservationError.message}`)
+            console.error('予約更新エラー:', reservationError)
+            alert(`予約の更新に失敗しました: ${reservationError.message}`)
           }
         }
       }
       
       // 成功したらリロード
       await loadGMRequests()
-      alert(availableCandidates.length > 0 ? '回答を送信し、予約を確定しました' : '回答を送信しました')
+      
+      if (availableCandidates.length === 0) {
+        alert('回答を送信しました')
+      } else if (availableCandidates.length === 1) {
+        alert('回答を送信し、予約を確定しました')
+      } else {
+        alert(`回答を送信しました。${availableCandidates.length}件の候補日が店側の最終確認待ちです。`)
+      }
     } catch (error) {
       console.error('送信エラー:', error)
       alert('エラーが発生しました')
@@ -249,15 +270,18 @@ export function GMAvailabilityCheck() {
             {requests.map((request) => {
               const isResponded = request.response_status !== 'pending'
               const isConfirmed = request.reservation_status === 'confirmed'
+              const isGMConfirmed = request.reservation_status === 'gm_confirmed'
               const currentSelections = selectedCandidates[request.id] || []
               
               return (
                 <Card key={request.id} className={
                   isConfirmed 
                     ? 'border-blue-200 bg-blue-50/30' 
-                    : isResponded 
-                      ? 'border-green-200 bg-green-50/30' 
-                      : ''
+                    : isGMConfirmed
+                      ? 'border-orange-200 bg-orange-50/30'
+                      : isResponded 
+                        ? 'border-green-200 bg-green-50/30' 
+                        : ''
                 }>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -268,7 +292,12 @@ export function GMAvailabilityCheck() {
                             確定済み
                           </Badge>
                         )}
-                        {isResponded && !isConfirmed && (
+                        {isGMConfirmed && (
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+                            店側確認待ち
+                          </Badge>
+                        )}
+                        {isResponded && !isConfirmed && !isGMConfirmed && (
                           <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
                             回答済み
                           </Badge>
@@ -298,7 +327,7 @@ export function GMAvailabilityCheck() {
                       {/* 候補日時 */}
                       <div>
                         <p className="text-sm font-medium mb-3 text-purple-800">
-                          {isConfirmed ? '確定した候補日時' : '以下の候補から出勤可能な日時を選択してください（複数選択可）'}
+                          {isConfirmed ? '確定した候補日時' : isGMConfirmed ? '選択した候補日時（店側確認待ち）' : '以下の候補から出勤可能な日時を選択してください（複数選択可）'}
                         </p>
                         <div className="space-y-2">
                           {request.candidate_datetimes?.candidates?.map((candidate: any) => {
@@ -310,15 +339,17 @@ export function GMAvailabilityCheck() {
                                 className={`flex items-center gap-3 p-3 rounded border ${
                                   isConfirmed 
                                     ? 'bg-gray-50 border-gray-200 cursor-default'
-                                    : isSelected 
-                                      ? 'bg-purple-50 border-purple-300 cursor-pointer' 
-                                      : 'bg-accent border-border hover:bg-accent/80 cursor-pointer'
+                                    : isGMConfirmed
+                                      ? 'bg-orange-50 border-orange-200 cursor-default'
+                                      : isSelected 
+                                        ? 'bg-purple-50 border-purple-300 cursor-pointer' 
+                                        : 'bg-accent border-border hover:bg-accent/80 cursor-pointer'
                                 }`}
-                                onClick={() => !isResponded && !isConfirmed && toggleCandidate(request.id, candidate.order)}
+                                onClick={() => !isResponded && !isConfirmed && !isGMConfirmed && toggleCandidate(request.id, candidate.order)}
                               >
                                 <Checkbox
                                   checked={isSelected}
-                                  disabled={isResponded || isConfirmed}
+                                  disabled={isResponded || isConfirmed || isGMConfirmed}
                                   className="pointer-events-none"
                                 />
                                 <div className="flex-1">
@@ -371,7 +402,7 @@ export function GMAvailabilityCheck() {
                       )}
 
                       {/* ボタン */}
-                      {!isResponded && !isConfirmed && (
+                      {!isResponded && !isConfirmed && !isGMConfirmed && (
                         <div className="flex gap-3">
                           <Button
                             variant="outline"
@@ -404,9 +435,21 @@ export function GMAvailabilityCheck() {
                           </div>
                         </div>
                       )}
+                      
+                      {/* GM確認済み（店側確認待ち）の表示 */}
+                      {isGMConfirmed && (
+                        <div className="p-3 rounded border bg-orange-50 border-orange-200">
+                          <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-orange-600" />
+                            <span className="font-medium text-orange-800">
+                              GMの確認は完了しました。店側で最終的な開催日を決定します。
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
-                      {/* 回答済みの表示（未確定） */}
-                      {isResponded && !isConfirmed && (
+                      {/* 回答済みの表示（未確定・GM確認済み以外） */}
+                      {isResponded && !isConfirmed && !isGMConfirmed && (
                         <div className={`p-3 rounded border ${
                           request.response_status === 'available' 
                             ? 'bg-green-50 border-green-200' 

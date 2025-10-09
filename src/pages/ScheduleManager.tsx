@@ -113,7 +113,7 @@ export function ScheduleManager() {
             scenarios:scenario_id (title)
           `)
           .eq('reservation_source', 'web_private')
-          .in('status', ['pending', 'confirmed']) // pendingとconfirmedのみ表示
+          .in('status', ['pending', 'gm_confirmed', 'confirmed']) // pending, GM確認済み, 確定を表示
         
         if (privateError) {
           console.error('貸切リクエスト取得エラー:', privateError)
@@ -142,10 +142,10 @@ export function ScheduleManager() {
                     category: 'private' as any, // 貸切
                     is_cancelled: false,
                     participant_count: 0,
-                    notes: `【貸切${request.status === 'confirmed' ? '確定' : '希望'}】${request.customer_name || ''}`,
+                    notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】${request.customer_name || ''}`,
                     is_reservation_enabled: false,
                     is_private_request: true, // 貸切リクエストフラグ
-                    reservation_info: request.status === 'confirmed' ? '確定' : 'GM確認待ち'
+                    reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち'
                   })
                 }
               })
