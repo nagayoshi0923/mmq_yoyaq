@@ -111,7 +111,12 @@ export function ScheduleManager() {
             customer_name,
             status,
             candidate_datetimes,
-            scenarios:scenario_id (title)
+            scenarios:scenario_id (title),
+            gm_availability_responses (
+              staff_id,
+              response_status,
+              staff:staff_id (name)
+            )
           `)
           .eq('reservation_source', 'web_private')
           .in('status', ['gm_confirmed', 'confirmed']) // GM確認済み、確定のみ表示（pendingは非表示）
@@ -125,6 +130,12 @@ export function ScheduleManager() {
         if (privateRequests) {
           privateRequests.forEach((request: any) => {
             if (request.candidate_datetimes?.candidates) {
+              // GMの名前を取得（出勤可能と回答したGMのみ）
+              const gmNames = request.gm_availability_responses
+                ?.filter((r: any) => r.response_status === 'available')
+                ?.map((r: any) => r.staff?.name)
+                ?.filter((name: string) => name) || []
+              
               request.candidate_datetimes.candidates.forEach((candidate: any) => {
                 const candidateDate = new Date(candidate.date)
                 const candidateMonth = candidateDate.getMonth() + 1
@@ -143,7 +154,7 @@ export function ScheduleManager() {
                     date: candidate.date,
                     venue: venueId,
                     scenario: request.scenarios?.title || request.title,
-                    gms: [],
+                    gms: gmNames,
                     start_time: candidate.startTime,
                     end_time: candidate.endTime,
                     category: 'private' as any, // 貸切
