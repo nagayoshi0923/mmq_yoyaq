@@ -792,9 +792,9 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                                         variant="outline"
                                         size="sm"
                                         className={`flex-1 py-1.5 h-auto text-xs px-1 ${
-                                          isAvailable 
-                                            ? 'hover:bg-green-50 hover:border-green-400' 
-                                            : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                                          !isAvailable 
+                                            ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                                            : ''
                                         }`}
                                         disabled={!isAvailable}
                                         onClick={() => {
