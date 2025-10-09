@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Search, Calendar, User, DollarSign, Filter } from 'lucide-react'
+import { Search, Calendar, Clock, User, DollarSign, Filter } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { Reservation } from '@/types'
 
@@ -54,14 +54,32 @@ export function ReservationManagement() {
       
       // データを整形
       const formattedData: ReservationWithDetails[] = (data || []).map((reservation: any) => {
-        const requestedDate = reservation.requested_datetime ? new Date(reservation.requested_datetime) : null
+        // requested_datetimeから日付と時刻を取得
+        let eventDate = ''
+        let eventTime = ''
+        
+        if (reservation.requested_datetime) {
+          const dateStr = reservation.requested_datetime
+          // 'YYYY-MM-DD HH:MM:SS' または 'YYYY-MM-DDTHH:MM:SS' 形式に対応
+          const parts = dateStr.split('T')
+          if (parts.length === 2) {
+            eventDate = parts[0]
+            eventTime = parts[1].slice(0, 5)
+          } else {
+            const spaceParts = dateStr.split(' ')
+            if (spaceParts.length >= 2) {
+              eventDate = spaceParts[0]
+              eventTime = spaceParts[1].slice(0, 5)
+            }
+          }
+        }
         
         return {
           ...reservation,
           scenario_title: reservation.scenarios?.title || reservation.title,
           store_name: reservation.stores?.name || '',
-          event_date: requestedDate ? requestedDate.toISOString().split('T')[0] : '',
-          event_time: requestedDate ? requestedDate.toTimeString().slice(0, 5) : ''
+          event_date: eventDate,
+          event_time: eventTime
         }
       })
       
@@ -275,8 +293,9 @@ export function ReservationManagement() {
                   {/* ヘッダー行 */}
                   <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-muted/30 rounded-md font-medium text-sm">
                     <div className="col-span-2">予約番号</div>
-                    <div className="col-span-2">顧客名</div>
+                    <div className="col-span-1">顧客名</div>
                     <div className="col-span-2">公演日時</div>
+                    <div className="col-span-1">予約日時</div>
                     <div className="col-span-2">シナリオ</div>
                     <div className="col-span-1">人数</div>
                     <div className="col-span-1">金額</div>
@@ -300,27 +319,38 @@ export function ReservationManagement() {
                               </Badge>
                             )}
                           </div>
-                          <div className="col-span-2 flex items-center gap-2">
-                            <User className="w-4 h-4 text-muted-foreground" />
-                            {reservation.customer_name}
+                          <div className="col-span-1 flex items-center gap-1">
+                            <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate">{reservation.customer_name}</span>
                           </div>
-                          <div className="col-span-2 flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <div>
-                              <div>{reservation.event_date}</div>
-                              <div className="text-xs text-muted-foreground">{reservation.event_time}</div>
+                          <div className="col-span-2">
+                            <div className="flex items-center gap-1 mb-0.5">
+                              <Calendar className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs">{reservation.event_date || '-'}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs">{reservation.event_time || '-'}</span>
+                            </div>
+                          </div>
+                          <div className="col-span-1">
+                            <div className="text-xs text-muted-foreground">
+                              {reservation.created_at ? new Date(reservation.created_at).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }) : '-'}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {reservation.created_at ? new Date(reservation.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '-'}
                             </div>
                           </div>
                           <div className="col-span-2">
-                            <div>{reservation.scenario_title}</div>
-                            <div className="text-xs text-muted-foreground">{reservation.store_name}</div>
+                            <div className="truncate">{reservation.scenario_title}</div>
+                            <div className="text-xs text-muted-foreground truncate">{reservation.store_name}</div>
                           </div>
                           <div className="col-span-1">
                             {reservation.participant_count}名
                           </div>
                           <div className="col-span-1 flex items-center gap-1">
                             <DollarSign className="w-3 h-3 text-muted-foreground" />
-                            {reservation.total_price.toLocaleString()}円
+                            <span className="text-xs">{reservation.total_price?.toLocaleString() || 0}円</span>
                           </div>
                           <div className="col-span-1">
                             {getStatusBadge(reservation.status)}
