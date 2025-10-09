@@ -183,6 +183,7 @@ export function GMAvailabilityCheck() {
       if (availableCandidates.length > 0) {
         // 該当するリクエストを取得
         const request = requests.find(r => r.id === requestId)
+        
         if (request) {
           const { error: reservationError } = await supabase
             .from('reservations')
@@ -194,7 +195,7 @@ export function GMAvailabilityCheck() {
           
           if (reservationError) {
             console.error('予約確定エラー:', reservationError)
-            // エラーでも回答は送信済みなのでアラートは出さない
+            alert(`予約の確定に失敗しました: ${reservationError.message}`)
           }
         }
       }

@@ -101,11 +101,8 @@ export function ScheduleManager() {
           is_reservation_enabled: event.is_reservation_enabled || false
         }))
         
-        // 貸切リクエストを取得して追加
-        const startDate = new Date(year, month - 1, 1)
-        const endDate = new Date(year, month, 0)
-        
-        const { data: privateRequests } = await supabase
+        // 貸切リクエストを取得して追加（全期間から取得してフィルタリング）
+        const { data: privateRequests, error: privateError } = await supabase
           .from('reservations')
           .select(`
             id,
@@ -116,8 +113,11 @@ export function ScheduleManager() {
             scenarios:scenario_id (title)
           `)
           .eq('reservation_source', 'web_private')
-          .gte('requested_datetime', startDate.toISOString())
-          .lte('requested_datetime', endDate.toISOString())
+          .in('status', ['pending', 'confirmed']) // pendingとconfirmedのみ表示
+        
+        if (privateError) {
+          console.error('貸切リクエスト取得エラー:', privateError)
+        }
         
         // 貸切リクエストをスケジュールイベントに変換
         const privateEvents: ScheduleEvent[] = []
@@ -485,12 +485,17 @@ export function ScheduleManager() {
 
   // 特定の日付・店舗・時間帯の公演を取得
   const getEventsForSlot = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
-    return events.filter(event => 
-      event.date === date && 
-      event.venue === venue && 
-      getTimeSlot(event.start_time) === timeSlot &&
-      (selectedCategory === 'all' || event.category === selectedCategory)
-    )
+    return events.filter(event => {
+      // 日付とタイムスロットが一致するかチェック
+      const dateMatch = event.date === date
+      const timeSlotMatch = getTimeSlot(event.start_time) === timeSlot
+      const categoryMatch = selectedCategory === 'all' || event.category === selectedCategory
+      
+      // 貸切リクエストは全ての店舗に表示（venue が空の場合）
+      const venueMatch = event.venue === venue || (event.is_private_request && event.venue === '')
+      
+      return dateMatch && venueMatch && timeSlotMatch && categoryMatch
+    })
   }
 
   // メモのキーを生成
