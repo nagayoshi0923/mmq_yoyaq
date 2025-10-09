@@ -653,6 +653,8 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                       const day = eventDate.getDate()
                       const weekdays = ['日', '月', '火', '水', '木', '金', '土']
                       const weekday = weekdays[eventDate.getDay()]
+                      const dayOfWeek = eventDate.getDay()
+                      const weekdayColor = dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
                       
                       return (
                         <Card 
@@ -667,27 +669,40 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                             setSelectedDate(isSelected ? null : event.date)
                           }}
                         >
-                          <div className="flex items-center justify-between gap-3 p-3">
+                          <div className="flex items-center justify-between gap-2 p-2">
                             {/* 左側：日付と店舗情報 */}
-                            <div className="flex-1 min-w-0 flex items-start gap-3">
-                              {/* 店舗カラーの正方形あしらい */}
-                              <div 
-                                className="flex-shrink-0 w-3 h-3 rounded-sm mt-1"
-                                style={{ 
-                                  backgroundColor: event.store_color || '#9CA3AF'
-                                }}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold text-base mb-0.5">
-                                  {month}月{day}日({weekday})　{formatTime(event.start_time)}〜
+                            <div className="flex items-start gap-2 flex-1 min-w-0">
+                              {/* 日付 */}
+                              <div className="font-semibold text-sm whitespace-nowrap min-w-[45px] text-center">
+                                <div>{month}/{day}</div>
+                                <div className={`text-xs ${weekdayColor}`}>
+                                  ({weekday})
                                 </div>
-                                <div 
-                                  className="text-sm font-medium"
-                                  style={{ 
-                                    color: event.store_color || '#6B7280'
-                                  }}
-                                >
-                                  {event.store_short_name} {event.scenario_title || scenario.scenario_title}
+                              </div>
+                              
+                              {/* 店舗カラーの正方形 + 店舗名 + 時間 */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <div 
+                                    className="flex-shrink-0 w-3 h-3 rounded-sm"
+                                    style={{ 
+                                      backgroundColor: event.store_color || '#9CA3AF'
+                                    }}
+                                  />
+                                  <span 
+                                    className="text-sm font-medium"
+                                    style={{ 
+                                      color: event.store_color || '#6B7280'
+                                    }}
+                                  >
+                                    {event.store_short_name}
+                                  </span>
+                                  <span className="font-semibold text-sm">
+                                    {formatTime(event.start_time)}〜
+                                  </span>
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {event.scenario_title || scenario.scenario_title}
                                 </div>
                               </div>
                             </div>
