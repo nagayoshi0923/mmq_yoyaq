@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Search, Calendar, Clock, User, DollarSign, Filter } from 'lucide-react'
+import { Search, Calendar, Clock, User, DollarSign, Filter, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { Reservation } from '@/types'
 
@@ -26,6 +26,7 @@ export function ReservationManagement() {
   const [paymentFilter, setPaymentFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all') // 通常予約 or 貸切リクエスト
   const [isLoading, setIsLoading] = useState(true)
+  const [expandedReservations, setExpandedReservations] = useState<Set<string>>(new Set())
 
   // 予約データを読み込む
   useEffect(() => {
@@ -37,6 +38,7 @@ export function ReservationManagement() {
       setIsLoading(true)
       
       // Supabaseから予約データを取得
+      // 貸切リクエストは先着順で優先されるため、古い順にソート
       const { data, error } = await supabase
         .from('reservations')
         .select(`
@@ -44,7 +46,8 @@ export function ReservationManagement() {
           scenarios:scenario_id (title),
           stores:store_id (name)
         `)
-        .order('created_at', { ascending: false })
+        .order('priority', { ascending: false })  // 優先度が高い順
+        .order('created_at', { ascending: true })  // 次に先着順（古い順）
       
       if (error) {
         console.error('予約データ取得エラー:', error)
@@ -127,6 +130,33 @@ export function ReservationManagement() {
         {labels[status as keyof typeof labels]}
       </Badge>
     )
+  }
+
+  // 展開/折りたたみのトグル
+  const toggleExpanded = (reservationId: string) => {
+    const newExpanded = new Set(expandedReservations)
+    if (newExpanded.has(reservationId)) {
+      newExpanded.delete(reservationId)
+    } else {
+      newExpanded.add(reservationId)
+    }
+    setExpandedReservations(newExpanded)
+  }
+
+  // candidate_datetimesから候補日時を抽出して表示用文字列に変換
+  const extractCandidateDates = (candidateDatetimes: any): string[] => {
+    if (!candidateDatetimes || !candidateDatetimes.candidates) return []
+    
+    return candidateDatetimes.candidates.map((candidate: any) => {
+      const dateObj = new Date(candidate.date)
+      const year = dateObj.getFullYear()
+      const month = dateObj.getMonth() + 1
+      const day = dateObj.getDate()
+      const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+      const weekday = weekdays[dateObj.getDay()]
+      
+      return `候補${candidate.order}: ${year}年${month}月${day}日(${weekday}) ${candidate.timeSlot} ${candidate.startTime}-${candidate.endTime}`
+    })
   }
 
   // 支払いステータスバッジのスタイル
@@ -304,18 +334,29 @@ export function ReservationManagement() {
                   </div>
 
                   {/* データ行 */}
-                  {filteredReservations.map((reservation) => (
+                  {filteredReservations.map((reservation) => {
+                    const isPrivate = reservation.reservation_source === 'web_private'
+                    const isExpanded = expandedReservations.has(reservation.id)
+                    const candidateDates = isPrivate ? extractCandidateDates(reservation.candidate_datetimes) : []
+                    
+                    return (
                     <Card 
                       key={reservation.id}
                       className="cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => isPrivate && toggleExpanded(reservation.id)}
                     >
                       <CardContent className="p-4">
                         <div className="grid grid-cols-12 gap-4 items-center text-sm">
                           <div className="col-span-2">
-                            <div className="font-mono text-xs">{reservation.reservation_number}</div>
+                            <div className="flex items-center gap-1">
+                              <div className="font-mono text-xs">{reservation.reservation_number}</div>
+                              {isPrivate && candidateDates.length > 1 && (
+                                isExpanded ? <ChevronUp className="w-3 h-3 text-purple-600" /> : <ChevronDown className="w-3 h-3 text-purple-600" />
+                              )}
+                            </div>
                             {reservation.reservation_source === 'web_private' && (
                               <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] mt-1">
-                                貸切希望
+                                貸切希望 ({candidateDates.length}件)
                               </Badge>
                             )}
                           </div>
@@ -359,9 +400,24 @@ export function ReservationManagement() {
                             {getPaymentBadge(reservation.payment_status)}
                           </div>
                         </div>
+                        
+                        {/* 貸切リクエストの候補日時を展開表示 */}
+                        {isPrivate && isExpanded && candidateDates.length > 0 && (
+                          <div className="mt-4 pt-4 border-t">
+                            <div className="text-sm font-medium mb-2 text-purple-800">候補日時一覧</div>
+                            <div className="space-y-1">
+                              {candidateDates.map((candidate, index) => (
+                                <div key={index} className="text-xs text-muted-foreground pl-4">
+                                  {candidate}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </CardContent>

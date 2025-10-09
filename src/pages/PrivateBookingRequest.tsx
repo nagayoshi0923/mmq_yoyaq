@@ -153,41 +153,54 @@ export function PrivateBookingRequest({
         console.error('顧客レコードの作成/更新エラー:', error)
       }
 
-      // 各候補日時に対して貸切リクエストを作成
-      const requests = selectedTimeSlots.map(async (slot, index) => {
-        const reservationNumber = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-PV${Date.now().toString().slice(-6)}-${index + 1}`
-        const eventDateTime = `${slot.date}T${slot.slot.startTime}`
-        
-        return supabase
-          .from('reservations')
-          .insert({
-            title: `【貸切希望】${scenarioTitle} - ${formatDate(slot.date)} ${slot.slot.label}`,
-            reservation_number: reservationNumber,
-            scenario_id: scenarioId,
-            customer_id: customerId,
-            requested_datetime: eventDateTime,
-            actual_datetime: eventDateTime,
-            duration: 180,
-            participant_count: maxParticipants,
-            base_price: participationFee * maxParticipants,
-            total_price: participationFee * maxParticipants,
-            final_price: participationFee * maxParticipants,
-            status: 'pending',
-            customer_notes: notes || null,
-            created_by: user.id,
-            customer_name: customerName,
-            customer_email: customerEmail,
-            customer_phone: customerPhone,
-            reservation_source: 'web_private'
-          })
-      })
-
-      const results = await Promise.all(requests)
+      // 親予約番号を生成（全候補で共通）
+      const baseReservationNumber = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-PV${Date.now().toString().slice(-6)}`
       
-      // エラーチェック
-      const hasError = results.some(r => r.error)
-      if (hasError) {
-        console.error('貸切リクエストエラー:', results.filter(r => r.error))
+      // 最初の候補を親レコードとして作成
+      const firstSlot = selectedTimeSlots[0]
+      const firstEventDateTime = `${firstSlot.date}T${firstSlot.slot.startTime}`
+      
+      // 候補日時をJSONB形式で準備
+      const candidateDatetimes = {
+        candidates: selectedTimeSlots.map((slot, index) => ({
+          order: index + 1,
+          date: slot.date,
+          timeSlot: slot.slot.label,
+          startTime: slot.slot.startTime,
+          endTime: slot.slot.endTime,
+          status: 'pending' // pending, confirmed, rejected
+        }))
+      }
+      
+      const { data: parentReservation, error: parentError } = await supabase
+        .from('reservations')
+        .insert({
+          title: `【貸切希望】${scenarioTitle}（候補${selectedTimeSlots.length}件）`,
+          reservation_number: baseReservationNumber,
+          scenario_id: scenarioId,
+          customer_id: customerId,
+          requested_datetime: firstEventDateTime,
+          actual_datetime: firstEventDateTime,
+          duration: 180,
+          participant_count: maxParticipants,
+          base_price: participationFee * maxParticipants,
+          total_price: participationFee * maxParticipants,
+          final_price: participationFee * maxParticipants,
+          status: 'pending',
+          priority: 0, // デフォルト優先度
+          candidate_datetimes: candidateDatetimes,
+          customer_notes: notes || null,
+          created_by: user.id,
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_phone: customerPhone,
+          reservation_source: 'web_private'
+        })
+        .select()
+        .single()
+      
+      if (parentError) {
+        console.error('貸切リクエストエラー:', parentError)
         setError('貸切リクエストの送信に失敗しました。もう一度お試しください。')
         setIsSubmitting(false)
         return
