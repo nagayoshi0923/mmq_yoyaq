@@ -21,6 +21,7 @@ interface ScheduleEvent {
   is_reservation_enabled?: boolean
   is_private_request?: boolean // 貸切リクエストかどうか
   reservation_info?: string
+  reservation_id?: string // 貸切リクエストの元のreservation ID
 }
 
 interface TimeSlotCellProps {

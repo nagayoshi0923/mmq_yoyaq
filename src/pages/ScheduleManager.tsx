@@ -37,6 +37,7 @@ interface ScheduleEvent {
   max_participants?: number
   is_reservation_enabled?: boolean
   is_private_request?: boolean // 貸切リクエストかどうか
+  reservation_id?: string // 貸切リクエストの元のreservation ID
 }
 
 
@@ -151,7 +152,8 @@ export function ScheduleManager() {
                     notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】${request.customer_name || ''}`,
                     is_reservation_enabled: false,
                     is_private_request: true, // 貸切リクエストフラグ
-                    reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち'
+                    reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
+                    reservation_id: request.id // 元のreservation IDを保持
                   })
                 }
               })
@@ -633,20 +635,56 @@ export function ScheduleManager() {
         setEvents(prev => [...prev, formattedEvent])
       } else {
         // 編集更新
-        await scheduleApi.update(performanceData.id, {
-          scenario: performanceData.scenario,
-          category: performanceData.category,
-          start_time: performanceData.start_time,
-          end_time: performanceData.end_time,
-          capacity: performanceData.max_participants,
-          gms: performanceData.gms,
-          notes: performanceData.notes
-        })
+        
+        // 貸切リクエストの場合は reservations テーブルを更新
+        if (performanceData.is_private_request && performanceData.reservation_id) {
+          // 店舗IDを取得
+          const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
+          const { data: storeData } = await supabase
+            .from('stores')
+            .select('id')
+            .eq('name', storeName)
+            .single()
+          
+          const storeId = storeData?.id || performanceData.venue
+          
+          // reservations テーブルを更新（店舗とGMを変更）
+          const { error: reservationError } = await supabase
+            .from('reservations')
+            .update({
+              store_id: storeId,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', performanceData.reservation_id)
+          
+          if (reservationError) {
+            console.error('貸切リクエスト更新エラー:', reservationError)
+            throw new Error('貸切リクエストの更新に失敗しました')
+          }
+          
+          // ローカル状態を更新
+          setEvents(prev => prev.map(event => 
+            event.reservation_id === performanceData.reservation_id 
+              ? { ...event, venue: storeId } 
+              : event
+          ))
+        } else {
+          // 通常公演の場合は schedule_events テーブルを更新
+          await scheduleApi.update(performanceData.id, {
+            scenario: performanceData.scenario,
+            category: performanceData.category,
+            start_time: performanceData.start_time,
+            end_time: performanceData.end_time,
+            capacity: performanceData.max_participants,
+            gms: performanceData.gms,
+            notes: performanceData.notes
+          })
 
-        // ローカル状態を更新
-        setEvents(prev => prev.map(event => 
-          event.id === performanceData.id ? performanceData : event
-        ))
+          // ローカル状態を更新
+          setEvents(prev => prev.map(event => 
+            event.id === performanceData.id ? performanceData : event
+          ))
+        }
       }
 
       handleCloseModal()
@@ -673,11 +711,24 @@ export function ScheduleManager() {
     if (!deletingEvent) return
 
     try {
-      // Supabaseから削除
-      await scheduleApi.delete(deletingEvent.id)
-
-      // ローカル状態から削除
-      setEvents(prev => prev.filter(event => event.id !== deletingEvent.id))
+      // 貸切リクエストの場合は reservations テーブルから削除
+      if (deletingEvent.is_private_request && deletingEvent.reservation_id) {
+        const { error } = await supabase
+          .from('reservations')
+          .delete()
+          .eq('id', deletingEvent.reservation_id)
+        
+        if (error) throw error
+        
+        // この貸切リクエストの全ての候補日を削除
+        setEvents(prev => prev.filter(event => event.reservation_id !== deletingEvent.reservation_id))
+      } else {
+        // 通常公演の場合は schedule_events から削除
+        await scheduleApi.delete(deletingEvent.id)
+        
+        // ローカル状態から削除
+        setEvents(prev => prev.filter(event => event.id !== deletingEvent.id))
+      }
 
       setIsDeleteDialogOpen(false)
       setDeletingEvent(null)
@@ -692,13 +743,31 @@ export function ScheduleManager() {
     if (!cancellingEvent) return
 
     try {
-      // Supabaseで更新
-      await scheduleApi.toggleCancel(cancellingEvent.id, true)
+      // 貸切リクエストの場合は reservations テーブルを更新
+      if (cancellingEvent.is_private_request && cancellingEvent.reservation_id) {
+        const { error } = await supabase
+          .from('reservations')
+          .update({
+            status: 'cancelled',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', cancellingEvent.reservation_id)
+        
+        if (error) throw error
+        
+        // この貸切リクエストの全ての候補日を中止状態に
+        setEvents(prev => prev.map(e => 
+          e.reservation_id === cancellingEvent.reservation_id ? { ...e, is_cancelled: true } : e
+        ))
+      } else {
+        // 通常公演の場合は schedule_events を更新
+        await scheduleApi.toggleCancel(cancellingEvent.id, true)
 
-      // ローカル状態を更新
-      setEvents(prev => prev.map(e => 
-        e.id === cancellingEvent.id ? { ...e, is_cancelled: true } : e
-      ))
+        // ローカル状態を更新
+        setEvents(prev => prev.map(e => 
+          e.id === cancellingEvent.id ? { ...e, is_cancelled: true } : e
+        ))
+      }
 
       setIsCancelDialogOpen(false)
       setCancellingEvent(null)
@@ -711,13 +780,31 @@ export function ScheduleManager() {
   // 公演をキャンセル解除
   const handleCancelPerformance = async (event: ScheduleEvent) => {
     try {
-      // Supabaseで更新
-      await scheduleApi.toggleCancel(event.id, false)
+      // 貸切リクエストの場合は reservations テーブルを更新
+      if (event.is_private_request && event.reservation_id) {
+        const { error } = await supabase
+          .from('reservations')
+          .update({
+            status: 'gm_confirmed', // 元のステータスに戻す
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', event.reservation_id)
+        
+        if (error) throw error
+        
+        // この貸切リクエストの全ての候補日を復活
+        setEvents(prev => prev.map(e => 
+          e.reservation_id === event.reservation_id ? { ...e, is_cancelled: false } : e
+        ))
+      } else {
+        // 通常公演の場合は schedule_events を更新
+        await scheduleApi.toggleCancel(event.id, false)
 
-      // ローカル状態を更新
-      setEvents(prev => prev.map(e => 
-        e.id === event.id ? { ...e, is_cancelled: false } : e
-      ))
+        // ローカル状態を更新
+        setEvents(prev => prev.map(e => 
+          e.id === event.id ? { ...e, is_cancelled: false } : e
+        ))
+      }
     } catch (error) {
       console.error('公演キャンセル解除エラー:', error)
       alert('公演のキャンセル解除処理に失敗しました')
