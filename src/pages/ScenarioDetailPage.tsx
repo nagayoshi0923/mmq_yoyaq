@@ -659,7 +659,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
               <Tabs defaultValue="schedule" className="w-full" onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}>
                 <TabsList className="grid w-full grid-cols-2 mb-4">
                   <TabsTrigger value="schedule">公演日程</TabsTrigger>
-                  <TabsTrigger value="private">💎 貸切リクエスト</TabsTrigger>
+                  <TabsTrigger value="private">貸切リクエスト</TabsTrigger>
                 </TabsList>
                 
                 {/* 公演日程タブ */}

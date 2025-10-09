@@ -427,7 +427,7 @@ export function PrivateBookingRequest({
                   </div>
                   
                   <div className="bg-purple-50 border border-purple-200 rounded p-3 text-sm text-purple-800">
-                    <p className="font-medium mb-1">💎 貸切料金</p>
+                    <p className="font-medium mb-1">貸切料金</p>
                     <p className="text-xs">詳細はリクエスト後にご相談させていただきます</p>
                   </div>
                 </CardContent>

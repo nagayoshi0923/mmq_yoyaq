@@ -161,7 +161,7 @@ export function ReservationManagement() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>💎 貸切希望</CardDescription>
+                <CardDescription>貸切希望</CardDescription>
                 <CardTitle className="text-3xl text-purple-600">
                   {reservations.filter(r => r.reservation_source === 'web_private').length}
                 </CardTitle>
@@ -219,7 +219,7 @@ export function ReservationManagement() {
                   <SelectContent>
                     <SelectItem value="all">すべて</SelectItem>
                     <SelectItem value="regular">通常予約</SelectItem>
-                    <SelectItem value="private">💎 貸切希望</SelectItem>
+                    <SelectItem value="private">貸切希望</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -296,7 +296,7 @@ export function ReservationManagement() {
                             <div className="font-mono text-xs">{reservation.reservation_number}</div>
                             {reservation.reservation_source === 'web_private' && (
                               <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] mt-1">
-                                💎 貸切希望
+                                貸切希望
                               </Badge>
                             )}
                           </div>
