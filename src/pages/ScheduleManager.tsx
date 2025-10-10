@@ -111,7 +111,11 @@ export function ScheduleManager() {
             customer_name,
             status,
             candidate_datetimes,
-            scenarios:scenario_id (title),
+            participant_count,
+            scenarios:scenario_id (
+              title,
+              player_count_max
+            ),
             gm_availability_responses (
               staff_id,
               response_status,
@@ -159,7 +163,8 @@ export function ScheduleManager() {
                     end_time: candidate.endTime,
                     category: 'private' as any, // 貸切
                     is_cancelled: false,
-                    participant_count: 0,
+                    participant_count: request.participant_count || 0,
+                    max_participants: request.scenarios?.player_count_max || 8,
                     notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】${request.customer_name || ''}`,
                     is_reservation_enabled: false,
                     is_private_request: true, // 貸切リクエストフラグ

@@ -25,6 +25,9 @@ interface ScheduleEvent {
   participant_count?: number
   max_participants?: number
   notes?: string
+  is_private_request?: boolean // 貸切リクエストかどうか
+  reservation_id?: string // 貸切リクエストの元のreservation ID
+  reservation_info?: string
 }
 
 interface Store {
@@ -260,7 +263,11 @@ export function PerformanceModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="start_time">開始時間</Label>
-              <Select value={formData.start_time} onValueChange={handleStartTimeChange}>
+              <Select 
+                value={formData.start_time} 
+                onValueChange={handleStartTimeChange}
+                disabled={formData.is_private_request}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="開始時間を選択">
                     {formData.start_time ? formData.start_time.slice(0, 5) : "開始時間を選択"}
@@ -272,15 +279,24 @@ export function PerformanceModal({
                   ))}
                 </SelectContent>
               </Select>
-              {mode === 'edit' && formData.start_time && (
+              {mode === 'edit' && formData.start_time && !formData.is_private_request && (
                 <p className="text-xs text-muted-foreground mt-1">
                   現在: {formData.start_time.slice(0, 5)}
+                </p>
+              )}
+              {formData.is_private_request && (
+                <p className="text-xs text-purple-600 mt-1">
+                  ※ 貸切リクエストの日時は変更できません
                 </p>
               )}
             </div>
             <div>
               <Label htmlFor="end_time">終了時間</Label>
-              <Select value={formData.end_time} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, end_time: value }))}>
+              <Select 
+                value={formData.end_time} 
+                onValueChange={(value) => setFormData((prev: any) => ({ ...prev, end_time: value }))}
+                disabled={formData.is_private_request}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="終了時間を選択">
                     {formData.end_time ? formData.end_time.slice(0, 5) : "終了時間を選択"}
@@ -292,7 +308,7 @@ export function PerformanceModal({
                   ))}
                 </SelectContent>
               </Select>
-              {mode === 'edit' && formData.end_time && (
+              {mode === 'edit' && formData.end_time && !formData.is_private_request && (
                 <p className="text-xs text-muted-foreground mt-1">
                   現在: {formData.end_time.slice(0, 5)}
                 </p>
@@ -304,7 +320,11 @@ export function PerformanceModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="category">公演カテゴリ</Label>
-              <Select value={formData.category} onValueChange={(value: any) => setFormData((prev: any) => ({ ...prev, category: value }))}>
+              <Select 
+                value={formData.category} 
+                onValueChange={(value: any) => setFormData((prev: any) => ({ ...prev, category: value }))}
+                disabled={formData.is_private_request}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="カテゴリを選択" />
                 </SelectTrigger>
@@ -316,6 +336,11 @@ export function PerformanceModal({
                   <SelectItem value="offsite">出張公演</SelectItem>
                 </SelectContent>
               </Select>
+              {formData.is_private_request && (
+                <p className="text-xs text-purple-600 mt-1">
+                  ※ 貸切リクエストのため変更できません
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="max_participants">最大参加者数</Label>
@@ -326,10 +351,16 @@ export function PerformanceModal({
                 max="20"
                 value={formData.max_participants}
                 onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || 8 }))}
+                disabled={formData.is_private_request}
               />
               {formData.scenario && (
                 <p className="text-xs text-muted-foreground mt-1">
                   ※ シナリオから自動設定されました
+                </p>
+              )}
+              {formData.is_private_request && (
+                <p className="text-xs text-purple-600 mt-1">
+                  ※ 貸切公演は最大人数固定です
                 </p>
               )}
             </div>
@@ -338,7 +369,11 @@ export function PerformanceModal({
           {/* シナリオ */}
           <div>
             <Label htmlFor="scenario">シナリオタイトル</Label>
-            <Select value={formData.scenario} onValueChange={handleScenarioChange}>
+            <Select 
+              value={formData.scenario} 
+              onValueChange={handleScenarioChange}
+              disabled={formData.is_private_request}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="シナリオを選択" />
               </SelectTrigger>
@@ -460,6 +495,11 @@ export function PerformanceModal({
                 })}
               </SelectContent>
             </Select>
+            {formData.is_private_request && (
+              <p className="text-xs text-purple-600 mt-1">
+                ※ 貸切リクエストのシナリオは変更できません
+              </p>
+            )}
           </div>
 
           {/* GM管理 */}
