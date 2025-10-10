@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Search, Calendar, Clock, Users, MapPin } from 'lucide-react'
@@ -34,6 +35,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('lineup') // 'lineup' or 'calendar'
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [allEvents, setAllEvents] = useState<any[]>([]) // カレンダー用の全公演データ
 
   useEffect(() => {
     loadScenarios()
@@ -156,6 +160,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       // console.log('最終的なシナリオ数:', scenarioList.length)
       
       setScenarios(scenarioList)
+      setAllEvents(publicEvents) // カレンダー用に全公演データを保存
       
       // デバッグ: データがない場合の警告
       if (scenarioList.length === 0) {
@@ -226,6 +231,64 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     } else {
       // console.log('シナリオ詳細へ:', scenarioId)
     }
+  }
+  
+  // カレンダー用：月を変更
+  const changeMonth = (direction: 'prev' | 'next') => {
+    setCurrentMonth(prev => {
+      const newDate = new Date(prev)
+      if (direction === 'prev') {
+        newDate.setMonth(newDate.getMonth() - 1)
+      } else {
+        newDate.setMonth(newDate.getMonth() + 1)
+      }
+      return newDate
+    })
+  }
+  
+  // カレンダー用：月の日付を生成（月曜始まり）
+  const generateCalendarDays = () => {
+    const year = currentMonth.getFullYear()
+    const month = currentMonth.getMonth()
+    
+    // 月の最初の日と最後の日
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    
+    // 月曜日を0とする曜日（0=月曜, 6=日曜）
+    const firstDayOfWeek = (firstDay.getDay() + 6) % 7 // 月曜始まりに調整
+    const lastDate = lastDay.getDate()
+    
+    const days = []
+    
+    // 前月の日付で埋める
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      const date = new Date(year, month, -firstDayOfWeek + i + 1)
+      days.push({ date, isCurrentMonth: false })
+    }
+    
+    // 当月の日付
+    for (let i = 1; i <= lastDate; i++) {
+      const date = new Date(year, month, i)
+      days.push({ date, isCurrentMonth: true })
+    }
+    
+    // 次月の日付で埋める（7の倍数になるまで）
+    const remainingDays = 7 - (days.length % 7)
+    if (remainingDays < 7) {
+      for (let i = 1; i <= remainingDays; i++) {
+        const date = new Date(year, month + 1, i)
+        days.push({ date, isCurrentMonth: false })
+      }
+    }
+    
+    return days
+  }
+  
+  // カレンダー用：特定日の公演を取得
+  const getEventsForDate = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0]
+    return allEvents.filter(event => event.date === dateStr)
   }
 
   const getStatusBadge = (status: string) => {
@@ -355,7 +418,14 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             <p className="text-muted-foreground">読み込み中...</p>
           </div>
         ) : (
-          <div className="space-y-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-6">
+              <TabsTrigger value="lineup">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar">カレンダー</TabsTrigger>
+            </TabsList>
+            
+            {/* ラインナップ表示 */}
+            <TabsContent value="lineup" className="space-y-8">
             {/* 新着公演セクション */}
             {getNewScenarios().length > 0 && (
               <section>
@@ -398,7 +468,120 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                 <p className="text-muted-foreground">シナリオが見つかりませんでした</p>
               </div>
             )}
-          </div>
+            </TabsContent>
+            
+            {/* カレンダー表示 */}
+            <TabsContent value="calendar">
+              {/* 月選択 */}
+              <div className="flex items-center justify-between mb-6 max-w-md mx-auto">
+                <button
+                  onClick={() => changeMonth('prev')}
+                  className="px-4 py-2 rounded border hover:bg-muted transition-colors"
+                >
+                  ← 前月
+                </button>
+                <h2 className="text-2xl font-bold">
+                  {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
+                </h2>
+                <button
+                  onClick={() => changeMonth('next')}
+                  className="px-4 py-2 rounded border hover:bg-muted transition-colors"
+                >
+                  次月 →
+                </button>
+              </div>
+              
+              {/* カレンダーグリッド */}
+              <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+                {/* 曜日ヘッダー（月曜始まり） */}
+                <div className="grid grid-cols-7 border-b bg-muted/30">
+                  {['月', '火', '水', '木', '金', '土', '日'].map((day, index) => (
+                    <div 
+                      key={day} 
+                      className={`text-center py-3 font-medium ${
+                        index === 5 ? 'text-blue-600' : index === 6 ? 'text-red-600' : ''
+                      }`}
+                    >
+                      {day}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* 日付グリッド */}
+                <div className="grid grid-cols-7">
+                  {generateCalendarDays().map((day, index) => {
+                    const events = getEventsForDate(day.date)
+                    const dateNum = day.date.getDate()
+                    const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6
+                    const isSunday = day.date.getDay() === 0
+                    
+                    return (
+                      <div
+                        key={index}
+                        className={`min-h-[120px] border-r border-b p-2 ${
+                          !day.isCurrentMonth ? 'bg-muted/20' : ''
+                        }`}
+                      >
+                        {/* 日付 */}
+                        <div 
+                          className={`text-sm font-medium mb-1 ${
+                            !day.isCurrentMonth 
+                              ? 'text-muted-foreground' 
+                              : isSunday 
+                                ? 'text-red-600' 
+                                : isWeekend 
+                                  ? 'text-blue-600' 
+                                  : ''
+                          }`}
+                        >
+                          {dateNum}
+                        </div>
+                        
+                        {/* 公演リスト */}
+                        <div className="space-y-1">
+                          {events.slice(0, 3).map((event: any, idx: number) => {
+                            const available = (event.max_participants || 8) - (event.current_participants || 0)
+                            const isFull = available === 0
+                            
+                            return (
+                              <div
+                                key={idx}
+                                onClick={() => {
+                                  const scenario = scenarios.find(s => 
+                                    s.scenario_id === event.scenario_id || 
+                                    s.scenario_title === event.scenario
+                                  )
+                                  if (scenario) handleCardClick(scenario.scenario_id)
+                                }}
+                                className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 transition-opacity ${
+                                  isFull ? 'bg-gray-100 text-gray-600' : 'bg-green-50 text-green-800 border border-green-200'
+                                }`}
+                              >
+                                <div className="font-medium truncate">
+                                  {event.start_time?.slice(0, 5)} {event.scenario || event.scenarios?.title}
+                                </div>
+                                {!isFull && (
+                                  <div className="text-[10px]">残{available}席</div>
+                                )}
+                                {isFull && (
+                                  <div className="text-[10px]">満席</div>
+                                )}
+                              </div>
+                            )
+                          })}
+                          {events.length > 3 && (
+                            <div className="text-[10px] text-muted-foreground text-center">
+                              他{events.length - 3}件
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>
