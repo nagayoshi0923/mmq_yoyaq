@@ -3,10 +3,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Search, Calendar, Clock, Users, MapPin } from 'lucide-react'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
+import { getColorFromName } from '@/lib/utils'
 import type { PublicScenarioEvent } from '@/types'
 
 interface ScenarioCard {
@@ -35,13 +37,30 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('lineup') // 'lineup' or 'calendar'
+  const [activeTab, setActiveTab] = useState(() => {
+    // URLハッシュから初期タブを決定
+    const hash = window.location.hash
+    if (hash.includes('calendar')) return 'calendar'
+    return 'lineup'
+  })
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [allEvents, setAllEvents] = useState<any[]>([]) // カレンダー用の全公演データ
+  const [stores, setStores] = useState<any[]>([])
+  const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('all') // 'all' or storeId
 
   useEffect(() => {
     loadScenarios()
   }, [])
+  
+  // タブ変更時にURLハッシュを更新
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    if (value === 'calendar') {
+      window.location.hash = 'customer-booking/calendar'
+    } else {
+      window.location.hash = 'customer-booking'
+    }
+  }
 
   const loadScenarios = async () => {
     try {
@@ -161,6 +180,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       
       setScenarios(scenarioList)
       setAllEvents(publicEvents) // カレンダー用に全公演データを保存
+      setStores(storesData) // 店舗データを保存
       
       // デバッグ: データがない場合の警告
       if (scenarioList.length === 0) {
@@ -285,10 +305,29 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     return days
   }
   
-  // カレンダー用：特定日の公演を取得
+  // カレンダー用：特定日の公演を取得（店舗フィルター適用）
   const getEventsForDate = (date: Date) => {
     const dateStr = date.toISOString().split('T')[0]
-    return allEvents.filter(event => event.date === dateStr)
+    let filtered = allEvents.filter(event => event.date === dateStr)
+    
+    // 店舗フィルター適用
+    if (selectedStoreFilter !== 'all') {
+      filtered = filtered.filter(event => event.store_id === selectedStoreFilter || event.venue === selectedStoreFilter)
+    }
+    
+    return filtered
+  }
+  
+  // 店舗名を取得
+  const getStoreName = (event: any): string => {
+    const store = stores.find(s => s.id === event.store_id || s.id === event.venue)
+    return store?.short_name || store?.name || ''
+  }
+  
+  // 店舗カラーを取得
+  const getStoreColor = (event: any): string => {
+    const store = stores.find(s => s.id === event.store_id || s.id === event.venue)
+    return store?.color ? getColorFromName(store.color) : '#6B7280'
   }
 
   const getStatusBadge = (status: string) => {
@@ -418,7 +457,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             <p className="text-muted-foreground">読み込み中...</p>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-6">
               <TabsTrigger value="lineup">ラインナップ</TabsTrigger>
               <TabsTrigger value="calendar">カレンダー</TabsTrigger>
@@ -472,8 +511,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             
             {/* カレンダー表示 */}
             <TabsContent value="calendar">
-              {/* 月選択 */}
-              <div className="flex items-center justify-between mb-6 max-w-md mx-auto">
+              {/* 月選択と店舗フィルター */}
+              <div className="flex items-center justify-between mb-6 gap-4">
                 <button
                   onClick={() => changeMonth('prev')}
                   className="px-4 py-2 rounded border hover:bg-muted transition-colors"
@@ -489,6 +528,24 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                 >
                   次月 →
                 </button>
+                
+                {/* 店舗フィルター */}
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                  <Select value={selectedStoreFilter} onValueChange={setSelectedStoreFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="店舗を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべての店舗</SelectItem>
+                      {stores.map((store) => (
+                        <SelectItem key={store.id} value={store.id}>
+                          {store.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               {/* カレンダーグリッド */}
@@ -518,13 +575,13 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                     return (
                       <div
                         key={index}
-                        className={`min-h-[120px] border-r border-b p-2 ${
+                        className={`border-r border-b ${
                           !day.isCurrentMonth ? 'bg-muted/20' : ''
-                        }`}
+                        } flex flex-col`}
                       >
                         {/* 日付 */}
                         <div 
-                          className={`text-sm font-medium mb-1 ${
+                          className={`text-xs font-medium p-1 pb-0.5 flex-shrink-0 ${
                             !day.isCurrentMonth 
                               ? 'text-muted-foreground' 
                               : isSunday 
@@ -537,11 +594,13 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                           {dateNum}
                         </div>
                         
-                        {/* 公演リスト */}
-                        <div className="space-y-1">
-                          {events.slice(0, 3).map((event: any, idx: number) => {
+                        {/* 公演リスト（スクロール可能） */}
+                        <div className="space-y-0.5 px-0 pb-0 overflow-y-auto max-h-[250px]">
+                          {events.map((event: any, idx: number) => {
                             const available = (event.max_participants || 8) - (event.current_participants || 0)
                             const isFull = available === 0
+                            const storeName = getStoreName(event)
+                            const storeColor = getStoreColor(event)
                             
                             return (
                               <div
@@ -553,27 +612,30 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                   )
                                   if (scenario) handleCardClick(scenario.scenario_id)
                                 }}
-                                className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 transition-opacity ${
-                                  isFull ? 'bg-gray-100 text-gray-600' : 'bg-green-50 text-green-800 border border-green-200'
-                                }`}
+                                className="text-xs p-1 rounded-none cursor-pointer hover:shadow-md transition-shadow border-l-2"
+                                style={{
+                                  borderLeftColor: isFull ? '#9CA3AF' : storeColor,
+                                  backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`
+                                }}
                               >
-                                <div className="font-medium truncate">
-                                  {event.start_time?.slice(0, 5)} {event.scenario || event.scenarios?.title}
+                                <div className="flex items-start gap-0">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                      <div className="font-semibold truncate text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                        {event.start_time?.slice(0, 5)} {storeName}
+                                      </div>
+                                      <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                        {isFull ? '満席' : `残${available}席`}
+                                      </div>
+                                    </div>
+                                    <div className="text-[11px] font-medium text-gray-800 leading-tight truncate">
+                                      {event.scenario || event.scenarios?.title}
+                                    </div>
+                                  </div>
                                 </div>
-                                {!isFull && (
-                                  <div className="text-[10px]">残{available}席</div>
-                                )}
-                                {isFull && (
-                                  <div className="text-[10px]">満席</div>
-                                )}
                               </div>
                             )
                           })}
-                          {events.length > 3 && (
-                            <div className="text-[10px] text-muted-foreground text-center">
-                              他{events.length - 3}件
-                            </div>
-                          )}
                         </div>
                       </div>
                     )

@@ -82,6 +82,10 @@ export function AdminDashboard() {
       if (scenarioMatch) {
         setCurrentPage('customer-booking')
         setSelectedScenarioId(scenarioMatch[1])
+      } else if (hash.startsWith('customer-booking')) {
+        // customer-booking/calendar などもcustomer-bookingとして扱う
+        setCurrentPage('customer-booking')
+        setSelectedScenarioId(null)
       } else {
         // 通常のページ遷移
         setCurrentPage(hash || 'dashboard')
