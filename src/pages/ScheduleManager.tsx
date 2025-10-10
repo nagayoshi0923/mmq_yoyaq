@@ -59,6 +59,8 @@ export function ScheduleManager() {
   const [deletingEvent, setDeletingEvent] = useState<ScheduleEvent | null>(null)
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const [cancellingEvent, setCancellingEvent] = useState<ScheduleEvent | null>(null)
+  const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false)
+  const [publishingEvent, setPublishingEvent] = useState<ScheduleEvent | null>(null)
   const [events, setEvents] = useState<ScheduleEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -833,19 +835,29 @@ export function ScheduleManager() {
   }
 
   // 予約サイト公開/非公開トグル
-  const handleToggleReservation = async (event: ScheduleEvent) => {
+  const handleToggleReservation = (event: ScheduleEvent) => {
+    setPublishingEvent(event)
+    setIsPublishDialogOpen(true)
+  }
+  
+  const handleConfirmPublishToggle = async () => {
+    if (!publishingEvent) return
+    
     try {
-      const newStatus = !event.is_reservation_enabled
+      const newStatus = !publishingEvent.is_reservation_enabled
       
       // Supabaseで更新
-      await scheduleApi.update(event.id, {
+      await scheduleApi.update(publishingEvent.id, {
         is_reservation_enabled: newStatus
       })
 
       // ローカル状態を更新
       setEvents(prev => prev.map(e => 
-        e.id === event.id ? { ...e, is_reservation_enabled: newStatus } : e
+        e.id === publishingEvent.id ? { ...e, is_reservation_enabled: newStatus } : e
       ))
+      
+      setIsPublishDialogOpen(false)
+      setPublishingEvent(null)
     } catch (error) {
       console.error('予約サイト公開状態の更新エラー:', error)
       alert('予約サイト公開状態の更新に失敗しました')
@@ -1109,6 +1121,43 @@ export function ScheduleManager() {
                   </Button>
                   <Button variant="destructive" onClick={handleConfirmCancel}>
                     中止
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+          
+          {/* 予約サイト公開/非公開確認ダイアログ */}
+          {publishingEvent && (
+            <Dialog open={isPublishDialogOpen} onOpenChange={setIsPublishDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>
+                    {publishingEvent.is_reservation_enabled ? '予約サイトから非公開にする' : '予約サイトに公開する'}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {publishingEvent.is_reservation_enabled 
+                      ? 'この公演を予約サイトから非公開にしてもよろしいですか？'
+                      : 'この公演を予約サイトに公開してもよろしいですか？お客様が予約できるようになります。'
+                    }
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 bg-muted/50 p-4 rounded">
+                  <p><strong>日付:</strong> {publishingEvent.date}</p>
+                  <p><strong>時間:</strong> {publishingEvent.start_time.slice(0, 5)} - {publishingEvent.end_time.slice(0, 5)}</p>
+                  <p><strong>シナリオ:</strong> {publishingEvent.scenario || '未定'}</p>
+                  <p><strong>GM:</strong> {publishingEvent.gms.join(', ') || '未定'}</p>
+                  <p><strong>最大参加者数:</strong> {publishingEvent.max_participants || 8}名</p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsPublishDialogOpen(false)}>
+                    キャンセル
+                  </Button>
+                  <Button 
+                    onClick={handleConfirmPublishToggle}
+                    className={publishingEvent.is_reservation_enabled ? 'bg-gray-600 hover:bg-gray-700' : 'bg-green-600 hover:bg-green-700'}
+                  >
+                    {publishingEvent.is_reservation_enabled ? '非公開にする' : '公開する'}
                   </Button>
                 </div>
               </DialogContent>
