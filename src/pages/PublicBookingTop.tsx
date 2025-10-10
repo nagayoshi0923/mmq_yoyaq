@@ -581,7 +581,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                       >
                         {/* 日付 */}
                         <div 
-                          className={`text-xs font-medium p-1 pb-0.5 flex-shrink-0 ${
+                          className={`text-xs font-medium p-1 pb-0.5 flex-shrink-0 flex items-center justify-between ${
                             !day.isCurrentMonth 
                               ? 'text-muted-foreground' 
                               : isSunday 
@@ -591,11 +591,16 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                   : ''
                           }`}
                         >
-                          {dateNum}
+                          <span>{dateNum}</span>
+                          {events.length > 4 && (
+                            <span className="text-[10px] bg-blue-100 text-blue-600 px-1 py-0.5 rounded-full">
+                              +{events.length - 4}
+                            </span>
+                          )}
                         </div>
                         
                         {/* 公演リスト（スクロール可能） */}
-                        <div className="space-y-0.5 px-0 pb-0 overflow-y-auto max-h-[250px]">
+                        <div className="relative space-y-0.5 px-0 pb-0 overflow-y-auto max-h-[250px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                           {events.map((event: any, idx: number) => {
                             const available = (event.max_participants || 8) - (event.current_participants || 0)
                             const isFull = available === 0
@@ -636,6 +641,10 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                               </div>
                             )
                           })}
+                          {/* 下部グラデーション（スクロール可能な場合のみ表示） */}
+                          {events.length > 4 && (
+                            <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                          )}
                         </div>
                       </div>
                     )
