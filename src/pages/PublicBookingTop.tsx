@@ -863,17 +863,35 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                       if (scenario) handleCardClick(scenario.scenario_id)
                                     }}
                                   >
-                                    <div className="flex flex-col gap-0">
-                                      <div className="flex items-center justify-between">
-                                        <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
-                                          {event.start_time?.slice(0, 5)}
-                                        </div>
-                                        <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                          {isFull ? '満席' : `残${available}席`}
-                                        </div>
+                                    <div className="flex gap-2">
+                                      {/* 左カラム: 画像 */}
+                                      <div className="flex-shrink-0 w-[30px] h-10 bg-gray-200 overflow-hidden">
+                                        {event.scenarios?.image_url ? (
+                                          <img 
+                                            src={event.scenarios.image_url} 
+                                            alt={event.scenario || event.scenarios?.title}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                            No Image
+                                          </div>
+                                        )}
                                       </div>
-                                      <div className="text-[11px] font-medium text-gray-800 leading-tight">
-                                        {event.scenario || event.scenarios?.title}
+                                      
+                                      {/* 右カラム: 情報 */}
+                                      <div className="flex flex-col gap-0 flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                            {event.start_time?.slice(0, 5)}
+                                          </div>
+                                          <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                            {isFull ? '満席' : `残${available}席`}
+                                          </div>
+                                        </div>
+                                        <div className="text-[11px] font-medium leading-tight text-left" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                          {event.scenario || event.scenarios?.title}
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -908,17 +926,35 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                       if (scenario) handleCardClick(scenario.scenario_id)
                                     }}
                                   >
-                                    <div className="flex flex-col gap-0">
-                                      <div className="flex items-center justify-between">
-                                        <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
-                                          {event.start_time?.slice(0, 5)}
-                                        </div>
-                                        <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                          {isFull ? '満席' : `残${available}席`}
-                                        </div>
+                                    <div className="flex gap-2">
+                                      {/* 左カラム: 画像 */}
+                                      <div className="flex-shrink-0 w-[30px] h-10 bg-gray-200 overflow-hidden">
+                                        {event.scenarios?.image_url ? (
+                                          <img 
+                                            src={event.scenarios.image_url} 
+                                            alt={event.scenario || event.scenarios?.title}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                            No Image
+                                          </div>
+                                        )}
                                       </div>
-                                      <div className="text-[11px] font-medium text-gray-800 leading-tight">
-                                        {event.scenario || event.scenarios?.title}
+                                      
+                                      {/* 右カラム: 情報 */}
+                                      <div className="flex flex-col gap-0 flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                            {event.start_time?.slice(0, 5)}
+                                          </div>
+                                          <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                            {isFull ? '満席' : `残${available}席`}
+                                          </div>
+                                        </div>
+                                        <div className="text-[11px] font-medium leading-tight text-left" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                          {event.scenario || event.scenarios?.title}
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -953,17 +989,35 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                       if (scenario) handleCardClick(scenario.scenario_id)
                                     }}
                                   >
-                                    <div className="flex flex-col gap-0">
-                                      <div className="flex items-center justify-between">
-                                        <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
-                                          {event.start_time?.slice(0, 5)}
-                                        </div>
-                                        <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                          {isFull ? '満席' : `残${available}席`}
-                                        </div>
+                                    <div className="flex gap-2">
+                                      {/* 左カラム: 画像 */}
+                                      <div className="flex-shrink-0 w-[30px] h-10 bg-gray-200 overflow-hidden">
+                                        {event.scenarios?.image_url ? (
+                                          <img 
+                                            src={event.scenarios.image_url} 
+                                            alt={event.scenario || event.scenarios?.title}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                            No Image
+                                          </div>
+                                        )}
                                       </div>
-                                      <div className="text-[11px] font-medium text-gray-800 leading-tight">
-                                        {event.scenario || event.scenarios?.title}
+                                      
+                                      {/* 右カラム: 情報 */}
+                                      <div className="flex flex-col gap-0 flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                            {event.start_time?.slice(0, 5)}
+                                          </div>
+                                          <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                            {isFull ? '満席' : `残${available}席`}
+                                          </div>
+                                        </div>
+                                        <div className="text-[11px] font-medium leading-tight text-left" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                          {event.scenario || event.scenarios?.title}
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
