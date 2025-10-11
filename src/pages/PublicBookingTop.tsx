@@ -837,7 +837,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                           
                           {/* 午前セル */}
                           <TableCell className="schedule-table-cell p-0" style={{ width: '192px' }}>
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col">
                               {morningEvents.map((event: any, idx: number) => {
                                 const available = (event.max_participants || 8) - (event.current_participants || 0)
                                 const isFull = available === 0
@@ -846,12 +846,13 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                 return (
                                   <div
                                     key={idx}
-                                    className="text-xs cursor-pointer hover:shadow-md transition-shadow border-l-2"
+                                    className="text-xs cursor-pointer hover:shadow-md transition-shadow border-l-2 mb-1"
                                     style={{
                                       borderLeftColor: isFull ? '#9CA3AF' : storeColor,
                                       backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
                                       padding: '4px 6px',
-                                      display: 'block'
+                                      display: 'block',
+                                      marginBottom: '4px'
                                     }}
                                     onClick={() => {
                                       const scenario = scenarios.find((s: any) => 
@@ -882,7 +883,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                           
                           {/* 午後セル */}
                           <TableCell className="schedule-table-cell p-0" style={{ width: '192px' }}>
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col">
                               {afternoonEvents.map((event: any, idx: number) => {
                                 const available = (event.max_participants || 8) - (event.current_participants || 0)
                                 const isFull = available === 0
@@ -891,12 +892,13 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                 return (
                                   <div
                                     key={idx}
-                                    className="text-xs cursor-pointer hover:shadow-md transition-shadow border-l-2"
+                                    className="text-xs cursor-pointer hover:shadow-md transition-shadow border-l-2 mb-1"
                                     style={{
                                       borderLeftColor: isFull ? '#9CA3AF' : storeColor,
                                       backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
                                       padding: '4px 6px',
-                                      display: 'block'
+                                      display: 'block',
+                                      marginBottom: idx < afternoonEvents.length - 1 ? '4px' : '0px'
                                     }}
                                     onClick={() => {
                                       const scenario = scenarios.find((s: any) => 
@@ -927,7 +929,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                           
                           {/* 夜間セル */}
                           <TableCell className="schedule-table-cell p-0" style={{ width: '192px' }}>
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col">
                               {eveningEvents.map((event: any, idx: number) => {
                                 const available = (event.max_participants || 8) - (event.current_participants || 0)
                                 const isFull = available === 0
@@ -936,12 +938,13 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                 return (
                                   <div
                                     key={idx}
-                                    className="text-xs cursor-pointer hover:shadow-md transition-shadow border-l-2"
+                                    className="text-xs cursor-pointer hover:shadow-md transition-shadow border-l-2 mb-1"
                                     style={{
                                       borderLeftColor: isFull ? '#9CA3AF' : storeColor,
                                       backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
                                       padding: '4px 6px',
-                                      display: 'block'
+                                      display: 'block',
+                                      marginBottom: idx < eveningEvents.length - 1 ? '4px' : '0px'
                                     }}
                                     onClick={() => {
                                       const scenario = scenarios.find((s: any) => 
