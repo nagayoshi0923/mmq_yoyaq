@@ -271,9 +271,19 @@ export function PrivateBookingManagement() {
       
       setAvailableGMs(highlightGMs)
       
-      // デフォルトで最初のGMを選択
+      // デフォルトで最初の担当GMを選択（対応可能GMがいればそちらを優先）
       if (highlightGMs.length > 0) {
-        setSelectedGMId(highlightGMs[0].id)
+        // 対応可能と回答したGMを優先
+        const availableGM = highlightGMs.find(gm => gm.isAvailable)
+        if (availableGM) {
+          setSelectedGMId(availableGM.id)
+        } else {
+          // いなければ最初の担当GMを選択
+          setSelectedGMId(highlightGMs[0].id)
+        }
+      } else if (allGMs.length > 0) {
+        // 担当GMがいない場合は最初のGMを選択
+        setSelectedGMId(allGMs[0].id)
       }
     } catch (error) {
       console.error('GM情報取得エラー:', error)
@@ -665,20 +675,6 @@ export function PrivateBookingManagement() {
                   </div>
                 )}
 
-                {/* 却下理由入力 */}
-                <div className="pt-6 border-t">
-                  <label className="text-sm font-medium mb-2 block text-red-800">
-                    却下する場合は理由を入力してください
-                  </label>
-                  <Textarea
-                    placeholder="例: 希望日時に対応可能な店舗の空きがございません。別の日程をご検討いただけますか？"
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    rows={4}
-                    className="resize-none"
-                  />
-                </div>
-
                 {/* ステータスメッセージ */}
                 {selectedRequest.status === 'pending' && (
                   <div className="pt-6 border-t">
@@ -686,34 +682,44 @@ export function PrivateBookingManagement() {
                       <div className="flex items-center gap-2 text-sm text-yellow-800">
                         <Clock className="w-5 h-5" />
                         <span className="font-medium">
-                          現在、GMによる対応可否の確認を待っています。GMの回答後に承認・却下の判断が可能になります。
+                          現在、GMによる対応可否の確認を待っています。必要に応じて日時・GM・店舗を選択して承認、または却下できます。
                         </span>
                       </div>
                     </div>
                   </div>
                 )}
 
+                {/* 却下理由入力 */}
+                <div className="pt-6 border-t">
+                  <h3 className="font-semibold mb-3 text-red-800">却下理由（却下する場合は必須）</h3>
+                  <Textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="却下する場合は理由を入力してください..."
+                    rows={4}
+                    className="resize-none"
+                  />
+                </div>
+
                 {/* アクションボタン */}
-                {selectedRequest.status === 'gm_confirmed' && (
-                  <div className="flex gap-3 pt-4">
+                {(selectedRequest.status === 'pending' || selectedRequest.status === 'gm_confirmed') && (
+                  <div className="flex gap-3">
                     <Button
-                      onClick={() => handleApprove(selectedRequest.id)}
-                      disabled={submitting}
-                      className="flex-1 bg-green-600 hover:bg-green-700"
-                      size="lg"
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-2" />
-                      承認する
-                    </Button>
-                    <Button
+                      variant="outline"
+                      className="flex-1 border-red-200 hover:bg-red-50"
                       onClick={() => handleReject(selectedRequest.id)}
                       disabled={submitting || !rejectionReason.trim()}
-                      variant="destructive"
-                      className="flex-1"
-                      size="lg"
                     >
                       <XCircle className="w-4 h-4 mr-2" />
                       却下する
+                    </Button>
+                    <Button
+                      className="flex-1 bg-purple-600 hover:bg-purple-700"
+                      onClick={() => handleApprove(selectedRequest.id)}
+                      disabled={submitting || !selectedCandidateOrder || !selectedGMId || !selectedStoreId}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      承認する
                     </Button>
                   </div>
                 )}
