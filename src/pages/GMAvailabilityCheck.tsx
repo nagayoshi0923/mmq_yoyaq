@@ -897,7 +897,12 @@ export function GMAvailabilityCheck() {
             <ChevronLeft className="w-4 h-4 mr-1" />
             前月
           </Button>
-          <h2 className="text-lg font-semibold">{formatMonthYear(currentDate)}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">{formatMonthYear(currentDate)}</h2>
+            <Badge variant="outline" className="text-xs px-2 py-1">
+              {allRequests.length}件
+            </Badge>
+          </div>
           <Button
             variant="outline"
             size="sm"
