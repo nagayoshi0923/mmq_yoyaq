@@ -88,6 +88,35 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
   useEffect(() => {
     loadScenarioDetail()
+    
+    // URLパラメータを処理して貸切リクエストタブを開く
+    const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '')
+    const tabParam = urlParams.get('tab')
+    const dateParam = urlParams.get('date')
+    const storeParam = urlParams.get('store')
+    const slotParam = urlParams.get('slot')
+    
+    if (tabParam === 'private') {
+      setActiveTab('private')
+      
+      // 日付、店舗、時間帯が指定されている場合、それを選択状態にする
+      if (dateParam && storeParam && slotParam) {
+        // 店舗を選択状態にする
+        setSelectedStoreIds([storeParam])
+        
+        // 時間帯を選択状態にする
+        const slotMap: { [key: string]: TimeSlot } = {
+          morning: { label: '午前', startTime: '09:00', endTime: '12:00' },
+          afternoon: { label: '午後', startTime: '12:00', endTime: '17:00' },
+          evening: { label: '夜間', startTime: '17:00', endTime: '22:00' }
+        }
+        
+        const slot = slotMap[slotParam]
+        if (slot) {
+          setSelectedTimeSlots([{ date: dateParam, slot }])
+        }
+      }
+    }
   }, [scenarioId])
 
   const loadScenarioDetail = async () => {

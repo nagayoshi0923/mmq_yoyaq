@@ -11,6 +11,7 @@ import { ReservationManagement } from './ReservationManagement'
 import { PublicBookingTop } from './PublicBookingTop'
 import { ScenarioDetailPage } from './ScenarioDetailPage'
 import { GMAvailabilityCheck } from './GMAvailabilityCheck'
+import { PrivateBookingScenarioSelect } from './PrivateBookingScenarioSelect'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -36,6 +37,11 @@ export function AdminDashboard() {
     // シナリオ詳細ページの場合はcustomer-bookingとして扱う
     if (hash.startsWith('customer-booking')) {
       return 'customer-booking'
+    }
+    
+    // 貸切申し込みシナリオ選択ページ
+    if (hash.startsWith('private-booking-select')) {
+      return 'private-booking-select'
     }
     
     // 顧客ロールの場合は予約サイトをデフォルトに
@@ -85,6 +91,10 @@ export function AdminDashboard() {
       } else if (hash.startsWith('customer-booking')) {
         // customer-booking/calendar などもcustomer-bookingとして扱う
         setCurrentPage('customer-booking')
+        setSelectedScenarioId(null)
+      } else if (hash.startsWith('private-booking-select')) {
+        // 貸切申し込みシナリオ選択ページ
+        setCurrentPage('private-booking-select')
         setSelectedScenarioId(null)
       } else {
         // 通常のページ遷移
@@ -165,6 +175,10 @@ export function AdminDashboard() {
 
   if (currentPage === 'gm-availability') {
     return <GMAvailabilityCheck />
+  }
+  
+  if (currentPage === 'private-booking-select') {
+    return <PrivateBookingScenarioSelect />
   }
 
   return (

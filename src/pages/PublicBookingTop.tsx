@@ -840,7 +840,21 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                           {/* 午前セル */}
                           <TableCell className="schedule-table-cell p-0" style={{ width: '192px' }}>
                             <div className="flex flex-col">
-                              {morningEvents.map((event: any, idx: number) => {
+                              {morningEvents.length === 0 ? (
+                                <div className="p-2">
+                                  <button
+                                    className="w-full text-xs py-1.5 px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+                                    onClick={() => {
+                                      // 貸切申し込みボタン - シナリオ選択画面へ遷移
+                                      // 日付、店舗、時間帯（午前9:00-12:00）を渡す
+                                      window.location.hash = `#private-booking-select?date=${date}&store=${store.id}&slot=morning`
+                                    }}
+                                  >
+                                    貸切申し込み
+                                  </button>
+                                </div>
+                              ) : (
+                                morningEvents.map((event: any, idx: number) => {
                                 const available = (event.max_participants || 8) - (event.current_participants || 0)
                                 const isFull = available === 0
                                 const storeColor = getColorFromName(store.color)
@@ -896,14 +910,27 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                     </div>
                                   </div>
                                 )
-                              })}
+                              })
+                              )}
                             </div>
                           </TableCell>
                           
                           {/* 午後セル */}
                           <TableCell className="schedule-table-cell p-0" style={{ width: '192px' }}>
                             <div className="flex flex-col">
-                              {afternoonEvents.map((event: any, idx: number) => {
+                              {afternoonEvents.length === 0 ? (
+                                <div className="p-2">
+                                  <button
+                                    className="w-full text-xs py-1.5 px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+                                    onClick={() => {
+                                      window.location.hash = `#private-booking-select?date=${date}&store=${store.id}&slot=afternoon`
+                                    }}
+                                  >
+                                    貸切申し込み
+                                  </button>
+                                </div>
+                              ) : (
+                                afternoonEvents.map((event: any, idx: number) => {
                                 const available = (event.max_participants || 8) - (event.current_participants || 0)
                                 const isFull = available === 0
                                 const storeColor = getColorFromName(store.color)
@@ -959,14 +986,27 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                     </div>
                                   </div>
                                 )
-                              })}
+                              })
+                              )}
                             </div>
                           </TableCell>
                           
                           {/* 夜間セル */}
                           <TableCell className="schedule-table-cell p-0" style={{ width: '192px' }}>
                             <div className="flex flex-col">
-                              {eveningEvents.map((event: any, idx: number) => {
+                              {eveningEvents.length === 0 ? (
+                                <div className="p-2">
+                                  <button
+                                    className="w-full text-xs py-1.5 px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+                                    onClick={() => {
+                                      window.location.hash = `#/scenario-detail?tab=private&preselect=${date}&store=${store.id}&slot=evening`
+                                    }}
+                                  >
+                                    貸切申し込み
+                                  </button>
+                                </div>
+                              ) : (
+                                eveningEvents.map((event: any, idx: number) => {
                                 const available = (event.max_participants || 8) - (event.current_participants || 0)
                                 const isFull = available === 0
                                 const storeColor = getColorFromName(store.color)
@@ -1022,7 +1062,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                     </div>
                                   </div>
                                 )
-                              })}
+                              })
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
