@@ -48,8 +48,6 @@ export function GMAvailabilityCheck() {
   const [requests, setRequests] = useState<GMRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedCandidates, setSelectedCandidates] = useState<Record<string, number[]>>({})
-  const [selectedStores, setSelectedStores] = useState<Record<string, string>>({}) // requestId -> storeId
-  const [storeSelectionReasons, setStoreSelectionReasons] = useState<Record<string, string>>({}) // requestId -> reason
   const [candidateAvailability, setCandidateAvailability] = useState<Record<string, Record<number, boolean>>>({}) // requestId -> candidateOrder -> isAvailable
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
@@ -131,125 +129,6 @@ export function GMAvailabilityCheck() {
     return 'evening'
   }
   
-  // 店舗を自動選定するロジック
-  const autoSelectStore = async (request: GMRequest, selectedCandidateOrders: number[]): Promise<{ storeId: string | null, reason: string }> => {
-    if (selectedCandidateOrders.length === 0) return { storeId: null, reason: '' }
-    
-    // 選択された候補日時を取得
-    const selectedCandidates = request.candidate_datetimes?.candidates?.filter(
-      c => selectedCandidateOrders.includes(c.order)
-    ) || []
-    
-    if (selectedCandidates.length === 0) return { storeId: null, reason: '' }
-    
-    // スタッフIDを取得
-    const { data: staffData } = await supabase
-      .from('staff')
-      .select('id')
-      .eq('user_id', user?.id)
-      .single()
-    
-    if (!staffData) return { storeId: null, reason: '' }
-    
-    const staffId = staffData.id
-    
-    // 優先順位1: GMが前の時間枠で公演している店舗
-    for (const candidate of selectedCandidates) {
-      const previousTimeSlot = getPreviousTimeSlot(candidate.timeSlot)
-      if (previousTimeSlot) {
-        // 前の時間枠でこのGMが担当している公演を探す
-        const { data: previousEvents } = await supabase
-          .from('schedule_events')
-          .select('store_id, stores:store_id(name)')
-          .eq('date', candidate.date)
-          .contains('gms', [staffId])
-        
-        if (previousEvents && previousEvents.length > 0) {
-          const storeId = previousEvents[0].store_id
-          const storeName = (previousEvents[0] as any).stores?.name || ''
-          
-          // この店舗が候補日時に空いているかチェック
-          const isAvailable = await checkCandidateAvailability(candidate, storeId)
-          if (isAvailable) {
-            return { 
-              storeId: storeId, 
-              reason: `前の時間枠(${previousTimeSlot})で${storeName}にて公演予定のため` 
-            }
-          }
-        }
-      }
-    }
-    
-    // 優先順位2: 前回このシナリオが開催された店舗
-    const { data: previousScenarioEvents } = await supabase
-      .from('schedule_events')
-      .select('store_id, stores:store_id(name)')
-      .eq('scenario_id', request.reservation_id) // シナリオID
-      .order('date', { ascending: false })
-      .limit(1)
-    
-    if (previousScenarioEvents && previousScenarioEvents.length > 0) {
-      const storeId = previousScenarioEvents[0].store_id
-      const storeName = (previousScenarioEvents[0] as any).stores?.name || ''
-      
-      // 全ての候補日時でこの店舗が空いているかチェック
-      let allAvailable = true
-      for (const candidate of selectedCandidates) {
-        const isAvailable = await checkCandidateAvailability(candidate, storeId)
-        if (!isAvailable) {
-          allAvailable = false
-          break
-        }
-      }
-      
-      if (allAvailable) {
-        return { 
-          storeId: storeId, 
-          reason: `前回このシナリオを${storeName}で開催したため（キット移動不要）` 
-        }
-      }
-    }
-    
-    // 優先順位3: 6人以下の公演は大久保店優先
-    const { data: scenarioData } = await supabase
-      .from('scenarios')
-      .select('max_participants')
-      .eq('id', request.reservation_id)
-      .single()
-    
-    if (scenarioData && scenarioData.max_participants <= 6) {
-      // 大久保店を探す
-      const okuboStore = stores.find(s => s.name.includes('大久保') || s.short_name?.includes('大久保'))
-      if (okuboStore) {
-        // 全ての候補日時で大久保店が空いているかチェック
-        let allAvailable = true
-        for (const candidate of selectedCandidates) {
-          const isAvailable = await checkCandidateAvailability(candidate, okuboStore.id)
-          if (!isAvailable) {
-            allAvailable = false
-            break
-          }
-        }
-        
-        if (allAvailable) {
-          return { 
-            storeId: okuboStore.id, 
-            reason: `6人以下の小規模公演のため大久保店を推奨` 
-          }
-        }
-      }
-    }
-    
-    // 該当なし: nullを返す（手動選択が必要）
-    return { storeId: null, reason: '自動選定条件に該当なし（手動で選択してください）' }
-  }
-  
-  // 前の時間枠を取得
-  const getPreviousTimeSlot = (currentSlot: string): string | null => {
-    if (currentSlot === '昼') return '朝'
-    if (currentSlot === '夜') return '昼'
-    return null // 朝の前はなし
-  }
 
   const loadGMRequests = async () => {
     if (!user) return
@@ -358,8 +237,6 @@ export function GMAvailabilityCheck() {
           }
         }
         
-        // デバッグ: candidate_datetimesの内容を確認
-        console.log('candidate_datetimes (補完後):', candidateDatetimes)
         
         return {
           id: response.id,
@@ -412,31 +289,7 @@ export function GMAvailabilityCheck() {
     })
     
     // 候補が選択された場合、自動的に店舗を選定
-    if (newSelection.length > 0) {
-      const request = requests.find(r => r.id === requestId)
-      if (request) {
-        const result = await autoSelectStore(request, newSelection)
-        if (result.storeId) {
-          setSelectedStores({
-            ...selectedStores,
-            [requestId]: result.storeId
-          })
-          setStoreSelectionReasons({
-            ...storeSelectionReasons,
-            [requestId]: result.reason
-          })
-          
-          // 各候補日時の利用可能性をチェック
-          await updateCandidateAvailability(request, result.storeId)
-        } else {
-          // 自動選定できなかった場合も理由を表示
-          setStoreSelectionReasons({
-            ...storeSelectionReasons,
-            [requestId]: result.reason
-          })
-        }
-      }
-    }
+    // 自動選定ロジックは削除
   }
   
   // 各候補日時の利用可能性を更新
@@ -482,54 +335,24 @@ export function GMAvailabilityCheck() {
       if (availableCandidates.length > 0) {
         // 該当するリクエストを取得
         const request = requests.find(r => r.id === requestId)
-        const selectedStoreId = selectedStores[requestId]
-        
         if (request) {
-          // 店舗が自動選定されている場合のみ、最終確認チェック
-          if (selectedStoreId) {
-            // 最終確認: 選択された候補日時が全て空いているかチェック
-            const selectedCandidatesData = request.candidate_datetimes?.candidates?.filter(
-              (c: any) => availableCandidates.includes(c.order)
-            ) || []
-            
-            for (const candidate of selectedCandidatesData) {
-              const isAvailable = await checkCandidateAvailability(candidate, selectedStoreId)
-              if (!isAvailable) {
-                alert(`候補${candidate.order}（${formatDate(candidate.date)} ${candidate.timeSlot}）は既に他の公演が入っています。別の日時を選択してください。`)
-                return
-              }
-            }
-          }
           // GMが選択した候補のみを残す（他の候補は削除）
           const confirmedCandidates = request.candidate_datetimes?.candidates?.filter(
             (c: any) => availableCandidates.includes(c.order)
           ) || []
           
-          // 店舗が自動選定されている場合のみ、confirmedStoreを設定
           const updatedCandidateDatetimes: any = {
             ...request.candidate_datetimes,
             candidates: confirmedCandidates
           }
           
-          if (selectedStoreId) {
-            updatedCandidateDatetimes.confirmedStore = { 
-              storeId: selectedStoreId,
-              storeName: stores.find(s => s.id === selectedStoreId)?.name || ''
-            }
-          }
+          // GMが回答したら店側確認待ちステータスに
+          const newStatus = 'gm_confirmed'
           
-          // 店舗が自動選定されて1日だけ選択の場合は即確定、それ以外は店側確認待ち
-          const newStatus = selectedStoreId && availableCandidates.length === 1 ? 'confirmed' : 'gm_confirmed'
-          
-          // 確定する場合は店舗IDも設定
           const updateData: any = {
             status: newStatus,
             candidate_datetimes: updatedCandidateDatetimes,
             updated_at: new Date().toISOString()
-          }
-          
-          if (newStatus === 'confirmed' && selectedStoreId) {
-            updateData.store_id = selectedStoreId
           }
           
           const { error: reservationError } = await supabase
@@ -550,15 +373,7 @@ export function GMAvailabilityCheck() {
       if (availableCandidates.length === 0) {
         alert('回答を送信しました')
       } else {
-        const selectedStoreId = selectedStores[requestId]
-        
-        if (selectedStoreId && availableCandidates.length === 1) {
-          alert('回答を送信し、予約を確定しました')
-        } else if (selectedStoreId) {
-          alert(`回答を送信しました。${availableCandidates.length}件の候補日が店側の最終確認待ちです。`)
-        } else {
-          alert(`回答を送信しました。店舗を自動選定できなかったため、店側で店舗と日程を確定します。`)
-        }
+        alert(`回答を送信しました。店側の最終確認待ちです。`)
       }
     } catch (error) {
       console.error('送信エラー:', error)
@@ -800,26 +615,6 @@ export function GMAvailabilityCheck() {
                         </div>
                       </div>
 
-                      {/* 店舗自動選定の表示（選択不可） */}
-                      {!isResponded && !isConfirmed && !isGMConfirmed && storeSelectionReasons[request.id] && (
-                        <div>
-                          <label className="text-sm font-medium mb-1.5 block text-purple-800">
-                            開催店舗（自動選定）
-                          </label>
-                          
-                          <div className="p-3 rounded bg-blue-50 border border-blue-200">
-                            <div className="text-sm text-blue-800">
-                              <div className="font-medium mb-1">
-                                🤖 {selectedStores[request.id] ? stores.find(s => s.id === selectedStores[request.id])?.name : '自動選定中...'}
-                              </div>
-                              <div className="text-xs">
-                                {storeSelectionReasons[request.id]}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      
                       {/* 確定済み店舗の表示 */}
                       {(isConfirmed || isGMConfirmed) && request.candidate_datetimes?.confirmedStore && (
                         <div className="p-3 rounded border bg-purple-50 border-purple-200">
