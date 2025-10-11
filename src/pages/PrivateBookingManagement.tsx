@@ -51,10 +51,58 @@ export function PrivateBookingManagement() {
   const [submitting, setSubmitting] = useState(false)
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [availableGMs, setAvailableGMs] = useState<any[]>([])
+  const [selectedGMId, setSelectedGMId] = useState<string>('')
 
   useEffect(() => {
     loadRequests()
   }, [activeTab])
+
+  useEffect(() => {
+    if (selectedRequest) {
+      loadAvailableGMs(selectedRequest.id)
+    }
+  }, [selectedRequest])
+
+  const loadAvailableGMs = async (reservationId: string) => {
+    try {
+      // gm_availability_responsesから対応可能なGMを取得
+      const { data, error } = await supabase
+        .from('gm_availability_responses')
+        .select(`
+          id,
+          staff_id,
+          response_status,
+          available_candidates,
+          notes,
+          staff:staff_id (
+            id,
+            name
+          )
+        `)
+        .eq('reservation_id', reservationId)
+        .eq('response_status', 'available')
+
+      if (error) throw error
+
+      const gms = (data || []).map((response: any) => ({
+        id: response.staff_id,
+        name: response.staff?.name || '名前不明',
+        available_candidates: response.available_candidates || [],
+        notes: response.notes || ''
+      }))
+
+      setAvailableGMs(gms)
+      
+      // デフォルトで最初のGMを選択
+      if (gms.length > 0) {
+        setSelectedGMId(gms[0].id)
+      }
+    } catch (error) {
+      console.error('GM情報取得エラー:', error)
+      setAvailableGMs([])
+    }
+  }
 
   const loadRequests = async () => {
     try {
@@ -116,6 +164,11 @@ export function PrivateBookingManagement() {
   }
 
   const handleApprove = async (requestId: string) => {
+    if (!selectedGMId) {
+      alert('GMを選択してください')
+      return
+    }
+
     if (!confirm('この貸切リクエストを承認しますか？\n承認後、顧客に通知が送信されます。')) return
 
     try {
@@ -125,6 +178,7 @@ export function PrivateBookingManagement() {
         .from('reservations')
         .update({
           status: 'confirmed',
+          gm_staff: selectedGMId, // 選択されたGMのIDを保存
           updated_at: new Date().toISOString()
         })
         .eq('id', requestId)
@@ -133,6 +187,8 @@ export function PrivateBookingManagement() {
 
       alert('貸切リクエストを承認しました！')
       setSelectedRequest(null)
+      setSelectedGMId('')
+      setAvailableGMs([])
       loadRequests()
     } catch (error) {
       console.error('承認エラー:', error)
@@ -329,18 +385,63 @@ export function PrivateBookingManagement() {
                   </div>
                 )}
 
-                {/* GM回答情報 */}
+                {/* 対応可能なGM選択 */}
+                {availableGMs.length > 0 && (
+                  <div className="pt-6 border-t">
+                    <h3 className="font-semibold mb-3 text-purple-800">担当GMを選択してください</h3>
+                    <div className="space-y-2">
+                      {availableGMs.map((gm) => (
+                        <div
+                          key={gm.id}
+                          onClick={() => setSelectedGMId(gm.id)}
+                          className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                            selectedGMId === gm.id
+                              ? 'border-purple-500 bg-purple-50'
+                              : 'border-gray-200 bg-background hover:border-purple-300'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                              selectedGMId === gm.id
+                                ? 'border-purple-500 bg-purple-500'
+                                : 'border-gray-300'
+                            }`}>
+                              {selectedGMId === gm.id && (
+                                <CheckCircle2 className="w-4 h-4 text-white" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-semibold text-base">{gm.name}</div>
+                              {gm.available_candidates && gm.available_candidates.length > 0 && (
+                                <div className="text-sm text-muted-foreground mt-1">
+                                  対応可能候補: 候補{gm.available_candidates.join(', ')}
+                                </div>
+                              )}
+                              {gm.notes && (
+                                <div className="text-sm mt-2 p-2 bg-gray-50 rounded">
+                                  {gm.notes}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* GM回答情報（参考用） */}
                 {selectedRequest.gm_responses && selectedRequest.gm_responses.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-3 text-purple-800">GM回答情報</h3>
+                  <div className="pt-6 border-t">
+                    <h3 className="font-semibold mb-3 text-gray-600">参考：全GM回答情報</h3>
                     <div className="space-y-2">
                       {selectedRequest.gm_responses.map((response: any, idx: number) => (
-                        <div key={idx} className="p-3 rounded bg-green-50 border border-green-200 flex items-start gap-2">
-                          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <div key={idx} className="p-3 rounded bg-gray-50 border border-gray-200 flex items-start gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" />
                           <div className="flex-1">
-                            <div className="font-medium text-sm">{response.gm_name || `GM ${idx + 1}`}</div>
+                            <div className="font-medium text-sm text-gray-700">{response.gm_name || `GM ${idx + 1}`}</div>
                             {response.notes && (
-                              <div className="text-sm text-muted-foreground mt-1">{response.notes}</div>
+                              <div className="text-sm text-gray-600 mt-1">{response.notes}</div>
                             )}
                           </div>
                         </div>
