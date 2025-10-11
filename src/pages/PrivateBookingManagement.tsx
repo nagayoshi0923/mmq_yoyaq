@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, CheckCircle2, XCircle, MapPin, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -55,6 +56,8 @@ export function PrivateBookingManagement() {
   const [selectedGMId, setSelectedGMId] = useState<string>('')
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
+  const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
+  const [allGMs, setAllGMs] = useState<any[]>([]) // 全GMのリスト（強行選択用）
 
   // ヘルパー関数を先に定義
   const getStatusBadge = (status: string) => {
@@ -128,6 +131,7 @@ export function PrivateBookingManagement() {
   useEffect(() => {
     loadRequests()
     loadStores()
+    loadAllGMs()
   }, [activeTab])
 
   useEffect(() => {
@@ -139,6 +143,11 @@ export function PrivateBookingManagement() {
         setSelectedStoreId(selectedRequest.candidate_datetimes.confirmedStore.storeId)
       } else if (selectedRequest.candidate_datetimes?.requestedStores && selectedRequest.candidate_datetimes.requestedStores.length > 0) {
         setSelectedStoreId(selectedRequest.candidate_datetimes.requestedStores[0].storeId)
+      }
+      
+      // 最初の候補日時を選択
+      if (selectedRequest.candidate_datetimes?.candidates && selectedRequest.candidate_datetimes.candidates.length > 0) {
+        setSelectedCandidateOrder(selectedRequest.candidate_datetimes.candidates[0].order)
       }
     }
   }, [selectedRequest])
@@ -154,6 +163,29 @@ export function PrivateBookingManagement() {
       setStores(data || [])
     } catch (error) {
       console.error('店舗情報取得エラー:', error)
+    }
+  }
+
+  const loadAllGMs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('id, name, role')
+        .order('name')
+
+      if (error) throw error
+      
+      // roleが配列なので、'gm'を含むスタッフをフィルタリング
+      const gmStaff = (data || []).filter(staff => 
+        staff.role && (
+          staff.role.includes('gm') || 
+          staff.role.includes('GM')
+        )
+      )
+      
+      setAllGMs(gmStaff)
+    } catch (error) {
+      console.error('GM情報取得エラー:', error)
     }
   }
 
@@ -267,10 +299,33 @@ export function PrivateBookingManagement() {
       return
     }
 
+    if (!selectedCandidateOrder) {
+      alert('開催日時を選択してください')
+      return
+    }
+
     if (!confirm('この貸切リクエストを承認しますか？\n承認後、顧客に通知が送信されます。')) return
 
     try {
       setSubmitting(true)
+
+      // 選択された候補日時のみを残して、ステータスをconfirmedに
+      const selectedCandidate = selectedRequest?.candidate_datetimes?.candidates?.find(
+        c => c.order === selectedCandidateOrder
+      )
+      
+      if (!selectedCandidate) {
+        alert('選択された日時が見つかりません')
+        return
+      }
+
+      const updatedCandidateDatetimes = {
+        ...selectedRequest?.candidate_datetimes,
+        candidates: [{
+          ...selectedCandidate,
+          status: 'confirmed'
+        }]
+      }
 
       const { error } = await supabase
         .from('reservations')
@@ -278,6 +333,7 @@ export function PrivateBookingManagement() {
           status: 'confirmed',
           gm_staff: selectedGMId, // 選択されたGMのIDを保存
           store_id: selectedStoreId, // 選択された店舗のIDを保存
+          candidate_datetimes: updatedCandidateDatetimes, // 選択された日時のみを保存
           updated_at: new Date().toISOString()
         })
         .eq('id', requestId)
@@ -288,6 +344,7 @@ export function PrivateBookingManagement() {
       setSelectedRequest(null)
       setSelectedGMId('')
       setSelectedStoreId('')
+      setSelectedCandidateOrder(null)
       setAvailableGMs([])
       loadRequests()
     } catch (error) {
@@ -401,125 +458,93 @@ export function PrivateBookingManagement() {
                   </div>
                 </div>
 
-                {/* GMが選択した候補日時 */}
+                {/* 候補日時の選択 */}
                 <div>
                   <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
                     <Calendar className="w-4 h-4" />
-                    GMが選択した候補日時
+                    開催日時を選択
                   </h3>
                   <div className="space-y-2">
-                    {selectedRequest.candidate_datetimes?.candidates?.map((candidate: any) => (
-                      <div
-                        key={candidate.order}
-                        className="flex items-center gap-3 p-3 rounded bg-purple-50 border border-purple-200"
-                      >
-                        <CheckCircle2 className="w-5 h-5 text-purple-600" />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
-                              候補{candidate.order}
-                            </Badge>
-                            <div className="flex items-center gap-2 text-sm">
-                              <Calendar className="w-4 h-4 text-muted-foreground" />
-                              <span className="font-medium">{formatDate(candidate.date)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <Clock className="w-4 h-4 text-muted-foreground" />
-                              <span>{candidate.timeSlot} {candidate.startTime} - {candidate.endTime}</span>
+                    {selectedRequest.candidate_datetimes?.candidates?.map((candidate: any) => {
+                      const isSelected = selectedCandidateOrder === candidate.order
+                      return (
+                        <div
+                          key={candidate.order}
+                          onClick={() => setSelectedCandidateOrder(candidate.order)}
+                          className={`flex items-center gap-3 p-3 rounded border-2 cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-purple-500 bg-purple-50'
+                              : 'border-gray-200 bg-background hover:border-purple-300'
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            isSelected
+                              ? 'border-purple-500 bg-purple-500'
+                              : 'border-gray-300'
+                          }`}>
+                            {isSelected && (
+                              <CheckCircle2 className="w-4 h-4 text-white" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
+                                候補{candidate.order}
+                              </Badge>
+                              <div className="flex items-center gap-2 text-sm">
+                                <Calendar className="w-4 h-4 text-muted-foreground" />
+                                <span className="font-medium">{formatDate(candidate.date)}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm">
+                                <Clock className="w-4 h-4 text-muted-foreground" />
+                                <span>{candidate.timeSlot} {candidate.startTime} - {candidate.endTime}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
+                  {selectedRequest.status === 'pending' && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      ℹ️ GMの回答前でも日時を選択して確定できます
+                    </div>
+                  )}
                 </div>
 
-                {/* 希望店舗と店舗選択 */}
+                {/* 開催店舗の選択 */}
                 <div className="pt-6 border-t">
                   <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
                     <MapPin className="w-4 h-4" />
                     開催店舗の選択
                   </h3>
-                  
-                  {/* お客様の希望店舗 */}
-                  {selectedRequest.candidate_datetimes?.requestedStores && selectedRequest.candidate_datetimes.requestedStores.length > 0 && (
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="text-sm font-medium text-blue-900 mb-2">
-                        お客様の希望店舗（{selectedRequest.candidate_datetimes.requestedStores.length}店舗）
-                      </div>
-                      <div className="flex gap-2 flex-wrap">
-                        {selectedRequest.candidate_datetimes.requestedStores.map((store: any, index: number) => (
-                          <Badge key={index} variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                            {store.storeName}
-                          </Badge>
-                        ))}
-                      </div>
-                      {selectedRequest.candidate_datetimes.requestedStores.length === 1 && (
-                        <div className="mt-2 text-xs text-blue-700">
-                          ※ お客様は1店舗のみ希望されています。変更が必要な場合は事前に連絡をお願いします。
-                        </div>
-                      )}
-                      {selectedRequest.candidate_datetimes.requestedStores.length > 1 && (
-                        <div className="mt-2 text-xs text-blue-700">
-                          ✓ お客様は複数店舗を許可されています。下記から選択してください。
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 店舗選択（複数希望の場合はお客様の希望店舗から、単一の場合は全店舗から選択可能） */}
-                  <div className="space-y-2">
-                    {(() => {
-                      const requestedStores = selectedRequest.candidate_datetimes?.requestedStores || []
-                      const isMultipleStoresRequested = requestedStores.length > 1
-                      
-                      // 複数店舗希望の場合は希望店舗のみ、単一の場合は全店舗を表示
-                      const availableStores = isMultipleStoresRequested
-                        ? stores.filter(s => requestedStores.some(rs => rs.storeId === s.id))
-                        : stores
-
-                      return availableStores.map((store) => {
+                  <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="店舗を選択してください" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stores.map((store) => {
+                        const requestedStores = selectedRequest.candidate_datetimes?.requestedStores || []
                         const isRequested = requestedStores.some(rs => rs.storeId === store.id)
                         
                         return (
-                          <div
-                            key={store.id}
-                            onClick={() => setSelectedStoreId(store.id)}
-                            className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                              selectedStoreId === store.id
-                                ? 'border-purple-500 bg-purple-50'
-                                : 'border-gray-200 bg-background hover:border-purple-300'
-                            }`}
+                          <SelectItem 
+                            key={store.id} 
+                            value={store.id}
+                            className={isRequested ? 'bg-purple-100' : ''}
                           >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                selectedStoreId === store.id
-                                  ? 'border-purple-500 bg-purple-500'
-                                  : 'border-gray-300'
-                              }`}>
-                                {selectedStoreId === store.id && (
-                                  <CheckCircle2 className="w-4 h-4 text-white" />
-                                )}
-                              </div>
-                              <div className="flex-1 flex items-center gap-2">
-                                <span className="font-medium">{store.name}</span>
-                                {isRequested && (
-                                  <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
-                                    お客様希望
-                                  </Badge>
-                                )}
-                                {!isRequested && !isMultipleStoresRequested && (
-                                  <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 text-xs">
-                                    要連絡
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                            {store.name}
+                            {isRequested && ' ✓ (お客様希望)'}
+                          </SelectItem>
                         )
-                      })
-                    })()}
-                  </div>
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {selectedRequest.candidate_datetimes?.requestedStores && selectedRequest.candidate_datetimes.requestedStores.length > 0 && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      ℹ️ 薄紫色の店舗はお客様が希望されている店舗です
+                    </div>
+                  )}
                 </div>
 
                 {/* 顧客メモ */}
@@ -532,50 +557,37 @@ export function PrivateBookingManagement() {
                   </div>
                 )}
 
-                {/* 対応可能なGM選択 */}
-                {availableGMs.length > 0 && (
-                  <div className="pt-6 border-t">
-                    <h3 className="font-semibold mb-3 text-purple-800">担当GMを選択してください</h3>
-                    <div className="space-y-2">
-                      {availableGMs.map((gm) => (
-                        <div
-                          key={gm.id}
-                          onClick={() => setSelectedGMId(gm.id)}
-                          className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                            selectedGMId === gm.id
-                              ? 'border-purple-500 bg-purple-50'
-                              : 'border-gray-200 bg-background hover:border-purple-300'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                              selectedGMId === gm.id
-                                ? 'border-purple-500 bg-purple-500'
-                                : 'border-gray-300'
-                            }`}>
-                              {selectedGMId === gm.id && (
-                                <CheckCircle2 className="w-4 h-4 text-white" />
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <div className="font-semibold text-base">{gm.name}</div>
-                              {gm.available_candidates && gm.available_candidates.length > 0 && (
-                                <div className="text-sm text-muted-foreground mt-1">
-                                  対応可能候補: 候補{gm.available_candidates.join(', ')}
-                                </div>
-                              )}
-                              {gm.notes && (
-                                <div className="text-sm mt-2 p-2 bg-gray-50 rounded">
-                                  {gm.notes}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                {/* 担当GMの選択 */}
+                <div className="pt-6 border-t">
+                  <h3 className="font-semibold mb-3 text-purple-800">担当GMを選択してください</h3>
+                  <Select value={selectedGMId} onValueChange={setSelectedGMId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="GMを選択してください" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allGMs.map((gm) => {
+                        const availableGM = availableGMs.find(ag => ag.id === gm.id)
+                        const isAvailable = !!availableGM
+                        
+                        return (
+                          <SelectItem 
+                            key={gm.id} 
+                            value={gm.id}
+                            className={isAvailable ? 'bg-purple-100' : ''}
+                          >
+                            {gm.name}
+                            {isAvailable && ` ✓ (対応可能: 候補${availableGM.available_candidates?.join(', ')})`}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {availableGMs.length > 0 && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      ℹ️ 薄紫色のGMは対応可能と回答したGMです
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* GM回答情報（参考用） */}
                 {selectedRequest.gm_responses && selectedRequest.gm_responses.length > 0 && (
