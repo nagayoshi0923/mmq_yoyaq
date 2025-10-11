@@ -366,8 +366,6 @@ export function PrivateBookingManagement() {
       return
     }
 
-    if (!confirm('この貸切リクエストを承認しますか？\n承認後、顧客に通知が送信されます。')) return
-
     try {
       setSubmitting(true)
 
@@ -378,6 +376,65 @@ export function PrivateBookingManagement() {
       
       if (!selectedCandidate) {
         alert('選択された日時が見つかりません')
+        setSubmitting(false)
+        return
+      }
+
+      // 重複チェック1: 同じ日時・同じ店舗で確定済みの予約がないか確認
+      const { data: conflictingReservations, error: conflictError } = await supabase
+        .from('reservations')
+        .select('id, reservation_number, candidate_datetimes, store_id')
+        .eq('status', 'confirmed')
+        .eq('store_id', selectedStoreId)
+        .neq('id', requestId) // 現在のリクエストは除外
+
+      if (conflictError) throw conflictError
+
+      // 同じ日付・同じタイムスロットの予約があるかチェック
+      const hasDateConflict = conflictingReservations?.some(reservation => {
+        const confirmedCandidates = reservation.candidate_datetimes?.candidates || []
+        return confirmedCandidates.some((candidate: any) => 
+          candidate.status === 'confirmed' &&
+          candidate.date === selectedCandidate.date &&
+          candidate.timeSlot === selectedCandidate.timeSlot
+        )
+      })
+
+      if (hasDateConflict) {
+        const storeName = stores.find(s => s.id === selectedStoreId)?.name || '選択された店舗'
+        alert(`エラー: ${selectedCandidate.date} ${selectedCandidate.timeSlot} の ${storeName} は既に別の予約で確定済みです。\n\n別の日時または店舗を選択してください。`)
+        setSubmitting(false)
+        return
+      }
+
+      // 重複チェック2: 同じ日時・同じGMで確定済みの予約がないか確認
+      const { data: gmConflictingReservations, error: gmConflictError } = await supabase
+        .from('reservations')
+        .select('id, reservation_number, candidate_datetimes, gm_staff')
+        .eq('status', 'confirmed')
+        .eq('gm_staff', selectedGMId)
+        .neq('id', requestId)
+
+      if (gmConflictError) throw gmConflictError
+
+      const hasGMConflict = gmConflictingReservations?.some(reservation => {
+        const confirmedCandidates = reservation.candidate_datetimes?.candidates || []
+        return confirmedCandidates.some((candidate: any) => 
+          candidate.status === 'confirmed' &&
+          candidate.date === selectedCandidate.date &&
+          candidate.timeSlot === selectedCandidate.timeSlot
+        )
+      })
+
+      if (hasGMConflict) {
+        const gmName = allGMs.find(gm => gm.id === selectedGMId)?.name || '選択されたGM'
+        alert(`エラー: ${selectedCandidate.date} ${selectedCandidate.timeSlot} に ${gmName} は既に別の予約で確定済みです。\n\n別の日時またはGMを選択してください。`)
+        setSubmitting(false)
+        return
+      }
+
+      if (!confirm('この貸切リクエストを承認しますか？\n承認後、顧客に通知が送信されます。')) {
+        setSubmitting(false)
         return
       }
 
@@ -393,9 +450,9 @@ export function PrivateBookingManagement() {
         .from('reservations')
         .update({
           status: 'confirmed',
-          gm_staff: selectedGMId, // 選択されたGMのIDを保存
-          store_id: selectedStoreId, // 選択された店舗のIDを保存
-          candidate_datetimes: updatedCandidateDatetimes, // 選択された日時のみを保存
+          gm_staff: selectedGMId,
+          store_id: selectedStoreId,
+          candidate_datetimes: updatedCandidateDatetimes,
           updated_at: new Date().toISOString()
         })
         .eq('id', requestId)
