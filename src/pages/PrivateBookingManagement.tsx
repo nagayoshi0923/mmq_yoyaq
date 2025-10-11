@@ -659,6 +659,7 @@ export function PrivateBookingManagement() {
                       {allGMs.map((gm) => {
                         const availableGM = availableGMs.find(ag => ag.id === gm.id)
                         const isAvailable = !!availableGM
+                        const gmNotes = availableGM?.notes || ''
                         
                         return (
                           <SelectItem 
@@ -667,6 +668,7 @@ export function PrivateBookingManagement() {
                           >
                             {gm.name}
                             {isAvailable && ' (担当GM)'}
+                            {gmNotes && ` - ${gmNotes}`}
                           </SelectItem>
                         )
                       })}
