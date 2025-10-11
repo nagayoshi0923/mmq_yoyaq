@@ -73,7 +73,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const { user } = useAuth()
   const [scenario, setScenario] = useState<ScenarioDetail | null>(null)
   const [events, setEvents] = useState<EventSchedule[]>([])
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<EventSchedule | null>(null)
   const [participantCount, setParticipantCount] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
@@ -329,14 +329,14 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   }
 
   const handleBooking = () => {
-    if (!selectedDate) {
+    if (!selectedEventId) {
       alert('日付を選択してください')
       return
     }
     
-    const event = events.find(e => e.date === selectedDate)
+    const event = events.find(e => e.event_id === selectedEventId)
     if (!event) {
-      alert('選択された日付の公演が見つかりません')
+      alert('選択された公演が見つかりません')
       return
     }
     
@@ -352,7 +352,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const handleBookingComplete = () => {
     setShowBookingConfirmation(false)
     setSelectedEvent(null)
-    setSelectedDate(null)
+    setSelectedEventId(null)
     // データを再読み込み
     loadScenarioDetail()
   }
@@ -677,7 +677,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                     </Card>
                   ) : (
                     events.map((event) => {
-                      const isSelected = selectedDate === event.date
+                      const isSelected = selectedEventId === event.event_id
                       const eventDate = new Date(event.date)
                       const month = eventDate.getMonth() + 1
                       const day = eventDate.getDate()
@@ -696,7 +696,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                           }`}
                           onClick={() => {
                             if (event.available_seats === 0) return
-                            setSelectedDate(isSelected ? null : event.date)
+                            setSelectedEventId(isSelected ? null : event.event_id)
                           }}
                         >
                           <div className="flex items-center justify-between gap-2 p-2">
@@ -1010,9 +1010,9 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                       <Button 
                     className="w-full bg-blue-600 text-white hover:bg-blue-700 h-12 font-bold"
                     onClick={handleBooking}
-                    disabled={!selectedDate || !user}
+                    disabled={!selectedEventId || !user}
                   >
-                    {!user ? 'ログインして予約する' : !selectedDate ? '日付を選択してください' : '予約確認へ進む'}
+                    {!user ? 'ログインして予約する' : !selectedEventId ? '日付を選択してください' : '予約確認へ進む'}
                       </Button>
               </div>
                 )}
