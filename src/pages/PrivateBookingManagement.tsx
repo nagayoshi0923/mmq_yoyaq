@@ -743,7 +743,7 @@ export function PrivateBookingManagement() {
                   <div className="mt-2 text-xs text-muted-foreground">
                     {selectedRequest.candidate_datetimes?.requestedStores?.length === 0 ? (
                       <span>ℹ️ お客様は全ての店舗を希望しています</span>
-                    ) : selectedRequest.candidate_datetimes?.requestedStores?.length > 0 ? (
+                    ) : (selectedRequest.candidate_datetimes?.requestedStores?.length ?? 0) > 0 ? (
                       <span>ℹ️ (お客様希望) の店舗がお客様の希望店舗です</span>
                     ) : null}
                   </div>
