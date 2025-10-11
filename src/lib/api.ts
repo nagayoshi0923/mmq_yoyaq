@@ -283,13 +283,14 @@ export const staffApi = {
 
 // 公演スケジュール関連のAPI
 export const scheduleApi = {
-  // 指定月の公演を取得
+  // 指定月の公演を取得（通常公演 + 確定した貸切公演）
   async getByMonth(year: number, month: number) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const lastDay = new Date(year, month, 0).getDate() // monthは1-12なので、翌月の0日目=当月末日
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     
-    const { data, error } = await supabase
+    // 通常公演を取得
+    const { data: scheduleEvents, error } = await supabase
       .from('schedule_events')
       .select(`
         *,
@@ -310,7 +311,92 @@ export const scheduleApi = {
       .order('start_time', { ascending: true })
     
     if (error) throw error
-    return data || []
+    
+    // 確定した貸切公演を取得
+    const { data: confirmedPrivateBookings, error: privateError } = await supabase
+      .from('reservations')
+      .select(`
+        id,
+        scenario_id,
+        store_id,
+        gm_staff,
+        participant_count,
+        candidate_datetimes,
+        scenarios:scenario_id (
+          id,
+          title,
+          player_count_max
+        ),
+        stores:store_id (
+          id,
+          name,
+          short_name,
+          color
+        )
+      `)
+      .eq('reservation_source', 'web_private')
+      .eq('status', 'confirmed')
+    
+    if (privateError) {
+      console.error('確定貸切公演取得エラー:', privateError)
+    }
+    
+    // 貸切公演を schedule_events 形式に変換
+    const privateEvents: any[] = []
+    if (confirmedPrivateBookings) {
+      confirmedPrivateBookings.forEach((booking: any) => {
+        if (booking.candidate_datetimes?.candidates) {
+          booking.candidate_datetimes.candidates.forEach((candidate: any) => {
+            if (candidate.status === 'confirmed') {
+              const candidateDate = new Date(candidate.date)
+              const candidateDateStr = candidateDate.toISOString().split('T')[0]
+              
+              // 指定月の範囲内かチェック
+              if (candidateDateStr >= startDate && candidateDateStr <= endDate) {
+                // タイムスロットから時間を取得
+                const timeSlotMap: any = {
+                  '朝': { start: '09:00:00', end: '12:00:00' },
+                  '午後': { start: '12:00:00', end: '17:00:00' },
+                  '夜': { start: '18:00:00', end: '21:00:00' }
+                }
+                const timeSlot = timeSlotMap[candidate.timeSlot] || { start: '18:00:00', end: '21:00:00' }
+                
+                privateEvents.push({
+                  id: `private-${booking.id}-${candidate.order}`,
+                  date: candidateDateStr,
+                  venue: booking.store_id,
+                  store_id: booking.store_id,
+                  scenario: booking.scenarios?.title || '',
+                  scenario_id: booking.scenario_id,
+                  start_time: timeSlot.start,
+                  end_time: timeSlot.end,
+                  category: 'private',
+                  is_cancelled: false,
+                  is_reservation_enabled: false, // 予約サイトでは予約不可
+                  current_participants: booking.participant_count,
+                  max_participants: booking.scenarios?.player_count_max || 8,
+                  capacity: booking.scenarios?.player_count_max || 8,
+                  gms: booking.gm_staff ? [booking.gm_staff] : [],
+                  stores: booking.stores,
+                  scenarios: booking.scenarios,
+                  is_private_booking: true // 貸切公演フラグ
+                })
+              }
+            }
+          })
+        }
+      })
+    }
+    
+    // 通常公演と貸切公演を結合してソート
+    const allEvents = [...(scheduleEvents || []), ...privateEvents]
+    allEvents.sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date)
+      if (dateCompare !== 0) return dateCompare
+      return a.start_time.localeCompare(b.start_time)
+    })
+    
+    return allEvents
   },
 
   // 公演を作成

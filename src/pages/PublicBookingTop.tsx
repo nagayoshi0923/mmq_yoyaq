@@ -102,12 +102,17 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       
       // console.log('取得した公演数:', allEvents.length)
       
-      // 予約可能な公演のみフィルタリング（is_reservation_enabledがない場合はcategoryで判定）
+      // 予約可能な公演 + 確定貸切公演をフィルタリング
       const publicEvents = allEvents.filter((event: any) => {
-        const isEnabled = event.is_reservation_enabled !== false // undefinedの場合はtrue扱い
         const isNotCancelled = !event.is_cancelled
-        const isOpen = event.category === 'open'
-        return isEnabled && isNotCancelled && isOpen
+        
+        // 通常公演: category='open' かつ is_reservation_enabled=true
+        const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open')
+        
+        // 貸切公演: is_private_booking=true（予約不可として表示）
+        const isPrivateBooking = event.is_private_booking === true
+        
+        return isNotCancelled && (isOpenAndEnabled || isPrivateBooking)
       })
       
       // console.log('予約可能な公演数:', publicEvents.length)
@@ -148,6 +153,11 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
           
           const store = storesData.find((s: any) => s.id === nextEvent.venue || s.short_name === nextEvent.venue)
           
+          // 貸切公演の場合は満席として扱う
+          const isPrivateBooking = nextEvent.is_private_booking === true
+          const availableSeats = isPrivateBooking ? 0 : (nextEvent.max_participants || 8) - (nextEvent.current_participants || 0)
+          const status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(nextEvent.max_participants || 8, nextEvent.current_participants || 0)
+          
           scenarioMap.set(scenario.id, {
             scenario_id: scenario.id,
             scenario_title: scenario.title,
@@ -161,8 +171,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             next_event_time: nextEvent.start_time,
             store_name: store?.name || nextEvent.venue,
             store_color: store?.color,
-            available_seats: (nextEvent.max_participants || 8) - (nextEvent.current_participants || 0),
-            status: getAvailabilityStatus(nextEvent.max_participants || 8, nextEvent.current_participants || 0),
+            available_seats: availableSeats,
+            status: status,
             is_new: isNew
           })
         } else {
@@ -360,7 +370,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       : stores.filter(store => store.id === selectedStoreFilter)
     
     // 日付と店舗の組み合わせを生成
-    const combinations = []
+    const combinations: Array<{ date: number; store: any }> = []
     dates.forEach(date => {
       filteredStores.forEach(store => {
         combinations.push({ date, store })
@@ -702,7 +712,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                         {event.start_time?.slice(0, 5)} {storeName}
                                       </div>
                                       <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                        {isFull ? '満席' : `残${available}席`}
+                                        {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                       </div>
                                     </div>
                                     <div className="text-[11px] font-medium text-gray-800 leading-tight truncate">
@@ -887,7 +897,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                             {event.start_time?.slice(0, 5)}
                                           </div>
                                           <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                            {isFull ? '満席' : `残${available}席`}
+                                            {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
                                         <div className="text-[11px] font-medium leading-tight text-left text-gray-800">
@@ -963,7 +973,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                             {event.start_time?.slice(0, 5)}
                                           </div>
                                           <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                            {isFull ? '満席' : `残${available}席`}
+                                            {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
                                         <div className="text-[11px] font-medium leading-tight text-left text-gray-800">
@@ -1039,7 +1049,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                             {event.start_time?.slice(0, 5)}
                                           </div>
                                           <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                            {isFull ? '満席' : `残${available}席`}
+                                            {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
                                         <div className="text-[11px] font-medium leading-tight text-left text-gray-800">
