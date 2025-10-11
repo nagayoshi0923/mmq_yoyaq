@@ -41,6 +41,7 @@ interface GMRequest {
   notes: string
   reservation_status?: string // 予約全体のステータス（pending, confirmed, etc.）
   has_other_gm_response?: boolean // 他のGMが既に回答済みか
+  created_at: string // 申込日時
 }
 
 export function GMAvailabilityCheck() {
@@ -177,6 +178,7 @@ export function GMAvailabilityCheck() {
             candidate_datetimes,
             status,
             store_id,
+            created_at,
             stores:store_id (
               id,
               name,
@@ -249,7 +251,8 @@ export function GMAvailabilityCheck() {
           available_candidates: response.available_candidates || [],
           notes: response.notes || '',
           reservation_status: response.reservations?.status || 'pending',
-          has_other_gm_response: hasOtherGMResponse
+          has_other_gm_response: hasOtherGMResponse,
+          created_at: response.reservations?.created_at || new Date().toISOString()
         }
       })
       
@@ -389,6 +392,36 @@ export function GMAvailabilityCheck() {
     return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
   }
 
+  const getElapsedTime = (createdAt: string) => {
+    const now = new Date()
+    const created = new Date(createdAt)
+    const diffMs = now.getTime() - created.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffDays > 0) {
+      return `${diffDays}日前`
+    } else if (diffHours > 0) {
+      return `${diffHours}時間前`
+    } else if (diffMins > 0) {
+      return `${diffMins}分前`
+    } else {
+      return '今'
+    }
+  }
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -510,6 +543,10 @@ export function GMAvailabilityCheck() {
                     </div>
                     <div className="text-sm text-muted-foreground space-y-1 mt-2">
                       <div>予約番号: {request.reservation_number}</div>
+                      <div className="flex items-center gap-2">
+                        <span>申込日時: {formatDateTime(request.created_at)}</span>
+                        <span className="text-orange-600 font-medium">({getElapsedTime(request.created_at)})</span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4" />
                         お客様: {request.customer_name}
@@ -814,6 +851,10 @@ export function GMAvailabilityCheck() {
                     </div>
                     <div className="text-sm text-muted-foreground space-y-1 mt-2">
                       <div>予約番号: {request.reservation_number}</div>
+                      <div className="flex items-center gap-2">
+                        <span>申込日時: {formatDateTime(request.created_at)}</span>
+                        <span className="text-orange-600 font-medium">({getElapsedTime(request.created_at)})</span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4" />
                         お客様: {request.customer_name}

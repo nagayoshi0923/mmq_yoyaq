@@ -61,6 +61,36 @@ export function PrivateBookingManagement() {
   const [allGMs, setAllGMs] = useState<any[]>([]) // 全GMのリスト（強行選択用）
 
   // ヘルパー関数を先に定義
+  const getElapsedTime = (createdAt: string) => {
+    const now = new Date()
+    const created = new Date(createdAt)
+    const diffMs = now.getTime() - created.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffDays > 0) {
+      return `${diffDays}日前`
+    } else if (diffHours > 0) {
+      return `${diffHours}時間前`
+    } else if (diffMins > 0) {
+      return `${diffMins}分前`
+    } else {
+      return '今'
+    }
+  }
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -192,16 +222,10 @@ export function PrivateBookingManagement() {
 
   const loadAvailableGMs = async (reservationId: string) => {
     try {
-      console.log('🔍 GMを検索中... reservation_id:', reservationId)
-      
       // まず、このリクエストのシナリオIDを取得
       const request = requests.find(r => r.id === reservationId)
-      console.log('🔍 選択されたリクエスト:', request)
-      console.log('🔍 scenario_id:', request?.scenario_id)
-      console.log('🔍 リクエストの全キー:', request ? Object.keys(request) : 'なし')
       
       if (!request?.scenario_id) {
-        console.log('🔍 シナリオIDが見つかりません')
         setAvailableGMs([])
         return
       }
@@ -212,16 +236,12 @@ export function PrivateBookingManagement() {
         .select('staff_id, staff:staff_id(id, name)')
         .eq('scenario_id', request.scenario_id)
       
-      console.log('🔍 シナリオ担当GM取得結果:', { assignmentData, assignmentError })
-      
       // 対応可能と回答したGMも取得
       const { data: availableData, error: availableError } = await supabase
         .from('gm_availability_responses')
         .select('staff_id, available_candidates, notes')
         .eq('reservation_id', reservationId)
         .eq('response_status', 'available')
-      
-      console.log('🔍 対応可能と回答したGM:', { availableData, availableError })
       
       // 担当GMのIDリストを作成
       const assignedGMIds = (assignmentData || []).map((a: any) => a.staff_id)
@@ -249,7 +269,6 @@ export function PrivateBookingManagement() {
           isAvailable: availableGMMap.has(gm.id)
         }))
       
-      console.log('🔍 ハイライト対象GM:', highlightGMs)
       setAvailableGMs(highlightGMs)
       
       // デフォルトで最初のGMを選択
@@ -289,19 +308,6 @@ export function PrivateBookingManagement() {
 
       const { data, error } = await query
 
-      console.log('貸切リクエスト取得結果:', { data, error, activeTab })
-      
-      // 最初のリクエストの candidate_datetimes を詳細表示
-      if (data && data.length > 0) {
-        console.log('🔍 最初のリクエストのcandidate_datetimes:', data[0].candidate_datetimes)
-        console.log('🔍 requestedStores詳細:', data[0].candidate_datetimes?.requestedStores)
-        console.log('🔍 全リクエストのrequestフィールド:', data.map(d => ({
-          id: d.id,
-          title: d.title,
-          candidate_datetimes: d.candidate_datetimes
-        })))
-      }
-
       if (error) {
         console.error('Supabaseエラー:', error)
         throw error
@@ -324,7 +330,6 @@ export function PrivateBookingManagement() {
         created_at: req.created_at
       }))
 
-      console.log('整形後のデータ:', formattedData)
       setRequests(formattedData)
     } catch (error) {
       console.error('貸切リクエスト取得エラー:', error)
@@ -473,6 +478,10 @@ export function PrivateBookingManagement() {
               </div>
               <div className="text-sm text-muted-foreground space-y-1 mt-2">
                 <div>予約番号: {selectedRequest.reservation_number}</div>
+                <div className="flex items-center gap-4">
+                  <span>申込日: {formatDateTime(selectedRequest.created_at)}</span>
+                  <span className="text-orange-600 font-medium">({getElapsedTime(selectedRequest.created_at)})</span>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -568,22 +577,11 @@ export function PrivateBookingManagement() {
                       <SelectValue placeholder="店舗を選択してください" />
                     </SelectTrigger>
                     <SelectContent>
-                      {stores.map((store, index) => {
+                      {stores.map((store) => {
                         const requestedStores = selectedRequest.candidate_datetimes?.requestedStores || []
                         // requestedStoresが空配列の場合は「全店舗」を希望していると解釈
                         const isAllStoresRequested = requestedStores.length === 0
                         const isRequested = isAllStoresRequested || requestedStores.some(rs => rs.storeId === store.id)
-                        
-                        if (index === 0) {
-                          console.log('🏪 店舗ハイライト判定:', {
-                            storeName: store.name,
-                            storeId: store.id,
-                            requestedStores,
-                            isAllStoresRequested,
-                            isRequested,
-                            className: isRequested ? 'bg-purple-200' : 'なし'
-                          })
-                        }
                         
                         return (
                           <SelectItem 
@@ -627,15 +625,6 @@ export function PrivateBookingManagement() {
                       {allGMs.map((gm) => {
                         const availableGM = availableGMs.find(ag => ag.id === gm.id)
                         const isAvailable = !!availableGM
-                        
-                        if (gm.id === allGMs[0]?.id) {
-                          console.log(`🔍 ${gm.name}のハイライト判定:`, {
-                            gmId: gm.id,
-                            availableGM,
-                            isAvailable,
-                            className: isAvailable ? 'bg-purple-200' : 'なし'
-                          })
-                        }
                         
                         return (
                           <SelectItem 
@@ -789,6 +778,10 @@ export function PrivateBookingManagement() {
                   <div className="text-sm text-muted-foreground space-y-1 mt-2">
                     <div>予約番号: {request.reservation_number}</div>
                     <div className="flex items-center gap-2">
+                      <span>申込日時: {formatDateTime(request.created_at)}</span>
+                      <span className="text-orange-600 font-medium">({getElapsedTime(request.created_at)})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <Users className="w-4 h-4" />
                       お客様: {request.customer_name} ({request.participant_count}名)
                     </div>
@@ -918,6 +911,10 @@ export function PrivateBookingManagement() {
                   </div>
                   <div className="text-sm text-muted-foreground space-y-1 mt-2">
                     <div>予約番号: {request.reservation_number}</div>
+                    <div className="flex items-center gap-2">
+                      <span>申込日時: {formatDateTime(request.created_at)}</span>
+                      <span className="text-orange-600 font-medium">({getElapsedTime(request.created_at)})</span>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4" />
                       お客様: {request.customer_name} ({request.participant_count}名)
