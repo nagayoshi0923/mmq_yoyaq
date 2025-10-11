@@ -294,6 +294,12 @@ export function PrivateBookingManagement() {
       // 最初のリクエストの candidate_datetimes を詳細表示
       if (data && data.length > 0) {
         console.log('🔍 最初のリクエストのcandidate_datetimes:', data[0].candidate_datetimes)
+        console.log('🔍 requestedStores詳細:', data[0].candidate_datetimes?.requestedStores)
+        console.log('🔍 全リクエストのrequestフィールド:', data.map(d => ({
+          id: d.id,
+          title: d.title,
+          candidate_datetimes: d.candidate_datetimes
+        })))
       }
 
       if (error) {
@@ -564,13 +570,16 @@ export function PrivateBookingManagement() {
                     <SelectContent>
                       {stores.map((store, index) => {
                         const requestedStores = selectedRequest.candidate_datetimes?.requestedStores || []
-                        const isRequested = requestedStores.some(rs => rs.storeId === store.id)
+                        // requestedStoresが空配列の場合は「全店舗」を希望していると解釈
+                        const isAllStoresRequested = requestedStores.length === 0
+                        const isRequested = isAllStoresRequested || requestedStores.some(rs => rs.storeId === store.id)
                         
                         if (index === 0) {
                           console.log('🏪 店舗ハイライト判定:', {
                             storeName: store.name,
                             storeId: store.id,
                             requestedStores,
+                            isAllStoresRequested,
                             isRequested,
                             className: isRequested ? 'bg-purple-200' : 'なし'
                           })
@@ -581,21 +590,20 @@ export function PrivateBookingManagement() {
                             key={store.id} 
                             value={store.id}
                           >
-                            <span style={isRequested ? { backgroundColor: '#e9d5ff', color: '#6b21a8', padding: '2px 4px', borderRadius: '4px', display: 'block', margin: '-2px -4px' } : {}}>
-                              {isRequested && '★ '}
-                              {store.name}
-                              {isRequested && ' (お客様希望)'}
-                            </span>
+                            {store.name}
+                            {isRequested && ' (お客様希望)'}
                           </SelectItem>
                         )
                       })}
                     </SelectContent>
                   </Select>
-                  {selectedRequest.candidate_datetimes?.requestedStores && selectedRequest.candidate_datetimes.requestedStores.length > 0 && (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      ℹ️ 薄紫色の店舗はお客様が希望されている店舗です
-                    </div>
-                  )}
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {selectedRequest.candidate_datetimes?.requestedStores?.length === 0 ? (
+                      <span>ℹ️ お客様は全ての店舗を希望しています</span>
+                    ) : selectedRequest.candidate_datetimes?.requestedStores?.length > 0 ? (
+                      <span>ℹ️ (お客様希望) の店舗がお客様の希望店舗です</span>
+                    ) : null}
+                  </div>
                 </div>
 
                 {/* 顧客メモ */}
@@ -634,11 +642,8 @@ export function PrivateBookingManagement() {
                             key={gm.id} 
                             value={gm.id}
                           >
-                            <span style={isAvailable ? { backgroundColor: '#e9d5ff', color: '#6b21a8', padding: '2px 4px', borderRadius: '4px', display: 'block', margin: '-2px -4px' } : {}}>
-                              {isAvailable && '★ '}
-                              {gm.name}
-                              {isAvailable && ` (担当GM)`}
-                            </span>
+                            {gm.name}
+                            {isAvailable && ' (担当GM)'}
                           </SelectItem>
                         )
                       })}
@@ -646,7 +651,7 @@ export function PrivateBookingManagement() {
                   </Select>
                   {availableGMs.length > 0 && (
                     <div className="mt-2 text-xs text-muted-foreground">
-                      ℹ️ 薄紫色のGMは対応可能と回答したGMです
+                      ℹ️ (担当GM) がこのシナリオの担当GMです
                     </div>
                   )}
                 </div>
