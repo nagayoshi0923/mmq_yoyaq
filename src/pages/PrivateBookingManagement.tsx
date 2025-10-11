@@ -53,16 +53,109 @@ export function PrivateBookingManagement() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [availableGMs, setAvailableGMs] = useState<any[]>([])
   const [selectedGMId, setSelectedGMId] = useState<string>('')
+  const [stores, setStores] = useState<any[]>([])
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('')
+
+  // ヘルパー関数を先に定義
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return (
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+            GM確認待ち
+          </Badge>
+        )
+      case 'gm_confirmed':
+        return (
+          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+            店側確認待ち
+          </Badge>
+        )
+      case 'confirmed':
+        return (
+          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+            承認済み
+          </Badge>
+        )
+      case 'cancelled':
+        return (
+          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+            却下
+          </Badge>
+        )
+      default:
+        return null
+    }
+  }
+
+  const getCardClassName = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'border-yellow-200 bg-yellow-50/30'
+      case 'gm_confirmed':
+        return 'border-orange-200 bg-orange-50/30'
+      case 'confirmed':
+        return 'border-green-200 bg-green-50/30'
+      case 'cancelled':
+        return 'border-red-200 bg-red-50/30'
+      default:
+        return ''
+    }
+  }
+
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr)
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
+  }
+
+  const formatMonthYear = (date: Date): string => {
+    return `${date.getFullYear()}年${date.getMonth() + 1}月`
+  }
+
+  // 月ごとにフィルタリング
+  const filterByMonth = (reqs: PrivateBookingRequest[]) => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    return reqs.filter(req => {
+      if (!req.candidate_datetimes?.candidates || req.candidate_datetimes.candidates.length === 0) return false
+      const firstCandidate = req.candidate_datetimes.candidates[0]
+      const candidateDate = new Date(firstCandidate.date)
+      return candidateDate.getFullYear() === year && candidateDate.getMonth() === month
+    })
+  }
 
   useEffect(() => {
     loadRequests()
+    loadStores()
   }, [activeTab])
 
   useEffect(() => {
     if (selectedRequest) {
       loadAvailableGMs(selectedRequest.id)
+      
+      // 確定店舗があればそれを選択、なければ最初の希望店舗を選択
+      if (selectedRequest.candidate_datetimes?.confirmedStore) {
+        setSelectedStoreId(selectedRequest.candidate_datetimes.confirmedStore.storeId)
+      } else if (selectedRequest.candidate_datetimes?.requestedStores && selectedRequest.candidate_datetimes.requestedStores.length > 0) {
+        setSelectedStoreId(selectedRequest.candidate_datetimes.requestedStores[0].storeId)
+      }
     }
   }, [selectedRequest])
+
+  const loadStores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stores')
+        .select('id, name, short_name')
+        .order('name')
+
+      if (error) throw error
+      setStores(data || [])
+    } catch (error) {
+      console.error('店舗情報取得エラー:', error)
+    }
+  }
 
   const loadAvailableGMs = async (reservationId: string) => {
     try {
@@ -122,11 +215,11 @@ export function PrivateBookingManagement() {
 
       // タブによってフィルター
       if (activeTab === 'pending') {
-        // 店舗確認待ちのみ
-        query = query.eq('status', 'gm_confirmed')
+        // 店舗確認待ちのみ（GM確認待ち + GM確認済み）
+        query = query.in('status', ['pending', 'gm_confirmed'])
       } else {
-        // 全て（gm_confirmed, confirmed, cancelled）
-        query = query.in('status', ['gm_confirmed', 'confirmed', 'cancelled'])
+        // 全て
+        query = query.in('status', ['pending', 'gm_confirmed', 'confirmed', 'cancelled'])
       }
 
       const { data, error } = await query
@@ -169,6 +262,11 @@ export function PrivateBookingManagement() {
       return
     }
 
+    if (!selectedStoreId) {
+      alert('店舗を選択してください')
+      return
+    }
+
     if (!confirm('この貸切リクエストを承認しますか？\n承認後、顧客に通知が送信されます。')) return
 
     try {
@@ -179,6 +277,7 @@ export function PrivateBookingManagement() {
         .update({
           status: 'confirmed',
           gm_staff: selectedGMId, // 選択されたGMのIDを保存
+          store_id: selectedStoreId, // 選択された店舗のIDを保存
           updated_at: new Date().toISOString()
         })
         .eq('id', requestId)
@@ -188,6 +287,7 @@ export function PrivateBookingManagement() {
       alert('貸切リクエストを承認しました！')
       setSelectedRequest(null)
       setSelectedGMId('')
+      setSelectedStoreId('')
       setAvailableGMs([])
       loadRequests()
     } catch (error) {
@@ -233,12 +333,6 @@ export function PrivateBookingManagement() {
     }
   }
 
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -269,13 +363,11 @@ export function PrivateBookingManagement() {
             ← 一覧に戻る
           </Button>
 
-          <Card className="border-orange-200 bg-orange-50/30">
+          <Card className={getCardClassName(selectedRequest.status)}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-2xl">{selectedRequest.scenario_title}</CardTitle>
-                <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
-                  店側確認待ち
-                </Badge>
+                {getStatusBadge(selectedRequest.status)}
               </div>
               <div className="text-sm text-muted-foreground space-y-1 mt-2">
                 <div>予約番号: {selectedRequest.reservation_number}</div>
@@ -342,38 +434,93 @@ export function PrivateBookingManagement() {
                   </div>
                 </div>
 
-                {/* 希望店舗 */}
-                {selectedRequest.candidate_datetimes?.requestedStores && selectedRequest.candidate_datetimes.requestedStores.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
-                      <MapPin className="w-4 h-4" />
-                      お客様の希望店舗
-                    </h3>
-                    <div className="flex gap-2 flex-wrap">
-                      {selectedRequest.candidate_datetimes.requestedStores.map((store: any, index: number) => (
-                        <Badge key={index} variant="outline" className="bg-purple-50 text-purple-800 border-purple-200">
-                          {store.storeName}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 確定店舗 */}
-                {selectedRequest.candidate_datetimes?.confirmedStore && (
-                  <div>
-                    <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
-                      <MapPin className="w-4 h-4" />
-                      確定店舗
-                    </h3>
-                    <div className="p-3 rounded border bg-purple-50 border-purple-200">
-                      <div className="text-sm">
-                        <span className="font-medium text-purple-800">開催店舗: </span>
-                        <span className="text-purple-900">{selectedRequest.candidate_datetimes.confirmedStore.storeName}</span>
+                {/* 希望店舗と店舗選択 */}
+                <div className="pt-6 border-t">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
+                    <MapPin className="w-4 h-4" />
+                    開催店舗の選択
+                  </h3>
+                  
+                  {/* お客様の希望店舗 */}
+                  {selectedRequest.candidate_datetimes?.requestedStores && selectedRequest.candidate_datetimes.requestedStores.length > 0 && (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="text-sm font-medium text-blue-900 mb-2">
+                        お客様の希望店舗（{selectedRequest.candidate_datetimes.requestedStores.length}店舗）
                       </div>
+                      <div className="flex gap-2 flex-wrap">
+                        {selectedRequest.candidate_datetimes.requestedStores.map((store: any, index: number) => (
+                          <Badge key={index} variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                            {store.storeName}
+                          </Badge>
+                        ))}
+                      </div>
+                      {selectedRequest.candidate_datetimes.requestedStores.length === 1 && (
+                        <div className="mt-2 text-xs text-blue-700">
+                          ※ お客様は1店舗のみ希望されています。変更が必要な場合は事前に連絡をお願いします。
+                        </div>
+                      )}
+                      {selectedRequest.candidate_datetimes.requestedStores.length > 1 && (
+                        <div className="mt-2 text-xs text-blue-700">
+                          ✓ お客様は複数店舗を許可されています。下記から選択してください。
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  {/* 店舗選択（複数希望の場合はお客様の希望店舗から、単一の場合は全店舗から選択可能） */}
+                  <div className="space-y-2">
+                    {(() => {
+                      const requestedStores = selectedRequest.candidate_datetimes?.requestedStores || []
+                      const isMultipleStoresRequested = requestedStores.length > 1
+                      
+                      // 複数店舗希望の場合は希望店舗のみ、単一の場合は全店舗を表示
+                      const availableStores = isMultipleStoresRequested
+                        ? stores.filter(s => requestedStores.some(rs => rs.storeId === s.id))
+                        : stores
+
+                      return availableStores.map((store) => {
+                        const isRequested = requestedStores.some(rs => rs.storeId === store.id)
+                        
+                        return (
+                          <div
+                            key={store.id}
+                            onClick={() => setSelectedStoreId(store.id)}
+                            className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                              selectedStoreId === store.id
+                                ? 'border-purple-500 bg-purple-50'
+                                : 'border-gray-200 bg-background hover:border-purple-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                selectedStoreId === store.id
+                                  ? 'border-purple-500 bg-purple-500'
+                                  : 'border-gray-300'
+                              }`}>
+                                {selectedStoreId === store.id && (
+                                  <CheckCircle2 className="w-4 h-4 text-white" />
+                                )}
+                              </div>
+                              <div className="flex-1 flex items-center gap-2">
+                                <span className="font-medium">{store.name}</span>
+                                {isRequested && (
+                                  <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
+                                    お客様希望
+                                  </Badge>
+                                )}
+                                {!isRequested && !isMultipleStoresRequested && (
+                                  <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 text-xs">
+                                    要連絡
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })
+                    })()}
                   </div>
-                )}
+                </div>
 
                 {/* 顧客メモ */}
                 {selectedRequest.notes && (
@@ -464,28 +611,44 @@ export function PrivateBookingManagement() {
                   />
                 </div>
 
+                {/* ステータスメッセージ */}
+                {selectedRequest.status === 'pending' && (
+                  <div className="pt-6 border-t">
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-sm text-yellow-800">
+                        <Clock className="w-5 h-5" />
+                        <span className="font-medium">
+                          現在、GMによる対応可否の確認を待っています。GMの回答後に承認・却下の判断が可能になります。
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* アクションボタン */}
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    onClick={() => handleApprove(selectedRequest.id)}
-                    disabled={submitting}
-                    className="flex-1 bg-green-600 hover:bg-green-700"
-                    size="lg"
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    承認する
-                  </Button>
-                  <Button
-                    onClick={() => handleReject(selectedRequest.id)}
-                    disabled={submitting || !rejectionReason.trim()}
-                    variant="destructive"
-                    className="flex-1"
-                    size="lg"
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    却下する
-                  </Button>
-                </div>
+                {selectedRequest.status === 'gm_confirmed' && (
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={() => handleApprove(selectedRequest.id)}
+                      disabled={submitting}
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                      size="lg"
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      承認する
+                    </Button>
+                    <Button
+                      onClick={() => handleReject(selectedRequest.id)}
+                      disabled={submitting || !rejectionReason.trim()}
+                      variant="destructive"
+                      className="flex-1"
+                      size="lg"
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      却下する
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -494,60 +657,7 @@ export function PrivateBookingManagement() {
     )
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'gm_confirmed':
-        return (
-          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
-            店側確認待ち
-          </Badge>
-        )
-      case 'confirmed':
-        return (
-          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-            承認済み
-          </Badge>
-        )
-      case 'cancelled':
-        return (
-          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-            却下
-          </Badge>
-        )
-      default:
-        return null
-    }
-  }
-
-  const getCardClassName = (status: string) => {
-    switch (status) {
-      case 'gm_confirmed':
-        return 'border-orange-200 bg-orange-50/30'
-      case 'confirmed':
-        return 'border-green-200 bg-green-50/30'
-      case 'cancelled':
-        return 'border-red-200 bg-red-50/30'
-      default:
-        return ''
-    }
-  }
-
-  // 月ごとにフィルタリング
-  const filterByMonth = (reqs: PrivateBookingRequest[]) => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
-    
-    return reqs.filter(r => {
-      // candidate_datetimesから最初の候補日時を取得
-      const firstCandidate = r.candidate_datetimes?.candidates?.[0]
-      if (!firstCandidate) return false
-      
-      const candidateDate = new Date(firstCandidate.date)
-      return candidateDate.getFullYear() === year && candidateDate.getMonth() === month
-    })
-  }
-
-  const pendingRequests = requests.filter(r => r.status === 'gm_confirmed')
+  const pendingRequests = requests.filter(r => r.status === 'pending' || r.status === 'gm_confirmed')
   const allRequests = filterByMonth(requests)
   
   // 月の切り替え
@@ -557,10 +667,6 @@ export function PrivateBookingManagement() {
   
   const handleNextMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
-  }
-  
-  const formatMonthYear = (date: Date) => {
-    return `${date.getFullYear()}年${date.getMonth() + 1}月`
   }
 
   return (
