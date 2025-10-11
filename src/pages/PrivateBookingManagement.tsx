@@ -59,6 +59,8 @@ export function PrivateBookingManagement() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
   const [allGMs, setAllGMs] = useState<any[]>([]) // 全GMのリスト（強行選択用）
+  const [showRejectDialog, setShowRejectDialog] = useState(false)
+  const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
 
   // ヘルパー関数を先に定義
   const getElapsedTime = (createdAt: string) => {
@@ -415,13 +417,27 @@ export function PrivateBookingManagement() {
     }
   }
 
-  const handleReject = async (requestId: string) => {
+  const handleRejectClick = (requestId: string) => {
+    // デフォルトの却下メッセージをセット
+    const defaultMessage = `誠に申し訳ございませんが、ご希望の日程では店舗の空きがなく、貸切での受付が難しい状況です。
+
+別の日程でのご検討をお願いできますでしょうか。
+または、通常公演へのご参加も歓迎しております。
+
+ご不明点等ございましたら、お気軽にお問い合わせください。`
+    
+    setRejectionReason(defaultMessage)
+    setRejectRequestId(requestId)
+    setShowRejectDialog(true)
+  }
+
+  const handleRejectConfirm = async () => {
+    if (!rejectRequestId) return
+    
     if (!rejectionReason.trim()) {
       alert('却下理由を入力してください')
       return
     }
-
-    if (!confirm('この貸切リクエストを却下しますか？\n却下後、顧客に理由が通知されます。')) return
 
     try {
       setSubmitting(true)
@@ -434,13 +450,15 @@ export function PrivateBookingManagement() {
           cancelled_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
-        .eq('id', requestId)
+        .eq('id', rejectRequestId)
 
       if (error) throw error
 
       alert('貸切リクエストを却下しました')
       setSelectedRequest(null)
       setRejectionReason('')
+      setShowRejectDialog(false)
+      setRejectRequestId(null)
       loadRequests()
     } catch (error) {
       console.error('却下エラー:', error)
@@ -448,6 +466,12 @@ export function PrivateBookingManagement() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleRejectCancel = () => {
+    setShowRejectDialog(false)
+    setRejectRequestId(null)
+    setRejectionReason('')
   }
 
   if (loading) {
@@ -689,26 +713,14 @@ export function PrivateBookingManagement() {
                   </div>
                 )}
 
-                {/* 却下理由入力 */}
-                <div className="pt-6 border-t">
-                  <h3 className="font-semibold mb-3 text-red-800">却下理由（却下する場合は必須）</h3>
-                  <Textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="却下する場合は理由を入力してください..."
-                    rows={4}
-                    className="resize-none"
-                  />
-                </div>
-
                 {/* アクションボタン */}
                 {(selectedRequest.status === 'pending' || selectedRequest.status === 'gm_confirmed') && (
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 pt-6 border-t">
                     <Button
                       variant="outline"
                       className="flex-1 border-red-200 hover:bg-red-50"
-                      onClick={() => handleReject(selectedRequest.id)}
-                      disabled={submitting || !rejectionReason.trim()}
+                      onClick={() => handleRejectClick(selectedRequest.id)}
+                      disabled={submitting}
                     >
                       <XCircle className="w-4 h-4 mr-2" />
                       却下する
@@ -726,6 +738,47 @@ export function PrivateBookingManagement() {
               </div>
             </CardContent>
           </Card>
+
+          {/* 却下確認モーダル */}
+          {showRejectDialog && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <Card className="w-full max-w-2xl">
+                <CardHeader>
+                  <CardTitle className="text-red-800">貸切リクエストの却下</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      以下のメッセージがお客様に送信されます。必要に応じて編集してください。
+                    </p>
+                    <Textarea
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      rows={8}
+                      className="resize-none"
+                    />
+                  </div>
+                  <div className="flex gap-3 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={handleRejectCancel}
+                      disabled={submitting}
+                    >
+                      キャンセル
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleRejectConfirm}
+                      disabled={submitting || !rejectionReason.trim()}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      {submitting ? '送信中...' : '却下する'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </div>
     )
