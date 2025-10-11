@@ -812,17 +812,19 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                         return hour >= 17
                       })
                       
+                      const isFirstRowOfDate = index === 0 || generateListViewData()[index - 1]?.date !== date
+                      
                       return (
-                        <TableRow key={`${date}-${store.id}`}>
+                        <TableRow key={`${date}-${store.id}`} className={isFirstRowOfDate && index !== 0 ? 'border-t-2 border-gray-300' : ''}>
                           {/* 日付セル */}
-                          {index === 0 || generateListViewData()[index - 1]?.date !== date ? (
+                          {isFirstRowOfDate ? (
                             <TableCell className="schedule-table-cell border-r text-sm align-top" rowSpan={stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length}>
                               {listViewMonth.getMonth() + 1}/{date}
                             </TableCell>
                           ) : null}
                           
                           {/* 曜日セル */}
-                          {index === 0 || generateListViewData()[index - 1]?.date !== date ? (
+                          {isFirstRowOfDate ? (
                             <TableCell className={`schedule-table-cell border-r text-sm align-top ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length}>
                               {dayOfWeek}
                             </TableCell>
