@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, CheckCircle2, XCircle } from 'lucide-react'
+import { Calendar, Clock, Users, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import * as storeApi from '@/lib/api'
@@ -55,6 +55,7 @@ export function GMAvailabilityCheck() {
   const [submitting, setSubmitting] = useState<string | null>(null)
   const [stores, setStores] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
+  const [currentDate, setCurrentDate] = useState(new Date())
 
   useEffect(() => {
     loadGMRequests()
@@ -559,6 +560,21 @@ export function GMAvailabilityCheck() {
     )
   }
 
+  // 月ごとにフィルタリング
+  const filterByMonth = (reqs: GMRequest[]) => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    
+    return reqs.filter(r => {
+      // candidate_datetimesから最初の候補日時を取得
+      const firstCandidate = r.candidate_datetimes?.candidates?.[0]
+      if (!firstCandidate) return false
+      
+      const candidateDate = new Date(firstCandidate.date)
+      return candidateDate.getFullYear() === year && candidateDate.getMonth() === month
+    })
+  }
+
   // 未回答のリクエスト：自分が未回答 & 他のGMも未回答 & 予約が確定していない
   const pendingRequests = requests.filter(r => 
     r.response_status === 'pending' && 
@@ -567,8 +583,21 @@ export function GMAvailabilityCheck() {
     r.reservation_status !== 'gm_confirmed'
   )
   
-  // 全てのリクエスト
-  const allRequests = requests
+  // 全てのリクエスト（月でフィルタリング）
+  const allRequests = filterByMonth(requests)
+  
+  // 月の切り替え
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
+  }
+  
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
+  }
+  
+  const formatMonthYear = (date: Date) => {
+    return `${date.getFullYear()}年${date.getMonth() + 1}月`
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -858,10 +887,31 @@ export function GMAvailabilityCheck() {
       </TabsContent>
 
       <TabsContent value="all">
+        {/* 月切り替え */}
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrevMonth}
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            前月
+          </Button>
+          <h2 className="text-lg font-semibold">{formatMonthYear(currentDate)}</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNextMonth}
+          >
+            翌月
+            <ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
+
         {allRequests.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center text-muted-foreground">
-              貸切リクエストはありません
+              {formatMonthYear(currentDate)}の貸切リクエストはありません
             </CardContent>
           </Card>
         ) : (

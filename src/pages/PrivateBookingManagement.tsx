@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, CheckCircle2, XCircle, MapPin } from 'lucide-react'
+import { Calendar, Clock, Users, CheckCircle2, XCircle, MapPin, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -50,6 +50,7 @@ export function PrivateBookingManagement() {
   const [rejectionReason, setRejectionReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
+  const [currentDate, setCurrentDate] = useState(new Date())
 
   useEffect(() => {
     loadRequests()
@@ -430,8 +431,36 @@ export function PrivateBookingManagement() {
     }
   }
 
+  // 月ごとにフィルタリング
+  const filterByMonth = (reqs: PrivateBookingRequest[]) => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    
+    return reqs.filter(r => {
+      // candidate_datetimesから最初の候補日時を取得
+      const firstCandidate = r.candidate_datetimes?.candidates?.[0]
+      if (!firstCandidate) return false
+      
+      const candidateDate = new Date(firstCandidate.date)
+      return candidateDate.getFullYear() === year && candidateDate.getMonth() === month
+    })
+  }
+
   const pendingRequests = requests.filter(r => r.status === 'gm_confirmed')
-  const allRequests = requests
+  const allRequests = filterByMonth(requests)
+  
+  // 月の切り替え
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
+  }
+  
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
+  }
+  
+  const formatMonthYear = (date: Date) => {
+    return `${date.getFullYear()}年${date.getMonth() + 1}月`
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -447,7 +476,7 @@ export function PrivateBookingManagement() {
             <TabsTrigger value="pending">
               店舗確認待ち
               {pendingRequests.length > 0 && (
-                <Badge className="ml-2 bg-orange-600">
+                <Badge className="ml-2 bg-orange-600 text-xs px-1.5 py-0">
                   {pendingRequests.length}
                 </Badge>
               )}
@@ -560,10 +589,31 @@ export function PrivateBookingManagement() {
       </TabsContent>
 
       <TabsContent value="all">
+        {/* 月切り替え */}
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrevMonth}
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            前月
+          </Button>
+          <h2 className="text-lg font-semibold">{formatMonthYear(currentDate)}</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNextMonth}
+          >
+            翌月
+            <ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
+
         {allRequests.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center text-muted-foreground">
-              貸切リクエストはありません
+              {formatMonthYear(currentDate)}の貸切リクエストはありません
             </CardContent>
           </Card>
         ) : (
