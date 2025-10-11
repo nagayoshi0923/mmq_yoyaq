@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Search, Calendar, Clock, Users, MapPin } from 'lucide-react'
@@ -45,6 +46,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   })
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [allEvents, setAllEvents] = useState<any[]>([]) // カレンダー用の全公演データ
+  
+  // リスト表示用の状態
+  const [listViewMonth, setListViewMonth] = useState(new Date())
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('all') // 'all' or storeId
 
@@ -265,6 +269,19 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       return newDate
     })
   }
+
+  // リスト表示用の月変更
+  const changeListViewMonth = (direction: 'prev' | 'next') => {
+    setListViewMonth(prev => {
+      const newDate = new Date(prev)
+      if (direction === 'prev') {
+        newDate.setMonth(newDate.getMonth() - 1)
+      } else {
+        newDate.setMonth(newDate.getMonth() + 1)
+      }
+      return newDate
+    })
+  }
   
   // カレンダー用：月の日付を生成（月曜始まり）
   const generateCalendarDays = () => {
@@ -316,6 +333,40 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     }
     
     return filtered
+  }
+
+  // リスト表示用：月の日付と店舗の組み合わせを生成
+  const generateListViewData = () => {
+    const year = listViewMonth.getFullYear()
+    const month = listViewMonth.getMonth()
+    
+    // 月の日付を生成
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const dates = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+    
+    // 店舗フィルター適用
+    const filteredStores = selectedStoreFilter === 'all' 
+      ? stores 
+      : stores.filter(store => store.id === selectedStoreFilter)
+    
+    // 日付と店舗の組み合わせを生成
+    const combinations = []
+    dates.forEach(date => {
+      filteredStores.forEach(store => {
+        combinations.push({ date, store })
+      })
+    })
+    
+    return combinations
+  }
+
+  // リスト表示用：特定の日付・店舗の公演を取得
+  const getEventsForDateStore = (date: number, storeId: string) => {
+    const dateStr = `${listViewMonth.getFullYear()}-${String(listViewMonth.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
+    return allEvents.filter((event: any) => {
+      const eventStore = event.venue || event.store_id
+      return event.date === dateStr && eventStore === storeId
+    })
   }
   
   // 店舗名を取得
@@ -458,9 +509,10 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-6">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-6">
               <TabsTrigger value="lineup">ラインナップ</TabsTrigger>
               <TabsTrigger value="calendar">カレンダー</TabsTrigger>
+              <TabsTrigger value="list">リスト</TabsTrigger>
             </TabsList>
             
             {/* ラインナップ表示 */}
@@ -650,6 +702,245 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                     )
                   })}
                 </div>
+              </div>
+            </TabsContent>
+
+            {/* リスト表示 */}
+            <TabsContent value="list">
+              <div className="space-y-4">
+                {/* 月ナビゲーション */}
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold">
+                    {listViewMonth.getFullYear()}年{listViewMonth.getMonth() + 1}月
+                  </h2>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => changeListViewMonth('prev')}
+                      className="px-3 py-1 border rounded hover:bg-gray-50"
+                    >
+                      前月
+                    </button>
+                    <button
+                      onClick={() => changeListViewMonth('next')}
+                      className="px-3 py-1 border rounded hover:bg-gray-50"
+                    >
+                      次月
+                    </button>
+                  </div>
+                </div>
+
+                {/* 店舗フィルター */}
+                <div className="flex items-center gap-4">
+                  <label className="text-sm font-medium">店舗:</label>
+                  <Select value={selectedStoreFilter} onValueChange={setSelectedStoreFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      {stores.map(store => (
+                        <SelectItem key={store.id} value={store.id}>
+                          {store.short_name || store.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* リスト表示テーブル */}
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-20 border-r">日付</TableHead>
+                      <TableHead className="w-16 border-r">曜日</TableHead>
+                      <TableHead className="w-20 border-r">会場</TableHead>
+                      <TableHead className="w-60">午前 (~12:00)</TableHead>
+                      <TableHead className="w-60">午後 (12:00-17:00)</TableHead>
+                      <TableHead className="w-60">夜間 (17:00~)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {generateListViewData().map(({ date, store }, index) => {
+                      const events = getEventsForDateStore(date, store.id)
+                      const dateObj = new Date(listViewMonth.getFullYear(), listViewMonth.getMonth(), date)
+                      const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][dateObj.getDay()]
+                      
+                      // 時間帯別にイベントを分類
+                      const morningEvents = events.filter(event => {
+                        const hour = parseInt(event.start_time?.split(':')[0] || '0')
+                        return hour >= 9 && hour < 12
+                      })
+                      const afternoonEvents = events.filter(event => {
+                        const hour = parseInt(event.start_time?.split(':')[0] || '0')
+                        return hour >= 12 && hour < 17
+                      })
+                      const eveningEvents = events.filter(event => {
+                        const hour = parseInt(event.start_time?.split(':')[0] || '0')
+                        return hour >= 17
+                      })
+                      
+                      return (
+                        <TableRow key={`${date}-${store.id}`} className="h-16">
+                          {/* 日付セル */}
+                          {index === 0 || generateListViewData()[index - 1]?.date !== date ? (
+                            <TableCell className="schedule-table-cell border-r text-sm" rowSpan={stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length}>
+                              {listViewMonth.getMonth() + 1}/{date}
+                            </TableCell>
+                          ) : null}
+                          
+                          {/* 曜日セル */}
+                          {index === 0 || generateListViewData()[index - 1]?.date !== date ? (
+                            <TableCell className={`schedule-table-cell border-r text-sm ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length}>
+                              {dayOfWeek}
+                            </TableCell>
+                          ) : null}
+                          
+                          {/* 店舗セル */}
+                          <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-sm">
+                            <div className="font-medium" style={{ color: getColorFromName(store.color) }}>
+                              {store.short_name || store.name}
+                            </div>
+                          </TableCell>
+                          
+                          {/* 午前セル */}
+                          <TableCell className="schedule-table-cell">
+                            <div className="space-y-0.5">
+                              {morningEvents.map((event: any, idx: number) => {
+                                const available = (event.max_participants || 8) - (event.current_participants || 0)
+                                const isFull = available === 0
+                                const storeColor = getColorFromName(store.color)
+                                
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="text-xs p-1 rounded cursor-pointer hover:shadow-md transition-shadow border-l-2"
+                                    style={{
+                                      borderLeftColor: isFull ? '#9CA3AF' : storeColor,
+                                      backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`
+                                    }}
+                                    onClick={() => {
+                                      const scenario = scenarios.find((s: any) => 
+                                        s.scenario_id === event.scenario_id || 
+                                        s.scenario_title === event.scenario
+                                      )
+                                      if (scenario) handleCardClick(scenario.scenario_id)
+                                    }}
+                                  >
+                                    <div className="flex items-start gap-0">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                          <div className="font-semibold truncate text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                            {event.start_time?.slice(0, 5)}
+                                          </div>
+                                          <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                            {isFull ? '満席' : `残${available}席`}
+                                          </div>
+                                        </div>
+                                        <div className="text-[11px] font-medium text-gray-800 leading-tight truncate">
+                                          {event.scenario || event.scenarios?.title}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </TableCell>
+                          
+                          {/* 午後セル */}
+                          <TableCell className="schedule-table-cell">
+                            <div className="space-y-0.5">
+                              {afternoonEvents.map((event: any, idx: number) => {
+                                const available = (event.max_participants || 8) - (event.current_participants || 0)
+                                const isFull = available === 0
+                                const storeColor = getColorFromName(store.color)
+                                
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="text-xs p-1 rounded cursor-pointer hover:shadow-md transition-shadow border-l-2"
+                                    style={{
+                                      borderLeftColor: isFull ? '#9CA3AF' : storeColor,
+                                      backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`
+                                    }}
+                                    onClick={() => {
+                                      const scenario = scenarios.find((s: any) => 
+                                        s.scenario_id === event.scenario_id || 
+                                        s.scenario_title === event.scenario
+                                      )
+                                      if (scenario) handleCardClick(scenario.scenario_id)
+                                    }}
+                                  >
+                                    <div className="flex items-start gap-0">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                          <div className="font-semibold truncate text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                            {event.start_time?.slice(0, 5)}
+                                          </div>
+                                          <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                            {isFull ? '満席' : `残${available}席`}
+                                          </div>
+                                        </div>
+                                        <div className="text-[11px] font-medium text-gray-800 leading-tight truncate">
+                                          {event.scenario || event.scenarios?.title}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </TableCell>
+                          
+                          {/* 夜間セル */}
+                          <TableCell className="schedule-table-cell">
+                            <div className="space-y-0.5">
+                              {eveningEvents.map((event: any, idx: number) => {
+                                const available = (event.max_participants || 8) - (event.current_participants || 0)
+                                const isFull = available === 0
+                                const storeColor = getColorFromName(store.color)
+                                
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="text-xs p-1 rounded cursor-pointer hover:shadow-md transition-shadow border-l-2"
+                                    style={{
+                                      borderLeftColor: isFull ? '#9CA3AF' : storeColor,
+                                      backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`
+                                    }}
+                                    onClick={() => {
+                                      const scenario = scenarios.find((s: any) => 
+                                        s.scenario_id === event.scenario_id || 
+                                        s.scenario_title === event.scenario
+                                      )
+                                      if (scenario) handleCardClick(scenario.scenario_id)
+                                    }}
+                                  >
+                                    <div className="flex items-start gap-0">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                          <div className="font-semibold truncate text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                            {event.start_time?.slice(0, 5)}
+                                          </div>
+                                          <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                            {isFull ? '満席' : `残${available}席`}
+                                          </div>
+                                        </div>
+                                        <div className="text-[11px] font-medium text-gray-800 leading-tight truncate">
+                                          {event.scenario || event.scenarios?.title}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             </TabsContent>
           </Tabs>
