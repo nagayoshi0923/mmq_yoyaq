@@ -290,6 +290,11 @@ export function PrivateBookingManagement() {
       const { data, error } = await query
 
       console.log('貸切リクエスト取得結果:', { data, error, activeTab })
+      
+      // 最初のリクエストの candidate_datetimes を詳細表示
+      if (data && data.length > 0) {
+        console.log('🔍 最初のリクエストのcandidate_datetimes:', data[0].candidate_datetimes)
+      }
 
       if (error) {
         console.error('Supabaseエラー:', error)
@@ -557,18 +562,30 @@ export function PrivateBookingManagement() {
                       <SelectValue placeholder="店舗を選択してください" />
                     </SelectTrigger>
                     <SelectContent>
-                      {stores.map((store) => {
+                      {stores.map((store, index) => {
                         const requestedStores = selectedRequest.candidate_datetimes?.requestedStores || []
                         const isRequested = requestedStores.some(rs => rs.storeId === store.id)
+                        
+                        if (index === 0) {
+                          console.log('🏪 店舗ハイライト判定:', {
+                            storeName: store.name,
+                            storeId: store.id,
+                            requestedStores,
+                            isRequested,
+                            className: isRequested ? 'bg-purple-200' : 'なし'
+                          })
+                        }
                         
                         return (
                           <SelectItem 
                             key={store.id} 
                             value={store.id}
-                            className={isRequested ? 'bg-purple-200 data-[highlighted]:bg-purple-300' : ''}
                           >
-                            {store.name}
-                            {isRequested && ' ✓ (お客様希望)'}
+                            <span style={isRequested ? { backgroundColor: '#e9d5ff', color: '#6b21a8', padding: '2px 4px', borderRadius: '4px', display: 'block', margin: '-2px -4px' } : {}}>
+                              {isRequested && '★ '}
+                              {store.name}
+                              {isRequested && ' (お客様希望)'}
+                            </span>
                           </SelectItem>
                         )
                       })}
@@ -616,10 +633,12 @@ export function PrivateBookingManagement() {
                           <SelectItem 
                             key={gm.id} 
                             value={gm.id}
-                            className={isAvailable ? 'bg-purple-200 data-[highlighted]:bg-purple-300' : ''}
                           >
-                            {gm.name}
-                            {isAvailable && ` ✓ (対応可能: 候補${availableGM.available_candidates?.join(', ')})`}
+                            <span style={isAvailable ? { backgroundColor: '#e9d5ff', color: '#6b21a8', padding: '2px 4px', borderRadius: '4px', display: 'block', margin: '-2px -4px' } : {}}>
+                              {isAvailable && '★ '}
+                              {gm.name}
+                              {isAvailable && ` (担当GM)`}
+                            </span>
                           </SelectItem>
                         )
                       })}
