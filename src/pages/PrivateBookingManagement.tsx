@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, CheckCircle2, XCircle, MapPin } from 'lucide-react'
@@ -48,10 +49,11 @@ export function PrivateBookingManagement() {
   const [selectedRequest, setSelectedRequest] = useState<PrivateBookingRequest | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
 
   useEffect(() => {
     loadRequests()
-  }, [])
+  }, [activeTab])
 
   const loadRequests = async () => {
     try {
@@ -59,8 +61,7 @@ export function PrivateBookingManagement() {
       
       // reservationsテーブルから貸切リクエストを取得
       // reservation_source='web_private' で貸切リクエストを識別
-      // status='gm_confirmed' で店舗確認待ち
-      const { data, error } = await supabase
+      let query = supabase
         .from('reservations')
         .select(`
           *,
@@ -68,10 +69,20 @@ export function PrivateBookingManagement() {
           customers:customer_id(name, phone)
         `)
         .eq('reservation_source', 'web_private')
-        .eq('status', 'gm_confirmed')
         .order('created_at', { ascending: false })
 
-      console.log('貸切リクエスト取得結果:', { data, error })
+      // タブによってフィルター
+      if (activeTab === 'pending') {
+        // 店舗確認待ちのみ
+        query = query.eq('status', 'gm_confirmed')
+      } else {
+        // 全て（gm_confirmed, confirmed, cancelled）
+        query = query.in('status', ['gm_confirmed', 'confirmed', 'cancelled'])
+      }
+
+      const { data, error } = await query
+
+      console.log('貸切リクエスト取得結果:', { data, error, activeTab })
 
       if (error) {
         console.error('Supabaseエラー:', error)
@@ -381,6 +392,47 @@ export function PrivateBookingManagement() {
     )
   }
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'gm_confirmed':
+        return (
+          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+            店側確認待ち
+          </Badge>
+        )
+      case 'confirmed':
+        return (
+          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+            承認済み
+          </Badge>
+        )
+      case 'cancelled':
+        return (
+          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+            却下
+          </Badge>
+        )
+      default:
+        return null
+    }
+  }
+
+  const getCardClassName = (status: string) => {
+    switch (status) {
+      case 'gm_confirmed':
+        return 'border-orange-200 bg-orange-50/30'
+      case 'confirmed':
+        return 'border-green-200 bg-green-50/30'
+      case 'cancelled':
+        return 'border-red-200 bg-red-50/30'
+      default:
+        return ''
+    }
+  }
+
+  const pendingRequests = requests.filter(r => r.status === 'gm_confirmed')
+  const allRequests = requests
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -390,22 +442,34 @@ export function PrivateBookingManagement() {
         <h1 className="text-3xl font-bold mb-2">貸切リクエスト確認</h1>
         <p className="text-muted-foreground mb-6">GMが対応可能と回答したリクエストを確認・承認します</p>
 
-        {requests.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              現在確認待ちの貸切リクエストはありません
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {requests.map((request) => (
-              <Card key={request.id} className="border-orange-200 bg-orange-50/30">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pending' | 'all')}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="pending">
+              店舗確認待ち
+              {pendingRequests.length > 0 && (
+                <Badge className="ml-2 bg-orange-600">
+                  {pendingRequests.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="all">全て</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="pending">
+            {pendingRequests.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                  現在確認待ちの貸切リクエストはありません
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {pendingRequests.map((request) => (
+                  <Card key={request.id} className={getCardClassName(request.status)}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xl">{request.scenario_title}</CardTitle>
-                    <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
-                      店側確認待ち
-                    </Badge>
+                    {getStatusBadge(request.status)}
                   </div>
                   <div className="text-sm text-muted-foreground space-y-1 mt-2">
                     <div>予約番号: {request.reservation_number}</div>
@@ -493,6 +557,124 @@ export function PrivateBookingManagement() {
             ))}
           </div>
         )}
+      </TabsContent>
+
+      <TabsContent value="all">
+        {allRequests.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center text-muted-foreground">
+              貸切リクエストはありません
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {allRequests.map((request) => (
+              <Card key={request.id} className={getCardClassName(request.status)}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl">{request.scenario_title}</CardTitle>
+                    {getStatusBadge(request.status)}
+                  </div>
+                  <div className="text-sm text-muted-foreground space-y-1 mt-2">
+                    <div>予約番号: {request.reservation_number}</div>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      お客様: {request.customer_name} ({request.participant_count}名)
+                    </div>
+                    {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>希望店舗:</span>
+                        {request.candidate_datetimes.requestedStores.map((store: any, index: number) => (
+                          <Badge key={index} variant="outline" className="bg-purple-50 text-purple-800 border-purple-200 text-xs">
+                            {store.storeName}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* GM選択済み候補日時 */}
+                    <div>
+                      <p className="text-sm font-medium mb-3 text-purple-800">
+                        {request.status === 'confirmed' ? '確定した候補日時' : request.status === 'gm_confirmed' ? 'GMが選択した候補日時（店側確認待ち）' : 'リクエストされた候補日時'}
+                      </p>
+                      <div className="space-y-2">
+                        {request.candidate_datetimes?.candidates?.map((candidate: any) => (
+                          <div
+                            key={candidate.order}
+                            className={`flex items-center gap-3 p-3 rounded border ${
+                              request.status === 'confirmed' ? 'bg-green-50 border-green-300' :
+                              request.status === 'gm_confirmed' ? 'bg-purple-50 border-purple-300' :
+                              'bg-gray-50 border-gray-300'
+                            }`}
+                          >
+                            {request.status === 'confirmed' ? (
+                              <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            ) : request.status === 'gm_confirmed' ? (
+                              <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-600" />
+                            )}
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3">
+                                <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
+                                  候補{candidate.order}
+                                </Badge>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                                  <span className="font-medium">{formatDate(candidate.date)}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Clock className="w-4 h-4 text-muted-foreground" />
+                                  <span>{candidate.timeSlot} {candidate.startTime} - {candidate.endTime}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 確定済み店舗の表示 */}
+                    {request.candidate_datetimes?.confirmedStore && (
+                      <div className="p-3 rounded border bg-purple-50 border-purple-200">
+                        <div className="text-sm">
+                          <span className="font-medium text-purple-800">開催店舗: </span>
+                          <span className="text-purple-900">{request.candidate_datetimes.confirmedStore.storeName}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 顧客メモ */}
+                    {request.notes && (
+                      <div className="pt-3 border-t">
+                        <p className="text-sm font-medium mb-2 text-muted-foreground">お客様からのメモ</p>
+                        <p className="text-sm bg-background p-3 rounded border">{request.notes}</p>
+                      </div>
+                    )}
+
+                    {/* 詳細確認ボタン（店舗確認待ちの場合のみ） */}
+                    {request.status === 'gm_confirmed' && (
+                      <div className="pt-3 border-t">
+                        <Button
+                          onClick={() => setSelectedRequest(request)}
+                          className="w-full"
+                          variant="default"
+                        >
+                          詳細確認・承認/却下
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </TabsContent>
+    </Tabs>
       </div>
     </div>
   )
