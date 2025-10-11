@@ -865,7 +865,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                   >
                                     <div className="flex gap-2">
                                       {/* 左カラム: 画像 */}
-                                      <div className="flex-shrink-0 w-[30px] h-10 bg-gray-200 overflow-hidden">
+                                      <div className="flex-shrink-0 w-[23px] h-[30px] bg-gray-200 overflow-hidden">
                                         {event.scenarios?.image_url ? (
                                           <img 
                                             src={event.scenarios.image_url} 
@@ -928,7 +928,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                   >
                                     <div className="flex gap-2">
                                       {/* 左カラム: 画像 */}
-                                      <div className="flex-shrink-0 w-[30px] h-10 bg-gray-200 overflow-hidden">
+                                      <div className="flex-shrink-0 w-[23px] h-[30px] bg-gray-200 overflow-hidden">
                                         {event.scenarios?.image_url ? (
                                           <img 
                                             src={event.scenarios.image_url} 
@@ -991,7 +991,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                   >
                                     <div className="flex gap-2">
                                       {/* 左カラム: 画像 */}
-                                      <div className="flex-shrink-0 w-[30px] h-10 bg-gray-200 overflow-hidden">
+                                      <div className="flex-shrink-0 w-[23px] h-[30px] bg-gray-200 overflow-hidden">
                                         {event.scenarios?.image_url ? (
                                           <img 
                                             src={event.scenarios.image_url} 
