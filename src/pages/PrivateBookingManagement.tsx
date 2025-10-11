@@ -61,6 +61,10 @@ export function PrivateBookingManagement() {
   const [allGMs, setAllGMs] = useState<any[]>([]) // 全GMのリスト（強行選択用）
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
+  const [conflictInfo, setConflictInfo] = useState<{
+    storeDateConflicts: Set<string> // 'storeId-date-timeSlot' の形式
+    gmDateConflicts: Set<string> // 'gmId-date-timeSlot' の形式
+  }>({ storeDateConflicts: new Set(), gmDateConflicts: new Set() })
 
   // ヘルパー関数を先に定義
   const getElapsedTime = (createdAt: string) => {
@@ -170,6 +174,7 @@ export function PrivateBookingManagement() {
   useEffect(() => {
     if (selectedRequest) {
       loadAvailableGMs(selectedRequest.id)
+      loadConflictInfo(selectedRequest.id)
       
       // 確定店舗があればそれを選択、なければ最初の希望店舗を選択
       if (selectedRequest.candidate_datetimes?.confirmedStore) {
@@ -185,6 +190,34 @@ export function PrivateBookingManagement() {
     }
   }, [selectedRequest])
 
+  // 店舗またはGMが変更されたときも競合情報を更新
+  useEffect(() => {
+    if (selectedRequest) {
+      loadConflictInfo(selectedRequest.id)
+      
+      // 選択中の候補日時が競合している場合は選択を解除
+      if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
+        const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
+          c => c.order === selectedCandidateOrder
+        )
+        if (selectedCandidate) {
+          const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${selectedCandidate.date}-${selectedCandidate.timeSlot}` : null
+          const gmConflictKey = selectedGMId ? `${selectedGMId}-${selectedCandidate.date}-${selectedCandidate.timeSlot}` : null
+          
+          // 競合情報の取得完了後にチェック（非同期のため少し待つ）
+          setTimeout(() => {
+            const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
+            const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
+            
+            if (hasStoreConflict || hasGMConflict) {
+              setSelectedCandidateOrder(null)
+            }
+          }, 100)
+        }
+      }
+    }
+  }, [selectedStoreId, selectedGMId])
+
   const loadStores = async () => {
     try {
       const { data, error } = await supabase
@@ -196,6 +229,42 @@ export function PrivateBookingManagement() {
       setStores(data || [])
     } catch (error) {
       console.error('店舗情報取得エラー:', error)
+    }
+  }
+
+  const loadConflictInfo = async (currentRequestId: string) => {
+    try {
+      // 確定済みの予約を全て取得
+      const { data: confirmedReservations, error } = await supabase
+        .from('reservations')
+        .select('id, store_id, gm_staff, candidate_datetimes')
+        .eq('status', 'confirmed')
+        .neq('id', currentRequestId)
+
+      if (error) throw error
+
+      const storeDateConflicts = new Set<string>()
+      const gmDateConflicts = new Set<string>()
+
+      confirmedReservations?.forEach(reservation => {
+        const candidates = reservation.candidate_datetimes?.candidates || []
+        candidates.forEach((candidate: any) => {
+          if (candidate.status === 'confirmed') {
+            // 店舗の競合情報
+            if (reservation.store_id) {
+              storeDateConflicts.add(`${reservation.store_id}-${candidate.date}-${candidate.timeSlot}`)
+            }
+            // GMの競合情報
+            if (reservation.gm_staff) {
+              gmDateConflicts.add(`${reservation.gm_staff}-${candidate.date}-${candidate.timeSlot}`)
+            }
+          }
+        })
+      })
+
+      setConflictInfo({ storeDateConflicts, gmDateConflicts })
+    } catch (error) {
+      console.error('競合情報取得エラー:', error)
     }
   }
 
@@ -380,59 +449,6 @@ export function PrivateBookingManagement() {
         return
       }
 
-      // 重複チェック1: 同じ日時・同じ店舗で確定済みの予約がないか確認
-      const { data: conflictingReservations, error: conflictError } = await supabase
-        .from('reservations')
-        .select('id, reservation_number, candidate_datetimes, store_id')
-        .eq('status', 'confirmed')
-        .eq('store_id', selectedStoreId)
-        .neq('id', requestId) // 現在のリクエストは除外
-
-      if (conflictError) throw conflictError
-
-      // 同じ日付・同じタイムスロットの予約があるかチェック
-      const hasDateConflict = conflictingReservations?.some(reservation => {
-        const confirmedCandidates = reservation.candidate_datetimes?.candidates || []
-        return confirmedCandidates.some((candidate: any) => 
-          candidate.status === 'confirmed' &&
-          candidate.date === selectedCandidate.date &&
-          candidate.timeSlot === selectedCandidate.timeSlot
-        )
-      })
-
-      if (hasDateConflict) {
-        const storeName = stores.find(s => s.id === selectedStoreId)?.name || '選択された店舗'
-        alert(`エラー: ${selectedCandidate.date} ${selectedCandidate.timeSlot} の ${storeName} は既に別の予約で確定済みです。\n\n別の日時または店舗を選択してください。`)
-        setSubmitting(false)
-        return
-      }
-
-      // 重複チェック2: 同じ日時・同じGMで確定済みの予約がないか確認
-      const { data: gmConflictingReservations, error: gmConflictError } = await supabase
-        .from('reservations')
-        .select('id, reservation_number, candidate_datetimes, gm_staff')
-        .eq('status', 'confirmed')
-        .eq('gm_staff', selectedGMId)
-        .neq('id', requestId)
-
-      if (gmConflictError) throw gmConflictError
-
-      const hasGMConflict = gmConflictingReservations?.some(reservation => {
-        const confirmedCandidates = reservation.candidate_datetimes?.candidates || []
-        return confirmedCandidates.some((candidate: any) => 
-          candidate.status === 'confirmed' &&
-          candidate.date === selectedCandidate.date &&
-          candidate.timeSlot === selectedCandidate.timeSlot
-        )
-      })
-
-      if (hasGMConflict) {
-        const gmName = allGMs.find(gm => gm.id === selectedGMId)?.name || '選択されたGM'
-        alert(`エラー: ${selectedCandidate.date} ${selectedCandidate.timeSlot} に ${gmName} は既に別の予約で確定済みです。\n\n別の日時またはGMを選択してください。`)
-        setSubmitting(false)
-        return
-      }
-
       if (!confirm('この貸切リクエストを承認しますか？\n承認後、顧客に通知が送信されます。')) {
         setSubmitting(false)
         return
@@ -612,27 +628,41 @@ export function PrivateBookingManagement() {
                   <div className="space-y-2">
                     {selectedRequest.candidate_datetimes?.candidates?.map((candidate: any) => {
                       const isSelected = selectedCandidateOrder === candidate.order
+                      
+                      // この日時に競合があるかチェック
+                      const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${candidate.date}-${candidate.timeSlot}` : null
+                      const gmConflictKey = selectedGMId ? `${selectedGMId}-${candidate.date}-${candidate.timeSlot}` : null
+                      const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
+                      const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
+                      const hasConflict = hasStoreConflict || hasGMConflict
+                      
                       return (
                         <div
                           key={candidate.order}
-                          onClick={() => setSelectedCandidateOrder(candidate.order)}
-                          className={`flex items-center gap-3 p-3 rounded border-2 cursor-pointer transition-all ${
-                            isSelected
-                              ? 'border-purple-500 bg-purple-50'
-                              : 'border-gray-200 bg-background hover:border-purple-300'
+                          onClick={() => !hasConflict && setSelectedCandidateOrder(candidate.order)}
+                          className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
+                            hasConflict
+                              ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
+                              : isSelected
+                              ? 'border-purple-500 bg-purple-50 cursor-pointer'
+                              : 'border-gray-200 bg-background hover:border-purple-300 cursor-pointer'
                           }`}
                         >
                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            isSelected
+                            hasConflict
+                              ? 'border-red-300 bg-red-100'
+                              : isSelected
                               ? 'border-purple-500 bg-purple-500'
                               : 'border-gray-300'
                           }`}>
-                            {isSelected && (
+                            {hasConflict ? (
+                              <XCircle className="w-4 h-4 text-red-600" />
+                            ) : isSelected ? (
                               <CheckCircle2 className="w-4 h-4 text-white" />
-                            )}
+                            ) : null}
                           </div>
                           <div className="flex-1">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-wrap">
                               <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
                                 候補{candidate.order}
                               </Badge>
@@ -644,6 +674,16 @@ export function PrivateBookingManagement() {
                                 <Clock className="w-4 h-4 text-muted-foreground" />
                                 <span>{candidate.timeSlot} {candidate.startTime} - {candidate.endTime}</span>
                               </div>
+                              {hasStoreConflict && (
+                                <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 text-xs">
+                                  店舗予約済み
+                                </Badge>
+                              )}
+                              {hasGMConflict && (
+                                <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 text-xs">
+                                  GM予約済み
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -674,13 +714,27 @@ export function PrivateBookingManagement() {
                         const isAllStoresRequested = requestedStores.length === 0
                         const isRequested = isAllStoresRequested || requestedStores.some(rs => rs.storeId === store.id)
                         
+                        // この店舗が選択された候補日時で使用可能かチェック
+                        let isStoreDisabled = false
+                        if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
+                          const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
+                            c => c.order === selectedCandidateOrder
+                          )
+                          if (selectedCandidate) {
+                            const conflictKey = `${store.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
+                            isStoreDisabled = conflictInfo.storeDateConflicts.has(conflictKey)
+                          }
+                        }
+                        
                         return (
                           <SelectItem 
                             key={store.id} 
                             value={store.id}
+                            disabled={isStoreDisabled}
                           >
                             {store.name}
                             {isRequested && ' (お客様希望)'}
+                            {isStoreDisabled && ' - 予約済み'}
                           </SelectItem>
                         )
                       })}
@@ -718,14 +772,28 @@ export function PrivateBookingManagement() {
                         const isAvailable = !!availableGM
                         const gmNotes = availableGM?.notes || ''
                         
+                        // このGMが選択された候補日時で使用可能かチェック
+                        let isGMDisabled = false
+                        if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
+                          const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
+                            c => c.order === selectedCandidateOrder
+                          )
+                          if (selectedCandidate) {
+                            const conflictKey = `${gm.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
+                            isGMDisabled = conflictInfo.gmDateConflicts.has(conflictKey)
+                          }
+                        }
+                        
                         return (
                           <SelectItem 
                             key={gm.id} 
                             value={gm.id}
+                            disabled={isGMDisabled}
                           >
                             {gm.name}
                             {isAvailable && ' (担当GM)'}
                             {gmNotes && ` - ${gmNotes}`}
+                            {isGMDisabled && ' - 予約済み'}
                           </SelectItem>
                         )
                       })}
