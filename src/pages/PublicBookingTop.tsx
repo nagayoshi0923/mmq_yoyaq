@@ -289,7 +289,6 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   // リスト表示用のデータ読み込み（データは既にloadScenariosで読み込まれている）
   useEffect(() => {
     if (activeTab === 'list') {
-      console.log('List view active, month:', listViewMonth)
       // データは既にloadScenariosで読み込まれているため、追加の読み込みは不要
     }
   }, [listViewMonth, activeTab])
@@ -374,8 +373,6 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   // リスト表示用：特定の日付・店舗の公演を取得
   const getEventsForDateStore = (date: number, storeId: string) => {
     const dateStr = `${listViewMonth.getFullYear()}-${String(listViewMonth.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
-    console.log(`Looking for events on ${dateStr} at store ${storeId}`)
-    console.log('Available events:', allEvents.filter(event => event.date === dateStr))
     
     const filtered = allEvents.filter((event: any) => {
       const eventStore = event.venue || event.store_id
@@ -386,14 +383,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                           stores.find(s => s.id === storeId)?.short_name === eventStore ||
                           stores.find(s => s.id === storeId)?.name === eventStore
       
-      const matches = event.date === dateStr && storeMatches
-      if (matches) {
-        console.log('Found matching event:', event, 'store:', eventStore, 'looking for:', storeId)
-      }
-      return matches
+      return event.date === dateStr && storeMatches
     })
     
-    console.log(`Found ${filtered.length} events for ${dateStr} at ${storeId}`)
     return filtered
   }
   
@@ -773,11 +765,6 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-
-                {/* デバッグ情報 */}
-                <div className="text-xs text-gray-500 mb-2">
-                  デバッグ: allEvents数: {allEvents.length}, stores数: {stores.length}, 選択月: {listViewMonth.getFullYear()}/{listViewMonth.getMonth() + 1}
                 </div>
                 
                 {/* リスト表示テーブル */}

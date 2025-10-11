@@ -12,6 +12,7 @@ import { PublicBookingTop } from './PublicBookingTop'
 import { ScenarioDetailPage } from './ScenarioDetailPage'
 import { GMAvailabilityCheck } from './GMAvailabilityCheck'
 import { PrivateBookingScenarioSelect } from './PrivateBookingScenarioSelect'
+import { PrivateBookingRequestPage } from './PrivateBookingRequestPage'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -44,6 +45,11 @@ export function AdminDashboard() {
       return 'private-booking-select'
     }
     
+    // 貸切リクエスト確認ページ
+    if (hash.startsWith('private-booking-request')) {
+      return 'private-booking-request'
+    }
+    
     // 顧客ロールの場合は予約サイトをデフォルトに
     if (!hash && user?.role === 'customer') {
       return 'customer-booking'
@@ -53,9 +59,9 @@ export function AdminDashboard() {
   })
   
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(() => {
-    // URLハッシュからシナリオIDを取得（例: #customer-booking/scenario/abc123）
+    // URLハッシュからシナリオIDを取得（例: #customer-booking/scenario/abc123?tab=private）
     const hash = window.location.hash.slice(1)
-    const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/]+)/)
+    const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/?]+)/)
     return scenarioMatch ? scenarioMatch[1] : null
   })
 
@@ -83,8 +89,8 @@ export function AdminDashboard() {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
       
-      // シナリオ詳細ページの場合
-      const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/]+)/)
+      // シナリオ詳細ページの場合（?以降のクエリパラメータは除外）
+      const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/?]+)/)
       if (scenarioMatch) {
         setCurrentPage('customer-booking')
         setSelectedScenarioId(scenarioMatch[1])
@@ -95,6 +101,10 @@ export function AdminDashboard() {
       } else if (hash.startsWith('private-booking-select')) {
         // 貸切申し込みシナリオ選択ページ
         setCurrentPage('private-booking-select')
+        setSelectedScenarioId(null)
+      } else if (hash.startsWith('private-booking-request')) {
+        // 貸切リクエスト確認ページ
+        setCurrentPage('private-booking-request')
         setSelectedScenarioId(null)
       } else {
         // 通常のページ遷移
@@ -179,6 +189,10 @@ export function AdminDashboard() {
   
   if (currentPage === 'private-booking-select') {
     return <PrivateBookingScenarioSelect />
+  }
+  
+  if (currentPage === 'private-booking-request') {
+    return <PrivateBookingRequestPage />
   }
 
   return (

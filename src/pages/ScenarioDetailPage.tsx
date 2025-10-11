@@ -121,6 +121,11 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
   const loadScenarioDetail = async () => {
     try {
+      // scenarioIdが未定義の場合は何もしない
+      if (!scenarioId) {
+        return
+      }
+      
       setIsLoading(true)
       
       // シナリオ詳細を取得

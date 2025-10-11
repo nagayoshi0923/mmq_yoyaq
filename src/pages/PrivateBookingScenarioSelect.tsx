@@ -14,6 +14,8 @@ interface Scenario {
   player_count_min: number
   player_count_max: number
   key_visual_url?: string
+  synopsis?: string
+  genre?: string[]
 }
 
 export function PrivateBookingScenarioSelect() {
@@ -55,8 +57,8 @@ export function PrivateBookingScenarioSelect() {
       return
     }
     
-    // シナリオ詳細ページの貸切リクエストタブへ遷移
-    window.location.hash = `customer-booking/scenario/${selectedScenarioId}?tab=private&date=${preselectedDate}&store=${preselectedStore}&slot=${preselectedSlot}`
+    // 貸切リクエスト確認ページへ遷移
+    window.location.hash = `#private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${preselectedStore}&slot=${preselectedSlot}`
   }
 
   return (
@@ -115,25 +117,69 @@ export function PrivateBookingScenarioSelect() {
             </div>
 
             {/* 選択されたシナリオの詳細 */}
-            {selectedScenarioId && (
-              <div className="bg-muted/30 p-4 rounded-lg space-y-2">
-                {(() => {
-                  const scenario = scenarios.find(s => s.id === selectedScenarioId)
-                  if (!scenario) return null
+            {selectedScenarioId && (() => {
+              const scenario = scenarios.find(s => s.id === selectedScenarioId)
+              if (!scenario) return null
+              
+              return (
+                <div className="border rounded-lg overflow-hidden bg-card">
+                  {/* キービジュアル */}
+                  {scenario.key_visual_url && (
+                    <div className="aspect-video bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden">
+                      <img
+                        src={scenario.key_visual_url}
+                        alt={scenario.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
                   
-                  return (
-                    <>
-                      <h3 className="font-semibold">{scenario.title}</h3>
-                      <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                        <div>作者: {scenario.author}</div>
-                        <div>所要時間: {scenario.duration}分</div>
-                        <div>人数: {scenario.player_count_min}-{scenario.player_count_max}名</div>
+                  {/* シナリオ情報 */}
+                  <div className="p-4 space-y-3">
+                    <div>
+                      <h3 className="font-bold text-lg mb-1">{scenario.title}</h3>
+                      <p className="text-sm text-muted-foreground">作者: {scenario.author}</p>
+                    </div>
+                    
+                    {/* あらすじ */}
+                    {scenario.synopsis && (
+                      <div>
+                        <h4 className="text-sm font-semibold mb-1">あらすじ</h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {scenario.synopsis}
+                        </p>
                       </div>
-                    </>
-                  )
-                })()}
-              </div>
-            )}
+                    )}
+                    
+                    {/* 基本情報 */}
+                    <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+                      <div>
+                        <div className="text-xs text-muted-foreground">所要時間</div>
+                        <div className="text-sm font-medium">{(scenario.duration / 60).toFixed(1)}時間</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">推奨人数</div>
+                        <div className="text-sm font-medium">{scenario.player_count_min}〜{scenario.player_count_max}名</div>
+                      </div>
+                    </div>
+                    
+                    {/* ジャンル */}
+                    {scenario.genre && scenario.genre.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-2">
+                        {scenario.genre.map((g, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-1 text-xs bg-muted rounded-md"
+                          >
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* 確認ボタン */}
             <Button
