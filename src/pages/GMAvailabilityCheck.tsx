@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, CheckCircle2, XCircle } from 'lucide-react'
@@ -39,6 +40,7 @@ interface GMRequest {
   available_candidates: number[]
   notes: string
   reservation_status?: string // 予約全体のステータス（pending, confirmed, etc.）
+  has_other_gm_response?: boolean // 他のGMが既に回答済みか
 }
 
 export function GMAvailabilityCheck() {
@@ -52,6 +54,7 @@ export function GMAvailabilityCheck() {
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
   const [stores, setStores] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
 
   useEffect(() => {
     loadGMRequests()
@@ -304,19 +307,47 @@ export function GMAvailabilityCheck() {
         return
       }
       
+      // 同じreservation_idに対する他のGMの回答をチェック
+      const reservationIds = (responsesData || []).map((r: any) => r.reservation_id).filter(Boolean)
+      
+      let otherGMResponses: Set<string> = new Set()
+      
+      if (reservationIds.length > 0) {
+        const { data: allResponsesData } = await supabase
+          .from('gm_availability_responses')
+          .select('reservation_id, response_status, staff_id')
+          .in('reservation_id', reservationIds)
+          .neq('staff_id', staffId) // 自分以外のGM
+          .in('response_status', ['available', 'all_unavailable']) // 回答済み
+        
+        // 他のGMが回答済みのreservation_idをセットに追加
+        if (allResponsesData) {
+          allResponsesData.forEach((r: any) => {
+            if (r.response_status && r.response_status !== 'pending') {
+              otherGMResponses.add(r.reservation_id)
+            }
+          })
+        }
+      }
+      
       // データを整形
-      const formattedRequests: GMRequest[] = (responsesData || []).map((response: any) => ({
-        id: response.id,
-        reservation_id: response.reservation_id,
-        reservation_number: response.reservations?.reservation_number || '',
-        scenario_title: response.reservations?.title || '',
-        customer_name: response.reservations?.customer_name || '',
-        candidate_datetimes: response.reservations?.candidate_datetimes || { candidates: [] },
-        response_status: response.response_status || 'pending',
-        available_candidates: response.available_candidates || [],
-        notes: response.notes || '',
-        reservation_status: response.reservations?.status || 'pending'
-      }))
+      const formattedRequests: GMRequest[] = (responsesData || []).map((response: any) => {
+        const hasOtherGMResponse = otherGMResponses.has(response.reservation_id)
+        
+        return {
+          id: response.id,
+          reservation_id: response.reservation_id,
+          reservation_number: response.reservations?.reservation_number || '',
+          scenario_title: response.reservations?.title || '',
+          customer_name: response.reservations?.customer_name || '',
+          candidate_datetimes: response.reservations?.candidate_datetimes || { candidates: [] },
+          response_status: response.response_status || 'pending',
+          available_candidates: response.available_candidates || [],
+          notes: response.notes || '',
+          reservation_status: response.reservations?.status || 'pending',
+          has_other_gm_response: hasOtherGMResponse
+        }
+      })
       
       setRequests(formattedRequests)
       
@@ -528,6 +559,17 @@ export function GMAvailabilityCheck() {
     )
   }
 
+  // 未回答のリクエスト：自分が未回答 & 他のGMも未回答 & 予約が確定していない
+  const pendingRequests = requests.filter(r => 
+    r.response_status === 'pending' && 
+    !r.has_other_gm_response &&
+    r.reservation_status !== 'confirmed' &&
+    r.reservation_status !== 'gm_confirmed'
+  )
+  
+  // 全てのリクエスト
+  const allRequests = requests
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -537,21 +579,35 @@ export function GMAvailabilityCheck() {
         <h1 className="text-3xl font-bold mb-2">貸切リクエスト確認</h1>
         <p className="text-muted-foreground mb-6">出勤可能な候補日時を選択してください</p>
 
-        {requests.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              現在確認待ちの貸切リクエストはありません
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {requests.map((request) => {
-              const isResponded = request.response_status !== 'pending'
-              const isConfirmed = request.reservation_status === 'confirmed'
-              const isGMConfirmed = request.reservation_status === 'gm_confirmed'
-              const currentSelections = selectedCandidates[request.id] || []
-              
-              return (
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pending' | 'all')}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="pending">
+              未回答
+              {pendingRequests.length > 0 && (
+                <Badge className="ml-2 bg-purple-600 text-xs px-1.5 py-0">
+                  {pendingRequests.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="all">全て</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="pending">
+            {pendingRequests.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                  現在確認待ちの貸切リクエストはありません
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {pendingRequests.map((request) => {
+                  const isResponded = request.response_status !== 'pending'
+                  const isConfirmed = request.reservation_status === 'confirmed'
+                  const isGMConfirmed = request.reservation_status === 'gm_confirmed'
+                  const currentSelections = selectedCandidates[request.id] || []
+                  
+                  return (
                 <Card key={request.id} className={
                   isConfirmed 
                     ? 'border-blue-200 bg-blue-50/30' 
@@ -799,6 +855,216 @@ export function GMAvailabilityCheck() {
             })}
           </div>
         )}
+      </TabsContent>
+
+      <TabsContent value="all">
+        {allRequests.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center text-muted-foreground">
+              貸切リクエストはありません
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {allRequests.map((request) => {
+              const isResponded = request.response_status !== 'pending'
+              const isConfirmed = request.reservation_status === 'confirmed'
+              const isGMConfirmed = request.reservation_status === 'gm_confirmed'
+              const hasOtherGMResponse = request.has_other_gm_response
+              const currentSelections = selectedCandidates[request.id] || []
+              
+              return (
+                <Card key={request.id} className={
+                  isConfirmed 
+                    ? 'border-blue-200 bg-blue-50/30' 
+                    : isGMConfirmed
+                      ? 'border-orange-200 bg-orange-50/30'
+                      : hasOtherGMResponse
+                        ? 'border-gray-300 bg-gray-100/50'
+                        : isResponded 
+                          ? 'border-green-200 bg-green-50/30' 
+                          : ''
+                }>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-xl">{request.scenario_title}</CardTitle>
+                      <div className="flex gap-2">
+                        {isConfirmed && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+                            確定済み
+                          </Badge>
+                        )}
+                        {isGMConfirmed && (
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+                            店側確認待ち
+                          </Badge>
+                        )}
+                        {hasOtherGMResponse && !isConfirmed && !isGMConfirmed && (
+                          <Badge variant="outline" className="bg-gray-200 text-gray-700 border-gray-300">
+                            他のGMが回答済み
+                          </Badge>
+                        )}
+                        {isResponded && !isConfirmed && !isGMConfirmed && !hasOtherGMResponse && (
+                          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+                            回答済み
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground space-y-1 mt-2">
+                      <div>予約番号: {request.reservation_number}</div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        お客様: {request.customer_name}
+                      </div>
+                      {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span>希望店舗:</span>
+                          {request.candidate_datetimes.requestedStores.map((store: any, index: number) => (
+                            <Badge key={index} variant="outline" className="bg-purple-50 text-purple-800 border-purple-200 text-xs">
+                              {store.storeName}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* 候補日時 */}
+                      <div>
+                        <p className="text-sm font-medium mb-3 text-purple-800">
+                          {isConfirmed ? '確定した候補日時' : 
+                           isGMConfirmed ? '選択した候補日時（店側確認待ち）' : 
+                           hasOtherGMResponse ? '候補日時（他のGMが回答済み）' :
+                           '候補日時'}
+                        </p>
+                        <div className="space-y-2">
+                          {request.candidate_datetimes?.candidates?.map((candidate: any) => {
+                            const isSelected = currentSelections.includes(candidate.order)
+                            
+                            return (
+                              <div
+                                key={candidate.order}
+                                className={`flex items-center gap-3 p-3 rounded border ${
+                                  isConfirmed 
+                                    ? 'bg-gray-50 border-gray-200'
+                                    : isGMConfirmed
+                                      ? 'bg-orange-50 border-orange-200'
+                                      : hasOtherGMResponse
+                                        ? 'bg-gray-100 border-gray-300'
+                                        : isSelected 
+                                          ? 'bg-purple-50 border-purple-300' 
+                                          : 'bg-gray-50 border-gray-200'
+                                }`}
+                              >
+                                {isSelected && !hasOtherGMResponse ? (
+                                  <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                                ) : hasOtherGMResponse ? (
+                                  <XCircle className="w-5 h-5 text-gray-400" />
+                                ) : null}
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3">
+                                    <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
+                                      候補{candidate.order}
+                                    </Badge>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                                      <span className="font-medium">{formatDate(candidate.date)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <Clock className="w-4 h-4 text-muted-foreground" />
+                                      <span>{candidate.timeSlot} {candidate.startTime} - {candidate.endTime}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* 確定済み店舗の表示 */}
+                      {(isConfirmed || isGMConfirmed) && request.candidate_datetimes?.confirmedStore && (
+                        <div className="p-3 rounded border bg-purple-50 border-purple-200">
+                          <div className="text-sm">
+                            <span className="font-medium text-purple-800">開催店舗: </span>
+                            <span className="text-purple-900">{request.candidate_datetimes.confirmedStore.storeName}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 確定済みの表示 */}
+                      {isConfirmed && (
+                        <div className="p-3 rounded border bg-blue-50 border-blue-200">
+                          <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                            <span className="font-medium text-blue-800">
+                              この予約は確定されました
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* GM確認済み（店側確認待ち）の表示 */}
+                      {isGMConfirmed && (
+                        <div className="p-3 rounded border bg-orange-50 border-orange-200">
+                          <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-orange-600" />
+                            <span className="font-medium text-orange-800">
+                              GMの確認は完了しました。店側で最終的な開催日を決定します。
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 他のGMが回答済みの表示 */}
+                      {hasOtherGMResponse && !isConfirmed && !isGMConfirmed && (
+                        <div className="p-3 rounded border bg-gray-100 border-gray-300">
+                          <div className="flex items-center gap-2 text-sm">
+                            <XCircle className="w-4 h-4 text-gray-600" />
+                            <span className="font-medium text-gray-700">
+                              他のGMが既に回答しているため、このリクエストは閉じられました
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 回答済みの表示（未確定・GM確認済み以外） */}
+                      {isResponded && !isConfirmed && !isGMConfirmed && !hasOtherGMResponse && (
+                        <div className={`p-3 rounded border ${
+                          request.response_status === 'available' 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-gray-50 border-gray-200'
+                        }`}>
+                          <div className="flex items-center gap-2 text-sm">
+                            {request.response_status === 'available' ? (
+                              <>
+                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                <span className="font-medium text-green-800">
+                                  回答済み：候補{request.available_candidates.join(', ')}が出勤可能
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="w-4 h-4 text-gray-600" />
+                                <span className="font-medium text-gray-800">
+                                  回答済み：すべて出勤不可
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </TabsContent>
+    </Tabs>
       </div>
     </div>
   )
