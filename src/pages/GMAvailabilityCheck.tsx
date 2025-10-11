@@ -713,62 +713,30 @@ export function GMAvailabilityCheck() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {/* 開催店舗（強調表示） */}
-                      {!isConfirmed && !isGMConfirmed && (request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0) && (
-                        <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg shadow-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                            <div className="text-base font-bold text-blue-900">
-                              開催予定店舗を確認してください
+                      {/* 開催予定店舗 */}
+                      <div className="mb-4">
+                        <div className="text-sm text-muted-foreground mb-1">開催予定店舗</div>
+                        {request.candidate_datetimes?.confirmedStore ? (
+                          <div className="font-medium">{request.candidate_datetimes.confirmedStore.storeName}</div>
+                        ) : request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 ? (
+                          <>
+                            <div className="flex gap-2 flex-wrap">
+                              {request.candidate_datetimes?.requestedStores?.map((store: any, index: number) => (
+                                <span key={index} className="font-medium">
+                                  {store.storeName}{index < (request.candidate_datetimes?.requestedStores?.length || 0) - 1 ? ' / ' : ''}
+                                </span>
+                              ))}
                             </div>
-                          </div>
-                          <div className="flex gap-2 flex-wrap mb-3">
-                            {request.candidate_datetimes.requestedStores.map((store: any, index: number) => (
-                              <Badge key={index} className="bg-blue-600 text-white text-sm px-3 py-1">
-                                {store.storeName}
-                              </Badge>
-                            ))}
-                          </div>
-                          {request.candidate_datetimes.requestedStores.length === 1 && (
-                            <div className="text-sm text-blue-800 bg-blue-50 p-2 rounded">
-                              ℹ️ お客様は<strong>1店舗のみ</strong>を希望されています
-                            </div>
-                          )}
-                          {request.candidate_datetimes.requestedStores.length > 1 && (
-                            <div className="text-sm text-blue-800 bg-blue-50 p-2 rounded">
-                              ℹ️ お客様は<strong>複数店舗</strong>を許可されています（最終店舗は店舗管理者が決定します）
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* 確定店舗（回答済み・確定済みの場合） */}
-                      {(isConfirmed || isGMConfirmed) && request.candidate_datetimes?.confirmedStore && (
-                        <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
-                          <div className="text-base font-bold text-purple-900 mb-2">
-                            確定店舗
-                          </div>
-                          <Badge className="bg-purple-600 text-white text-sm px-3 py-1">
-                            {request.candidate_datetimes.confirmedStore.storeName}
-                          </Badge>
-                        </div>
-                      )}
-                      
-                      {/* 回答済みだが確定店舗がない場合は希望店舗を表示 */}
-                      {(isConfirmed || isGMConfirmed) && !request.candidate_datetimes?.confirmedStore && request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
-                        <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                          <div className="text-base font-bold text-blue-900 mb-2">
-                            開催予定店舗
-                          </div>
-                          <div className="flex gap-2 flex-wrap">
-                            {request.candidate_datetimes.requestedStores.map((store: any, index: number) => (
-                              <Badge key={index} className="bg-blue-600 text-white text-sm px-3 py-1">
-                                {store.storeName}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                            {(request.candidate_datetimes?.requestedStores?.length || 0) > 1 && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                ※ 最終店舗は店舗管理者が決定します
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-muted-foreground">店舗未定（店舗管理者が決定します）</div>
+                        )}
+                      </div>
 
                       {/* 候補日時 */}
                       <div>
@@ -1069,62 +1037,30 @@ export function GMAvailabilityCheck() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {/* 開催店舗（未回答の場合は強調表示） */}
-                      {!isConfirmed && !isGMConfirmed && !hasOtherGMResponse && (request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0) && (
-                        <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg shadow-sm">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                            <div className="text-base font-bold text-blue-900">
-                              開催予定店舗を確認してください
+                      {/* 開催予定店舗 */}
+                      <div className="mb-4">
+                        <div className="text-sm text-muted-foreground mb-1">開催予定店舗</div>
+                        {request.candidate_datetimes?.confirmedStore ? (
+                          <div className="font-medium">{request.candidate_datetimes.confirmedStore.storeName}</div>
+                        ) : request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 ? (
+                          <>
+                            <div className="flex gap-2 flex-wrap">
+                              {request.candidate_datetimes?.requestedStores?.map((store: any, index: number) => (
+                                <span key={index} className="font-medium">
+                                  {store.storeName}{index < (request.candidate_datetimes?.requestedStores?.length || 0) - 1 ? ' / ' : ''}
+                                </span>
+                              ))}
                             </div>
-                          </div>
-                          <div className="flex gap-2 flex-wrap mb-3">
-                            {request.candidate_datetimes.requestedStores.map((store: any, index: number) => (
-                              <Badge key={index} className="bg-blue-600 text-white text-sm px-3 py-1">
-                                {store.storeName}
-                              </Badge>
-                            ))}
-                          </div>
-                          {request.candidate_datetimes.requestedStores.length === 1 && (
-                            <div className="text-sm text-blue-800 bg-blue-50 p-2 rounded">
-                              ℹ️ お客様は<strong>1店舗のみ</strong>を希望されています
-                            </div>
-                          )}
-                          {request.candidate_datetimes.requestedStores.length > 1 && (
-                            <div className="text-sm text-blue-800 bg-blue-50 p-2 rounded">
-                              ℹ️ お客様は<strong>複数店舗</strong>を許可されています（最終店舗は店舗管理者が決定します）
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* 確定店舗（回答済み・確定済みの場合） */}
-                      {(isConfirmed || isGMConfirmed) && request.candidate_datetimes?.confirmedStore && (
-                        <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
-                          <div className="text-base font-bold text-purple-900 mb-2">
-                            確定店舗
-                          </div>
-                          <Badge className="bg-purple-600 text-white text-sm px-3 py-1">
-                            {request.candidate_datetimes.confirmedStore.storeName}
-                          </Badge>
-                        </div>
-                      )}
-                      
-                      {/* 回答済みだが確定店舗がない場合、または他のGMが回答済みの場合は希望店舗を表示 */}
-                      {((isConfirmed || isGMConfirmed || hasOtherGMResponse) && !request.candidate_datetimes?.confirmedStore && request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0) && (
-                        <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                          <div className="text-base font-bold text-blue-900 mb-2">
-                            開催予定店舗
-                          </div>
-                          <div className="flex gap-2 flex-wrap">
-                            {request.candidate_datetimes.requestedStores.map((store: any, index: number) => (
-                              <Badge key={index} className="bg-blue-600 text-white text-sm px-3 py-1">
-                                {store.storeName}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                            {(request.candidate_datetimes?.requestedStores?.length || 0) > 1 && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                ※ 最終店舗は店舗管理者が決定します
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-muted-foreground">店舗未定（店舗管理者が決定します）</div>
+                        )}
+                      </div>
 
                       {/* 候補日時 */}
                       <div>
