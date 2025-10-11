@@ -42,6 +42,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     // URLハッシュから初期タブを決定
     const hash = window.location.hash
     if (hash.includes('calendar')) return 'calendar'
+    if (hash.includes('list')) return 'list'
     return 'lineup'
   })
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -61,6 +62,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     setActiveTab(value)
     if (value === 'calendar') {
       window.location.hash = 'customer-booking/calendar'
+    } else if (value === 'list') {
+      window.location.hash = 'customer-booking/list'
     } else {
       window.location.hash = 'customer-booking'
     }
@@ -282,6 +285,14 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       return newDate
     })
   }
+
+  // リスト表示用のデータ読み込み（データは既にloadScenariosで読み込まれている）
+  useEffect(() => {
+    if (activeTab === 'list') {
+      console.log('List view active, month:', listViewMonth)
+      // データは既にloadScenariosで読み込まれているため、追加の読み込みは不要
+    }
+  }, [listViewMonth, activeTab])
   
   // カレンダー用：月の日付を生成（月曜始まり）
   const generateCalendarDays = () => {
@@ -363,10 +374,27 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   // リスト表示用：特定の日付・店舗の公演を取得
   const getEventsForDateStore = (date: number, storeId: string) => {
     const dateStr = `${listViewMonth.getFullYear()}-${String(listViewMonth.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
-    return allEvents.filter((event: any) => {
+    console.log(`Looking for events on ${dateStr} at store ${storeId}`)
+    console.log('Available events:', allEvents.filter(event => event.date === dateStr))
+    
+    const filtered = allEvents.filter((event: any) => {
       const eventStore = event.venue || event.store_id
-      return event.date === dateStr && eventStore === storeId
+      // より柔軟な店舗照合（ID、short_name、nameで照合）
+      const storeMatches = eventStore === storeId || 
+                          eventStore === stores.find(s => s.id === storeId)?.short_name ||
+                          eventStore === stores.find(s => s.id === storeId)?.name ||
+                          stores.find(s => s.id === storeId)?.short_name === eventStore ||
+                          stores.find(s => s.id === storeId)?.name === eventStore
+      
+      const matches = event.date === dateStr && storeMatches
+      if (matches) {
+        console.log('Found matching event:', event, 'store:', eventStore, 'looking for:', storeId)
+      }
+      return matches
     })
+    
+    console.log(`Found ${filtered.length} events for ${dateStr} at ${storeId}`)
+    return filtered
   }
   
   // 店舗名を取得
@@ -747,6 +775,11 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                   </Select>
                 </div>
 
+                {/* デバッグ情報 */}
+                <div className="text-xs text-gray-500 mb-2">
+                  デバッグ: allEvents数: {allEvents.length}, stores数: {stores.length}, 選択月: {listViewMonth.getFullYear()}/{listViewMonth.getMonth() + 1}
+                </div>
+                
                 {/* リスト表示テーブル */}
                 <Table>
                   <TableHeader>
@@ -754,9 +787,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                       <TableHead className="w-20 border-r">日付</TableHead>
                       <TableHead className="w-16 border-r">曜日</TableHead>
                       <TableHead className="w-20 border-r">会場</TableHead>
-                      <TableHead className="w-60">午前 (~12:00)</TableHead>
-                      <TableHead className="w-60">午後 (12:00-17:00)</TableHead>
-                      <TableHead className="w-60">夜間 (17:00~)</TableHead>
+                      <TableHead style={{ width: '192px' }}>午前 (~12:00)</TableHead>
+                      <TableHead style={{ width: '192px' }}>午後 (12:00-17:00)</TableHead>
+                      <TableHead style={{ width: '192px' }}>夜間 (17:00~)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -780,17 +813,17 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                       })
                       
                       return (
-                        <TableRow key={`${date}-${store.id}`} className="h-16">
+                        <TableRow key={`${date}-${store.id}`}>
                           {/* 日付セル */}
                           {index === 0 || generateListViewData()[index - 1]?.date !== date ? (
-                            <TableCell className="schedule-table-cell border-r text-sm" rowSpan={stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length}>
+                            <TableCell className="schedule-table-cell border-r text-sm align-top" rowSpan={stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length}>
                               {listViewMonth.getMonth() + 1}/{date}
                             </TableCell>
                           ) : null}
                           
                           {/* 曜日セル */}
                           {index === 0 || generateListViewData()[index - 1]?.date !== date ? (
-                            <TableCell className={`schedule-table-cell border-r text-sm ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length}>
+                            <TableCell className={`schedule-table-cell border-r text-sm align-top ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length}>
                               {dayOfWeek}
                             </TableCell>
                           ) : null}
@@ -803,8 +836,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                           </TableCell>
                           
                           {/* 午前セル */}
-                          <TableCell className="schedule-table-cell">
-                            <div className="space-y-0.5">
+                          <TableCell className="schedule-table-cell p-0" style={{ width: '192px' }}>
+                            <div className="flex flex-col gap-2">
                               {morningEvents.map((event: any, idx: number) => {
                                 const available = (event.max_participants || 8) - (event.current_participants || 0)
                                 const isFull = available === 0
@@ -813,10 +846,12 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                 return (
                                   <div
                                     key={idx}
-                                    className="text-xs p-1 rounded cursor-pointer hover:shadow-md transition-shadow border-l-2"
+                                    className="text-xs cursor-pointer hover:shadow-md transition-shadow border-l-2"
                                     style={{
                                       borderLeftColor: isFull ? '#9CA3AF' : storeColor,
-                                      backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`
+                                      backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
+                                      padding: '4px 6px',
+                                      display: 'block'
                                     }}
                                     onClick={() => {
                                       const scenario = scenarios.find((s: any) => 
@@ -826,19 +861,17 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                       if (scenario) handleCardClick(scenario.scenario_id)
                                     }}
                                   >
-                                    <div className="flex items-start gap-0">
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between">
-                                          <div className="font-semibold truncate text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
-                                            {event.start_time?.slice(0, 5)}
-                                          </div>
-                                          <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                            {isFull ? '満席' : `残${available}席`}
-                                          </div>
+                                    <div className="flex flex-col gap-0">
+                                      <div className="flex items-center justify-between">
+                                        <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                          {event.start_time?.slice(0, 5)}
                                         </div>
-                                        <div className="text-[11px] font-medium text-gray-800 leading-tight truncate">
-                                          {event.scenario || event.scenarios?.title}
+                                        <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                          {isFull ? '満席' : `残${available}席`}
                                         </div>
+                                      </div>
+                                      <div className="text-[11px] font-medium text-gray-800 leading-tight">
+                                        {event.scenario || event.scenarios?.title}
                                       </div>
                                     </div>
                                   </div>
@@ -848,8 +881,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                           </TableCell>
                           
                           {/* 午後セル */}
-                          <TableCell className="schedule-table-cell">
-                            <div className="space-y-0.5">
+                          <TableCell className="schedule-table-cell p-0" style={{ width: '192px' }}>
+                            <div className="flex flex-col gap-2">
                               {afternoonEvents.map((event: any, idx: number) => {
                                 const available = (event.max_participants || 8) - (event.current_participants || 0)
                                 const isFull = available === 0
@@ -858,10 +891,12 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                 return (
                                   <div
                                     key={idx}
-                                    className="text-xs p-1 rounded cursor-pointer hover:shadow-md transition-shadow border-l-2"
+                                    className="text-xs cursor-pointer hover:shadow-md transition-shadow border-l-2"
                                     style={{
                                       borderLeftColor: isFull ? '#9CA3AF' : storeColor,
-                                      backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`
+                                      backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
+                                      padding: '4px 6px',
+                                      display: 'block'
                                     }}
                                     onClick={() => {
                                       const scenario = scenarios.find((s: any) => 
@@ -871,19 +906,17 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                       if (scenario) handleCardClick(scenario.scenario_id)
                                     }}
                                   >
-                                    <div className="flex items-start gap-0">
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between">
-                                          <div className="font-semibold truncate text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
-                                            {event.start_time?.slice(0, 5)}
-                                          </div>
-                                          <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                            {isFull ? '満席' : `残${available}席`}
-                                          </div>
+                                    <div className="flex flex-col gap-0">
+                                      <div className="flex items-center justify-between">
+                                        <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                          {event.start_time?.slice(0, 5)}
                                         </div>
-                                        <div className="text-[11px] font-medium text-gray-800 leading-tight truncate">
-                                          {event.scenario || event.scenarios?.title}
+                                        <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                          {isFull ? '満席' : `残${available}席`}
                                         </div>
+                                      </div>
+                                      <div className="text-[11px] font-medium text-gray-800 leading-tight">
+                                        {event.scenario || event.scenarios?.title}
                                       </div>
                                     </div>
                                   </div>
@@ -893,8 +926,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                           </TableCell>
                           
                           {/* 夜間セル */}
-                          <TableCell className="schedule-table-cell">
-                            <div className="space-y-0.5">
+                          <TableCell className="schedule-table-cell p-0" style={{ width: '192px' }}>
+                            <div className="flex flex-col gap-2">
                               {eveningEvents.map((event: any, idx: number) => {
                                 const available = (event.max_participants || 8) - (event.current_participants || 0)
                                 const isFull = available === 0
@@ -903,10 +936,12 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                 return (
                                   <div
                                     key={idx}
-                                    className="text-xs p-1 rounded cursor-pointer hover:shadow-md transition-shadow border-l-2"
+                                    className="text-xs cursor-pointer hover:shadow-md transition-shadow border-l-2"
                                     style={{
                                       borderLeftColor: isFull ? '#9CA3AF' : storeColor,
-                                      backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`
+                                      backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
+                                      padding: '4px 6px',
+                                      display: 'block'
                                     }}
                                     onClick={() => {
                                       const scenario = scenarios.find((s: any) => 
@@ -916,19 +951,17 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                       if (scenario) handleCardClick(scenario.scenario_id)
                                     }}
                                   >
-                                    <div className="flex items-start gap-0">
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between">
-                                          <div className="font-semibold truncate text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
-                                            {event.start_time?.slice(0, 5)}
-                                          </div>
-                                          <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                                            {isFull ? '満席' : `残${available}席`}
-                                          </div>
+                                    <div className="flex flex-col gap-0">
+                                      <div className="flex items-center justify-between">
+                                        <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                          {event.start_time?.slice(0, 5)}
                                         </div>
-                                        <div className="text-[11px] font-medium text-gray-800 leading-tight truncate">
-                                          {event.scenario || event.scenarios?.title}
+                                        <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                          {isFull ? '満席' : `残${available}席`}
                                         </div>
+                                      </div>
+                                      <div className="text-[11px] font-medium text-gray-800 leading-tight">
+                                        {event.scenario || event.scenarios?.title}
                                       </div>
                                     </div>
                                   </div>
