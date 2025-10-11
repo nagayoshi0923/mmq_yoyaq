@@ -889,7 +889,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                             {isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
-                                        <div className="text-[11px] font-medium leading-tight text-left" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                        <div className="text-[11px] font-medium leading-tight text-left text-gray-800">
                                           {event.scenario || event.scenarios?.title}
                                         </div>
                                       </div>
@@ -952,7 +952,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                             {isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
-                                        <div className="text-[11px] font-medium leading-tight text-left" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                        <div className="text-[11px] font-medium leading-tight text-left text-gray-800">
                                           {event.scenario || event.scenarios?.title}
                                         </div>
                                       </div>
@@ -1015,7 +1015,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                             {isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
-                                        <div className="text-[11px] font-medium leading-tight text-left" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                        <div className="text-[11px] font-medium leading-tight text-left text-gray-800">
                                           {event.scenario || event.scenarios?.title}
                                         </div>
                                       </div>
