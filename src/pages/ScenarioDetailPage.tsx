@@ -156,14 +156,32 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
           return isMatchingScenario && isEnabled && isNotCancelled && isOpen
         })
         .map((event: any) => {
-          const store = storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue)
+          // 店舗IDまたはshort_nameで検索（store_idを優先）
+          const store = storesData.find((s: any) => 
+            s.id === event.store_id || 
+            s.id === event.venue || 
+            s.short_name === event.venue
+          )
           const available = (event.max_participants || 8) - (event.current_participants || 0)
           
           // 店舗カラーを取得（色名から実際の色コードに変換）
           const storeColor = store?.color ? getColorFromName(store.color) : '#6B7280'
           
-          // デバッグ用（必要に応じてコメントアウト）
-          // console.log('店舗カラー変換:', { storeName: store?.name, colorName: store?.color, finalColor: storeColor })
+          // デバッグ用：店舗が見つからない場合のログ
+          if (!store) {
+            console.warn('店舗が見つかりません:', { 
+              event_id: event.id, 
+              store_id: event.store_id, 
+              venue: event.venue,
+              availableStores: storesData.map(s => ({ id: s.id, short_name: s.short_name }))
+            })
+          }
+          if (store && !store.color) {
+            console.warn('店舗カラーが設定されていません:', { 
+              store_id: store.id, 
+              store_name: store.name 
+            })
+          }
           
           return {
             event_id: event.id,
