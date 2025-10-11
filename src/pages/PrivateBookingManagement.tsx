@@ -172,50 +172,60 @@ export function PrivateBookingManagement() {
   }, [activeTab])
 
   useEffect(() => {
-    if (selectedRequest) {
-      loadAvailableGMs(selectedRequest.id)
-      loadConflictInfo(selectedRequest.id)
-      
-      // 確定店舗があればそれを選択、なければ最初の希望店舗を選択
-      if (selectedRequest.candidate_datetimes?.confirmedStore) {
-        setSelectedStoreId(selectedRequest.candidate_datetimes.confirmedStore.storeId)
-      } else if (selectedRequest.candidate_datetimes?.requestedStores && selectedRequest.candidate_datetimes.requestedStores.length > 0) {
-        setSelectedStoreId(selectedRequest.candidate_datetimes.requestedStores[0].storeId)
-      }
-      
-      // 最初の候補日時を選択
-      if (selectedRequest.candidate_datetimes?.candidates && selectedRequest.candidate_datetimes.candidates.length > 0) {
-        setSelectedCandidateOrder(selectedRequest.candidate_datetimes.candidates[0].order)
+    const initializeRequest = async () => {
+      if (selectedRequest) {
+        // データロード
+        loadAvailableGMs(selectedRequest.id)
+        await loadConflictInfo(selectedRequest.id)
+        
+        // 確定店舗があればそれを選択、なければ最初の希望店舗を選択
+        if (selectedRequest.candidate_datetimes?.confirmedStore) {
+          setSelectedStoreId(selectedRequest.candidate_datetimes.confirmedStore.storeId)
+        } else if (selectedRequest.candidate_datetimes?.requestedStores && selectedRequest.candidate_datetimes.requestedStores.length > 0) {
+          setSelectedStoreId(selectedRequest.candidate_datetimes.requestedStores[0].storeId)
+        }
+        
+        // 競合情報ロード完了後に少し待ってから選択可能な候補を自動選択
+        setTimeout(() => {
+          selectFirstAvailableCandidate()
+        }, 150)
       }
     }
+    
+    initializeRequest()
   }, [selectedRequest])
 
   // 店舗またはGMが変更されたときも競合情報を更新
   useEffect(() => {
-    if (selectedRequest) {
-      loadConflictInfo(selectedRequest.id)
-      
-      // 選択中の候補日時が競合している場合は選択を解除
-      if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
-        const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
-          c => c.order === selectedCandidateOrder
-        )
-        if (selectedCandidate) {
-          const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${selectedCandidate.date}-${selectedCandidate.timeSlot}` : null
-          const gmConflictKey = selectedGMId ? `${selectedGMId}-${selectedCandidate.date}-${selectedCandidate.timeSlot}` : null
-          
-          // 競合情報の取得完了後にチェック（非同期のため少し待つ）
-          setTimeout(() => {
-            const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
-            const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
+    const updateConflictsAndReselect = async () => {
+      if (selectedRequest) {
+        await loadConflictInfo(selectedRequest.id)
+        
+        // 選択中の候補日時が競合している場合は、選択可能な候補を自動選択
+        if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
+          const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
+            c => c.order === selectedCandidateOrder
+          )
+          if (selectedCandidate) {
+            const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${selectedCandidate.date}-${selectedCandidate.timeSlot}` : null
+            const gmConflictKey = selectedGMId ? `${selectedGMId}-${selectedCandidate.date}-${selectedCandidate.timeSlot}` : null
             
-            if (hasStoreConflict || hasGMConflict) {
-              setSelectedCandidateOrder(null)
-            }
-          }, 100)
+            // 競合情報の取得完了後にチェック（非同期のため少し待つ）
+            setTimeout(() => {
+              const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
+              const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
+              
+              if (hasStoreConflict || hasGMConflict) {
+                // 競合がある場合、選択可能な候補を自動選択
+                selectFirstAvailableCandidate()
+              }
+            }, 100)
+          }
         }
       }
     }
+    
+    updateConflictsAndReselect()
   }, [selectedStoreId, selectedGMId])
 
   const loadStores = async () => {
@@ -265,6 +275,31 @@ export function PrivateBookingManagement() {
       setConflictInfo({ storeDateConflicts, gmDateConflicts })
     } catch (error) {
       console.error('競合情報取得エラー:', error)
+    }
+  }
+
+  // 選択可能な最初の候補日時を自動選択
+  const selectFirstAvailableCandidate = () => {
+    if (!selectedRequest?.candidate_datetimes?.candidates) return
+    
+    // 全ての候補をチェックして、競合していない最初の候補を選択
+    for (const candidate of selectedRequest.candidate_datetimes.candidates) {
+      const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${candidate.date}-${candidate.timeSlot}` : null
+      const gmConflictKey = selectedGMId ? `${selectedGMId}-${candidate.date}-${candidate.timeSlot}` : null
+      
+      const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
+      const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
+      
+      // 競合がない候補を見つけたら選択
+      if (!hasStoreConflict && !hasGMConflict) {
+        setSelectedCandidateOrder(candidate.order)
+        return
+      }
+    }
+    
+    // 全て競合している場合は、最初の候補を選択
+    if (selectedRequest.candidate_datetimes.candidates.length > 0) {
+      setSelectedCandidateOrder(selectedRequest.candidate_datetimes.candidates[0].order)
     }
   }
 
