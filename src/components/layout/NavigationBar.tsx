@@ -10,7 +10,8 @@ import {
   Package, 
   CreditCard,
   Clock,
-  Settings
+  Settings,
+  ClipboardCheck
 } from 'lucide-react'
 
 interface NavigationBarProps {
@@ -29,6 +30,7 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
     { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin', 'staff'] },
     { id: 'shift-submission', label: 'シフト提出', icon: Clock, roles: ['admin', 'staff'] },
     { id: 'gm-availability', label: 'GM確認', icon: Clock, roles: ['admin', 'staff'] },
+    { id: 'private-booking-management', label: '貸切確認', icon: ClipboardCheck, roles: ['admin', 'staff'] },
     { id: 'customer-booking', label: '予約サイト', icon: Calendar, roles: ['admin', 'staff', 'customer'] },
     { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin', 'staff'] },
     { id: 'customers', label: '顧客', icon: Users, roles: ['admin', 'staff'] },
