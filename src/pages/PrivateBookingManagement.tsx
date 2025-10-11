@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext'
 interface PrivateBookingRequest {
   id: string
   reservation_number: string
+  scenario_id?: string
   scenario_title: string
   customer_name: string
   customer_email: string
@@ -191,37 +192,69 @@ export function PrivateBookingManagement() {
 
   const loadAvailableGMs = async (reservationId: string) => {
     try {
-      // gm_availability_responsesから対応可能なGMを取得
-      const { data, error } = await supabase
+      console.log('🔍 GMを検索中... reservation_id:', reservationId)
+      
+      // まず、このリクエストのシナリオIDを取得
+      const request = requests.find(r => r.id === reservationId)
+      console.log('🔍 選択されたリクエスト:', request)
+      console.log('🔍 scenario_id:', request?.scenario_id)
+      console.log('🔍 リクエストの全キー:', request ? Object.keys(request) : 'なし')
+      
+      if (!request?.scenario_id) {
+        console.log('🔍 シナリオIDが見つかりません')
+        setAvailableGMs([])
+        return
+      }
+      
+      // シナリオの担当GMを取得（staff_scenario_assignments）
+      const { data: assignmentData, error: assignmentError } = await supabase
+        .from('staff_scenario_assignments')
+        .select('staff_id, staff:staff_id(id, name)')
+        .eq('scenario_id', request.scenario_id)
+      
+      console.log('🔍 シナリオ担当GM取得結果:', { assignmentData, assignmentError })
+      
+      // 対応可能と回答したGMも取得
+      const { data: availableData, error: availableError } = await supabase
         .from('gm_availability_responses')
-        .select(`
-          id,
-          staff_id,
-          response_status,
-          available_candidates,
-          notes,
-          staff:staff_id (
-            id,
-            name
-          )
-        `)
+        .select('staff_id, available_candidates, notes')
         .eq('reservation_id', reservationId)
         .eq('response_status', 'available')
-
-      if (error) throw error
-
-      const gms = (data || []).map((response: any) => ({
-        id: response.staff_id,
-        name: response.staff?.name || '名前不明',
-        available_candidates: response.available_candidates || [],
-        notes: response.notes || ''
-      }))
-
-      setAvailableGMs(gms)
+      
+      console.log('🔍 対応可能と回答したGM:', { availableData, availableError })
+      
+      // 担当GMのIDリストを作成
+      const assignedGMIds = (assignmentData || []).map((a: any) => a.staff_id)
+      
+      // 対応可能GMの情報をマップに変換
+      const availableGMMap = new Map(
+        (availableData || []).map((a: any) => [
+          a.staff_id,
+          {
+            available_candidates: a.available_candidates || [],
+            notes: a.notes || ''
+          }
+        ])
+      )
+      
+      // ハイライト対象のGMを作成（担当GM + 対応可能GM）
+      const highlightGMs = allGMs
+        .filter(gm => assignedGMIds.includes(gm.id) || availableGMMap.has(gm.id))
+        .map(gm => ({
+          id: gm.id,
+          name: gm.name,
+          available_candidates: availableGMMap.get(gm.id)?.available_candidates || [],
+          notes: availableGMMap.get(gm.id)?.notes || '',
+          isAssigned: assignedGMIds.includes(gm.id),
+          isAvailable: availableGMMap.has(gm.id)
+        }))
+      
+      console.log('🔍 ハイライト対象GM:', highlightGMs)
+      setAvailableGMs(highlightGMs)
       
       // デフォルトで最初のGMを選択
-      if (gms.length > 0) {
-        setSelectedGMId(gms[0].id)
+      if (highlightGMs.length > 0) {
+        setSelectedGMId(highlightGMs[0].id)
       }
     } catch (error) {
       console.error('GM情報取得エラー:', error)
@@ -267,6 +300,7 @@ export function PrivateBookingManagement() {
       const formattedData: PrivateBookingRequest[] = (data || []).map((req: any) => ({
         id: req.id,
         reservation_number: req.reservation_number || '',
+        scenario_id: req.scenario_id,
         scenario_title: req.scenarios?.title || req.title || 'シナリオ名不明',
         customer_name: req.customers?.name || '顧客名不明',
         customer_email: req.customer_email || '',
@@ -531,7 +565,7 @@ export function PrivateBookingManagement() {
                           <SelectItem 
                             key={store.id} 
                             value={store.id}
-                            className={isRequested ? 'bg-purple-100' : ''}
+                            className={isRequested ? 'bg-purple-200 data-[highlighted]:bg-purple-300' : ''}
                           >
                             {store.name}
                             {isRequested && ' ✓ (お客様希望)'}
@@ -569,11 +603,20 @@ export function PrivateBookingManagement() {
                         const availableGM = availableGMs.find(ag => ag.id === gm.id)
                         const isAvailable = !!availableGM
                         
+                        if (gm.id === allGMs[0]?.id) {
+                          console.log(`🔍 ${gm.name}のハイライト判定:`, {
+                            gmId: gm.id,
+                            availableGM,
+                            isAvailable,
+                            className: isAvailable ? 'bg-purple-200' : 'なし'
+                          })
+                        }
+                        
                         return (
                           <SelectItem 
                             key={gm.id} 
                             value={gm.id}
-                            className={isAvailable ? 'bg-purple-100' : ''}
+                            className={isAvailable ? 'bg-purple-200 data-[highlighted]:bg-purple-300' : ''}
                           >
                             {gm.name}
                             {isAvailable && ` ✓ (対応可能: 候補${availableGM.available_candidates?.join(', ')})`}
