@@ -363,13 +363,9 @@ export const scheduleApi = {
             
             // 指定月の範囲内かチェック
             if (candidateDateStr >= startDate && candidateDateStr <= endDate) {
-              // タイムスロットから時間を取得
-              const timeSlotMap: any = {
-                '朝': { start: '09:00:00', end: '12:00:00' },
-                '午後': { start: '12:00:00', end: '17:00:00' },
-                '夜': { start: '18:00:00', end: '21:00:00' }
-              }
-              const timeSlot = timeSlotMap[candidate.timeSlot] || { start: '18:00:00', end: '21:00:00' }
+              // 候補の実際の時間を使用（startTime, endTimeがある場合）
+              const startTime = candidate.startTime || '18:00:00'
+              const endTime = candidate.endTime || '21:00:00'
               
               // GMの名前を取得
               let gmNames: string[] = []
@@ -391,8 +387,8 @@ export const scheduleApi = {
                 store_id: booking.store_id,
                 scenario: booking.scenarios?.title || '',
                 scenario_id: booking.scenario_id,
-                start_time: timeSlot.start,
-                end_time: timeSlot.end,
+                start_time: startTime,
+                end_time: endTime,
                 category: 'private',
                 is_cancelled: false,
                 is_reservation_enabled: true, // 貸切公演は常に公開中

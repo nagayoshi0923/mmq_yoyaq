@@ -542,8 +542,8 @@ export function ScheduleManager() {
   const getTimeSlot = (startTime: string) => {
     const hour = parseInt(startTime.split(':')[0])
     if (hour < 12) return 'morning'      // 0-11時 → 朝
-    if (hour < 19) return 'afternoon'    // 12-18時 → 昼
-    return 'evening'                     // 19時以降 → 夜
+    if (hour < 18) return 'afternoon'    // 12-17時 → 昼
+    return 'evening'                     // 18時以降 → 夜
   }
 
   // 特定の日付・店舗・時間帯の公演を取得
@@ -551,7 +551,8 @@ export function ScheduleManager() {
     return events.filter(event => {
       // 日付とタイムスロットが一致するかチェック
       const dateMatch = event.date === date
-      const timeSlotMatch = getTimeSlot(event.start_time) === timeSlot
+      const detectedTimeSlot = getTimeSlot(event.start_time)
+      const timeSlotMatch = detectedTimeSlot === timeSlot
       const categoryMatch = selectedCategory === 'all' || event.category === selectedCategory
       
       // 貸切リクエストの場合

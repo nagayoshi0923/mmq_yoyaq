@@ -272,11 +272,6 @@ export function PrivateBookingManagement() {
         })
       })
 
-      console.log('🔍 競合情報:', {
-        storeDateConflicts: Array.from(storeDateConflicts),
-        gmDateConflicts: Array.from(gmDateConflicts)
-      })
-      
       setConflictInfo({ storeDateConflicts, gmDateConflicts })
     } catch (error) {
       console.error('競合情報取得エラー:', error)
@@ -461,17 +456,14 @@ export function PrivateBookingManagement() {
 
   const handleApprove = async (requestId: string) => {
     if (!selectedGMId) {
-      alert('GMを選択してください')
       return
     }
 
     if (!selectedStoreId) {
-      alert('店舗を選択してください')
       return
     }
 
     if (!selectedCandidateOrder) {
-      alert('開催日時を選択してください')
       return
     }
 
@@ -484,12 +476,6 @@ export function PrivateBookingManagement() {
       )
       
       if (!selectedCandidate) {
-        alert('選択された日時が見つかりません')
-        setSubmitting(false)
-        return
-      }
-
-      if (!confirm('この貸切リクエストを承認しますか？\n承認後、顧客に通知が送信されます。')) {
         setSubmitting(false)
         return
       }
@@ -509,14 +495,6 @@ export function PrivateBookingManagement() {
         }
       }
 
-      console.log('🔍 承認データ:', {
-        requestId,
-        status: 'confirmed',
-        gm_staff: selectedGMId,
-        store_id: selectedStoreId,
-        candidate_datetimes: updatedCandidateDatetimes
-      })
-
       const { error } = await supabase
         .from('reservations')
         .update({
@@ -530,8 +508,6 @@ export function PrivateBookingManagement() {
 
       if (error) throw error
 
-      console.log('✅ 承認成功')
-      alert('貸切リクエストを承認しました！')
       setSelectedRequest(null)
       setSelectedGMId('')
       setSelectedStoreId('')
@@ -540,7 +516,6 @@ export function PrivateBookingManagement() {
       loadRequests()
     } catch (error) {
       console.error('承認エラー:', error)
-      alert('承認に失敗しました')
     } finally {
       setSubmitting(false)
     }
@@ -564,7 +539,6 @@ export function PrivateBookingManagement() {
     if (!rejectRequestId) return
     
     if (!rejectionReason.trim()) {
-      alert('却下理由を入力してください')
       return
     }
 
@@ -583,7 +557,6 @@ export function PrivateBookingManagement() {
 
       if (error) throw error
 
-      alert('貸切リクエストを却下しました')
       setSelectedRequest(null)
       setRejectionReason('')
       setShowRejectDialog(false)
@@ -591,7 +564,6 @@ export function PrivateBookingManagement() {
       loadRequests()
     } catch (error) {
       console.error('却下エラー:', error)
-      alert('却下に失敗しました')
     } finally {
       setSubmitting(false)
     }

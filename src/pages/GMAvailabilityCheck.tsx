@@ -330,7 +330,6 @@ export function GMAvailabilityCheck() {
       
       if (error) {
         console.error('回答送信エラー:', error)
-        alert('回答の送信に失敗しました')
         return
       }
       
@@ -365,22 +364,14 @@ export function GMAvailabilityCheck() {
           
           if (reservationError) {
             console.error('予約更新エラー:', reservationError)
-            alert(`予約の更新に失敗しました: ${reservationError.message}`)
           }
         }
       }
       
       // 成功したらリロード
       await loadGMRequests()
-      
-      if (availableCandidates.length === 0) {
-        alert('回答を送信しました')
-      } else {
-        alert(`回答を送信しました。店側の最終確認待ちです。`)
-      }
     } catch (error) {
       console.error('送信エラー:', error)
-      alert('エラーが発生しました')
     } finally {
       setSubmitting(null)
     }
