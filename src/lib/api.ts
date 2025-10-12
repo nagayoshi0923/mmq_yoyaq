@@ -332,6 +332,11 @@ export const scheduleApi = {
           name,
           short_name,
           color
+        ),
+        gm_availability_responses (
+          staff_id,
+          response_status,
+          staff:staff_id (name)
         )
       `)
       .eq('reservation_source', 'web_private')
@@ -366,6 +371,19 @@ export const scheduleApi = {
               }
               const timeSlot = timeSlotMap[candidate.timeSlot] || { start: '18:00:00', end: '21:00:00' }
               
+              // GMの名前を取得
+              let gmNames: string[] = []
+              if (booking.gm_staff && booking.gm_availability_responses) {
+                // gm_availability_responsesから名前を取得
+                gmNames = booking.gm_availability_responses
+                  ?.filter((r: any) => r.response_status === 'available')
+                  ?.map((r: any) => r.staff?.name)
+                  ?.filter((name: string) => name) || []
+              }
+              if (gmNames.length === 0) {
+                gmNames = ['未定']
+              }
+              
               privateEvents.push({
                 id: `private-${booking.id}-${candidate.order}`,
                 date: candidateDateStr,
@@ -381,7 +399,7 @@ export const scheduleApi = {
                 current_participants: booking.participant_count,
                 max_participants: booking.scenarios?.player_count_max || 8,
                 capacity: booking.scenarios?.player_count_max || 8,
-                gms: booking.gm_staff ? [booking.gm_staff] : [],
+                gms: gmNames,
                 stores: booking.stores,
                 scenarios: booking.scenarios,
                 is_private_booking: true // 貸切公演フラグ

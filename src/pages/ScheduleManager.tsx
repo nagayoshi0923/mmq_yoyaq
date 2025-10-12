@@ -141,22 +141,40 @@ export function ScheduleManager() {
           privateRequests.forEach((request: any) => {
             if (request.candidate_datetimes?.candidates) {
               // GMの名前を取得
-              // 確定したGMがいる場合は、staffテーブルから名前を取得
               let gmNames: string[] = []
-              if (request.gm_staff) {
-                // gm_staffから名前を取得するために、既に読み込んだstaffデータを使用
-                const assignedGM = staff.find((s: Staff) => s.id === request.gm_staff)
+              
+              console.log('🔍 GM名取得開始:', {
+                gm_staff: request.gm_staff,
+                staffLength: staff.length,
+                staffIds: staff.slice(0, 3).map((s: any) => s.id),
+                hasGmResponses: !!request.gm_availability_responses
+              })
+              
+              // 確定したGMがいる場合は、staff配列から名前を検索
+              if (request.gm_staff && staff.length > 0) {
+                const assignedGM = staff.find((s: any) => s.id === request.gm_staff)
                 if (assignedGM) {
                   gmNames = [assignedGM.name]
+                  console.log('✅ GM名取得成功:', assignedGM.name)
+                } else {
+                  console.log('⚠️ staffにGMが見つからない。gm_staff:', request.gm_staff)
                 }
               }
               
-              // GMが見つからない場合は、出勤可能と回答したGMを使用
-              if (gmNames.length === 0) {
+              // staffから見つからなかった場合、gm_availability_responsesから取得
+              if (gmNames.length === 0 && request.gm_availability_responses) {
+                console.log('📋 gm_availability_responsesから取得を試みます:', request.gm_availability_responses)
                 gmNames = request.gm_availability_responses
                   ?.filter((r: any) => r.response_status === 'available')
                   ?.map((r: any) => r.staff?.name)
                   ?.filter((name: string) => name) || []
+                console.log('📋 取得結果:', gmNames)
+              }
+              
+              // それでも見つからない場合
+              if (gmNames.length === 0) {
+                console.log('❌ GM名が見つかりませんでした。「未定」にします')
+                gmNames = ['未定']
               }
               
               // 表示する候補を決定
@@ -206,7 +224,12 @@ export function ScheduleManager() {
                     reservation_id: request.id // 元のreservation IDを保持
                   }
                   
-                  console.log('✅ 貸切イベント追加:', privateEvent)
+                  console.log('✅ 貸切イベント追加:', {
+                    ...privateEvent,
+                    gmNames: gmNames,
+                    'gmNames配列の長さ': gmNames.length,
+                    'gmNames[0]': gmNames[0]
+                  })
                   privateEvents.push(privateEvent)
                 }
               })
@@ -255,7 +278,7 @@ export function ScheduleManager() {
     }
 
     loadEvents()
-  }, [currentDate])
+  }, [currentDate, staff])
 
   // シフトデータを読み込む（staffデータの後に実行）
   useEffect(() => {
@@ -779,16 +802,25 @@ export function ScheduleManager() {
 
     try {
       // 貸切リクエストの場合は reservations テーブルから削除
-      if (deletingEvent.is_private_request && deletingEvent.reservation_id) {
+      // IDが "private-" で始まる場合も貸切として扱う
+      const isPrivateBooking = deletingEvent.is_private_request || deletingEvent.id.startsWith('private-')
+      
+      if (isPrivateBooking) {
+        // reservation_idを抽出（"private-{uuid}-{order}"から{uuid}部分を取得）
+        const reservationId = deletingEvent.reservation_id || deletingEvent.id.split('-').slice(1, 6).join('-')
+        
         const { error } = await supabase
           .from('reservations')
           .delete()
-          .eq('id', deletingEvent.reservation_id)
+          .eq('id', reservationId)
         
         if (error) throw error
         
         // この貸切リクエストの全ての候補日を削除
-        setEvents(prev => prev.filter(event => event.reservation_id !== deletingEvent.reservation_id))
+        setEvents(prev => prev.filter(event => {
+          const eventReservationId = event.reservation_id || (event.id.startsWith('private-') ? event.id.split('-').slice(1, 6).join('-') : null)
+          return eventReservationId !== reservationId
+        }))
       } else {
         // 通常公演の場合は schedule_events から削除
         await scheduleApi.delete(deletingEvent.id)
