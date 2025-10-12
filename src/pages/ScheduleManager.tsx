@@ -133,8 +133,6 @@ export function ScheduleManager() {
           console.error('貸切リクエスト取得エラー:', privateError)
         }
         
-        console.log('🔍 取得した貸切リクエスト:', privateRequests)
-        
         // 貸切リクエストをスケジュールイベントに変換
         const privateEvents: ScheduleEvent[] = []
         if (privateRequests) {
@@ -143,37 +141,24 @@ export function ScheduleManager() {
               // GMの名前を取得
               let gmNames: string[] = []
               
-              console.log('🔍 GM名取得開始:', {
-                gm_staff: request.gm_staff,
-                staffLength: staff.length,
-                staffIds: staff.slice(0, 3).map((s: any) => s.id),
-                hasGmResponses: !!request.gm_availability_responses
-              })
-              
               // 確定したGMがいる場合は、staff配列から名前を検索
               if (request.gm_staff && staff.length > 0) {
                 const assignedGM = staff.find((s: any) => s.id === request.gm_staff)
                 if (assignedGM) {
                   gmNames = [assignedGM.name]
-                  console.log('✅ GM名取得成功:', assignedGM.name)
-                } else {
-                  console.log('⚠️ staffにGMが見つからない。gm_staff:', request.gm_staff)
                 }
               }
               
               // staffから見つからなかった場合、gm_availability_responsesから取得
               if (gmNames.length === 0 && request.gm_availability_responses) {
-                console.log('📋 gm_availability_responsesから取得を試みます:', request.gm_availability_responses)
                 gmNames = request.gm_availability_responses
                   ?.filter((r: any) => r.response_status === 'available')
                   ?.map((r: any) => r.staff?.name)
                   ?.filter((name: string) => name) || []
-                console.log('📋 取得結果:', gmNames)
               }
               
               // それでも見つからない場合
               if (gmNames.length === 0) {
-                console.log('❌ GM名が見つかりませんでした。「未定」にします')
                 gmNames = ['未定']
               }
               
@@ -224,12 +209,6 @@ export function ScheduleManager() {
                     reservation_id: request.id // 元のreservation IDを保持
                   }
                   
-                  console.log('✅ 貸切イベント追加:', {
-                    ...privateEvent,
-                    gmNames: gmNames,
-                    'gmNames配列の長さ': gmNames.length,
-                    'gmNames[0]': gmNames[0]
-                  })
                   privateEvents.push(privateEvent)
                 }
               })
@@ -580,19 +559,6 @@ export function ScheduleManager() {
         // 店舗が確定している場合（venue が空でない）は、その店舗のセルにのみ表示
         if (event.venue) {
           const match = dateMatch && event.venue === venue && timeSlotMatch && categoryMatch
-          if (date === '2025-10-13' && timeSlot === 'afternoon' && event.venue === venue) {
-            console.log('🔍 貸切マッチング:', {
-              event: event.scenario,
-              startTime: event.start_time,
-              detectedTimeSlot: getTimeSlot(event.start_time),
-              expectedTimeSlot: timeSlot,
-              dateMatch,
-              venueMatch: event.venue === venue,
-              timeSlotMatch,
-              categoryMatch,
-              match
-            })
-          }
           return match
         }
         // 店舗が未確定の場合（venue が空）は、全ての店舗に表示
@@ -1105,9 +1071,6 @@ export function ScheduleManager() {
                         <TimeSlotCell
                           events={(() => {
                             const events = getEventsForSlot(day.date, store.id, 'afternoon')
-                            if (day.date === '2025-10-13' && store.id === '0269032f-6059-440b-a429-9a56dbb027be') {
-                              console.log('📍 別館①の午後セルに渡すイベント:', events)
-                            }
                             return events
                           })()}
                           date={day.date}
