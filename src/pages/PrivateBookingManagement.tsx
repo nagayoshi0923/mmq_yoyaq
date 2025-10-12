@@ -272,6 +272,11 @@ export function PrivateBookingManagement() {
         })
       })
 
+      console.log('🔍 競合情報:', {
+        storeDateConflicts: Array.from(storeDateConflicts),
+        gmDateConflicts: Array.from(gmDateConflicts)
+      })
+      
       setConflictInfo({ storeDateConflicts, gmDateConflicts })
     } catch (error) {
       console.error('競合情報取得エラー:', error)
@@ -774,6 +779,10 @@ export function PrivateBookingManagement() {
                           if (selectedCandidate) {
                             const conflictKey = `${store.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
                             isStoreDisabled = conflictInfo.storeDateConflicts.has(conflictKey)
+                            
+                            if (isStoreDisabled) {
+                              console.log(`🚫 店舗競合: ${store.name} (${conflictKey})`)
+                            }
                           }
                         }
                         

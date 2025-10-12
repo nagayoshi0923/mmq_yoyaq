@@ -133,16 +133,31 @@ export function ScheduleManager() {
           console.error('貸切リクエスト取得エラー:', privateError)
         }
         
+        console.log('🔍 取得した貸切リクエスト:', privateRequests)
+        
         // 貸切リクエストをスケジュールイベントに変換
         const privateEvents: ScheduleEvent[] = []
         if (privateRequests) {
           privateRequests.forEach((request: any) => {
             if (request.candidate_datetimes?.candidates) {
-              // GMの名前を取得（出勤可能と回答したGMのみ）
-              const gmNames = request.gm_availability_responses
-                ?.filter((r: any) => r.response_status === 'available')
-                ?.map((r: any) => r.staff?.name)
-                ?.filter((name: string) => name) || []
+              // GMの名前を取得
+              // 確定したGMがいる場合は、staffテーブルから名前を取得
+              let gmNames: string[] = []
+              if (request.gm_staff) {
+                // gm_staffから名前を取得するために、既に読み込んだstaffデータを使用
+                const assignedGM = staff.find((s: Staff) => s.id === request.gm_staff)
+                if (assignedGM) {
+                  gmNames = [assignedGM.name]
+                }
+              }
+              
+              // GMが見つからない場合は、出勤可能と回答したGMを使用
+              if (gmNames.length === 0) {
+                gmNames = request.gm_availability_responses
+                  ?.filter((r: any) => r.response_status === 'available')
+                  ?.map((r: any) => r.staff?.name)
+                  ?.filter((name: string) => name) || []
+              }
               
               // 表示する候補を決定
               let candidatesToShow = request.candidate_datetimes.candidates
@@ -172,7 +187,7 @@ export function ScheduleManager() {
                     ? confirmedStoreId 
                     : '' // 店舗未定
                   
-                  privateEvents.push({
+                  const privateEvent = {
                     id: `${request.id}-${candidate.order}`,
                     date: candidate.date,
                     venue: venueId,
@@ -189,7 +204,10 @@ export function ScheduleManager() {
                     is_private_request: true, // 貸切リクエストフラグ
                     reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
                     reservation_id: request.id // 元のreservation IDを保持
-                  })
+                  }
+                  
+                  console.log('✅ 貸切イベント追加:', privateEvent)
+                  privateEvents.push(privateEvent)
                 }
               })
             }
@@ -518,12 +536,12 @@ export function ScheduleManager() {
 
   const monthDays = generateMonthDays()
 
-  // 時間帯判定
+  // 時間帯判定（開始時間のみで判定）
   const getTimeSlot = (startTime: string) => {
     const hour = parseInt(startTime.split(':')[0])
-    if (hour < 12) return 'morning'
-    if (hour < 17) return 'afternoon'
-    return 'evening'
+    if (hour < 12) return 'morning'      // 0-11時 → 朝
+    if (hour < 19) return 'afternoon'    // 12-18時 → 昼
+    return 'evening'                     // 19時以降 → 夜
   }
 
   // 特定の日付・店舗・時間帯の公演を取得
@@ -538,7 +556,21 @@ export function ScheduleManager() {
       if (event.is_private_request) {
         // 店舗が確定している場合（venue が空でない）は、その店舗のセルにのみ表示
         if (event.venue) {
-          return dateMatch && event.venue === venue && timeSlotMatch && categoryMatch
+          const match = dateMatch && event.venue === venue && timeSlotMatch && categoryMatch
+          if (date === '2025-10-13' && timeSlot === 'afternoon' && event.venue === venue) {
+            console.log('🔍 貸切マッチング:', {
+              event: event.scenario,
+              startTime: event.start_time,
+              detectedTimeSlot: getTimeSlot(event.start_time),
+              expectedTimeSlot: timeSlot,
+              dateMatch,
+              venueMatch: event.venue === venue,
+              timeSlotMatch,
+              categoryMatch,
+              match
+            })
+          }
+          return match
         }
         // 店舗が未確定の場合（venue が空）は、全ての店舗に表示
         return dateMatch && timeSlotMatch && categoryMatch
@@ -1039,7 +1071,13 @@ export function ScheduleManager() {
                         
                         {/* 午後セル */}
                         <TimeSlotCell
-                          events={getEventsForSlot(day.date, store.id, 'afternoon')}
+                          events={(() => {
+                            const events = getEventsForSlot(day.date, store.id, 'afternoon')
+                            if (day.date === '2025-10-13' && store.id === '0269032f-6059-440b-a429-9a56dbb027be') {
+                              console.log('📍 別館①の午後セルに渡すイベント:', events)
+                            }
+                            return events
+                          })()}
                           date={day.date}
                           venue={store.id}
                           timeSlot="afternoon"
