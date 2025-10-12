@@ -112,6 +112,8 @@ export function ScheduleManager() {
             title,
             customer_name,
             status,
+            store_id,
+            gm_staff,
             candidate_datetimes,
             participant_count,
             scenarios:scenario_id (
@@ -125,7 +127,7 @@ export function ScheduleManager() {
             )
           `)
           .eq('reservation_source', 'web_private')
-          .in('status', ['gm_confirmed', 'confirmed']) // GM確認済み、確定のみ表示（pendingは非表示）
+          .eq('status', 'confirmed') // 確定のみ表示
         
         if (privateError) {
           console.error('貸切リクエスト取得エラー:', privateError)
@@ -142,7 +144,21 @@ export function ScheduleManager() {
                 ?.map((r: any) => r.staff?.name)
                 ?.filter((name: string) => name) || []
               
-              request.candidate_datetimes.candidates.forEach((candidate: any) => {
+              // 表示する候補を決定
+              let candidatesToShow = request.candidate_datetimes.candidates
+              
+              // status='confirmed'の場合は、candidate.status='confirmed'の候補のみ表示
+              if (request.status === 'confirmed') {
+                const confirmedCandidates = candidatesToShow.filter((c: any) => c.status === 'confirmed')
+                if (confirmedCandidates.length > 0) {
+                  candidatesToShow = confirmedCandidates.slice(0, 1) // 最初の1つだけ
+                } else {
+                  // フォールバック: candidate.status='confirmed'がない場合は最初の候補のみ
+                  candidatesToShow = candidatesToShow.slice(0, 1)
+                }
+              }
+              
+              candidatesToShow.forEach((candidate: any) => {
                 const candidateDate = new Date(candidate.date)
                 const candidateMonth = candidateDate.getMonth() + 1
                 const candidateYear = candidateDate.getFullYear()
@@ -150,7 +166,8 @@ export function ScheduleManager() {
                 // 表示対象の月のみ追加
                 if (candidateYear === year && candidateMonth === month) {
                   // 確定済み/GM確認済みの場合は、確定店舗を使用
-                  const confirmedStoreId = request.candidate_datetimes?.confirmedStore?.storeId
+                  // confirmedStoreがnullの場合はstore_idを使用（古いデータ対応）
+                  const confirmedStoreId = request.candidate_datetimes?.confirmedStore?.storeId || request.store_id
                   const venueId = (request.status === 'confirmed' || request.status === 'gm_confirmed') && confirmedStoreId 
                     ? confirmedStoreId 
                     : '' // 店舗未定
@@ -168,7 +185,7 @@ export function ScheduleManager() {
                     participant_count: request.participant_count || 0,
                     max_participants: request.scenarios?.player_count_max || 8,
                     notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】${request.customer_name || ''}`,
-                    is_reservation_enabled: false,
+                    is_reservation_enabled: true, // 貸切公演は常に公開中
                     is_private_request: true, // 貸切リクエストフラグ
                     reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
                     reservation_id: request.id // 元のreservation IDを保持
@@ -836,12 +853,26 @@ export function ScheduleManager() {
 
   // 予約サイト公開/非公開トグル
   const handleToggleReservation = (event: ScheduleEvent) => {
+    // 貸切公演の場合は操作不可
+    if (event.is_private_request) {
+      alert('貸切公演の公開状態は変更できません')
+      return
+    }
     setPublishingEvent(event)
     setIsPublishDialogOpen(true)
   }
   
   const handleConfirmPublishToggle = async () => {
     if (!publishingEvent) return
+    
+    // 貸切公演の場合は操作不可（念のためダブルチェック）
+    // IDが "private-" で始まる場合も貸切公演とみなす
+    if (publishingEvent.is_private_request || publishingEvent.id.startsWith('private-')) {
+      alert('貸切公演の公開状態は変更できません')
+      setIsPublishDialogOpen(false)
+      setPublishingEvent(null)
+      return
+    }
     
     try {
       const newStatus = !publishingEvent.is_reservation_enabled

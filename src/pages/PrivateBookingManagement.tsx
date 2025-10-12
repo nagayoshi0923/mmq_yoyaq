@@ -494,8 +494,23 @@ export function PrivateBookingManagement() {
         candidates: [{
           ...selectedCandidate,
           status: 'confirmed'
-        }]
+        }],
+        confirmedStore: selectedRequest?.candidate_datetimes?.requestedStores?.find(
+          (s: any) => s.storeId === selectedStoreId
+        ) || {
+          storeId: selectedStoreId,
+          storeName: stores.find(s => s.id === selectedStoreId)?.name || '',
+          storeShortName: stores.find(s => s.id === selectedStoreId)?.short_name || ''
+        }
       }
+
+      console.log('🔍 承認データ:', {
+        requestId,
+        status: 'confirmed',
+        gm_staff: selectedGMId,
+        store_id: selectedStoreId,
+        candidate_datetimes: updatedCandidateDatetimes
+      })
 
       const { error } = await supabase
         .from('reservations')
@@ -510,6 +525,7 @@ export function PrivateBookingManagement() {
 
       if (error) throw error
 
+      console.log('✅ 承認成功')
       alert('貸切リクエストを承認しました！')
       setSelectedRequest(null)
       setSelectedGMId('')

@@ -94,12 +94,8 @@ export function PerformanceCard({
             </Badge>
           )}
           
-          {/* 貸切リクエストの場合 */}
-          {event.is_private_request ? (
-            <Badge size="sm" className="font-normal bg-purple-100 text-purple-800 border-purple-200">
-              {event.reservation_info || 'GM確認待ち'}
-            </Badge>
-          ) : (
+          {/* 貸切リクエストの場合は何も表示しない（【貸切確定】は別の場所で表示される） */}
+          {event.is_private_request ? null : (
             <>
               {/* 予約者数バッジ */}
               {!event.is_cancelled && (
@@ -152,18 +148,29 @@ export function PerformanceCard({
         <Badge
           variant="outline"
           size="sm"
-          className={`h-5 px-1.5 py-0 font-normal cursor-pointer transition-all ${
-            event.is_reservation_enabled 
-              ? 'bg-green-100 text-green-800 border-green-500' 
-              : 'bg-gray-100 text-gray-600 border-gray-400'
+          className={`h-5 px-1.5 py-0 font-normal transition-all ${
+            event.is_private_request 
+              ? 'bg-green-100 text-green-800 border-green-500 cursor-default' 
+              : event.is_reservation_enabled 
+                ? 'bg-green-100 text-green-800 border-green-500 cursor-pointer' 
+                : 'bg-gray-100 text-gray-600 border-gray-400 cursor-pointer'
           }`}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleReservation?.(event);
+            // 貸切公演の場合はクリック不可
+            if (!event.is_private_request) {
+              onToggleReservation?.(event);
+            }
           }}
-          title={event.is_reservation_enabled ? '予約サイトに公開中（クリックで非公開）' : '予約サイトに非公開（クリックで公開）'}
+          title={
+            event.is_private_request 
+              ? '貸切公演は常に公開中です' 
+              : event.is_reservation_enabled 
+                ? '予約サイトに公開中（クリックで非公開）' 
+                : '予約サイトに非公開（クリックで公開）'
+          }
         >
-          {event.is_reservation_enabled ? '公開中' : '公開前'}
+          {event.is_reservation_enabled || event.is_private_request ? '公開中' : '公開前'}
         </Badge>
         
         {/* 削除ボタン */}
