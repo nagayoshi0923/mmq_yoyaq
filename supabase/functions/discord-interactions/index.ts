@@ -179,6 +179,35 @@ serve(async (req) => {
         return response
       }
       
+      // 日程選択ボタンの処理
+      if (interaction.data.custom_id.startsWith('date_')) {
+        console.log('📅 Processing date selection:', interaction.data.custom_id)
+        const dateMap = {
+          'date_1': '10/16(木) 昼 14:00-17:00',
+          'date_2': '10/17(金) 朝 10:00-13:00',
+          'date_3': '10/17(金) 夜 18:00-21:00'
+        }
+        const selectedDate = dateMap[interaction.data.custom_id] || '不明な日程'
+        
+        const response = new Response(
+          JSON.stringify({
+            type: 4,
+            data: {
+              content: `✅ 出勤可能日程として「${selectedDate}」を記録しました。ありがとうございます！`
+            }
+          }),
+          { 
+            status: 200,
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json' 
+            }
+          }
+        )
+        console.log('📅 Date selection recorded:', selectedDate)
+        return response
+      }
+      
       console.log('⚠️ Unknown button clicked:', interaction.data.custom_id)
       return new Response(
         JSON.stringify({
