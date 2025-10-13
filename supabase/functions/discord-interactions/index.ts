@@ -110,51 +110,95 @@ serve(async (req) => {
     try {
       if (interaction.data.custom_id.startsWith('gm_available_')) {
         console.log('✅ Processing gm_available button')
-        // 出勤可能ボタンがクリックされた場合
-        const response = new Response(
-          JSON.stringify({
-            type: 4,
-            data: {
-              content: '出勤可能な日程を選択してください',
-              components: [{
-                type: 1,
-                components: [
-                  {
-                    type: 2,
-                    style: 3,
-                    label: '候補1: 10/16(木) 昼 14:00-17:00',
-                    custom_id: 'date_1'
-                  },
-                  {
-                    type: 2,
-                    style: 3,
-                    label: '候補2: 10/17(金) 朝 10:00-13:00',
-                    custom_id: 'date_2'
-                  }
-                ]
-              }, {
-                type: 1,
-                components: [
-                  {
-                    type: 2,
-                    style: 3,
-                    label: '候補3: 10/17(金) 夜 18:00-21:00',
-                    custom_id: 'date_3'
-                  }
-                ]
-              }]
-            }
-          }),
-          { 
-            status: 200,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json' 
-            }
+        
+        // リクエストIDを取得
+        const requestId = interaction.data.custom_id.replace('gm_available_', '')
+        console.log('📋 Request ID:', requestId)
+        
+        try {
+          // Supabaseから候補日程を取得
+          const { data: reservation, error } = await supabase
+            .from('reservations')
+            .select('candidate_datetimes, title')
+            .eq('id', requestId)
+            .single()
+          
+          if (error) {
+            console.error('❌ Error fetching reservation:', error)
+            throw error
           }
-        )
-        console.log('✅ Returning gm_available response')
-        return response
+          
+          console.log('📅 Reservation data:', reservation)
+          
+          const candidates = reservation.candidate_datetimes?.candidates || []
+          const components = []
+          
+          // 候補日程をボタンに変換（最大5個まで、1行に最大5個）
+          for (let i = 0; i < Math.min(candidates.length, 5); i++) {
+            const candidate = candidates[i]
+            const dateStr = candidate.date.replace('2025-', '').replace('-', '/')
+            const timeSlotMap = {
+              '朝': '朝',
+              '昼': '昼', 
+              '夜': '夜',
+              'morning': '朝',
+              'afternoon': '昼',
+              'evening': '夜'
+            }
+            const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
+            
+            if (i % 5 === 0) {
+              components.push({
+                type: 1,
+                components: []
+              })
+            }
+            
+            components[components.length - 1].components.push({
+              type: 2,
+              style: 3,
+              label: `候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
+              custom_id: `date_${i + 1}_${requestId}`
+            })
+          }
+          
+          const response = new Response(
+            JSON.stringify({
+              type: 4,
+              data: {
+                content: '出勤可能な日程を選択してください',
+                components: components
+              }
+            }),
+            { 
+              status: 200,
+              headers: { 
+                ...corsHeaders,
+                'Content-Type': 'application/json' 
+              }
+            }
+          )
+          console.log('✅ Returning gm_available response with dynamic dates')
+          return response
+          
+        } catch (error) {
+          console.error('🚨 Error processing gm_available:', error)
+          return new Response(
+            JSON.stringify({
+              type: 4,
+              data: {
+                content: 'エラー: 候補日程の取得に失敗しました'
+              }
+            }),
+            { 
+              status: 200,
+              headers: { 
+                ...corsHeaders,
+                'Content-Type': 'application/json' 
+              }
+            }
+          )
+        }
       }
       
       if (interaction.data.custom_id.startsWith('gm_unavailable_')) {
@@ -182,30 +226,82 @@ serve(async (req) => {
       // 日程選択ボタンの処理
       if (interaction.data.custom_id.startsWith('date_')) {
         console.log('📅 Processing date selection:', interaction.data.custom_id)
-        const dateMap = {
-          'date_1': '10/16(木) 昼 14:00-17:00',
-          'date_2': '10/17(金) 朝 10:00-13:00',
-          'date_3': '10/17(金) 夜 18:00-21:00'
-        }
-        const selectedDate = dateMap[interaction.data.custom_id] || '不明な日程'
         
-        const response = new Response(
-          JSON.stringify({
-            type: 4,
-            data: {
-              content: `✅ 出勤可能日程として「${selectedDate}」を記録しました。ありがとうございます！`
-            }
-          }),
-          { 
-            status: 200,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json' 
-            }
+        // custom_idから情報を抽出: date_1_requestId
+        const parts = interaction.data.custom_id.split('_')
+        const dateIndex = parseInt(parts[1]) - 1 // 0-based index
+        const requestId = parts.slice(2).join('_')
+        
+        console.log('📋 Date index:', dateIndex, 'Request ID:', requestId)
+        
+        try {
+          // Supabaseから候補日程を取得
+          const { data: reservation, error } = await supabase
+            .from('reservations')
+            .select('candidate_datetimes, title')
+            .eq('id', requestId)
+            .single()
+          
+          if (error) {
+            console.error('❌ Error fetching reservation:', error)
+            throw error
           }
-        )
-        console.log('📅 Date selection recorded:', selectedDate)
-        return response
+          
+          const candidates = reservation.candidate_datetimes?.candidates || []
+          const selectedCandidate = candidates[dateIndex]
+          
+          if (!selectedCandidate) {
+            throw new Error('Selected candidate not found')
+          }
+          
+          const dateStr = selectedCandidate.date.replace('2025-', '').replace('-', '/')
+          const timeSlotMap = {
+            '朝': '朝',
+            '昼': '昼', 
+            '夜': '夜',
+            'morning': '朝',
+            'afternoon': '昼',
+            'evening': '夜'
+          }
+          const timeSlot = timeSlotMap[selectedCandidate.timeSlot] || selectedCandidate.timeSlot
+          const selectedDate = `${dateStr} ${timeSlot} ${selectedCandidate.startTime}-${selectedCandidate.endTime}`
+          
+          const response = new Response(
+            JSON.stringify({
+              type: 4,
+              data: {
+                content: `✅ 出勤可能日程として「${selectedDate}」を記録しました。ありがとうございます！`
+              }
+            }),
+            { 
+              status: 200,
+              headers: { 
+                ...corsHeaders,
+                'Content-Type': 'application/json' 
+              }
+            }
+          )
+          console.log('📅 Date selection recorded:', selectedDate)
+          return response
+          
+        } catch (error) {
+          console.error('🚨 Error processing date selection:', error)
+          return new Response(
+            JSON.stringify({
+              type: 4,
+              data: {
+                content: 'エラー: 日程の記録に失敗しました'
+              }
+            }),
+            { 
+              status: 200,
+              headers: { 
+                ...corsHeaders,
+                'Content-Type': 'application/json' 
+              }
+            }
+          )
+        }
       }
       
       console.log('⚠️ Unknown button clicked:', interaction.data.custom_id)
