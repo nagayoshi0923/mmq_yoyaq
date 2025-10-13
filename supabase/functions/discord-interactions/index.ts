@@ -203,24 +203,90 @@ serve(async (req) => {
       
       if (interaction.data.custom_id.startsWith('gm_unavailable_')) {
         console.log('❌ Processing gm_unavailable button')
-        // 全て出勤不可ボタンがクリックされた場合
-        const response = new Response(
-          JSON.stringify({
-            type: 4,
-            data: {
-              content: '出勤不可として記録しました。'
-            }
-          }),
-          { 
-            status: 200,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json' 
-            }
+        
+        // リクエストIDを取得
+        const requestId = interaction.data.custom_id.replace('gm_unavailable_', '')
+        console.log('📋 Request ID:', requestId)
+        
+        try {
+          // GMの回答をデータベースに保存
+          const gmUserId = interaction.member?.user?.id
+          const gmUserName = interaction.member?.nick || interaction.member?.user?.global_name || interaction.member?.user?.username || 'Unknown GM'
+          
+          console.log('👤 GM User:', { id: gmUserId, name: gmUserName })
+          
+          // Discord IDからstaff_idを取得
+          let staffId = null
+          const { data: staffData, error: staffError } = await supabase
+            .from('staff')
+            .select('id')
+            .eq('discord_id', gmUserId)
+            .single()
+          
+          if (staffError) {
+            console.log('⚠️ Staff not found for Discord ID:', gmUserId, staffError)
+          } else {
+            staffId = staffData.id
+            console.log('✅ Found staff_id:', staffId)
           }
-        )
-        console.log('❌ Returning gm_unavailable response')
-        return response
+          
+          // gm_availability_responsesテーブルに保存
+          const { data: gmResponse, error: gmError } = await supabase
+            .from('gm_availability_responses')
+            .insert({
+              reservation_id: requestId,
+              staff_id: staffId,
+              gm_discord_id: gmUserId,
+              gm_name: gmUserName,
+              response_type: 'unavailable',
+              selected_candidate_index: null,
+              response_datetime: new Date().toISOString(),
+              notes: 'Discord経由で回答: 全て出勤不可'
+            })
+          
+          if (gmError) {
+            console.error('❌ Error saving GM response:', gmError)
+            // エラーでも成功メッセージを返す
+          } else {
+            console.log('✅ GM unavailable response saved to database:', gmResponse)
+          }
+          
+          const response = new Response(
+            JSON.stringify({
+              type: 4,
+              data: {
+                content: '❌ 全て出勤不可として記録しました。\n管理画面で確認できます。'
+              }
+            }),
+            { 
+              status: 200,
+              headers: { 
+                ...corsHeaders,
+                'Content-Type': 'application/json' 
+              }
+            }
+          )
+          console.log('❌ GM unavailable response recorded and saved')
+          return response
+          
+        } catch (error) {
+          console.error('🚨 Error processing gm_unavailable:', error)
+          return new Response(
+            JSON.stringify({
+              type: 4,
+              data: {
+                content: 'エラー: 回答の記録に失敗しました'
+              }
+            }),
+            { 
+              status: 200,
+              headers: { 
+                ...corsHeaders,
+                'Content-Type': 'application/json' 
+              }
+            }
+          )
+        }
       }
       
       // 日程選択ボタンの処理
@@ -266,11 +332,53 @@ serve(async (req) => {
           const timeSlot = timeSlotMap[selectedCandidate.timeSlot] || selectedCandidate.timeSlot
           const selectedDate = `${dateStr} ${timeSlot} ${selectedCandidate.startTime}-${selectedCandidate.endTime}`
           
+          // GMの回答をデータベースに保存
+          const gmUserId = interaction.member?.user?.id
+          const gmUserName = interaction.member?.nick || interaction.member?.user?.global_name || interaction.member?.user?.username || 'Unknown GM'
+          
+          console.log('👤 GM User:', { id: gmUserId, name: gmUserName })
+          
+          // Discord IDからstaff_idを取得
+          let staffId = null
+          const { data: staffData, error: staffError } = await supabase
+            .from('staff')
+            .select('id')
+            .eq('discord_id', gmUserId)
+            .single()
+          
+          if (staffError) {
+            console.log('⚠️ Staff not found for Discord ID:', gmUserId, staffError)
+          } else {
+            staffId = staffData.id
+            console.log('✅ Found staff_id:', staffId)
+          }
+          
+          // gm_availability_responsesテーブルに保存
+          const { data: gmResponse, error: gmError } = await supabase
+            .from('gm_availability_responses')
+            .insert({
+              reservation_id: requestId,
+              staff_id: staffId,
+              gm_discord_id: gmUserId,
+              gm_name: gmUserName,
+              response_type: 'available',
+              selected_candidate_index: dateIndex,
+              response_datetime: new Date().toISOString(),
+              notes: `Discord経由で回答: ${selectedDate}`
+            })
+          
+          if (gmError) {
+            console.error('❌ Error saving GM response:', gmError)
+            // エラーでも成功メッセージを返す（ユーザー体験を損なわないため）
+          } else {
+            console.log('✅ GM response saved to database:', gmResponse)
+          }
+          
           const response = new Response(
             JSON.stringify({
               type: 4,
               data: {
-                content: `✅ 出勤可能日程として「${selectedDate}」を記録しました。ありがとうございます！`
+                content: `✅ 出勤可能日程として「${selectedDate}」を記録しました。ありがとうございます！\n管理画面で確認できます。`
               }
             }),
             { 
@@ -281,7 +389,7 @@ serve(async (req) => {
               }
             }
           )
-          console.log('📅 Date selection recorded:', selectedDate)
+          console.log('📅 Date selection recorded and saved:', selectedDate)
           return response
           
         } catch (error) {
