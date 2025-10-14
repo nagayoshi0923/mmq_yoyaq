@@ -85,8 +85,10 @@ export function ScheduleManager() {
   const [stores, setStores] = useState<any[]>(() => {
     try {
       const cached = sessionStorage.getItem('scheduleStores')
+      console.log('🏪 キャッシュから店舗データ読み込み:', cached ? `${JSON.parse(cached).length}件` : 'なし')
       return cached ? JSON.parse(cached) : []
-    } catch {
+    } catch (e) {
+      console.error('🏪 店舗データキャッシュ読み込みエラー:', e)
       return []
     }
   })
@@ -1067,7 +1069,7 @@ export function ScheduleManager() {
             </div>
           )}
           
-          {/* 初回ローディング表示（店舗データがない場合のみ） */}
+          {/* 初回ローディング表示（店舗データがまだロードされていない場合のみ） */}
           {stores.length === 0 && (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
