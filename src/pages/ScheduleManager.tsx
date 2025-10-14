@@ -99,18 +99,16 @@ export function ScheduleManager() {
   const [stores, setStores] = useState<any[]>(() => {
     try {
       const cached = sessionStorage.getItem('scheduleStores')
-      console.log('🏪 キャッシュから店舗データ読み込み:', cached ? `${JSON.parse(cached).length}件` : 'なし')
       if (cached) {
         const data = JSON.parse(cached)
         if (data.length > 0) {
-          // sessionStorageにフラグを設定
           sessionStorage.setItem('scheduleHasLoaded', 'true')
+          hasEverLoadedStores.current = true
         }
         return data
       }
       return []
-    } catch (e) {
-      console.error('🏪 店舗データキャッシュ読み込みエラー:', e)
+    } catch {
       return []
     }
   })
@@ -494,8 +492,6 @@ export function ScheduleManager() {
         if (!hasStaffCache) setStaffLoading(true)
         if (!hasScenariosCache) setScenariosLoading(true)
         
-        console.log('🔄 データ読み込み開始（キャッシュ:', hasStoresCache ? 'あり' : 'なし', '）', 'hasEverLoadedStores:', hasEverLoadedStores.current)
-        
         // 店舗・シナリオ・スタッフを並列で読み込み
         const [storeData, scenarioData, staffData] = await Promise.all([
           storeApi.getAll().catch(err => {
@@ -517,7 +513,6 @@ export function ScheduleManager() {
         if (storeData.length > 0) {
           hasEverLoadedStores.current = true
           sessionStorage.setItem('scheduleHasLoaded', 'true')
-          console.log('✅ 店舗データロード完了、フラグ設定')
         }
         setStoresLoading(false)
         setScenarios(scenarioData)
@@ -1101,16 +1096,6 @@ export function ScheduleManager() {
           )}
           
           {/* 初回ローディング表示（一度もロードされていない場合のみ） */}
-          {(() => {
-            console.log('📊 レンダリング状態:', {
-              storesLength: stores.length,
-              hasEverLoaded: hasEverLoadedStores.current,
-              storesLoading,
-              shouldShowContent: stores.length > 0 || hasEverLoadedStores.current
-            })
-            return null
-          })()}
-          
           {!hasEverLoadedStores.current && stores.length === 0 && (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
