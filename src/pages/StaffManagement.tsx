@@ -476,7 +476,7 @@ export function StaffManagement() {
             <Card>
               <CardContent className="p-0">
                 <div className="flex items-center h-[50px] bg-muted/30">
-                  <div className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm">基本情報</div>
+                  <div className="flex-shrink-0 w-56 px-3 py-2 border-r font-medium text-sm">基本情報</div>
                   <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">役割</div>
                   <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">担当店舗</div>
                   <div className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0">担当シナリオ</div>
@@ -492,7 +492,7 @@ export function StaffManagement() {
                 <CardContent className="p-0">
                   <div className="flex items-center h-[50px]">
                     {/* 基本情報 */}
-                    <div className="flex-shrink-0 w-40 px-3 py-2 border-r">
+                    <div className="flex-shrink-0 w-56 px-3 py-2 border-r">
                       <div className="flex items-center gap-2">
                         <StaffAvatar
                           name={member.name}

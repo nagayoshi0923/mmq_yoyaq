@@ -29,7 +29,24 @@ WHERE staff_id IN (
 
 SELECT '✅ 田中太郎の関連データ（staff_scenario_assignments）を削除しました' as status;
 
--- ステップ2c: 田中太郎を削除
+-- ステップ2c: gm_availabilityの削除（テーブルが存在する場合のみ）
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_name = 'gm_availability'
+  ) THEN
+    DELETE FROM gm_availability
+    WHERE staff_id IN (
+      SELECT id FROM staff WHERE name LIKE '%田中%' OR name LIKE '%太郎%'
+    );
+    RAISE NOTICE 'gm_availabilityの関連データを削除しました';
+  ELSE
+    RAISE NOTICE 'gm_availabilityテーブルは存在しません（スキップ）';
+  END IF;
+END $$;
+
+-- ステップ2d: 田中太郎を削除
 DELETE FROM staff
 WHERE name LIKE '%田中%' OR name LIKE '%太郎%';
 
