@@ -1,8 +1,13 @@
 // Discord Bot経由で通知を送信（ボタン付き）
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')!
-const DISCORD_CHANNEL_ID = Deno.env.get('DISCORD_CHANNEL_ID')! // 通知を送信するチャンネルID
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+// Supabaseクライアントを初期化
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 interface PrivateBookingNotification {
   type: 'insert'
@@ -33,6 +38,146 @@ interface PrivateBookingNotification {
   }
 }
 
+// 個別チャンネルに通知を送信する関数
+async function sendNotificationToGMChannels(booking: any) {
+  console.log('📤 Sending notifications to individual GM channels...')
+  
+  // GMロールを持つアクティブなスタッフを取得
+  const { data: gmStaff, error: staffError } = await supabase
+    .from('staff')
+    .select('id, name, discord_channel_id')
+    .contains('role', ['gm'])
+    .eq('status', 'active')
+    .not('discord_channel_id', 'is', null)
+  
+  if (staffError) {
+    console.error('❌ Error fetching GM staff:', staffError)
+    return
+  }
+  
+  if (!gmStaff || gmStaff.length === 0) {
+    console.log('⚠️ No GM staff with Discord channels found')
+    return
+  }
+  
+  console.log(`📋 Found ${gmStaff.length} GM(s) with Discord channels`)
+  
+  // 各GMのチャンネルに通知を送信
+  const notificationPromises = gmStaff.map(async (gm) => {
+    const channelId = gm.discord_channel_id
+    console.log(`📤 Sending notification to ${gm.name} (Channel: ${channelId})`)
+    
+    return sendDiscordNotification(channelId, booking)
+  })
+  
+  // 全ての通知を並行送信
+  const results = await Promise.allSettled(notificationPromises)
+  
+  // 結果をログ出力
+  results.forEach((result, index) => {
+    const gm = gmStaff[index]
+    if (result.status === 'fulfilled') {
+      console.log(`✅ Notification sent to ${gm.name}`)
+    } else {
+      console.error(`❌ Failed to send notification to ${gm.name}:`, result.reason)
+    }
+  })
+}
+
+// Discord通知を送信する関数
+async function sendDiscordNotification(channelId: string, booking: any) {
+  const timeSlotMap = {
+    'morning': '朝',
+    'afternoon': '昼', 
+    'evening': '夜',
+    '朝': '朝',
+    '昼': '昼',
+    '夜': '夜'
+  }
+
+  const candidates = booking.candidate_datetimes?.candidates || []
+  const candidateFields = candidates.map((candidate: any, index: number) => {
+    const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
+    return {
+      name: `候補${index + 1}`,
+      value: `${candidate.date} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
+      inline: true
+    }
+  })
+
+  const embed = {
+    title: "🎭 新しい貸切予約申し込み",
+    description: "GMの出勤可否をお知らせください",
+    color: 0x9333EA,
+    fields: [
+      {
+        name: "📋 シナリオ",
+        value: booking.scenario_title || booking.title || 'シナリオ名不明',
+        inline: true
+      },
+      {
+        name: "👥 参加人数", 
+        value: `${booking.participant_count}名`,
+        inline: true
+      },
+      {
+        name: "📞 お客様",
+        value: booking.customer_name || '名前不明',
+        inline: true
+      },
+      ...candidateFields
+    ],
+    timestamp: new Date().toISOString(),
+    footer: {
+      text: "Queens Waltz 貸切予約システム"
+    }
+  }
+
+  const components = [
+    {
+      type: 1,
+      components: [
+        {
+          type: 2,
+          style: 3,
+          label: "✅ 出勤可能な日程を選択",
+          custom_id: `gm_available_${booking.id}`
+        },
+        {
+          type: 2,
+          style: 4,
+          label: "❌ 全て出勤不可",
+          custom_id: `gm_unavailable_${booking.id}`
+        }
+      ]
+    }
+  ]
+
+  const discordPayload = {
+    content: "@here",
+    embeds: [embed],
+    components: components
+  }
+
+  const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(discordPayload)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Discord API error: ${response.status} ${response.statusText} - ${errorText}`)
+  }
+
+  const result = await response.json()
+  console.log(`✅ Discord notification sent to channel ${channelId}, Message ID:`, result.id)
+  return result
+}
+
 serve(async (req) => {
   console.log('🔥 Discord notification function called!')
   console.log('Request method:', req.method)
@@ -61,126 +206,13 @@ serve(async (req) => {
       reservation_source: booking.reservation_source
     })
     
-    // 候補日時フィールド
-    const candidateFields = booking.candidate_datetimes.candidates.map(c => {
-      const date = new Date(c.date)
-      const dateStr = `${date.getMonth() + 1}/${date.getDate()}(${['日','月','火','水','木','金','土'][date.getDay()]})`
-      return {
-        name: `候補${c.order}`,
-        value: `${dateStr} ${c.timeSlot} ${c.startTime}-${c.endTime}`,
-        inline: true
-      }
-    })
-    
-    // 希望店舗
-    const storesText = booking.candidate_datetimes.requestedStores
-      ?.map(s => s.storeName)
-      .join(', ') || '全店舗'
-    
-    // ボタンコンポーネント
-    const buttons = {
-      type: 1, // Action Row
-      components: [
-        {
-          type: 2, // Button
-          style: 3, // Success (緑)
-          label: '✅ 出勤可能な日程を選択',
-          custom_id: `gm_available_${booking.id}`
-        },
-        {
-          type: 2, // Button
-          style: 4, // Danger (赤)
-          label: '❌ 全て出勤不可',
-          custom_id: `gm_unavailable_${booking.id}`
-        }
-      ]
-    }
-    
-    console.log('🚀 Sending Discord notification...')
-    console.log('Discord Channel ID:', DISCORD_CHANNEL_ID)
-    console.log('Discord Bot Token (first 10 chars):', DISCORD_BOT_TOKEN?.substring(0, 10) + '...')
-    
-    // Discordに通知を送信
-    const discordResponse = await fetch(
-      `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          content: '@here 新規貸切リクエストが届きました！',
-          embeds: [{
-            title: '🎭 新規貸切リクエスト',
-            color: 0x9333ea, // 紫
-            fields: [
-              {
-                name: '📋 シナリオ',
-                value: booking.scenario_title || booking.title || 'シナリオ名不明',
-                inline: false
-              },
-              {
-                name: '👤 お客様名',
-                value: booking.customer_name,
-                inline: true
-              },
-              {
-                name: '👥 参加人数',
-                value: `${booking.participant_count}名`,
-                inline: true
-              },
-              {
-                name: '📧 メールアドレス',
-                value: booking.customer_email,
-                inline: true
-              },
-              {
-                name: '📞 電話番号',
-                value: booking.customer_phone,
-                inline: true
-              },
-              {
-                name: '🏢 希望店舗',
-                value: storesText,
-                inline: false
-              },
-              ...candidateFields,
-              ...(booking.notes ? [{
-                name: '📝 備考',
-                value: booking.notes,
-                inline: false
-              }] : [])
-            ],
-            footer: {
-              text: '下のボタンから回答してください'
-            },
-            timestamp: new Date(booking.created_at).toISOString()
-          }],
-          components: [buttons]
-        })
-      }
-    )
-    
-    console.log('Discord response status:', discordResponse.status)
-    
-    if (!discordResponse.ok) {
-      const errorText = await discordResponse.text()
-      console.error('❌ Discord notification failed:', errorText)
-      console.error('Response status:', discordResponse.status)
-      console.error('Response headers:', Object.fromEntries(discordResponse.headers))
-      throw new Error(`Discord API error: ${errorText}`)
-    }
-
-    const responseData = await discordResponse.json()
-    console.log('✅ Discord notification sent successfully!')
-    console.log('Message ID:', responseData.id)
+    // 各GMの個別チャンネルに通知を送信
+    await sendNotificationToGMChannels(booking)
 
     return new Response(
       JSON.stringify({ 
-        message: 'Notification sent successfully',
-        booking_id: booking.id,
-        message_id: responseData.id
+        message: 'Individual notifications sent successfully',
+        booking_id: booking.id
       }),
       { headers: { "Content-Type": "application/json" }, status: 200 }
     )

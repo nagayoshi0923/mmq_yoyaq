@@ -52,6 +52,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
   const [formData, setFormData] = useState<Partial<Staff>>({
     name: '',
     x_account: '',
+    discord_id: '',
+    discord_channel_id: '',
     email: '',
     phone: '',
     role: [],
@@ -75,6 +77,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       setFormData({
         name: '',
         x_account: '',
+        discord_id: '',
+        discord_channel_id: '',
         email: '',
         phone: '',
         role: [],
@@ -98,6 +102,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       name: formData.name!,
       line_name: '', // 削除された項目はデフォルト値
       x_account: formData.x_account || '',
+      discord_id: formData.discord_id || '',
+      discord_channel_id: formData.discord_channel_id || '',
       email: formData.email!,
       phone: formData.phone || '',
       role: formData.role!,
@@ -174,14 +180,41 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="x_account">X(Twitter)アカウント</Label>
+              <Input
+                id="x_account"
+                value={formData.x_account}
+                onChange={(e) => setFormData(prev => ({ ...prev, x_account: e.target.value }))}
+                placeholder="@tanaka_gm"
+              />
+            </div>
+            <div>
+              <Label htmlFor="discord_id">Discord ID</Label>
+              <Input
+                id="discord_id"
+                value={formData.discord_id}
+                onChange={(e) => setFormData(prev => ({ ...prev, discord_id: e.target.value }))}
+                placeholder="1427064798650040472"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Discord通知機能で使用されます
+              </p>
+            </div>
+          </div>
+
           <div>
-            <Label htmlFor="x_account">X(Twitter)アカウント</Label>
+            <Label htmlFor="discord_channel_id">Discord チャンネルID</Label>
             <Input
-              id="x_account"
-              value={formData.x_account}
-              onChange={(e) => setFormData(prev => ({ ...prev, x_account: e.target.value }))}
-              placeholder="@tanaka_gm"
+              id="discord_channel_id"
+              value={formData.discord_channel_id}
+              onChange={(e) => setFormData(prev => ({ ...prev, discord_channel_id: e.target.value }))}
+              placeholder="1234567890123456789"
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              個別通知を送信するチャンネルのIDです
+            </p>
           </div>
 
           {/* アバター色選択 */}

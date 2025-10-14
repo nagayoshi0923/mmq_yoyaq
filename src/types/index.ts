@@ -23,6 +23,8 @@ export interface Staff {
   name: string
   line_name?: string
   x_account?: string
+  discord_id?: string
+  discord_channel_id?: string
   role: string[]
   stores: string[]
   ng_days: string[]
