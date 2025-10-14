@@ -109,17 +109,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const skipStaffLookup = import.meta.env.DEV && import.meta.env.VITE_SKIP_STAFF_LOOKUP === 'true'
       
       if ((role === 'staff' || role === 'admin') && !skipStaffLookup) {
-        console.log('📋 スタッフ情報取得開始:', supabaseUser.id)
+        console.log('📋 スタッフ情報取得開始 - ユーザーID:', supabaseUser.id)
         try {
-          // タイムアウト付きでスタッフ情報を取得（3秒でタイムアウト）
+          // タイムアウト付きでスタッフ情報を取得（2秒でタイムアウト）
           const staffPromise = supabase
             .from('staff')
-            .select('name')
+            .select('name, email, user_id')
             .eq('user_id', supabaseUser.id)
             .single()
           
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('スタッフ情報取得タイムアウト')), 3000)
+            setTimeout(() => reject(new Error('スタッフ情報取得タイムアウト（2秒）')), 2000)
           )
           
           const { data: staffData, error: staffError } = await Promise.race([
@@ -128,13 +128,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
           ]) as any
           
           if (staffError) {
-            console.log('📋 スタッフ情報の取得エラー:', staffError.message)
+            console.log('📋 スタッフ情報の取得エラー:', {
+              code: staffError.code,
+              message: staffError.message,
+              details: staffError.details,
+              hint: staffError.hint
+            })
+            
+            // テーブルが存在しない場合の詳細ログ
+            if (staffError.code === 'PGRST116' || staffError.message.includes('relation') || staffError.message.includes('does not exist')) {
+              console.log('📋 ❌ staffテーブルが存在しません')
+              console.log('📋 💡 解決方法: Supabaseダッシュボードで database/setup_staff_with_user_id.sql を実行してください')
+            } else if (staffError.code === 'PGRST118') {
+              console.log('📋 ❌ 該当するスタッフデータが見つかりません')
+              console.log('📋 💡 解決方法: スタッフデータを作成するか、user_idを設定してください')
+            }
           } else {
             staffName = staffData?.name
-            console.log('📋 スタッフ名取得成功:', staffName)
+            console.log('📋 ✅ スタッフ名取得成功:', {
+              name: staffName,
+              email: staffData?.email,
+              user_id: staffData?.user_id
+            })
           }
         } catch (error) {
-          console.log('📋 スタッフ情報の取得に失敗:', error)
+          console.log('📋 ❌ スタッフ情報の取得に失敗:', error)
           // エラーが発生してもstaffNameはundefinedのまま継続
         }
       } else if (skipStaffLookup) {
