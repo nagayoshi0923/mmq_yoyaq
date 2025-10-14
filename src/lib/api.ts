@@ -349,7 +349,7 @@ export const scheduleApi = {
     // 貸切公演を schedule_events 形式に変換
     const privateEvents: any[] = []
     if (confirmedPrivateBookings) {
-      confirmedPrivateBookings.forEach((booking: any) => {
+      for (const booking of confirmedPrivateBookings) {
         if (booking.candidate_datetimes?.candidates) {
           // 確定済みの候補のみ取得（最初の1つだけ）
           const confirmedCandidates = booking.candidate_datetimes.candidates.filter((c: any) => c.status === 'confirmed')
@@ -357,7 +357,7 @@ export const scheduleApi = {
             ? confirmedCandidates.slice(0, 1)  // 確定候補がある場合は最初の1つ
             : booking.candidate_datetimes.candidates.slice(0, 1)  // フォールバック
           
-          candidatesToShow.forEach((candidate: any) => {
+          for (const candidate of candidatesToShow) {
             const candidateDate = new Date(candidate.date)
             const candidateDateStr = candidateDate.toISOString().split('T')[0]
             
@@ -369,13 +369,29 @@ export const scheduleApi = {
               
               // GMの名前を取得
               let gmNames: string[] = []
-              if (booking.gm_staff && booking.gm_availability_responses) {
-                // gm_availability_responsesから名前を取得
+              
+              // まずgm_staffからstaffテーブルで名前を取得
+              if (booking.gm_staff) {
+                // staffテーブルからGM名を取得するクエリを実行
+                const { data: gmStaff, error: gmError } = await supabase
+                  .from('staff')
+                  .select('id, name')
+                  .eq('id', booking.gm_staff)
+                  .maybeSingle()
+                
+                if (!gmError && gmStaff) {
+                  gmNames = [gmStaff.name]
+                }
+              }
+              
+              // gmsから取得できなかった場合はgm_availability_responsesから取得
+              if (gmNames.length === 0 && booking.gm_availability_responses) {
                 gmNames = booking.gm_availability_responses
                   ?.filter((r: any) => r.response_status === 'available')
                   ?.map((r: any) => r.staff?.name)
                   ?.filter((name: string) => name) || []
               }
+              
               if (gmNames.length === 0) {
                 gmNames = ['未定']
               }
@@ -401,9 +417,9 @@ export const scheduleApi = {
                 is_private_booking: true // 貸切公演フラグ
               })
             }
-          })
+          }
         }
-      })
+      }
     }
     
     // 通常公演と貸切公演を結合してソート

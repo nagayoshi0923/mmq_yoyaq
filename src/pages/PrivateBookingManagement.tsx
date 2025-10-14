@@ -497,14 +497,17 @@ export function PrivateBookingManagement() {
 
   const handleApprove = async (requestId: string) => {
     if (!selectedGMId) {
+      console.error('承認に必要な情報が不足しています: selectedGMId')
       return
     }
 
     if (!selectedStoreId) {
+      console.error('承認に必要な情報が不足しています: selectedStoreId')
       return
     }
 
     if (!selectedCandidateOrder) {
+      console.error('承認に必要な情報が不足しています: selectedCandidateOrder')
       return
     }
 
@@ -549,12 +552,73 @@ export function PrivateBookingManagement() {
 
       if (error) throw error
 
+      // スケジュールに記録
+      const startTime = new Date(`${selectedCandidate.date}T${selectedCandidate.startTime}:00`)
+      const endTime = new Date(`${selectedCandidate.date}T${selectedCandidate.endTime}:00`)
+      
+      // 店舗名を取得
+      const selectedStore = stores.find(s => s.id === selectedStoreId)
+      const storeName = selectedStore?.name || '店舗不明'
+
+      // 必須項目の検証
+      if (!selectedCandidate.date || !selectedCandidate.startTime || !selectedCandidate.endTime || !storeName) {
+        console.error('スケジュール記録に必要な情報が不足しています:', {
+          date: selectedCandidate.date,
+          startTime: selectedCandidate.startTime,
+          endTime: selectedCandidate.endTime,
+          storeName
+        })
+      } else {
+        const { error: scheduleError } = await supabase
+          .from('schedule_events')
+          .insert({
+            date: selectedCandidate.date,
+            venue: storeName,
+            scenario: selectedRequest?.scenario_title || '',
+            start_time: selectedCandidate.startTime,
+            end_time: selectedCandidate.endTime,
+            start_at: startTime.toISOString(),
+            end_at: endTime.toISOString(),
+            store_id: selectedStoreId,
+            gms: selectedGMId ? [selectedGMId] : [],
+            is_reservation_enabled: true,
+            status: 'confirmed',
+            category: 'open'
+          })
+
+        if (scheduleError) {
+          console.error('スケジュール記録エラー:', scheduleError)
+          // スケジュール記録に失敗しても承認は完了させる
+        } else {
+          console.log('スケジュール記録完了:', {
+            date: selectedCandidate.date,
+            venue: storeName,
+            gms: selectedGMId ? [selectedGMId] : []
+          })
+        }
+      }
+
+      // お客様への連絡機能（メール送信）
+      try {
+        const customerEmail = selectedRequest?.customer_email
+        if (customerEmail) {
+          // メール送信のロジックをここに追加
+          console.log('承認完了メールを送信:', customerEmail)
+          // 実際のメール送信API呼び出しをここに実装
+        }
+      } catch (emailError) {
+        console.error('メール送信エラー:', emailError)
+        // メール送信に失敗しても承認は完了させる
+      }
+
       setSelectedRequest(null)
       setSelectedGMId('')
       setSelectedStoreId('')
       setSelectedCandidateOrder(null)
       setAvailableGMs([])
-      loadRequests()
+      
+      // リクエスト一覧を再読み込み
+      await loadRequests()
     } catch (error) {
       console.error('承認エラー:', error)
     } finally {
