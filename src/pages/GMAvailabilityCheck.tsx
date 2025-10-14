@@ -162,7 +162,7 @@ export function GMAvailabilityCheck() {
       
       const staffId = staffData.id
       
-      // このGMに送られた確認リクエストを取得
+      // このGMに送られた確認リクエストを取得（staff_idまたはDiscord ID経由）
       const { data: responsesData, error: responsesError } = await supabase
         .from('gm_availability_responses')
         .select(`
@@ -171,6 +171,11 @@ export function GMAvailabilityCheck() {
           response_status,
           available_candidates,
           notes,
+          response_type,
+          selected_candidate_index,
+          gm_discord_id,
+          gm_name,
+          response_datetime,
           reservations:reservation_id (
             reservation_number,
             title,
@@ -186,14 +191,22 @@ export function GMAvailabilityCheck() {
             )
           )
         `)
-        .eq('staff_id', staffId)
-        .order('created_at', { ascending: false })
+        .or(`staff_id.eq.${staffId}${staffData.discord_id ? `,gm_discord_id.eq.${staffData.discord_id}` : ''}`)
+        .order('response_datetime', { ascending: false })
       
       if (responsesError) {
         console.error('GMリクエスト取得エラー:', responsesError)
         setRequests([])
         return
       }
+      
+      // デバッグ：取得したデータをログ出力
+      console.log('🔍 GM確認ページ - 取得したデータ:', {
+        staffId,
+        staffDiscordId: staffData.discord_id,
+        responsesCount: responsesData?.length || 0,
+        responsesData: responsesData
+      })
       
       // 同じreservation_idに対する他のGMの回答をチェック
       const reservationIds = (responsesData || []).map((r: any) => r.reservation_id).filter(Boolean)

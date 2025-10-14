@@ -342,38 +342,75 @@ export function PrivateBookingManagement() {
         .select('staff_id, staff:staff_id(id, name)')
         .eq('scenario_id', request.scenario_id)
       
-      // 対応可能と回答したGMも取得
+      // 対応可能と回答したGMも取得（Discord経由も含む）
       const { data: availableData, error: availableError } = await supabase
         .from('gm_availability_responses')
-        .select('staff_id, available_candidates, notes')
+        .select('staff_id, available_candidates, notes, response_type, selected_candidate_index, gm_discord_id, gm_name')
         .eq('reservation_id', reservationId)
-        .eq('response_status', 'available')
+        .in('response_type', ['available'])
+        .not('response_type', 'is', null)
+      
+      // デバッグ：取得したデータをログ出力
+      console.log('🔍 貸切確認ページ - GM回答データ:', {
+        reservationId,
+        availableDataCount: availableData?.length || 0,
+        availableData: availableData,
+        availableError: availableError
+      })
       
       // 担当GMのIDリストを作成
       const assignedGMIds = (assignmentData || []).map((a: any) => a.staff_id)
       
-      // 対応可能GMの情報をマップに変換
-      const availableGMMap = new Map(
-        (availableData || []).map((a: any) => [
-          a.staff_id,
-          {
-            available_candidates: a.available_candidates || [],
-            notes: a.notes || ''
-          }
-        ])
-      )
+      // 対応可能GMの情報をマップに変換（Discord経由も含む）
+      const availableGMMap = new Map()
+      const discordGMMap = new Map()
       
-      // ハイライト対象のGMを作成（担当GM + 対応可能GM）
+      ;(availableData || []).forEach((a: any) => {
+        if (a.staff_id) {
+          // 通常のstaff_id経由の回答
+          availableGMMap.set(a.staff_id, {
+            available_candidates: a.available_candidates || [],
+            selected_candidate_index: a.selected_candidate_index,
+            notes: a.notes || ''
+          })
+        } else if (a.gm_discord_id) {
+          // Discord経由の回答
+          discordGMMap.set(a.gm_discord_id, {
+            available_candidates: a.available_candidates || [],
+            selected_candidate_index: a.selected_candidate_index,
+            notes: a.notes || '',
+            gm_name: a.gm_name
+          })
+        }
+      })
+      
+      // Discord IDでGMを検索してstaff_idにマッピング
+      const discordToStaffMap = new Map()
+      allGMs.forEach(gm => {
+        if (gm.discord_id && discordGMMap.has(gm.discord_id)) {
+          discordToStaffMap.set(gm.id, discordGMMap.get(gm.discord_id))
+        }
+      })
+      
+      // ハイライト対象のGMを作成（担当GM + 対応可能GM + Discord経由GM）
       const highlightGMs = allGMs
-        .filter(gm => assignedGMIds.includes(gm.id) || availableGMMap.has(gm.id))
-        .map(gm => ({
-          id: gm.id,
-          name: gm.name,
-          available_candidates: availableGMMap.get(gm.id)?.available_candidates || [],
-          notes: availableGMMap.get(gm.id)?.notes || '',
-          isAssigned: assignedGMIds.includes(gm.id),
-          isAvailable: availableGMMap.has(gm.id)
-        }))
+        .filter(gm => 
+          assignedGMIds.includes(gm.id) || 
+          availableGMMap.has(gm.id) || 
+          discordToStaffMap.has(gm.id)
+        )
+        .map(gm => {
+          const availableInfo = availableGMMap.get(gm.id) || discordToStaffMap.get(gm.id) || {}
+          return {
+            id: gm.id,
+            name: gm.name,
+            available_candidates: availableInfo.available_candidates || [],
+            selected_candidate_index: availableInfo.selected_candidate_index,
+            notes: availableInfo.notes || '',
+            isAssigned: assignedGMIds.includes(gm.id),
+            isAvailable: availableGMMap.has(gm.id) || discordToStaffMap.has(gm.id)
+          }
+        })
       
       setAvailableGMs(highlightGMs)
       
