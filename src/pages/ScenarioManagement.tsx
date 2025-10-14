@@ -24,7 +24,9 @@ import {
   Filter,
   Search,
   ArrowLeft,
-  RefreshCw
+  RefreshCw,
+  Upload,
+  Download
 } from 'lucide-react'
 
 // モックデータ（後でAPIから取得）
@@ -40,9 +42,9 @@ const mockScenarios: Scenario[] = [
     difficulty: 3,
     rating: 4.2,
     status: 'available',
-    gm_assignments: [{ role: 'main', reward: 2000 }],
-    license_costs: [{ time_slot: '通常', amount: 50000, type: 'fixed' }],
-    participation_costs: [{ time_slot: '通常', amount: 3500, type: 'fixed' }],
+    gm_costs: [{ role: 'main', reward: 2000, status: 'active' }],
+    license_rewards: [{ item: 'ライセンス料', amount: 50000, status: 'active' }],
+    participation_costs: [{ time_slot: '通常', amount: 3500, type: 'fixed', status: 'active' }],
     participation_fee: 3500,
     genre: ['ホラー', 'ミステリー'],
     available_gms: [],
@@ -68,9 +70,9 @@ const mockScenarios: Scenario[] = [
     difficulty: 4,
     rating: 4.5,
     status: 'available',
-    gm_assignments: [{ role: 'main', reward: 2500 }],
-    license_costs: [{ time_slot: '通常', amount: 60000, type: 'fixed' }],
-    participation_costs: [{ time_slot: '通常', amount: 4000, type: 'fixed' }],
+    gm_costs: [{ role: 'main', reward: 2500, status: 'active' }],
+    license_rewards: [{ item: 'ライセンス料', amount: 60000, status: 'active' }],
+    participation_costs: [{ time_slot: '通常', amount: 4000, type: 'fixed', status: 'active' }],
     participation_fee: 4000,
     genre: ['クラシック', 'ミステリー'],
     available_gms: [],
@@ -98,6 +100,7 @@ export function ScenarioManagement() {
   const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [displayMode, setDisplayMode] = useState<'compact' | 'detailed'>('compact')
+  const [isImporting, setIsImporting] = useState(false)
   
   // 並び替え機能
   const { sortState, handleSort, sortData } = useSortableTable<ScenarioSortField>({
@@ -175,6 +178,128 @@ export function ScenarioManagement() {
     } catch (err: any) {
       console.error('Error saving scenario:', err)
       alert('シナリオの保存に失敗しました: ' + err.message)
+    }
+  }
+
+  // CSVエクスポート
+  function handleExportCSV() {
+    const headers = [
+      'タイトル',
+      '作者',
+      '所要時間（分）',
+      '最小人数',
+      '最大人数',
+      '難易度',
+      '参加費',
+      'ライセンス料',
+      'ステータス',
+      '説明',
+      'ジャンル'
+    ]
+    
+    const rows = scenarios.map(s => [
+      s.title,
+      s.author,
+      s.duration,
+      s.player_count_min,
+      s.player_count_max,
+      s.difficulty || 3,
+      s.participation_fee || 0,
+      s.license_rewards?.find((r: any) => r.item === 'ライセンス料')?.amount || 0,
+      s.status,
+      s.description || '',
+      (s.genre || []).join('|')
+    ])
+    
+    const csv = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n')
+    
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `scenarios_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
+
+  // CSVインポート
+  async function handleImportCSV(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      setIsImporting(true)
+      const text = await file.text()
+      const lines = text.split('\n').filter(line => line.trim())
+      
+      // ヘッダー行をスキップ
+      const dataLines = lines.slice(1)
+      
+      let successCount = 0
+      let errorCount = 0
+      
+      for (const line of dataLines) {
+        try {
+          // CSV行をパース（ダブルクォートで囲まれた値に対応）
+          const values = line.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g)?.map(v => 
+            v.replace(/^"|"$/g, '').trim()
+          ) || []
+          
+          if (values.length < 9) continue // 最低限必要な列数
+          
+          const [title, author, duration, minPlayers, maxPlayers, difficulty, fee, license, status, description, genre] = values
+          
+          const scenarioData = {
+            title: title,
+            author: author,
+            duration: parseInt(duration) || 180,
+            player_count_min: parseInt(minPlayers) || 4,
+            player_count_max: parseInt(maxPlayers) || 8,
+            difficulty: parseInt(difficulty) || 3,
+            participation_fee: parseInt(fee) || 0,
+            participation_costs: [{ 
+              time_slot: '通常', 
+              amount: parseInt(fee) || 0, 
+              type: 'fixed' as const,
+              status: 'active' as const
+            }],
+            license_rewards: [{ 
+              item: 'ライセンス料', 
+              amount: parseInt(license) || 0,
+              status: 'active' as const
+            }],
+            gm_costs: [{ 
+              role: 'main', 
+              reward: 2000,
+              status: 'active' as const
+            }],
+            status: (status as 'available' | 'maintenance' | 'retired') || 'available',
+            description: description || '',
+            genre: genre ? genre.split('|').filter(g => g) : [],
+            production_cost: 0,
+            available_gms: [],
+            play_count: 0,
+            required_props: [],
+            has_pre_reading: false
+          }
+          
+          await scenarioApi.create(scenarioData)
+          successCount++
+        } catch (err) {
+          console.error('Error importing scenario:', err)
+          errorCount++
+        }
+      }
+      
+      alert(`CSVインポート完了\n成功: ${successCount}件\n失敗: ${errorCount}件`)
+      await loadScenarios()
+    } catch (err: any) {
+      console.error('CSV import error:', err)
+      alert('CSVインポートに失敗しました: ' + err.message)
+    } finally {
+      setIsImporting(false)
+      // ファイル入力をリセット
+      event.target.value = ''
     }
   }
 
@@ -272,7 +397,7 @@ export function ScenarioManagement() {
   const totalScenarios = scenarios.length
   const availableScenarios = scenarios.filter(s => s.status === 'available').length
   const totalLicenseAmount = scenarios.reduce((sum, s) => {
-    const licenseAmount = s.license_costs?.find((cost: any) => cost.time_slot === '通常')?.amount || 0
+    const licenseAmount = s.license_rewards?.find((r: any) => r.item === 'ライセンス料')?.amount || 0
     return sum + licenseAmount
   }, 0)
   const avgPlayers = totalScenarios > 0 
@@ -304,10 +429,40 @@ export function ScenarioManagement() {
                 </p>
               </div>
             </div>
-            <Button onClick={handleNewScenario}>
-              <Plus className="h-4 w-4 mr-2" />
-              新規シナリオ
-            </Button>
+            <div className="flex gap-2">
+              {/* CSVエクスポートボタン */}
+              <Button 
+                variant="outline" 
+                onClick={handleExportCSV}
+                disabled={scenarios.length === 0}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                CSVエクスポート
+              </Button>
+              
+              {/* CSVインポートボタン */}
+              <Button 
+                variant="outline" 
+                disabled={isImporting}
+                onClick={() => document.getElementById('csv-import')?.click()}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {isImporting ? 'インポート中...' : 'CSVインポート'}
+              </Button>
+              <input
+                id="csv-import"
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleImportCSV}
+              />
+              
+              {/* 新規シナリオボタン */}
+              <Button onClick={handleNewScenario}>
+                <Plus className="h-4 w-4 mr-2" />
+                新規シナリオ
+              </Button>
+            </div>
           </div>
 
           {/* 統計情報 */}
@@ -587,7 +742,7 @@ export function ScenarioManagement() {
                           {/* ライセンス料 */}
                           <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
                             <p className="text-sm text-right">
-                              ¥{scenario.license_costs?.find((cost: any) => cost.time_slot === '通常')?.amount?.toLocaleString() || 0}
+                              ¥{scenario.license_rewards?.find((r: any) => r.item === 'ライセンス料')?.amount?.toLocaleString() || 0}
                             </p>
                           </div>
                         </>
