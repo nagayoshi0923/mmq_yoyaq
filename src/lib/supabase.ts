@@ -15,6 +15,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export type AuthUser = {
   id: string
   email: string
+  name?: string
+  staffName?: string
   role: 'admin' | 'staff' | 'customer'
 }
 

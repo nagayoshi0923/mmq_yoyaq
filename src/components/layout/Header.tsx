@@ -44,14 +44,19 @@ export function Header({ onPageChange }: HeaderProps) {
           
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <Badge className={
-                user?.role === 'admin' ? 'bg-blue-100 text-blue-800' :
-                user?.role === 'staff' ? 'bg-green-100 text-green-800' :
-                'bg-purple-100 text-purple-800'
-              }>
-                {user?.role === 'admin' ? '管理者' : 
-                 user?.role === 'staff' ? 'スタッフ' : '顧客'}
-              </Badge>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-medium text-foreground">
+                  {user?.staffName || user?.name}
+                </span>
+                <Badge className={
+                  user?.role === 'admin' ? 'bg-blue-100 text-blue-800' :
+                  user?.role === 'staff' ? 'bg-green-100 text-green-800' :
+                  'bg-purple-100 text-purple-800'
+                }>
+                  {user?.role === 'admin' ? '管理者' : 
+                   user?.role === 'staff' ? 'スタッフ' : '顧客'}
+                </Badge>
+              </div>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
             </div>
             <Button variant="ghost" size="icon">
