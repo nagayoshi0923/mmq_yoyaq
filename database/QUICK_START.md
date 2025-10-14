@@ -59,7 +59,40 @@
 ```
 上記2つを一度に実行します（推奨）。
 
+---
+
+# スタッフデータのインポート
+
+## 方法1: 初回インポート（簡単・推奨）
+
+初めてスタッフデータをインポートする場合：
+
+```sql
+-- database/import_staff_master_simple.sql をSupabaseで実行
+```
+
+これだけで25名のスタッフデータがインポートされます。
+
+## 方法2: 更新可能なインポート（2ステップ）
+
+既存データを更新したい場合：
+
+### ステップ1: UNIQUE制約追加
+```sql
+-- database/add_staff_name_unique.sql をSupabaseで実行
+```
+
+### ステップ2: スタッフデータインポート
+```sql
+-- database/import_staff_master.sql をSupabaseで実行
+```
+
+この方法なら、同じSQLを何度実行しても既存データが更新されます。
+
+---
+
 ## 詳細な説明
 
-詳しい説明は `IMPORT_SCENARIOS_README_v2.md` を参照してください。
+- シナリオ: `IMPORT_SCENARIOS_README_v2.md`
+- スタッフ: `IMPORT_STAFF_README.md`
 
