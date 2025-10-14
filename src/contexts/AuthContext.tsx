@@ -121,7 +121,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // タイムアウト付きでスタッフ情報を取得（800msでタイムアウト）
             const staffPromise = supabase
               .from('staff')
-              .select('name, email, user_id')
+              .select('name, email, user_id, discord_id, discord_channel_id')
               .eq('user_id', supabaseUser.id)
               .single()
             

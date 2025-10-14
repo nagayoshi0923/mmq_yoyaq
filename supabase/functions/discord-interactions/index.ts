@@ -230,10 +230,10 @@ serve(async (req) => {
             console.log('✅ Found staff_id:', staffId)
           }
           
-          // gm_availability_responsesテーブルに保存
+          // gm_availability_responsesテーブルに保存 (upsert)
           const { data: gmResponse, error: gmError } = await supabase
             .from('gm_availability_responses')
-            .insert({
+            .upsert({
               reservation_id: requestId,
               staff_id: staffId,
               gm_discord_id: gmUserId,
@@ -241,7 +241,12 @@ serve(async (req) => {
               response_type: 'unavailable',
               selected_candidate_index: null,
               response_datetime: new Date().toISOString(),
-              notes: 'Discord経由で回答: 全て出勤不可'
+              notes: 'Discord経由で回答: 全て出勤不可',
+              response_status: 'all_unavailable',  // 既存のカラムにも設定
+              available_candidates: [],  // 既存のカラムにも設定
+              responded_at: new Date().toISOString()  // 既存のカラムにも設定
+            }, {
+              onConflict: 'reservation_id,staff_id'  // 重複時は更新
             })
           
           if (gmError) {
@@ -353,10 +358,10 @@ serve(async (req) => {
             console.log('✅ Found staff_id:', staffId)
           }
           
-          // gm_availability_responsesテーブルに保存
+          // gm_availability_responsesテーブルに保存 (upsert)
           const { data: gmResponse, error: gmError } = await supabase
             .from('gm_availability_responses')
-            .insert({
+            .upsert({
               reservation_id: requestId,
               staff_id: staffId,
               gm_discord_id: gmUserId,
@@ -364,7 +369,12 @@ serve(async (req) => {
               response_type: 'available',
               selected_candidate_index: dateIndex,
               response_datetime: new Date().toISOString(),
-              notes: `Discord経由で回答: ${selectedDate}`
+              notes: `Discord経由で回答: ${selectedDate}`,
+              response_status: 'available',  // 既存のカラムにも設定
+              available_candidates: [dateIndex],  // 既存のカラムにも設定
+              responded_at: new Date().toISOString()  // 既存のカラムにも設定
+            }, {
+              onConflict: 'reservation_id,staff_id'  // 重複時は更新
             })
           
           if (gmError) {

@@ -140,7 +140,7 @@ export function GMAvailabilityCheck() {
       // 現在のユーザーのstaff_idを取得
       const { data: staffData, error: staffError } = await supabase
         .from('staff')
-        .select('id')
+        .select('id, discord_id')
         .eq('user_id', user.id)
         .single()
       
