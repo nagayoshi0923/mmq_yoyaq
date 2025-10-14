@@ -61,22 +61,86 @@ export function ScheduleManager() {
   const [cancellingEvent, setCancellingEvent] = useState<ScheduleEvent | null>(null)
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false)
   const [publishingEvent, setPublishingEvent] = useState<ScheduleEvent | null>(null)
-  const [events, setEvents] = useState<ScheduleEvent[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [events, setEvents] = useState<ScheduleEvent[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleEvents')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  const [isLoading, setIsLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleEvents')
+      return !cached
+    } catch {
+      return true
+    }
+  })
   const [error, setError] = useState<string | null>(null)
   const [shiftData, setShiftData] = useState<Record<string, Array<Staff & { timeSlot: string }>>>({})
   const [availableStaffByScenario, setAvailableStaffByScenario] = useState<Record<string, Staff[]>>({})
   
-  // 店舗・シナリオ・スタッフのデータ
-  const [stores, setStores] = useState<any[]>([])
-  const [storesLoading, setStoresLoading] = useState(true)
-  const [scenarios, setScenarios] = useState<any[]>([])
-  const [scenariosLoading, setScenariosLoading] = useState(true)
-  const [staff, setStaff] = useState<any[]>([])
-  const [staffLoading, setStaffLoading] = useState(true)
+  // 店舗・シナリオ・スタッフのデータ（キャッシュから即座に復元）
+  const [stores, setStores] = useState<any[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleStores')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  const [storesLoading, setStoresLoading] = useState(() => {
+    // キャッシュがある場合は即座にローディング完了
+    try {
+      const cached = sessionStorage.getItem('scheduleStores')
+      return !cached
+    } catch {
+      return true
+    }
+  })
+  const [scenarios, setScenarios] = useState<any[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleScenarios')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  const [scenariosLoading, setScenariosLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleScenarios')
+      return !cached
+    } catch {
+      return true
+    }
+  })
+  const [staff, setStaff] = useState<any[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleStaff')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  const [staffLoading, setStaffLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('scheduleStaff')
+      return !cached
+    } catch {
+      return true
+    }
+  })
   
   // 初回読み込み完了フラグ（useRefで管理してレンダリングをトリガーしない）
   const initialLoadComplete = useRef(false)
+  
+  // イベントデータをキャッシュに保存
+  useEffect(() => {
+    if (events.length > 0) {
+      sessionStorage.setItem('scheduleEvents', JSON.stringify(events))
+    }
+  }, [events])
   
   // スクロール位置を保持（シンプル版）
   useEffect(() => {
@@ -91,6 +155,7 @@ export function ScheduleManager() {
       clearTimeout(scrollTimer)
       scrollTimer = setTimeout(() => {
         sessionStorage.setItem('scheduleScrollY', window.scrollY.toString())
+        sessionStorage.setItem('scheduleScrollTime', Date.now().toString())
       }, 100)
     }
     
@@ -104,28 +169,42 @@ export function ScheduleManager() {
     }
   }, [])
 
-  // マウント時にスクロール位置を即座に復元（ちらつき防止）
+  // マウント時にスクロール位置を即座に復元（リロード直後のみ）
   useLayoutEffect(() => {
     const savedY = sessionStorage.getItem('scheduleScrollY')
-    if (savedY) {
-      window.scrollTo(0, parseInt(savedY, 10))
-    }
-  }, []) // マウント時のみ実行
-
-  // データ読み込み完了後に再度復元（テーブル高さ確定後）
-  useEffect(() => {
-    if (!isLoading && events.length > 0) {
-      const savedY = sessionStorage.getItem('scheduleScrollY')
-      if (savedY) {
+    const savedTime = sessionStorage.getItem('scheduleScrollTime')
+    
+    if (savedY && savedTime) {
+      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+      // 5秒以内のスクロール位置のみ復元（リロード直後と判定）
+      if (timeSinceScroll < 5000) {
         window.scrollTo(0, parseInt(savedY, 10))
       }
     }
-  }, [isLoading, events.length])
+  }, []) // マウント時のみ実行
+
+  // データ読み込み完了後に再度復元（リロード直後のみ）
+  useEffect(() => {
+    if (!isLoading && initialLoadComplete.current) {
+      const savedY = sessionStorage.getItem('scheduleScrollY')
+      const savedTime = sessionStorage.getItem('scheduleScrollTime')
+      
+      if (savedY && savedTime) {
+        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+        // 5秒以内のスクロール位置のみ復元（リロード直後と判定）
+        if (timeSinceScroll < 5000) {
+          requestAnimationFrame(() => {
+            window.scrollTo(0, parseInt(savedY, 10))
+          })
+        }
+      }
+    }
+  }, [isLoading])
 
   // Supabaseからデータを読み込む
   useEffect(() => {
-    // staffデータが読み込まれるまで待つ（初回のみ）
-    if (!initialLoadComplete.current && staffLoading) return
+    // 店舗データが読み込まれるまで待つ（店舗データが必要）
+    if (storesLoading) return
     
     const loadEvents = async () => {
       try {
@@ -192,7 +271,7 @@ export function ScheduleManager() {
               let gmNames: string[] = []
               
               // 確定したGMがいる場合は、staff配列から名前を検索
-              if (request.gm_staff && staff.length > 0) {
+              if (request.gm_staff && staff && staff.length > 0) {
                 const assignedGM = staff.find((s: any) => s.id === request.gm_staff)
                 if (assignedGM) {
                   gmNames = [assignedGM.name]
@@ -308,14 +387,14 @@ export function ScheduleManager() {
     }
 
     loadEvents()
-  }, [currentDate, staffLoading]) // currentDateの変更時と初回staffLoading完了時のみ
+  }, [currentDate, storesLoading]) // currentDateの変更時と店舗データ読み込み完了時
 
   // シフトデータを読み込む（staffデータの後に実行）
   useEffect(() => {
     const loadShiftData = async () => {
       try {
         // staffが読み込まれるまで待つ
-        if (!staff || staff.length === 0) return
+        if (staffLoading || !staff || staff.length === 0) return
         
         const year = currentDate.getFullYear()
         const month = currentDate.getMonth() + 1
@@ -363,7 +442,7 @@ export function ScheduleManager() {
     }
     
     loadShiftData()
-  }, [currentDate, staff])
+  }, [currentDate, staff, staffLoading])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -381,53 +460,42 @@ export function ScheduleManager() {
   }, [])
 
 
-  // 店舗データを読み込む
+  // 初期データを並列で読み込む（高速化）
   useEffect(() => {
-    const loadStores = async () => {
+    const loadInitialData = async () => {
       try {
         setStoresLoading(true)
-        const storeData = await storeApi.getAll()
-        setStores(storeData)
-      } catch (err) {
-        console.error('店舗データの読み込みエラー:', err)
-      } finally {
-        setStoresLoading(false)
-      }
-    }
-    
-    loadStores()
-  }, [])
-
-  // シナリオデータを読み込む
-  useEffect(() => {
-    const loadScenarios = async () => {
-      try {
-        setScenariosLoading(true)
-        const scenarioData = await scenarioApi.getAll()
-        setScenarios(scenarioData)
-      } catch (err) {
-        console.error('シナリオデータの読み込みエラー:', err)
-      } finally {
-        setScenariosLoading(false)
-      }
-    }
-    
-    loadScenarios()
-  }, [])
-
-  // スタッフデータを読み込む
-  useEffect(() => {
-    const loadStaff = async () => {
-      try {
         setStaffLoading(true)
-        const staffData = await staffApi.getAll()
+        setScenariosLoading(true)
         
-        // 各スタッフの担当シナリオをassignmentApiから取得
+        // 店舗・シナリオ・スタッフを並列で読み込み
+        const [storeData, scenarioData, staffData] = await Promise.all([
+          storeApi.getAll().catch(err => {
+            console.error('店舗データの読み込みエラー:', err)
+            return []
+          }),
+          scenarioApi.getAll().catch(err => {
+            console.error('シナリオデータの読み込みエラー:', err)
+            return []
+          }),
+          staffApi.getAll().catch(err => {
+            console.error('スタッフデータの読み込みエラー:', err)
+            return []
+          })
+        ])
+        
+        setStores(storeData)
+        sessionStorage.setItem('scheduleStores', JSON.stringify(storeData))
+        setStoresLoading(false)
+        setScenarios(scenarioData)
+        sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenarioData))
+        setScenariosLoading(false)
+        
+        // スタッフの担当シナリオを並列で取得（バックグラウンド）
         const staffWithScenarios = await Promise.all(
           staffData.map(async (staffMember) => {
             try {
               const assignments = await assignmentApi.getStaffAssignments(staffMember.id)
-              // シナリオIDの配列を抽出
               const scenarioIds = assignments.map((a: any) => a.scenario_id)
               return {
                 ...staffMember,
@@ -443,14 +511,17 @@ export function ScheduleManager() {
         )
         
         setStaff(staffWithScenarios)
+        sessionStorage.setItem('scheduleStaff', JSON.stringify(staffWithScenarios))
+        setStaffLoading(false)
       } catch (err) {
-        console.error('スタッフデータの読み込みエラー:', err)
-      } finally {
+        console.error('初期データの読み込みエラー:', err)
+        setStoresLoading(false)
+        setScenariosLoading(false)
         setStaffLoading(false)
       }
     }
     
-    loadStaff()
+    loadInitialData()
   }, [])
 
   // シナリオごとの出勤可能GMを計算
@@ -553,6 +624,10 @@ export function ScheduleManager() {
 
   // 月の変更
   const changeMonth = (direction: 'prev' | 'next') => {
+    // 月切り替え時はスクロール位置をクリア（一番上に戻る）
+    sessionStorage.removeItem('scheduleScrollY')
+    sessionStorage.removeItem('scheduleScrollTime')
+    
     setCurrentDate(prev => {
       const newDate = new Date(prev)
       if (direction === 'prev') {
@@ -992,15 +1067,30 @@ export function ScheduleManager() {
             </div>
           )}
           
-          {/* ローディング表示 */}
-          {(isLoading || storesLoading) && (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-muted-foreground">データを読み込み中...</div>
+          {/* 初回ローディング表示（店舗データがない場合のみ） */}
+          {stores.length === 0 && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <div className="text-muted-foreground">データを読み込み中...</div>
+              </div>
             </div>
           )}
-          {/* ヘッダー部分 */}
+          
+          {/* ヘッダー部分とカテゴリタブ */}
+          {stores.length > 0 && (
+          <>
           <div className="flex items-center justify-between">
-            <h2>月間スケジュール管理</h2>
+            <div className="flex items-center gap-3">
+              <h2>月間スケジュール管理</h2>
+              {/* 更新中のインジケーター */}
+              {isLoading && stores.length > 0 && (
+                <div className="text-sm text-muted-foreground flex items-center gap-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                  <span>更新中...</span>
+                </div>
+              )}
+            </div>
                 <div className="flex gap-4 items-center">
                   {/* 月選択コントロール */}
                   <div className="flex items-center gap-2 border rounded-lg p-1">
@@ -1008,6 +1098,9 @@ export function ScheduleManager() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Select value={currentDate.getMonth().toString()} onValueChange={(value) => {
+                  // 月切り替え時はスクロール位置をクリア
+                  sessionStorage.removeItem('scheduleScrollY')
+                  sessionStorage.removeItem('scheduleScrollTime')
                   const newDate = new Date(currentDate)
                   newDate.setMonth(parseInt(value))
                   setCurrentDate(newDate)
@@ -1170,6 +1263,8 @@ export function ScheduleManager() {
               </Table>
             </CardContent>
           </Card>
+          </>
+          )}
         </div>
       </div>
 
