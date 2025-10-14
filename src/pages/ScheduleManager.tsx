@@ -43,6 +43,20 @@ interface ScheduleEvent {
 
 
 export function ScheduleManager() {
+  // 初回読み込み完了フラグ（useRefで管理してレンダリングをトリガーしない）
+  const initialLoadComplete = useRef(false)
+  
+  // 一度でもロードしたかをsessionStorageで確認（より確実）
+  const hasEverLoadedStores = useRef(
+    (() => {
+      try {
+        return sessionStorage.getItem('scheduleHasLoaded') === 'true'
+      } catch {
+        return false
+      }
+    })()
+  )
+  
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [memos, setMemos] = useState<Record<string, string>>({})
@@ -86,7 +100,15 @@ export function ScheduleManager() {
     try {
       const cached = sessionStorage.getItem('scheduleStores')
       console.log('🏪 キャッシュから店舗データ読み込み:', cached ? `${JSON.parse(cached).length}件` : 'なし')
-      return cached ? JSON.parse(cached) : []
+      if (cached) {
+        const data = JSON.parse(cached)
+        if (data.length > 0) {
+          // sessionStorageにフラグを設定
+          sessionStorage.setItem('scheduleHasLoaded', 'true')
+        }
+        return data
+      }
+      return []
     } catch (e) {
       console.error('🏪 店舗データキャッシュ読み込みエラー:', e)
       return []
@@ -133,9 +155,6 @@ export function ScheduleManager() {
       return true
     }
   })
-  
-  // 初回読み込み完了フラグ（useRefで管理してレンダリングをトリガーしない）
-  const initialLoadComplete = useRef(false)
   
   // イベントデータをキャッシュに保存
   useEffect(() => {
@@ -466,9 +485,16 @@ export function ScheduleManager() {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        setStoresLoading(true)
-        setStaffLoading(true)
-        setScenariosLoading(true)
+        // キャッシュがない場合のみローディング状態にする
+        const hasStoresCache = sessionStorage.getItem('scheduleStores')
+        const hasStaffCache = sessionStorage.getItem('scheduleStaff')
+        const hasScenariosCache = sessionStorage.getItem('scheduleScenarios')
+        
+        if (!hasStoresCache) setStoresLoading(true)
+        if (!hasStaffCache) setStaffLoading(true)
+        if (!hasScenariosCache) setScenariosLoading(true)
+        
+        console.log('🔄 データ読み込み開始（キャッシュ:', hasStoresCache ? 'あり' : 'なし', '）', 'hasEverLoadedStores:', hasEverLoadedStores.current)
         
         // 店舗・シナリオ・スタッフを並列で読み込み
         const [storeData, scenarioData, staffData] = await Promise.all([
@@ -488,6 +514,11 @@ export function ScheduleManager() {
         
         setStores(storeData)
         sessionStorage.setItem('scheduleStores', JSON.stringify(storeData))
+        if (storeData.length > 0) {
+          hasEverLoadedStores.current = true
+          sessionStorage.setItem('scheduleHasLoaded', 'true')
+          console.log('✅ 店舗データロード完了、フラグ設定')
+        }
         setStoresLoading(false)
         setScenarios(scenarioData)
         sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenarioData))
@@ -1069,8 +1100,18 @@ export function ScheduleManager() {
             </div>
           )}
           
-          {/* 初回ローディング表示（店舗データがまだロードされていない場合のみ） */}
-          {stores.length === 0 && (
+          {/* 初回ローディング表示（一度もロードされていない場合のみ） */}
+          {(() => {
+            console.log('📊 レンダリング状態:', {
+              storesLength: stores.length,
+              hasEverLoaded: hasEverLoadedStores.current,
+              storesLoading,
+              shouldShowContent: stores.length > 0 || hasEverLoadedStores.current
+            })
+            return null
+          })()}
+          
+          {!hasEverLoadedStores.current && stores.length === 0 && (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -1079,8 +1120,8 @@ export function ScheduleManager() {
             </div>
           )}
           
-          {/* ヘッダー部分とカテゴリタブ */}
-          {stores.length > 0 && (
+          {/* ヘッダー部分とカテゴリタブ（一度でもロードされたら常に表示） */}
+          {(stores.length > 0 || hasEverLoadedStores.current) && (
           <>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
