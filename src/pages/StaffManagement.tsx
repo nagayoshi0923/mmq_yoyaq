@@ -104,17 +104,25 @@ export function StaffManagement() {
       const staffWithScenarios = await Promise.all(
         data.map(async (staffMember) => {
           try {
-            const assignments = await assignmentApi.getStaffAssignments(staffMember.id)
-            const assignedScenarios = assignments.map(a => a.scenarios?.id).filter(Boolean)
+            // GM可能なシナリオを取得
+            const gmAssignments = await assignmentApi.getStaffAssignments(staffMember.id)
+            const gmScenarios = gmAssignments.map(a => a.scenarios?.id).filter(Boolean)
+            
+            // 体験済みシナリオを取得（GM不可）
+            const experiencedAssignments = await assignmentApi.getStaffExperiencedScenarios(staffMember.id)
+            const experiencedScenarios = experiencedAssignments.map(a => a.scenarios?.id).filter(Boolean)
+            
             return {
               ...staffMember,
-              special_scenarios: assignedScenarios // リレーションテーブルから取得した担当シナリオIDを設定
+              special_scenarios: gmScenarios, // GM可能なシナリオ
+              experienced_scenarios: experiencedScenarios // 体験済みシナリオ（GM不可）
             }
           } catch (error) {
             console.error(`Error loading assignments for staff ${staffMember.id}:`, error)
             return {
               ...staffMember,
-              special_scenarios: staffMember.special_scenarios || [] // エラー時は既存の値を使用
+              special_scenarios: staffMember.special_scenarios || [], // エラー時は既存の値を使用
+              experienced_scenarios: [] // 体験済みシナリオ
             }
           }
         })
@@ -499,7 +507,8 @@ export function StaffManagement() {
                   <div className="flex-shrink-0 w-56 px-3 py-2 border-r font-medium text-sm">基本情報</div>
                   <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">役割</div>
                   <div className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm">担当店舗</div>
-                  <div className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0">担当シナリオ</div>
+                  <div className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0">GM可能</div>
+                  <div className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0">体験済み</div>
                   <div className="flex-shrink-0 w-32 px-3 py-2 font-medium text-sm text-center">アクション</div>
                 </div>
               </CardContent>
@@ -573,7 +582,7 @@ export function StaffManagement() {
                     </div>
 
 
-                    {/* 担当シナリオ */}
+                    {/* GM可能なシナリオ */}
                     <div className="flex-1 px-3 py-2 border-r min-w-0">
                       <div className="flex flex-wrap gap-1">
                         {member.special_scenarios && member.special_scenarios.length > 0 ? (
@@ -586,6 +595,28 @@ export function StaffManagement() {
                             {member.special_scenarios.length > 3 && (
                               <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
                                 +{member.special_scenarios.length - 3}
+                              </Badge>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 体験済みシナリオ（GM不可） */}
+                    <div className="flex-1 px-3 py-2 border-r min-w-0">
+                      <div className="flex flex-wrap gap-1">
+                        {(member as any).experienced_scenarios && (member as any).experienced_scenarios.length > 0 ? (
+                          <>
+                            {(member as any).experienced_scenarios.slice(0, 3).map((scenarioId: string, index: number) => (
+                              <Badge key={index} size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
+                                {getScenarioName(scenarioId)}
+                              </Badge>
+                            ))}
+                            {(member as any).experienced_scenarios.length > 3 && (
+                              <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
+                                +{(member as any).experienced_scenarios.length - 3}
                               </Badge>
                             )}
                           </>

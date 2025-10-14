@@ -2,8 +2,35 @@ import { supabase } from './supabase'
 
 // スタッフ⇔シナリオの担当関係を管理するAPI
 export const assignmentApi = {
-  // スタッフの担当シナリオ一覧を取得
+  // スタッフの担当シナリオ一覧を取得（GM可能なシナリオのみ）
   async getStaffAssignments(staffId: string) {
+    // まず全てのアサインメントを取得
+    const { data, error } = await supabase
+      .from('staff_scenario_assignments')
+      .select(`
+        *,
+        scenarios:scenario_id (
+          id,
+          title,
+          author
+        )
+      `)
+      .eq('staff_id', staffId)
+      .order('assigned_at', { ascending: false })
+    
+    if (error) throw error
+    
+    // クライアント側でGM可能なシナリオのみフィルタ
+    // (can_main_gm = true OR can_sub_gm = true)
+    const filteredData = (data || []).filter(assignment => 
+      assignment.can_main_gm === true || assignment.can_sub_gm === true
+    )
+    
+    return filteredData
+  },
+
+  // スタッフの全アサインメント一覧を取得（体験済み含む）
+  async getAllStaffAssignments(staffId: string) {
     const { data, error } = await supabase
       .from('staff_scenario_assignments')
       .select(`
@@ -19,6 +46,34 @@ export const assignmentApi = {
     
     if (error) throw error
     return data || []
+  },
+
+  // スタッフの体験済みシナリオ一覧を取得（GM不可のもののみ）
+  async getStaffExperiencedScenarios(staffId: string) {
+    const { data, error } = await supabase
+      .from('staff_scenario_assignments')
+      .select(`
+        *,
+        scenarios:scenario_id (
+          id,
+          title,
+          author
+        )
+      `)
+      .eq('staff_id', staffId)
+      .order('assigned_at', { ascending: false })
+    
+    if (error) throw error
+    
+    // 体験済みのみ（GM不可）をフィルタ
+    // can_main_gm = false AND can_sub_gm = false AND is_experienced = true
+    const filteredData = (data || []).filter(assignment => 
+      assignment.can_main_gm === false &&
+      assignment.can_sub_gm === false &&
+      assignment.is_experienced === true
+    )
+    
+    return filteredData
   },
 
   // シナリオの担当スタッフ一覧を取得（GM可能なスタッフのみ）
@@ -65,6 +120,34 @@ export const assignmentApi = {
     
     if (error) throw error
     return data || []
+  },
+
+  // シナリオの体験済みスタッフ一覧を取得（GM不可のもののみ）
+  async getScenarioExperiencedStaff(scenarioId: string) {
+    const { data, error } = await supabase
+      .from('staff_scenario_assignments')
+      .select(`
+        *,
+        staff:staff_id (
+          id,
+          name,
+          line_name
+        )
+      `)
+      .eq('scenario_id', scenarioId)
+      .order('assigned_at', { ascending: false })
+    
+    if (error) throw error
+    
+    // 体験済みのみ（GM不可）をフィルタ
+    // can_main_gm = false AND can_sub_gm = false AND is_experienced = true
+    const filteredData = (data || []).filter(assignment => 
+      assignment.can_main_gm === false &&
+      assignment.can_sub_gm === false &&
+      assignment.is_experienced === true
+    )
+    
+    return filteredData
   },
 
   // 担当関係を追加
