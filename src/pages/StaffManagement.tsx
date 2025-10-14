@@ -664,14 +664,18 @@ export function StaffManagement() {
               <p>
                 「<span className="font-semibold text-foreground">{staffToDelete?.name}</span>」を削除してもよろしいですか？
               </p>
-              <p className="text-red-600 font-medium">
-                この操作は取り消せません。関連する以下のデータも削除されます：
+              <p className="text-amber-600 font-medium">
+                この操作は取り消せません。以下の処理が実行されます：
               </p>
               <ul className="list-disc list-inside text-sm space-y-1 pl-2">
-                <li>シフト提出データ</li>
-                <li>シナリオアサインメント</li>
-                <li>その他の関連データ</li>
+                <li>シフト提出データを削除</li>
+                <li>シナリオアサインメントを削除</li>
+                <li>スケジュールのGM欄からこのスタッフを削除</li>
+                <li>予約のスタッフ欄からこのスタッフを削除</li>
               </ul>
+              <p className="text-sm text-muted-foreground mt-2">
+                ※ スケジュールイベントと予約自体は削除されません
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

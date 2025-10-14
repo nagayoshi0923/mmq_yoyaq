@@ -90,9 +90,25 @@ export const scenarioApi = {
 
   // シナリオを削除
   async delete(id: string): Promise<void> {
-    // 関連データを先に削除（外部キー制約対策）
+    // 関連データの参照をクリア（スケジュールイベントは削除しない）
     
-    // 1. staff_scenario_assignmentsの削除
+    // 1. reservationsのscenario_idをNULLに設定
+    const { error: reservationError } = await supabase
+      .from('reservations')
+      .update({ scenario_id: null })
+      .eq('scenario_id', id)
+    
+    if (reservationError) throw reservationError
+    
+    // 2. schedule_eventsのscenario_idをNULLに設定（イベント自体は残す）
+    const { error: scheduleError } = await supabase
+      .from('schedule_events')
+      .update({ scenario_id: null })
+      .eq('scenario_id', id)
+    
+    if (scheduleError) throw scheduleError
+    
+    // 3. staff_scenario_assignmentsの削除
     const { error: assignmentError } = await supabase
       .from('staff_scenario_assignments')
       .delete()
@@ -100,7 +116,15 @@ export const scenarioApi = {
     
     if (assignmentError) throw assignmentError
     
-    // 2. スタッフのspecial_scenariosからこのシナリオを削除
+    // 4. performance_kitsの削除
+    const { error: kitsError } = await supabase
+      .from('performance_kits')
+      .delete()
+      .eq('scenario_id', id)
+    
+    if (kitsError) throw kitsError
+    
+    // 5. スタッフのspecial_scenariosからこのシナリオを削除
     const { data: affectedStaff, error: staffError } = await supabase
       .from('staff')
       .select('id, special_scenarios')
@@ -121,7 +145,7 @@ export const scenarioApi = {
       await Promise.all(updatePromises)
     }
     
-    // 3. シナリオ本体の削除
+    // 6. シナリオ本体の削除
     const { error } = await supabase
       .from('scenarios')
       .delete()
@@ -239,7 +263,17 @@ export const staffApi = {
 
   // スタッフを削除
   async delete(id: string): Promise<void> {
-    // 関連データを先に削除（外部キー制約対策）
+    // スタッフ情報を取得（名前が必要）
+    const { data: staffData, error: fetchError } = await supabase
+      .from('staff')
+      .select('name')
+      .eq('id', id)
+      .single()
+    
+    if (fetchError) throw fetchError
+    const staffName = staffData.name
+    
+    // 関連データの処理
     
     // 1. shift_submissionsの削除
     const { error: shiftError } = await supabase
@@ -257,7 +291,58 @@ export const staffApi = {
     
     if (assignmentError) throw assignmentError
     
-    // 3. スタッフ本体の削除
+    // 3. schedule_eventsのgms配列からスタッフ名を削除（イベント自体は残す）
+    const { data: scheduleEvents, error: scheduleError } = await supabase
+      .from('schedule_events')
+      .select('id, gms')
+      .contains('gms', [staffName])
+    
+    if (scheduleError) throw scheduleError
+    
+    if (scheduleEvents && scheduleEvents.length > 0) {
+      const updatePromises = scheduleEvents.map(event => {
+        const newGms = (event.gms || []).filter((gm: string) => gm !== staffName)
+        return supabase
+          .from('schedule_events')
+          .update({ gms: newGms })
+          .eq('id', event.id)
+      })
+      
+      await Promise.all(updatePromises)
+    }
+    
+    // 4. reservationsのassigned_staff配列からスタッフ名を削除
+    const { data: reservations, error: resError } = await supabase
+      .from('reservations')
+      .select('id, assigned_staff, gm_staff')
+      .or(`assigned_staff.cs.{${staffName}},gm_staff.eq.${staffName}`)
+    
+    if (resError) throw resError
+    
+    if (reservations && reservations.length > 0) {
+      const updatePromises = reservations.map(reservation => {
+        const updates: any = {}
+        
+        // assigned_staff配列から削除
+        if (reservation.assigned_staff && reservation.assigned_staff.includes(staffName)) {
+          updates.assigned_staff = reservation.assigned_staff.filter((s: string) => s !== staffName)
+        }
+        
+        // gm_staffをNULLに設定
+        if (reservation.gm_staff === staffName) {
+          updates.gm_staff = null
+        }
+        
+        return supabase
+          .from('reservations')
+          .update(updates)
+          .eq('id', reservation.id)
+      })
+      
+      await Promise.all(updatePromises)
+    }
+    
+    // 5. スタッフ本体の削除
     const { error } = await supabase
       .from('staff')
       .delete()

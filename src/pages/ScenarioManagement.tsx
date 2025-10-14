@@ -888,20 +888,23 @@ export function ScenarioManagement() {
                 <AlertTriangle className="h-5 w-5 text-red-600" />
                 シナリオを削除
               </AlertDialogTitle>
-              <AlertDialogDescription className="space-y-2">
-                <p>
-                  「<span className="font-semibold text-foreground">{scenarioToDelete?.title}</span>」を削除してもよろしいですか？
-                </p>
-                <p className="text-red-600 font-medium">
-                  この操作は取り消せません。関連する以下のデータも削除されます：
-                </p>
-                <ul className="list-disc list-inside text-sm space-y-1 pl-2">
-                  <li>スケジュールイベント</li>
-                  <li>スタッフとの紐づけ</li>
-                  <li>公演履歴</li>
-                  <li>その他の関連データ</li>
-                </ul>
-              </AlertDialogDescription>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                「<span className="font-semibold text-foreground">{scenarioToDelete?.title}</span>」を削除してもよろしいですか？
+              </p>
+              <p className="text-amber-600 font-medium">
+                この操作は取り消せません。以下の処理が実行されます：
+              </p>
+              <ul className="list-disc list-inside text-sm space-y-1 pl-2">
+                <li>スタッフとの紐づけを削除</li>
+                <li>公演キットデータを削除</li>
+                <li>スケジュールのシナリオ欄を「未設定」に変更</li>
+                <li>予約のシナリオ欄を「未設定」に変更</li>
+              </ul>
+              <p className="text-sm text-muted-foreground mt-2">
+                ※ スケジュールイベントと予約自体は削除されません
+              </p>
+            </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>キャンセル</AlertDialogCancel>
