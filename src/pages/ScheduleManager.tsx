@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -74,9 +74,59 @@ export function ScheduleManager() {
   const [scenariosLoading, setScenariosLoading] = useState(true)
   const [staff, setStaff] = useState<any[]>([])
   const [staffLoading, setStaffLoading] = useState(true)
+  
+  // 初回読み込み完了フラグ（useRefで管理してレンダリングをトリガーしない）
+  const initialLoadComplete = useRef(false)
+  
+  // スクロール位置を保持（シンプル版）
+  useEffect(() => {
+    // ブラウザのデフォルトのスクロール復元を無効化
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual'
+    }
+    
+    // スクロール位置を定期的に保存（デバウンス付き）
+    let scrollTimer: NodeJS.Timeout
+    const handleScroll = () => {
+      clearTimeout(scrollTimer)
+      scrollTimer = setTimeout(() => {
+        sessionStorage.setItem('scheduleScrollY', window.scrollY.toString())
+      }, 100)
+    }
+    
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'auto'
+      }
+    }
+  }, [])
+
+  // マウント時にスクロール位置を即座に復元（ちらつき防止）
+  useLayoutEffect(() => {
+    const savedY = sessionStorage.getItem('scheduleScrollY')
+    if (savedY) {
+      window.scrollTo(0, parseInt(savedY, 10))
+    }
+  }, []) // マウント時のみ実行
+
+  // データ読み込み完了後に再度復元（テーブル高さ確定後）
+  useEffect(() => {
+    if (!isLoading && events.length > 0) {
+      const savedY = sessionStorage.getItem('scheduleScrollY')
+      if (savedY) {
+        window.scrollTo(0, parseInt(savedY, 10))
+      }
+    }
+  }, [isLoading, events.length])
 
   // Supabaseからデータを読み込む
   useEffect(() => {
+    // staffデータが読み込まれるまで待つ（初回のみ）
+    if (!initialLoadComplete.current && staffLoading) return
+    
     const loadEvents = async () => {
       try {
         setIsLoading(true)
@@ -253,11 +303,12 @@ export function ScheduleManager() {
         setEvents(mockEvents)
       } finally {
         setIsLoading(false)
+        initialLoadComplete.current = true // 初回読み込み完了をマーク
       }
     }
 
     loadEvents()
-  }, [currentDate, staff])
+  }, [currentDate, staffLoading]) // currentDateの変更時と初回staffLoading完了時のみ
 
   // シフトデータを読み込む（staffデータの後に実行）
   useEffect(() => {
