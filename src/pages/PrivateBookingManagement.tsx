@@ -100,15 +100,17 @@ export function PrivateBookingManagement() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
+      case 'pending_gm':
         return (
           <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
             GM確認待ち
           </Badge>
         )
       case 'gm_confirmed':
+      case 'pending_store':
         return (
           <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
-            店側確認待ち
+            店舗確認待ち
           </Badge>
         )
       case 'confirmed':
@@ -131,8 +133,10 @@ export function PrivateBookingManagement() {
   const getCardClassName = (status: string) => {
     switch (status) {
       case 'pending':
+      case 'pending_gm':
         return 'border-yellow-200 bg-yellow-50/30'
       case 'gm_confirmed':
+      case 'pending_store':
         return 'border-orange-200 bg-orange-50/30'
       case 'confirmed':
         return 'border-green-200 bg-green-50/30'
@@ -452,11 +456,11 @@ export function PrivateBookingManagement() {
 
       // タブによってフィルター
       if (activeTab === 'pending') {
-        // 店舗確認待ちのみ（GM確認待ち + GM確認済み）
-        query = query.in('status', ['pending', 'gm_confirmed'])
+        // 店舗確認待ち = 未確定のすべて（GM確認待ち + 店舗確認待ち）
+        query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
       } else {
         // 全て
-        query = query.in('status', ['pending', 'gm_confirmed', 'confirmed', 'cancelled'])
+        query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store', 'confirmed', 'cancelled'])
       }
 
       const { data, error } = await query
@@ -1191,7 +1195,7 @@ export function PrivateBookingManagement() {
                     {/* GM選択済み候補日時 */}
                     <div>
                       <p className="text-sm font-medium mb-3 text-purple-800">
-                        {request.status === 'confirmed' ? '確定した候補日時' : request.status === 'gm_confirmed' ? 'GMが選択した候補日時（店側確認待ち）' : 'リクエストされた候補日時'}
+                        {request.status === 'confirmed' ? '確定した候補日時' : (request.status === 'gm_confirmed' || request.status === 'pending_store') ? 'GMが選択した候補日時（店舗確認待ち）' : 'リクエストされた候補日時'}
                       </p>
                       <div className="space-y-2">
                         {request.candidate_datetimes?.candidates?.map((candidate: any) => (
@@ -1199,13 +1203,13 @@ export function PrivateBookingManagement() {
                             key={candidate.order}
                             className={`flex items-center gap-3 p-3 rounded border ${
                               request.status === 'confirmed' ? 'bg-green-50 border-green-300' :
-                              request.status === 'gm_confirmed' ? 'bg-purple-50 border-purple-300' :
+                              (request.status === 'gm_confirmed' || request.status === 'pending_store') ? 'bg-purple-50 border-purple-300' :
                               'bg-gray-50 border-gray-300'
                             }`}
                           >
                             {request.status === 'confirmed' ? (
                               <CheckCircle2 className="w-5 h-5 text-green-600" />
-                            ) : request.status === 'gm_confirmed' ? (
+                            ) : (request.status === 'gm_confirmed' || request.status === 'pending_store') ? (
                               <CheckCircle2 className="w-5 h-5 text-purple-600" />
                             ) : (
                               <XCircle className="w-5 h-5 text-red-600" />
@@ -1249,7 +1253,7 @@ export function PrivateBookingManagement() {
                     )}
 
                     {/* 詳細確認ボタン（店舗確認待ちの場合のみ） */}
-                    {request.status === 'gm_confirmed' && (
+                    {(request.status === 'gm_confirmed' || request.status === 'pending_store') && (
                       <div className="pt-3 border-t">
                         <Button
                           onClick={() => setSelectedRequest(request)}

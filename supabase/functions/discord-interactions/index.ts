@@ -254,6 +254,19 @@ serve(async (req) => {
             // エラーでも成功メッセージを返す
           } else {
             console.log('✅ GM unavailable response saved to database:', gmResponse)
+            
+            // GMが1人でも回答したら、リクエストのステータスを「店舗確認待ち」に更新
+            const { error: updateError } = await supabase
+              .from('reservations')
+              .update({ status: 'pending_store' })
+              .eq('id', requestId)
+              .in('status', ['pending', 'pending_gm'])  // pending または pending_gm の場合に更新
+            
+            if (updateError) {
+              console.error('❌ Error updating reservation status:', updateError)
+            } else {
+              console.log('✅ Reservation status updated to pending_store')
+            }
           }
           
           const response = new Response(
@@ -382,6 +395,19 @@ serve(async (req) => {
             // エラーでも成功メッセージを返す（ユーザー体験を損なわないため）
           } else {
             console.log('✅ GM response saved to database:', gmResponse)
+            
+            // GMが1人でも回答したら、リクエストのステータスを「店舗確認待ち」に更新
+            const { error: updateError } = await supabase
+              .from('reservations')
+              .update({ status: 'pending_store' })
+              .eq('id', requestId)
+              .in('status', ['pending', 'pending_gm'])  // pending または pending_gm の場合に更新
+            
+            if (updateError) {
+              console.error('❌ Error updating reservation status:', updateError)
+            } else {
+              console.log('✅ Reservation status updated to pending_store')
+            }
           }
           
           const response = new Response(
