@@ -21,8 +21,35 @@ export const assignmentApi = {
     return data || []
   },
 
-  // シナリオの担当スタッフ一覧を取得
+  // シナリオの担当スタッフ一覧を取得（GM可能なスタッフのみ）
   async getScenarioAssignments(scenarioId: string) {
+    // まず全てのアサインメントを取得
+    const { data, error } = await supabase
+      .from('staff_scenario_assignments')
+      .select(`
+        *,
+        staff:staff_id (
+          id,
+          name,
+          line_name
+        )
+      `)
+      .eq('scenario_id', scenarioId)
+      .order('assigned_at', { ascending: false })
+    
+    if (error) throw error
+    
+    // クライアント側でGM可能なスタッフのみフィルタ
+    // (can_main_gm = true OR can_sub_gm = true)
+    const filteredData = (data || []).filter(assignment => 
+      assignment.can_main_gm === true || assignment.can_sub_gm === true
+    )
+    
+    return filteredData
+  },
+
+  // シナリオの全スタッフ一覧を取得（体験済み含む）
+  async getAllScenarioAssignments(scenarioId: string) {
     const { data, error } = await supabase
       .from('staff_scenario_assignments')
       .select(`
