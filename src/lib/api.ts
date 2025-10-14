@@ -90,6 +90,38 @@ export const scenarioApi = {
 
   // シナリオを削除
   async delete(id: string): Promise<void> {
+    // 関連データを先に削除（外部キー制約対策）
+    
+    // 1. staff_scenario_assignmentsの削除
+    const { error: assignmentError } = await supabase
+      .from('staff_scenario_assignments')
+      .delete()
+      .eq('scenario_id', id)
+    
+    if (assignmentError) throw assignmentError
+    
+    // 2. スタッフのspecial_scenariosからこのシナリオを削除
+    const { data: affectedStaff, error: staffError } = await supabase
+      .from('staff')
+      .select('id, special_scenarios')
+      .contains('special_scenarios', [id])
+    
+    if (staffError) throw staffError
+    
+    // 各スタッフのspecial_scenariosからシナリオIDを削除
+    if (affectedStaff && affectedStaff.length > 0) {
+      const updatePromises = affectedStaff.map(staff => {
+        const newScenarios = (staff.special_scenarios || []).filter((sid: string) => sid !== id)
+        return supabase
+          .from('staff')
+          .update({ special_scenarios: newScenarios })
+          .eq('id', staff.id)
+      })
+      
+      await Promise.all(updatePromises)
+    }
+    
+    // 3. シナリオ本体の削除
     const { error } = await supabase
       .from('scenarios')
       .delete()
@@ -207,6 +239,25 @@ export const staffApi = {
 
   // スタッフを削除
   async delete(id: string): Promise<void> {
+    // 関連データを先に削除（外部キー制約対策）
+    
+    // 1. shift_submissionsの削除
+    const { error: shiftError } = await supabase
+      .from('shift_submissions')
+      .delete()
+      .eq('staff_id', id)
+    
+    if (shiftError) throw shiftError
+    
+    // 2. staff_scenario_assignmentsの削除
+    const { error: assignmentError } = await supabase
+      .from('staff_scenario_assignments')
+      .delete()
+      .eq('staff_id', id)
+    
+    if (assignmentError) throw assignmentError
+    
+    // 3. スタッフ本体の削除
     const { error } = await supabase
       .from('staff')
       .delete()

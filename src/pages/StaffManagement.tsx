@@ -20,10 +20,21 @@ import {
   Filter,
   Shield,
   Clock,
-  ArrowLeft
+  ArrowLeft,
+  AlertTriangle
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 // モックデータ（後でAPIから取得）
 const mockStaff = [
@@ -72,6 +83,10 @@ export function StaffManagement() {
   // 編集モーダル用のstate
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null)
+  
+  // 削除確認ダイアログ用のstate
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [staffToDelete, setStaffToDelete] = useState<Staff | null>(null)
 
   useEffect(() => {
     loadStaff()
@@ -191,15 +206,20 @@ export function StaffManagement() {
     return scenario ? scenario.title : scenarioId
   }
 
-  async function handleDeleteStaff(member: Staff) {
-    if (!confirm(`「${member.name}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
-      return
-    }
+  function openDeleteDialog(member: Staff) {
+    setStaffToDelete(member)
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleDeleteStaff() {
+    if (!staffToDelete) return
 
     try {
-      await staffApi.delete(member.id)
+      await staffApi.delete(staffToDelete.id)
       // 削除成功後、リストから除去
-      setStaff(prev => prev.filter(s => s.id !== member.id))
+      setStaff(prev => prev.filter(s => s.id !== staffToDelete.id))
+      setDeleteDialogOpen(false)
+      setStaffToDelete(null)
     } catch (err: any) {
       console.error('Error deleting staff:', err)
       alert('スタッフの削除に失敗しました: ' + err.message)
@@ -588,6 +608,15 @@ export function StaffManagement() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => openDeleteDialog(member)}
+                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="削除"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -622,6 +651,40 @@ export function StaffManagement() {
         stores={stores}
         scenarios={scenarios}
       />
+
+      {/* 削除確認ダイアログ */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              スタッフを削除
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                「<span className="font-semibold text-foreground">{staffToDelete?.name}</span>」を削除してもよろしいですか？
+              </p>
+              <p className="text-red-600 font-medium">
+                この操作は取り消せません。関連する以下のデータも削除されます：
+              </p>
+              <ul className="list-disc list-inside text-sm space-y-1 pl-2">
+                <li>シフト提出データ</li>
+                <li>シナリオアサインメント</li>
+                <li>その他の関連データ</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteStaff}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              削除する
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

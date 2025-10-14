@@ -26,8 +26,20 @@ import {
   ArrowLeft,
   RefreshCw,
   Upload,
-  Download
+  Download,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 // モックデータ（後でAPIから取得）
 const mockScenarios: Scenario[] = [
@@ -101,6 +113,10 @@ export function ScenarioManagement() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [displayMode, setDisplayMode] = useState<'compact' | 'detailed'>('compact')
   const [isImporting, setIsImporting] = useState(false)
+  
+  // 削除確認ダイアログ用のstate
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
   
   // 並び替え機能
   const { sortState, handleSort, sortData } = useSortableTable<ScenarioSortField>({
@@ -178,6 +194,26 @@ export function ScenarioManagement() {
     } catch (err: any) {
       console.error('Error saving scenario:', err)
       alert('シナリオの保存に失敗しました: ' + err.message)
+    }
+  }
+
+  function openDeleteDialog(scenario: Scenario) {
+    setScenarioToDelete(scenario)
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleDeleteScenario() {
+    if (!scenarioToDelete) return
+
+    try {
+      await scenarioApi.delete(scenarioToDelete.id)
+      // 削除成功後、リストから除去
+      setScenarios(prev => prev.filter(s => s.id !== scenarioToDelete.id))
+      setDeleteDialogOpen(false)
+      setScenarioToDelete(null)
+    } catch (err: any) {
+      console.error('Error deleting scenario:', err)
+      alert('シナリオの削除に失敗しました: ' + err.message)
     }
   }
 
@@ -803,6 +839,15 @@ export function ScenarioManagement() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="削除"
+                            onClick={() => openDeleteDialog(scenario)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -834,6 +879,41 @@ export function ScenarioManagement() {
           onClose={() => setIsEditModalOpen(false)}
           onSave={handleSaveScenario}
         />
+
+        {/* 削除確認ダイアログ */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                シナリオを削除
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>
+                  「<span className="font-semibold text-foreground">{scenarioToDelete?.title}</span>」を削除してもよろしいですか？
+                </p>
+                <p className="text-red-600 font-medium">
+                  この操作は取り消せません。関連する以下のデータも削除されます：
+                </p>
+                <ul className="list-disc list-inside text-sm space-y-1 pl-2">
+                  <li>スケジュールイベント</li>
+                  <li>スタッフとの紐づけ</li>
+                  <li>公演履歴</li>
+                  <li>その他の関連データ</li>
+                </ul>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>キャンセル</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteScenario}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              >
+                削除する
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   )
