@@ -57,7 +57,17 @@ export function ScheduleManager() {
     })()
   )
   
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [currentDate, setCurrentDate] = useState(() => {
+    try {
+      const saved = localStorage.getItem('scheduleCurrentDate')
+      if (saved) {
+        return new Date(saved)
+      }
+    } catch {
+      // エラー時は現在の日付を使用
+    }
+    return new Date()
+  })
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [memos, setMemos] = useState<Record<string, string>>({})
   const [storeIdMap, setStoreIdMap] = useState<Record<string, string>>({})
@@ -129,6 +139,15 @@ export function ScheduleManager() {
       return []
     }
   })
+
+  // currentDateの変更をlocalStorageに保存
+  useEffect(() => {
+    try {
+      localStorage.setItem('scheduleCurrentDate', currentDate.toISOString())
+    } catch (error) {
+      console.error('Failed to save current date:', error)
+    }
+  }, [currentDate])
   const [scenariosLoading, setScenariosLoading] = useState(() => {
     try {
       const cached = sessionStorage.getItem('scheduleScenarios')
