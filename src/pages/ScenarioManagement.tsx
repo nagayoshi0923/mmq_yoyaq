@@ -613,7 +613,7 @@ export function ScenarioManagement() {
                     currentField={sortState.field}
                     currentDirection={sortState.direction}
                     onSort={handleSort}
-                    className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm"
+                    className="flex-shrink-0 w-96 px-3 py-2 border-r font-medium text-sm"
                   >
                     担当GM
                   </SortableTableHeader>
@@ -706,18 +706,18 @@ export function ScenarioManagement() {
 
                       {/* 担当GM（基本情報時のみ） */}
                         {displayMode === 'compact' && (
-                          <div className="flex-shrink-0 w-32 px-3 py-2 border-r">
+                          <div className="flex-shrink-0 w-96 px-3 py-2 border-r">
                             <div className="text-sm">
                               {scenario.available_gms && scenario.available_gms.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
-                                  {scenario.available_gms.slice(0, 2).map((gm: string, i: number) => (
+                                  {scenario.available_gms.slice(0, 6).map((gm: string, i: number) => (
                                     <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
                                       {gm}
                                     </Badge>
                                   ))}
-                                  {scenario.available_gms.length > 2 && (
+                                  {scenario.available_gms.length > 6 && (
                                     <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
-                                      +{scenario.available_gms.length - 2}
+                                      +{scenario.available_gms.length - 6}
                                     </Badge>
                                   )}
                                 </div>
