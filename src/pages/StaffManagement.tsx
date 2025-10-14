@@ -35,6 +35,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 // モックデータ（後でAPIから取得）
 const mockStaff = [
@@ -371,9 +377,10 @@ export function StaffManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="staff" />
+    <TooltipProvider>
+      <div className="min-h-screen bg-background">
+        <Header />
+        <NavigationBar currentPage="staff" />
       
       <div className="container mx-auto max-w-7xl px-8 py-6">
         <div className="space-y-6">
@@ -593,9 +600,23 @@ export function StaffManagement() {
                               </Badge>
                             ))}
                             {member.special_scenarios.length > 3 && (
-                              <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
-                                +{member.special_scenarios.length - 3}
-                              </Badge>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-block">
+                                    <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5 cursor-pointer">
+                                      +{member.special_scenarios.length - 3}
+                                    </Badge>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-xs">残りのGM可能シナリオ:</p>
+                                    {member.special_scenarios.slice(3).map((scenarioId, index) => (
+                                      <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
                             )}
                           </>
                         ) : (
@@ -615,9 +636,23 @@ export function StaffManagement() {
                               </Badge>
                             ))}
                             {(member as any).experienced_scenarios.length > 3 && (
-                              <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
-                                +{(member as any).experienced_scenarios.length - 3}
-                              </Badge>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-block">
+                                    <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5 cursor-pointer">
+                                      +{(member as any).experienced_scenarios.length - 3}
+                                    </Badge>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-xs">残りの体験済みシナリオ:</p>
+                                    {(member as any).experienced_scenarios.slice(3).map((scenarioId: string, index: number) => (
+                                      <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
                             )}
                           </>
                         ) : (
@@ -720,6 +755,7 @@ export function StaffManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }
