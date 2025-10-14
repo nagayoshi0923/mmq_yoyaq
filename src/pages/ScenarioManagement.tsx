@@ -696,7 +696,11 @@ export function ScenarioManagement() {
                       {/* 人数 */}
                       <div className="flex-shrink-0 w-24 px-3 py-2 border-r">
                         <p className="text-sm flex items-center gap-1">
-                          <Users className="h-3 w-3" /> {scenario.player_count_min}-{scenario.player_count_max}名
+                          <Users className="h-3 w-3" /> 
+                          {scenario.player_count_max && scenario.player_count_max !== scenario.player_count_min
+                            ? `${scenario.player_count_min}-${scenario.player_count_max}名`
+                            : `${scenario.player_count_min}名`
+                          }
                         </p>
                       </div>
 
