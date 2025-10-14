@@ -39,13 +39,25 @@
 
 ## 既存データの更新のみ行う場合
 
-既にシナリオデータがインポート済みで、GMテスト参加費だけを更新したい場合：
+既にシナリオデータがインポート済みで、GMテスト関連の料金だけを更新したい場合：
 
+### GMテスト参加費を更新
 ```sql
 -- database/update_gm_test_participation_fee.sql をSupabaseで実行
 ```
+既存の全シナリオの`gm_test_participation_fee`を`participation_fee - 1000円`に更新します。
 
-このスクリプトは既存の全シナリオの`gm_test_participation_fee`を`participation_fee - 1000円`に更新します。
+### GMテストライセンス料を更新
+```sql
+-- database/update_gm_test_license_amount.sql をSupabaseで実行
+```
+`gm_test_license_amount`が0円で、`license_amount`が設定されている場合、通常ライセンス料をコピーします。
+
+### 両方まとめて更新
+```sql
+-- database/update_all_gm_test_fees.sql をSupabaseで実行
+```
+上記2つを一度に実行します（推奨）。
 
 ## 詳細な説明
 
