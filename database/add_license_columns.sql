@@ -1,53 +1,29 @@
--- 既存のシナリオにライセンス料金と参加費を設定
--- license_costsは配列形式なので、適切な構造で設定
+-- シナリオテーブルにライセンス関連のカラムを追加
+-- license_amount と gm_test_fee を追加
 
-UPDATE scenarios SET 
-  license_costs = '[{"time_slot": "通常", "amount": 5000}]'::jsonb, 
-  participation_fee = 3000 
-WHERE id = '550e8400-e29b-41d4-a716-446655440001';
+-- license_amount カラムの追加（ライセンス料）
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'scenarios' AND column_name = 'license_amount') THEN
+        ALTER TABLE scenarios ADD COLUMN license_amount INTEGER DEFAULT 0;
+        COMMENT ON COLUMN scenarios.license_amount IS 'ライセンス料（円）';
+    END IF;
+END $$;
 
-UPDATE scenarios SET 
-  license_costs = '[{"time_slot": "通常", "amount": 3000}]'::jsonb, 
-  participation_fee = 2500 
-WHERE id = '550e8400-e29b-41d4-a716-446655440002';
+-- gm_test_fee カラムの追加（GMテスト料金）
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'scenarios' AND column_name = 'gm_test_fee') THEN
+        ALTER TABLE scenarios ADD COLUMN gm_test_fee INTEGER DEFAULT 0;
+        COMMENT ON COLUMN scenarios.gm_test_fee IS 'GMテスト料金（円）';
+    END IF;
+END $$;
 
-UPDATE scenarios SET 
-  license_costs = '[{"time_slot": "通常", "amount": 2500}]'::jsonb, 
-  participation_fee = 2000 
-WHERE id = '550e8400-e29b-41d4-a716-446655440003';
-
-UPDATE scenarios SET 
-  license_costs = '[{"time_slot": "通常", "amount": 8000}]'::jsonb, 
-  participation_fee = 4000 
-WHERE id = '550e8400-e29b-41d4-a716-446655440004';
-
--- 他の作者のシナリオも追加
-UPDATE scenarios SET 
-  license_costs = '[{"time_slot": "通常", "amount": 6000}]'::jsonb, 
-  participation_fee = 3500 
-WHERE id = '550e8400-e29b-41d4-a716-446655440005';
-
-UPDATE scenarios SET 
-  license_costs = '[{"time_slot": "通常", "amount": 4000}]'::jsonb, 
-  participation_fee = 2800 
-WHERE id = '550e8400-e29b-41d4-a716-446655440006';
-
-UPDATE scenarios SET 
-  license_costs = '[{"time_slot": "通常", "amount": 7000}]'::jsonb, 
-  participation_fee = 3800 
-WHERE id = '550e8400-e29b-41d4-a716-446655440007';
-
--- 既存の店舗IDを確認して使用
--- 店舗IDの変更は外部キー制約のため行わない
--- 既存の店舗IDをそのまま使用する
-
--- 確認用クエリ
-SELECT id, title, author, license_costs, participation_fee FROM scenarios WHERE id IN (
-  '550e8400-e29b-41d4-a716-446655440001',
-  '550e8400-e29b-41d4-a716-446655440002',
-  '550e8400-e29b-41d4-a716-446655440003',
-  '550e8400-e29b-41d4-a716-446655440004'
-);
-
--- 既存の店舗IDを確認
-SELECT id, name FROM stores ORDER BY name;
+-- 確認
+SELECT column_name, data_type, column_default 
+FROM information_schema.columns 
+WHERE table_name = 'scenarios' 
+  AND column_name IN ('license_amount', 'gm_test_fee', 'gm_fee', 'participation_fee')
+ORDER BY column_name;
