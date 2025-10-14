@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
@@ -51,7 +50,6 @@ export function PrivateBookingManagement() {
   const [selectedRequest, setSelectedRequest] = useState<PrivateBookingRequest | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [availableGMs, setAvailableGMs] = useState<any[]>([])
   const [selectedGMId, setSelectedGMId] = useState<string>('')
@@ -173,7 +171,7 @@ export function PrivateBookingManagement() {
     loadRequests()
     loadStores()
     loadAllGMs()
-  }, [activeTab])
+  }, [])
 
   useEffect(() => {
     const initializeRequest = async () => {
@@ -454,14 +452,8 @@ export function PrivateBookingManagement() {
         .eq('reservation_source', 'web_private')
         .order('created_at', { ascending: false })
 
-      // タブによってフィルター
-      if (activeTab === 'pending') {
-        // 店舗確認待ち = 未確定のすべて（GM確認待ち + 店舗確認待ち）
-        query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
-      } else {
-        // 全て
-        query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store', 'confirmed', 'cancelled'])
-      }
+      // 全てのリクエストを表示
+      query = query.in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store', 'confirmed', 'cancelled'])
 
       const { data, error } = await query
 
@@ -984,9 +976,6 @@ export function PrivateBookingManagement() {
     )
   }
 
-  const pendingRequests = requests.filter(r => r.status === 'pending' || r.status === 'gm_confirmed')
-  const allRequests = filterByMonth(requests)
-  
   // 月の切り替え
   const handlePrevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
@@ -995,6 +984,8 @@ export function PrivateBookingManagement() {
   const handleNextMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
   }
+
+  const filteredRequests = filterByMonth(requests)
 
   return (
     <div className="min-h-screen bg-background">
@@ -1005,29 +996,43 @@ export function PrivateBookingManagement() {
         <h1 className="text-3xl font-bold mb-2">貸切リクエスト確認</h1>
         <p className="text-muted-foreground mb-6">GMが対応可能と回答したリクエストを確認・承認します</p>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pending' | 'all')}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="pending">
-              店舗確認待ち
-              {pendingRequests.length > 0 && (
-                <Badge className="ml-2 bg-orange-600 text-xs px-1.5 py-0">
-                  {pendingRequests.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="all">全て</TabsTrigger>
-          </TabsList>
+        {/* 月切り替え */}
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrevMonth}
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            前月
+          </Button>
+          
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">{formatMonthYear(currentDate)}</h2>
+            <Badge variant="outline" className="text-xs px-2 py-1">
+              {filteredRequests.length}件
+            </Badge>
+          </div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNextMonth}
+          >
+            次月
+            <ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
 
-          <TabsContent value="pending">
-            {pendingRequests.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center text-muted-foreground">
-                  現在確認待ちの貸切リクエストはありません
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-6">
-                {pendingRequests.map((request) => (
+        {filteredRequests.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center text-muted-foreground">
+              {formatMonthYear(currentDate)}の貸切リクエストはありません
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {filteredRequests.map((request) => (
                   <Card key={request.id} className={getCardClassName(request.status)}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -1124,36 +1129,8 @@ export function PrivateBookingManagement() {
             ))}
           </div>
         )}
-      </TabsContent>
 
-      <TabsContent value="all">
-        {/* 月切り替え */}
-        <div className="flex items-center justify-between mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrevMonth}
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            前月
-          </Button>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">{formatMonthYear(currentDate)}</h2>
-            <Badge variant="outline" className="text-xs px-2 py-1">
-              {allRequests.length}件
-            </Badge>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleNextMonth}
-          >
-            翌月
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
-
-        {allRequests.length === 0 ? (
+        {filteredRequests.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center text-muted-foreground">
               {formatMonthYear(currentDate)}の貸切リクエストはありません
@@ -1161,7 +1138,7 @@ export function PrivateBookingManagement() {
           </Card>
         ) : (
           <div className="space-y-6">
-            {allRequests.map((request) => (
+            {filteredRequests.map((request) => (
               <Card key={request.id} className={getCardClassName(request.status)}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -1270,8 +1247,6 @@ export function PrivateBookingManagement() {
             ))}
           </div>
         )}
-      </TabsContent>
-    </Tabs>
       </div>
     </div>
   )
