@@ -29,6 +29,55 @@ export function StoreManagement() {
   const [error, setError] = useState('')
   const [editingStore, setEditingStore] = useState<Store | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+
+  // スクロール位置の保存と復元
+  useEffect(() => {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual'
+    }
+    let scrollTimer: NodeJS.Timeout
+    const handleScroll = () => {
+      clearTimeout(scrollTimer)
+      scrollTimer = setTimeout(() => {
+        sessionStorage.setItem('storeScrollY', window.scrollY.toString())
+        sessionStorage.setItem('storeScrollTime', Date.now().toString())
+      }, 100)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  useEffect(() => {
+    const savedY = sessionStorage.getItem('storeScrollY')
+    const savedTime = sessionStorage.getItem('storeScrollTime')
+    if (savedY && savedTime) {
+      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+      if (timeSinceScroll < 10000) {
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedY, 10))
+        }, 100)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!loading && !initialLoadComplete) {
+      setInitialLoadComplete(true)
+      const savedY = sessionStorage.getItem('storeScrollY')
+      const savedTime = sessionStorage.getItem('storeScrollTime')
+      if (savedY && savedTime) {
+        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+        if (timeSinceScroll < 10000) {
+          setTimeout(() => {
+            window.scrollTo(0, parseInt(savedY, 10))
+          }, 200)
+        }
+      }
+    }
+  }, [loading, initialLoadComplete])
 
   useEffect(() => {
     loadStores()

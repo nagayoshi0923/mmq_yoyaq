@@ -83,8 +83,15 @@ export function StaffManagement() {
   const [scenarios, setScenarios] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+  
+  // sessionStorageから検索とフィルタの状態を復元
+  const [searchTerm, setSearchTerm] = useState(() => {
+    return sessionStorage.getItem('staffSearchTerm') || ''
+  })
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    return sessionStorage.getItem('staffStatusFilter') || 'all'
+  })
   
   // 編集モーダル用のstate
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -93,6 +100,63 @@ export function StaffManagement() {
   // 削除確認ダイアログ用のstate
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [staffToDelete, setStaffToDelete] = useState<Staff | null>(null)
+
+  // スクロール位置の保存と復元
+  useEffect(() => {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual'
+    }
+    let scrollTimer: NodeJS.Timeout
+    const handleScroll = () => {
+      clearTimeout(scrollTimer)
+      scrollTimer = setTimeout(() => {
+        sessionStorage.setItem('staffScrollY', window.scrollY.toString())
+        sessionStorage.setItem('staffScrollTime', Date.now().toString())
+      }, 100)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  useEffect(() => {
+    const savedY = sessionStorage.getItem('staffScrollY')
+    const savedTime = sessionStorage.getItem('staffScrollTime')
+    if (savedY && savedTime) {
+      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+      if (timeSinceScroll < 10000) {
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedY, 10))
+        }, 100)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!loading && !initialLoadComplete) {
+      setInitialLoadComplete(true)
+      const savedY = sessionStorage.getItem('staffScrollY')
+      const savedTime = sessionStorage.getItem('staffScrollTime')
+      if (savedY && savedTime) {
+        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+        if (timeSinceScroll < 10000) {
+          setTimeout(() => {
+            window.scrollTo(0, parseInt(savedY, 10))
+          }, 200)
+        }
+      }
+    }
+  }, [loading, initialLoadComplete])
+
+  // 検索とフィルタの状態を保存
+  useEffect(() => {
+    sessionStorage.setItem('staffSearchTerm', searchTerm)
+  }, [searchTerm])
+
+  useEffect(() => {
+    sessionStorage.setItem('staffStatusFilter', statusFilter)
+  }, [statusFilter])
 
   useEffect(() => {
     loadStaff()

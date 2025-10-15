@@ -21,12 +21,88 @@ interface ReservationWithDetails extends Reservation {
 
 export function ReservationManagement() {
   const [reservations, setReservations] = useState<ReservationWithDetails[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [paymentFilter, setPaymentFilter] = useState('all')
-  const [typeFilter, setTypeFilter] = useState('all') // 通常予約 or 貸切リクエスト
   const [isLoading, setIsLoading] = useState(true)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [expandedReservations, setExpandedReservations] = useState<Set<string>>(new Set())
+  
+  // sessionStorageからフィルタの状態を復元
+  const [searchTerm, setSearchTerm] = useState(() => {
+    return sessionStorage.getItem('reservationSearchTerm') || ''
+  })
+  const [statusFilter, setStatusFilter] = useState(() => {
+    return sessionStorage.getItem('reservationStatusFilter') || 'all'
+  })
+  const [paymentFilter, setPaymentFilter] = useState(() => {
+    return sessionStorage.getItem('reservationPaymentFilter') || 'all'
+  })
+  const [typeFilter, setTypeFilter] = useState(() => {
+    return sessionStorage.getItem('reservationTypeFilter') || 'all'
+  })
+
+  // スクロール位置の保存と復元
+  useEffect(() => {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual'
+    }
+    let scrollTimer: NodeJS.Timeout
+    const handleScroll = () => {
+      clearTimeout(scrollTimer)
+      scrollTimer = setTimeout(() => {
+        sessionStorage.setItem('reservationScrollY', window.scrollY.toString())
+        sessionStorage.setItem('reservationScrollTime', Date.now().toString())
+      }, 100)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  useEffect(() => {
+    const savedY = sessionStorage.getItem('reservationScrollY')
+    const savedTime = sessionStorage.getItem('reservationScrollTime')
+    if (savedY && savedTime) {
+      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+      if (timeSinceScroll < 10000) {
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedY, 10))
+        }, 100)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isLoading && !initialLoadComplete) {
+      setInitialLoadComplete(true)
+      const savedY = sessionStorage.getItem('reservationScrollY')
+      const savedTime = sessionStorage.getItem('reservationScrollTime')
+      if (savedY && savedTime) {
+        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+        if (timeSinceScroll < 10000) {
+          setTimeout(() => {
+            window.scrollTo(0, parseInt(savedY, 10))
+          }, 200)
+        }
+      }
+    }
+  }, [isLoading, initialLoadComplete])
+
+  // フィルタの状態を保存
+  useEffect(() => {
+    sessionStorage.setItem('reservationSearchTerm', searchTerm)
+  }, [searchTerm])
+
+  useEffect(() => {
+    sessionStorage.setItem('reservationStatusFilter', statusFilter)
+  }, [statusFilter])
+
+  useEffect(() => {
+    sessionStorage.setItem('reservationPaymentFilter', paymentFilter)
+  }, [paymentFilter])
+
+  useEffect(() => {
+    sessionStorage.setItem('reservationTypeFilter', typeFilter)
+  }, [typeFilter])
 
   // 予約データを読み込む
   useEffect(() => {
