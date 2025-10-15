@@ -511,6 +511,7 @@ export function PerformanceModal({
               selectedValues={formData.gms}
               onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
               placeholder="GMを選択"
+              closeOnSelect={true}
             />
             {formData.gms.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">

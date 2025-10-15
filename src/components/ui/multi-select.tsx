@@ -24,6 +24,7 @@ interface MultiSelectProps {
   className?: string
   disabled?: boolean
   showBadges?: boolean
+  closeOnSelect?: boolean  // 選択時にプルダウンを閉じるか
 }
 
 export function MultiSelect({
@@ -33,7 +34,8 @@ export function MultiSelect({
   placeholder = "選択してください",
   className = "",
   disabled = false,
-  showBadges = false
+  showBadges = false,
+  closeOnSelect = false
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -61,6 +63,11 @@ export function MultiSelect({
       onSelectionChange(currentValues.filter(v => v !== value))
     } else {
       onSelectionChange([...currentValues, value])
+    }
+    
+    // closeOnSelectがtrueの場合、選択後にプルダウンを閉じる
+    if (closeOnSelect) {
+      setOpen(false)
     }
   }
 
