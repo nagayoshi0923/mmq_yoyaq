@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { X } from 'lucide-react'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
-import { Combobox, ComboboxOption } from '@/components/ui/combobox'
+import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select'
 import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import type { Staff as StaffType } from '@/types'
 
@@ -392,15 +392,71 @@ export function PerformanceModal({
           {/* シナリオ */}
           <div>
             <Label htmlFor="scenario">シナリオタイトル</Label>
-            <Combobox
+            <SearchableSelect
               options={scenarios.map(scenario => {
                 const hours = scenario.duration / 60
                 const displayHours = hours % 1 === 0 ? hours.toFixed(1) : hours.toFixed(1)
                 
+                // 担当GMを取得
+                const allGMsForScenario = staff.filter(s => 
+                  s.role?.includes('gm') && 
+                  (s.special_scenarios?.includes(scenario.id) || s.special_scenarios?.includes(scenario.title))
+                )
+                
+                const availableGMs = availableStaffByScenario[scenario.title] || []
+                const availableStaffIds = new Set(availableGMs.map(gm => gm.id))
+                
                 return {
                   value: scenario.title,
                   label: scenario.title,
-                  displayInfo: `${displayHours}h | ${scenario.player_count_min}-${scenario.player_count_max}人`
+                  displayInfo: `${displayHours}h | ${scenario.player_count_min}-${scenario.player_count_max}人`,
+                  renderContent: () => (
+                    <div className="flex items-center gap-2 w-full">
+                      {/* タイトル */}
+                      <span className="flex-shrink-0 min-w-0 truncate">{scenario.title}</span>
+                      
+                      {/* 時間・人数 */}
+                      <span className="flex-shrink-0 text-xs text-muted-foreground whitespace-nowrap">
+                        {displayHours}h | {scenario.player_count_min}-{scenario.player_count_max}人
+                      </span>
+                      
+                      {/* 担当GMバッジ */}
+                      {allGMsForScenario.length > 0 && (
+                        <div className="flex gap-0.5 flex-shrink-0">
+                          {allGMsForScenario.slice(0, 6).map((gm) => {
+                            const isAvailable = availableStaffIds.has(gm.id)
+                            const hash = gm.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+                            const colors = ['#EFF6FF', '#F0FDF4', '#FFFBEB', '#FEF2F2', '#F5F3FF', '#FDF2F8', '#ECFEFF', '#F7FEE7']
+                            const textColors = ['#2563EB', '#16A34A', '#D97706', '#DC2626', '#7C3AED', '#DB2777', '#0891B2', '#65A30D']
+                            const bgColor = gm.avatar_color || colors[hash % colors.length]
+                            const textColor = gm.avatar_color ? 
+                              ({'#EFF6FF': '#2563EB', '#F0FDF4': '#16A34A', '#FFFBEB': '#D97706', '#FEF2F2': '#DC2626', '#F5F3FF': '#7C3AED', '#FDF2F8': '#DB2777', '#ECFEFF': '#0891B2', '#F7FEE7': '#65A30D'}[gm.avatar_color] || '#374151') :
+                              textColors[hash % textColors.length]
+                            
+                            return (
+                              <Badge 
+                                key={gm.id} 
+                                variant="outline"
+                                style={isAvailable ? { 
+                                  backgroundColor: bgColor, 
+                                  color: textColor,
+                                  borderColor: textColor + '40'
+                                } : undefined}
+                                className={`text-[10px] px-1 py-0 h-4 font-normal ${!isAvailable ? 'bg-gray-100 text-gray-400' : ''}`}
+                              >
+                                {gm.name.slice(0, 3)}
+                              </Badge>
+                            )
+                          })}
+                          {allGMsForScenario.length > 6 && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 font-normal bg-gray-100 text-gray-500">
+                              +{allGMsForScenario.length - 6}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
                 }
               })}
               value={formData.scenario}

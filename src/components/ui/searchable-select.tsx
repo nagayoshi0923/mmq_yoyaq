@@ -4,49 +4,52 @@ import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command"
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
 
-export interface ComboboxOption {
+export interface SearchableSelectOption {
   value: string
   label: string
   displayInfo?: string
   renderContent?: () => React.ReactNode
 }
 
-interface ComboboxProps {
-  options: ComboboxOption[]
+interface SearchableSelectProps {
+  options: SearchableSelectOption[]
   value: string
   onValueChange: (value: string) => void
   placeholder?: string
   searchPlaceholder?: string
-  emptyText?: string
   className?: string
   disabled?: boolean
 }
 
-export function Combobox({
+export function SearchableSelect({
   options,
   value,
   onValueChange,
   placeholder = "選択してください",
   searchPlaceholder = "検索...",
-  emptyText = "見つかりません",
   className = "",
   disabled = false
-}: ComboboxProps) {
+}: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
+  const [searchTerm, setSearchTerm] = React.useState("")
 
   const selectedOption = options.find((option) => option.value === value)
+
+  // 検索フィルタリング
+  const filteredOptions = React.useMemo(() => {
+    if (!searchTerm) return options
+    const lowerSearch = searchTerm.toLowerCase()
+    return options.filter(option => 
+      option.label.toLowerCase().includes(lowerSearch) ||
+      option.displayInfo?.toLowerCase().includes(lowerSearch)
+    )
+  }, [options, searchTerm])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -68,18 +71,32 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="p-0 w-full">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandEmpty>{emptyText}</CommandEmpty>
-          <CommandGroup className="scrollable-list" style={{ maxHeight: '400px' }}>
-            {options.map((option) => (
-              <CommandItem
+      <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+        <div className="p-2 border-b">
+          <Input
+            placeholder={searchPlaceholder}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-8"
+          />
+        </div>
+        <div className="scrollable-list" style={{ maxHeight: '400px' }}>
+          {filteredOptions.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              シナリオが見つかりません
+            </div>
+          ) : (
+            filteredOptions.map((option) => (
+              <div
                 key={option.value}
-                value={option.label}
-                onSelect={() => {
+                className={cn(
+                  "flex items-center px-2 py-2 cursor-pointer hover:bg-muted/50 text-sm",
+                  value === option.value && "bg-muted"
+                )}
+                onClick={() => {
                   onValueChange(option.value)
                   setOpen(false)
+                  setSearchTerm("")
                 }}
               >
                 <Check
@@ -100,10 +117,10 @@ export function Combobox({
                     )}
                   </div>
                 )}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </Command>
+              </div>
+            ))
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   )
