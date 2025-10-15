@@ -19,6 +19,7 @@ interface AuthorPerformance {
     events: number
     revenue: number
     licenseCost: number
+    licenseAmountPerEvent: number // 1回あたりのライセンス料設定値
     duration: number
     totalDuration: number
     isGMTest?: boolean
@@ -64,7 +65,8 @@ export default function AuthorReport() {
 
     author.scenarios.forEach(scenario => {
       const gmTestLabel = scenario.isGMTest ? '（GMテスト）' : ''
-      lines.push(`・${scenario.title}${gmTestLabel}: ${scenario.events}回 ¥${scenario.licenseCost.toLocaleString()}`)
+      const licenseInfo = `@¥${scenario.licenseAmountPerEvent.toLocaleString()}/回`
+      lines.push(`・${scenario.title}${gmTestLabel}: ${scenario.events}回 × ${licenseInfo} = ¥${scenario.licenseCost.toLocaleString()}`)
     })
 
     lines.push(``)
@@ -102,7 +104,8 @@ export default function AuthorReport() {
       `詳細は以下の通りです：`,
       ...author.scenarios.map(s => {
         const label = s.isGMTest ? '（GMテスト）' : ''
-        return `・${s.title}${label}: ${s.events}回 ¥${s.licenseCost.toLocaleString()}`
+        const licenseInfo = `@¥${s.licenseAmountPerEvent.toLocaleString()}/回`
+        return `・${s.title}${label}: ${s.events}回 × ${licenseInfo} = ¥${s.licenseCost.toLocaleString()}`
       }),
       ``,
       `よろしくお願いいたします。`
@@ -194,17 +197,17 @@ export default function AuthorReport() {
         
         // GMテストの場合は専用のライセンス金額を取得、なければ通常の金額を使用
         const isGMTest = perf.category === 'gmtest'
-        let licenseCost = 0
+        let licenseAmountPerEvent = 0 // 1回あたりのライセンス料設定値
         
         if (isGMTest) {
           // GMテスト用のライセンス金額（gm_test_license_amount）
-          licenseCost = scenario.gm_test_license_amount || 0
+          licenseAmountPerEvent = scenario.gm_test_license_amount || 0
         } else {
           // 通常のライセンス金額（license_amount）
-          licenseCost = scenario.license_amount || 0
+          licenseAmountPerEvent = scenario.license_amount || 0
         }
         
-        const totalLicenseCost = licenseCost * events
+        const totalLicenseCost = licenseAmountPerEvent * events
 
         // GMテストの場合はタイトルに「（GMテスト）」を追加
         const displayTitle = isGMTest ? `${perf.title}（GMテスト）` : perf.title
@@ -228,6 +231,7 @@ export default function AuthorReport() {
               events,
               revenue,
               licenseCost: totalLicenseCost,
+              licenseAmountPerEvent, // 1回あたりの設定金額を追加
               duration,
               totalDuration,
               isGMTest
@@ -245,6 +249,7 @@ export default function AuthorReport() {
               events,
               revenue,
               licenseCost: totalLicenseCost,
+              licenseAmountPerEvent, // 1回あたりの設定金額を追加
               duration,
               totalDuration,
               isGMTest
@@ -408,19 +413,21 @@ export default function AuthorReport() {
                   </div>
                   
                   {/* シナリオ一覧 */}
-                  <div className="space-y-1 mb-4">
+                  <div className="space-y-0.5 mb-3">
                     {author.scenarios.map((scenario, scenarioIndex) => {
                       const isGMTest = scenario.isGMTest || false
                       return (
-                        <div key={scenarioIndex} className="flex items-center justify-between py-1">
+                        <div key={scenarioIndex} className="flex items-center justify-between text-sm py-0.5">
                           <span className="font-medium">
-                            ├─ {scenario.title}
-                            {isGMTest && <span className="ml-2 text-xs text-orange-600 font-normal">（GMテスト）</span>}
+                            ├ {scenario.title}
+                            {isGMTest && <span className="ml-1 text-xs text-orange-600 font-normal">（GMテスト）</span>}
                           </span>
-                          <div className="flex items-center gap-4 text-sm">
-                            <span>{scenario.events}回</span>
-                            <span className={isGMTest ? "text-orange-600" : ""}>¥{scenario.licenseCost.toLocaleString()}</span>
-                          </div>
+                          <span className="text-muted-foreground text-xs whitespace-nowrap ml-4">
+                            {scenario.events}回 × ¥{scenario.licenseAmountPerEvent.toLocaleString()} = 
+                            <span className={`ml-1 font-semibold ${isGMTest ? "text-orange-600" : "text-gray-900"}`}>
+                              ¥{scenario.licenseCost.toLocaleString()}
+                            </span>
+                          </span>
                         </div>
                       )
                     })}
