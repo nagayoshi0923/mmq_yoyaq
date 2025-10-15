@@ -62,15 +62,40 @@ interface Store {
 const SalesManagement: React.FC = () => {
   const [salesData, setSalesData] = useState<SalesData | null>(null)
   const [loading, setLoading] = useState(false)
-  const [selectedPeriod, setSelectedPeriod] = useState('thisMonth')
-  const [selectedStore, setSelectedStore] = useState('all')
+  // sessionStorageから期間と店舗の選択状態を復元
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    const saved = sessionStorage.getItem('salesSelectedPeriod')
+    return saved || 'thisMonth'
+  })
+  const [selectedStore, setSelectedStore] = useState(() => {
+    const saved = sessionStorage.getItem('salesSelectedStore')
+    return saved || 'all'
+  })
   const [stores, setStores] = useState<Store[]>([])
   const [chartRef, setChartRef] = useState<any>(null)
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
   })
-  const [activeTab, setActiveTab] = useState('overview')
+  // sessionStorageからタブの状態を復元
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = sessionStorage.getItem('salesActiveTab')
+    return saved || 'overview'
+  })
+
+  // タブが変更されたらsessionStorageに保存
+  useEffect(() => {
+    sessionStorage.setItem('salesActiveTab', activeTab)
+  }, [activeTab])
+
+  // 期間と店舗が変更されたらsessionStorageに保存
+  useEffect(() => {
+    sessionStorage.setItem('salesSelectedPeriod', selectedPeriod)
+  }, [selectedPeriod])
+
+  useEffect(() => {
+    sessionStorage.setItem('salesSelectedStore', selectedStore)
+  }, [selectedStore])
 
   // コンテンツの条件分岐表示
   const renderContent = () => {
@@ -321,8 +346,23 @@ const SalesManagement: React.FC = () => {
   // シナリオ別公演数の状態管理
   const [scenarioData, setScenarioData] = useState<any[]>([])
   const [scenarioLoading, setScenarioLoading] = useState(false)
-  const [scenarioPeriod, setScenarioPeriod] = useState('thisMonth')
-  const [scenarioStore, setScenarioStore] = useState('all')
+  const [scenarioPeriod, setScenarioPeriod] = useState(() => {
+    const saved = sessionStorage.getItem('salesScenarioPeriod')
+    return saved || 'thisMonth'
+  })
+  const [scenarioStore, setScenarioStore] = useState(() => {
+    const saved = sessionStorage.getItem('salesScenarioStore')
+    return saved || 'all'
+  })
+
+  // シナリオ別公演数の期間と店舗が変更されたらsessionStorageに保存
+  useEffect(() => {
+    sessionStorage.setItem('salesScenarioPeriod', scenarioPeriod)
+  }, [scenarioPeriod])
+
+  useEffect(() => {
+    sessionStorage.setItem('salesScenarioStore', scenarioStore)
+  }, [scenarioStore])
   const [allScenarios, setAllScenarios] = useState<any[]>([])
   const [scenariosLoading, setScenariosLoading] = useState(false)
   const [scenarioSearch, setScenarioSearch] = useState('')

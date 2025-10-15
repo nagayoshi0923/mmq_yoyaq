@@ -31,12 +31,35 @@ interface MonthlyAuthorData {
 }
 
 export default function AuthorReport() {
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
-  const [selectedStore, setSelectedStore] = useState('all')
+  // sessionStorageから保存された値を復元
+  const [selectedYear, setSelectedYear] = useState(() => {
+    const saved = sessionStorage.getItem('authorReportYear')
+    return saved ? parseInt(saved, 10) : new Date().getFullYear()
+  })
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const saved = sessionStorage.getItem('authorReportMonth')
+    return saved ? parseInt(saved, 10) : new Date().getMonth() + 1
+  })
+  const [selectedStore, setSelectedStore] = useState(() => {
+    const saved = sessionStorage.getItem('authorReportStore')
+    return saved || 'all'
+  })
   const [searchAuthor, setSearchAuthor] = useState('')
   const [monthlyData, setMonthlyData] = useState<MonthlyAuthorData[]>([])
   const [loading, setLoading] = useState(false)
+
+  // 状態が変更されたらsessionStorageに保存
+  useEffect(() => {
+    sessionStorage.setItem('authorReportYear', selectedYear.toString())
+  }, [selectedYear])
+
+  useEffect(() => {
+    sessionStorage.setItem('authorReportMonth', selectedMonth.toString())
+  }, [selectedMonth])
+
+  useEffect(() => {
+    sessionStorage.setItem('authorReportStore', selectedStore)
+  }, [selectedStore])
 
   // 月の範囲を計算する関数（JST固定）
   const getMonthRange = useCallback((year: number, month: number) => {
