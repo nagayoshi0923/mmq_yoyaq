@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
   Popover,
   PopoverContent,
@@ -35,6 +36,7 @@ export function MultiSelect({
   showBadges = false
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
 
   // optionsを正規化（string[]の場合はMultiSelectOption[]に変換）
   const normalizedOptions: MultiSelectOption[] = options.map((option) => {
@@ -43,6 +45,14 @@ export function MultiSelect({
     }
     return option
   })
+
+  // 検索フィルタリング
+  const filteredOptions = searchTerm
+    ? normalizedOptions.filter(option => 
+        option.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        option.displayInfo?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : normalizedOptions
 
   const handleToggleSelection = (value: string) => {
     const currentValues = selectedValues || []
@@ -90,13 +100,20 @@ export function MultiSelect({
         <PopoverContent 
           className="p-0" 
           align="start" 
-          style={{ width: '400px' }}
+          style={{ width: 'var(--radix-popover-trigger-width)' }}
           onOpenAutoFocus={(e) => e.preventDefault()}
           onWheel={(e) => {
-            // スクロールイベントの伝播を許可
             e.stopPropagation()
           }}
         >
+          <div className="p-2 border-b">
+            <Input
+              placeholder="スタッフ名で検索..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-8"
+            />
+          </div>
           <div 
             className="scrollable-list" 
             style={{ 
@@ -106,23 +123,21 @@ export function MultiSelect({
               WebkitOverflowScrolling: 'touch'
             }}
             onWheel={(e) => {
-              // 内部のスクロールを優先
               const element = e.currentTarget
               const atTop = element.scrollTop === 0
               const atBottom = element.scrollHeight - element.scrollTop === element.clientHeight
               
-              // 上端または下端にいない場合は、親への伝播を止める
               if (!atTop && !atBottom) {
                 e.stopPropagation()
               }
             }}
           >
-            {normalizedOptions.length === 0 ? (
+            {filteredOptions.length === 0 ? (
               <div className="px-4 py-3 text-sm text-muted-foreground">
-                スタッフがいません
+                {searchTerm ? 'スタッフが見つかりません' : 'スタッフがいません'}
               </div>
             ) : (
-              normalizedOptions.map(option => {
+              filteredOptions.map(option => {
                 const isSelected = (selectedValues || []).includes(option.name)
                 return (
                   <div

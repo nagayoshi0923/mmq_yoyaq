@@ -9,12 +9,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
+import { flexibleMatch } from "@/utils/kanaUtils"
 
 export interface SearchableSelectOption {
   value: string
   label: string
   displayInfo?: string
   renderContent?: () => React.ReactNode
+  searchKeywords?: string[]  // 追加の検索キーワード（読み仮名など）
 }
 
 interface SearchableSelectProps {
@@ -41,14 +43,19 @@ export function SearchableSelect({
 
   const selectedOption = options.find((option) => option.value === value)
 
-  // 検索フィルタリング
+  // 検索フィルタリング（ひらがな・カタカナ・アルファベット対応）
   const filteredOptions = React.useMemo(() => {
     if (!searchTerm) return options
-    const lowerSearch = searchTerm.toLowerCase()
-    return options.filter(option => 
-      option.label.toLowerCase().includes(lowerSearch) ||
-      option.displayInfo?.toLowerCase().includes(lowerSearch)
-    )
+    
+    return options.filter(option => {
+      const searchTargets = [
+        option.label,
+        option.displayInfo,
+        ...(option.searchKeywords || [])
+      ].filter(Boolean) as string[]
+      
+      return flexibleMatch(searchTerm, searchTargets)
+    })
   }, [options, searchTerm])
 
   return (

@@ -250,6 +250,20 @@ export const staffApi = {
 
   // スタッフを更新
   async update(id: string, updates: Partial<Staff>): Promise<Staff> {
+    // 名前が変更される場合、古い名前を取得
+    let oldName: string | null = null
+    if (updates.name) {
+      const { data: oldData, error: fetchError } = await supabase
+        .from('staff')
+        .select('name')
+        .eq('id', id)
+        .single()
+      
+      if (fetchError) throw fetchError
+      oldName = oldData.name
+    }
+    
+    // スタッフ情報を更新
     const { data, error } = await supabase
       .from('staff')
       .update(updates)
@@ -258,6 +272,59 @@ export const staffApi = {
       .single()
     
     if (error) throw error
+    
+    // 名前が変更された場合、スケジュールと予約も更新
+    if (oldName && updates.name && oldName !== updates.name) {
+      const newName = updates.name
+      
+      // 1. schedule_eventsのgms配列を更新
+      const { data: scheduleEvents, error: scheduleError } = await supabase
+        .from('schedule_events')
+        .select('id, gms')
+        .contains('gms', [oldName])
+      
+      if (!scheduleError && scheduleEvents && scheduleEvents.length > 0) {
+        const updatePromises = scheduleEvents.map(event => {
+          const newGms = (event.gms || []).map(gm => gm === oldName ? newName : gm)
+          return supabase
+            .from('schedule_events')
+            .update({ gms: newGms })
+            .eq('id', event.id)
+        })
+        
+        await Promise.all(updatePromises)
+      }
+      
+      // 2. reservationsのassigned_staff配列を更新
+      const { data: reservations, error: resError } = await supabase
+        .from('reservations')
+        .select('id, assigned_staff, gm_staff')
+        .or(`assigned_staff.cs.{${oldName}},gm_staff.eq.${oldName}`)
+      
+      if (!resError && reservations && reservations.length > 0) {
+        const updatePromises = reservations.map(reservation => {
+          const updates: any = {}
+          
+          // assigned_staff配列を更新
+          if (reservation.assigned_staff && reservation.assigned_staff.includes(oldName)) {
+            updates.assigned_staff = reservation.assigned_staff.map((s: string) => s === oldName ? newName : s)
+          }
+          
+          // gm_staffを更新
+          if (reservation.gm_staff === oldName) {
+            updates.gm_staff = newName
+          }
+          
+          return supabase
+            .from('reservations')
+            .update(updates)
+            .eq('id', reservation.id)
+        })
+        
+        await Promise.all(updatePromises)
+      }
+    }
+    
     return data
   },
 

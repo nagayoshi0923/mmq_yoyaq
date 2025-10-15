@@ -406,10 +406,18 @@ export function PerformanceModal({
                 const availableGMs = availableStaffByScenario[scenario.title] || []
                 const availableStaffIds = new Set(availableGMs.map(gm => gm.id))
                 
+                // 検索キーワード（読み仮名）を準備
+                const searchKeywords = [
+                  (scenario as any).reading_katakana,
+                  (scenario as any).reading_alphabet,
+                  scenario.author
+                ].filter(Boolean)
+                
                 return {
                   value: scenario.title,
                   label: scenario.title,
                   displayInfo: `${displayHours}h | ${scenario.player_count_min}-${scenario.player_count_max}人`,
+                  searchKeywords,
                   renderContent: () => (
                     <div className="flex items-center gap-2 w-full">
                       {/* タイトル */}
@@ -479,11 +487,19 @@ export function PerformanceModal({
             <MultiSelect
               options={staff
                 .filter(s => s.status === 'active')
-                .map(staffMember => ({
-                  id: staffMember.id,
-                  name: staffMember.name,
-                  displayInfo: staffMember.role && staffMember.role.includes('gm') ? 'GM' : 'スタッフ'
-                }))}
+                .map(staffMember => {
+                  // このシナリオの担当GMかチェック
+                  const isAssignedGM = formData.scenario && 
+                    (staffMember.special_scenarios?.includes(formData.scenario) ||
+                     scenarios.find(sc => sc.title === formData.scenario)?.id &&
+                     staffMember.special_scenarios?.includes(scenarios.find(sc => sc.title === formData.scenario)!.id))
+                  
+                  return {
+                    id: staffMember.id,
+                    name: staffMember.name,
+                    displayInfo: isAssignedGM ? '担当GM' : undefined
+                  }
+                })}
               selectedValues={formData.gms}
               onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
               placeholder="GMを選択"
