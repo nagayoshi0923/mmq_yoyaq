@@ -591,74 +591,70 @@ export function StaffManagement() {
 
                     {/* GM可能なシナリオ */}
                     <div className="flex-1 px-3 py-2 border-r min-w-0">
-                      <div className="flex flex-wrap gap-1">
-                        {member.special_scenarios && member.special_scenarios.length > 0 ? (
-                          <>
-                            {member.special_scenarios.slice(0, 3).map((scenarioId, index) => (
-                              <Badge key={index} size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
-                                {getScenarioName(scenarioId)}
-                              </Badge>
-                            ))}
-                            {member.special_scenarios.length > 3 && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-block">
-                                    <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5 cursor-pointer">
-                                      +{member.special_scenarios.length - 3}
-                                    </Badge>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <div className="space-y-1">
-                                    <p className="font-medium text-xs">残りのGM可能シナリオ:</p>
-                                    {member.special_scenarios.slice(3).map((scenarioId, index) => (
-                                      <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
-                                    ))}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </div>
+                      {member.special_scenarios && member.special_scenarios.length > 0 ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1 overflow-hidden cursor-pointer">
+                              <div className="flex gap-1 overflow-hidden">
+                                {member.special_scenarios.slice(0, 4).map((scenarioId, index) => (
+                                  <Badge key={index} size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0">
+                                    {getScenarioName(scenarioId)}
+                                  </Badge>
+                                ))}
+                              </div>
+                              {member.special_scenarios.length > 4 && (
+                                <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0">
+                                  +{member.special_scenarios.length - 4}
+                                </Badge>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs max-h-96 overflow-y-auto">
+                            <div className="space-y-1">
+                              <p className="font-medium text-xs">GM可能シナリオ（全{member.special_scenarios.length}件）:</p>
+                              {member.special_scenarios.map((scenarioId, index) => (
+                                <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
+                              ))}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
                     </div>
 
                     {/* 体験済みシナリオ（GM不可） */}
                     <div className="flex-1 px-3 py-2 border-r min-w-0">
-                      <div className="flex flex-wrap gap-1">
-                        {(member as any).experienced_scenarios && (member as any).experienced_scenarios.length > 0 ? (
-                          <>
-                            {(member as any).experienced_scenarios.slice(0, 3).map((scenarioId: string, index: number) => (
-                              <Badge key={index} size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
-                                {getScenarioName(scenarioId)}
-                              </Badge>
-                            ))}
-                            {(member as any).experienced_scenarios.length > 3 && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-block">
-                                    <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5 cursor-pointer">
-                                      +{(member as any).experienced_scenarios.length - 3}
-                                    </Badge>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <div className="space-y-1">
-                                    <p className="font-medium text-xs">残りの体験済みシナリオ:</p>
-                                    {(member as any).experienced_scenarios.slice(3).map((scenarioId: string, index: number) => (
-                                      <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
-                                    ))}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </div>
+                      {(member as any).experienced_scenarios && (member as any).experienced_scenarios.length > 0 ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1 overflow-hidden cursor-pointer">
+                              <div className="flex gap-1 overflow-hidden">
+                                {(member as any).experienced_scenarios.slice(0, 4).map((scenarioId: string, index: number) => (
+                                  <Badge key={index} size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0">
+                                    {getScenarioName(scenarioId)}
+                                  </Badge>
+                                ))}
+                              </div>
+                              {(member as any).experienced_scenarios.length > 4 && (
+                                <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0">
+                                  +{(member as any).experienced_scenarios.length - 4}
+                                </Badge>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs max-h-96 overflow-y-auto">
+                            <div className="space-y-1">
+                              <p className="font-medium text-xs">体験済みシナリオ（全{(member as any).experienced_scenarios.length}件）:</p>
+                              {(member as any).experienced_scenarios.map((scenarioId: string, index: number) => (
+                                <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
+                              ))}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
                     </div>
 
 
