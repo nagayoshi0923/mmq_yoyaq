@@ -789,29 +789,64 @@ export const memoApi = {
 export const salesApi = {
   // 期間別売上データを取得
   async getSalesByPeriod(startDate: string, endDate: string) {
-    const { data, error } = await supabase
+    // まずschedule_eventsを取得
+    const { data: events, error } = await supabase
       .from('schedule_events')
-      .select(`
-        *,
-        stores:store_id (
-          id,
-          name,
-          short_name
-        ),
-        scenarios:scenario_id (
-          id,
-          title,
-          author,
-          participation_fee
-        )
-      `)
+      .select('*')
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)
       .order('date', { ascending: true })
     
-    if (error) throw error
-    return data || []
+    if (error) {
+      console.error('getSalesByPeriod error:', error)
+      throw error
+    }
+    
+    if (!events || events.length === 0) {
+      return []
+    }
+    
+    // 全シナリオを取得
+    const { data: scenarios, error: scenariosError } = await supabase
+      .from('scenarios')
+      .select('id, title, author, participation_fee, participation_costs')
+    
+    if (scenariosError) {
+      console.error('scenarios fetch error:', scenariosError)
+    }
+    
+    // シナリオ名でマッピング（scenario_idがない場合のフォールバック）
+    const scenarioMap = new Map()
+    scenarios?.forEach(s => {
+      scenarioMap.set(s.title, s)
+    })
+    
+    // シナリオ情報を手動で結合
+    const enrichedEvents = events.map(event => {
+      let scenarioInfo = null
+      
+      // scenario_idがあればそれを使用、なければscenario（TEXT）からマッチング
+      if (event.scenario_id && scenarios) {
+        scenarioInfo = scenarios.find(s => s.id === event.scenario_id)
+      } else if (event.scenario) {
+        scenarioInfo = scenarioMap.get(event.scenario)
+      }
+      
+      return {
+        ...event,
+        scenarios: scenarioInfo
+      }
+    })
+    
+    console.log('getSalesByPeriod result:', {
+      count: enrichedEvents.length,
+      sample: enrichedEvents[0],
+      hasScenarioInfo: enrichedEvents[0]?.scenarios ? 'yes' : 'no',
+      participationFee: enrichedEvents[0]?.scenarios?.participation_fee
+    })
+    
+    return enrichedEvents
   },
 
   // 店舗別売上データを取得
@@ -899,83 +934,94 @@ export const salesApi = {
 
   // シナリオ別公演数データ取得
   async getScenarioPerformance(startDate: string, endDate: string, storeId?: string) {
+    // まずschedule_eventsを取得（scenario_idの有無に関わらず全て）
     let query = supabase
       .from('schedule_events')
-      .select(`
-        id,
-        scenario,
-        scenario_id,
-        category,
-        date,
-        stores!inner(id, name),
-        scenarios!inner(id, title, author)
-      `)
+      .select('*')
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)
-      .not('scenario_id', 'is', null) // scenario_idがnullでないもののみ
 
     if (storeId && storeId !== 'all') {
       query = query.eq('store_id', storeId)
     }
 
-    const { data, error } = await query
+    const { data: events, error } = await query
 
     if (error) throw error
 
-    console.log('getScenarioPerformance 取得データ:', data?.length || 0, '件')
-    console.log('GMテストデータ:', data?.filter(d => d.category === 'gmtest'))
-    console.log('全データ詳細:', data?.map(d => ({
-      id: d.id,
-      scenario: d.scenario,
-      scenario_id: d.scenario_id,
-      category: d.category,
-      title: d.scenarios?.title,
-      author: d.scenarios?.author
-    })))
+    if (!events || events.length === 0) {
+      return []
+    }
+
+    // 全シナリオを取得
+    const { data: scenarios, error: scenariosError } = await supabase
+      .from('scenarios')
+      .select('id, title, author')
+    
+    if (scenariosError) {
+      console.error('scenarios fetch error:', scenariosError)
+    }
+
+    // シナリオ名でマッピング
+    const scenarioMap = new Map()
+    scenarios?.forEach(s => {
+      scenarioMap.set(s.title, s)
+    })
+
+    console.log('getScenarioPerformance 取得データ:', events.length, '件')
 
     // シナリオ別に集計（カテゴリも考慮）
-    const scenarioMap = new Map()
+    const performanceMap = new Map()
     
-    data?.forEach(event => {
-      const scenarioId = event.scenario_id || event.scenario // scenario_idを優先、なければscenario
-      const scenarioTitle = event.scenarios?.title || event.scenario || '未定'
-      const author = event.scenarios?.author || '不明'
-      const category = event.category || 'open'
-      
-      // シナリオID + カテゴリの組み合わせでキーを作成
-      const key = `${scenarioId}_${category}`
-      
-      if (scenarioMap.has(key)) {
-        const existing = scenarioMap.get(key)
-        existing.events += 1
-        existing.stores.add(event.stores.name)
-      } else {
-        scenarioMap.set(key, {
-          id: scenarioId,
-          title: scenarioTitle,
-          author: author,
-          category: category,
-          events: 1,
-          stores: new Set([event.stores.name])
-        })
+    events.forEach(event => {
+      // シナリオ情報を取得（scenario_idまたはscenario名から）
+      let scenarioInfo = null
+      if (event.scenario_id && scenarios) {
+        scenarioInfo = scenarios.find(s => s.id === event.scenario_id)
+      } else if (event.scenario) {
+        scenarioInfo = scenarioMap.get(event.scenario)
+      }
+
+      if (!scenarioInfo && event.scenario) {
+        // シナリオ情報が見つからない場合はscenario名をそのまま使用
+        scenarioInfo = {
+          id: event.scenario,
+          title: event.scenario,
+          author: '不明'
+        }
+      }
+
+      if (scenarioInfo) {
+        const category = event.category || 'open'
+        const key = `${scenarioInfo.id}_${category}`
+        
+        if (performanceMap.has(key)) {
+          const existing = performanceMap.get(key)
+          existing.events += 1
+          if (event.venue) {
+            existing.stores.add(event.venue)
+          }
+        } else {
+          performanceMap.set(key, {
+            id: scenarioInfo.id,
+            title: scenarioInfo.title,
+            author: scenarioInfo.author,
+            category: category,
+            events: 1,
+            stores: new Set(event.venue ? [event.venue] : [])
+          })
+        }
       }
     })
 
-    const result = Array.from(scenarioMap.values()).map(item => ({
+    const result = Array.from(performanceMap.values()).map(item => ({
       ...item,
       stores: Array.from(item.stores)
     }))
 
     console.log('集計結果:', result.length, '件')
     console.log('GMテスト集計結果:', result.filter(r => r.category === 'gmtest'))
-    console.log('集計詳細:', result.map(r => ({
-      title: r.title,
-      author: r.author,
-      category: r.category,
-      events: r.events,
-      stores: r.stores
-    })))
     
     // 作者別の集計も確認
     const authorSummary = result.reduce((acc, item) => {

@@ -1136,6 +1136,16 @@ const SalesManagement: React.FC = () => {
         previousMonthEvents = previousMonthEvents.filter(event => event.store_id === selectedStore)
       }
       
+      // デバッグログ
+      console.log('売上計算デバッグ:', {
+        totalEvents: events.length,
+        selectedPeriodEvents: selectedPeriodEvents.length,
+        sampleEvent: selectedPeriodEvents[0],
+        hasScenarioId: selectedPeriodEvents[0]?.scenario_id ? 'yes' : 'no',
+        scenarioField: selectedPeriodEvents[0]?.scenario,
+        scenariosObject: selectedPeriodEvents[0]?.scenarios
+      })
+      
       // 売上データを計算（選択期間内のデータのみ）
       const totalRevenue = selectedPeriodEvents.reduce((sum, event) => {
         const participationFee = event.scenarios?.participation_fee || 0
@@ -1144,6 +1154,12 @@ const SalesManagement: React.FC = () => {
 
       const totalEvents = selectedPeriodEvents.length
       const averageRevenuePerEvent = totalEvents > 0 ? totalRevenue / totalEvents : 0
+      
+      console.log('売上計算結果:', {
+        totalRevenue,
+        totalEvents,
+        averageRevenuePerEvent
+      })
 
       // 前年同期データを計算
       const previousYearRevenue = previousYearEvents.reduce((sum, event) => {
