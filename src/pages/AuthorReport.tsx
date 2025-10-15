@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Filter, Calendar, User, BarChart3, TrendingUp, ChevronDown, ChevronRight } from 'lucide-react'
+import { Search, Filter, Calendar, User, BarChart3, TrendingUp, ChevronDown, ChevronRight, Copy, Mail, Check } from 'lucide-react'
 import { salesApi, scenarioApi, storeApi } from '@/lib/api'
 import { Scenario, Store } from '@/types'
 
@@ -47,6 +47,73 @@ export default function AuthorReport() {
   const [searchAuthor, setSearchAuthor] = useState('')
   const [monthlyData, setMonthlyData] = useState<MonthlyAuthorData[]>([])
   const [loading, setLoading] = useState(false)
+  const [copiedAuthor, setCopiedAuthor] = useState<string | null>(null)
+
+  // 作者レポートのテキストを生成（簡潔版）
+  const generateAuthorReportText = useCallback((author: AuthorPerformance) => {
+    const lines = [
+      `${author.author} 様`,
+      ``,
+      `${selectedYear}年${selectedMonth}月のライセンス料をご報告いたします。`,
+      ``,
+      `総公演数: ${author.totalEvents}回`,
+      `総ライセンス料: ¥${author.totalLicenseCost.toLocaleString()}`,
+      ``,
+      `詳細は以下の通りです：`,
+    ]
+
+    author.scenarios.forEach(scenario => {
+      const gmTestLabel = scenario.isGMTest ? '（GMテスト）' : ''
+      lines.push(`・${scenario.title}${gmTestLabel}: ${scenario.events}回 ¥${scenario.licenseCost.toLocaleString()}`)
+    })
+
+    lines.push(``)
+    lines.push(`よろしくお願いいたします。`)
+
+    return lines.join('\n')
+  }, [selectedYear, selectedMonth])
+
+  // クリップボードにコピー
+  const handleCopy = useCallback(async (author: AuthorPerformance) => {
+    const text = generateAuthorReportText(author)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedAuthor(author.author)
+      setTimeout(() => setCopiedAuthor(null), 2000)
+    } catch (err) {
+      console.error('コピーに失敗しました:', err)
+      alert('コピーに失敗しました')
+    }
+  }, [generateAuthorReportText])
+
+  // Gmail送信
+  const handleSendEmail = useCallback((author: AuthorPerformance) => {
+    const subject = `【${selectedYear}年${selectedMonth}月】ライセンス料レポート - ${author.author}`
+    
+    // 簡潔な本文を生成（URL長さ制限対策）
+    const shortBody = [
+      `${author.author} 様`,
+      ``,
+      `${selectedYear}年${selectedMonth}月のライセンス料をご報告いたします。`,
+      ``,
+      `総公演数: ${author.totalEvents}回`,
+      `総ライセンス料: ¥${author.totalLicenseCost.toLocaleString()}`,
+      ``,
+      `詳細は以下の通りです：`,
+      ...author.scenarios.map(s => {
+        const label = s.isGMTest ? '（GMテスト）' : ''
+        return `・${s.title}${label}: ${s.events}回 ¥${s.licenseCost.toLocaleString()}`
+      }),
+      ``,
+      `よろしくお願いいたします。`
+    ].join('%0D%0A') // 改行コードをエンコード
+    
+    // GmailのComposeリンクを生成（本文を短縮版に）
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${shortBody}`
+    
+    // 新しいタブでGmailを開く
+    window.open(gmailUrl, '_blank')
+  }, [selectedYear, selectedMonth])
 
   // 状態が変更されたらsessionStorageに保存
   useEffect(() => {
@@ -306,9 +373,38 @@ export default function AuthorReport() {
             {monthData.authors.map((author, index) => (
               <Card key={author.author}>
                 <CardContent className="p-4">
-                  {/* 作者名 */}
-                  <div className="mb-4">
+                  {/* 作者名とアクションボタン */}
+                  <div className="mb-4 flex items-center justify-between">
                     <h3 className="font-semibold text-lg">{author.author}</h3>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopy(author)}
+                        className="gap-2"
+                      >
+                        {copiedAuthor === author.author ? (
+                          <>
+                            <Check className="h-4 w-4 text-green-600" />
+                            <span className="text-green-600">コピー済み</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4" />
+                            <span>コピー</span>
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSendEmail(author)}
+                        className="gap-2"
+                      >
+                        <Mail className="h-4 w-4" />
+                        <span>メール</span>
+                      </Button>
+                    </div>
                   </div>
                   
                   {/* シナリオ一覧 */}
