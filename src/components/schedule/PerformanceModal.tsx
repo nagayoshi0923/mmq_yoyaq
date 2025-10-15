@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { X } from 'lucide-react'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
+import { Combobox, ComboboxOption } from '@/components/ui/combobox'
 import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import type { Staff as StaffType } from '@/types'
 
@@ -391,132 +392,24 @@ export function PerformanceModal({
           {/* シナリオ */}
           <div>
             <Label htmlFor="scenario">シナリオタイトル</Label>
-            <Select 
-              value={formData.scenario} 
+            <Combobox
+              options={scenarios.map(scenario => {
+                const hours = scenario.duration / 60
+                const displayHours = hours % 1 === 0 ? hours.toFixed(1) : hours.toFixed(1)
+                
+                return {
+                  value: scenario.title,
+                  label: scenario.title,
+                  displayInfo: `${displayHours}h | ${scenario.player_count_min}-${scenario.player_count_max}人`
+                }
+              })}
+              value={formData.scenario}
               onValueChange={handleScenarioChange}
+              placeholder="シナリオを検索..."
+              searchPlaceholder="シナリオ名で検索..."
+              emptyText="シナリオが見つかりません"
               disabled={formData.is_private_request}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="シナリオを選択" />
-              </SelectTrigger>
-              <SelectContent>
-                {scenarios.map(scenario => {
-                  const availableGMs = availableStaffByScenario[scenario.title] || []
-                  const hours = scenario.duration / 60
-                  const displayHours = hours % 1 === 0 ? hours.toFixed(1) : hours.toFixed(1)
-                  
-                  // このシナリオを担当できる全スタッフ（GM役割 + このシナリオのspecial_scenarios含む）
-                  const allGMsForScenario = staff.filter(s => 
-                    s.role.includes('gm') && 
-                    (s.special_scenarios?.includes(scenario.id) || s.special_scenarios?.includes(scenario.title))
-                  )
-                  
-                  // 出勤可能なスタッフのIDセット
-                  const availableStaffIds = new Set(availableGMs.map(gm => gm.id))
-                  
-                  return (
-                    <SelectItem key={scenario.id} value={scenario.title}>
-                      <div className="flex items-center gap-3 w-full">
-                        {/* タイトル */}
-                        <span className="flex-1 min-w-0 truncate">{scenario.title}</span>
-                        
-                        {/* 時間 */}
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {displayHours}h
-                        </span>
-                        
-                        {/* 人数 */}
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {scenario.player_count_min}-{scenario.player_count_max}人
-                        </span>
-                        
-                        {/* 全担当GMのバッジ表示（出勤可能=カラー、不可=灰色） */}
-                        {allGMsForScenario.length > 0 && (
-                          <div className="flex gap-1 flex-wrap">
-                            {(() => {
-                              // 出勤可能なGMを左に、不可を右に並べる
-                              const availableGMs = allGMsForScenario.filter(gm => availableStaffIds.has(gm.id))
-                              const unavailableGMs = allGMsForScenario.filter(gm => !availableStaffIds.has(gm.id))
-                              const sortedGMs = [...availableGMs, ...unavailableGMs]
-                              
-                              // 最大8人まで表示
-                              const displayGMs = sortedGMs.slice(0, 8)
-                              const remainingCount = sortedGMs.length - 8
-                              
-                              // アバターと同じ色を計算
-                              const defaultColors = [
-                                '#EFF6FF', '#F0FDF4', '#FFFBEB', '#FEF2F2',
-                                '#F5F3FF', '#FDF2F8', '#ECFEFF', '#F7FEE7'
-                              ]
-                              const textColors = [
-                                '#2563EB', '#16A34A', '#D97706', '#DC2626',
-                                '#7C3AED', '#DB2777', '#0891B2', '#65A30D'
-                              ]
-                              
-                              return (
-                                <>
-                                  {displayGMs.map((gm) => {
-                                    const isAvailable = availableStaffIds.has(gm.id)
-                                    
-                                    // avatarColorが設定されていればそれを使用、なければ名前から自動選択
-                                    let bgColor: string
-                                    let textColorHex: string
-                                    
-                                    if (gm.avatar_color) {
-                                      bgColor = gm.avatar_color
-                                      // 各背景色に対応する文字色を設定
-                                      const colorMap: Record<string, string> = {
-                                        '#EFF6FF': '#2563EB', // blue
-                                        '#F0FDF4': '#16A34A', // green
-                                        '#FFFBEB': '#D97706', // amber
-                                        '#FEF2F2': '#DC2626', // red
-                                        '#F5F3FF': '#7C3AED', // violet
-                                        '#FDF2F8': '#DB2777', // pink
-                                        '#ECFEFF': '#0891B2', // cyan
-                                        '#F7FEE7': '#65A30D', // lime
-                                      }
-                                      textColorHex = colorMap[gm.avatar_color] || '#374151' // デフォルトはgray-700
-                                    } else {
-                                      const hash = gm.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-                                      const colorIndex = hash % defaultColors.length
-                                      bgColor = defaultColors[colorIndex]
-                                      textColorHex = textColors[colorIndex]
-                                    }
-                                    
-                                    return (
-                                      <Badge 
-                                        key={gm.id} 
-                                        variant="outline"
-                                        style={isAvailable ? { 
-                                          backgroundColor: bgColor, 
-                                          color: textColorHex,
-                                          borderColor: textColorHex + '40' // 25% opacity
-                                        } : undefined}
-                                        className={`text-[10px] px-1.5 py-0 h-5 font-normal ${!isAvailable ? 'bg-gray-100 text-gray-400 border-gray-200' : 'border'}`}
-                                      >
-                                        {gm.name.slice(0, 3)}
-                                      </Badge>
-                                    )
-                                  })}
-                                  {remainingCount > 0 && (
-                                    <Badge 
-                                      variant="outline"
-                                      className="text-[10px] px-1.5 py-0 h-5 font-normal bg-gray-100 text-gray-500 border-gray-200"
-                                    >
-                                      +{remainingCount}
-                                    </Badge>
-                                  )}
-                                </>
-                              )
-                            })()}
-                          </div>
-                        )}
-                      </div>
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
+            />
             {formData.is_private_request && (
               <p className="text-xs text-purple-600 mt-1">
                 ※ 貸切リクエストのシナリオは変更できません
