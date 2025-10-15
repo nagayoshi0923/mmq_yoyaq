@@ -790,6 +790,17 @@ export function ScheduleManager() {
     return memos[key] || ''
   }
 
+  // シナリオリストを再読み込み
+  const handleScenariosUpdate = async () => {
+    try {
+      const scenarioData = await scenarioApi.getAll()
+      setScenarios(scenarioData)
+      sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenarioData))
+    } catch (err) {
+      console.error('シナリオデータの再読み込みエラー:', err)
+    }
+  }
+
   // 公演追加モーダルを開く
   const handleAddPerformance = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
     setModalMode('add')
@@ -1332,6 +1343,7 @@ export function ScheduleManager() {
             scenarios={scenarios}
             staff={staff}
             availableStaffByScenario={availableStaffByScenario}
+            onScenariosUpdate={handleScenariosUpdate}
           />
 
           {/* 削除確認ダイアログ */}

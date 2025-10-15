@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { X } from 'lucide-react'
-import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
-import { SearchableSelect, SearchableSelectOption } from '@/components/ui/searchable-select'
-import { StaffAvatar } from '@/components/staff/StaffAvatar'
-import type { Staff as StaffType } from '@/types'
+import { MultiSelect } from '@/components/ui/multi-select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
+import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
+import { scenarioApi } from '@/lib/api'
+import type { Staff as StaffType, Scenario, Store } from '@/types'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -31,35 +32,6 @@ interface ScheduleEvent {
   reservation_info?: string
 }
 
-interface Store {
-  id: string
-  name: string
-  short_name: string
-  color: string
-}
-
-interface Scenario {
-  id: string
-  title: string
-  description: string
-  author: string
-  duration: number
-  player_count_min: number
-  player_count_max: number
-  difficulty: number
-  genre: string[]
-  status: string
-}
-
-interface Staff {
-  id: string
-  name: string
-  line_name: string
-  role: string[]
-  stores: string[]
-  experience: number
-  status: string
-}
 
 interface PerformanceModalProps {
   isOpen: boolean
@@ -70,8 +42,9 @@ interface PerformanceModalProps {
   initialData?: { date: string, venue: string, timeSlot: string }  // 追加時のみ
   stores: Store[]
   scenarios: Scenario[]
-  staff: Staff[]
+  staff: StaffType[]
   availableStaffByScenario?: Record<string, StaffType[]>  // シナリオごとの出勤可能GM
+  onScenariosUpdate?: () => void  // シナリオ作成後の更新用コールバック
 }
 
 // 30分間隔の時間オプションを生成
@@ -98,8 +71,10 @@ export function PerformanceModal({
   stores,
   scenarios,
   staff,
-  availableStaffByScenario = {}
+  availableStaffByScenario = {},
+  onScenariosUpdate
 }: PerformanceModalProps) {
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
   const [formData, setFormData] = useState<any>({
     id: '',
     date: '',
@@ -193,6 +168,38 @@ export function PerformanceModal({
   const handleSave = () => {
     onSave(formData)
     onClose()
+  }
+
+  const handleCreateScenario = async (newScenario: Scenario) => {
+    try {
+      // データベースに送信する前に不要なフィールドを除外
+      const { 
+        id, 
+        created_at, 
+        updated_at, 
+        production_costs, 
+        available_gms, 
+        play_count, 
+        required_props,
+        flexible_pricing,
+        ...scenarioForDB 
+      } = newScenario as any
+      
+      console.log('シナリオ作成リクエスト:', scenarioForDB)
+      const createdScenario = await scenarioApi.create(scenarioForDB)
+      console.log('シナリオ作成成功:', createdScenario)
+      setIsScenarioModalOpen(false)
+      // 親コンポーネントにシナリオリストの更新を通知
+      if (onScenariosUpdate) {
+        await onScenariosUpdate()
+      }
+      // 新しく作成したシナリオを選択
+      setFormData((prev: any) => ({ ...prev, scenario: newScenario.title }))
+    } catch (error: any) {
+      console.error('シナリオ作成エラー:', error)
+      console.error('エラー詳細:', error.message, error.details, error.hint)
+      alert(`シナリオの作成に失敗しました: ${error.message || 'エラーが発生しました'}`)
+    }
   }
 
 
@@ -475,6 +482,8 @@ export function PerformanceModal({
               placeholder="シナリオを検索..."
               searchPlaceholder="シナリオ名で検索..."
               emptyText="シナリオが見つかりません"
+              onEmptyAction={() => setIsScenarioModalOpen(true)}
+              emptyActionLabel="シナリオを作成"
               disabled={formData.is_private_request}
             />
             {formData.is_private_request && (
@@ -562,6 +571,14 @@ export function PerformanceModal({
           </Button>
         </div>
       </DialogContent>
+
+      {/* シナリオ作成モーダル */}
+      <ScenarioEditModal
+        scenario={null}
+        isOpen={isScenarioModalOpen}
+        onClose={() => setIsScenarioModalOpen(false)}
+        onSave={handleCreateScenario}
+      />
     </Dialog>
   )
 }

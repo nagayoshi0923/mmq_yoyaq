@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, Plus } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -27,6 +27,9 @@ interface SearchableSelectProps {
   searchPlaceholder?: string
   className?: string
   disabled?: boolean
+  emptyText?: string
+  onEmptyAction?: () => void
+  emptyActionLabel?: string
 }
 
 export function SearchableSelect({
@@ -36,7 +39,10 @@ export function SearchableSelect({
   placeholder = "選択してください",
   searchPlaceholder = "検索...",
   className = "",
-  disabled = false
+  disabled = false,
+  emptyText = "見つかりません",
+  onEmptyAction,
+  emptyActionLabel = "作成"
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -113,8 +119,23 @@ export function SearchableSelect({
           }}
         >
           {filteredOptions.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              シナリオが見つかりません
+            <div className="py-6 text-center">
+              <p className="text-sm text-muted-foreground mb-3">{emptyText}</p>
+              {onEmptyAction && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    onEmptyAction()
+                    setOpen(false)
+                  }}
+                  className="mx-auto"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {emptyActionLabel}
+                </Button>
+              )}
             </div>
           ) : (
             filteredOptions.map((option) => (
