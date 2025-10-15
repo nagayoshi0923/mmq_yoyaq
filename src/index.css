@@ -124,4 +124,11 @@
   [data-radix-popper-content-wrapper] {
     z-index: 100 !important;
   }
+
+  /* 検索入力欄を強制的に半角英数モードにする */
+  input[inputmode="latin"] {
+    ime-mode: disabled !important;
+    -ms-ime-mode: disabled !important;
+    -webkit-ime-mode: disabled !important;
+  }
 }

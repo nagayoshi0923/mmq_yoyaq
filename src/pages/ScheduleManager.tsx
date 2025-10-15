@@ -212,36 +212,30 @@ export function ScheduleManager() {
     
     if (savedY && savedTime) {
       const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-      // 5秒以内のスクロール位置のみ復元（リロード直後と判定）
-      if (timeSinceScroll < 5000) {
-        // レンダリング完了後にスクロール位置を復元
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.scrollTo(0, parseInt(savedY, 10))
-          })
-        })
+      // 10秒以内のスクロール位置のみ復元（リロード直後と判定）
+      if (timeSinceScroll < 10000) {
+        // 少し待ってからスクロール位置を復元
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedY, 10))
+        }, 100)
       }
     }
   }, []) // マウント時のみ実行
 
-  // データ読み込み完了後に再度復元（リロード直後のみ）
+  // データ読み込み完了後に再度復元
   useEffect(() => {
-    if (!isLoading && initialLoadComplete.current) {
+    if (!isLoading) {
       const savedY = sessionStorage.getItem('scheduleScrollY')
       const savedTime = sessionStorage.getItem('scheduleScrollTime')
       
       if (savedY && savedTime) {
         const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-        // 5秒以内のスクロール位置のみ復元（リロード直後と判定）
-        if (timeSinceScroll < 5000) {
-          // 複数フレーム待ってからスクロール復元
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                window.scrollTo(0, parseInt(savedY, 10))
-              })
-            })
-          })
+        // 10秒以内のスクロール位置のみ復元（リロード直後と判定）
+        if (timeSinceScroll < 10000) {
+          // データ読み込み後にスクロール復元
+          setTimeout(() => {
+            window.scrollTo(0, parseInt(savedY, 10))
+          }, 200)
         }
       }
     }
