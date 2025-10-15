@@ -107,17 +107,11 @@ export default function AuthorReport() {
         let licenseCost = 0
         
         if (isGMTest) {
-          // GMテスト用のライセンス金額を探す
-          const gmTestLicense = scenario.license_costs?.find(cost => cost.time_slot === 'GMテスト')
-          if (gmTestLicense) {
-            licenseCost = gmTestLicense.amount
-          } else {
-            // GMテスト用の設定がない場合は通常の金額を使用
-            licenseCost = scenario.license_costs?.find(cost => cost.time_slot === '通常')?.amount || 0
-          }
+          // GMテスト用のライセンス金額（gm_test_license_amount）
+          licenseCost = scenario.gm_test_license_amount || 0
         } else {
-          // 通常の場合は通常のライセンス金額を使用
-          licenseCost = scenario.license_costs?.find(cost => cost.time_slot === '通常')?.amount || 0
+          // 通常のライセンス金額（license_amount）
+          licenseCost = scenario.license_amount || 0
         }
         
         const totalLicenseCost = licenseCost * events
