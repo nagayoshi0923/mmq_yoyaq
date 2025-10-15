@@ -201,9 +201,7 @@ export function ScheduleManager() {
     
     return () => {
       window.removeEventListener('scroll', handleScroll)
-      if ('scrollRestoration' in history) {
-        history.scrollRestoration = 'auto'
-      }
+      // scrollRestorationはmanualのままにしておく
     }
   }, [])
 
@@ -216,7 +214,12 @@ export function ScheduleManager() {
       const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
       // 5秒以内のスクロール位置のみ復元（リロード直後と判定）
       if (timeSinceScroll < 5000) {
-        window.scrollTo(0, parseInt(savedY, 10))
+        // レンダリング完了後にスクロール位置を復元
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo(0, parseInt(savedY, 10))
+          })
+        })
       }
     }
   }, []) // マウント時のみ実行
@@ -231,8 +234,13 @@ export function ScheduleManager() {
         const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
         // 5秒以内のスクロール位置のみ復元（リロード直後と判定）
         if (timeSinceScroll < 5000) {
+          // 複数フレーム待ってからスクロール復元
           requestAnimationFrame(() => {
-            window.scrollTo(0, parseInt(savedY, 10))
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                window.scrollTo(0, parseInt(savedY, 10))
+              })
+            })
           })
         }
       }
