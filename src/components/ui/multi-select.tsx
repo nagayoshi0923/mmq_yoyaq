@@ -87,34 +87,68 @@ export function MultiSelect({
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-full p-0" align="start">
-          <div className="max-h-60 overflow-auto">
-            {normalizedOptions.map(option => {
-              const isSelected = (selectedValues || []).includes(option.name)
-              return (
-                <div
-                  key={option.id}
-                  className="flex items-center w-full px-2.5 py-2 cursor-pointer hover:bg-muted/50 text-sm"
-                  onClick={() => handleToggleSelection(option.name)}
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="w-4 flex justify-center">
-                      {isSelected && (
-                        <Check className="w-4 h-4 text-green-600" />
-                      )}
+        <PopoverContent 
+          className="p-0" 
+          align="start" 
+          style={{ width: '400px' }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onWheel={(e) => {
+            // スクロールイベントの伝播を許可
+            e.stopPropagation()
+          }}
+        >
+          <div 
+            className="scrollable-list" 
+            style={{ 
+              maxHeight: '400px',
+              minHeight: '100px',
+              overflowY: 'scroll',
+              WebkitOverflowScrolling: 'touch'
+            }}
+            onWheel={(e) => {
+              // 内部のスクロールを優先
+              const element = e.currentTarget
+              const atTop = element.scrollTop === 0
+              const atBottom = element.scrollHeight - element.scrollTop === element.clientHeight
+              
+              // 上端または下端にいない場合は、親への伝播を止める
+              if (!atTop && !atBottom) {
+                e.stopPropagation()
+              }
+            }}
+          >
+            {normalizedOptions.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-muted-foreground">
+                スタッフがいません
+              </div>
+            ) : (
+              normalizedOptions.map(option => {
+                const isSelected = (selectedValues || []).includes(option.name)
+                return (
+                  <div
+                    key={option.id}
+                    className="flex items-center w-full px-2.5 py-2 cursor-pointer hover:bg-muted/50 text-sm"
+                    onClick={() => handleToggleSelection(option.name)}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="w-4 flex justify-center">
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-green-600" />
+                        )}
+                      </div>
+                      <span className={`truncate ${isSelected ? 'text-green-600 font-medium' : ''}`}>
+                        {option.name}
+                      </span>
                     </div>
-                    <span className={`truncate ${isSelected ? 'text-green-600 font-medium' : ''}`}>
-                      {option.name}
-                    </span>
+                    {option.displayInfo && (
+                      <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                        {option.displayInfo}
+                      </span>
+                    )}
                   </div>
-                  {option.displayInfo && (
-                    <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-                      {option.displayInfo}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
+                )
+              })
+            )}
           </div>
         </PopoverContent>
       </Popover>
