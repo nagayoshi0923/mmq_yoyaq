@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -106,6 +106,7 @@ type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count_min' | 
 export function ScenarioManagement() {
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [loading, setLoading] = useState(true)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -125,13 +126,69 @@ export function ScenarioManagement() {
     defaultDirection: 'desc'
   })
 
+  // スクロール位置の保存と復元
+  useEffect(() => {
+    // ブラウザのデフォルトスクロール復元を無効化
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual'
+    }
+
+    let scrollTimer: NodeJS.Timeout
+    const handleScroll = () => {
+      clearTimeout(scrollTimer)
+      scrollTimer = setTimeout(() => {
+        sessionStorage.setItem('scenarioScrollY', window.scrollY.toString())
+        sessionStorage.setItem('scenarioScrollTime', Date.now().toString())
+      }, 100)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  // 初回レンダリング時のスクロール位置復元（早期）
+  useLayoutEffect(() => {
+    const savedY = sessionStorage.getItem('scenarioScrollY')
+    const savedTime = sessionStorage.getItem('scenarioScrollTime')
+    if (savedY && savedTime) {
+      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+      if (timeSinceScroll < 10000) {
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedY, 10))
+        }, 100)
+      }
+    }
+  }, [])
+
+  // 初回データロード後のスクロール位置復元（初回のみ）
+  useEffect(() => {
+    if (!loading && !initialLoadComplete) {
+      setInitialLoadComplete(true)
+      const savedY = sessionStorage.getItem('scenarioScrollY')
+      const savedTime = sessionStorage.getItem('scenarioScrollTime')
+      if (savedY && savedTime) {
+        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+        if (timeSinceScroll < 10000) {
+          setTimeout(() => {
+            window.scrollTo(0, parseInt(savedY, 10))
+          }, 200)
+        }
+      }
+    }
+  }, [loading, initialLoadComplete])
+
   useEffect(() => {
     loadScenarios()
   }, [])
 
-  async function loadScenarios() {
+  async function loadScenarios(preserveScroll = false) {
     try {
-      setLoading(true)
+      // 初回ロードのみローディング表示
+      if (!preserveScroll) {
+        setLoading(true)
+      }
       setError('')
       const data = await scenarioApi.getAll()
       
@@ -162,7 +219,9 @@ export function ScenarioManagement() {
       // エラー時はモックデータを使用
       setScenarios(mockScenarios)
     } finally {
-      setLoading(false)
+      if (!preserveScroll) {
+        setLoading(false)
+      }
     }
   }
 
@@ -189,8 +248,8 @@ export function ScenarioManagement() {
         await scenarioApi.create(scenarioForDB)
       }
       
-      // シナリオ保存後、担当GM情報を含めてリストを再読み込み
-      await loadScenarios()
+      // シナリオ保存後、担当GM情報を含めてリストを再読み込み（スクロール位置保持）
+      await loadScenarios(true)
     } catch (err: any) {
       console.error('Error saving scenario:', err)
       alert('シナリオの保存に失敗しました: ' + err.message)
