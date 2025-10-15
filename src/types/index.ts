@@ -165,7 +165,7 @@ export interface ScheduleEvent {
   gms: string[]
   start_time: string
   end_time: string
-  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free'
+  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package'
   reservation_info?: string
   notes?: string
   is_cancelled: boolean
@@ -372,7 +372,7 @@ export interface ScheduleEventWithReservations {
   gms: string[]
   start_time: string
   end_time: string
-  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free'
+  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package'
   status: string
   participant_count?: number
   max_participants?: number // 新規追加

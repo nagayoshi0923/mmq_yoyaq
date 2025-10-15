@@ -12,7 +12,7 @@ interface ScheduleEvent {
   gms: string[] // GMの名前の配列
   start_time: string // HH:MM
   end_time: string // HH:MM
-  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' // 公演カテゴリ
+  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' // 公演カテゴリ
   is_cancelled: boolean
   participant_count?: number
   max_participants?: number
