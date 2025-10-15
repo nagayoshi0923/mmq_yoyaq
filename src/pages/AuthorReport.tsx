@@ -52,6 +52,11 @@ export default function AuthorReport() {
 
   // 作者レポートのテキストを生成（簡潔版）
   const generateAuthorReportText = useCallback((author: AuthorPerformance) => {
+    // 振込予定日を計算（翌月20日）
+    const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1
+    const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear
+    const paymentDate = `${nextYear}年${nextMonth}月20日`
+    
     const lines = [
       `${author.author} 様`,
       ``,
@@ -69,6 +74,11 @@ export default function AuthorReport() {
       lines.push(`・${scenario.title}${gmTestLabel}: ${scenario.events}回 × ${licenseInfo} = ¥${scenario.licenseCost.toLocaleString()}`)
     })
 
+    lines.push(``)
+    lines.push(`【お支払いについて】`)
+    lines.push(`お支払い予定日: ${paymentDate}まで`)
+    lines.push(``)
+    lines.push(`請求書は queens.waltz@gmail.com 宛にお送りください。`)
     lines.push(``)
     lines.push(`よろしくお願いいたします。`)
 
@@ -92,6 +102,11 @@ export default function AuthorReport() {
   const handleSendEmail = useCallback((author: AuthorPerformance) => {
     const subject = `【${selectedYear}年${selectedMonth}月】ライセンス料レポート - ${author.author}`
     
+    // 振込予定日を計算（翌月20日）
+    const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1
+    const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear
+    const paymentDate = `${nextYear}年${nextMonth}月20日`
+    
     // 簡潔な本文を生成（URL長さ制限対策）
     const shortBody = [
       `${author.author} 様`,
@@ -107,6 +122,11 @@ export default function AuthorReport() {
         const licenseInfo = `@¥${s.licenseAmountPerEvent.toLocaleString()}/回`
         return `・${s.title}${label}: ${s.events}回 × ${licenseInfo} = ¥${s.licenseCost.toLocaleString()}`
       }),
+      ``,
+      `【お支払いについて】`,
+      `お支払い予定日: ${paymentDate}まで`,
+      ``,
+      `請求書は queens.waltz@gmail.com 宛にお送りください。`,
       ``,
       `よろしくお願いいたします。`
     ].join('%0D%0A') // 改行コードをエンコード
