@@ -91,7 +91,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     }
   }, [staff])
 
-  const handleSave = () => {
+  const handleSave = (closeAfterSave: boolean = true) => {
     if (!formData.name) {
       alert('スタッフ名を入力してください')
       return
@@ -120,7 +120,10 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     }
 
     onSave(staffData)
-    onClose()
+    
+    if (closeAfterSave) {
+      onClose()
+    }
   }
 
 
@@ -361,13 +364,18 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         </div>
 
         {/* アクションボタン */}
-        <div className="flex justify-end gap-2 pt-4">
+        <div className="flex justify-between gap-2 pt-4">
           <Button variant="outline" onClick={onClose}>
             キャンセル
           </Button>
-          <Button onClick={handleSave}>
-            {staff ? '保存' : '作成'}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => handleSave(false)}>
+              {staff ? '保存' : '作成'}
+            </Button>
+            <Button onClick={() => handleSave(true)}>
+              {staff ? '保存して閉じる' : '作成して閉じる'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
