@@ -507,10 +507,11 @@ export function PerformanceModal({
             <Label htmlFor="gms">GM</Label>
             <MultiSelect
               options={staff
-                .filter(s => s.role.includes('gm') && s.status === 'active')
+                .filter(s => s.status === 'active')
                 .map(staffMember => ({
                   id: staffMember.id,
-                  name: staffMember.name
+                  name: staffMember.name,
+                  displayInfo: staffMember.role && staffMember.role.includes('gm') ? 'GM' : 'スタッフ'
                 }))}
               selectedValues={formData.gms}
               onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}

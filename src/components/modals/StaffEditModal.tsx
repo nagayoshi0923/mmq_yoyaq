@@ -92,8 +92,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
   }, [staff])
 
   const handleSave = () => {
-    if (!formData.name || !formData.email) {
-      alert('必須項目を入力してください')
+    if (!formData.name) {
+      alert('スタッフ名を入力してください')
       return
     }
 
@@ -160,7 +160,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="email">メールアドレス *</Label>
+              <Label htmlFor="email">メールアドレス</Label>
               <Input
                 id="email"
                 type="email"
