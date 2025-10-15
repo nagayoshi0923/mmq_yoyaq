@@ -55,7 +55,9 @@ const mockScenarios: Scenario[] = [
     rating: 4.2,
     status: 'available',
     gm_costs: [{ role: 'main', reward: 2000, status: 'active' }],
-    license_rewards: [{ item: 'ライセンス料', amount: 50000, status: 'active' }],
+    license_amount: 1500,
+    gm_test_license_amount: 0,
+    license_rewards: [],
     participation_costs: [{ time_slot: '通常', amount: 3500, type: 'fixed', status: 'active' }],
     participation_fee: 3500,
     genre: ['ホラー', 'ミステリー'],
@@ -83,7 +85,9 @@ const mockScenarios: Scenario[] = [
     rating: 4.5,
     status: 'available',
     gm_costs: [{ role: 'main', reward: 2500, status: 'active' }],
-    license_rewards: [{ item: 'ライセンス料', amount: 60000, status: 'active' }],
+    license_amount: 2000,
+    gm_test_license_amount: 500,
+    license_rewards: [],
     participation_costs: [{ time_slot: '通常', amount: 4000, type: 'fixed', status: 'active' }],
     participation_fee: 4000,
     genre: ['クラシック', 'ミステリー'],
@@ -300,7 +304,7 @@ export function ScenarioManagement() {
       s.player_count_max,
       s.difficulty || 3,
       s.participation_fee || 0,
-      s.license_rewards?.find((r: any) => r.item === 'ライセンス料')?.amount || 0,
+      s.license_amount || 0,
       s.status,
       s.description || '',
       (s.genre || []).join('|')
@@ -358,11 +362,9 @@ export function ScenarioManagement() {
               type: 'fixed' as const,
               status: 'active' as const
             }],
-            license_rewards: [{ 
-              item: 'ライセンス料', 
-              amount: parseInt(license) || 0,
-              status: 'active' as const
-            }],
+            license_amount: parseInt(license) || 0,
+            gm_test_license_amount: 0,
+            license_rewards: [],
             gm_costs: [{ 
               role: 'main', 
               reward: 2000,
@@ -492,7 +494,7 @@ export function ScenarioManagement() {
   const totalScenarios = scenarios.length
   const availableScenarios = scenarios.filter(s => s.status === 'available').length
   const totalLicenseAmount = scenarios.reduce((sum, s) => {
-    const licenseAmount = s.license_rewards?.find((r: any) => r.item === 'ライセンス料')?.amount || 0
+    const licenseAmount = s.license_amount || 0
     return sum + licenseAmount
   }, 0)
   const avgPlayers = totalScenarios > 0 
@@ -840,9 +842,25 @@ export function ScenarioManagement() {
 
                           {/* ライセンス料 */}
                           <div className="flex-shrink-0 w-28 px-3 py-2 border-r">
-                            <p className="text-sm text-right">
-                              ¥{scenario.license_rewards?.find((r: any) => r.item === 'ライセンス料')?.amount?.toLocaleString() || 0}
-                            </p>
+                            {(() => {
+                              const normalLicense = scenario.license_amount || 0
+                              const gmTestLicense = scenario.gm_test_license_amount || 0
+                              
+                              if (normalLicense === 0 && gmTestLicense === 0) {
+                                return <p className="text-sm text-right text-muted-foreground">¥0</p>
+                              }
+                              
+                              return (
+                                <div className="text-xs space-y-0.5">
+                                  <p className="text-right">
+                                    通常: ¥{normalLicense.toLocaleString()}
+                                  </p>
+                                  <p className="text-right text-muted-foreground">
+                                    GMテスト: ¥{gmTestLicense.toLocaleString()}
+                                  </p>
+                                </div>
+                              )
+                            })()}
                           </div>
                         </>
                       )}

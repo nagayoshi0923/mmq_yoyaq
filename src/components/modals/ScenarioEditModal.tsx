@@ -102,6 +102,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     production_costs: [],
     genre: [],
     required_props: [],
+    license_amount: 1500,
+    gm_test_license_amount: 0,
     license_rewards: [],
     has_pre_reading: false,
     gm_count: 1,
@@ -514,7 +516,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }
 
 
-  // 時間帯オプション
+  // 参加費用の時間帯オプション
   const timeSlotOptions = [
     { value: '通常', label: '通常' },
     { value: 'GMテスト', label: 'GMテスト' },
@@ -529,6 +531,14 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     { value: '土日祝朝', label: '土日祝朝' },
     { value: '土日祝昼', label: '土日祝昼' },
     { value: '土日祝夜', label: '土日祝夜' }
+  ]
+
+  // ライセンス報酬の時間帯オプション
+  const licenseRewardOptions = [
+    { value: '通常', label: '通常' },
+    { value: 'GMテスト', label: 'GMテスト' },
+    { value: '土日祝', label: '土日祝' },
+    { value: '特別', label: '特別' }
   ]
 
   // GM役割オプションを動的に生成
@@ -675,41 +685,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             }))
           }
         })(),
-        license_rewards: (() => {
-          if (!Array.isArray(scenario.license_rewards) || scenario.license_rewards.length === 0) {
-            // テスト用データを表示
-            return [
-              { 
-                item: '通常', 
-                amount: 1500, 
-                type: 'fixed',
-                status: 'active', 
-                usageCount: 12 
-              },
-              { 
-                item: '土日祝', 
-                amount: 20, 
-                type: 'percentage',
-                status: 'legacy', 
-                usageCount: 8 
-              },
-              { 
-                item: '特別', 
-                amount: 2500, 
-                type: 'fixed',
-                status: 'ready', 
-                usageCount: 0 
-              }
-            ]
-          }
-          return (scenario.license_rewards as any[]).map(reward => ({
-            item: reward.item || '',
-            amount: reward.amount || 0,
-            type: reward.type || 'fixed',
-            status: reward.status || getItemStatus(reward.amount || 0, reward.usageCount || 0),
-            usageCount: reward.usageCount || 0
-          }))
-        })(),
+        license_amount: scenario.license_amount || 1500,
+        gm_test_license_amount: scenario.gm_test_license_amount || 0,
+        license_rewards: [],
         has_pre_reading: scenario.has_pre_reading || false,
         gm_count: scenario.gm_costs?.length || 2,
         gm_assignments: scenario.gm_costs || [
@@ -902,7 +880,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         // production_costs: formData.production_costs, // データベースに存在しないため一時的にコメントアウト
         genre: formData.genre,
         required_props: formData.required_props, // Keep as object array with frequency
-        license_rewards: formData.license_rewards, // ライセンス報酬を保存
+        license_amount: formData.license_amount || 0,
+        gm_test_license_amount: formData.gm_test_license_amount || 0,
+        license_rewards: [], // 空配列で保存（旧形式は使用しない）
         has_pre_reading: formData.has_pre_reading,
         gm_costs: formData.gm_assignments,
         available_gms: [],
@@ -1325,19 +1305,57 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 </div>
 
                 {/* ライセンス報酬 */}
-                <ItemizedSettings
-                  title="ライセンス報酬"
-                  subtitle="時間帯や曜日に応じて異なるライセンス料を設定できます"
-                  items={formData.license_rewards}
-                  conditionOptions={timeSlotOptions}
-                  showTypeSelector={true}
-                  showHideLegacyToggle={true}
-                  itemType="ライセンス報酬"
-                  scenarioName={formData.title}
-                  getItemStatus={getItemStatus}
-                  validateNormalSetting={validateLicenseNormalSetting}
-                  onItemsChange={(items) => setFormData(prev => ({ ...prev, license_rewards: items }))}
-                />
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-gray-800">ライセンス報酬</h4>
+                    <p className="text-sm text-muted-foreground">作者に支払うライセンス料を設定します</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="license_amount">通常ライセンス料</Label>
+                      <div className="relative">
+                        <Input
+                          id="license_amount"
+                          type="number"
+                          min="0"
+                          step="100"
+                          value={formData.license_amount || 0}
+                          onChange={(e) => setFormData(prev => ({ 
+                            ...prev, 
+                            license_amount: parseInt(e.target.value) || 0 
+                          }))}
+                          className="pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                          円
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="gm_test_license_amount">GMテストライセンス料</Label>
+                      <div className="relative">
+                        <Input
+                          id="gm_test_license_amount"
+                          type="number"
+                          min="0"
+                          step="100"
+                          value={formData.gm_test_license_amount || 0}
+                          onChange={(e) => setFormData(prev => ({ 
+                            ...prev, 
+                            gm_test_license_amount: parseInt(e.target.value) || 0 
+                          }))}
+                          className="pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                          円
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        GMが練習用に実施する公演のライセンス料
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
                 {/* 制作費・購入費 */}
                 <div className="space-y-4">

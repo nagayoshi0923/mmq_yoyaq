@@ -91,6 +91,11 @@ export interface Scenario {
   play_count: number
   status: 'available' | 'maintenance' | 'retired'
   required_props: Array<{ item: string; amount: number; frequency: 'recurring' | 'one-time' }>
+  // データベースカラム（通常ライセンス料）
+  license_amount?: number
+  // データベースカラム（GMテストライセンス料）
+  gm_test_license_amount?: number
+  // 旧形式（互換性のため保持）
   license_rewards: Array<{ item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   props?: Array<{
     name: string
