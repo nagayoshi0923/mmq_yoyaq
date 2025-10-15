@@ -21,7 +21,7 @@ interface ScheduleEvent {
   gms: string[] // GMの名前の配列
   start_time: string // HH:MM
   end_time: string // HH:MM
-  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' // 公演カテゴリ
+  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' // 公演カテゴリ
   is_cancelled: boolean
   participant_count?: number
   max_participants?: number
@@ -357,6 +357,8 @@ export function PerformanceModal({
                   <SelectItem value="gmtest">GMテスト</SelectItem>
                   <SelectItem value="testplay">テストプレイ</SelectItem>
                   <SelectItem value="offsite">出張公演</SelectItem>
+                  <SelectItem value="venue_rental">場所貸し</SelectItem>
+                  <SelectItem value="venue_rental_free">場所貸無料</SelectItem>
                 </SelectContent>
               </Select>
               {formData.is_private_request && (
