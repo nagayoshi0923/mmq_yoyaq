@@ -497,8 +497,16 @@ export function PerformanceModal({
                   return {
                     id: staffMember.id,
                     name: staffMember.name,
-                    displayInfo: isAssignedGM ? '担当GM' : undefined
+                    displayInfo: isAssignedGM ? '担当GM' : undefined,
+                    isAssignedGM
                   }
+                })
+                .sort((a, b) => {
+                  // 担当GMを上に表示
+                  if (a.isAssignedGM && !b.isAssignedGM) return -1
+                  if (!a.isAssignedGM && b.isAssignedGM) return 1
+                  // 両方とも担当GMまたは両方とも非担当GMの場合は名前順
+                  return a.name.localeCompare(b.name, 'ja')
                 })}
               selectedValues={formData.gms}
               onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
