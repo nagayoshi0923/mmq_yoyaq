@@ -88,26 +88,10 @@ export function SearchableSelect({
       >
         <div className="p-2 border-b">
           <Input
-            type="search"
             placeholder={searchPlaceholder}
             value={searchTerm}
-            onChange={(e) => {
-              // 英数字とスペースのみ許可
-              const value = e.target.value.replace(/[^a-zA-Z0-9\s]/g, '')
-              setSearchTerm(value)
-            }}
-            onCompositionStart={(e) => e.preventDefault()}
-            onCompositionUpdate={(e) => e.preventDefault()}
-            onCompositionEnd={(e) => e.preventDefault()}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="h-8"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck="false"
-            data-form-type="other"
-            data-1p-ignore
-            inputMode="latin"
-            lang="en"
           />
         </div>
         <div 
