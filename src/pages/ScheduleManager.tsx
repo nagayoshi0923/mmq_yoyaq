@@ -261,7 +261,7 @@ export function ScheduleManager() {
           id: event.id,
           date: event.date,
           venue: event.store_id, // store_idを直接使用
-          scenario: event.scenario || event.scenarios?.title || '',
+          scenario: event.scenarios?.title || event.scenario || '', // JOINされたタイトルを優先
           gms: event.gms || [],
           start_time: event.start_time,
           end_time: event.end_time,
@@ -845,12 +845,20 @@ export function ScheduleManager() {
           throw new Error(`店舗「${storeName}」が見つかりません。先に店舗管理で店舗を追加してください。`)
         }
         
+        // シナリオIDを取得
+        let scenarioId = null
+        if (performanceData.scenario) {
+          const matchingScenario = scenarios.find(s => s.title === performanceData.scenario)
+          scenarioId = matchingScenario?.id || null
+        }
+        
         // Supabaseに保存するデータ形式に変換
         const eventData = {
           date: performanceData.date,
           store_id: storeData.id,
           venue: storeName,
           scenario: performanceData.scenario || '',
+          scenario_id: scenarioId, // scenario_idを追加
           category: performanceData.category,
           start_time: performanceData.start_time,
           end_time: performanceData.end_time,
@@ -915,9 +923,17 @@ export function ScheduleManager() {
               : event
           ))
         } else {
+          // シナリオIDを取得
+          let scenarioId = null
+          if (performanceData.scenario) {
+            const matchingScenario = scenarios.find(s => s.title === performanceData.scenario)
+            scenarioId = matchingScenario?.id || null
+          }
+          
           // 通常公演の場合は schedule_events テーブルを更新
           await scheduleApi.update(performanceData.id, {
             scenario: performanceData.scenario,
+            scenario_id: scenarioId, // scenario_idも更新
             category: performanceData.category,
             start_time: performanceData.start_time,
             end_time: performanceData.end_time,
