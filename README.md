@@ -563,9 +563,40 @@ CREATE POLICY customers_select_self ON customers FOR SELECT
 - **店舗運営連携**: マーダーミステリー店舗運営チーム
 - **品質管理**: 店舗スタッフ・テストチーム
 
+## 📧 メール送信機能
+
+### 実装済み機能
+- ✅ **予約確認メール** - 予約完了時に自動送信
+  - 予約内容の詳細（予約番号、シナリオ、日時、会場、料金）
+  - 重要事項（キャンセルポリシー、来場時刻など）
+  - HTML形式とテキスト形式の両方に対応
+
+### セットアップ
+詳細なセットアップ手順は `EMAIL_SETUP.md` を参照してください。
+
+**必要なもの：**
+1. Resendアカウント（月3,000通まで無料）
+2. Resend APIキー
+3. Supabase Edge Functionsへのデプロイ
+
+**クイックセットアップ：**
+```bash
+# 1. Resend APIキーをSupabase Secretsに設定
+supabase secrets set RESEND_API_KEY=re_your_api_key
+
+# 2. Edge Functionをデプロイ
+supabase functions deploy send-booking-confirmation
+```
+
+### 今後の拡張予定
+- ⏳ リマインダーメール（予約前日・当日）
+- ⏳ キャンセル確認メール
+- ⏳ 予約変更確認メール
+
 ## 🔗 関連ドキュメント
 
 - `Guidelines.md`: デザインシステム詳細仕様
+- `EMAIL_SETUP.md`: メール送信機能セットアップガイド
 - `SUPABASE_SETUP.md`: データベース設定ガイド
 - `DEPLOYMENT_GUIDE.md`: 本番環境デプロイ手順
 - `BRANCH_MANAGEMENT.md`: 開発ブランチ管理規則

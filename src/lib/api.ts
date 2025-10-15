@@ -285,7 +285,7 @@ export const staffApi = {
       
       if (!scheduleError && scheduleEvents && scheduleEvents.length > 0) {
         const updatePromises = scheduleEvents.map(event => {
-          const newGms = (event.gms || []).map(gm => gm === oldName ? newName : gm)
+          const newGms = (event.gms || []).map((gm: string) => gm === oldName ? newName : gm)
           return supabase
             .from('schedule_events')
             .update({ gms: newGms })
@@ -546,7 +546,7 @@ export const scheduleApi = {
       .eq('status', 'confirmed')
     
     if (privateError) {
-      console.error('確定貸切公演取得エラー:', privateError)
+      // 確定貸切公演取得エラー
     }
     
     // 貸切公演を schedule_events 形式に変換
@@ -599,12 +599,14 @@ export const scheduleApi = {
                 gmNames = ['未定']
               }
               
+              const scenarioData = Array.isArray(booking.scenarios) ? booking.scenarios[0] : booking.scenarios
+              
               privateEvents.push({
                 id: `private-${booking.id}-${candidate.order}`,
                 date: candidateDateStr,
                 venue: booking.store_id,
                 store_id: booking.store_id,
-                scenario: booking.scenarios?.title || '',
+                scenario: scenarioData?.title || '',
                 scenario_id: booking.scenario_id,
                 start_time: startTime,
                 end_time: endTime,
@@ -612,11 +614,11 @@ export const scheduleApi = {
                 is_cancelled: false,
                 is_reservation_enabled: true, // 貸切公演は常に公開中
                 current_participants: booking.participant_count,
-                max_participants: booking.scenarios?.player_count_max || 8,
-                capacity: booking.scenarios?.player_count_max || 8,
+                max_participants: scenarioData?.player_count_max || 8,
+                capacity: scenarioData?.player_count_max || 8,
                 gms: gmNames,
                 stores: booking.stores,
-                scenarios: booking.scenarios,
+                scenarios: scenarioData,
                 is_private_booking: true // 貸切公演フラグ
               })
             }
@@ -799,7 +801,6 @@ export const salesApi = {
       .order('date', { ascending: true })
     
     if (error) {
-      console.error('getSalesByPeriod error:', error)
       throw error
     }
     
@@ -813,7 +814,7 @@ export const salesApi = {
       .select('id, title, author, participation_fee, participation_costs, license_amount, gm_test_license_amount')
     
     if (scenariosError) {
-      console.error('scenarios fetch error:', scenariosError)
+      // scenarios fetch error
     }
     
     // シナリオ名でマッピング（scenario_idがない場合のフォールバック）
@@ -837,13 +838,6 @@ export const salesApi = {
         ...event,
         scenarios: scenarioInfo
       }
-    })
-    
-    console.log('getSalesByPeriod result:', {
-      count: enrichedEvents.length,
-      sample: enrichedEvents[0],
-      hasScenarioInfo: enrichedEvents[0]?.scenarios ? 'yes' : 'no',
-      participationFee: enrichedEvents[0]?.scenarios?.participation_fee
     })
     
     return enrichedEvents
@@ -960,7 +954,7 @@ export const salesApi = {
       .select('id, title, author, license_amount, gm_test_license_amount')
     
     if (scenariosError) {
-      console.error('scenarios fetch error:', scenariosError)
+      // scenarios fetch error
     }
 
     // シナリオ名でマッピング
@@ -968,8 +962,6 @@ export const salesApi = {
     scenarios?.forEach(s => {
       scenarioMap.set(s.title, s)
     })
-
-    console.log('getScenarioPerformance 取得データ:', events.length, '件')
 
     // シナリオ別に集計（カテゴリも考慮）
     const performanceMap = new Map()
@@ -1020,24 +1012,6 @@ export const salesApi = {
       stores: Array.from(item.stores)
     }))
 
-    console.log('集計結果:', result.length, '件')
-    console.log('GMテスト集計結果:', result.filter(r => r.category === 'gmtest'))
-    
-    // 作者別の集計も確認
-    const authorSummary = result.reduce((acc, item) => {
-      if (!acc[item.author]) {
-        acc[item.author] = { totalEvents: 0, scenarios: [] }
-      }
-      acc[item.author].totalEvents += item.events
-      acc[item.author].scenarios.push({
-        title: item.title,
-        category: item.category,
-        events: item.events
-      })
-      return acc
-    }, {} as Record<string, { totalEvents: number, scenarios: any[] }>)
-    
-    console.log('作者別集計:', authorSummary)
     return result
   }
 }

@@ -190,6 +190,9 @@ export const assignmentApi = {
       const assignments = scenarioIds.map(scenarioId => ({
         staff_id: staffId,
         scenario_id: scenarioId,
+        can_main_gm: true,  // GM可能として設定
+        can_sub_gm: true,   // サブGMも可能として設定
+        is_experienced: false,  // 体験済みではない
         notes: notes || null
       }))
 
@@ -214,6 +217,9 @@ export const assignmentApi = {
       const assignments = staffIds.map(staffId => ({
         staff_id: staffId,
         scenario_id: scenarioId,
+        can_main_gm: true,  // GM可能として設定
+        can_sub_gm: true,   // サブGMも可能として設定
+        is_experienced: false,  // 体験済みではない
         notes: notes || null
       }))
 

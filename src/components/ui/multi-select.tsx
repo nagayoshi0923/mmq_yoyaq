@@ -25,6 +25,7 @@ interface MultiSelectProps {
   disabled?: boolean
   showBadges?: boolean
   closeOnSelect?: boolean  // 選択時にプルダウンを閉じるか
+  useIdAsValue?: boolean  // trueの場合、idを値として使用（デフォルトはname）
 }
 
 export function MultiSelect({
@@ -35,7 +36,8 @@ export function MultiSelect({
   className = "",
   disabled = false,
   showBadges = false,
-  closeOnSelect = false
+  closeOnSelect = false,
+  useIdAsValue = false
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -80,6 +82,11 @@ export function MultiSelect({
       return placeholder
     }
     if (selectedValues.length === 1) {
+      // useIdAsValueがtrueの場合、IDからnameを取得して表示
+      if (useIdAsValue) {
+        const option = normalizedOptions.find(opt => opt.id === selectedValues[0])
+        return option?.name || selectedValues[0]
+      }
       return selectedValues[0]
     }
     return `${selectedValues.length}件選択中`
@@ -145,12 +152,13 @@ export function MultiSelect({
               </div>
             ) : (
               filteredOptions.map(option => {
-                const isSelected = (selectedValues || []).includes(option.name)
+                const valueToCompare = useIdAsValue ? option.id : option.name
+                const isSelected = (selectedValues || []).includes(valueToCompare)
                 return (
                   <div
                     key={option.id}
                     className="flex items-center w-full px-2.5 py-2 cursor-pointer hover:bg-muted/50 text-sm"
-                    onClick={() => handleToggleSelection(option.name)}
+                    onClick={() => handleToggleSelection(valueToCompare)}
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div className="w-4 flex justify-center">
@@ -178,20 +186,26 @@ export function MultiSelect({
       {/* バッジ表示エリア */}
       {showBadges && selectedValues && selectedValues.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {selectedValues.map((value) => (
-            <Badge key={value} variant="secondary" className="flex items-center gap-1 font-normal">
-              {value}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-4 w-4 p-0 hover:bg-red-100"
-                onClick={() => handleRemoveValue(value)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </Badge>
-          ))}
+          {selectedValues.map((value) => {
+            // useIdAsValueがtrueの場合、IDからnameを取得して表示
+            const displayValue = useIdAsValue 
+              ? normalizedOptions.find(opt => opt.id === value)?.name || value
+              : value
+            return (
+              <Badge key={value} variant="secondary" className="flex items-center gap-1 font-normal">
+                {displayValue}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-4 w-4 p-0 hover:bg-red-100"
+                  onClick={() => handleRemoveValue(value)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            )
+          })}
         </div>
       )}
     </div>

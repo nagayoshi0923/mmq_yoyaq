@@ -863,6 +863,12 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     try {
       const totalProductionCost = formData.production_costs.reduce((sum, cost) => sum + cost.amount, 0)
       
+      // 選択されたスタッフIDからスタッフ名を取得
+      const selectedStaffNames = selectedStaffIds.map(staffId => {
+        const staffMember = staff.find(s => s.id === staffId)
+        return staffMember?.name || staffId
+      }).filter(name => name && !name.includes('-')) // UUIDを除外
+      
       const updatedScenario: Scenario = {
         id: scenario?.id || `new-${Date.now()}`,
         title: formData.title,
@@ -885,7 +891,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         license_rewards: [], // 空配列で保存（旧形式は使用しない）
         has_pre_reading: formData.has_pre_reading,
         gm_costs: formData.gm_assignments,
-        available_gms: [],
+        available_gms: selectedStaffNames, // 選択されたGMの名前を保存
         // 柔軟な料金設定を保存
         flexible_pricing: formData.use_flexible_pricing ? formData.flexible_pricing : undefined,
         play_count: scenario?.play_count || 0,
@@ -901,7 +907,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       // 担当GM関係をリレーションテーブルで更新
       if (updatedScenario.id) {
         const originalStaffIds = currentAssignments.map(a => a.staff_id).sort()
-        const newStaffIds = selectedStaffIds.sort()
+        const newStaffIds = [...selectedStaffIds].sort()
         
         // 担当GMが変更された場合、リレーションテーブルを更新
         if (JSON.stringify(originalStaffIds) !== JSON.stringify(newStaffIds)) {
@@ -1135,7 +1141,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 </div>
               {(() => {
                 // 通常のGMスタッフ
-                const activeGMs = staff.filter(s => s.role.includes('gm') && s.status === 'active')
+                const activeGMs = staff.filter(s => Array.isArray(s.role) && s.role.includes('gm') && s.status === 'active')
                 
                 // 既に担当GMとして設定されているスタッフ（role/statusに関係なく含める）
                 const assignedStaff = staff.filter(s => selectedStaffIds.includes(s.id))
@@ -1151,41 +1157,21 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 const gmOptions = allAvailableStaff.map(staffMember => ({
                   id: staffMember.id,
                   name: staffMember.name,
-                  displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name}${
+                  displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name || ''}${
                     !staffMember.role.includes('gm') || staffMember.status !== 'active' 
                       ? ' (非アクティブGM)' 
                       : ''
                   }`
                 }))
                 
-                // selectedStaffIds（UUID）をスタッフ名に変換してMultiSelectに渡す
-                const selectedStaffNames = selectedStaffIds.map(staffId => {
-                  const staffMember = staff.find(s => s.id === staffId)
-                  return staffMember?.name || staffId
-                }).filter(name => {
-                  // 存在しないスタッフ名（UUID）を除外
-                  const isValidStaff = staff.some(s => s.name === name)
-                  if (!isValidStaff && name.length > 10) { // UUIDっぽい場合
-                    return false
-                  }
-                  return true
-                })
-                
-                
                 return (
                   <MultiSelect
                     options={gmOptions}
-                    selectedValues={selectedStaffNames}
-                    onSelectionChange={(selectedNames) => {
-                      // スタッフ名をIDに変換
-                      const staffIds = selectedNames.map(name => {
-                        const staffMember = staff.find(s => s.name === name)
-                        return staffMember?.id || name
-                      })
-                      setSelectedStaffIds(staffIds)
-                    }}
+                    selectedValues={selectedStaffIds}
+                    onSelectionChange={setSelectedStaffIds}
                     placeholder="担当GMを選択してください"
                     showBadges={true}
+                    useIdAsValue={true}
                   />
                 )
               })()}

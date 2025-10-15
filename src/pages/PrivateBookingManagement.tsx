@@ -529,22 +529,33 @@ export function PrivateBookingManagement() {
         throw error
       }
 
-      // データ整形
-      const formattedData: PrivateBookingRequest[] = (data || []).map((req: any) => ({
-        id: req.id,
-        reservation_number: req.reservation_number || '',
-        scenario_id: req.scenario_id,
-        scenario_title: req.scenarios?.title || req.title || 'シナリオ名不明',
-        customer_name: req.customers?.name || '顧客名不明',
-        customer_email: req.customer_email || '',
-        customer_phone: req.customers?.phone || req.customer_phone || '',
-        candidate_datetimes: req.candidate_datetimes || { candidates: [] },
-        participant_count: req.participant_count || 0,
-        notes: req.customer_notes || '',
-        status: req.status,
-        gm_responses: req.gm_responses || [],
-        created_at: req.created_at
-      }))
+      // 各リクエストに対してGM回答を取得
+      const formattedData: PrivateBookingRequest[] = await Promise.all(
+        (data || []).map(async (req: any) => {
+          // GM回答を別途取得
+          const { data: gmResponses } = await supabase
+            .from('gm_availability_responses')
+            .select('gm_name, response_type, available_candidates, selected_candidate_index, notes')
+            .eq('reservation_id', req.id)
+            .in('response_type', ['available', 'unavailable'])
+          
+          return {
+            id: req.id,
+            reservation_number: req.reservation_number || '',
+            scenario_id: req.scenario_id,
+            scenario_title: req.scenarios?.title || req.title || 'シナリオ名不明',
+            customer_name: req.customers?.name || '顧客名不明',
+            customer_email: req.customer_email || '',
+            customer_phone: req.customers?.phone || req.customer_phone || '',
+            candidate_datetimes: req.candidate_datetimes || { candidates: [] },
+            participant_count: req.participant_count || 0,
+            notes: req.customer_notes || '',
+            status: req.status,
+            gm_responses: gmResponses || [],
+            created_at: req.created_at
+          }
+        })
+      )
 
       setRequests(formattedData)
     } catch (error) {
@@ -1477,9 +1488,9 @@ export function PrivateBookingManagement() {
                               {request.gm_responses.map((response: any, index: number) => (
                                 <div key={index} className="text-sm text-blue-800">
                                   {response.gm_name || 'GM名不明'}: {response.response_type === 'available' ? '✅ 出勤可能' : '❌ 出勤不可'}
-                                  {response.selected_candidate_index !== null && response.selected_candidate_index !== undefined && (
+                                  {response.available_candidates && response.available_candidates.length > 0 && (
                                     <span className="ml-2 text-blue-600">
-                                      (候補{response.selected_candidate_index + 1})
+                                      (候補{response.available_candidates.map((idx: number) => idx + 1).join(', ')})
                                     </span>
                                   )}
                                 </div>

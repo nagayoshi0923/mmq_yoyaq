@@ -239,6 +239,38 @@ export function BookingConfirmation({
         // エラーだが予約は作成されているので成功とする
       }
 
+      // 予約確認メールを送信
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        const emailResponse = await supabase.functions.invoke('send-booking-confirmation', {
+          body: {
+            reservationId: reservationData.id,
+            customerEmail: customerEmail,
+            customerName: customerName,
+            scenarioTitle: scenarioTitle,
+            eventDate: eventDate,
+            startTime: startTime,
+            endTime: endTime,
+            storeName: storeName,
+            storeAddress: storeAddress,
+            participantCount: participantCount,
+            totalPrice: participationFee * participantCount,
+            reservationNumber: reservationNumber
+          }
+        })
+
+        if (emailResponse.error) {
+          console.error('メール送信エラー:', emailResponse.error)
+          // メール送信失敗してもエラー表示はしない（予約自体は成功しているため）
+        } else {
+          console.log('予約確認メールを送信しました')
+        }
+      } catch (emailError) {
+        console.error('メール送信処理エラー:', emailError)
+        // メール送信失敗してもエラー表示はしない
+      }
+
       setSuccess(true)
       
       // 3秒後に完了コールバックを実行

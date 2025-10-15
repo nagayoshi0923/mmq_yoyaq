@@ -61,7 +61,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     status: 'active',
     special_scenarios: [],
     notes: '',
-    avatar_color: undefined
+    avatar_color: undefined,
+    avatar_url: ''
   })
 
   // スタッフデータが変更されたときにフォームを初期化
@@ -71,7 +72,14 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         ...staff,
         role: Array.isArray(staff.role) ? staff.role : [staff.role],
         stores: staff.stores || [],
-        special_scenarios: staff.special_scenarios || []
+        special_scenarios: staff.special_scenarios || [],
+        x_account: staff.x_account || '',
+        discord_id: staff.discord_id || '',
+        discord_channel_id: staff.discord_channel_id || '',
+        email: staff.email || '',
+        phone: staff.phone || '',
+        notes: staff.notes || '',
+        avatar_url: staff.avatar_url || ''
       })
     } else {
       setFormData({
@@ -86,7 +94,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         status: 'active',
         special_scenarios: [],
         notes: '',
-        avatar_color: undefined
+        avatar_color: undefined,
+        avatar_url: ''
       })
     }
   }, [staff])
@@ -155,7 +164,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             <Label htmlFor="name">名前 *</Label>
             <Input
               id="name"
-              value={formData.name}
+              value={formData.name || ''}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
               placeholder="田中 太郎"
             />
@@ -167,7 +176,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
               <Input
                 id="email"
                 type="email"
-                value={formData.email}
+                value={formData.email || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="tanaka@example.com"
               />
@@ -176,7 +185,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
               <Label htmlFor="phone">電話番号</Label>
               <Input
                 id="phone"
-                value={formData.phone}
+                value={formData.phone || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                 placeholder="090-1234-5678"
               />
@@ -188,7 +197,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
               <Label htmlFor="x_account">X(Twitter)アカウント</Label>
               <Input
                 id="x_account"
-                value={formData.x_account}
+                value={formData.x_account || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, x_account: e.target.value }))}
                 placeholder="@tanaka_gm"
               />
@@ -197,7 +206,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
               <Label htmlFor="discord_id">Discord ID</Label>
               <Input
                 id="discord_id"
-                value={formData.discord_id}
+                value={formData.discord_id || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, discord_id: e.target.value }))}
                 placeholder="1427064798650040472"
               />
@@ -211,7 +220,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             <Label htmlFor="discord_channel_id">Discord チャンネルID</Label>
             <Input
               id="discord_channel_id"
-              value={formData.discord_channel_id}
+              value={formData.discord_channel_id || ''}
               onChange={(e) => setFormData(prev => ({ ...prev, discord_channel_id: e.target.value }))}
               placeholder="1234567890123456789"
             />
@@ -284,6 +293,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 onSelectionChange={(values) => setFormData(prev => ({ ...prev, role: values }))}
                 placeholder="役割を選択"
                 showBadges={true}
+                useIdAsValue={true}
               />
             </div>
             <div>
@@ -310,13 +320,13 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             <Label htmlFor="stores">担当店舗</Label>
             <MultiSelect
               options={storeOptions}
-              selectedValues={formData.stores?.map(id => stores.find(s => s.id === id)?.name || id) || []}
-              onSelectionChange={(values) => {
-                const storeIds = values.map(name => stores.find(s => s.name === name)?.id || name)
+              selectedValues={formData.stores || []}
+              onSelectionChange={(storeIds) => {
                 setFormData(prev => ({ ...prev, stores: storeIds }))
               }}
               placeholder="担当店舗を選択"
               showBadges={true}
+              useIdAsValue={true}
             />
           </div>
 
@@ -324,30 +334,16 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
           {/* 担当シナリオ */}
           <div>
             <Label htmlFor="special_scenarios">担当シナリオ</Label>
-            {(() => {
-              // selectedScenarioIds（UUID）をシナリオタイトルに変換してMultiSelectに渡す
-              const selectedScenarioTitles = (formData.special_scenarios || []).map(scenarioId => {
-                const scenario = scenarios.find(s => s.id === scenarioId)
-                return scenario?.title || scenarioId
-              })
-              
-              return (
-                <MultiSelect
-                  options={scenarioOptions}
-                  selectedValues={selectedScenarioTitles}
-                  onSelectionChange={(selectedTitles) => {
-                    // シナリオタイトルをIDに変換
-                    const scenarioIds = selectedTitles.map(title => {
-                      const scenario = scenarios.find(s => s.title === title)
-                      return scenario?.id || title
-                    })
-                    setFormData(prev => ({ ...prev, special_scenarios: scenarioIds }))
-                  }}
-                  placeholder="担当シナリオを選択"
-                  showBadges={true}
-                />
-              )
-            })()}
+            <MultiSelect
+              options={scenarioOptions}
+              selectedValues={formData.special_scenarios || []}
+              onSelectionChange={(scenarioIds) => {
+                setFormData(prev => ({ ...prev, special_scenarios: scenarioIds }))
+              }}
+              placeholder="担当シナリオを選択"
+              showBadges={true}
+              useIdAsValue={true}
+            />
           </div>
 
           {/* 備考 */}
@@ -355,7 +351,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             <Label htmlFor="notes">備考</Label>
             <Textarea
               id="notes"
-              value={formData.notes}
+              value={formData.notes || ''}
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="特記事項があれば入力してください"
               rows={3}

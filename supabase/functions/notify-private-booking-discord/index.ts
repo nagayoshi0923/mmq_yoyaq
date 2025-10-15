@@ -65,8 +65,14 @@ async function sendNotificationToGMChannels(booking: any) {
   // 各GMのチャンネルに通知を送信
   const notificationPromises = gmStaff.map(async (gm) => {
     const channelId = gm.discord_channel_id
-    console.log(`📤 Sending notification to ${gm.name} (Channel: ${channelId})`)
     
+    // チャンネルIDが設定されていない場合はスキップ
+    if (!channelId || channelId.trim() === '') {
+      console.log(`⚠️ Skipping ${gm.name}: discord_channel_id not set`)
+      throw new Error(`discord_channel_id not set for ${gm.name}`)
+    }
+    
+    console.log(`📤 Sending notification to ${gm.name} (Channel: ${channelId})`)
     return sendDiscordNotification(channelId, booking)
   })
   
@@ -86,6 +92,11 @@ async function sendNotificationToGMChannels(booking: any) {
 
 // Discord通知を送信する関数
 async function sendDiscordNotification(channelId: string, booking: any) {
+  // チャンネルIDが空の場合はエラー
+  if (!channelId || channelId.trim() === '') {
+    throw new Error('Discord channel ID is not set. Please configure discord_channel_id in staff table.')
+  }
+  
   const timeSlotMap = {
     'morning': '朝',
     'afternoon': '昼', 
@@ -133,25 +144,42 @@ async function sendDiscordNotification(channelId: string, booking: any) {
     }
   }
 
-  const components = [
-    {
-      type: 1,
-      components: [
-        {
-          type: 2,
-          style: 3,
-          label: "✅ 出勤可能な日程を選択",
-          custom_id: `gm_available_${booking.id}`
-        },
-        {
-          type: 2,
-          style: 4,
-          label: "❌ 全て出勤不可",
-          custom_id: `gm_unavailable_${booking.id}`
-        }
-      ]
+  // 候補日程をボタンとして直接表示
+  const components = []
+  const maxButtons = Math.min(candidates.length, 5) // 最大5個まで
+  
+  for (let i = 0; i < maxButtons; i++) {
+    const candidate = candidates[i]
+    const dateStr = candidate.date.replace('2025-', '').replace('-', '/')
+    const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
+    
+    if (i % 5 === 0) {
+      components.push({
+        type: 1,
+        components: []
+      })
     }
-  ]
+    
+    components[components.length - 1].components.push({
+      type: 2,
+      style: 3, // 緑色（未選択）
+      label: `候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
+      custom_id: `date_${i + 1}_${booking.id}`
+    })
+  }
+  
+  // 「全て出勤不可」ボタンを別の行に追加
+  components.push({
+    type: 1,
+    components: [
+      {
+        type: 2,
+        style: 4, // 赤色
+        label: "❌ 全て出勤不可",
+        custom_id: `gm_unavailable_${booking.id}`
+      }
+    ]
+  })
 
   const discordPayload = {
     content: "@here",
