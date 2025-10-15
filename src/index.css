@@ -119,4 +119,9 @@
   .scrollable-list::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground) / 0.5);
   }
+
+  /* Popoverのオーバーレイスタイル */
+  [data-radix-popper-content-wrapper] {
+    z-index: 100 !important;
+  }
 }

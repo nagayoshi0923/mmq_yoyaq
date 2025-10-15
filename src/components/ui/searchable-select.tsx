@@ -59,7 +59,7 @@ export function SearchableSelect({
   }, [options, searchTerm])
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -79,7 +79,7 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="p-0" 
+        className="p-0 z-[100]" 
         style={{ width: 'var(--radix-popover-trigger-width)' }}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onWheel={(e) => {
@@ -92,6 +92,10 @@ export function SearchableSelect({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="h-8"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
           />
         </div>
         <div 

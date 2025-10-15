@@ -87,7 +87,7 @@ export function MultiSelect({
 
   return (
     <div className="space-y-2">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen} modal={true}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -105,7 +105,7 @@ export function MultiSelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent 
-          className="p-0" 
+          className="p-0 z-[100]" 
           align="start" 
           style={{ width: 'var(--radix-popover-trigger-width)' }}
           onOpenAutoFocus={(e) => e.preventDefault()}
@@ -119,6 +119,10 @@ export function MultiSelect({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-8"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
             />
           </div>
           <div 
