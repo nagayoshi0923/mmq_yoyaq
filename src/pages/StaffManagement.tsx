@@ -8,6 +8,7 @@ import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import { staffApi, storeApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
+import { usePageState } from '@/hooks/usePageState'
 import type { Staff, Store } from '@/types'
 import { 
   Users, 
@@ -78,20 +79,20 @@ const mockStaff = [
 ]
 
 export function StaffManagement() {
+  // ページ状態管理のカスタムフック
+  const { restoreState, saveState, setLoading, loading } = usePageState({
+    pageKey: 'staff',
+    scrollRestoration: true
+  })
+
   const [staff, setStaff] = useState<Staff[]>([])
   const [stores, setStores] = useState<Store[]>([])
   const [scenarios, setScenarios] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   
-  // sessionStorageから検索とフィルタの状態を復元
-  const [searchTerm, setSearchTerm] = useState(() => {
-    return sessionStorage.getItem('staffSearchTerm') || ''
-  })
-  const [statusFilter, setStatusFilter] = useState<string>(() => {
-    return sessionStorage.getItem('staffStatusFilter') || 'all'
-  })
+  // 状態を復元して初期化
+  const [searchTerm, setSearchTerm] = useState(() => restoreState('searchTerm', ''))
+  const [statusFilter, setStatusFilter] = useState<string>(() => restoreState('statusFilter', 'all'))
   
   // 編集モーダル用のstate
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -101,62 +102,14 @@ export function StaffManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [staffToDelete, setStaffToDelete] = useState<Staff | null>(null)
 
-  // スクロール位置の保存と復元
+  // 検索とフィルタの状態を自動保存
   useEffect(() => {
-    if ('scrollRestoration' in history) {
-      history.scrollRestoration = 'manual'
-    }
-    let scrollTimer: NodeJS.Timeout
-    const handleScroll = () => {
-      clearTimeout(scrollTimer)
-      scrollTimer = setTimeout(() => {
-        sessionStorage.setItem('staffScrollY', window.scrollY.toString())
-        sessionStorage.setItem('staffScrollTime', Date.now().toString())
-      }, 100)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
+    saveState('searchTerm', searchTerm)
+  }, [searchTerm, saveState])
 
   useEffect(() => {
-    const savedY = sessionStorage.getItem('staffScrollY')
-    const savedTime = sessionStorage.getItem('staffScrollTime')
-    if (savedY && savedTime) {
-      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-      if (timeSinceScroll < 10000) {
-        setTimeout(() => {
-          window.scrollTo(0, parseInt(savedY, 10))
-        }, 100)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!loading && !initialLoadComplete) {
-      setInitialLoadComplete(true)
-      const savedY = sessionStorage.getItem('staffScrollY')
-      const savedTime = sessionStorage.getItem('staffScrollTime')
-      if (savedY && savedTime) {
-        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-        if (timeSinceScroll < 10000) {
-          setTimeout(() => {
-            window.scrollTo(0, parseInt(savedY, 10))
-          }, 200)
-        }
-      }
-    }
-  }, [loading, initialLoadComplete])
-
-  // 検索とフィルタの状態を保存
-  useEffect(() => {
-    sessionStorage.setItem('staffSearchTerm', searchTerm)
-  }, [searchTerm])
-
-  useEffect(() => {
-    sessionStorage.setItem('staffStatusFilter', statusFilter)
-  }, [statusFilter])
+    saveState('statusFilter', statusFilter)
+  }, [statusFilter, saveState])
 
   useEffect(() => {
     loadStaff()
