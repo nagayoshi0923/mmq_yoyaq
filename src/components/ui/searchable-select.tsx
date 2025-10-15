@@ -71,7 +71,14 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+      <PopoverContent 
+        className="p-0" 
+        style={{ width: 'var(--radix-popover-trigger-width)' }}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onWheel={(e) => {
+          e.stopPropagation()
+        }}
+      >
         <div className="p-2 border-b">
           <Input
             placeholder={searchPlaceholder}
@@ -80,7 +87,24 @@ export function SearchableSelect({
             className="h-8"
           />
         </div>
-        <div className="scrollable-list" style={{ maxHeight: '400px' }}>
+        <div 
+          className="scrollable-list" 
+          style={{ 
+            maxHeight: '400px',
+            minHeight: '100px',
+            overflowY: 'scroll',
+            WebkitOverflowScrolling: 'touch'
+          }}
+          onWheel={(e) => {
+            const element = e.currentTarget
+            const atTop = element.scrollTop === 0
+            const atBottom = element.scrollHeight - element.scrollTop === element.clientHeight
+            
+            if (!atTop && !atBottom) {
+              e.stopPropagation()
+            }
+          }}
+        >
           {filteredOptions.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               シナリオが見つかりません
