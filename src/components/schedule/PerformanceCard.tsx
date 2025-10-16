@@ -90,7 +90,7 @@ export function PerformanceCard({
 
   return (
     <div
-      className={`p-1 h-full w-full border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-xs relative cursor-pointer ${
+      className={`p-1 h-full w-full border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-xs relative cursor-pointer mb-1 ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75' 
           : categoryColors
