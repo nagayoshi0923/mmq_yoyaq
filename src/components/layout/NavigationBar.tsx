@@ -62,21 +62,31 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
           {navigationTabs.map((tab) => {
             const Icon = tab.icon
             const isActive = currentPage === tab.id
+            const href = tab.id === 'dashboard' ? '#' : `#${tab.id}`
             return (
-                <Button
-                  key={tab.id}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handlePageChange(tab.id)}
-                  className={`flex items-center gap-2 rounded-none ${
-                    isActive 
-                      ? 'text-foreground border-b-[3px] border-primary' 
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
+              <a
+                key={tab.id}
+                href={href}
+                onClick={(e) => {
+                  // 中クリック、Cmd+クリック、Ctrl+クリックの場合は通常のリンク動作
+                  if (e.button === 1 || e.metaKey || e.ctrlKey) {
+                    return
+                  }
+                  
+                  if (onPageChange) {
+                    e.preventDefault()
+                    onPageChange(tab.id)
+                  }
+                }}
+                className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-none ${
+                  isActive 
+                    ? 'text-foreground border-b-[3px] border-primary' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
                 <Icon className="h-4 w-4" />
                 {tab.label}
-              </Button>
+              </a>
             )
           })}
         </div>
