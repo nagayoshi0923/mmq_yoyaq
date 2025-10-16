@@ -5,6 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import { shiftApi } from '@/lib/shiftApi'
+import { supabase } from '@/lib/supabase'
 import { 
   ChevronLeft,
   ChevronRight,
@@ -37,6 +39,7 @@ export function ShiftSubmission() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [shiftData, setShiftData] = useState<Record<string, ShiftSubmission>>({})
   const [loading, setLoading] = useState(false)
+  const [currentStaffId, setCurrentStaffId] = useState<string>('')
 
   // 月の変更
   const changeMonth = (direction: 'prev' | 'next') => {
@@ -74,32 +77,86 @@ export function ShiftSubmission() {
 
   const monthDays = generateMonthDays()
 
-  // シフトデータの初期化
+  // 現在のスタッフIDを取得
   useEffect(() => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const getCurrentStaff = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        // スタッフテーブルからユーザーに紐づくスタッフIDを取得
+        const { data: staffData } = await supabase
+          .from('staff')
+          .select('id')
+          .eq('email', user.email)
+          .single()
+        
+        if (staffData) {
+          setCurrentStaffId(staffData.id)
+        }
+      }
+    }
+    getCurrentStaff()
+  }, [])
+
+  // シフトデータの初期化・読み込み
+  useEffect(() => {
+    if (!currentStaffId) return
     
-    const newShiftData: Record<string, ShiftSubmission> = {}
-    
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      
-      newShiftData[dateString] = {
-        id: `temp-${dateString}`,
-        staff_id: 'current-user', // 実際のユーザーIDに置き換え
-        date: dateString,
-        morning: false,
-        afternoon: false,
-        evening: false,
-        all_day: false,
-        submitted_at: '',
-        status: 'draft'
+    const loadShiftData = async () => {
+      setLoading(true)
+      try {
+        const year = currentDate.getFullYear()
+        const month = currentDate.getMonth() + 1
+        
+        // データベースから既存のシフトを取得
+        const existingShifts = await shiftApi.getStaffShifts(currentStaffId, year, month)
+        
+        // 月の日数を取得
+        const daysInMonth = new Date(year, month, 0).getDate()
+        const newShiftData: Record<string, ShiftSubmission> = {}
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          
+          // 既存のシフトがあればそれを使用、なければデフォルト値
+          const existingShift = existingShifts.find((s: any) => s.date === dateString)
+          
+          if (existingShift) {
+            newShiftData[dateString] = {
+              id: existingShift.id,
+              staff_id: existingShift.staff_id,
+              date: dateString,
+              morning: existingShift.morning || false,
+              afternoon: existingShift.afternoon || false,
+              evening: existingShift.evening || false,
+              all_day: existingShift.all_day || false,
+              submitted_at: existingShift.submitted_at || '',
+              status: existingShift.status || 'draft'
+            }
+          } else {
+            newShiftData[dateString] = {
+              id: `temp-${dateString}`,
+              staff_id: currentStaffId,
+              date: dateString,
+              morning: false,
+              afternoon: false,
+              evening: false,
+              all_day: false,
+              submitted_at: '',
+              status: 'draft'
+            }
+          }
+        }
+        
+        setShiftData(newShiftData)
+      } catch (error) {
+        console.error('シフトデータ読み込みエラー:', error)
+      } finally {
+        setLoading(false)
       }
     }
     
-    setShiftData(newShiftData)
-  }, [currentDate])
+    loadShiftData()
+  }, [currentDate, currentStaffId])
 
   // チェックボックスの変更ハンドラー
   const handleShiftChange = (date: string, timeSlot: 'morning' | 'afternoon' | 'evening' | 'all_day', checked: boolean) => {
@@ -172,11 +229,65 @@ export function ShiftSubmission() {
 
   // シフト提出
   const handleSubmitShift = async () => {
+    if (!currentStaffId) {
+      alert('スタッフ情報が取得できませんでした')
+      return
+    }
+    
     setLoading(true)
     try {
-      // TODO: API実装
-      console.log('シフト提出データ:', shiftData)
+      // シフトデータを配列に変換して保存
+      const shiftsToSave = Object.values(shiftData).filter(shift => 
+        shift.morning || shift.afternoon || shift.evening || shift.all_day
+      )
+      
+      if (shiftsToSave.length === 0) {
+        alert('シフトが選択されていません')
+        setLoading(false)
+        return
+      }
+      
+      // 各シフトを保存
+      for (const shift of shiftsToSave) {
+        const shiftData = {
+          staff_id: currentStaffId,
+          date: shift.date,
+          morning: shift.morning,
+          afternoon: shift.afternoon,
+          evening: shift.evening,
+          all_day: shift.all_day,
+          status: 'submitted'
+        }
+        
+        // IDがtempで始まる場合は新規作成、それ以外は更新
+        if (shift.id.startsWith('temp-')) {
+          await shiftApi.createShift(shiftData)
+        } else {
+          await shiftApi.updateShift(shift.id, shiftData)
+        }
+      }
+      
       alert('シフトを提出しました')
+      
+      // データを再読み込み
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+      const existingShifts = await shiftApi.getStaffShifts(currentStaffId, year, month)
+      
+      // 状態を更新
+      const updatedShiftData = { ...shiftData }
+      existingShifts.forEach((shift: any) => {
+        if (updatedShiftData[shift.date]) {
+          updatedShiftData[shift.date] = {
+            ...updatedShiftData[shift.date],
+            id: shift.id,
+            status: shift.status,
+            submitted_at: shift.submitted_at
+          }
+        }
+      })
+      setShiftData(updatedShiftData)
+      
     } catch (error) {
       console.error('シフト提出エラー:', error)
       alert('シフトの提出に失敗しました')
