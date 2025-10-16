@@ -11,6 +11,7 @@ import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import { staffApi, storeApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
+import { supabase } from '@/lib/supabase'
 import { usePageState } from '@/hooks/usePageState'
 import type { Staff, Store } from '@/types'
 import { 
@@ -106,6 +107,12 @@ export function StaffManagement() {
   // 招待モーダル用のstate
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [inviteLoading, setInviteLoading] = useState(false)
+  
+  // 紐付けモーダル用のstate
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false)
+  const [linkingStaff, setLinkingStaff] = useState<Staff | null>(null)
+  const [linkLoading, setLinkLoading] = useState(false)
+  const [linkMethod, setLinkMethod] = useState<'existing' | 'invite'>('existing')
   
   // 削除確認ダイアログ用のstate
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -274,6 +281,97 @@ export function StaffManagement() {
       alert('スタッフの招待に失敗しました: ' + err.message)
     } finally {
       setInviteLoading(false)
+    }
+  }
+
+  // 既存ユーザーと紐付け
+  const handleLinkExistingUser = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!linkingStaff) return
+    
+    setLinkLoading(true)
+    const formData = new FormData(event.currentTarget)
+    const email = formData.get('link-email') as string
+
+    try {
+      // メールアドレスからユーザーを検索
+      const { data: authUsers, error: searchError } = await supabase.auth.admin.listUsers()
+      
+      if (searchError) throw searchError
+      
+      const targetUser = authUsers.users.find(u => u.email === email)
+      
+      if (!targetUser) {
+        throw new Error(`メールアドレス ${email} のユーザーが見つかりません`)
+      }
+
+      // staffテーブルのuser_idを更新
+      await staffApi.update(linkingStaff.id, {
+        ...linkingStaff,
+        user_id: targetUser.id
+      })
+
+      // usersテーブルのroleをstaffに更新
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ role: 'staff' })
+        .eq('id', targetUser.id)
+
+      if (updateError) {
+        console.warn('usersテーブルの更新に失敗しました:', updateError)
+      }
+
+      alert(`✅ ${linkingStaff.name}さんを ${email} と紐付けました！`)
+      setIsLinkModalOpen(false)
+      setLinkingStaff(null)
+      await loadStaff()
+    } catch (err: any) {
+      console.error('Error linking user:', err)
+      alert('ユーザーとの紐付けに失敗しました: ' + err.message)
+    } finally {
+      setLinkLoading(false)
+    }
+  }
+
+  // 新規招待して紐付け
+  const handleLinkWithInvite = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!linkingStaff) return
+    
+    setLinkLoading(true)
+    const formData = new FormData(event.currentTarget)
+    
+    const request: InviteStaffRequest = {
+      email: formData.get('invite-email') as string,
+      name: linkingStaff.name,
+      phone: linkingStaff.phone,
+      line_name: linkingStaff.line_name,
+      x_account: linkingStaff.x_account,
+      discord_id: linkingStaff.discord_id,
+      discord_channel_id: linkingStaff.discord_channel_id,
+      role: linkingStaff.role || ['gm'],
+      stores: linkingStaff.stores || []
+    }
+
+    try {
+      const result = await inviteStaff(request)
+      
+      if (result.success && result.data) {
+        // 既存のstaffレコードを削除
+        await staffApi.delete(linkingStaff.id)
+        
+        alert(`✅ ${linkingStaff.name}さんを新規ユーザーとして招待しました！\n\n招待メールが${request.email}に送信されました。`)
+        setIsLinkModalOpen(false)
+        setLinkingStaff(null)
+        await loadStaff()
+      } else {
+        throw new Error(result.error || '招待に失敗しました')
+      }
+    } catch (err: any) {
+      console.error('Error inviting and linking:', err)
+      alert('招待に失敗しました: ' + err.message)
+    } finally {
+      setLinkLoading(false)
     }
   }
 
@@ -610,6 +708,11 @@ export function StaffManagement() {
                         />
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-sm truncate leading-tight">{member.name}</h3>
+                          {!member.user_id && (
+                            <Badge size="sm" className="bg-amber-100 text-amber-800 text-xs mt-0.5">
+                              未紐付け
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex-shrink-0">
                           {getStatusBadge(member.status)}
@@ -733,6 +836,25 @@ export function StaffManagement() {
                     {/* アクション */}
                     <div className="flex-shrink-0 w-32 px-3 py-2">
                       <div className="flex gap-1 justify-center">
+                        {!member.user_id && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => {
+                                  setLinkingStaff(member)
+                                  setIsLinkModalOpen(true)
+                                }}
+                                className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title="ユーザーと紐付ける"
+                              >
+                                <UserPlus className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>ユーザーと紐付ける</TooltipContent>
+                          </Tooltip>
+                        )}
                         <Button 
                           variant="ghost" 
                           size="sm" 
@@ -926,6 +1048,161 @@ export function StaffManagement() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ユーザー紐付けモーダル */}
+      <Dialog open={isLinkModalOpen} onOpenChange={setIsLinkModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              {linkingStaff?.name}さんをユーザーと紐付ける
+            </DialogTitle>
+            <DialogDescription>
+              既存のユーザーアカウントと紐付けるか、新規ユーザーを招待します
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* 方法選択 */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={linkMethod === 'existing' ? 'default' : 'outline'}
+                onClick={() => setLinkMethod('existing')}
+                className="flex-1"
+              >
+                既存ユーザーと紐付け
+              </Button>
+              <Button
+                type="button"
+                variant={linkMethod === 'invite' ? 'default' : 'outline'}
+                onClick={() => setLinkMethod('invite')}
+                className="flex-1"
+              >
+                新規ユーザーを招待
+              </Button>
+            </div>
+
+            {/* 既存ユーザーと紐付け */}
+            {linkMethod === 'existing' && (
+              <form onSubmit={handleLinkExistingUser} className="space-y-4">
+                <div>
+                  <Label htmlFor="link-email">ユーザーのメールアドレス</Label>
+                  <Input
+                    id="link-email"
+                    name="link-email"
+                    type="email"
+                    required
+                    placeholder="既に登録済みのユーザーのメールアドレス"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    このメールアドレスのユーザーアカウントと紐付けます
+                  </p>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-amber-900">注意事項</p>
+                      <ul className="text-xs text-amber-800 space-y-1 mt-2">
+                        <li>• 指定したメールアドレスのユーザーが存在する必要があります</li>
+                        <li>• ユーザーのロールが自動的に「staff」に更新されます</li>
+                        <li>• 紐付け後、そのユーザーでログインできるようになります</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsLinkModalOpen(false)}
+                    disabled={linkLoading}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button type="submit" disabled={linkLoading}>
+                    {linkLoading ? (
+                      <>
+                        <span className="animate-spin mr-2">⏳</span>
+                        紐付け中...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        紐付ける
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* 新規ユーザーを招待 */}
+            {linkMethod === 'invite' && (
+              <form onSubmit={handleLinkWithInvite} className="space-y-4">
+                <div>
+                  <Label htmlFor="invite-email">招待するメールアドレス</Label>
+                  <Input
+                    id="invite-email"
+                    name="invite-email"
+                    type="email"
+                    required
+                    placeholder="example@gmail.com"
+                    className="mt-1"
+                    defaultValue={linkingStaff?.email}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    このメールアドレスに招待メールが送信されます
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <Mail className="h-4 w-4 text-blue-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-blue-900">招待後の処理</p>
+                      <ul className="text-xs text-blue-800 space-y-1 mt-2">
+                        <li>1. 新規ユーザーアカウントが作成されます</li>
+                        <li>2. 既存のスタッフレコードが削除されます</li>
+                        <li>3. 新しいスタッフレコードがuser_id付きで作成されます</li>
+                        <li>4. 招待メールが送信されます</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsLinkModalOpen(false)}
+                    disabled={linkLoading}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button type="submit" disabled={linkLoading}>
+                    {linkLoading ? (
+                      <>
+                        <span className="animate-spin mr-2">⏳</span>
+                        招待中...
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="h-4 w-4 mr-2" />
+                        招待する
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
