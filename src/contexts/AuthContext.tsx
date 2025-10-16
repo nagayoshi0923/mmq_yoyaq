@@ -89,7 +89,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           .single()
         
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 1000)
+          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 3000)
         )
         
         const { data: userData, error: roleError } = await Promise.race([
@@ -152,7 +152,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               .single()
             
             const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('スタッフ情報取得タイムアウト（800ms）')), 800)
+              setTimeout(() => reject(new Error('スタッフ情報取得タイムアウト（2000ms）')), 2000)
             )
             
             const { data: staffData, error: staffError } = await Promise.race([

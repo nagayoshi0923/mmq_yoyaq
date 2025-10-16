@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { flexibleMatch } from '@/utils/kanaUtils'
 
 export interface MultiSelectOption {
   id: string
@@ -56,12 +57,16 @@ export function MultiSelect({
     return option
   })
 
-  // 検索フィルタリング
+  // 検索フィルタリング（ひらがな・カタカナ・アルファベット対応）
   const filteredOptions = searchTerm
-    ? normalizedOptions.filter(option => 
-        option.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        option.displayInfo?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+    ? normalizedOptions.filter(option => {
+        const searchTargets = [
+          option.name,
+          option.displayInfo
+        ].filter(Boolean) as string[]
+        
+        return flexibleMatch(searchTerm, searchTargets)
+      })
     : normalizedOptions
 
   const handleToggleSelection = (value: string) => {
