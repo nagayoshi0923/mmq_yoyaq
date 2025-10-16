@@ -71,12 +71,12 @@ export function PerformanceCard({
 
   return (
     <div
-      className={`p-1 h-full w-full border rounded-md hover:shadow-sm transition-shadow text-xs relative cursor-pointer ${
+      className={`p-1 h-full w-full border-l-4 hover:shadow-sm transition-shadow text-xs relative cursor-pointer ${
         event.is_cancelled 
-          ? 'bg-gray-100 border-gray-300 opacity-75' 
-          : categoryColors
+          ? 'bg-gray-100 border-l-gray-400 opacity-75' 
+          : categoryColors.replace('border-', 'border-l-')
       } ${
-        isIncomplete ? 'border-yellow-400 border-2' : ''
+        isIncomplete ? 'border-l-yellow-400 border-l-4' : ''
       }`}
       onClick={() => onClick?.(event)}
     >
