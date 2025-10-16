@@ -247,25 +247,20 @@ export function ShiftSubmission() {
         return
       }
       
-      // 各シフトを保存
-      for (const shift of shiftsToSave) {
-        const shiftData = {
-          staff_id: currentStaffId,
-          date: shift.date,
-          morning: shift.morning,
-          afternoon: shift.afternoon,
-          evening: shift.evening,
-          all_day: shift.all_day,
-          status: 'submitted'
-        }
-        
-        // IDがtempで始まる場合は新規作成、それ以外は更新
-        if (shift.id.startsWith('temp-')) {
-          await shiftApi.createShift(shiftData)
-        } else {
-          await shiftApi.updateShift(shift.id, shiftData)
-        }
-      }
+      // シフトデータを準備（upsert用）
+      const shiftsToUpsert = shiftsToSave.map(shift => ({
+        staff_id: currentStaffId,
+        date: shift.date,
+        morning: shift.morning,
+        afternoon: shift.afternoon,
+        evening: shift.evening,
+        all_day: shift.all_day,
+        status: 'submitted' as const,
+        submitted_at: new Date().toISOString()
+      }))
+      
+      // 一括でupsert（staff_id, dateの組み合わせで重複チェック）
+      await shiftApi.upsertMultiple(shiftsToUpsert)
       
       alert('シフトを提出しました')
       
@@ -275,17 +270,41 @@ export function ShiftSubmission() {
       const existingShifts = await shiftApi.getStaffShifts(currentStaffId, year, month)
       
       // 状態を更新
-      const updatedShiftData = { ...shiftData }
-      existingShifts.forEach((shift: any) => {
-        if (updatedShiftData[shift.date]) {
-          updatedShiftData[shift.date] = {
-            ...updatedShiftData[shift.date],
-            id: shift.id,
-            status: shift.status,
-            submitted_at: shift.submitted_at
+      const updatedShiftData: Record<string, ShiftSubmission> = {}
+      
+      // 月の全日付を再度生成
+      const daysInMonth = new Date(year, month, 0).getDate()
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+        const existingShift = existingShifts.find((s: any) => s.date === dateString)
+        
+        if (existingShift) {
+          updatedShiftData[dateString] = {
+            id: existingShift.id,
+            staff_id: existingShift.staff_id,
+            date: dateString,
+            morning: existingShift.morning || false,
+            afternoon: existingShift.afternoon || false,
+            evening: existingShift.evening || false,
+            all_day: existingShift.all_day || false,
+            submitted_at: existingShift.submitted_at || '',
+            status: existingShift.status || 'draft'
+          }
+        } else {
+          updatedShiftData[dateString] = {
+            id: `temp-${dateString}`,
+            staff_id: currentStaffId,
+            date: dateString,
+            morning: false,
+            afternoon: false,
+            evening: false,
+            all_day: false,
+            submitted_at: '',
+            status: 'draft'
           }
         }
-      })
+      }
+      
       setShiftData(updatedShiftData)
       
     } catch (error) {

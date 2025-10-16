@@ -27,6 +27,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [staffCache, setStaffCache] = useState<Map<string, string>>(new Map())
+  const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => {
     // 初期認証状態の確認
@@ -74,6 +75,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   async function setUserFromSession(supabaseUser: User) {
+    // 既に処理中の場合はスキップ（重複呼び出し防止）
+    if (isProcessing) {
+      console.log('⏭️ 処理中のためスキップ:', supabaseUser.email)
+      return
+    }
+    
+    setIsProcessing(true)
     console.log('🔐 ユーザーセッション設定開始:', supabaseUser.email)
     try {
       // データベースからユーザーのロールを取得
@@ -81,15 +89,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('📊 usersテーブルからロール取得開始')
       try {
-        // タイムアウト付きでロールを取得（1秒でタイムアウト）
+        // タイムアウト付きでロールを取得（5秒でタイムアウト）
         const rolePromise = supabase
           .from('users')
           .select('role')
           .eq('id', supabaseUser.id)
-          .single()
+          .maybeSingle() // single()の代わりにmaybeSingle()を使用（存在しない場合でもエラーにならない）
         
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 3000)
+          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 5000)
         )
         
         const { data: userData, error: roleError } = await Promise.race([
@@ -144,15 +152,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         } else {
           console.log('📋 スタッフ情報取得開始 - ユーザーID:', supabaseUser.id)
           try {
-            // タイムアウト付きでスタッフ情報を取得（800msでタイムアウト）
+            // タイムアウト付きでスタッフ情報を取得（3秒でタイムアウト）
             const staffPromise = supabase
               .from('staff')
               .select('name, email, user_id, discord_id, discord_channel_id')
               .eq('user_id', supabaseUser.id)
-              .single()
+              .maybeSingle() // single()の代わりにmaybeSingle()を使用
             
             const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('スタッフ情報取得タイムアウト（2000ms）')), 2000)
+              setTimeout(() => reject(new Error('スタッフ情報取得タイムアウト（3000ms）')), 3000)
             )
             
             const { data: staffData, error: staffError } = await Promise.race([
@@ -238,6 +246,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('🔄 フォールバックユーザー情報設定:', fallbackUserData)
       setUser(fallbackUserData)
+    } finally {
+      setIsProcessing(false)
     }
   }
 

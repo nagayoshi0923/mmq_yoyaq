@@ -33,6 +33,11 @@ export const shiftApi = {
     return data || []
   },
 
+  // getByMonthのエイリアス（後方互換性のため）
+  async getStaffShifts(staffId: string, year: number, month: number): Promise<ShiftSubmission[]> {
+    return this.getByMonth(staffId, year, month)
+  },
+
   // 特定の日付のシフトを取得
   async getByDate(date: string): Promise<ShiftSubmission[]> {
     const { data, error } = await supabase
