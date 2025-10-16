@@ -501,6 +501,41 @@ export function PrivateBookingManagement() {
     try {
       setLoading(true)
       
+      // 管理者以外の場合、自分が担当しているシナリオのIDを取得
+      let allowedScenarioIds: string[] | null = null
+      
+      if (user?.role !== 'admin') {
+        console.log('📋 スタッフユーザー - 担当シナリオのみ表示')
+        
+        // ログインユーザーのstaffレコードを取得
+        const { data: staffData } = await supabase
+          .from('staff')
+          .select('id')
+          .eq('user_id', user?.id)
+          .single()
+        
+        if (staffData) {
+          // 担当シナリオのIDを取得
+          const { data: assignments } = await supabase
+            .from('staff_scenario_assignments')
+            .select('scenario_id')
+            .eq('staff_id', staffData.id)
+          
+          if (assignments && assignments.length > 0) {
+            allowedScenarioIds = assignments.map(a => a.scenario_id)
+            console.log(`✅ ${allowedScenarioIds.length}件の担当シナリオを検出`)
+          } else {
+            console.log('⚠️ 担当シナリオなし - 空の結果を返します')
+            allowedScenarioIds = [] // 空配列で何も表示しない
+          }
+        } else {
+          console.log('⚠️ スタッフレコード未紐づけ - 空の結果を返します')
+          allowedScenarioIds = [] // 空配列で何も表示しない
+        }
+      } else {
+        console.log('👑 管理者ユーザー - 全てのリクエスト表示')
+      }
+      
       // reservationsテーブルから貸切リクエストを取得
       // reservation_source='web_private' で貸切リクエストを識別
       let query = supabase
@@ -512,6 +547,17 @@ export function PrivateBookingManagement() {
         `)
         .eq('reservation_source', 'web_private')
         .order('created_at', { ascending: false })
+
+      // スタッフの場合、担当シナリオのみに絞り込み
+      if (allowedScenarioIds !== null) {
+        if (allowedScenarioIds.length === 0) {
+          // 担当シナリオがない場合は空の結果を返す
+          setRequests([])
+          setLoading(false)
+          return
+        }
+        query = query.in('scenario_id', allowedScenarioIds)
+      }
 
       // タブによってフィルター
       if (activeTab === 'pending') {
