@@ -10,7 +10,8 @@ import { X } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
-import { scenarioApi } from '@/lib/api'
+import { StaffEditModal } from '@/components/modals/StaffEditModal'
+import { scenarioApi, staffApi } from '@/lib/api'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
 
 // スケジュールイベントの型定義
@@ -45,6 +46,7 @@ interface PerformanceModalProps {
   staff: StaffType[]
   availableStaffByScenario?: Record<string, StaffType[]>  // シナリオごとの出勤可能GM
   onScenariosUpdate?: () => void  // シナリオ作成後の更新用コールバック
+  onStaffUpdate?: () => void  // スタッフ作成後の更新用コールバック
 }
 
 // 30分間隔の時間オプションを生成
@@ -72,9 +74,11 @@ export function PerformanceModal({
   scenarios,
   staff,
   availableStaffByScenario = {},
-  onScenariosUpdate
+  onScenariosUpdate,
+  onStaffUpdate
 }: PerformanceModalProps) {
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false)
   const [formData, setFormData] = useState<any>({
     id: '',
     date: '',
@@ -199,6 +203,34 @@ export function PerformanceModal({
       console.error('シナリオ作成エラー:', error)
       console.error('エラー詳細:', error.message, error.details, error.hint)
       alert(`シナリオの作成に失敗しました: ${error.message || 'エラーが発生しました'}`)
+    }
+  }
+
+  const handleCreateStaff = async (newStaff: StaffType) => {
+    try {
+      // データベースに送信する前に不要なフィールドを除外
+      const { id, created_at, updated_at, ...staffForDB } = newStaff as any
+      
+      console.log('スタッフ作成リクエスト:', staffForDB)
+      const createdStaff = await staffApi.create(staffForDB)
+      console.log('スタッフ作成成功:', createdStaff)
+      
+      setIsStaffModalOpen(false)
+      
+      // 親コンポーネントにスタッフリストの更新を通知
+      if (onStaffUpdate) {
+        await onStaffUpdate()
+      }
+      
+      // 新しく作成したスタッフをGMとして選択
+      setFormData((prev: any) => ({ 
+        ...prev, 
+        gms: [...prev.gms, newStaff.name] 
+      }))
+    } catch (error: any) {
+      console.error('スタッフ作成エラー:', error)
+      console.error('エラー詳細:', error.message, error.details, error.hint)
+      alert(`スタッフの作成に失敗しました: ${error.message || 'エラーが発生しました'}`)
     }
   }
 
@@ -352,7 +384,16 @@ export function PerformanceModal({
               <Label htmlFor="category">公演カテゴリ</Label>
               <Select 
                 value={formData.category} 
-                onValueChange={(value: any) => setFormData((prev: any) => ({ ...prev, category: value }))}
+                onValueChange={(value: any) => {
+                  // カテゴリ変更時もシナリオを維持
+                  setFormData((prev: any) => ({ 
+                    ...prev, 
+                    category: value,
+                    // 既存のシナリオ選択を明示的に保持
+                    scenario: prev.scenario,
+                    gms: prev.gms
+                  }))
+                }}
                 disabled={formData.is_private_request}
               >
                 <SelectTrigger>
@@ -524,6 +565,9 @@ export function PerformanceModal({
               onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
               placeholder="GMを選択"
               closeOnSelect={true}
+              emptyText="GMが見つかりません"
+              emptyActionLabel="+ GMを作成"
+              onEmptyAction={() => setIsStaffModalOpen(true)}
             />
             {formData.gms.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
@@ -578,6 +622,16 @@ export function PerformanceModal({
         isOpen={isScenarioModalOpen}
         onClose={() => setIsScenarioModalOpen(false)}
         onSave={handleCreateScenario}
+      />
+
+      {/* スタッフ(GM)作成モーダル */}
+      <StaffEditModal
+        staff={null}
+        isOpen={isStaffModalOpen}
+        onClose={() => setIsStaffModalOpen(false)}
+        onSave={handleCreateStaff}
+        stores={stores}
+        scenarios={scenarios as any}
       />
     </Dialog>
   )

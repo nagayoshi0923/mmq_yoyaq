@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
-import type { Staff, Store } from '@/types'
+import type { Staff, Store, Scenario } from '@/types'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 
 interface StaffEditModalProps {
@@ -17,19 +17,6 @@ interface StaffEditModalProps {
   staff: Staff | null
   stores: Store[]
   scenarios: Scenario[]
-}
-
-interface Scenario {
-  id: string
-  title: string
-  description: string
-  author: string
-  duration: number
-  player_count_min: number
-  player_count_max: number
-  difficulty: number
-  genre: string[]
-  status: string
 }
 
 const roleOptions: MultiSelectOption[] = [

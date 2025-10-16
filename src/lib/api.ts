@@ -11,11 +11,11 @@ export const storeApi = {
     
     if (error) throw error
     
-    // 指定された順序で並び替え
-    const storeOrder = ['takadanobaba', 'bekkan1', 'bekkan2', 'okubo', 'otsuka', 'omiya']
+    // 指定された順序で並び替え（店舗名で判定）
+    const storeOrder = ['高田馬場店', '別館①', '別館②', '大久保店', '大塚店', '埼玉大宮店']
     const sortedData = (data || []).sort((a, b) => {
-      const indexA = storeOrder.indexOf(a.id)
-      const indexB = storeOrder.indexOf(b.id)
+      const indexA = storeOrder.indexOf(a.name)
+      const indexB = storeOrder.indexOf(b.name)
       // 両方が順序リストにある場合は順序に従う
       if (indexA !== -1 && indexB !== -1) return indexA - indexB
       // 一方だけが順序リストにある場合は、リストにあるものを先に

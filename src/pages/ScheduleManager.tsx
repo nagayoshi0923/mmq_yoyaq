@@ -746,6 +746,16 @@ export function ScheduleManager() {
     }
   }
 
+  const handleStaffUpdate = async () => {
+    try {
+      const staffData = await staffApi.getAll()
+      setStaff(staffData)
+      sessionStorage.setItem('scheduleStaff', JSON.stringify(staffData))
+    } catch (err) {
+      console.error('スタッフデータの再読み込みエラー:', err)
+    }
+  }
+
   // 公演追加モーダルを開く
   const handleAddPerformance = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
     setModalMode('add')
@@ -1305,6 +1315,7 @@ export function ScheduleManager() {
             staff={staff}
             availableStaffByScenario={availableStaffByScenario}
             onScenariosUpdate={handleScenariosUpdate}
+            onStaffUpdate={handleStaffUpdate}
           />
 
           {/* 削除確認ダイアログ */}

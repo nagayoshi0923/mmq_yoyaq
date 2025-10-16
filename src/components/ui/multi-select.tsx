@@ -26,6 +26,9 @@ interface MultiSelectProps {
   showBadges?: boolean
   closeOnSelect?: boolean  // 選択時にプルダウンを閉じるか
   useIdAsValue?: boolean  // trueの場合、idを値として使用（デフォルトはname）
+  emptyText?: string  // 空の時に表示するテキスト
+  emptyActionLabel?: string  // 空の時に表示するボタンラベル
+  onEmptyAction?: () => void  // 空の時にボタンをクリックした時のアクション
 }
 
 export function MultiSelect({
@@ -37,7 +40,10 @@ export function MultiSelect({
   disabled = false,
   showBadges = false,
   closeOnSelect = false,
-  useIdAsValue = false
+  useIdAsValue = false,
+  emptyText,
+  emptyActionLabel,
+  onEmptyAction
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -112,15 +118,18 @@ export function MultiSelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent 
-          className="p-0 z-[100]" 
+          className="p-0 z-[100] flex flex-col" 
           align="start" 
-          style={{ width: 'var(--radix-popover-trigger-width)' }}
+          style={{ 
+            width: 'var(--radix-popover-trigger-width)',
+            maxHeight: '500px'
+          }}
           onOpenAutoFocus={(e) => e.preventDefault()}
           onWheel={(e) => {
             e.stopPropagation()
           }}
         >
-          <div className="p-2 border-b">
+          <div className="p-2 border-b flex-shrink-0">
             <Input
               placeholder="スタッフ名で検索..."
               value={searchTerm}
@@ -131,9 +140,9 @@ export function MultiSelect({
           <div 
             className="scrollable-list" 
             style={{ 
-              maxHeight: '400px',
+              maxHeight: '300px',
               minHeight: '100px',
-              overflowY: 'scroll',
+              overflowY: 'auto',
               WebkitOverflowScrolling: 'touch'
             }}
             onWheel={(e) => {
@@ -147,8 +156,10 @@ export function MultiSelect({
             }}
           >
             {filteredOptions.length === 0 ? (
-              <div className="px-4 py-3 text-sm text-muted-foreground">
-                {searchTerm ? 'スタッフが見つかりません' : 'スタッフがいません'}
+              <div className="px-4 py-3 text-center">
+                <p className="text-sm text-muted-foreground">
+                  {emptyText || (searchTerm ? 'スタッフが見つかりません' : 'スタッフがいません')}
+                </p>
               </div>
             ) : (
               filteredOptions.map(option => {
@@ -180,6 +191,22 @@ export function MultiSelect({
               })
             )}
           </div>
+          {/* 下部に固定表示するアクションボタン */}
+          {onEmptyAction && emptyActionLabel && (
+            <div className="p-2 border-t bg-muted/30 flex-shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onEmptyAction()
+                  setOpen(false)
+                }}
+                className="w-full"
+              >
+                {emptyActionLabel}
+              </Button>
+            </div>
+          )}
         </PopoverContent>
       </Popover>
 

@@ -85,14 +85,17 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="p-0 z-[100]" 
-        style={{ width: 'var(--radix-popover-trigger-width)' }}
+        className="p-0 z-[100] flex flex-col" 
+        style={{ 
+          width: 'var(--radix-popover-trigger-width)',
+          maxHeight: '500px'
+        }}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onWheel={(e) => {
           e.stopPropagation()
         }}
       >
-        <div className="p-2 border-b">
+        <div className="p-2 border-b flex-shrink-0">
           <Input
             placeholder={searchPlaceholder}
             value={searchTerm}
@@ -103,9 +106,9 @@ export function SearchableSelect({
         <div 
           className="scrollable-list" 
           style={{ 
-            maxHeight: '400px',
+            maxHeight: '300px',
             minHeight: '100px',
-            overflowY: 'scroll',
+            overflowY: 'auto',
             WebkitOverflowScrolling: 'touch'
           }}
           onWheel={(e) => {
@@ -119,23 +122,8 @@ export function SearchableSelect({
           }}
         >
           {filteredOptions.length === 0 ? (
-            <div className="py-6 text-center">
-              <p className="text-sm text-muted-foreground mb-3">{emptyText}</p>
-              {onEmptyAction && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    onEmptyAction()
-                    setOpen(false)
-                  }}
-                  className="mx-auto"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {emptyActionLabel}
-                </Button>
-              )}
+            <div className="py-3 text-center">
+              <p className="text-sm text-muted-foreground">{emptyText}</p>
             </div>
           ) : (
             filteredOptions.map((option) => (
@@ -173,6 +161,24 @@ export function SearchableSelect({
             ))
           )}
         </div>
+        {/* 下部に固定表示するアクションボタン */}
+        {onEmptyAction && emptyActionLabel && (
+          <div className="p-2 border-t bg-muted/30 flex-shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onEmptyAction()
+                setOpen(false)
+              }}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              {emptyActionLabel}
+            </Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )
