@@ -107,42 +107,18 @@ async function sendDiscordNotification(channelId: string, booking: any) {
   }
 
   const candidates = booking.candidate_datetimes?.candidates || []
-  const candidateFields = candidates.map((candidate: any, index: number) => {
-    const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
-    return {
-      name: `候補${index + 1}`,
-      value: `${candidate.date} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
-      inline: true
-    }
-  })
-
-  const embed = {
-    title: "🎭 新しい貸切予約申し込み",
-    description: "GMの出勤可否をお知らせください",
-    color: 0x9333EA,
-    fields: [
-      {
-        name: "📋 シナリオ",
-        value: booking.scenario_title || booking.title || 'シナリオ名不明',
-        inline: true
-      },
-      {
-        name: "👥 参加人数", 
-        value: `${booking.participant_count}名`,
-        inline: true
-      },
-      {
-        name: "📞 お客様",
-        value: booking.customer_name || '名前不明',
-        inline: true
-      },
-      ...candidateFields
-    ],
-    timestamp: new Date().toISOString(),
-    footer: {
-      text: "Queens Waltz 貸切予約システム"
-    }
-  }
+  
+  // メッセージ本文を作成
+  const scenarioTitle = booking.scenario_title || booking.title || 'シナリオ名不明'
+  const candidateCount = candidates.length
+  const createdDate = new Date(booking.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
+  
+  let messageContent = `**【貸切希望】${scenarioTitle}（候補${candidateCount}件）を受け付けました。**\n`
+  messageContent += `出勤可能な日程を選択してください。\n\n`
+  messageContent += `**予約受付日：** ${createdDate}\n`
+  messageContent += `**シナリオ：** ${scenarioTitle}\n`
+  messageContent += `**参加人数：** ${booking.participant_count}名\n`
+  messageContent += `**予約者：** ${booking.customer_name || '名前不明'}\n`
 
   // 候補日程をボタンとして直接表示
   const components = []
@@ -150,7 +126,6 @@ async function sendDiscordNotification(channelId: string, booking: any) {
   
   for (let i = 0; i < maxButtons; i++) {
     const candidate = candidates[i]
-    const dateStr = candidate.date.replace('2025-', '').replace('-', '/')
     const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
     
     if (i % 5 === 0) {
@@ -160,30 +135,31 @@ async function sendDiscordNotification(channelId: string, booking: any) {
       })
     }
     
+    const buttonLabel = `候補${i + 1}\n${candidate.date} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`
+    
     components[components.length - 1].components.push({
       type: 2,
-      style: 3, // 緑色（未選択）
-      label: `候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
+      style: 3, // 緑色
+      label: buttonLabel.substring(0, 80), // Discord制限：80文字まで
       custom_id: `date_${i + 1}_${booking.id}`
     })
   }
   
-  // 「全て出勤不可」ボタンを別の行に追加
+  // 「全て不可」ボタンを別の行に追加
   components.push({
     type: 1,
     components: [
       {
         type: 2,
         style: 4, // 赤色
-        label: "❌ 全て出勤不可",
+        label: "全て不可",
         custom_id: `gm_unavailable_${booking.id}`
       }
     ]
   })
 
   const discordPayload = {
-    content: "@here",
-    embeds: [embed],
+    content: `@here\n\n${messageContent}`,
     components: components
   }
 

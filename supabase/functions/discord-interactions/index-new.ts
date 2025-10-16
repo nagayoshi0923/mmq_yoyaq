@@ -210,17 +210,18 @@ async function processDateSelection(interaction: any, dateIndex: number, request
     }
     
     // レスポンスメッセージを作成
-    const scenarioTitle = reservation.title || '貸切予約'
-    const candidateCount = candidates.length
+    let responseMessage = ''
+    if (isAlreadySelected) {
+      responseMessage = `🔄 「${selectedDate}」の選択を解除しました。`
+    } else {
+      responseMessage = `✅ 「${selectedDate}」を追加しました。`
+    }
     
-    let responseMessage = `**【貸切希望】${scenarioTitle}（候補${candidateCount}件）を受け付けました。**\n`
-    responseMessage += `出勤可能な日程を選択してください。`
-    
-    // 【現在の選択】を追加
     if (availableCandidates.length > 0) {
       responseMessage += `\n\n【現在の選択】\n${selectedDates.map((d, i) => `${i + 1}. ${d}`).join('\n')}`
+      responseMessage += '\n\n※ 下のボタンから日程を追加/削除できます。'
     } else {
-      responseMessage += `\n\n【現在の選択】\nなし`
+      responseMessage += '\n\n現在、出勤可能な日程が選択されていません。'
     }
     
     // 候補日程ボタンを再表示（選択/解除を続けられるように）
