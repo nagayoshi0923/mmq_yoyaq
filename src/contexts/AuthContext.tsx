@@ -76,25 +76,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
   async function setUserFromSession(supabaseUser: User) {
     console.log('🔐 ユーザーセッション設定開始:', supabaseUser.email)
     try {
-      // メールアドレスに基づいてロールを決定（開発用）
+      // データベースからユーザーのロールを取得
       let role: 'admin' | 'staff' | 'customer' = 'customer'
       
-      // 開発者・管理者のメールアドレスリスト
-      const adminEmails = [
-        'mai.nagayoshi@gmail.com',
-        'admin@example.com',
-        'admin.test@example.com'
-      ]
-      
-      const staffEmails = [
-        'staff@example.com',
-        'staff.test@example.com'
-      ]
-      
-      if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
-        role = 'admin'
-      } else if (staffEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('staff')) {
-        role = 'staff'
+      console.log('📊 usersテーブルからロール取得開始')
+      try {
+        const { data: userData, error: roleError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', supabaseUser.id)
+          .single()
+        
+        if (roleError) {
+          console.warn('⚠️ usersテーブルからのロール取得エラー:', roleError)
+          // フォールバック: メールアドレスで判定（開発用）
+          const adminEmails = ['mai.nagayoshi@gmail.com']
+          if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
+            role = 'admin'
+          } else if (supabaseUser.email?.includes('staff')) {
+            role = 'staff'
+          }
+        } else if (userData?.role) {
+          role = userData.role as 'admin' | 'staff' | 'customer'
+          console.log('✅ データベースからロール取得:', role)
+        }
+      } catch (error) {
+        console.error('❌ ロール取得エラー:', error)
+        // フォールバック: customerロール
       }
 
       // ユーザー名を生成（メールアドレスから@より前の部分を使用、またはメタデータから取得）
