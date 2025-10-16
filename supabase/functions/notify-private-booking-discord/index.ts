@@ -41,12 +41,32 @@ interface PrivateBookingNotification {
 // 個別チャンネルに通知を送信する関数
 async function sendNotificationToGMChannels(booking: any) {
   console.log('📤 Sending notifications to individual GM channels...')
+  console.log(`📋 Scenario ID: ${booking.scenario_id}`)
   
-  // GMロールを持つアクティブなスタッフを取得
+  // このシナリオを担当しているGMを取得
+  const { data: assignments, error: assignmentError } = await supabase
+    .from('staff_scenario_assignments')
+    .select('staff_id')
+    .eq('scenario_id', booking.scenario_id)
+  
+  if (assignmentError) {
+    console.error('❌ Error fetching scenario assignments:', assignmentError)
+    return
+  }
+  
+  if (!assignments || assignments.length === 0) {
+    console.log('⚠️ No GMs assigned to this scenario')
+    return
+  }
+  
+  const assignedStaffIds = assignments.map(a => a.staff_id)
+  console.log(`📋 Found ${assignedStaffIds.length} GM(s) assigned to this scenario`)
+  
+  // 担当GMのDiscordチャンネル情報を取得
   const { data: gmStaff, error: staffError } = await supabase
     .from('staff')
     .select('id, name, discord_channel_id')
-    .contains('role', ['gm'])
+    .in('id', assignedStaffIds)
     .eq('status', 'active')
     .not('discord_channel_id', 'is', null)
   
@@ -56,11 +76,11 @@ async function sendNotificationToGMChannels(booking: any) {
   }
   
   if (!gmStaff || gmStaff.length === 0) {
-    console.log('⚠️ No GM staff with Discord channels found')
+    console.log('⚠️ No assigned GMs with Discord channels found')
     return
   }
   
-  console.log(`📋 Found ${gmStaff.length} GM(s) with Discord channels`)
+  console.log(`📋 Found ${gmStaff.length} GM(s) with Discord channels:`, gmStaff.map(g => g.name).join(', '))
   
   // 各GMのチャンネルに通知を送信
   const notificationPromises = gmStaff.map(async (gm) => {
