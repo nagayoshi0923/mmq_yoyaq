@@ -90,11 +90,12 @@ export function PerformanceCard({
 
   return (
     <div
-      className={`p-1 h-full w-full border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-xs relative cursor-pointer m-1 ${
+      className={`p-2 border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-xs relative cursor-pointer ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75' 
           : categoryColors
       }`}
+      style={{ margin: '4px' }}
       onClick={() => onClick?.(event)}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
