@@ -87,7 +87,7 @@ export function PerformanceModal({
     gms: [],
     start_time: '10:00',
     end_time: '14:00',
-    category: 'open',
+    category: 'private',
     participant_count: 0,
     max_participants: 8,
     notes: ''
@@ -116,7 +116,7 @@ export function PerformanceModal({
         gms: [],
         start_time: defaults.start_time,
         end_time: defaults.end_time,
-        category: 'open',
+        category: 'private',
         participant_count: 0,
         max_participants: 8,
         notes: ''
