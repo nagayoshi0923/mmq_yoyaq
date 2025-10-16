@@ -60,6 +60,104 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-signature-ed25519, x-signature-timestamp',
 }
 
+// 全て不可処理をバックグラウンドで実行
+async function processUnavailable(interaction: any, requestId: string) {
+  try {
+    const { data: reservation, error } = await supabase
+      .from('reservations')
+      .select('candidate_datetimes, title')
+      .eq('id', requestId)
+      .single()
+    
+    if (error) throw error
+    
+    const candidates = reservation.candidate_datetimes?.candidates || []
+    const scenarioTitle = reservation.title || '貸切予約'
+    
+    const gmUserId = interaction.member?.user?.id
+    const gmUserName = interaction.member?.nick || interaction.member?.user?.global_name || interaction.member?.user?.username || 'Unknown GM'
+    
+    let staffId = null
+    const { data: staffData } = await supabase
+      .from('staff')
+      .select('id')
+      .eq('discord_id', gmUserId)
+      .single()
+    
+    if (staffData) staffId = staffData.id
+    
+    // 全て不可として保存
+    await supabase
+      .from('gm_availability_responses')
+      .upsert({
+        reservation_id: requestId,
+        staff_id: staffId,
+        gm_discord_id: gmUserId,
+        gm_name: gmUserName,
+        response_type: 'unavailable',
+        selected_candidate_index: null,
+        response_datetime: new Date().toISOString(),
+        notes: 'Discord経由で回答: 全て出勤不可',
+        response_status: 'all_unavailable',
+        available_candidates: [],
+        response_history: [{ timestamp: new Date().toISOString(), action: 'all_unavailable' }],
+        responded_at: new Date().toISOString()
+      }, {
+        onConflict: 'reservation_id,staff_id'
+      })
+    
+    await supabase
+      .from('reservations')
+      .update({ status: 'pending_store' })
+      .eq('id', requestId)
+      .in('status', ['pending', 'pending_gm'])
+    
+    // メッセージとボタンを作成（全て緑に戻す）
+    const candidateCount = candidates.length
+    let responseMessage = `**【貸切希望】${scenarioTitle}（候補${candidateCount}件）を受け付けました。**\n`
+    responseMessage += `出勤可能な日程を選択してください。\n\n【現在の選択】\n全て不可と回答しました。`
+    
+    const timeSlotMap = { '朝': '朝', '昼': '昼', '夜': '夜', 'morning': '朝', 'afternoon': '昼', 'evening': '夜' }
+    const responseComponents = []
+    
+    for (let i = 0; i < Math.min(candidates.length, 5); i++) {
+      const candidate = candidates[i]
+      const dateStr = candidate.date.replace('2025-', '').replace('-', '/')
+      const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
+      
+      if (i % 5 === 0) {
+        responseComponents.push({ type: 1, components: [] })
+      }
+      
+      responseComponents[responseComponents.length - 1].components.push({
+        type: 2,
+        style: 3, // 緑色
+        label: `候補${i + 1}: ${dateStr} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`,
+        custom_id: `date_${i + 1}_${requestId}`
+      })
+    }
+    
+    responseComponents.push({
+      type: 1,
+      components: [{
+        type: 2,
+        style: 4,
+        label: '全て不可',
+        custom_id: `gm_unavailable_${requestId}`
+      }]
+    })
+    
+    const webhookUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`
+    await fetch(webhookUrl, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: responseMessage, components: responseComponents })
+    })
+  } catch (error) {
+    console.error('Error processing unavailable:', error)
+  }
+}
+
 // 日程選択処理をバックグラウンドで実行
 async function processDateSelection(interaction: any, dateIndex: number, requestId: string) {
   try {
@@ -254,6 +352,19 @@ async function processDateSelection(interaction: any, dateIndex: number, request
       })
     }
     
+    // 「全て不可」ボタンを追加
+    responseComponents.push({
+      type: 1,
+      components: [
+        {
+          type: 2,
+          style: 4, // 赤色
+          label: '全て不可',
+          custom_id: `gm_unavailable_${requestId}`
+        }
+      ]
+    })
+    
     // Discord Webhook APIを使ってメッセージを更新
     const webhookUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`
     
@@ -353,9 +464,24 @@ serve(async (req) => {
     if (interaction.data.custom_id.startsWith('gm_unavailable_')) {
       console.log('❌ Processing gm_unavailable button')
       
-      // リクエストIDを取得
       const requestId = interaction.data.custom_id.replace('gm_unavailable_', '')
       console.log('📋 Request ID:', requestId)
+      
+      // 即座にDEFERRED応答を返す
+      const deferredResponse = new Response(
+        JSON.stringify({ type: 6 }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+      
+      processUnavailable(interaction, requestId).catch(err => {
+        console.error('❌ Background processing error:', err)
+      })
+      
+      return deferredResponse
+    }
+    
+    // 以下の古いコードは削除
+    if (false && interaction.data.custom_id.startsWith('gm_unavailable_OLD_')) {
       
       try {
         // GMの回答をデータベースに保存
