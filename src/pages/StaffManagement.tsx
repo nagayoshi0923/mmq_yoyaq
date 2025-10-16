@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import { staffApi, storeApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
+import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
 import { usePageState } from '@/hooks/usePageState'
 import type { Staff, Store } from '@/types'
 import { 
@@ -22,7 +25,9 @@ import {
   Shield,
   Clock,
   ArrowLeft,
-  AlertTriangle
+  AlertTriangle,
+  Mail,
+  UserPlus
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
@@ -97,6 +102,10 @@ export function StaffManagement() {
   // 編集モーダル用のstate
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null)
+  
+  // 招待モーダル用のstate
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [inviteLoading, setInviteLoading] = useState(false)
   
   // 削除確認ダイアログ用のstate
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -229,6 +238,43 @@ export function StaffManagement() {
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false)
     setEditingStaff(null)
+  }
+
+  // スタッフ招待
+  const handleInviteStaff = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setInviteLoading(true)
+
+    const formData = new FormData(event.currentTarget)
+    const request: InviteStaffRequest = {
+      email: formData.get('email') as string,
+      name: formData.get('name') as string,
+      phone: formData.get('phone') as string || undefined,
+      line_name: formData.get('line_name') as string || undefined,
+      x_account: formData.get('x_account') as string || undefined,
+      discord_id: formData.get('discord_id') as string || undefined,
+      discord_channel_id: formData.get('discord_channel_id') as string || undefined,
+      role: ['gm'],
+      stores: []
+    }
+
+    try {
+      const result = await inviteStaff(request)
+      
+      if (result.success) {
+        alert(`✅ ${request.name}さんを招待しました！\n\n招待メールが${request.email}に送信されました。`)
+        setIsInviteModalOpen(false)
+        // スタッフリストを再読み込み
+        await loadStaff()
+      } else {
+        throw new Error(result.error || '招待に失敗しました')
+      }
+    } catch (err: any) {
+      console.error('Error inviting staff:', err)
+      alert('スタッフの招待に失敗しました: ' + err.message)
+    } finally {
+      setInviteLoading(false)
+    }
   }
 
   // シナリオIDをシナリオ名に変換する関数
@@ -511,6 +557,15 @@ export function StaffManagement() {
             </div>
 
             <Button 
+              variant="outline"
+              onClick={() => setIsInviteModalOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              スタッフを招待
+            </Button>
+
+            <Button 
               onClick={() => {
                 setEditingStaff(null)
                 setIsEditModalOpen(true)
@@ -720,6 +775,159 @@ export function StaffManagement() {
           </div>
         </div>
       </div>
+
+      {/* スタッフ招待モーダル */}
+      <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              スタッフを招待
+            </DialogTitle>
+            <DialogDescription>
+              新しいスタッフメンバーを招待します。招待メールが送信され、ユーザーアカウントが自動的に作成されます。
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleInviteStaff} className="space-y-4">
+            <div className="space-y-4">
+              {/* 基本情報 */}
+              <div className="space-y-3">
+                <h3 className="font-medium text-sm">基本情報 *</h3>
+                
+                <div>
+                  <Label htmlFor="invite-email">メールアドレス *</Label>
+                  <Input
+                    id="invite-email"
+                    name="email"
+                    type="email"
+                    required
+                    placeholder="example@gmail.com"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    このメールアドレスに招待メールが送信されます
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="invite-name">名前 *</Label>
+                  <Input
+                    id="invite-name"
+                    name="name"
+                    type="text"
+                    required
+                    placeholder="山田 太郎"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="invite-phone">電話番号</Label>
+                  <Input
+                    id="invite-phone"
+                    name="phone"
+                    type="tel"
+                    placeholder="090-1234-5678"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* SNS・連絡先 */}
+              <div className="space-y-3">
+                <h3 className="font-medium text-sm">SNS・連絡先（任意）</h3>
+                
+                <div>
+                  <Label htmlFor="invite-line">LINE名</Label>
+                  <Input
+                    id="invite-line"
+                    name="line_name"
+                    type="text"
+                    placeholder="yamada_taro"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="invite-x">X (Twitter) アカウント</Label>
+                  <Input
+                    id="invite-x"
+                    name="x_account"
+                    type="text"
+                    placeholder="@yamada_gm"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="invite-discord-id">Discord ID</Label>
+                  <Input
+                    id="invite-discord-id"
+                    name="discord_id"
+                    type="text"
+                    placeholder="123456789012345678"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="invite-discord-channel">Discord チャンネルID</Label>
+                  <Input
+                    id="invite-discord-channel"
+                    name="discord_channel_id"
+                    type="text"
+                    placeholder="987654321098765432"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    このチャンネルに貸切リクエストの通知が送信されます
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                <div className="flex items-start gap-2">
+                  <Mail className="h-4 w-4 text-blue-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-medium text-sm text-blue-900">招待後の流れ</p>
+                    <ul className="text-xs text-blue-800 space-y-1 mt-2">
+                      <li>1. 招待メールが送信されます</li>
+                      <li>2. スタッフがメール内のリンクをクリック</li>
+                      <li>3. パスワードを設定してログイン</li>
+                      <li>4. すぐに使用開始できます</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsInviteModalOpen(false)}
+                disabled={inviteLoading}
+              >
+                キャンセル
+              </Button>
+              <Button type="submit" disabled={inviteLoading}>
+                {inviteLoading ? (
+                  <>
+                    <span className="animate-spin mr-2">⏳</span>
+                    招待中...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4 mr-2" />
+                    招待メールを送信
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* スタッフ編集モーダル */}
       <StaffEditModal
