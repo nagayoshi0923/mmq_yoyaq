@@ -58,8 +58,8 @@ export function PerformanceCard({
   
   // 貸切リクエストの場合は紫色で表示
   const categoryColors = event.is_private_request 
-    ? 'bg-purple-50 border-purple-200'
-    : categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor || 'bg-gray-50 border-gray-200'
+    ? 'bg-purple-50'
+    : categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor.replace(/border-\S+/, '') || 'bg-gray-50'
   
   // バッジのテキストカラーを取得（例: 'bg-blue-100 text-blue-800' から 'text-blue-800' を抽出）
   const badgeTextColor = event.is_private_request
@@ -68,15 +68,32 @@ export function PerformanceCard({
   
   // ボーダー色を取得（テキスト色から対応するボーダー色を生成）
   const borderColorClass = badgeTextColor.replace('text-', 'ring-')
+  
+  // 左ボーダーの色を決定（濃いめのカラー）
+  const leftBorderColor = isIncomplete 
+    ? 'border-l-red-600'  // アラート時は赤
+    : event.is_cancelled
+      ? 'border-l-gray-500'
+      : event.is_private_request
+        ? 'border-l-purple-600'
+        : event.category === 'open'
+          ? 'border-l-blue-600'
+          : event.category === 'private'
+            ? 'border-l-purple-600'
+            : event.category === 'gmtest'
+              ? 'border-l-orange-600'
+              : event.category === 'testplay'
+                ? 'border-l-yellow-600'
+                : event.category === 'offsite'
+                  ? 'border-l-green-600'
+                  : 'border-l-gray-500'
 
   return (
     <div
-      className={`p-1 h-full w-full border-l-4 hover:shadow-sm transition-shadow text-xs relative cursor-pointer ${
+      className={`p-1 h-full w-full border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-xs relative cursor-pointer ${
         event.is_cancelled 
-          ? 'bg-gray-100 border-l-gray-400 opacity-75' 
-          : categoryColors.replace('border-', 'border-l-')
-      } ${
-        isIncomplete ? 'border-l-yellow-400 border-l-4' : ''
+          ? 'bg-gray-100 opacity-75' 
+          : categoryColors
       }`}
       onClick={() => onClick?.(event)}
     >
