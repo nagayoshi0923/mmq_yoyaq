@@ -105,40 +105,10 @@ export function ScheduleManager() {
   const [shiftData, setShiftData] = useState<Record<string, Array<Staff & { timeSlot: string }>>>({})
   const [availableStaffByScenario, setAvailableStaffByScenario] = useState<Record<string, Staff[]>>({})
   
-  // 店舗・シナリオ・スタッフのデータ（キャッシュから即座に復元）
-  const [stores, setStores] = useState<any[]>(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleStores')
-      if (cached) {
-        const data = JSON.parse(cached)
-        if (data.length > 0) {
-          sessionStorage.setItem('scheduleHasLoaded', 'true')
-          hasEverLoadedStores.current = true
-        }
-        return data
-      }
-      return []
-    } catch {
-      return []
-    }
-  })
-  const [storesLoading, setStoresLoading] = useState(() => {
-    // キャッシュがある場合は即座にローディング完了
-    try {
-      const cached = sessionStorage.getItem('scheduleStores')
-      return !cached
-    } catch {
-      return true
-    }
-  })
-  const [scenarios, setScenarios] = useState<any[]>(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleScenarios')
-      return cached ? JSON.parse(cached) : []
-    } catch {
-      return []
-    }
-  })
+  // 店舗・シナリオ・スタッフのデータ（常にAPIから最新データを取得）
+  const [stores, setStores] = useState<any[]>([])
+  const [storesLoading, setStoresLoading] = useState(true)
+  const [scenarios, setScenarios] = useState<any[]>([])
 
   // currentDateの変更をlocalStorageに保存
   useEffect(() => {
@@ -148,30 +118,9 @@ export function ScheduleManager() {
       console.error('Failed to save current date:', error)
     }
   }, [currentDate])
-  const [scenariosLoading, setScenariosLoading] = useState(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleScenarios')
-      return !cached
-    } catch {
-      return true
-    }
-  })
-  const [staff, setStaff] = useState<any[]>(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleStaff')
-      return cached ? JSON.parse(cached) : []
-    } catch {
-      return []
-    }
-  })
-  const [staffLoading, setStaffLoading] = useState(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleStaff')
-      return !cached
-    } catch {
-      return true
-    }
-  })
+  const [scenariosLoading, setScenariosLoading] = useState(true)
+  const [staff, setStaff] = useState<any[]>([])
+  const [staffLoading, setStaffLoading] = useState(true)
   
   // イベントデータをキャッシュに保存
   useEffect(() => {
@@ -504,14 +453,10 @@ export function ScheduleManager() {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        // キャッシュがない場合のみローディング状態にする
-        const hasStoresCache = sessionStorage.getItem('scheduleStores')
-        const hasStaffCache = sessionStorage.getItem('scheduleStaff')
-        const hasScenariosCache = sessionStorage.getItem('scheduleScenarios')
-        
-        if (!hasStoresCache) setStoresLoading(true)
-        if (!hasStaffCache) setStaffLoading(true)
-        if (!hasScenariosCache) setScenariosLoading(true)
+        // 常にローディング状態にする（APIから最新データを取得）
+        setStoresLoading(true)
+        setStaffLoading(true)
+        setScenariosLoading(true)
         
         // 店舗・シナリオ・スタッフを並列で読み込み
         const [storeData, scenarioData, staffData] = await Promise.all([

@@ -7,12 +7,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Badge } from '@/components/ui/badge'
-import { ConditionalSettings, ConditionalSetting } from '@/components/ui/conditional-settings'
+import { ConditionalSetting } from '@/components/ui/conditional-settings'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
-import { MigrationConfirmationDialog } from '@/components/ui/migration-confirmation-dialog'
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
-import type { Scenario, FlexiblePricing, PricingModifier, Staff } from '@/types'
-import { staffApi, scenarioApi } from '@/lib/api'
+import type { Scenario, FlexiblePricing, Staff } from '@/types'
+import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 
@@ -23,18 +22,8 @@ const convertFullWidthToHalfWidth = (str: string) => {
   })
 }
 
-// 金額を表示用にフォーマット（カンマ区切り + 円）
-const formatCurrency = (amount: number | string) => {
-  const num = typeof amount === 'string' ? parseInt(amount) || 0 : amount
-  return `${num.toLocaleString()}円`
-}
-
-// 表示用文字列から数値を抽出
-const parseCurrency = (value: string) => {
-  // 全角数字を半角に変換してから処理
-  const halfWidthValue = convertFullWidthToHalfWidth(value)
-  return parseInt(halfWidthValue.replace(/[^\d]/g, '')) || 0
-}
+// 注: formatCurrency と parseCurrency は現在未使用ですが、
+// 将来的な料金表示機能のために残しています
 
 interface ScenarioEditModalProps {
   scenario: Scenario | null
@@ -133,7 +122,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   
   // スタッフデータ用のstate
   const [staff, setStaff] = useState<Staff[]>([])
-  const [loadingStaff, setLoadingStaff] = useState(false)
   
   // 担当関係データ用のstate
   const [currentAssignments, setCurrentAssignments] = useState<any[]>([])

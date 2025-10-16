@@ -8,10 +8,24 @@ export const storeApi = {
     const { data, error } = await supabase
       .from('stores')
       .select('*')
-      .order('created_at', { ascending: true })
     
     if (error) throw error
-    return data || []
+    
+    // 指定された順序で並び替え
+    const storeOrder = ['takadanobaba', 'bekkan1', 'bekkan2', 'okubo', 'otsuka', 'omiya']
+    const sortedData = (data || []).sort((a, b) => {
+      const indexA = storeOrder.indexOf(a.id)
+      const indexB = storeOrder.indexOf(b.id)
+      // 両方が順序リストにある場合は順序に従う
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB
+      // 一方だけが順序リストにある場合は、リストにあるものを先に
+      if (indexA !== -1) return -1
+      if (indexB !== -1) return 1
+      // どちらも順序リストにない場合は名前順
+      return a.name.localeCompare(b.name, 'ja')
+    })
+    
+    return sortedData
   },
 
   // 店舗を作成

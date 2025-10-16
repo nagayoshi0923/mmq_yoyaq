@@ -14,6 +14,7 @@ import { GMAvailabilityCheck } from './GMAvailabilityCheck'
 import { PrivateBookingScenarioSelect } from './PrivateBookingScenarioSelect'
 import { PrivateBookingRequestPage } from './PrivateBookingRequestPage'
 import { PrivateBookingManagement } from './PrivateBookingManagement'
+import { UserManagement } from './UserManagement'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -26,7 +27,8 @@ import {
   Package, 
   CreditCard,
   Clock,
-  Settings
+  Settings,
+  UserCog
 } from 'lucide-react'
 
 export function AdminDashboard() {
@@ -54,6 +56,11 @@ export function AdminDashboard() {
     // 貸切リクエスト管理ページ
     if (hash.startsWith('private-booking-management')) {
       return 'private-booking-management'
+    }
+    
+    // ユーザー管理ページ
+    if (hash.startsWith('user-management')) {
+      return 'user-management'
     }
     
     // 顧客ロールの場合は予約サイトをデフォルトに
@@ -116,6 +123,10 @@ export function AdminDashboard() {
         // 貸切リクエスト管理ページ
         setCurrentPage('private-booking-management')
         setSelectedScenarioId(null)
+      } else if (hash.startsWith('user-management')) {
+        // ユーザー管理ページ
+        setCurrentPage('user-management')
+        setSelectedScenarioId(null)
       } else {
         // 通常のページ遷移
         setCurrentPage(hash || 'dashboard')
@@ -144,6 +155,7 @@ export function AdminDashboard() {
     { id: 'customer-booking', label: '予約サイト', icon: Calendar, color: 'bg-teal-100 text-teal-800' },
     { id: 'reservations', label: '予約管理', icon: Calendar, color: 'bg-red-100 text-red-800' },
     { id: 'customers', label: '顧客', icon: Users, color: 'bg-amber-100 text-amber-800' },
+    { id: 'user-management', label: 'ユーザー管理', icon: UserCog, color: 'bg-violet-100 text-violet-800' },
     { id: 'sales', label: '売上', icon: TrendingUp, color: 'bg-emerald-100 text-emerald-800' },
     { id: 'inventory', label: '在庫', icon: Package, color: 'bg-cyan-100 text-cyan-800' },
     { id: 'licenses', label: 'ライセンス', icon: CreditCard, color: 'bg-pink-100 text-pink-800' },
@@ -207,6 +219,10 @@ export function AdminDashboard() {
   
   if (currentPage === 'private-booking-management') {
     return <PrivateBookingManagement />
+  }
+  
+  if (currentPage === 'user-management') {
+    return <UserManagement />
   }
 
   return (
@@ -302,6 +318,7 @@ export function AdminDashboard() {
                         {tab.id === 'scenarios' && '42本'}
                         {tab.id === 'reservations' && '新規3件'}
                         {tab.id === 'customers' && '245名'}
+                        {tab.id === 'user-management' && 'ロール管理'}
                         {tab.id === 'sales' && '¥1.25M'}
                         {tab.id === 'inventory' && '在庫良好'}
                         {tab.id === 'licenses' && '契約中'}
