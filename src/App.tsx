@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { ResetPassword } from '@/pages/ResetPassword'
+import { SetPassword } from '@/pages/SetPassword'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -27,6 +28,11 @@ function AppContent() {
         </div>
       </div>
     )
+  }
+
+  // パスワード設定ページ（招待メールから）
+  if (currentHash.includes('type=invite')) {
+    return <SetPassword />
   }
 
   // パスワードリセットページ
