@@ -81,28 +81,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('📊 usersテーブルからロール取得開始')
       try {
-        const { data: userData, error: roleError } = await supabase
+        // タイムアウト付きでロールを取得（1秒でタイムアウト）
+        const rolePromise = supabase
           .from('users')
           .select('role')
           .eq('id', supabaseUser.id)
           .single()
         
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 1000)
+        )
+        
+        const { data: userData, error: roleError } = await Promise.race([
+          rolePromise,
+          timeoutPromise
+        ]) as any
+        
         if (roleError) {
           console.warn('⚠️ usersテーブルからのロール取得エラー:', roleError)
           // フォールバック: メールアドレスで判定（開発用）
-          const adminEmails = ['mai.nagayoshi@gmail.com']
+          const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
           if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
             role = 'admin'
           } else if (supabaseUser.email?.includes('staff')) {
             role = 'staff'
           }
+          console.log('🔄 フォールバック: メールアドレスからロール判定 ->', role)
         } else if (userData?.role) {
           role = userData.role as 'admin' | 'staff' | 'customer'
           console.log('✅ データベースからロール取得:', role)
         }
       } catch (error) {
         console.error('❌ ロール取得エラー:', error)
-        // フォールバック: customerロール
+        // フォールバック: メールアドレスで判定
+        const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
+        if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
+          role = 'admin'
+        } else if (supabaseUser.email?.includes('staff')) {
+          role = 'staff'
+        }
+        console.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
       }
 
       // ユーザー名を生成（メールアドレスから@より前の部分を使用、またはメタデータから取得）
