@@ -10,6 +10,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
+import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
 import { memoApi, scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { shiftApi } from '@/lib/shiftApi'
@@ -72,6 +73,7 @@ export function ScheduleManager() {
   const [memos, setMemos] = useState<Record<string, string>>({})
   const [storeIdMap, setStoreIdMap] = useState<Record<string, string>>({})
   const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
   const [modalInitialData, setModalInitialData] = useState<{
     date: string
@@ -1143,9 +1145,9 @@ export function ScheduleManager() {
           {/* ヘッダー部分とカテゴリタブ（一度でもロードされたら常に表示） */}
           {(stores.length > 0 || hasEverLoadedStores.current) && (
           <>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <h2>月間スケジュール管理</h2>
+              <h2 className="text-2xl font-bold">月間スケジュール管理</h2>
               {/* 更新中のインジケーター */}
               {isLoading && stores.length > 0 && (
                 <div className="text-sm text-muted-foreground flex items-center gap-1">
@@ -1154,9 +1156,9 @@ export function ScheduleManager() {
                 </div>
               )}
             </div>
-                <div className="flex gap-4 items-center">
-                  {/* 月選択コントロール */}
-                  <div className="flex items-center gap-2 border rounded-lg p-1">
+            <div className="flex gap-2 items-center">
+              {/* 月選択コントロール */}
+              <div className="flex items-center gap-2 border rounded-lg p-1">
                 <Button variant="ghost" size="sm" onClick={() => changeMonth('prev')}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -1183,6 +1185,15 @@ export function ScheduleManager() {
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
+              
+              {/* インポートボタン */}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setIsImportModalOpen(true)}
+              >
+                インポート
+              </Button>
             </div>
           </div>
 
@@ -1227,17 +1238,26 @@ export function ScheduleManager() {
                 ※シナリオやGMが未定の場合は赤い色で警告表示されます
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
-              <Table>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table className="table-fixed w-full">
+                <colgroup>
+                  <col className="w-24" />
+                  <col className="w-16" />
+                  <col className="w-24" />
+                  <col style={{ width: '300px' }} />
+                  <col style={{ width: '300px' }} />
+                  <col style={{ width: '300px' }} />
+                  <col className="w-32" />
+                </colgroup>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-20 border-r">日付</TableHead>
-                    <TableHead className="w-16 border-r">曜日</TableHead>
-                    <TableHead className="w-20 border-r">会場</TableHead>
-                    <TableHead className="w-60">午前 (~12:00)</TableHead>
-                    <TableHead className="w-60">午後 (12:00-17:00)</TableHead>
-                    <TableHead className="w-60">夜間 (17:00~)</TableHead>
-                    <TableHead className="w-48">メモ</TableHead>
+                    <TableHead className="border-r">日付</TableHead>
+                    <TableHead className="border-r">曜日</TableHead>
+                    <TableHead className="border-r">会場</TableHead>
+                    <TableHead className="border-r">午前 (~12:00)</TableHead>
+                    <TableHead className="border-r">午後 (12:00-17:00)</TableHead>
+                    <TableHead className="border-r">夜間 (17:00~)</TableHead>
+                    <TableHead>メモ</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1444,6 +1464,37 @@ export function ScheduleManager() {
               </DialogContent>
             </Dialog>
           )}
+
+      {/* インポートモーダル */}
+      <ImportScheduleModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportComplete={() => {
+          // インポート完了後にデータを再読み込み
+          const loadEvents = async () => {
+            const year = currentDate.getFullYear()
+            const month = currentDate.getMonth() + 1
+            const data = await scheduleApi.getByMonth(year, month)
+            const formattedEvents: ScheduleEvent[] = data.map((event: any) => ({
+              id: event.id,
+              date: event.date,
+              venue: event.store_id,
+              scenario: event.scenarios?.title || event.scenario || '',
+              gms: event.gms || [],
+              start_time: event.start_time,
+              end_time: event.end_time,
+              category: event.category,
+              is_cancelled: event.is_cancelled || false,
+              participant_count: event.current_participants || 0,
+              max_participants: event.capacity || 8,
+              notes: event.notes || '',
+              is_reservation_enabled: event.is_reservation_enabled || false
+            }))
+            setEvents(formattedEvents)
+          }
+          loadEvents()
+        }}
+      />
     </div>
   )
 }
