@@ -307,17 +307,17 @@ export function PrivateBookingManagement() {
 
   const loadConflictInfo = async (currentRequestId: string) => {
     try {
-      // 確定済みの予約を全て取得
-      const { data: confirmedReservations, error } = await supabase
+      const storeDateConflicts = new Set<string>()
+      const gmDateConflicts = new Set<string>()
+
+      // 1. 確定済みの予約を全て取得（reservationsテーブル）
+      const { data: confirmedReservations, error: reservationsError } = await supabase
         .from('reservations')
         .select('id, store_id, gm_staff, candidate_datetimes')
         .eq('status', 'confirmed')
         .neq('id', currentRequestId)
 
-      if (error) throw error
-
-      const storeDateConflicts = new Set<string>()
-      const gmDateConflicts = new Set<string>()
+      if (reservationsError) throw reservationsError
 
       confirmedReservations?.forEach(reservation => {
         const candidates = reservation.candidate_datetimes?.candidates || []
@@ -333,6 +333,42 @@ export function PrivateBookingManagement() {
             }
           }
         })
+      })
+
+      // 2. スケジュールイベントも取得（schedule_eventsテーブル）
+      const { data: scheduleEvents, error: scheduleError } = await supabase
+        .from('schedule_events')
+        .select('id, store_id, date, start_time, gms, is_cancelled')
+        .eq('is_cancelled', false)
+
+      if (scheduleError) throw scheduleError
+
+      // 時間帯判定関数（ScheduleManagerと同じロジック）
+      const getTimeSlot = (startTime: string): string => {
+        const hour = parseInt(startTime.split(':')[0])
+        if (hour < 12) return '朝'
+        if (hour < 17) return '昼'
+        return '夜'
+      }
+
+      scheduleEvents?.forEach(event => {
+        if (!event.date || !event.start_time) return
+        
+        const timeSlot = getTimeSlot(event.start_time)
+        
+        // 店舗の競合情報
+        if (event.store_id) {
+          storeDateConflicts.add(`${event.store_id}-${event.date}-${timeSlot}`)
+        }
+        
+        // GMの競合情報（複数GMの場合は全員追加）
+        if (event.gms && Array.isArray(event.gms)) {
+          event.gms.forEach((gmId: string) => {
+            if (gmId) {
+              gmDateConflicts.add(`${gmId}-${event.date}-${timeSlot}`)
+            }
+          })
+        }
       })
 
       setConflictInfo({ storeDateConflicts, gmDateConflicts })
