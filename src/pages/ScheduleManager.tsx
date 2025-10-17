@@ -671,8 +671,8 @@ export function ScheduleManager() {
   const getTimeSlot = (startTime: string) => {
     const hour = parseInt(startTime.split(':')[0])
     if (hour < 12) return 'morning'      // 0-11時 → 朝
-    if (hour < 18) return 'afternoon'    // 12-17時 → 昼
-    return 'evening'                     // 18時以降 → 夜
+    if (hour < 17) return 'afternoon'    // 12-16時 → 昼
+    return 'evening'                     // 17時以降 → 夜
   }
 
   // カテゴリごとの公演数を計算

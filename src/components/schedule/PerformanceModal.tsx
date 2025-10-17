@@ -96,9 +96,9 @@ export function PerformanceModal({
 
   // 時間帯のデフォルト設定
   const timeSlotDefaults = {
-    morning: { start_time: '10:00', end_time: '14:00', label: '朝公演 (9:00-12:00)' },
-    afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演 (12:00-18:00)' },
-    evening: { start_time: '19:00', end_time: '23:00', label: '夜公演 (18:00-)' }
+    morning: { start_time: '10:00', end_time: '14:00', label: '朝公演' },
+    afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
+    evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
   }
 
   // 時間帯が変更されたときに開始・終了時間を自動設定
@@ -121,7 +121,7 @@ export function PerformanceModal({
       const startHour = parseInt(event.start_time.split(':')[0])
       if (startHour < 12) {
         setTimeSlot('morning')
-      } else if (startHour < 18) {
+      } else if (startHour < 17) {
         setTimeSlot('afternoon')
       } else {
         setTimeSlot('evening')
