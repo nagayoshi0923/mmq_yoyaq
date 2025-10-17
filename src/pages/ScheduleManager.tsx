@@ -669,6 +669,35 @@ export function ScheduleManager() {
     return 'evening'                     // 18時以降 → 夜
   }
 
+  // カテゴリごとの公演数を計算
+  const getCategoryCounts = () => {
+    const counts: Record<string, number> = {
+      all: events.length,
+      open: 0,
+      private: 0,
+      gmtest: 0,
+      testplay: 0,
+      trip: 0,
+      venue_rental: 0,
+      venue_rental_free: 0,
+      package: 0,
+      cancelled: 0
+    }
+    
+    events.forEach(event => {
+      if (event.is_cancelled) {
+        counts.cancelled++
+      }
+      if (counts[event.category] !== undefined) {
+        counts[event.category]++
+      }
+    })
+    
+    return counts
+  }
+
+  const categoryCounts = getCategoryCounts()
+
   // 特定の日付・店舗・時間帯の公演を取得
   const getEventsForSlot = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
     return events.filter(event => {
@@ -1159,26 +1188,31 @@ export function ScheduleManager() {
 
           {/* カテゴリタブ */}
           <div className="bg-card border rounded-lg p-4">
-            <h3>公演カテゴリ</h3>
+            <h3 className="flex items-center gap-2">
+              公演カテゴリ
+              <span className="text-sm text-muted-foreground">
+                （中止: {categoryCounts.cancelled}件）
+              </span>
+            </h3>
             <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mt-4">
               <TabsList className="grid grid-cols-6 w-fit gap-1">
                 <TabsTrigger value="all" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  すべて
+                  すべて ({categoryCounts.all})
                 </TabsTrigger>
                 <TabsTrigger value="open" className="bg-blue-100 text-blue-800 data-[state=active]:bg-blue-200 data-[state=active]:text-blue-900">
-                  オープン公演
+                  オープン公演 ({categoryCounts.open})
                 </TabsTrigger>
                 <TabsTrigger value="private" className="bg-purple-100 text-purple-800 data-[state=active]:bg-purple-200 data-[state=active]:text-purple-900">
-                  貸切公演
+                  貸切公演 ({categoryCounts.private})
                 </TabsTrigger>
                 <TabsTrigger value="gmtest" className="bg-orange-100 text-orange-800 data-[state=active]:bg-orange-200 data-[state=active]:text-orange-900">
-                  GMテスト
+                  GMテスト ({categoryCounts.gmtest})
                 </TabsTrigger>
                 <TabsTrigger value="testplay" className="bg-yellow-100 text-yellow-800 data-[state=active]:bg-yellow-200 data-[state=active]:text-yellow-900">
-                  テストプレイ
+                  テストプレイ ({categoryCounts.testplay})
                 </TabsTrigger>
                 <TabsTrigger value="trip" className="bg-green-100 text-green-800 data-[state=active]:bg-green-200 data-[state=active]:text-green-900">
-                  出張公演
+                  出張公演 ({categoryCounts.trip})
                 </TabsTrigger>
               </TabsList>
             </Tabs>
