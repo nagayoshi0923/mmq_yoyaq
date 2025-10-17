@@ -13,19 +13,49 @@ interface ImportScheduleModalProps {
 }
 
 // 店舗名→store_id のマッピング
-const STORE_MAPPING: Record<string, string> = {
+const STORE_MAPPING: Record<string, string | null> = {
   "大久保": "bef973a7-faa2-466d-afcc-c6466f24474f",
   "馬場": "45e39d14-061f-4d01-ae8a-5d4f8893e3cd",
   "別館①": "0269032f-6059-440b-a429-9a56dbb027be",
   "別館②": "95ac6d74-56df-4cac-a67f-59fff9ab89b9",
+  "馬場別館①": "0269032f-6059-440b-a429-9a56dbb027be",
+  "馬場別館②": "95ac6d74-56df-4cac-a67f-59fff9ab89b9",
+  "馬場別館スタッフルーム": null,  // スタッフルームはstore_idなし
   "大塚": "f94256c3-e992-4723-b965-9df5cd54ea81",
   "埼玉大宮": "8a254b6d-9293-42c6-b634-e872c83fc4fd",
-  "京都出張": null  // 出張はstore_idなし（offsite）
+  "京都出張": null,  // 出張はstore_idなし（offsite）
+  "オンライン": null  // オンラインはstore_idなし
+}
+
+// シナリオ名の揺らぎを統一するマッピング
+const SCENARIO_NAME_MAPPING: Record<string, string> = {
+  "赤鬼": "赤鬼が泣いた夜",
+  "さきこ": "裂き子",
+  "裂き子": "裂き子",
+  "さん": "さん",
+  "invisible": "Invisible-亡霊列車-",
+  "Invisible": "Invisible-亡霊列車-",
+  "エイダ": "エイダ",
+  "カノケリ": "カノケリ",
+  "ユートピアース": "ユートピアース",
+  "燔祭のジェミニ": "燔祭のジェミニ",
+  "ツグミドリ": "ツグミドリ",
+  "電脳の檻のアリス": "電脳の檻のアリス",
+  "ニィホン": "ニィホン",
+  "機巧人形の心臓": "機巧人形の心臓",
+  "黒と白の狭間に": "黒と白の狭間に",
+  "新世界のユキサキ": "新世界のユキサキ",
+  "銀世界のアシアト": "銀世界のアシアト",
+  "この闇をあなたと": "この闇をあなたと",
+  "あるマーダーミステリーについて": "あるマーダーミステリーについて",
+  "或ル胡蝶ノ夢": "或ル胡蝶ノ夢",
+  "MTG": "MTG（マネージャーミーティング）"
 }
 
 export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: ImportScheduleModalProps) {
   const [scheduleText, setScheduleText] = useState('')
   const [isImporting, setIsImporting] = useState(false)
+  const [replaceExisting, setReplaceExisting] = useState(true)
   const [result, setResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null)
 
   // カテゴリを判定
@@ -60,7 +90,14 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     text = text.split('✅')[0]
     text = text.split('🈵')[0]
     
-    return text.trim()
+    text = text.trim()
+    
+    // シナリオ名の揺らぎを統一
+    if (SCENARIO_NAME_MAPPING[text]) {
+      return SCENARIO_NAME_MAPPING[text]
+    }
+    
+    return text
   }
 
   // 予約情報を抽出
@@ -182,6 +219,48 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
 
       let currentDate = ''
       let currentWeekday = ''
+      
+      // インポート対象の月を特定（最初の日付から判定）
+      let targetMonth: { year: number; month: number } | null = null
+      
+      for (const line of lines) {
+        if (!line.trim()) continue
+        const parts = line.split('\t').map(p => p.trim())
+        if (parts.length < 2) continue
+        const dateStr = parts[0]
+        if (dateStr && dateStr.includes('/')) {
+          const dateParts = dateStr.split('/')
+          if (dateParts.length === 2) {
+            targetMonth = {
+              year: 2025,
+              month: parseInt(dateParts[0])
+            }
+            break
+          }
+        }
+      }
+      
+      // 既存データを削除（置き換えモードの場合）
+      if (replaceExisting && targetMonth) {
+        try {
+          const startDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-01`
+          const endDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-31`
+          
+          const { error: deleteError } = await supabase
+            .from('schedule_events')
+            .delete()
+            .gte('date', startDate)
+            .lte('date', endDate)
+          
+          if (deleteError) {
+            console.error('既存データの削除エラー:', deleteError)
+            errors.push(`既存データの削除に失敗: ${deleteError.message}`)
+          }
+        } catch (err) {
+          console.error('削除処理エラー:', err)
+          errors.push(`削除処理エラー: ${String(err)}`)
+        }
+      }
 
       for (const line of lines) {
         if (!line.trim()) continue
@@ -201,6 +280,16 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         
         const venue = parts[3]
         if (!venue) continue
+        
+        // GM名のリスト（会場欄に誤って入っている可能性のある名前）
+        const gmNames = ['そら', 'じの', 'まつい', 'きゅう', 'りえぞー', 'つばめ', 'えりん', 'れみあ', 
+                          'しらやま', 'ぴよな', 'あんころ', 'ソルト', 'もりし', 'らぼ', 'さき', 'りんな',
+                          'ぶるそに', 'だいこん', 'ソラ', 'ツバメ']
+        
+        // 会場欄にGM名が入っている場合はその行をスキップ
+        if (gmNames.includes(venue) || venue.includes('→')) {
+          continue
+        }
 
         // 時間帯別のデータを処理
         const timeSlots = [
@@ -241,6 +330,20 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
 
       for (const event of events) {
         try {
+          // 必須フィールドのチェック
+          if (!event.date) {
+            failedCount++
+            errors.push(`${event.venue} - ${event.scenario}: 日付が不正です`)
+            continue
+          }
+          
+          // 店舗がマッピングに存在しない場合のみエラー（nullは有効な値）
+          if (event.store_id === undefined && !(event.venue in STORE_MAPPING)) {
+            failedCount++
+            errors.push(`${event.date} ${event.venue} - ${event.scenario}: 店舗が見つかりません（STORE_MAPPINGに"${event.venue}"が存在しません）`)
+            continue
+          }
+
           const { error } = await supabase
             .from('schedule_events')
             .insert(event)
@@ -307,6 +410,20 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             <p className="text-xs text-gray-500 mt-2">
               ※ スプレッドシートで範囲を選択してコピー（Ctrl+C / Cmd+C）し、ここに貼り付けてください
             </p>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="replaceExisting"
+              checked={replaceExisting}
+              onChange={(e) => setReplaceExisting(e.target.checked)}
+              disabled={isImporting}
+              className="w-4 h-4"
+            />
+            <label htmlFor="replaceExisting" className="text-sm font-medium">
+              既存の同月データを削除してから登録（推奨）
+            </label>
           </div>
 
           {result && (
