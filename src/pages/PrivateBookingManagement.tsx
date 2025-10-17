@@ -305,6 +305,11 @@ export function PrivateBookingManagement() {
     }
   }
 
+  // 🚨 CRITICAL: スケジュール競合チェック機能
+  // この関数は以下の両方をチェックする必要があります：
+  // 1. reservations テーブル（確定済み貸切予約）
+  // 2. schedule_events テーブル（手動追加・インポートされた全公演）
+  // ⚠️ どちらか一方だけのチェックでは不十分です！削除・変更時は必ず両方を確認してください
   const loadConflictInfo = async (currentRequestId: string) => {
     try {
       const storeDateConflicts = new Set<string>()

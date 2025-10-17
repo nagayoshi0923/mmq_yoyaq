@@ -824,14 +824,16 @@ export function ScheduleManager() {
     setEditingEvent(null)
   }
 
-  // 公演を保存（重複チェック付き）
+  // 🚨 CRITICAL: 公演保存時の重複チェック機能
+  // この関数は同じ日付・店舗・時間帯の重複を防ぎます
+  // ⚠️ 重複チェックを削除・スキップすると、同じ枠に複数の公演が登録されてしまいます
   const handleSavePerformance = async (performanceData: any) => {
     // タイムスロットを判定
     const startHour = parseInt(performanceData.start_time.split(':')[0])
     let timeSlot: 'morning' | 'afternoon' | 'evening'
     if (startHour < 12) {
       timeSlot = 'morning'
-    } else if (startHour < 18) {
+    } else if (startHour < 17) {
       timeSlot = 'afternoon'
     } else {
       timeSlot = 'evening'
