@@ -79,6 +79,7 @@ export function PerformanceModal({
 }: PerformanceModalProps) {
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false)
+  const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
   const [formData, setFormData] = useState<any>({
     id: '',
     date: '',
@@ -93,20 +94,44 @@ export function PerformanceModal({
     notes: ''
   })
 
+  // 時間帯のデフォルト設定
+  const timeSlotDefaults = {
+    morning: { start_time: '10:00', end_time: '14:00', label: '朝公演 (9:00-12:00)' },
+    afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演 (12:00-18:00)' },
+    evening: { start_time: '19:00', end_time: '23:00', label: '夜公演 (18:00-)' }
+  }
+
+  // 時間帯が変更されたときに開始・終了時間を自動設定
+  const handleTimeSlotChange = (slot: 'morning' | 'afternoon' | 'evening') => {
+    setTimeSlot(slot)
+    const defaults = timeSlotDefaults[slot]
+    setFormData((prev: any) => ({
+      ...prev,
+      start_time: defaults.start_time,
+      end_time: defaults.end_time
+    }))
+  }
+
   // モードに応じてフォームを初期化
   useEffect(() => {
     if (mode === 'edit' && event) {
       // 編集モード：既存データで初期化
       setFormData(event)
+      // 既存の開始時間から時間帯を判定
+      const startHour = parseInt(event.start_time.split(':')[0])
+      if (startHour < 12) {
+        setTimeSlot('morning')
+      } else if (startHour < 18) {
+        setTimeSlot('afternoon')
+      } else {
+        setTimeSlot('evening')
+      }
     } else if (mode === 'add' && initialData) {
       // 追加モード：初期データで初期化
-      const timeSlotDefaults = {
-        morning: { start_time: '10:00', end_time: '14:00' },
-        afternoon: { start_time: '14:30', end_time: '18:30' },
-        evening: { start_time: '19:00', end_time: '23:00' }
-      }
+      const slot = initialData.timeSlot as 'morning' | 'afternoon' | 'evening'
+      setTimeSlot(slot)
       
-      const defaults = timeSlotDefaults[initialData.timeSlot as keyof typeof timeSlotDefaults] || timeSlotDefaults.morning
+      const defaults = timeSlotDefaults[slot] || timeSlotDefaults.morning
       
       setFormData({
         id: Date.now().toString(),
@@ -319,6 +344,27 @@ export function PerformanceModal({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* 時間帯選択 */}
+          <div>
+            <Label htmlFor="timeSlot">時間帯</Label>
+            <Select 
+              value={timeSlot} 
+              onValueChange={(value: 'morning' | 'afternoon' | 'evening') => handleTimeSlotChange(value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="morning">{timeSlotDefaults.morning.label}</SelectItem>
+                <SelectItem value="afternoon">{timeSlotDefaults.afternoon.label}</SelectItem>
+                <SelectItem value="evening">{timeSlotDefaults.evening.label}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              時間帯を選択すると開始・終了時間が自動設定されます
+            </p>
           </div>
 
           {/* 時間設定 */}
