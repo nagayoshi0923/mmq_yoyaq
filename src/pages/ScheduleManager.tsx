@@ -11,6 +11,7 @@ import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
+import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
 import { memoApi, scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { shiftApi } from '@/lib/shiftApi'
@@ -87,6 +88,9 @@ export function ScheduleManager() {
   const [cancellingEvent, setCancellingEvent] = useState<ScheduleEvent | null>(null)
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false)
   const [publishingEvent, setPublishingEvent] = useState<ScheduleEvent | null>(null)
+  const [isConflictWarningOpen, setIsConflictWarningOpen] = useState(false)
+  const [conflictInfo, setConflictInfo] = useState<any>(null)
+  const [pendingPerformanceData, setPendingPerformanceData] = useState<any>(null)
   const [events, setEvents] = useState<ScheduleEvent[]>(() => {
     try {
       const cached = sessionStorage.getItem('scheduleEvents')
@@ -820,8 +824,61 @@ export function ScheduleManager() {
     setEditingEvent(null)
   }
 
-  // 公演を保存（追加・更新共通）
+  // 公演を保存（重複チェック付き）
   const handleSavePerformance = async (performanceData: any) => {
+    // タイムスロットを判定
+    const startHour = parseInt(performanceData.start_time.split(':')[0])
+    let timeSlot: 'morning' | 'afternoon' | 'evening'
+    if (startHour < 12) {
+      timeSlot = 'morning'
+    } else if (startHour < 18) {
+      timeSlot = 'afternoon'
+    } else {
+      timeSlot = 'evening'
+    }
+    
+    // 重複チェック：同じ日時・店舗・時間帯に既に公演があるか
+    const conflictingEvents = events.filter(event => {
+      // 編集中の公演自身は除外
+      if (modalMode === 'edit' && event.id === performanceData.id) {
+        return false
+      }
+      
+      const eventTimeSlot = getTimeSlot(event.start_time)
+      return event.date === performanceData.date &&
+             event.venue === performanceData.venue &&
+             eventTimeSlot === timeSlot &&
+             !event.is_cancelled
+    })
+    
+    if (conflictingEvents.length > 0) {
+      const conflictingEvent = conflictingEvents[0]
+      const timeSlotLabel = timeSlot === 'morning' ? '午前' : timeSlot === 'afternoon' ? '午後' : '夜間'
+      const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
+      
+      // 重複警告モーダルを表示
+      setConflictInfo({
+        date: performanceData.date,
+        storeName,
+        timeSlot: timeSlotLabel,
+        conflictingEvent: {
+          scenario: conflictingEvent.scenario,
+          gms: conflictingEvent.gms,
+          start_time: conflictingEvent.start_time,
+          end_time: conflictingEvent.end_time
+        }
+      })
+      setPendingPerformanceData(performanceData)
+      setIsConflictWarningOpen(true)
+      return
+    }
+    
+    // 重複がない場合は直接保存
+    await doSavePerformance(performanceData)
+  }
+
+  // 実際の保存処理（重複チェックなし）
+  const doSavePerformance = async (performanceData: any) => {
     try {
       if (modalMode === 'add') {
         // 新規追加
@@ -1504,6 +1561,79 @@ export function ScheduleManager() {
           }
           loadEvents()
         }}
+      />
+
+      {/* 重複警告モーダル */}
+      <ConflictWarningModal
+        isOpen={isConflictWarningOpen}
+        onClose={() => {
+          setIsConflictWarningOpen(false)
+          setConflictInfo(null)
+          setPendingPerformanceData(null)
+        }}
+        onContinue={async () => {
+          if (pendingPerformanceData && conflictInfo) {
+            try {
+              // タイムスロットを判定
+              const startHour = parseInt(pendingPerformanceData.start_time.split(':')[0])
+              let timeSlot: 'morning' | 'afternoon' | 'evening'
+              if (startHour < 12) {
+                timeSlot = 'morning'
+              } else if (startHour < 18) {
+                timeSlot = 'afternoon'
+              } else {
+                timeSlot = 'evening'
+              }
+              
+              // 既存の重複公演を削除
+              const conflictingEvents = events.filter(event => {
+                // 編集中の公演自身は除外
+                if (modalMode === 'edit' && event.id === pendingPerformanceData.id) {
+                  return false
+                }
+                
+                const eventTimeSlot = getTimeSlot(event.start_time)
+                return event.date === pendingPerformanceData.date &&
+                       event.venue === pendingPerformanceData.venue &&
+                       eventTimeSlot === timeSlot &&
+                       !event.is_cancelled
+              })
+              
+              // 既存公演を削除
+              for (const conflictEvent of conflictingEvents) {
+                if (conflictEvent.is_private_request && conflictEvent.reservation_id) {
+                  // 貸切リクエストの場合
+                  await supabase
+                    .from('reservations')
+                    .delete()
+                    .eq('id', conflictEvent.reservation_id)
+                } else {
+                  // 通常公演の場合
+                  await scheduleApi.delete(conflictEvent.id)
+                }
+              }
+              
+              // ローカル状態から削除
+              setEvents(prev => prev.filter(event => {
+                const eventTimeSlot = getTimeSlot(event.start_time)
+                const isConflict = event.date === pendingPerformanceData.date &&
+                                  event.venue === pendingPerformanceData.venue &&
+                                  eventTimeSlot === timeSlot &&
+                                  !event.is_cancelled &&
+                                  event.id !== pendingPerformanceData.id
+                return !isConflict
+              }))
+              
+              // 新しい公演を保存
+              await doSavePerformance(pendingPerformanceData)
+              setPendingPerformanceData(null)
+            } catch (error) {
+              console.error('既存公演の削除エラー:', error)
+              alert('既存公演の削除に失敗しました')
+            }
+          }
+        }}
+        conflictInfo={conflictInfo}
       />
     </div>
   )

@@ -1,0 +1,12 @@
+When generating git commit messages, always write them in Japanese.
+Use conventional commit format with Japanese descriptions.
+
+Example:
+feat: 新機能を追加
+fix: バグを修正
+docs: ドキュメントを更新
+style: コードスタイルを修正
+refactor: コードをリファクタリング
+test: テストを追加・修正
+chore: ビルドプロセスや補助ツールの変更
+
