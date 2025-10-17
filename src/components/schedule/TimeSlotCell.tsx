@@ -62,7 +62,7 @@ export function TimeSlotCell({
   onToggleReservation
 }: TimeSlotCellProps) {
   return (
-    <TableCell className="schedule-table-cell p-0 border-r border-gray-200">
+    <TableCell className="schedule-table-cell p-1 border-r border-gray-200">
       {events.length > 0 ? (
         // 公演ありの場合: アバター非表示
         <PerformanceCard
