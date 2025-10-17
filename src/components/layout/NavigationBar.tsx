@@ -5,9 +5,7 @@ import {
   Calendar, 
   Users, 
   BookOpen, 
-  TrendingUp, 
-  Package, 
-  CreditCard,
+  TrendingUp,
   Clock,
   Settings,
   ClipboardCheck,
@@ -34,10 +32,8 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
     { id: 'customer-booking', label: '予約サイト', icon: Calendar, roles: ['admin', 'staff', 'customer'] },
     { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin', 'staff'] },
     { id: 'customers', label: '顧客', icon: Users, roles: ['admin', 'staff'] },
-    { id: 'user-management', label: 'ユーザー管理', icon: UserCog, roles: ['admin'] },
+    { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },
     { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin', 'staff'] },
-    { id: 'inventory', label: '在庫', icon: Package, roles: ['admin', 'staff'] },
-    { id: 'licenses', label: 'ライセンス', icon: CreditCard, roles: ['admin', 'staff'] },
     { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] }
   ]
   

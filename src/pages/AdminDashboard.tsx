@@ -23,9 +23,7 @@ import {
   Calendar, 
   Users, 
   BookOpen, 
-  TrendingUp, 
-  Package, 
-  CreditCard,
+  TrendingUp,
   Clock,
   Settings,
   UserCog
@@ -155,10 +153,8 @@ export function AdminDashboard() {
     { id: 'customer-booking', label: '予約サイト', icon: Calendar, color: 'bg-teal-100 text-teal-800' },
     { id: 'reservations', label: '予約管理', icon: Calendar, color: 'bg-red-100 text-red-800' },
     { id: 'customers', label: '顧客', icon: Users, color: 'bg-amber-100 text-amber-800' },
-    { id: 'user-management', label: 'ユーザー管理', icon: UserCog, color: 'bg-violet-100 text-violet-800' },
+    { id: 'user-management', label: 'ユーザー', icon: UserCog, color: 'bg-violet-100 text-violet-800' },
     { id: 'sales', label: '売上', icon: TrendingUp, color: 'bg-emerald-100 text-emerald-800' },
-    { id: 'inventory', label: '在庫', icon: Package, color: 'bg-cyan-100 text-cyan-800' },
-    { id: 'licenses', label: 'ライセンス', icon: CreditCard, color: 'bg-pink-100 text-pink-800' },
     { id: 'settings', label: '設定', icon: Settings, color: 'bg-gray-100 text-gray-800' }
   ]
 
@@ -320,8 +316,6 @@ export function AdminDashboard() {
                         {tab.id === 'customers' && '245名'}
                         {tab.id === 'user-management' && 'ロール管理'}
                         {tab.id === 'sales' && '¥1.25M'}
-                        {tab.id === 'inventory' && '在庫良好'}
-                        {tab.id === 'licenses' && '契約中'}
                         {tab.id === 'settings' && '設定'}
                       </Badge>
                     </CardContent>

@@ -683,7 +683,8 @@ export function ScheduleManager() {
       venue_rental: 0,
       venue_rental_free: 0,
       package: 0,
-      cancelled: 0
+      cancelled: 0,
+      alerts: 0  // 警告が必要な公演
     }
     
     events.forEach(event => {
@@ -692,6 +693,15 @@ export function ScheduleManager() {
       }
       if (counts[event.category] !== undefined) {
         counts[event.category]++
+      }
+      
+      // 警告条件：シナリオが未定、またはGMが未定・空
+      const hasAlert = !event.scenario || event.scenario.trim() === '' || 
+                       !event.gms || event.gms.length === 0 || 
+                       event.gms.every((gm: string) => !gm || gm.trim() === '')
+      
+      if (hasAlert && !event.is_cancelled) {
+        counts.alerts++
       }
     })
     
@@ -1202,7 +1212,7 @@ export function ScheduleManager() {
             <h3 className="flex items-center gap-2">
               公演カテゴリ
               <span className="text-sm text-muted-foreground">
-                （中止: {categoryCounts.cancelled}件）
+                （中止: {categoryCounts.cancelled}件 / 警告: {categoryCounts.alerts}件）
               </span>
             </h3>
             <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mt-4">
