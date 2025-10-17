@@ -940,13 +940,13 @@ export function PrivateBookingManagement() {
                         >
                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                             hasConflict
-                              ? 'border-red-300 bg-red-100'
+                              ? 'border-red-500 bg-red-500'
                               : isSelected
                               ? 'border-purple-500 bg-purple-500'
                               : 'border-gray-300'
                           }`}>
                             {hasConflict ? (
-                              <XCircle className="w-4 h-4 text-red-600" />
+                              <XCircle className="w-4 h-4 text-white" />
                             ) : isSelected ? (
                               <CheckCircle2 className="w-4 h-4 text-white" />
                             ) : null}

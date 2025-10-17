@@ -156,7 +156,7 @@ export function PerformanceCard({
       {/* 警告アイコン（右上） */}
       {isIncomplete && (
         <div className="absolute top-1 right-1">
-          <AlertTriangle className="w-3 h-3 text-yellow-500" />
+          <AlertTriangle className="w-3 h-3 text-red-600" />
         </div>
       )}
 
