@@ -31,49 +31,42 @@ import {
 
 export function AdminDashboard() {
   const { user } = useAuth()
-  
-  const [currentPage, setCurrentPage] = useState(() => {
-    // URLのハッシュから初期ページを決定
-    const hash = window.location.hash.slice(1) // #を除去
-    
-    // シナリオ詳細ページの場合はcustomer-bookingとして扱う
+
+  // ハッシュを解析してページとシナリオIDを返すユーティリティ
+  function parseHash(hash: string, userRole?: string | null): { page: string, scenarioId: string | null } {
+    const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/?]+)/)
+    if (scenarioMatch) {
+      return { page: 'customer-booking', scenarioId: scenarioMatch[1] }
+    }
     if (hash.startsWith('customer-booking')) {
-      return 'customer-booking'
+      return { page: 'customer-booking', scenarioId: null }
     }
-    
-    // 貸切申し込みシナリオ選択ページ
     if (hash.startsWith('private-booking-select')) {
-      return 'private-booking-select'
+      return { page: 'private-booking-select', scenarioId: null }
     }
-    
-    // 貸切リクエスト確認ページ
     if (hash.startsWith('private-booking-request')) {
-      return 'private-booking-request'
+      return { page: 'private-booking-request', scenarioId: null }
     }
-    
-    // 貸切リクエスト管理ページ
     if (hash.startsWith('private-booking-management')) {
-      return 'private-booking-management'
+      return { page: 'private-booking-management', scenarioId: null }
     }
-    
-    // ユーザー管理ページ
     if (hash.startsWith('user-management')) {
-      return 'user-management'
+      return { page: 'user-management', scenarioId: null }
     }
-    
-    // 顧客ロールの場合は予約サイトをデフォルトに
-    if (!hash && user?.role === 'customer') {
-      return 'customer-booking'
+    if (!hash && userRole === 'customer') {
+      return { page: 'customer-booking', scenarioId: null }
     }
-    
-    return hash || 'dashboard'
+    return { page: hash || 'dashboard', scenarioId: null }
+  }
+
+  const [currentPage, setCurrentPage] = useState(() => {
+    const { page } = parseHash(window.location.hash.slice(1), user?.role)
+    return page
   })
   
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(() => {
-    // URLハッシュからシナリオIDを取得（例: #customer-booking/scenario/abc123?tab=private）
-    const hash = window.location.hash.slice(1)
-    const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/?]+)/)
-    return scenarioMatch ? scenarioMatch[1] : null
+    const { scenarioId } = parseHash(window.location.hash.slice(1), user?.role)
+    return scenarioId
   })
 
   // ページ変更時にURLのハッシュを更新
@@ -98,43 +91,14 @@ export function AdminDashboard() {
   // ブラウザの戻る/進むボタンに対応
   React.useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.slice(1)
-      
-      // シナリオ詳細ページの場合（?以降のクエリパラメータは除外）
-      const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/?]+)/)
-      if (scenarioMatch) {
-        setCurrentPage('customer-booking')
-        setSelectedScenarioId(scenarioMatch[1])
-      } else if (hash.startsWith('customer-booking')) {
-        // customer-booking/calendar などもcustomer-bookingとして扱う
-        setCurrentPage('customer-booking')
-        setSelectedScenarioId(null)
-      } else if (hash.startsWith('private-booking-select')) {
-        // 貸切申し込みシナリオ選択ページ
-        setCurrentPage('private-booking-select')
-        setSelectedScenarioId(null)
-      } else if (hash.startsWith('private-booking-request')) {
-        // 貸切リクエスト確認ページ
-        setCurrentPage('private-booking-request')
-        setSelectedScenarioId(null)
-      } else if (hash.startsWith('private-booking-management')) {
-        // 貸切リクエスト管理ページ
-        setCurrentPage('private-booking-management')
-        setSelectedScenarioId(null)
-      } else if (hash.startsWith('user-management')) {
-        // ユーザー管理ページ
-        setCurrentPage('user-management')
-        setSelectedScenarioId(null)
-      } else {
-        // 通常のページ遷移
-        setCurrentPage(hash || 'dashboard')
-        setSelectedScenarioId(null)
-      }
+      const { page, scenarioId } = parseHash(window.location.hash.slice(1), user?.role)
+      setCurrentPage(page)
+      setSelectedScenarioId(scenarioId)
     }
 
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [])
+  }, [user?.role])
 
   // モックデータ（後でSupabaseから取得）
   const stats = {
