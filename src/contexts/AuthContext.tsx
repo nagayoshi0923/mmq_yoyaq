@@ -89,24 +89,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('📊 usersテーブルからロール取得開始')
       try {
-        // タイムアウト付きでロールを取得（5秒）
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 5000)
-        
-        const { data: userData, error: roleError } = await supabase
+        // タイムアウト付きでロールを取得（5秒でフォールバック）
+        const rolePromise = supabase
           .from('users')
           .select('role')
           .eq('id', supabaseUser.id)
           .maybeSingle()
-          // @ts-expect-error: supabase-js v2型にabortSignalが存在しないため型抑制（実行時は透過）
-          .abortSignal?.(controller.signal) ?? await supabase
-            .from('users')
-            .select('role')
-            .eq('id', supabaseUser.id)
-            .maybeSingle()
-        
-        clearTimeout(timeoutId)
-        
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 5000)
+        )
+
+        const { data: userData, error: roleError } = await Promise.race([
+          rolePromise,
+          timeoutPromise
+        ]) as any
+
         if (roleError) {
           console.warn('⚠️ usersテーブルからのロール取得エラー:', roleError)
           // フォールバック: メールアドレスで判定（開発用）
@@ -122,11 +120,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           console.log('✅ データベースからロール取得:', role)
         }
       } catch (error: any) {
-        if (error?.name === 'AbortError') {
-          console.warn('⚠️ ロール取得タイムアウト: 5s')
-        } else {
-          console.error('❌ ロール取得エラー:', error)
-        }
+        console.warn('⚠️ ロール取得失敗（タイムアウト/エラー）:', error?.message || error)
         // フォールバック: メールアドレスで判定
         const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
         if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
