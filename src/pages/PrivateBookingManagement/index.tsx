@@ -14,6 +14,23 @@ import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { logger } from '@/utils/logger'
 
+// 分離されたコンポーネント
+import { BookingRequestCard } from './components/BookingRequestCard'
+import { StatusBadge } from './components/StatusBadge'
+import { CustomerInfo } from './components/CustomerInfo'
+import { CandidateDateSelector } from './components/CandidateDateSelector'
+import { StoreSelector } from './components/StoreSelector'
+import { GMSelector } from './components/GMSelector'
+import { ActionButtons } from './components/ActionButtons'
+
+// 分離されたフック
+import { usePrivateBookingData } from './hooks/usePrivateBookingData'
+import { useGMSelection } from './hooks/useGMSelection'
+import { useConflictCheck } from './hooks/useConflictCheck'
+
+// ユーティリティ
+import { formatDate, formatDateTime, getElapsedTime } from './utils/bookingFormatters'
+
 interface PrivateBookingRequest {
   id: string
   reservation_number: string
