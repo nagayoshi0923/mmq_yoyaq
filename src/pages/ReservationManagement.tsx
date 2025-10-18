@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -171,21 +171,26 @@ export function ReservationManagement() {
     }
   }
 
-  // フィルタリング処理
-  const filteredReservations = reservations.filter(reservation => {
-    const matchesSearch = 
-      reservation.reservation_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (reservation.customer_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (reservation.scenario_title?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = statusFilter === 'all' || reservation.status === statusFilter
-    const matchesPayment = paymentFilter === 'all' || reservation.payment_status === paymentFilter
-    const matchesType = typeFilter === 'all' || 
-      (typeFilter === 'private' && reservation.reservation_source === 'web_private') ||
-      (typeFilter === 'regular' && reservation.reservation_source !== 'web_private')
-    
-    return matchesSearch && matchesStatus && matchesPayment && matchesType
-  })
+  // フィルタリング処理（依存が変わった時のみ再計算）
+  const filteredReservations = useMemo(() => {
+    const searchLower = (searchTerm || '').toLowerCase()
+
+    return reservations.filter((reservation) => {
+      const matchesSearch =
+        (reservation.reservation_number || '').toLowerCase().includes(searchLower) ||
+        (reservation.customer_name || '').toLowerCase().includes(searchLower) ||
+        (reservation.scenario_title || '').toLowerCase().includes(searchLower)
+
+      const matchesStatus = statusFilter === 'all' || reservation.status === statusFilter
+      const matchesPayment = paymentFilter === 'all' || reservation.payment_status === paymentFilter
+      const matchesType =
+        typeFilter === 'all' ||
+        (typeFilter === 'private' && reservation.reservation_source === 'web_private') ||
+        (typeFilter === 'regular' && reservation.reservation_source !== 'web_private')
+
+      return matchesSearch && matchesStatus && matchesPayment && matchesType
+    })
+  }, [reservations, searchTerm, statusFilter, paymentFilter, typeFilter])
 
   // ステータスバッジのスタイル
   const getStatusBadge = (status: string) => {
