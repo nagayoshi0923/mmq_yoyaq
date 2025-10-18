@@ -42,7 +42,7 @@ interface PerformanceCardProps {
   onContextMenu?: (event: ScheduleEvent, x: number, y: number) => void
 }
 
-export function PerformanceCard({
+function PerformanceCardBase({
   event,
   categoryConfig,
   getReservationBadgeClass,
@@ -210,3 +210,5 @@ export function PerformanceCard({
     </div>
   )
 }
+
+export const PerformanceCard = React.memo(PerformanceCardBase)
