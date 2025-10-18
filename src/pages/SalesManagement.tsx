@@ -55,7 +55,6 @@ ChartJS.register(
   Legend
 )
 
-
 interface Store {
   id: string
   name: string
