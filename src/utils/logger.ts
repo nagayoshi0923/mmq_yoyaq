@@ -2,7 +2,8 @@
 
 /**
  * 環境に応じたログ出力
- * 開発環境: すべてのログを出力
+ * 開発環境（通常）: errorとwarnのみ出力
+ * 開発環境（VITE_DEBUG=true）: すべてのログを出力
  * 本番環境: errorとwarnのみ出力
  */
 
@@ -10,19 +11,19 @@ const isDevelopment = import.meta.env.DEV
 
 export const logger = {
   /**
-   * デバッグログ（開発環境のみ）
+   * デバッグログ（VITE_DEBUG=true の時のみ）
    */
   log: (...args: any[]) => {
-    if (isDevelopment) {
+    if (isDevelopment && import.meta.env.VITE_DEBUG) {
       console.log(...args)
     }
   },
 
   /**
-   * 情報ログ（開発環境のみ）
+   * 情報ログ（VITE_DEBUG=true の時のみ）
    */
   info: (...args: any[]) => {
-    if (isDevelopment) {
+    if (isDevelopment && import.meta.env.VITE_DEBUG) {
       console.info(...args)
     }
   },
