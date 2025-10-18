@@ -110,6 +110,7 @@ export function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="username"
                 className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 placeholder="your@email.com"
               />
@@ -127,6 +128,7 @@ export function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
+                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
                   className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   placeholder={isSignUp ? "6文字以上のパスワード" : "パスワードを入力"}
                 />
