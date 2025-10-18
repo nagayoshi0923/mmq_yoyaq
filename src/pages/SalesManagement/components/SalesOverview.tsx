@@ -103,8 +103,10 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       {salesData ? (
         <>
           <SummaryCards 
-            salesData={salesData}
-            dateRange={dateRange}
+            totalRevenue={salesData.totalRevenue}
+            averageRevenue={salesData.averageRevenuePerEvent}
+            totalEvents={salesData.totalEvents}
+            storeCount={salesData.storeCount}
           />
 
           {/* ランキングカード */}
@@ -115,8 +117,21 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
 
           {/* チャート */}
           <SalesChart 
-            salesData={salesData}
-            dateRange={dateRange}
+            chartData={salesData.chartData}
+            chartOptions={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  display: false
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true
+                }
+              }
+            }}
           />
         </>
       ) : (

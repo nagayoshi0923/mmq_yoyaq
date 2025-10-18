@@ -876,7 +876,7 @@ export const salesApi = {
       scenarioMap.set(s.title, s)
     })
     
-    // シナリオ情報を手動で結合
+    // シナリオ情報を手動で結合 & 売上を計算
     const enrichedEvents = events.map(event => {
       let scenarioInfo = null
       
@@ -887,9 +887,15 @@ export const salesApi = {
         scenarioInfo = scenarioMap.get(event.scenario)
       }
       
+      // 売上を計算: 参加人数 × 参加費
+      const participantCount = event.current_participants || 0
+      const participationFee = scenarioInfo?.participation_fee || 0
+      const revenue = participantCount * participationFee
+      
       return {
         ...event,
-        scenarios: scenarioInfo
+        scenarios: scenarioInfo,
+        revenue
       }
     })
     
