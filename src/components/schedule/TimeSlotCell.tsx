@@ -4,6 +4,7 @@ import { PerformanceCard } from './PerformanceCard'
 import { EmptySlot } from './EmptySlot'
 import { Badge } from '@/components/ui/badge'
 import type { Staff } from '@/types'
+import { logger } from '@/utils/logger'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -126,7 +127,7 @@ function TimeSlotCellBase({
       const droppedEvent = JSON.parse(eventData) as ScheduleEvent
       onDrop?.(droppedEvent, date, venue, timeSlot)
     } catch (error) {
-      console.error('ドロップエラー:', error)
+      logger.error('ドロップエラー:', error)
     }
   }
 

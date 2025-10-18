@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { supabase } from '@/lib/supabase'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { logger } from '@/utils/logger'
 
 interface ImportScheduleModalProps {
   isOpen: boolean
@@ -253,11 +254,11 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             .lte('date', endDate)
           
           if (deleteError) {
-            console.error('既存データの削除エラー:', deleteError)
+            logger.error('既存データの削除エラー:', deleteError)
             errors.push(`既存データの削除に失敗: ${deleteError.message}`)
           }
         } catch (err) {
-          console.error('削除処理エラー:', err)
+          logger.error('削除処理エラー:', err)
           errors.push(`削除処理エラー: ${String(err)}`)
         }
       }

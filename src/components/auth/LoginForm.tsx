@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 
 export function LoginForm() {
   const [email, setEmail] = useState('')
@@ -58,7 +59,7 @@ export function LoginForm() {
           setError('ログインに失敗しました。メールアドレスとパスワードを確認してください。')
         }
       }
-      console.error('Auth error:', error)
+      logger.error('Auth error:', error)
     }
   }
 
@@ -85,7 +86,7 @@ export function LoginForm() {
       setMessage(`${role}用テストアカウントを作成しました。\nメール: ${testEmail}\nパスワード: ${testPassword}\n\n※ メールアドレスの確認が必要です。受信トレイを確認してください。`)
     } catch (error: any) {
       setError('テストアカウント作成に失敗しました。' + (error.message || ''))
-      console.error('Test account creation error:', error)
+      logger.error('Test account creation error:', error)
     }
   }
 

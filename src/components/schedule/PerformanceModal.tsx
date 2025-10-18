@@ -14,6 +14,7 @@ import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { scenarioApi, staffApi } from '@/lib/api'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
+import { logger } from '@/utils/logger'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -215,9 +216,9 @@ export function PerformanceModal({
         ...scenarioForDB 
       } = newScenario as any
       
-      console.log('シナリオ作成リクエスト:', scenarioForDB)
+      logger.log('シナリオ作成リクエスト:', scenarioForDB)
       const createdScenario = await scenarioApi.create(scenarioForDB)
-      console.log('シナリオ作成成功:', createdScenario)
+      logger.log('シナリオ作成成功:', createdScenario)
       setIsScenarioModalOpen(false)
       // 親コンポーネントにシナリオリストの更新を通知
       if (onScenariosUpdate) {
@@ -226,8 +227,8 @@ export function PerformanceModal({
       // 新しく作成したシナリオを選択
       setFormData((prev: any) => ({ ...prev, scenario: newScenario.title }))
     } catch (error: any) {
-      console.error('シナリオ作成エラー:', error)
-      console.error('エラー詳細:', error.message, error.details, error.hint)
+      logger.error('シナリオ作成エラー:', error)
+      logger.error('エラー詳細:', error.message, error.details, error.hint)
       alert(`シナリオの作成に失敗しました: ${error.message || 'エラーが発生しました'}`)
     }
   }
@@ -237,9 +238,9 @@ export function PerformanceModal({
       // データベースに送信する前に不要なフィールドを除外
       const { id, created_at, updated_at, ...staffForDB } = newStaff as any
       
-      console.log('スタッフ作成リクエスト:', staffForDB)
+      logger.log('スタッフ作成リクエスト:', staffForDB)
       const createdStaff = await staffApi.create(staffForDB)
-      console.log('スタッフ作成成功:', createdStaff)
+      logger.log('スタッフ作成成功:', createdStaff)
       
       setIsStaffModalOpen(false)
       
@@ -254,8 +255,8 @@ export function PerformanceModal({
         gms: [...prev.gms, newStaff.name] 
       }))
     } catch (error: any) {
-      console.error('スタッフ作成エラー:', error)
-      console.error('エラー詳細:', error.message, error.details, error.hint)
+      logger.error('スタッフ作成エラー:', error)
+      logger.error('エラー詳細:', error.message, error.details, error.hint)
       alert(`スタッフの作成に失敗しました: ${error.message || 'エラーが発生しました'}`)
     }
   }

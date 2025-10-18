@@ -14,6 +14,7 @@ import type { Scenario, FlexiblePricing, Staff } from '@/types'
 import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
+import { logger } from '@/utils/logger'
 
 // 全角数字を半角数字に変換
 const convertFullWidthToHalfWidth = (str: string) => {
@@ -817,7 +818,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           setSelectedStaffIds([])
         }
       } catch (error) {
-        console.error('Error loading data:', error)
+        logger.error('Error loading data:', error)
       } finally {
         setLoadingStaff(false)
       }
@@ -837,7 +838,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           setCurrentAssignments(assignments)
           setSelectedStaffIds(assignments.map(a => a.staff_id))
         } catch (error) {
-          console.error('Error reloading assignments:', error)
+          logger.error('Error reloading assignments:', error)
         }
       }
     }
@@ -908,7 +909,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
               // 新規作成時はupdatedScenario.idが仮のIDなので、実際のシナリオ保存後に処理する
             }
           } catch (syncError) {
-            console.error('Error updating GM assignments:', syncError)
+            logger.error('Error updating GM assignments:', syncError)
             alert('シナリオは保存されましたが、担当GMの更新に失敗しました。手動で確認してください。')
           }
         }
@@ -918,8 +919,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       onSave(updatedScenario)
       onClose()
     } catch (error) {
-      console.error('Error saving scenario:', error)
-      console.error('Error details:', {
+      logger.error('Error saving scenario:', error)
+      logger.error('Error details:', {
         message: (error as Error).message,
         stack: (error as Error).stack,
         error: error

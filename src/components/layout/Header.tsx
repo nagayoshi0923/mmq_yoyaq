@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Bell, LogOut } from 'lucide-react'
+import { logger } from '@/utils/logger'
 
 interface HeaderProps {
   onPageChange?: (pageId: string) => void
@@ -15,7 +16,7 @@ export function Header({ onPageChange }: HeaderProps) {
     try {
       await signOut()
     } catch (error) {
-      console.error('Sign out error:', error)
+      logger.error('Sign out error:', error)
     }
   }, [signOut])
 

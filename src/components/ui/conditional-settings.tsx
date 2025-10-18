@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { MigrationConfirmationDialog } from '@/components/ui/migration-confirmation-dialog'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { logger } from '@/utils/logger'
 
 export interface ConditionalSetting {
   condition: string
@@ -151,7 +152,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
 
   // 追加ボタンクリック時の処理
   const handleAddClick = () => {
-    console.log('DEBUG: Add button clicked', {
+    logger.log('DEBUG: Add button clicked', {
       newItemCondition: newItem.condition,
       newItemAmount: newItem.amount,
       allItems: items.map(item => ({ condition: item.condition, status: item.status, amount: item.amount }))
@@ -162,14 +163,14 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
       item.condition === newItem.condition && item.status === 'active'
     )
     
-    console.log('DEBUG: Existing active check', {
+    logger.log('DEBUG: Existing active check', {
       existingActiveIndex,
       foundItem: existingActiveIndex !== -1 ? items[existingActiveIndex] : null
     })
     
     if (existingActiveIndex !== -1) {
       // 使用中の項目がある場合は移行確認ダイアログを表示
-      console.log('DEBUG: Showing migration dialog')
+      logger.log('DEBUG: Showing migration dialog')
       setExistingActiveItem({
         index: existingActiveIndex,
         item: items[existingActiveIndex]
@@ -177,7 +178,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
       setMigrationDialogOpen(true)
     } else {
       // 使用中の項目がない場合は通常の追加
-      console.log('DEBUG: Normal add')
+      logger.log('DEBUG: Normal add')
       onAddItem()
     }
   }
@@ -405,7 +406,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
                   <Select 
                     value={newItem.condition || (conditionOptions[0] && conditionOptions[0].value) || ''}
                     onValueChange={(value) => {
-                      console.log('GM newItem condition', value)
+                      logger.log('GM newItem condition', value)
                       updateNewItem('condition', value)
                     }}
                   >
