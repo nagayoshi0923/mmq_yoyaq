@@ -1,8 +1,20 @@
-// スクロール位置の保存と復元
+// スクロール位置の保存と復元（汎用版）
 
 import { useEffect, useLayoutEffect } from 'react'
 
-export function useScrollRestoration(isLoading: boolean) {
+interface UseScrollRestorationOptions {
+  /** ページ識別用のキー（デフォルト: 'page'） */
+  pageKey?: string
+  /** データ読み込み中かどうか */
+  isLoading?: boolean
+}
+
+export function useScrollRestoration(options: UseScrollRestorationOptions = {}) {
+  const { pageKey = 'page', isLoading = false } = options
+  
+  const scrollYKey = `${pageKey}ScrollY`
+  const scrollTimeKey = `${pageKey}ScrollTime`
+
   // スクロール位置を保持（シンプル版）
   useEffect(() => {
     // ブラウザのデフォルトのスクロール復元を無効化
@@ -15,8 +27,8 @@ export function useScrollRestoration(isLoading: boolean) {
     const handleScroll = () => {
       clearTimeout(scrollTimer)
       scrollTimer = setTimeout(() => {
-        sessionStorage.setItem('scheduleScrollY', window.scrollY.toString())
-        sessionStorage.setItem('scheduleScrollTime', Date.now().toString())
+        sessionStorage.setItem(scrollYKey, window.scrollY.toString())
+        sessionStorage.setItem(scrollTimeKey, Date.now().toString())
       }, 100)
     }
     
@@ -26,12 +38,12 @@ export function useScrollRestoration(isLoading: boolean) {
       window.removeEventListener('scroll', handleScroll)
       // scrollRestorationはmanualのままにしておく
     }
-  }, [])
+  }, [scrollYKey, scrollTimeKey])
 
   // マウント時にスクロール位置を即座に復元（リロード直後のみ）
   useLayoutEffect(() => {
-    const savedY = sessionStorage.getItem('scheduleScrollY')
-    const savedTime = sessionStorage.getItem('scheduleScrollTime')
+    const savedY = sessionStorage.getItem(scrollYKey)
+    const savedTime = sessionStorage.getItem(scrollTimeKey)
     
     if (savedY && savedTime) {
       const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
@@ -43,13 +55,13 @@ export function useScrollRestoration(isLoading: boolean) {
         }, 100)
       }
     }
-  }, []) // マウント時のみ実行
+  }, [scrollYKey, scrollTimeKey]) // マウント時のみ実行
 
   // データ読み込み完了後に再度復元
   useEffect(() => {
     if (!isLoading) {
-      const savedY = sessionStorage.getItem('scheduleScrollY')
-      const savedTime = sessionStorage.getItem('scheduleScrollTime')
+      const savedY = sessionStorage.getItem(scrollYKey)
+      const savedTime = sessionStorage.getItem(scrollTimeKey)
       
       if (savedY && savedTime) {
         const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
@@ -62,12 +74,12 @@ export function useScrollRestoration(isLoading: boolean) {
         }
       }
     }
-  }, [isLoading])
+  }, [isLoading, scrollYKey, scrollTimeKey])
 
   // スクロール位置をクリアする関数を返す
   const clearScrollPosition = () => {
-    sessionStorage.removeItem('scheduleScrollY')
-    sessionStorage.removeItem('scheduleScrollTime')
+    sessionStorage.removeItem(scrollYKey)
+    sessionStorage.removeItem(scrollTimeKey)
   }
 
   return { clearScrollPosition }

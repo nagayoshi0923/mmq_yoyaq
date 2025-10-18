@@ -80,7 +80,7 @@ export function ScheduleManager() {
   const scheduleData = useScheduleData(currentDate)
   const shiftDataHook = useShiftData(currentDate, scheduleData.staff, scheduleData.staffLoading)
   const memoManager = useMemoManager(currentDate, scheduleData.stores)
-  const scrollRestoration = useScrollRestoration(scheduleData.isLoading)
+  const scrollRestoration = useScrollRestoration({ pageKey: 'schedule', isLoading: scheduleData.isLoading })
 
   // フックから取得したデータを展開
   const {
