@@ -10,6 +10,8 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, CheckCircle2, XCircle, MapPin, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSessionState } from '@/hooks/useSessionState'
+import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 
 interface PrivateBookingRequest {
   id: string
@@ -48,16 +50,13 @@ export function PrivateBookingManagement() {
   const { user } = useAuth()
   const [requests, setRequests] = useState<PrivateBookingRequest[]>([])
   const [loading, setLoading] = useState(true)
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<PrivateBookingRequest | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   
-  // sessionStorageからタブの状態を復元
-  const [activeTab, setActiveTab] = useState<'pending' | 'all'>(() => {
-    const saved = sessionStorage.getItem('privateBookingActiveTab')
-    return (saved === 'all' || saved === 'pending') ? saved : 'pending'
-  })
+  // sessionStorageと同期する状態（汎用フックを使用）
+  const [activeTab, setActiveTab] = useSessionState<'pending' | 'all'>('privateBookingActiveTab', 'pending')
+  
   const [currentDate, setCurrentDate] = useState(new Date())
   const [availableGMs, setAvailableGMs] = useState<any[]>([])
   const [selectedGMId, setSelectedGMId] = useState<string>('')
@@ -175,58 +174,8 @@ export function PrivateBookingManagement() {
     })
   }
 
-  // スクロール位置の保存と復元
-  useEffect(() => {
-    if ('scrollRestoration' in history) {
-      history.scrollRestoration = 'manual'
-    }
-    let scrollTimer: NodeJS.Timeout
-    const handleScroll = () => {
-      clearTimeout(scrollTimer)
-      scrollTimer = setTimeout(() => {
-        sessionStorage.setItem('privateBookingScrollY', window.scrollY.toString())
-        sessionStorage.setItem('privateBookingScrollTime', Date.now().toString())
-      }, 100)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
-
-  useEffect(() => {
-    const savedY = sessionStorage.getItem('privateBookingScrollY')
-    const savedTime = sessionStorage.getItem('privateBookingScrollTime')
-    if (savedY && savedTime) {
-      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-      if (timeSinceScroll < 10000) {
-        setTimeout(() => {
-          window.scrollTo(0, parseInt(savedY, 10))
-        }, 100)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!loading && !initialLoadComplete) {
-      setInitialLoadComplete(true)
-      const savedY = sessionStorage.getItem('privateBookingScrollY')
-      const savedTime = sessionStorage.getItem('privateBookingScrollTime')
-      if (savedY && savedTime) {
-        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-        if (timeSinceScroll < 10000) {
-          setTimeout(() => {
-            window.scrollTo(0, parseInt(savedY, 10))
-          }, 200)
-        }
-      }
-    }
-  }, [loading, initialLoadComplete])
-
-  // タブの状態を保存
-  useEffect(() => {
-    sessionStorage.setItem('privateBookingActiveTab', activeTab)
-  }, [activeTab])
+  // スクロール位置の保存と復元（汎用フックを使用）
+  useScrollRestoration({ pageKey: 'privateBooking', isLoading: loading })
 
   useEffect(() => {
     loadRequests()

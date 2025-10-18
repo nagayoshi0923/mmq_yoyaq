@@ -10,6 +10,7 @@ import { SalesData } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import { useSessionState } from '@/hooks/useSessionState'
 import SalesSidebar from '@/components/layout/SalesSidebar'
 import AuthorReport from './AuthorReport'
 import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, Users, Search, Filter } from 'lucide-react'
@@ -64,40 +65,18 @@ interface Store {
 const SalesManagement: React.FC = () => {
   const [salesData, setSalesData] = useState<SalesData | null>(null)
   const [loading, setLoading] = useState(false)
-  // sessionStorageから期間と店舗の選択状態を復元
-  const [selectedPeriod, setSelectedPeriod] = useState(() => {
-    const saved = sessionStorage.getItem('salesSelectedPeriod')
-    return saved || 'thisMonth'
-  })
-  const [selectedStore, setSelectedStore] = useState(() => {
-    const saved = sessionStorage.getItem('salesSelectedStore')
-    return saved || 'all'
-  })
+  
+  // sessionStorageと同期する状態（汎用フックを使用）
+  const [selectedPeriod, setSelectedPeriod] = useSessionState('salesSelectedPeriod', 'thisMonth')
+  const [selectedStore, setSelectedStore] = useSessionState('salesSelectedStore', 'all')
+  const [activeTab, setActiveTab] = useSessionState('salesActiveTab', 'overview')
+  
   const [stores, setStores] = useState<Store[]>([])
   const [chartRef, setChartRef] = useState<any>(null)
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
   })
-  // sessionStorageからタブの状態を復元
-  const [activeTab, setActiveTab] = useState(() => {
-    const saved = sessionStorage.getItem('salesActiveTab')
-    return saved || 'overview'
-  })
-
-  // タブが変更されたらsessionStorageに保存
-  useEffect(() => {
-    sessionStorage.setItem('salesActiveTab', activeTab)
-  }, [activeTab])
-
-  // 期間と店舗が変更されたらsessionStorageに保存
-  useEffect(() => {
-    sessionStorage.setItem('salesSelectedPeriod', selectedPeriod)
-  }, [selectedPeriod])
-
-  useEffect(() => {
-    sessionStorage.setItem('salesSelectedStore', selectedStore)
-  }, [selectedStore])
 
   // コンテンツの条件分岐表示
   const renderContent = () => {
