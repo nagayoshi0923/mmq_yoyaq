@@ -1,5 +1,5 @@
 // React
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
 
 // UI Components
 import { Button } from '@/components/ui/button'
@@ -625,8 +625,8 @@ export function ScheduleManager() {
     loadMemos()
   }, [currentDate])
 
-  // 公演カテゴリの色設定
-  const categoryConfig = {
+  // 公演カテゴリの色設定（不変なのでメモ化）
+  const categoryConfig = useMemo(() => ({
     open: { label: 'オープン公演', badgeColor: 'bg-blue-100 text-blue-800', cardColor: 'bg-blue-50 border-blue-200' },
     private: { label: '貸切公演', badgeColor: 'bg-purple-100 text-purple-800', cardColor: 'bg-purple-50 border-purple-200' },
     gmtest: { label: 'GMテスト', badgeColor: 'bg-orange-100 text-orange-800', cardColor: 'bg-orange-50 border-orange-200' },
@@ -635,21 +635,21 @@ export function ScheduleManager() {
     venue_rental: { label: '場所貸し', badgeColor: 'bg-cyan-100 text-cyan-800', cardColor: 'bg-cyan-50 border-cyan-200' },
     venue_rental_free: { label: '場所貸無料', badgeColor: 'bg-teal-100 text-teal-800', cardColor: 'bg-teal-50 border-teal-200' },
     package: { label: 'パッケージ会', badgeColor: 'bg-pink-100 text-pink-800', cardColor: 'bg-pink-50 border-pink-200' }
-  }
+  }), [])
 
 
 
   // 予約状況によるバッジクラス取得
-  const getReservationBadgeClass = (current: number, max: number): string => {
+  const getReservationBadgeClass = useCallback((current: number, max: number): string => {
     const ratio = current / max
     if (ratio >= 1) return 'bg-red-100' // 満席
     if (ratio >= 0.8) return 'bg-yellow-100' // ほぼ満席
     if (ratio >= 0.5) return 'bg-green-100' // 順調
     return 'bg-gray-100' // 空きあり
-  }
+  }, [])
 
   // 月の変更
-  const changeMonth = (direction: 'prev' | 'next') => {
+  const changeMonth = useCallback((direction: 'prev' | 'next') => {
     // 月切り替え時はスクロール位置をクリア（一番上に戻る）
     sessionStorage.removeItem('scheduleScrollY')
     sessionStorage.removeItem('scheduleScrollTime')
@@ -663,32 +663,26 @@ export function ScheduleManager() {
       }
       return newDate
     })
-  }
+  }, [])
 
   // 月間の日付リストを生成
-  const generateMonthDays = () => {
+  const monthDays = useMemo(() => {
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    
-    const days = []
+    const days = [] as Array<{ date: string; dayOfWeek: string; day: number; displayDate: string }>
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day)
-      // UTCではなくローカル時間で日付文字列を生成
       const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       days.push({
         date: dateString,
         dayOfWeek: date.toLocaleDateString('ja-JP', { weekday: 'short' }),
-        day: day,
+        day,
         displayDate: `${month + 1}/${day}`
       })
     }
-    
     return days
-  }
-
-
-  const monthDays = generateMonthDays()
+  }, [currentDate])
 
   // 時間帯判定（開始時間のみで判定）
   const getTimeSlot = (startTime: string) => {
@@ -699,7 +693,7 @@ export function ScheduleManager() {
   }
 
   // カテゴリごとの公演数を計算
-  const getCategoryCounts = () => {
+  const getCategoryCounts = useCallback(() => {
     const counts: Record<string, number> = {
       all: events.length,
       open: 0,
@@ -733,9 +727,9 @@ export function ScheduleManager() {
     })
     
     return counts
-  }
+  }, [events])
 
-  const categoryCounts = getCategoryCounts()
+  const categoryCounts = useMemo(() => getCategoryCounts(), [getCategoryCounts])
 
   // 特定の日付・店舗・時間帯の公演を取得
   const getEventsForSlot = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
@@ -1554,10 +1548,7 @@ export function ScheduleManager() {
                         
                         {/* 午後セル */}
                         <TimeSlotCell
-                          events={(() => {
-                            const events = getEventsForSlot(day.date, store.id, 'afternoon')
-                            return events
-                          })()}
+                          events={getEventsForSlot(day.date, store.id, 'afternoon')}
                           date={day.date}
                           venue={store.id}
                           timeSlot="afternoon"

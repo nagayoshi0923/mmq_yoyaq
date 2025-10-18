@@ -645,12 +645,12 @@ export function StaffManagement() {
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全ステータス</SelectItem>
-                  <SelectItem value="active">在籍中</SelectItem>
-                  <SelectItem value="inactive">休職中</SelectItem>
-                  <SelectItem value="on-leave">休暇中</SelectItem>
-                </SelectContent>
+              <SelectContent>
+                <SelectItem value="all">全ステータス</SelectItem>
+                <SelectItem value="active">在籍中</SelectItem>
+                <SelectItem value="inactive">休職中</SelectItem>
+                <SelectItem value="on_leave">休暇中</SelectItem>
+              </SelectContent>
               </Select>
             </div>
 

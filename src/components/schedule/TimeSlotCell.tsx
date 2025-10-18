@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { TableCell } from '@/components/ui/table'
 import { PerformanceCard } from './PerformanceCard'
 import { EmptySlot } from './EmptySlot'
@@ -50,7 +50,7 @@ interface TimeSlotCellProps {
   onContextMenuEvent?: (event: ScheduleEvent, x: number, y: number) => void
 }
 
-export function TimeSlotCell({
+function TimeSlotCellBase({
   events,
   date,
   venue,
@@ -69,6 +69,41 @@ export function TimeSlotCell({
   onContextMenuEvent
 }: TimeSlotCellProps) {
   const [isDragOver, setIsDragOver] = useState(false)
+
+  // 色決定のための定数とヘルパー
+  const DEFAULT_AVATAR_COLORS = useMemo(() => [
+    '#EFF6FF', '#F0FDF4', '#FFFBEB', '#FEF2F2',
+    '#F5F3FF', '#FDF2F8', '#ECFEFF', '#F7FEE7'
+  ] as const, [])
+
+  const AVATAR_TEXT_COLORS = useMemo(() => [
+    '#2563EB', '#16A34A', '#D97706', '#DC2626',
+    '#7C3AED', '#DB2777', '#0891B2', '#65A30D'
+  ] as const, [])
+
+  const COLOR_MAP: Record<string, string> = useMemo(() => ({
+    '#EFF6FF': '#2563EB', '#F0FDF4': '#16A34A',
+    '#FFFBEB': '#D97706', '#FEF2F2': '#DC2626',
+    '#F5F3FF': '#7C3AED', '#FDF2F8': '#DB2777',
+    '#ECFEFF': '#0891B2', '#F7FEE7': '#65A30D',
+  }), [])
+
+  const getStaffAvatarColors = (staff: Staff) => {
+    if ((staff as any).avatar_color) {
+      const bg = (staff as any).avatar_color as string
+      return {
+        bgColor: bg,
+        textColor: COLOR_MAP[bg] || '#374151'
+      }
+    }
+    const name = (staff as any).name as string
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    const colorIndex = hash % DEFAULT_AVATAR_COLORS.length
+    return {
+      bgColor: DEFAULT_AVATAR_COLORS[colorIndex],
+      textColor: AVATAR_TEXT_COLORS[colorIndex]
+    }
+  }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -145,44 +180,16 @@ export function TimeSlotCell({
           {availableStaff.length > 0 ? (
             <div className="flex flex-wrap gap-0.5 justify-end items-end p-1">
               {availableStaff.map((staff) => {
-                // 背景色と文字色を計算
-                const defaultColors = [
-                  '#EFF6FF', '#F0FDF4', '#FFFBEB', '#FEF2F2',
-                  '#F5F3FF', '#FDF2F8', '#ECFEFF', '#F7FEE7'
-                ]
-                const textColors = [
-                  '#2563EB', '#16A34A', '#D97706', '#DC2626',
-                  '#7C3AED', '#DB2777', '#0891B2', '#65A30D'
-                ]
-                
-                let bgColor: string
-                let textColorHex: string
-                
-                if (staff.avatar_color) {
-                  bgColor = staff.avatar_color
-                  const colorMap: Record<string, string> = {
-                    '#EFF6FF': '#2563EB', '#F0FDF4': '#16A34A',
-                    '#FFFBEB': '#D97706', '#FEF2F2': '#DC2626',
-                    '#F5F3FF': '#7C3AED', '#FDF2F8': '#DB2777',
-                    '#ECFEFF': '#0891B2', '#F7FEE7': '#65A30D',
-                  }
-                  textColorHex = colorMap[staff.avatar_color] || '#374151'
-                } else {
-                  const hash = staff.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-                  const colorIndex = hash % defaultColors.length
-                  bgColor = defaultColors[colorIndex]
-                  textColorHex = textColors[colorIndex]
-                }
-                
+                const { bgColor, textColor } = getStaffAvatarColors(staff as any)
                 return (
                   <Badge
                     key={staff.id}
                     variant="outline"
                     title={staff.name}
                     style={{
-                      backgroundColor: bgColor,
-                      color: textColorHex,
-                      borderColor: textColorHex + '40'
+                      backgroundColor: bgColor as string,
+                      color: textColor as string,
+                      borderColor: (textColor as string) + '40'
                     }}
                     className="text-[8px] px-1 py-0 h-4 font-normal border"
                   >
@@ -199,3 +206,5 @@ export function TimeSlotCell({
     </TableCell>
   )
 }
+
+export const TimeSlotCell = React.memo(TimeSlotCellBase)
