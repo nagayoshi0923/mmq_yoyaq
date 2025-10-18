@@ -892,6 +892,18 @@ export const salesApi = {
       const participationFee = scenarioInfo?.participation_fee || 0
       const revenue = participantCount * participationFee
       
+      // デバッグログ（最初の5件のみ）
+      if (events.indexOf(event) < 5) {
+        console.log('💰 売上計算デバッグ:', {
+          eventId: event.id,
+          date: event.date,
+          scenario: scenarioInfo?.title,
+          participantCount,
+          participationFee,
+          revenue
+        })
+      }
+      
       return {
         ...event,
         scenarios: scenarioInfo,
