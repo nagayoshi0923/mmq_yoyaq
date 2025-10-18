@@ -124,11 +124,18 @@ const SalesManagement: React.FC = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <NavigationBar currentPage="sales" />
-      <SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />
       
-      <div className="ml-64">
-        <div className="container mx-auto max-w-7xl px-8 pt-6 pb-12">
-          {renderContent()}
+      <div className="flex">
+        {/* サイドバー */}
+        <div className="hidden lg:block">
+          <SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
+        
+        {/* メインコンテンツ */}
+        <div className="flex-1 min-w-0">
+          <div className="container mx-auto max-w-7xl px-8 py-6">
+            {renderContent()}
+          </div>
         </div>
       </div>
     </div>
