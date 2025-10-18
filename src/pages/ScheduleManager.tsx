@@ -625,8 +625,8 @@ export function ScheduleManager() {
     loadMemos()
   }, [currentDate])
 
-  // 公演カテゴリの色設定
-  const categoryConfig = {
+  // 公演カテゴリの色設定（不変なのでメモ化）
+  const categoryConfig = useMemo(() => ({
     open: { label: 'オープン公演', badgeColor: 'bg-blue-100 text-blue-800', cardColor: 'bg-blue-50 border-blue-200' },
     private: { label: '貸切公演', badgeColor: 'bg-purple-100 text-purple-800', cardColor: 'bg-purple-50 border-purple-200' },
     gmtest: { label: 'GMテスト', badgeColor: 'bg-orange-100 text-orange-800', cardColor: 'bg-orange-50 border-orange-200' },
@@ -635,7 +635,7 @@ export function ScheduleManager() {
     venue_rental: { label: '場所貸し', badgeColor: 'bg-cyan-100 text-cyan-800', cardColor: 'bg-cyan-50 border-cyan-200' },
     venue_rental_free: { label: '場所貸無料', badgeColor: 'bg-teal-100 text-teal-800', cardColor: 'bg-teal-50 border-teal-200' },
     package: { label: 'パッケージ会', badgeColor: 'bg-pink-100 text-pink-800', cardColor: 'bg-pink-50 border-pink-200' }
-  }
+  }), [])
 
 
 
@@ -1548,10 +1548,7 @@ export function ScheduleManager() {
                         
                         {/* 午後セル */}
                         <TimeSlotCell
-                          events={(() => {
-                            const events = getEventsForSlot(day.date, store.id, 'afternoon')
-                            return events
-                          })()}
+                          events={getEventsForSlot(day.date, store.id, 'afternoon')}
                           date={day.date}
                           venue={store.id}
                           timeSlot="afternoon"
