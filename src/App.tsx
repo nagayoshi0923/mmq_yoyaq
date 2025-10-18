@@ -7,7 +7,7 @@ import { SetPassword } from '@/pages/SetPassword'
 
 function AppContent() {
   const { user, loading } = useAuth()
-  const [currentHash, setCurrentHash] = React.useState(window.location.hash.slice(1))
+  const [currentHash, setCurrentHash] = React.useState(() => window.location.hash.slice(1))
 
   React.useEffect(() => {
     const handleHashChange = () => {
