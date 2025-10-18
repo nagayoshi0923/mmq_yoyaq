@@ -1212,7 +1212,7 @@ const SalesManagement: React.FC = () => {
       }
       
       // デバッグログ
-      logger.debug('売上計算デバッグ:', {
+      logger.log('売上計算デバッグ:', {
         totalEvents: events.length,
         selectedPeriodEvents: selectedPeriodEvents.length,
         sampleEvent: selectedPeriodEvents[0],
@@ -1230,7 +1230,7 @@ const SalesManagement: React.FC = () => {
       const totalEvents = selectedPeriodEvents.length
       const averageRevenuePerEvent = totalEvents > 0 ? totalRevenue / totalEvents : 0
       
-      logger.debug('売上計算結果:', {
+      logger.log('売上計算結果:', {
         totalRevenue,
         totalEvents,
         averageRevenuePerEvent
@@ -1261,7 +1261,7 @@ const SalesManagement: React.FC = () => {
         const participationFee = event.scenarios?.participation_fee || 0
         
         // デバッグログ
-        logger.debug('店舗別集計デバッグ:', {
+        logger.log('店舗別集計デバッグ:', {
           eventId: event.id,
           venue: event.venue,
           storeName: storeName,
@@ -1729,7 +1729,7 @@ const SalesManagement: React.FC = () => {
       : defaultMaxEvents
     
     // デバッグログ
-    logger.debug('グラフレンジ計算:', { 
+    logger.log('グラフレンジ計算:', { 
       hasData, 
       storeCount, 
       isDailyChart, 
