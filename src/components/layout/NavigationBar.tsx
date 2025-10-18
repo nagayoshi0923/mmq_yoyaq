@@ -1,3 +1,4 @@
+import { useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
@@ -20,8 +21,8 @@ interface NavigationBarProps {
 export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps) {
   const { user } = useAuth()
   
-  // 全タブ定義
-  const allTabs = [
+  // 全タブ定義（定数なのでメモ化）
+  const allTabs = useMemo(() => [
     { id: 'stores', label: '店舗', icon: Store, roles: ['admin', 'staff'] },
     { id: 'schedule', label: 'スケジュール', icon: Calendar, roles: ['admin', 'staff'] },
     { id: 'staff', label: 'スタッフ', icon: Users, roles: ['admin', 'staff'] },
@@ -35,21 +36,22 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
     { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },
     { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin', 'staff'] },
     { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] }
-  ]
+  ], [])
   
   // ユーザーのロールに応じてタブをフィルタリング
-  const navigationTabs = allTabs.filter(tab => 
-    !user || tab.roles.includes(user.role)
+  const navigationTabs = useMemo(() => 
+    allTabs.filter(tab => !user || tab.roles.includes(user.role)),
+    [allTabs, user]
   )
 
-  const handlePageChange = (pageId: string) => {
+  const handlePageChange = useCallback((pageId: string) => {
     if (onPageChange) {
       onPageChange(pageId)
     } else {
       // 各機能ページから呼ばれた場合はハッシュを変更
       window.location.hash = pageId === 'dashboard' ? '' : pageId
     }
-  }
+  }, [onPageChange])
 
   return (
     <nav className="border-b border-border bg-muted/30">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StoreManagement } from './StoreManagement'
@@ -70,23 +70,23 @@ export function AdminDashboard() {
   })
 
   // ページ変更時にURLのハッシュを更新
-  const handlePageChange = (pageId: string) => {
+  const handlePageChange = useCallback((pageId: string) => {
     setCurrentPage(pageId)
     setSelectedScenarioId(null) // ページ変更時はシナリオ選択をクリア
     window.location.hash = pageId === 'dashboard' ? '' : pageId
-  }
+  }, [])
 
   // シナリオ選択時のハンドラー
-  const handleScenarioSelect = (scenarioId: string) => {
+  const handleScenarioSelect = useCallback((scenarioId: string) => {
     setSelectedScenarioId(scenarioId)
     window.location.hash = `customer-booking/scenario/${scenarioId}`
-  }
+  }, [])
 
   // シナリオ詳細を閉じる
-  const handleScenarioClose = () => {
+  const handleScenarioClose = useCallback(() => {
     setSelectedScenarioId(null)
     window.location.hash = 'customer-booking'
-  }
+  }, [])
 
   // ブラウザの戻る/進むボタンに対応
   React.useEffect(() => {
