@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { TIME_SLOT_DEFAULTS } from '@/utils/scheduleUtils'
 import type { ScheduleEvent } from '@/types/schedule'
+import { logger } from '@/utils/logger'
 
 interface Store {
   id: string
@@ -74,9 +75,9 @@ export function useContextMenuActions({ stores, setEvents }: UseContextMenuActio
       // ローカル状態を更新
       setEvents(prev => [...prev, { ...savedEvent, venue: targetVenue }])
 
-      console.log('公演をペーストしました')
+      logger.log('公演をペーストしました')
     } catch (error) {
-      console.error('公演ペーストエラー:', error)
+      logger.error('公演ペーストエラー:', error)
       alert('公演のペーストに失敗しました')
     }
   }, [clipboardEvent, stores, setEvents])

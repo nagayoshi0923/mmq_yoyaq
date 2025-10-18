@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { shiftApi } from '@/lib/shiftApi'
 import type { Staff } from '@/types'
+import { logger } from '@/utils/logger'
 
 export function useShiftData(
   currentDate: Date,
@@ -58,7 +59,7 @@ export function useShiftData(
         
         setShiftData(shiftMap)
       } catch (error) {
-        console.error('Error loading shift data:', error)
+        logger.error('Error loading shift data:', error)
       }
     }
     

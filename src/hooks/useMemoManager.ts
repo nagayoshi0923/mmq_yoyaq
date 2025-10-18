@@ -64,7 +64,7 @@ export function useMemoManager(currentDate: Date, stores: Store[]) {
 
       if (venueId) {
         await memoApi.save(date, venueId, memo)
-        console.log('メモ保存成功:', { date, venue, memo })
+        logger.log('メモ保存成功:', { date, venue, memo })
       } else {
         logger.error('店舗IDが見つかりません:', venue)
       }

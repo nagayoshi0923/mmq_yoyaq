@@ -107,7 +107,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         ]) as any
 
         if (roleError) {
-          console.warn('⚠️ usersテーブルからのロール取得エラー:', roleError)
+          logger.warn('⚠️ usersテーブルからのロール取得エラー:', roleError)
           // フォールバック: メールアドレスで判定（開発用）
           const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
           if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
@@ -121,7 +121,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           logger.log('✅ データベースからロール取得:', role)
         }
       } catch (error: any) {
-        console.warn('⚠️ ロール取得失敗（タイムアウト/エラー）:', error?.message || error)
+        logger.warn('⚠️ ロール取得失敗（タイムアウト/エラー）:', error?.message || error)
         // フォールバック: メールアドレスで判定
         const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
         if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {

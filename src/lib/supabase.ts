@@ -1,12 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
+import { logger } from '@/utils/logger'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cznpcewciwywcqcxktba.supabase.co'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6bnBjZXdjaXd5d2NxY3hrdGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzMyMjAsImV4cCI6MjA3NDIwOTIyMH0.GBR1kO877s6iy1WmVXL4xY8wpsyAdmgsXKEQbm0MNLo'
 
 // 開発環境では警告のみ表示
 if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-  console.warn('⚠️ Supabase環境変数が設定されていません。デモモードで動作します。')
-  console.warn('実際のSupabaseを使用する場合は、.env.localファイルを作成してください。')
+  logger.warn('⚠️ Supabase環境変数が設定されていません。デモモードで動作します。')
+  logger.warn('実際のSupabaseを使用する場合は、.env.localファイルを作成してください。')
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)

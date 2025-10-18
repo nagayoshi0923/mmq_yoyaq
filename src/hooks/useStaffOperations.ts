@@ -67,7 +67,7 @@ export function useStaffOperations() {
         })
       )
       
-      console.log('📥 読み込んだスタッフデータ（最初の1件）:', staffWithScenarios[0] ? {
+      logger.log('📥 読み込んだスタッフデータ（最初の1件）:', staffWithScenarios[0] ? {
         name: staffWithScenarios[0].name,
         avatar_color: staffWithScenarios[0].avatar_color,
         avatar_url: staffWithScenarios[0].avatar_url
@@ -118,7 +118,7 @@ export function useStaffOperations() {
         const specialScenariosChanged = JSON.stringify(originalStaff?.special_scenarios?.sort()) !== JSON.stringify(staffData.special_scenarios?.sort())
         
         // まず基本情報を更新
-        console.log('💾 保存するスタッフデータ:', { id: staffData.id, avatar_color: staffData.avatar_color, name: staffData.name })
+        logger.log('💾 保存するスタッフデータ:', { id: staffData.id, avatar_color: staffData.avatar_color, name: staffData.name })
         await staffApi.update(staffData.id, staffData)
         
         // 担当シナリオが変更された場合、リレーションテーブルも更新

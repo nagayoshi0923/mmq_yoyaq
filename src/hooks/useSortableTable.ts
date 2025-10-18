@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { SortDirection, SortState, SortableConfig } from '@/types/sortable'
+import { logger } from '@/utils/logger'
 
 export function useSortableTable<T extends string, D = any>(
   config: SortableConfig<T>

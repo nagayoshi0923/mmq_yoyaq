@@ -179,7 +179,7 @@ export function CustomerBookingPage() {
 
   const handleBooking = (event: PublicEvent) => {
     // TODO: 予約フォームへ遷移
-    console.log('予約:', event)
+    logger.log('予約:', event)
     alert(`「${event.scenario_title}」の予約機能は実装中です`)
   }
 

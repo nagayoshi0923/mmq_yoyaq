@@ -1,5 +1,6 @@
 // スタッフ招待API
 import { supabase } from './supabase'
+import { logger } from '@/utils/logger'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 
@@ -59,7 +60,7 @@ export async function inviteStaff(request: InviteStaffRequest): Promise<InviteSt
 
     return await response.json()
   } catch (error) {
-    console.error('❌ Staff invite error:', error)
+    logger.error('❌ Staff invite error:', error)
     throw error
   }
 }
