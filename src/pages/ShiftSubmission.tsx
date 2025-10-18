@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { shiftApi } from '@/lib/shiftApi'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 import { 
   ChevronLeft,
   ChevronRight,
@@ -149,7 +150,7 @@ export function ShiftSubmission() {
         
         setShiftData(newShiftData)
       } catch (error) {
-        console.error('シフトデータ読み込みエラー:', error)
+        logger.error('シフトデータ読み込みエラー:', error)
       } finally {
         setLoading(false)
       }
@@ -308,7 +309,7 @@ export function ShiftSubmission() {
       setShiftData(updatedShiftData)
       
     } catch (error) {
-      console.error('シフト提出エラー:', error)
+      logger.error('シフト提出エラー:', error)
       alert('シフトの提出に失敗しました')
     } finally {
       setLoading(false)

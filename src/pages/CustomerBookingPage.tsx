@@ -8,6 +8,7 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, MapPin, Search } from 'lucide-react'
 import { scheduleApi, storeApi } from '@/lib/api'
+import { logger } from '@/utils/logger'
 
 interface PublicEvent {
   id: string
@@ -53,7 +54,7 @@ export function CustomerBookingPage() {
       const data = await storeApi.getAll()
       setStores(data)
     } catch (error) {
-      console.error('店舗データの読み込みエラー:', error)
+      logger.error('店舗データの読み込みエラー:', error)
     }
   }
 
@@ -112,7 +113,7 @@ export function CustomerBookingPage() {
       
       setEvents(events)
     } catch (error) {
-      console.error('公演データの読み込みエラー:', error)
+      logger.error('公演データの読み込みエラー:', error)
     } finally {
       setIsLoading(false)
     }

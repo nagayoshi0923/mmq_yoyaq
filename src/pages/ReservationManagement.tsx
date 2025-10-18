@@ -9,6 +9,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Search, Calendar, Clock, User, DollarSign, Filter, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { Reservation } from '@/types'
+import { logger } from '@/utils/logger'
 
 // 予約管理画面用の拡張型
 interface ReservationWithDetails extends Reservation {
@@ -126,7 +127,7 @@ export function ReservationManagement() {
         .order('created_at', { ascending: true })  // 次に先着順（古い順）
       
       if (error) {
-        console.error('予約データ取得エラー:', error)
+        logger.error('予約データ取得エラー:', error)
         setReservations([])
         return
       }
@@ -164,7 +165,7 @@ export function ReservationManagement() {
       
       setReservations(formattedData)
     } catch (error) {
-      console.error('予約データの読み込みエラー:', error)
+      logger.error('予約データの読み込みエラー:', error)
       setReservations([])
     } finally {
       setIsLoading(false)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { PrivateBookingRequest } from './PrivateBookingRequest'
 import { scenarioApi, storeApi } from '@/lib/api'
+import { logger } from '@/utils/logger'
 
 interface TimeSlot {
   label: string
@@ -56,7 +57,7 @@ export function PrivateBookingRequestPage() {
       const foundScenario = scenarios.find((s: any) => s.id === scenarioId)
       
       if (!foundScenario) {
-        console.error('シナリオが見つかりません')
+        logger.error('シナリオが見つかりません')
         return
       }
       
@@ -81,7 +82,7 @@ export function PrivateBookingRequestPage() {
       }
       
     } catch (error) {
-      console.error('データの読み込みエラー:', error)
+      logger.error('データの読み込みエラー:', error)
     } finally {
       setLoading(false)
     }

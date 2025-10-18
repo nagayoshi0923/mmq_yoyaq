@@ -9,6 +9,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 
 interface TimeSlot {
   label: string
@@ -154,7 +155,7 @@ export function PrivateBookingRequest({
           }
         }
       } catch (error) {
-        console.error('顧客レコードの作成/更新エラー:', error)
+        logger.error('顧客レコードの作成/更新エラー:', error)
       }
 
       // 親予約番号を生成（全候補で共通）
@@ -212,7 +213,7 @@ export function PrivateBookingRequest({
         .single()
       
       if (parentError) {
-        console.error('貸切リクエストエラー:', parentError)
+        logger.error('貸切リクエストエラー:', parentError)
         setError('貸切リクエストの送信に失敗しました。もう一度お試しください。')
         setIsSubmitting(false)
         return
@@ -246,7 +247,7 @@ export function PrivateBookingRequest({
         }
       }, 3000)
     } catch (error) {
-      console.error('貸切リクエスト処理エラー:', error)
+      logger.error('貸切リクエスト処理エラー:', error)
       setError('処理中にエラーが発生しました')
       setIsSubmitting(false)
     }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertCircle, CheckCircle, Lock } from 'lucide-react'
+import { logger } from '@/utils/logger'
 
 export function SetPassword() {
   const [loading, setLoading] = useState(false)
@@ -62,7 +63,7 @@ export function SetPassword() {
       }, 3000)
 
     } catch (err: any) {
-      console.error('Password set error:', err)
+      logger.error('Password set error:', err)
       setError(err.message || 'パスワードの設定に失敗しました')
     } finally {
       setLoading(false)
