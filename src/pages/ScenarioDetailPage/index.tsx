@@ -12,8 +12,8 @@ import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
 import { getColorFromName } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { BookingConfirmation } from './BookingConfirmation'
-import { PrivateBookingRequest } from './PrivateBookingRequest'
+import { BookingConfirmation } from '../BookingConfirmation'
+import { PrivateBookingRequest } from '../PrivateBookingRequest'
 import { logger } from '@/utils/logger'
 
 interface ScenarioDetail {
