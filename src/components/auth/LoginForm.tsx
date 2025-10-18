@@ -46,14 +46,15 @@ export function LoginForm() {
         // ログイン成功後、予約サイトへリダイレクト
         window.location.hash = 'customer-booking'
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : ''
       if (isForgotPassword) {
-        setError('パスワードリセットメールの送信に失敗しました。' + (error.message || ''))
+        setError('パスワードリセットメールの送信に失敗しました。' + message)
       } else if (isSignUp) {
-        setError('アカウント作成に失敗しました。' + (error.message || ''))
+        setError('アカウント作成に失敗しました。' + message)
       } else {
         // メール未確認エラーの場合
-        if (error.message?.includes('Email not confirmed')) {
+        if (message.includes('Email not confirmed')) {
           setError('メールアドレスが確認されていません。登録時に送信された確認メールのリンクをクリックしてください。')
         } else {
           setError('ログインに失敗しました。メールアドレスとパスワードを確認してください。')
@@ -84,8 +85,9 @@ export function LoginForm() {
       setEmail(testEmail)
       setPassword(testPassword)
       setMessage(`${role}用テストアカウントを作成しました。\nメール: ${testEmail}\nパスワード: ${testPassword}\n\n※ メールアドレスの確認が必要です。受信トレイを確認してください。`)
-    } catch (error: any) {
-      setError('テストアカウント作成に失敗しました。' + (error.message || ''))
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : ''
+      setError('テストアカウント作成に失敗しました。' + message)
       logger.error('Test account creation error:', error)
     }
   }

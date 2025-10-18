@@ -47,7 +47,7 @@ export class ApiError extends Error {
 /**
  * Supabase エラーを ApiError に変換
  */
-export function handleSupabaseError(error: any, context?: string): ApiError {
+export function handleSupabaseError(error: unknown, context?: string): ApiError {
   // エラーがない場合
   if (!error) {
     return new ApiError(
@@ -182,7 +182,7 @@ export function getUserFriendlyMessage(error: ApiError): string {
 /**
  * エラーをログに出力（開発環境のみ詳細表示）
  */
-export function logApiError(error: ApiError, additionalInfo?: Record<string, any>): void {
+export function logApiError(error: ApiError, additionalInfo?: Record<string, unknown>): void {
   if (import.meta.env.DEV) {
     logger.group(`🔴 API Error: ${error.type}`)
     logger.error('Message:', error.message)

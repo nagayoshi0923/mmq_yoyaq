@@ -52,7 +52,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
     }
   }
 
-  const handleInputChange = (field: keyof Store, value: any) => {
+  const handleInputChange = (field: keyof Store, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 

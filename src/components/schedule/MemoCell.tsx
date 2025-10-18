@@ -13,7 +13,7 @@ interface MemoCellProps {
 function useDebounce(callback: Function, delay: number) {
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null)
 
-  const debouncedCallback = useCallback((...args: any[]) => {
+  const debouncedCallback = useCallback((...args: Parameters<typeof callback>) => {
     if (debounceTimer) {
       clearTimeout(debounceTimer)
     }

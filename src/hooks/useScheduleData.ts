@@ -20,6 +20,55 @@ interface Scenario {
   player_count_max?: number
 }
 
+// Supabaseから取得したイベントデータの型
+interface RawEventData {
+  id: string
+  date: string
+  store_id: string
+  scenario?: string
+  scenarios?: { title: string }
+  gms: string[]
+  start_time: string
+  end_time: string
+  category: string
+  is_cancelled: boolean
+  current_participants?: number
+  capacity: number
+  notes?: string
+  is_reservation_enabled: boolean
+}
+
+// 貸切リクエストの候補
+interface CandidateDateTime {
+  date: string
+  startTime?: string
+  endTime?: string
+  order: number
+  status?: 'confirmed' | 'pending'
+  confirmedStore?: string
+}
+
+// GM応答データ
+interface GMAvailabilityResponse {
+  response_status: 'available' | 'unavailable'
+  staff?: { name: string }
+}
+
+// 貸切リクエストデータ
+interface PrivateRequestData {
+  id: string
+  title: string
+  status: string
+  store_id: string
+  gm_staff?: string
+  participant_count: number
+  candidate_datetimes?: {
+    candidates: CandidateDateTime[]
+  }
+  scenarios?: { title: string; player_count_max: number }
+  gm_availability_responses?: GMAvailabilityResponse[]
+}
+
 export function useScheduleData(currentDate: Date) {
   // 初回読み込み完了フラグ（useRefで管理してレンダリングをトリガーしない）
   const initialLoadComplete = useRef(false)
@@ -111,7 +160,7 @@ export function useScheduleData(currentDate: Date) {
           staffData.map(async (staffMember) => {
             try {
               const assignments = await assignmentApi.getStaffAssignments(staffMember.id)
-              const scenarioIds = assignments.map((a: any) => a.scenario_id)
+              const scenarioIds = assignments.map((a: { scenario_id: string }) => a.scenario_id)
               return {
                 ...staffMember,
                 special_scenarios: scenarioIds
@@ -155,7 +204,7 @@ export function useScheduleData(currentDate: Date) {
         const data = await scheduleApi.getByMonth(year, month)
         
         // Supabaseのデータを内部形式に変換
-        const formattedEvents: ScheduleEvent[] = data.map((event: any) => ({
+        const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => ({
           id: event.id,
           date: event.date,
           venue: event.store_id, // store_idを直接使用
@@ -203,14 +252,14 @@ export function useScheduleData(currentDate: Date) {
         // 貸切リクエストをスケジュールイベントに変換
         const privateEvents: ScheduleEvent[] = []
         if (privateRequests) {
-          privateRequests.forEach((request: any) => {
+          privateRequests.forEach((request: PrivateRequestData) => {
             if (request.candidate_datetimes?.candidates) {
               // GMの名前を取得
               let gmNames: string[] = []
               
               // 確定したGMがいる場合は、staff配列から名前を検索
               if (request.gm_staff && staff && staff.length > 0) {
-                const assignedGM = staff.find((s: any) => s.id === request.gm_staff)
+                const assignedGM = staff.find((s: Staff) => s.id === request.gm_staff)
                 if (assignedGM) {
                   gmNames = [assignedGM.name]
                 }
@@ -219,9 +268,9 @@ export function useScheduleData(currentDate: Date) {
               // staffから見つからなかった場合、gm_availability_responsesから取得
               if (gmNames.length === 0 && request.gm_availability_responses) {
                 gmNames = request.gm_availability_responses
-                  ?.filter((r: any) => r.response_status === 'available')
-                  ?.map((r: any) => r.staff?.name)
-                  ?.filter((name: string) => name) || []
+                  ?.filter((r: GMAvailabilityResponse) => r.response_status === 'available')
+                  ?.map((r: GMAvailabilityResponse) => r.staff?.name)
+                  ?.filter((name): name is string => !!name) || []
               }
               
               // それでも見つからない場合
@@ -234,7 +283,7 @@ export function useScheduleData(currentDate: Date) {
               
               // status='confirmed'の場合は、candidate.status='confirmed'の候補のみ表示
               if (request.status === 'confirmed') {
-                const confirmedCandidates = candidatesToShow.filter((c: any) => c.status === 'confirmed')
+                const confirmedCandidates = candidatesToShow.filter((c: CandidateDateTime) => c.status === 'confirmed')
                 if (confirmedCandidates.length > 0) {
                   candidatesToShow = confirmedCandidates.slice(0, 1) // 最初の1つだけ
                 } else {
@@ -243,7 +292,7 @@ export function useScheduleData(currentDate: Date) {
                 }
               }
               
-              candidatesToShow.forEach((candidate: any) => {
+              candidatesToShow.forEach((candidate: CandidateDateTime) => {
                 const candidateDate = new Date(candidate.date)
                 const candidateMonth = candidateDate.getMonth() + 1
                 const candidateYear = candidateDate.getFullYear()

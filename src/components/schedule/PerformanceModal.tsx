@@ -36,10 +36,27 @@ interface ScheduleEvent {
 }
 
 
+interface EventFormData {
+  date: string
+  venue: string
+  scenario: string
+  scenario_id?: string
+  category: string
+  start_time: string
+  end_time: string
+  max_participants: number
+  capacity: number
+  gms: string[]
+  notes?: string
+  id?: string
+  is_private_request?: boolean
+  reservation_id?: string
+}
+
 interface PerformanceModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (eventData: any) => void
+  onSave: (eventData: EventFormData) => void
   mode: 'add' | 'edit'
   event?: ScheduleEvent | null  // 編集時のみ
   initialData?: { date: string, venue: string, timeSlot: string }  // 追加時のみ
@@ -107,7 +124,7 @@ export function PerformanceModal({
   const handleTimeSlotChange = (slot: 'morning' | 'afternoon' | 'evening') => {
     setTimeSlot(slot)
     const defaults = timeSlotDefaults[slot]
-    setFormData((prev: any) => ({
+    setFormData((prev: EventFormData) => ({
       ...prev,
       start_time: defaults.start_time,
       end_time: defaults.end_time
@@ -171,14 +188,14 @@ export function PerformanceModal({
     if (selectedScenario) {
       const endTime = calculateEndTime(formData.start_time, scenarioTitle)
       
-      setFormData((prev: any) => ({
+      setFormData((prev: EventFormData) => ({
         ...prev,
         scenario: scenarioTitle,
         end_time: endTime,
         max_participants: selectedScenario.player_count_max
       }))
     } else {
-      setFormData((prev: any) => ({
+      setFormData((prev: EventFormData) => ({
         ...prev,
         scenario: scenarioTitle
       }))
@@ -189,7 +206,7 @@ export function PerformanceModal({
   const handleStartTimeChange = (startTime: string) => {
     const endTime = formData.scenario ? calculateEndTime(startTime, formData.scenario) : startTime
     
-    setFormData((prev: any) => ({
+    setFormData((prev: EventFormData) => ({
       ...prev,
       start_time: startTime,
       end_time: endTime
@@ -225,11 +242,11 @@ export function PerformanceModal({
         await onScenariosUpdate()
       }
       // 新しく作成したシナリオを選択
-      setFormData((prev: any) => ({ ...prev, scenario: newScenario.title }))
-    } catch (error: any) {
+      setFormData((prev: EventFormData) => ({ ...prev, scenario: newScenario.title }))
+    } catch (error: unknown) {
       logger.error('シナリオ作成エラー:', error)
-      logger.error('エラー詳細:', error.message, error.details, error.hint)
-      alert(`シナリオの作成に失敗しました: ${error.message || 'エラーが発生しました'}`)
+      const message = error instanceof Error ? error.message : '不明なエラー'
+      alert(`シナリオの作成に失敗しました: ${message}`)
     }
   }
 
@@ -250,14 +267,14 @@ export function PerformanceModal({
       }
       
       // 新しく作成したスタッフをGMとして選択
-      setFormData((prev: any) => ({ 
+      setFormData((prev: EventFormData) => ({ 
         ...prev, 
         gms: [...prev.gms, newStaff.name] 
       }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('スタッフ作成エラー:', error)
-      logger.error('エラー詳細:', error.message, error.details, error.hint)
-      alert(`スタッフの作成に失敗しました: ${error.message || 'エラーが発生しました'}`)
+      const message = error instanceof Error ? error.message : '不明なエラー'
+      alert(`スタッフの作成に失敗しました: ${message}`)
     }
   }
 
@@ -432,9 +449,9 @@ export function PerformanceModal({
               <Label htmlFor="category">公演カテゴリ</Label>
               <Select 
                 value={formData.category} 
-                onValueChange={(value: any) => {
+                onValueChange={(value: string) => {
                   // カテゴリ変更時もシナリオを維持
-                  setFormData((prev: any) => ({ 
+                  setFormData((prev: EventFormData) => ({ 
                     ...prev, 
                     category: value,
                     // 既存のシナリオ選択を明示的に保持
@@ -629,7 +646,7 @@ export function PerformanceModal({
                       className="h-4 w-4 p-0 hover:bg-red-100"
                       onClick={() => {
                         const newGms = formData.gms.filter((g: string) => g !== gm)
-                        setFormData((prev: any) => ({ ...prev, gms: newGms }))
+                        setFormData((prev: EventFormData) => ({ ...prev, gms: newGms }))
                       }}
                     >
                       <X className="h-3 w-3" />

@@ -57,7 +57,7 @@ export function useContextMenuActions({ stores, setEvents }: UseContextMenuActio
       const defaults = TIME_SLOT_DEFAULTS[targetTimeSlot]
 
       // 新しい位置に公演を作成（元の公演は残す）
-      const newEventData: any = {
+      const newEventData = {
         date: targetDate,
         store_id: targetVenue,
         venue: stores.find(s => s.id === targetVenue)?.name || '',

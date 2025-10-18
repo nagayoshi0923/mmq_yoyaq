@@ -142,7 +142,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   
   // 移行確認ダイアログ用
   const [migrationDialogOpen, setMigrationDialogOpen] = useState(false)
-  const [existingActiveReward, setExistingActiveReward] = useState<{ index: number; reward: any } | null>(null)
+  const [existingActiveReward, setExistingActiveReward] = useState<{ index: number; reward: { item: string; amount: number; status?: string } } | null>(null)
   
   // 過去のみ非表示状態管理
   const [hideLegacyRewards, setHideLegacyRewards] = useState(false)
@@ -169,7 +169,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   const licenseValidation = validateLicenseNormalSetting()
 
   // 参加費の「通常」設定バリデーション
-  const validateParticipationNormalSetting = (items: any[]) => {
+  const validateParticipationNormalSetting = (items: Array<{ originalTimeSlot?: string; item?: string; status?: string }>) => {
     const hasNormalSetting = items.some(item => 
       (item.originalTimeSlot === '通常' || item.item === '通常') && (item.status === 'active' || item.status === 'ready')
     )
@@ -203,7 +203,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }
 
   // GM報酬の「メインGM」設定バリデーション
-  const validateGmMainSetting = (items: any[]) => {
+  const validateGmMainSetting = (items: Array<{ originalRole?: string; item?: string; status?: string }>) => {
     const hasMainSetting = items.some(item => 
       (item.originalRole === 'main' || item.item === 'メインGM') && (item.status === 'active' || item.status === 'ready')
     )

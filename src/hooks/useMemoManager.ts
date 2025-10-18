@@ -11,6 +11,15 @@ interface Store {
   short_name?: string
 }
 
+interface MemoData {
+  date: string
+  venue_id: string
+  memo_text?: string
+  stores: {
+    name: string
+  }
+}
+
 export function useMemoManager(currentDate: Date, stores: Store[]) {
   const [memos, setMemos] = useState<Record<string, string>>({})
   const [storeIdMap, setStoreIdMap] = useState<Record<string, string>>({})
@@ -27,7 +36,7 @@ export function useMemoManager(currentDate: Date, stores: Store[]) {
         const memoMap: Record<string, string> = {}
         const storeMap: Record<string, string> = {}
         
-        memoData.forEach((memo: any) => {
+        memoData.forEach((memo: MemoData) => {
           const key = getMemoKey(memo.date, memo.stores.name)
           memoMap[key] = memo.memo_text || ''
           storeMap[memo.stores.name] = memo.venue_id

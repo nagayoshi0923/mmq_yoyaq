@@ -215,7 +215,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
 
     try {
       const lines = scheduleText.trim().split('\n')
-      const events: any[] = []
+      const events: Array<{ date: string; store_id: string; category: string; start_time: string; end_time: string; scenario?: string; gms?: string[] }> = []
       const errors: string[] = []
 
       let currentDate = ''

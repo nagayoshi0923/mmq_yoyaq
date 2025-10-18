@@ -74,9 +74,10 @@ export function useStaffOperations() {
       } : 'データなし')
       
       setStaff(staffWithScenarios)
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error loading staff:', err)
-      setError('スタッフデータの読み込みに失敗しました: ' + err.message)
+      const message = err instanceof Error ? err.message : '不明なエラー'
+      setError('スタッフデータの読み込みに失敗しました: ' + message)
       setStaff([])
     } finally {
       setLoading(false)
@@ -88,7 +89,7 @@ export function useStaffOperations() {
     try {
       const data = await storeApi.getAll()
       setStores(data)
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error loading stores:', err)
     }
   }, [])
@@ -98,7 +99,7 @@ export function useStaffOperations() {
     try {
       const data = await scenarioApi.getAll()
       setScenarios(data)
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error loading scenarios:', err)
     }
   }, [])
@@ -139,9 +140,10 @@ export function useStaffOperations() {
       await loadStaff()
       setIsEditModalOpen(false)
       setEditingStaff(null)
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error saving staff:', err)
-      setError('スタッフの保存に失敗しました: ' + err.message)
+      const message = err instanceof Error ? err.message : '不明なエラー'
+      setError('スタッフの保存に失敗しました: ' + message)
     }
   }, [staff, loadStaff])
 
@@ -171,9 +173,10 @@ export function useStaffOperations() {
       alert(`招待メールを ${email} に送信しました`)
       setIsInviteModalOpen(false)
       await loadStaff()
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error inviting staff:', err)
-      alert('招待に失敗しました: ' + err.message)
+      const message = err instanceof Error ? err.message : '不明なエラー'
+      alert('招待に失敗しました: ' + message)
     } finally {
       setInviteLoading(false)
     }
@@ -201,9 +204,10 @@ export function useStaffOperations() {
       setIsLinkModalOpen(false)
       setLinkingStaff(null)
       await loadStaff()
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error linking user:', err)
-      alert('紐付けに失敗しました: ' + err.message)
+      const message = err instanceof Error ? err.message : '不明なエラー'
+      alert('紐付けに失敗しました: ' + message)
     } finally {
       setLinkLoading(false)
     }
@@ -234,9 +238,10 @@ export function useStaffOperations() {
       setIsLinkModalOpen(false)
       setLinkingStaff(null)
       await loadStaff()
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error inviting and linking:', err)
-      alert('招待に失敗しました: ' + err.message)
+      const message = err instanceof Error ? err.message : '不明なエラー'
+      alert('招待に失敗しました: ' + message)
     } finally {
       setLinkLoading(false)
     }
@@ -258,9 +263,10 @@ export function useStaffOperations() {
       await loadStaff()
       setDeleteDialogOpen(false)
       setStaffToDelete(null)
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error deleting staff:', err)
-      setError('スタッフの削除に失敗しました: ' + err.message)
+      const message = err instanceof Error ? err.message : '不明なエラー'
+      setError('スタッフの削除に失敗しました: ' + message)
     } finally {
       setLoading(false)
     }

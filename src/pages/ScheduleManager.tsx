@@ -347,7 +347,7 @@ export function ScheduleManager() {
             const year = currentDate.getFullYear()
             const month = currentDate.getMonth() + 1
             const data = await scheduleApi.getByMonth(year, month)
-            const formattedEvents: ScheduleEvent[] = data.map((event: any) => ({
+            const formattedEvents: ScheduleEvent[] = data.map((event: { id: string; date: string; store_id: string; scenario?: string; scenarios?: { title: string }; gms: string[]; start_time: string; end_time: string; category: string; is_cancelled: boolean; current_participants?: number; capacity: number; notes?: string; is_reservation_enabled: boolean }) => ({
               id: event.id,
               date: event.date,
               venue: event.store_id,

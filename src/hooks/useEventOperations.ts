@@ -25,6 +25,26 @@ interface UseEventOperationsProps {
   scenarios: Scenario[]
 }
 
+interface PerformanceData {
+  id?: string
+  date: string
+  store_id: string
+  venue: string
+  scenario: string
+  scenario_id?: string
+  category: string
+  start_time: string
+  end_time: string
+  capacity: number
+  max_participants?: number
+  gms: string[]
+  notes?: string
+  is_cancelled?: boolean
+  is_reservation_enabled?: boolean
+  is_private_request?: boolean
+  reservation_id?: string
+}
+
 export function useEventOperations({
   events,
   setEvents,
@@ -112,7 +132,7 @@ export function useEventOperations({
       await scheduleApi.delete(draggedEvent.id)
 
       // 新しい位置に公演を作成
-      const newEventData: any = {
+      const newEventData = {
         date: dropTarget.date,
         store_id: dropTarget.venue,
         venue: stores.find(s => s.id === dropTarget.venue)?.name || '',
@@ -150,7 +170,7 @@ export function useEventOperations({
       const defaults = TIME_SLOT_DEFAULTS[dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening']
 
       // 新しい位置に公演を作成（元の公演は残す）
-      const newEventData: any = {
+      const newEventData = {
         date: dropTarget.date,
         store_id: dropTarget.venue,
         venue: stores.find(s => s.id === dropTarget.venue)?.name || '',
@@ -177,7 +197,7 @@ export function useEventOperations({
   }, [draggedEvent, dropTarget, stores, setEvents])
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能
-  const handleSavePerformance = useCallback(async (performanceData: any) => {
+  const handleSavePerformance = useCallback(async (performanceData: PerformanceData) => {
     // タイムスロットを判定
     const startHour = parseInt(performanceData.start_time.split(':')[0])
     let timeSlot: 'morning' | 'afternoon' | 'evening'
@@ -230,7 +250,7 @@ export function useEventOperations({
   }, [events, stores, modalMode])
 
   // 実際の保存処理（重複チェックなし）
-  const doSavePerformance = useCallback(async (performanceData: any) => {
+  const doSavePerformance = useCallback(async (performanceData: PerformanceData) => {
     try {
       if (modalMode === 'add') {
         // 新規追加
@@ -344,7 +364,7 @@ export function useEventOperations({
 
           // ローカル状態を更新
           setEvents(prev => prev.map(event => 
-            event.id === performanceData.id ? performanceData : event
+            event.id === performanceData.id ? { ...event, ...performanceData, id: performanceData.id! } as ScheduleEvent : event
           ))
         }
       }
