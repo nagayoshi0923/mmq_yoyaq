@@ -9,11 +9,6 @@ import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 
 // UI Components
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 // Layout Components
 import { Header } from '@/components/layout/Header'
@@ -23,10 +18,12 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
 import { ContextMenu, Copy, Clipboard } from '@/components/schedule/ContextMenu'
 import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
-import { MemoCell } from '@/components/schedule/MemoCell'
 import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
-import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
+import { ScheduleHeader } from '@/components/schedule/ScheduleHeader'
+import { CategoryTabs } from '@/components/schedule/CategoryTabs'
+import { ScheduleTable } from '@/components/schedule/ScheduleTable'
+import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // API
 import { scheduleApi } from '@/lib/api'
@@ -47,7 +44,7 @@ import {
 } from '@/utils/scheduleUtils'
 
 // Icons
-import { Ban, ChevronLeft, ChevronRight, Edit, RotateCcw, Trash2 } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2 } from 'lucide-react'
 
 // 型を再エクスポート（他のコンポーネントで使用できるように）
 export type { ScheduleEvent }
@@ -815,217 +812,46 @@ export function ScheduleManager() {
           {/* ヘッダー部分とカテゴリタブ（一度でもロードされたら常に表示） */}
           {(stores.length > 0 || hasEverLoadedStores) && (
           <>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-bold">月間スケジュール管理</h2>
-              {/* 更新中のインジケーター */}
-              {isLoading && stores.length > 0 && (
-                <div className="text-sm text-muted-foreground flex items-center gap-1">
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
-                  <span>更新中...</span>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2 items-center">
-              {/* 月選択コントロール */}
-              <div className="flex items-center gap-2 border rounded-lg p-1">
-                <Button variant="ghost" size="sm" onClick={() => changeMonth('prev')}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Select value={currentDate.getMonth().toString()} onValueChange={(value) => {
-                  // 月切り替え時はスクロール位置をクリア
-                  clearScrollPosition()
-                  const newDate = new Date(currentDate)
-                  newDate.setMonth(parseInt(value))
-                  setCurrentDate(newDate)
-                }}>
-                  <SelectTrigger className="w-32 border-0 focus:ring-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <SelectItem key={i} value={i.toString()}>
-                        {new Date(2025, i).toLocaleDateString('ja-JP', { month: 'long' })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button variant="ghost" size="sm" onClick={() => changeMonth('next')}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              {/* インポートボタン */}
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setIsImportModalOpen(true)}
-              >
-                インポート
-              </Button>
-            </div>
-          </div>
+          <ScheduleHeader
+            currentDate={currentDate}
+            isLoading={isLoading && stores.length > 0}
+            onMonthChange={changeMonth}
+            onMonthSelect={(month) => {
+              clearScrollPosition()
+              const newDate = new Date(currentDate)
+              newDate.setMonth(month)
+              setCurrentDate(newDate)
+            }}
+            onImportClick={() => setIsImportModalOpen(true)}
+          />
 
-          {/* カテゴリタブ */}
-          <div className="bg-card border rounded-lg p-4">
-            <h3 className="flex items-center gap-2">
-              公演カテゴリ
-              <span className="text-sm text-muted-foreground">
-                （中止: {categoryCounts.cancelled}件 / 警告: {categoryCounts.alerts}件）
-              </span>
-            </h3>
-            <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mt-4">
-              <TabsList className="grid grid-cols-6 w-fit gap-1">
-                <TabsTrigger value="all" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  すべて ({categoryCounts.all})
-                </TabsTrigger>
-                <TabsTrigger value="open" className="bg-blue-100 text-blue-800 data-[state=active]:bg-blue-200 data-[state=active]:text-blue-900">
-                  オープン公演 ({categoryCounts.open})
-                </TabsTrigger>
-                <TabsTrigger value="private" className="bg-purple-100 text-purple-800 data-[state=active]:bg-purple-200 data-[state=active]:text-purple-900">
-                  貸切公演 ({categoryCounts.private})
-                </TabsTrigger>
-                <TabsTrigger value="gmtest" className="bg-orange-100 text-orange-800 data-[state=active]:bg-orange-200 data-[state=active]:text-orange-900">
-                  GMテスト ({categoryCounts.gmtest})
-                </TabsTrigger>
-                <TabsTrigger value="testplay" className="bg-yellow-100 text-yellow-800 data-[state=active]:bg-yellow-200 data-[state=active]:text-yellow-900">
-                  テストプレイ ({categoryCounts.testplay})
-                </TabsTrigger>
-                <TabsTrigger value="trip" className="bg-green-100 text-green-800 data-[state=active]:bg-green-200 data-[state=active]:text-green-900">
-                  出張公演 ({categoryCounts.trip})
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+          <CategoryTabs
+            selectedCategory={selectedCategory}
+            categoryCounts={categoryCounts}
+            onCategoryChange={setSelectedCategory}
+          />
 
           {/* メインカード・テーブル */}
-          <Card>
-            <CardHeader className="bg-muted/30 border-b border-border">
-              <CardTitle>リストカレンダー - {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月</CardTitle>
-              <CardDescription className="text-muted-foreground">
-                ※公演のタイトルが未決定の場合、当該公演は薄い色で警告表示されます<br/>
-                ※シナリオやGMが未定の場合は赤い色で警告表示されます
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0 overflow-x-auto">
-              <Table className="table-fixed w-full">
-                <colgroup>
-                  <col className="w-24" />
-                  <col className="w-16" />
-                  <col className="w-24" />
-                  <col style={{ width: '300px' }} />
-                  <col style={{ width: '300px' }} />
-                  <col style={{ width: '300px' }} />
-                  <col className="w-32" />
-                </colgroup>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="border-r">日付</TableHead>
-                    <TableHead className="border-r">曜日</TableHead>
-                    <TableHead className="border-r">会場</TableHead>
-                    <TableHead className="border-r">午前 (~12:00)</TableHead>
-                    <TableHead className="border-r">午後 (12:00-17:00)</TableHead>
-                    <TableHead className="border-r">夜間 (17:00~)</TableHead>
-                    <TableHead>メモ</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {monthDays.map(day => {
-                    return stores.map((store, storeIndex) => (
-                      <TableRow key={`${day.date}-${store.id}`} className="h-16">
-                        {/* 日付セル */}
-                        {storeIndex === 0 ? (
-                          <TableCell className="schedule-table-cell border-r text-sm" rowSpan={stores.length}>
-                            {day.displayDate}
-                          </TableCell>
-                        ) : null}
-                        
-                        {/* 曜日セル */}
-                        {storeIndex === 0 ? (
-                          <TableCell className={`schedule-table-cell border-r text-sm ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
-                            {day.dayOfWeek}
-                          </TableCell>
-                        ) : null}
-                        
-                        {/* 店舗セル */}
-                        <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-sm">
-                          {store.short_name}
-                        </TableCell>
-                        
-                        {/* 午前セル */}
-                        <TimeSlotCell
-                          events={getEventsForSlot(day.date, store.id, 'morning')}
-                          date={day.date}
-                          venue={store.id}
-                          timeSlot="morning"
-                          availableStaff={shiftData[`${day.date}-morning`] || []}
-                          categoryConfig={categoryConfig}
-                          getReservationBadgeClass={getReservationBadgeClass}
-                          onCancelConfirm={handleCancelConfirmPerformance}
-                          onUncancel={handleUncancelPerformance}
-                          onEdit={handleEditPerformance}
-                          onDelete={handleDeletePerformance}
-                          onAddPerformance={handleAddPerformance}
-                          onToggleReservation={handleToggleReservation}
-                          onDrop={handleDrop}
-                          onContextMenuCell={handleCellContextMenu}
-                          onContextMenuEvent={handleEventContextMenu}
-                        />
-                        
-                        {/* 午後セル */}
-                        <TimeSlotCell
-                          events={getEventsForSlot(day.date, store.id, 'afternoon')}
-                          date={day.date}
-                          venue={store.id}
-                          timeSlot="afternoon"
-                          availableStaff={shiftData[`${day.date}-afternoon`] || []}
-                          categoryConfig={categoryConfig}
-                          getReservationBadgeClass={getReservationBadgeClass}
-                          onCancelConfirm={handleCancelConfirmPerformance}
-                          onUncancel={handleUncancelPerformance}
-                          onEdit={handleEditPerformance}
-                          onDelete={handleDeletePerformance}
-                          onAddPerformance={handleAddPerformance}
-                          onDrop={handleDrop}
-                          onToggleReservation={handleToggleReservation}
-                          onContextMenuCell={handleCellContextMenu}
-                          onContextMenuEvent={handleEventContextMenu}
-                        />
-                        
-                        {/* 夜間セル */}
-                        <TimeSlotCell
-                          events={getEventsForSlot(day.date, store.id, 'evening')}
-                          date={day.date}
-                          venue={store.id}
-                          timeSlot="evening"
-                          availableStaff={shiftData[`${day.date}-evening`] || []}
-                          categoryConfig={categoryConfig}
-                          getReservationBadgeClass={getReservationBadgeClass}
-                          onCancelConfirm={handleCancelConfirmPerformance}
-                          onUncancel={handleUncancelPerformance}
-                          onEdit={handleEditPerformance}
-                          onToggleReservation={handleToggleReservation}
-                          onDelete={handleDeletePerformance}
-                          onAddPerformance={handleAddPerformance}
-                          onDrop={handleDrop}
-                          onContextMenuCell={handleCellContextMenu}
-                          onContextMenuEvent={handleEventContextMenu}
-                        />
-                        
-                        {/* メモセル */}
-                        <MemoCell
-                          date={day.date}
-                          venue={store.id}
-                          initialMemo={getMemo(day.date, store.id)}
-                          onSave={handleSaveMemo}
-                        />
-                      </TableRow>
-                    ))
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <ScheduleTable
+            currentDate={currentDate}
+            monthDays={monthDays}
+            stores={stores}
+            getEventsForSlot={getEventsForSlot}
+            shiftData={shiftData}
+            categoryConfig={categoryConfig}
+            getReservationBadgeClass={getReservationBadgeClass}
+            getMemo={getMemo}
+            onSaveMemo={handleSaveMemo}
+            onAddPerformance={handleAddPerformance}
+            onEditPerformance={handleEditPerformance}
+            onDeletePerformance={handleDeletePerformance}
+            onCancelConfirm={handleCancelConfirmPerformance}
+            onUncancel={handleUncancelPerformance}
+            onToggleReservation={handleToggleReservation}
+            onDrop={handleDrop}
+            onContextMenuCell={handleCellContextMenu}
+            onContextMenuEvent={handleEventContextMenu}
+          />
           </>
           )}
         </div>
@@ -1039,106 +865,29 @@ export function ScheduleManager() {
             mode={modalMode}
             event={editingEvent}
             initialData={modalInitialData}
-            stores={stores}
-            scenarios={scenarios}
+            stores={stores as any}
+            scenarios={scenarios as any}
             staff={staff}
             availableStaffByScenario={availableStaffByScenario}
             onScenariosUpdate={refetchScenarios}
             onStaffUpdate={refetchStaff}
           />
 
-          {/* 削除確認ダイアログ */}
-          {isDeleteDialogOpen && deletingEvent && (
-            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>公演を削除</DialogTitle>
-                  <DialogDescription>
-                    この公演を削除してもよろしいですか？この操作は取り消せません。
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-2">
-                  <p><strong>日付:</strong> {deletingEvent.date}</p>
-                  <p><strong>時間:</strong> {deletingEvent.start_time.slice(0, 5)} - {deletingEvent.end_time.slice(0, 5)}</p>
-                  <p><strong>シナリオ:</strong> {deletingEvent.scenario || '未定'}</p>
-                  <p><strong>GM:</strong> {deletingEvent.gms.join(', ') || '未定'}</p>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-                    キャンセル
-                  </Button>
-                  <Button variant="destructive" onClick={handleConfirmDelete}>
-                    削除
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
-
-          {/* 中止確認ダイアログ */}
-          {isCancelDialogOpen && cancellingEvent && (
-            <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>公演を中止</DialogTitle>
-                  <DialogDescription>
-                    この公演を中止してもよろしいですか？中止後も復活させることができます。
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-2">
-                  <p><strong>日付:</strong> {cancellingEvent.date}</p>
-                  <p><strong>時間:</strong> {cancellingEvent.start_time.slice(0, 5)} - {cancellingEvent.end_time.slice(0, 5)}</p>
-                  <p><strong>シナリオ:</strong> {cancellingEvent.scenario || '未定'}</p>
-                  <p><strong>GM:</strong> {cancellingEvent.gms.join(', ') || '未定'}</p>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)}>
-                    キャンセル
-                  </Button>
-                  <Button variant="destructive" onClick={handleConfirmCancel}>
-                    中止
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
-          
-          {/* 予約サイト公開/非公開確認ダイアログ */}
-          {publishingEvent && (
-            <Dialog open={isPublishDialogOpen} onOpenChange={setIsPublishDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>
-                    {publishingEvent.is_reservation_enabled ? '予約サイトから非公開にする' : '予約サイトに公開する'}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {publishingEvent.is_reservation_enabled 
-                      ? 'この公演を予約サイトから非公開にしてもよろしいですか？'
-                      : 'この公演を予約サイトに公開してもよろしいですか？お客様が予約できるようになります。'
-                    }
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-2 bg-muted/50 p-4 rounded">
-                  <p><strong>日付:</strong> {publishingEvent.date}</p>
-                  <p><strong>時間:</strong> {publishingEvent.start_time.slice(0, 5)} - {publishingEvent.end_time.slice(0, 5)}</p>
-                  <p><strong>シナリオ:</strong> {publishingEvent.scenario || '未定'}</p>
-                  <p><strong>GM:</strong> {publishingEvent.gms.join(', ') || '未定'}</p>
-                  <p><strong>最大参加者数:</strong> {publishingEvent.max_participants || 8}名</p>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsPublishDialogOpen(false)}>
-                    キャンセル
-                  </Button>
-                  <Button 
-                    onClick={handleConfirmPublishToggle}
-                    className={publishingEvent.is_reservation_enabled ? 'bg-gray-600 hover:bg-gray-700' : 'bg-green-600 hover:bg-green-700'}
-                  >
-                    {publishingEvent.is_reservation_enabled ? '非公開にする' : '公開する'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
+          {/* 削除・中止・公開の確認ダイアログ */}
+          <ScheduleDialogs
+            isDeleteDialogOpen={isDeleteDialogOpen}
+            deletingEvent={deletingEvent}
+            onDeleteDialogClose={() => setIsDeleteDialogOpen(false)}
+            onConfirmDelete={handleConfirmDelete}
+            isCancelDialogOpen={isCancelDialogOpen}
+            cancellingEvent={cancellingEvent}
+            onCancelDialogClose={() => setIsCancelDialogOpen(false)}
+            onConfirmCancel={handleConfirmCancel}
+            isPublishDialogOpen={isPublishDialogOpen}
+            publishingEvent={publishingEvent}
+            onPublishDialogClose={() => setIsPublishDialogOpen(false)}
+            onConfirmPublishToggle={handleConfirmPublishToggle}
+          />
 
       {/* インポートモーダル */}
       <ImportScheduleModal
