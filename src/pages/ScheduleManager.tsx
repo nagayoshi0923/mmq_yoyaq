@@ -1,5 +1,11 @@
 // React
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+
+// Custom Hooks
+import { useScheduleData } from '@/hooks/useScheduleData'
+import { useShiftData } from '@/hooks/useShiftData'
+import { useMemoManager } from '@/hooks/useMemoManager'
+import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 
 // UI Components
 import { Button } from '@/components/ui/button'
@@ -23,9 +29,7 @@ import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 
 // API
-import { memoApi, scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
-import { assignmentApi } from '@/lib/assignmentApi'
-import { shiftApi } from '@/lib/shiftApi'
+import { scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
 // Types
@@ -38,7 +42,6 @@ import {
   getTimeSlot, 
   getCategoryCounts, 
   TIME_SLOT_DEFAULTS,
-  getMemoKey,
   getReservationBadgeClass,
   CATEGORY_CONFIG
 } from '@/utils/scheduleUtils'
@@ -52,20 +55,7 @@ export type { ScheduleEvent }
 
 
 export function ScheduleManager() {
-  // 初回読み込み完了フラグ（useRefで管理してレンダリングをトリガーしない）
-  const initialLoadComplete = useRef(false)
-  
-  // 一度でもロードしたかをsessionStorageで確認（より確実）
-  const hasEverLoadedStores = useRef(
-    (() => {
-      try {
-        return sessionStorage.getItem('scheduleHasLoaded') === 'true'
-      } catch {
-        return false
-      }
-    })()
-  )
-  
+  // 現在の日付状態
   const [currentDate, setCurrentDate] = useState(() => {
     try {
       const saved = localStorage.getItem('scheduleCurrentDate')
@@ -77,9 +67,45 @@ export function ScheduleManager() {
     }
     return new Date()
   })
+
+  // currentDateの変更をlocalStorageに保存
+  useEffect(() => {
+    try {
+      localStorage.setItem('scheduleCurrentDate', currentDate.toISOString())
+    } catch (error) {
+      console.error('Failed to save current date:', error)
+    }
+  }, [currentDate])
+
+  // カスタムフックでデータ管理（既存のstateと並行して使用）
+  const scheduleData = useScheduleData(currentDate)
+  const shiftDataHook = useShiftData(currentDate, scheduleData.staff, scheduleData.staffLoading)
+  const memoManager = useMemoManager(currentDate, scheduleData.stores)
+  const scrollRestoration = useScrollRestoration(scheduleData.isLoading)
+
+  // フックから取得したデータを展開
+  const {
+    events,
+    setEvents,
+    stores,
+    scenarios,
+    staff,
+    isLoading,
+    error,
+    storesLoading,
+    scenariosLoading,
+    staffLoading,
+    hasEverLoadedStores,
+    refetchScenarios,
+    refetchStaff
+  } = scheduleData
+
+  const { shiftData } = shiftDataHook
+  const { handleSaveMemo, getMemo } = memoManager
+  const { clearScrollPosition } = scrollRestoration
+
+  // UI状態管理
   const [selectedCategory, setSelectedCategory] = useState('all')
-  const [memos, setMemos] = useState<Record<string, string>>({})
-  const [storeIdMap, setStoreIdMap] = useState<Record<string, string>>({})
   const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isMoveOrCopyDialogOpen, setIsMoveOrCopyDialogOpen] = useState(false)
@@ -109,353 +135,7 @@ export function ScheduleManager() {
     event?: ScheduleEvent
     cellInfo?: { date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening' }
   } | null>(null)
-  const [events, setEvents] = useState<ScheduleEvent[]>(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleEvents')
-      return cached ? JSON.parse(cached) : []
-    } catch {
-      return []
-    }
-  })
-  const [isLoading, setIsLoading] = useState(() => {
-    try {
-      const cached = sessionStorage.getItem('scheduleEvents')
-      return !cached
-    } catch {
-      return true
-    }
-  })
-  const [error, setError] = useState<string | null>(null)
-  const [shiftData, setShiftData] = useState<Record<string, Array<Staff & { timeSlot: string }>>>({})
   const [availableStaffByScenario, setAvailableStaffByScenario] = useState<Record<string, Staff[]>>({})
-  
-  // 店舗・シナリオ・スタッフのデータ（常にAPIから最新データを取得）
-  const [stores, setStores] = useState<any[]>([])
-  const [storesLoading, setStoresLoading] = useState(true)
-  const [scenarios, setScenarios] = useState<any[]>([])
-
-  // currentDateの変更をlocalStorageに保存
-  useEffect(() => {
-    try {
-      localStorage.setItem('scheduleCurrentDate', currentDate.toISOString())
-    } catch (error) {
-      console.error('Failed to save current date:', error)
-    }
-  }, [currentDate])
-  const [scenariosLoading, setScenariosLoading] = useState(true)
-  const [staff, setStaff] = useState<any[]>([])
-  const [staffLoading, setStaffLoading] = useState(true)
-  
-  // イベントデータをキャッシュに保存
-  useEffect(() => {
-    if (events.length > 0) {
-      sessionStorage.setItem('scheduleEvents', JSON.stringify(events))
-    }
-  }, [events])
-  
-  // スクロール位置を保持（シンプル版）
-  useEffect(() => {
-    // ブラウザのデフォルトのスクロール復元を無効化
-    if ('scrollRestoration' in history) {
-      history.scrollRestoration = 'manual'
-    }
-    
-    // スクロール位置を定期的に保存（デバウンス付き）
-    let scrollTimer: NodeJS.Timeout
-    const handleScroll = () => {
-      clearTimeout(scrollTimer)
-      scrollTimer = setTimeout(() => {
-        sessionStorage.setItem('scheduleScrollY', window.scrollY.toString())
-        sessionStorage.setItem('scheduleScrollTime', Date.now().toString())
-      }, 100)
-    }
-    
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-      // scrollRestorationはmanualのままにしておく
-    }
-  }, [])
-
-  // マウント時にスクロール位置を即座に復元（リロード直後のみ）
-  useLayoutEffect(() => {
-    const savedY = sessionStorage.getItem('scheduleScrollY')
-    const savedTime = sessionStorage.getItem('scheduleScrollTime')
-    
-    if (savedY && savedTime) {
-      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-      // 10秒以内のスクロール位置のみ復元（リロード直後と判定）
-      if (timeSinceScroll < 10000) {
-        // 少し待ってからスクロール位置を復元
-        setTimeout(() => {
-          window.scrollTo(0, parseInt(savedY, 10))
-        }, 100)
-      }
-    }
-  }, []) // マウント時のみ実行
-
-  // データ読み込み完了後に再度復元
-  useEffect(() => {
-    if (!isLoading) {
-      const savedY = sessionStorage.getItem('scheduleScrollY')
-      const savedTime = sessionStorage.getItem('scheduleScrollTime')
-      
-      if (savedY && savedTime) {
-        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-        // 10秒以内のスクロール位置のみ復元（リロード直後と判定）
-        if (timeSinceScroll < 10000) {
-          // データ読み込み後にスクロール復元
-          setTimeout(() => {
-            window.scrollTo(0, parseInt(savedY, 10))
-          }, 200)
-        }
-      }
-    }
-  }, [isLoading])
-
-  // Supabaseからデータを読み込む
-  useEffect(() => {
-    // 店舗データが読み込まれるまで待つ（店舗データが必要）
-    if (storesLoading) return
-    
-    const loadEvents = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-        
-        const year = currentDate.getFullYear()
-        const month = currentDate.getMonth() + 1
-        
-        const data = await scheduleApi.getByMonth(year, month)
-        
-        // Supabaseのデータを内部形式に変換
-        const formattedEvents: ScheduleEvent[] = data.map((event: any) => ({
-          id: event.id,
-          date: event.date,
-          venue: event.store_id, // store_idを直接使用
-          scenario: event.scenarios?.title || event.scenario || '', // JOINされたタイトルを優先
-          gms: event.gms || [],
-          start_time: event.start_time,
-          end_time: event.end_time,
-          category: event.category,
-          is_cancelled: event.is_cancelled || false,
-          participant_count: event.current_participants || 0,
-          max_participants: event.capacity || 8,
-          notes: event.notes || '',
-          is_reservation_enabled: event.is_reservation_enabled || false
-        }))
-        
-        // 貸切リクエストを取得して追加（全期間から取得してフィルタリング）
-        const { data: privateRequests, error: privateError } = await supabase
-          .from('reservations')
-          .select(`
-            id,
-            title,
-            customer_name,
-            status,
-            store_id,
-            gm_staff,
-            candidate_datetimes,
-            participant_count,
-            scenarios:scenario_id (
-              title,
-              player_count_max
-            ),
-            gm_availability_responses (
-              staff_id,
-              response_status,
-              staff:staff_id (name)
-            )
-          `)
-          .eq('reservation_source', 'web_private')
-          .eq('status', 'confirmed') // 確定のみ表示
-        
-        if (privateError) {
-          console.error('貸切リクエスト取得エラー:', privateError)
-        }
-        
-        // 貸切リクエストをスケジュールイベントに変換
-        const privateEvents: ScheduleEvent[] = []
-        if (privateRequests) {
-          privateRequests.forEach((request: any) => {
-            if (request.candidate_datetimes?.candidates) {
-              // GMの名前を取得
-              let gmNames: string[] = []
-              
-              // 確定したGMがいる場合は、staff配列から名前を検索
-              if (request.gm_staff && staff && staff.length > 0) {
-                const assignedGM = staff.find((s: any) => s.id === request.gm_staff)
-                if (assignedGM) {
-                  gmNames = [assignedGM.name]
-                }
-              }
-              
-              // staffから見つからなかった場合、gm_availability_responsesから取得
-              if (gmNames.length === 0 && request.gm_availability_responses) {
-                gmNames = request.gm_availability_responses
-                  ?.filter((r: any) => r.response_status === 'available')
-                  ?.map((r: any) => r.staff?.name)
-                  ?.filter((name: string) => name) || []
-              }
-              
-              // それでも見つからない場合
-              if (gmNames.length === 0) {
-                gmNames = ['未定']
-              }
-              
-              // 表示する候補を決定
-              let candidatesToShow = request.candidate_datetimes.candidates
-              
-              // status='confirmed'の場合は、candidate.status='confirmed'の候補のみ表示
-              if (request.status === 'confirmed') {
-                const confirmedCandidates = candidatesToShow.filter((c: any) => c.status === 'confirmed')
-                if (confirmedCandidates.length > 0) {
-                  candidatesToShow = confirmedCandidates.slice(0, 1) // 最初の1つだけ
-                } else {
-                  // フォールバック: candidate.status='confirmed'がない場合は最初の候補のみ
-                  candidatesToShow = candidatesToShow.slice(0, 1)
-                }
-              }
-              
-              candidatesToShow.forEach((candidate: any) => {
-                const candidateDate = new Date(candidate.date)
-                const candidateMonth = candidateDate.getMonth() + 1
-                const candidateYear = candidateDate.getFullYear()
-                
-                // 表示対象の月のみ追加
-                if (candidateYear === year && candidateMonth === month) {
-                  // 確定済み/GM確認済みの場合は、確定店舗を使用
-                  // confirmedStoreがnullの場合はstore_idを使用（古いデータ対応）
-                  const confirmedStoreId = request.candidate_datetimes?.confirmedStore?.storeId || request.store_id
-                  const venueId = (request.status === 'confirmed' || request.status === 'gm_confirmed') && confirmedStoreId 
-                    ? confirmedStoreId 
-                    : '' // 店舗未定
-                  
-                  const privateEvent = {
-                    id: `${request.id}-${candidate.order}`,
-                    date: candidate.date,
-                    venue: venueId,
-                    scenario: request.scenarios?.title || request.title,
-                    gms: gmNames,
-                    start_time: candidate.startTime,
-                    end_time: candidate.endTime,
-                    category: 'private' as any, // 貸切
-                    is_cancelled: false,
-                    participant_count: request.participant_count || 0,
-                    max_participants: request.scenarios?.player_count_max || 8,
-                    notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】${request.customer_name || ''}`,
-                    is_reservation_enabled: true, // 貸切公演は常に公開中
-                    is_private_request: true, // 貸切リクエストフラグ
-                    reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
-                    reservation_id: request.id // 元のreservation IDを保持
-                  }
-                  
-                  privateEvents.push(privateEvent)
-                }
-              })
-            }
-          })
-        }
-        
-        setEvents([...formattedEvents, ...privateEvents])
-      } catch (err) {
-        console.error('公演データの読み込みエラー:', err)
-        setError('公演データの読み込みに失敗しました')
-        
-        // エラー時はモックデータを使用
-        const mockEvents: ScheduleEvent[] = [
-          {
-            id: '1',
-            date: '2025-09-01',
-            venue: 'takadanobaba',
-            scenario: '人狼村の悲劇',
-            gms: ['田中太郎'],
-            start_time: '14:00',
-            end_time: '18:00',
-            category: 'private',
-            is_cancelled: false,
-            participant_count: 6,
-            max_participants: 8
-          },
-          {
-            id: '2',
-            date: '2025-09-01',
-            venue: 'bekkan1',
-            scenario: '密室の謎',
-            gms: ['山田花子'],
-            start_time: '19:00',
-            end_time: '22:00',
-            category: 'open',
-            is_cancelled: false,
-            participant_count: 8,
-            max_participants: 8
-          }
-        ]
-        setEvents(mockEvents)
-      } finally {
-        setIsLoading(false)
-        initialLoadComplete.current = true // 初回読み込み完了をマーク
-      }
-    }
-
-    loadEvents()
-  }, [currentDate, storesLoading]) // currentDateの変更時と店舗データ読み込み完了時
-
-  // シフトデータを読み込む（staffデータの後に実行）
-  useEffect(() => {
-    const loadShiftData = async () => {
-      try {
-        // staffが読み込まれるまで待つ
-        if (staffLoading || !staff || staff.length === 0) return
-        
-        const year = currentDate.getFullYear()
-        const month = currentDate.getMonth() + 1
-        
-        // 全スタッフのシフトを取得
-        const shifts = await shiftApi.getAllStaffShifts(year, month)
-        
-        // 日付とタイムスロットごとにスタッフを整理
-        const shiftMap: Record<string, Array<Staff & { timeSlot: string }>> = {}
-        
-        for (const shift of shifts) {
-          const shiftStaff = (shift as any).staff
-          if (!shiftStaff) continue
-          
-          // staffステートから完全なスタッフデータ（special_scenariosを含む）を取得
-          const fullStaffData = staff.find(s => s.id === shiftStaff.id)
-          if (!fullStaffData) continue
-          
-          const dateKey = shift.date
-          
-          // 各タイムスロットをチェック
-          if (shift.morning || shift.all_day) {
-            const key = `${dateKey}-morning`
-            if (!shiftMap[key]) shiftMap[key] = []
-            shiftMap[key].push({ ...fullStaffData, timeSlot: 'morning' })
-          }
-          
-          if (shift.afternoon || shift.all_day) {
-            const key = `${dateKey}-afternoon`
-            if (!shiftMap[key]) shiftMap[key] = []
-            shiftMap[key].push({ ...fullStaffData, timeSlot: 'afternoon' })
-          }
-          
-          if (shift.evening || shift.all_day) {
-            const key = `${dateKey}-evening`
-            if (!shiftMap[key]) shiftMap[key] = []
-            shiftMap[key].push({ ...fullStaffData, timeSlot: 'evening' })
-          }
-        }
-        
-        setShiftData(shiftMap)
-      } catch (error) {
-        console.error('Error loading shift data:', error)
-      }
-    }
-    
-    loadShiftData()
-  }, [currentDate, staff, staffLoading])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -472,79 +152,9 @@ export function ScheduleManager() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-
-  // 初期データを並列で読み込む（高速化）
-  useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        // 常にローディング状態にする（APIから最新データを取得）
-        setStoresLoading(true)
-        setStaffLoading(true)
-        setScenariosLoading(true)
-        
-        // 店舗・シナリオ・スタッフを並列で読み込み
-        const [storeData, scenarioData, staffData] = await Promise.all([
-          storeApi.getAll().catch(err => {
-            console.error('店舗データの読み込みエラー:', err)
-            return []
-          }),
-          scenarioApi.getAll().catch(err => {
-            console.error('シナリオデータの読み込みエラー:', err)
-            return []
-          }),
-          staffApi.getAll().catch(err => {
-            console.error('スタッフデータの読み込みエラー:', err)
-            return []
-          })
-        ])
-        
-        setStores(storeData)
-        sessionStorage.setItem('scheduleStores', JSON.stringify(storeData))
-        if (storeData.length > 0) {
-          hasEverLoadedStores.current = true
-          sessionStorage.setItem('scheduleHasLoaded', 'true')
-        }
-        setStoresLoading(false)
-        setScenarios(scenarioData)
-        sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenarioData))
-        setScenariosLoading(false)
-        
-        // スタッフの担当シナリオを並列で取得（バックグラウンド）
-        const staffWithScenarios = await Promise.all(
-          staffData.map(async (staffMember) => {
-            try {
-              const assignments = await assignmentApi.getStaffAssignments(staffMember.id)
-              const scenarioIds = assignments.map((a: any) => a.scenario_id)
-              return {
-                ...staffMember,
-                special_scenarios: scenarioIds
-              }
-            } catch (error) {
-              return {
-                ...staffMember,
-                special_scenarios: []
-              }
-            }
-          })
-        )
-        
-        setStaff(staffWithScenarios)
-        sessionStorage.setItem('scheduleStaff', JSON.stringify(staffWithScenarios))
-        setStaffLoading(false)
-      } catch (err) {
-        console.error('初期データの読み込みエラー:', err)
-        setStoresLoading(false)
-        setScenariosLoading(false)
-        setStaffLoading(false)
-      }
-    }
-    
-    loadInitialData()
-  }, [])
-
   // シナリオごとの出勤可能GMを計算
   useEffect(() => {
-    const calculateAvailableGMs = async () => {
+    const calculateAvailableGMs = () => {
       if (!isPerformanceModalOpen || !scenarios.length) return
       
       // 日付とタイムスロットの取得
@@ -592,34 +202,6 @@ export function ScheduleManager() {
     calculateAvailableGMs()
   }, [isPerformanceModalOpen, modalInitialData, editingEvent, shiftData, scenarios])
 
-  // 初期データ読み込み（月が変わった時も実行）
-  useEffect(() => {
-    const loadMemos = async () => {
-      try {
-        const year = currentDate.getFullYear()
-        const month = currentDate.getMonth() + 1
-        const memoData = await memoApi.getByMonth(year, month)
-        
-        // メモデータを状態に変換
-        const memoMap: Record<string, string> = {}
-        const storeMap: Record<string, string> = {}
-        
-        memoData.forEach((memo: any) => {
-          const key = getMemoKey(memo.date, memo.stores.name)
-          memoMap[key] = memo.memo_text || ''
-          storeMap[memo.stores.name] = memo.venue_id
-        })
-        
-        setMemos(memoMap)
-        setStoreIdMap(storeMap)
-      } catch (error) {
-        console.error('メモ読み込みエラー:', error)
-      }
-    }
-
-    loadMemos()
-  }, [currentDate])
-
   // 公演カテゴリの色設定（不変なので定数を使用）
   const categoryConfig = CATEGORY_CONFIG
 
@@ -629,8 +211,7 @@ export function ScheduleManager() {
   // 月の変更
   const changeMonth = useCallback((direction: 'prev' | 'next') => {
     // 月切り替え時はスクロール位置をクリア（一番上に戻る）
-    sessionStorage.removeItem('scheduleScrollY')
-    sessionStorage.removeItem('scheduleScrollTime')
+    clearScrollPosition()
     
     setCurrentDate(prev => {
       const newDate = new Date(prev)
@@ -641,7 +222,7 @@ export function ScheduleManager() {
       }
       return newDate
     })
-  }, [])
+  }, [clearScrollPosition])
 
   // 月間の日付リストを生成
   const monthDays = useMemo(() => generateMonthDays(currentDate), [currentDate])
@@ -678,62 +259,6 @@ export function ScheduleManager() {
   }
 
 
-  // メモを保存
-  const handleSaveMemo = async (date: string, venue: string, memo: string) => {
-    const key = getMemoKey(date, venue)
-    setMemos(prev => ({
-      ...prev,
-      [key]: memo
-    }))
-
-    try {
-      // 店舗名から実際のSupabase IDを取得
-      const store = stores.find(s => s.name === venue)
-      let venueId = storeIdMap[venue]
-      
-      if (!venueId && store) {
-        // storeIdMapにない場合は、店舗名で検索（初回保存時）
-        console.warn(`店舗ID未取得: ${venue}, 店舗名で保存を試行`)
-        venueId = store.id // 仮のID、実際はSupabaseから取得が必要
-      }
-
-      if (venueId) {
-        await memoApi.save(date, venueId, memo)
-        console.log('メモ保存成功:', { date, venue, memo })
-      } else {
-        console.error('店舗IDが見つかりません:', venue)
-      }
-    } catch (error) {
-      console.error('メモ保存エラー:', error)
-    }
-  }
-
-  // メモを取得
-  const getMemo = (date: string, venue: string) => {
-    const key = getMemoKey(date, venue)
-    return memos[key] || ''
-  }
-
-  // シナリオリストを再読み込み
-  const handleScenariosUpdate = async () => {
-    try {
-      const scenarioData = await scenarioApi.getAll()
-      setScenarios(scenarioData)
-      sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenarioData))
-    } catch (err) {
-      console.error('シナリオデータの再読み込みエラー:', err)
-    }
-  }
-
-  const handleStaffUpdate = async () => {
-    try {
-      const staffData = await staffApi.getAll()
-      setStaff(staffData)
-      sessionStorage.setItem('scheduleStaff', JSON.stringify(staffData))
-    } catch (err) {
-      console.error('スタッフデータの再読み込みエラー:', err)
-    }
-  }
 
   // 公演追加モーダルを開く
   const handleAddPerformance = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
@@ -1278,7 +803,7 @@ export function ScheduleManager() {
           )}
           
           {/* 初回ローディング表示（一度もロードされていない場合のみ） */}
-          {!hasEverLoadedStores.current && stores.length === 0 && (
+          {!hasEverLoadedStores && stores.length === 0 && (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
@@ -1288,7 +813,7 @@ export function ScheduleManager() {
           )}
           
           {/* ヘッダー部分とカテゴリタブ（一度でもロードされたら常に表示） */}
-          {(stores.length > 0 || hasEverLoadedStores.current) && (
+          {(stores.length > 0 || hasEverLoadedStores) && (
           <>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -1309,8 +834,7 @@ export function ScheduleManager() {
                 </Button>
                 <Select value={currentDate.getMonth().toString()} onValueChange={(value) => {
                   // 月切り替え時はスクロール位置をクリア
-                  sessionStorage.removeItem('scheduleScrollY')
-                  sessionStorage.removeItem('scheduleScrollTime')
+                  clearScrollPosition()
                   const newDate = new Date(currentDate)
                   newDate.setMonth(parseInt(value))
                   setCurrentDate(newDate)
@@ -1519,8 +1043,8 @@ export function ScheduleManager() {
             scenarios={scenarios}
             staff={staff}
             availableStaffByScenario={availableStaffByScenario}
-            onScenariosUpdate={handleScenariosUpdate}
-            onStaffUpdate={handleStaffUpdate}
+            onScenariosUpdate={refetchScenarios}
+            onStaffUpdate={refetchStaff}
           />
 
           {/* 削除確認ダイアログ */}
