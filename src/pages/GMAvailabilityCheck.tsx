@@ -11,6 +11,7 @@ import { Calendar, Clock, Users, CheckCircle2, XCircle, ChevronLeft, ChevronRigh
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import * as storeApi from '@/lib/api'
+import { logger } from '@/utils/logger'
 
 interface GMRequest {
   id: string
@@ -66,7 +67,7 @@ export function GMAvailabilityCheck() {
       const storesData = await storeApi.storeApi.getAll()
       setStores(storesData)
     } catch (error) {
-      console.error('店舗データ取得エラー:', error)
+      logger.error('店舗データ取得エラー:', error)
     }
   }
   
@@ -145,7 +146,7 @@ export function GMAvailabilityCheck() {
         .single()
       
       if (staffError) {
-        console.error('スタッフ情報取得エラー:', staffError)
+        logger.error('スタッフ情報取得エラー:', staffError)
         // RLSエラーの場合でも続行（開発環境用）
         // TODO: 本番環境ではRLSを適切に設定
         setRequests([])
@@ -154,7 +155,7 @@ export function GMAvailabilityCheck() {
       }
       
       if (!staffData) {
-        console.error('このユーザーにはスタッフ情報が紐付けられていません')
+        logger.error('このユーザーにはスタッフ情報が紐付けられていません')
         setRequests([])
         setIsLoading(false)
         return
@@ -195,13 +196,13 @@ export function GMAvailabilityCheck() {
         .order('response_datetime', { ascending: false })
       
       if (responsesError) {
-        console.error('GMリクエスト取得エラー:', responsesError)
+        logger.error('GMリクエスト取得エラー:', responsesError)
         setRequests([])
         return
       }
       
       // デバッグ：取得したデータをログ出力
-      console.log('🔍 GM確認ページ - 取得したデータ:', {
+      logger.log('🔍 GM確認ページ - 取得したデータ:', {
         staffId,
         staffDiscordId: staffData.discord_id,
         responsesCount: responsesData?.length || 0,
@@ -286,7 +287,7 @@ export function GMAvailabilityCheck() {
       setNotes(initialNotes)
       
     } catch (error) {
-      console.error('データ読み込みエラー:', error)
+      logger.error('データ読み込みエラー:', error)
       setRequests([])
     } finally {
       setIsLoading(false)
@@ -342,7 +343,7 @@ export function GMAvailabilityCheck() {
         .eq('id', requestId)
       
       if (error) {
-        console.error('回答送信エラー:', error)
+        logger.error('回答送信エラー:', error)
         return
       }
       
@@ -376,7 +377,7 @@ export function GMAvailabilityCheck() {
             .eq('id', request.reservation_id)
           
           if (reservationError) {
-            console.error('予約更新エラー:', reservationError)
+            logger.error('予約更新エラー:', reservationError)
           }
         }
       }
@@ -384,7 +385,7 @@ export function GMAvailabilityCheck() {
       // 成功したらリロード
       await loadGMRequests()
     } catch (error) {
-      console.error('送信エラー:', error)
+      logger.error('送信エラー:', error)
     } finally {
       setSubmitting(null)
     }

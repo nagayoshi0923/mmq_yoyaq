@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { BookingConfirmation } from './BookingConfirmation'
 import { PrivateBookingRequest } from './PrivateBookingRequest'
+import { logger } from '@/utils/logger'
 
 interface ScenarioDetail {
   scenario_id: string
@@ -133,7 +134,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
       const scenarioData = scenariosData.find((s: any) => s.id === scenarioId)
       
       if (!scenarioData) {
-        console.error('シナリオが見つかりません')
+        logger.error('シナリオが見つかりません')
         return
       }
       
@@ -145,15 +146,15 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         //   .from('stores')
         //   .select('*')
         // if (directError) {
-        //   console.error('店舗データ直接クエリエラー:', directError.message)
+        //   logger.error('店舗データ直接クエリエラー:', directError.message)
         // } else {
-        //   console.log('店舗データ直接クエリ成功:', directData?.length || 0, '件')
+        //   logger.log('店舗データ直接クエリ成功:', directData?.length || 0, '件')
         // }
         
         storesData = await storeApi.getAll()
         setStores(storesData)
       } catch (error) {
-        console.error('店舗データの取得エラー:', error)
+        logger.error('店舗データの取得エラー:', error)
         storesData = []
         setStores([])
       }
@@ -260,7 +261,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
       
       setEvents(scenarioEvents)
     } catch (error) {
-      console.error('データの読み込みエラー:', error)
+      logger.error('データの読み込みエラー:', error)
     } finally {
       setIsLoading(false)
     }
