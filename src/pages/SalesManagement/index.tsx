@@ -124,11 +124,11 @@ const SalesManagement: React.FC = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <NavigationBar currentPage="sales" />
-          <SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />
       
-      <div className="ml-64 min-h-screen">
+      <div className="ml-64">
         <div className="container mx-auto max-w-7xl px-8 py-6">
-            {renderContent()}
+          {renderContent()}
         </div>
       </div>
     </div>

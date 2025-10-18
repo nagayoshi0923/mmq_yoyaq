@@ -130,8 +130,15 @@ export function useSalesData() {
         events = events.filter(e => e.store_id === storeId)
       }
       
+      // キャンセル済みイベントが除外されているか確認
+      const cancelledCount = events.filter(e => e.is_cancelled).length
+      
       // 売上データを計算
-      logger.log('📊 イベントデータ取得完了:', { eventsCount: events.length })
+      logger.log('📊 イベントデータ取得完了:', { 
+        eventsCount: events.length,
+        cancelledCount,
+        message: cancelledCount > 0 ? '⚠️ キャンセル済みイベントが含まれています！' : '✅ キャンセル済みイベントは除外されています'
+      })
       const data = calculateSalesData(events, stores, startDate, endDate)
       logger.log('📊 売上データ計算完了:', { totalRevenue: data.totalRevenue })
       setSalesData(data)
