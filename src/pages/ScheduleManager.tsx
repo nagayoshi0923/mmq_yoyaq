@@ -30,29 +30,24 @@ import { supabase } from '@/lib/supabase'
 
 // Types
 import type { Staff } from '@/types'
+import type { ScheduleEvent } from '@/types/schedule'
+
+// Utils
+import { 
+  generateMonthDays, 
+  getTimeSlot, 
+  getCategoryCounts, 
+  TIME_SLOT_DEFAULTS,
+  getMemoKey,
+  getReservationBadgeClass,
+  CATEGORY_CONFIG
+} from '@/utils/scheduleUtils'
 
 // Icons
 import { Ban, ChevronLeft, ChevronRight, Edit, RotateCcw, Trash2 } from 'lucide-react'
 
-// スケジュールイベントの型定義
-interface ScheduleEvent {
-  id: string
-  date: string
-  venue: string
-  scenario: string
-  gms: string[]
-  start_time: string
-  end_time: string
-  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package'
-  reservation_info?: string
-  notes?: string
-  is_cancelled: boolean
-  participant_count?: number
-  max_participants?: number
-  is_reservation_enabled?: boolean
-  is_private_request?: boolean // 貸切リクエストかどうか
-  reservation_id?: string // 貸切リクエストの元のreservation ID
-}
+// 型を再エクスポート（他のコンポーネントで使用できるように）
+export type { ScheduleEvent }
 
 
 
@@ -625,28 +620,11 @@ export function ScheduleManager() {
     loadMemos()
   }, [currentDate])
 
-  // 公演カテゴリの色設定（不変なのでメモ化）
-  const categoryConfig = useMemo(() => ({
-    open: { label: 'オープン公演', badgeColor: 'bg-blue-100 text-blue-800', cardColor: 'bg-blue-50 border-blue-200' },
-    private: { label: '貸切公演', badgeColor: 'bg-purple-100 text-purple-800', cardColor: 'bg-purple-50 border-purple-200' },
-    gmtest: { label: 'GMテスト', badgeColor: 'bg-orange-100 text-orange-800', cardColor: 'bg-orange-50 border-orange-200' },
-    testplay: { label: 'テストプレイ', badgeColor: 'bg-yellow-100 text-yellow-800', cardColor: 'bg-yellow-50 border-yellow-200' },
-    trip: { label: '出張公演', badgeColor: 'bg-green-100 text-green-800', cardColor: 'bg-green-50 border-green-200' },
-    venue_rental: { label: '場所貸し', badgeColor: 'bg-cyan-100 text-cyan-800', cardColor: 'bg-cyan-50 border-cyan-200' },
-    venue_rental_free: { label: '場所貸無料', badgeColor: 'bg-teal-100 text-teal-800', cardColor: 'bg-teal-50 border-teal-200' },
-    package: { label: 'パッケージ会', badgeColor: 'bg-pink-100 text-pink-800', cardColor: 'bg-pink-50 border-pink-200' }
-  }), [])
+  // 公演カテゴリの色設定（不変なので定数を使用）
+  const categoryConfig = CATEGORY_CONFIG
 
 
 
-  // 予約状況によるバッジクラス取得
-  const getReservationBadgeClass = useCallback((current: number, max: number): string => {
-    const ratio = current / max
-    if (ratio >= 1) return 'bg-red-100' // 満席
-    if (ratio >= 0.8) return 'bg-yellow-100' // ほぼ満席
-    if (ratio >= 0.5) return 'bg-green-100' // 順調
-    return 'bg-gray-100' // 空きあり
-  }, [])
 
   // 月の変更
   const changeMonth = useCallback((direction: 'prev' | 'next') => {
@@ -666,70 +644,11 @@ export function ScheduleManager() {
   }, [])
 
   // 月間の日付リストを生成
-  const monthDays = useMemo(() => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const days = [] as Array<{ date: string; dayOfWeek: string; day: number; displayDate: string }>
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day)
-      const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      days.push({
-        date: dateString,
-        dayOfWeek: date.toLocaleDateString('ja-JP', { weekday: 'short' }),
-        day,
-        displayDate: `${month + 1}/${day}`
-      })
-    }
-    return days
-  }, [currentDate])
+  const monthDays = useMemo(() => generateMonthDays(currentDate), [currentDate])
 
-  // 時間帯判定（開始時間のみで判定）
-  const getTimeSlot = (startTime: string) => {
-    const hour = parseInt(startTime.split(':')[0])
-    if (hour < 12) return 'morning'      // 0-11時 → 朝
-    if (hour < 17) return 'afternoon'    // 12-16時 → 昼
-    return 'evening'                     // 17時以降 → 夜
-  }
 
   // カテゴリごとの公演数を計算
-  const getCategoryCounts = useCallback(() => {
-    const counts: Record<string, number> = {
-      all: events.length,
-      open: 0,
-      private: 0,
-      gmtest: 0,
-      testplay: 0,
-      trip: 0,
-      venue_rental: 0,
-      venue_rental_free: 0,
-      package: 0,
-      cancelled: 0,
-      alerts: 0  // 警告が必要な公演
-    }
-    
-    events.forEach(event => {
-      if (event.is_cancelled) {
-        counts.cancelled++
-      }
-      if (counts[event.category] !== undefined) {
-        counts[event.category]++
-      }
-      
-      // 警告条件：シナリオが未定、またはGMが未定・空
-      const hasAlert = !event.scenario || event.scenario.trim() === '' || 
-                       !event.gms || event.gms.length === 0 || 
-                       event.gms.every((gm: string) => !gm || gm.trim() === '')
-      
-      if (hasAlert && !event.is_cancelled) {
-        counts.alerts++
-      }
-    })
-    
-    return counts
-  }, [events])
-
-  const categoryCounts = useMemo(() => getCategoryCounts(), [getCategoryCounts])
+  const categoryCounts = useMemo(() => getCategoryCounts(events), [events])
 
   // 特定の日付・店舗・時間帯の公演を取得
   const getEventsForSlot = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
@@ -758,8 +677,6 @@ export function ScheduleManager() {
     })
   }
 
-  // メモのキーを生成
-  const getMemoKey = (date: string, venue: string) => `${date}-${venue}`
 
   // メモを保存
   const handleSaveMemo = async (date: string, venue: string, memo: string) => {
@@ -861,12 +778,7 @@ export function ScheduleManager() {
 
     try {
       // 移動先の時間を計算
-      const timeSlotDefaults = {
-        morning: { start_time: '10:00', end_time: '14:00' },
-        afternoon: { start_time: '14:30', end_time: '18:30' },
-        evening: { start_time: '19:00', end_time: '23:00' }
-      }
-      const defaults = timeSlotDefaults[dropTarget.timeSlot as keyof typeof timeSlotDefaults]
+      const defaults = TIME_SLOT_DEFAULTS[dropTarget.timeSlot]
 
       // 元の公演を削除
       await scheduleApi.delete(draggedEvent.id)
@@ -925,12 +837,7 @@ export function ScheduleManager() {
 
     try {
       // 移動先の時間を計算
-      const timeSlotDefaults = {
-        morning: { start_time: '10:00', end_time: '14:00' },
-        afternoon: { start_time: '14:30', end_time: '18:30' },
-        evening: { start_time: '19:00', end_time: '23:00' }
-      }
-      const defaults = timeSlotDefaults[targetTimeSlot as keyof typeof timeSlotDefaults]
+      const defaults = TIME_SLOT_DEFAULTS[targetTimeSlot]
 
       // 新しい位置に公演を作成（元の公演は残す）
       const newEventData: any = {
@@ -964,12 +871,7 @@ export function ScheduleManager() {
 
     try {
       // 移動先の時間を計算
-      const timeSlotDefaults = {
-        morning: { start_time: '10:00', end_time: '14:00' },
-        afternoon: { start_time: '14:30', end_time: '18:30' },
-        evening: { start_time: '19:00', end_time: '23:00' }
-      }
-      const defaults = timeSlotDefaults[dropTarget.timeSlot as keyof typeof timeSlotDefaults]
+      const defaults = TIME_SLOT_DEFAULTS[dropTarget.timeSlot]
 
       // 新しい位置に公演を作成（元の公演は残す）
       const newEventData: any = {
