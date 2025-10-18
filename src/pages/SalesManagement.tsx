@@ -13,6 +13,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useSessionState } from '@/hooks/useSessionState'
 import SalesSidebar from '@/components/layout/SalesSidebar'
 import AuthorReport from './AuthorReport'
+import { logger } from '@/utils/logger'
 import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, Users, Search, Filter } from 'lucide-react'
 import { SortableTableHeader } from '@/components/ui/sortable-table-header'
 import { useSortableTable } from '@/hooks/useSortableTable'
@@ -368,7 +369,7 @@ const SalesManagement: React.FC = () => {
       )
       setScenarioData(data)
     } catch (error) {
-      console.error('シナリオ別公演データの取得に失敗しました:', error)
+      logger.error('シナリオ別公演データの取得に失敗しました:', error)
     } finally {
       setScenarioLoading(false)
     }
@@ -392,7 +393,7 @@ const SalesManagement: React.FC = () => {
       if (error) throw error
       setAllScenarios(data || [])
     } catch (error) {
-      console.error('シナリオ一覧の取得に失敗しました:', error)
+      logger.error('シナリオ一覧の取得に失敗しました:', error)
     } finally {
       setScenariosLoading(false)
     }
@@ -1076,10 +1077,6 @@ const SalesManagement: React.FC = () => {
   // 作者レポートコンテンツ
   const renderAuthorReportContent = () => <AuthorReport />
 
-  // dateRangeの変化を監視（デバッグ用）
-  // useEffect(() => {
-  //   console.log('dateRange変化:', dateRange.startDate, '～', dateRange.endDate)
-  // }, [dateRange])
 
   // 期間選択の初期化
   useEffect(() => {
@@ -1094,7 +1091,7 @@ const SalesManagement: React.FC = () => {
         const storeData = await salesApi.getStores()
         setStores(storeData)
       } catch (error) {
-        console.error('店舗データの取得に失敗しました:', error)
+        logger.error('店舗データの取得に失敗しました:', error)
       }
     }
     fetchStores()
@@ -1215,7 +1212,7 @@ const SalesManagement: React.FC = () => {
       }
       
       // デバッグログ
-      console.log('売上計算デバッグ:', {
+      logger.debug('売上計算デバッグ:', {
         totalEvents: events.length,
         selectedPeriodEvents: selectedPeriodEvents.length,
         sampleEvent: selectedPeriodEvents[0],
@@ -1233,7 +1230,7 @@ const SalesManagement: React.FC = () => {
       const totalEvents = selectedPeriodEvents.length
       const averageRevenuePerEvent = totalEvents > 0 ? totalRevenue / totalEvents : 0
       
-      console.log('売上計算結果:', {
+      logger.debug('売上計算結果:', {
         totalRevenue,
         totalEvents,
         averageRevenuePerEvent
@@ -1264,7 +1261,7 @@ const SalesManagement: React.FC = () => {
         const participationFee = event.scenarios?.participation_fee || 0
         
         // デバッグログ
-        console.log('店舗別集計デバッグ:', {
+        logger.debug('店舗別集計デバッグ:', {
           eventId: event.id,
           venue: event.venue,
           storeName: storeName,
@@ -1392,7 +1389,7 @@ const SalesManagement: React.FC = () => {
         dailyRevenue: [],
       })
     } catch (error) {
-      console.error('売上データの取得に失敗しました:', error)
+      logger.error('売上データの取得に失敗しました:', error)
     } finally {
       setLoading(false)
     }
@@ -1732,7 +1729,7 @@ const SalesManagement: React.FC = () => {
       : defaultMaxEvents
     
     // デバッグログ
-    console.log('グラフレンジ計算:', { 
+    logger.debug('グラフレンジ計算:', { 
       hasData, 
       storeCount, 
       isDailyChart, 
