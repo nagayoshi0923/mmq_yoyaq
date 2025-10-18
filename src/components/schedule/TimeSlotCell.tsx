@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { TableCell } from '@/components/ui/table'
 import { PerformanceCard } from './PerformanceCard'
 import { EmptySlot } from './EmptySlot'
@@ -50,7 +50,7 @@ interface TimeSlotCellProps {
   onContextMenuEvent?: (event: ScheduleEvent, x: number, y: number) => void
 }
 
-export function TimeSlotCell({
+function TimeSlotCellBase({
   events,
   date,
   venue,
@@ -206,3 +206,5 @@ export function TimeSlotCell({
     </TableCell>
   )
 }
+
+export const TimeSlotCell = React.memo(TimeSlotCellBase)
