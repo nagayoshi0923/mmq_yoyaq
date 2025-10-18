@@ -100,19 +100,34 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       </div>
 
       {/* サマリーカード */}
-      <SummaryCards 
-        salesData={salesData}
-        dateRange={dateRange}
-      />
+      {salesData ? (
+        <>
+          <SummaryCards 
+            salesData={salesData}
+            dateRange={dateRange}
+          />
 
-      {/* ランキングカード */}
-      <RankingCards salesData={salesData} />
+          {/* ランキングカード */}
+          <RankingCards 
+            storeRanking={salesData.storeRanking} 
+            scenarioRanking={salesData.scenarioRanking} 
+          />
 
-      {/* チャート */}
-      <SalesChart 
-        salesData={salesData}
-        dateRange={dateRange}
-      />
+          {/* チャート */}
+          <SalesChart 
+            salesData={salesData}
+            dateRange={dateRange}
+          />
+        </>
+      ) : (
+        <Card>
+          <CardContent className="p-8">
+            <div className="text-center text-muted-foreground">
+              データを読み込んでいます...
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
