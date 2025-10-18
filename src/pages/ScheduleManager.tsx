@@ -52,8 +52,6 @@ import { Ban, Edit, RotateCcw, Trash2 } from 'lucide-react'
 // 型を再エクスポート（他のコンポーネントで使用できるように）
 export type { ScheduleEvent }
 
-
-
 export function ScheduleManager() {
   // 現在の日付状態
   const [currentDate, setCurrentDate] = useState(() => {
@@ -185,12 +183,6 @@ export function ScheduleManager() {
     calculateAvailableGMs()
   }, [eventOperations.isPerformanceModalOpen, eventOperations.modalInitialData, eventOperations.editingEvent, shiftData, scenarios])
 
-  // 公演カテゴリの色設定（不変なので定数を使用）
-  const categoryConfig = CATEGORY_CONFIG
-
-
-
-
   // 月の変更
   const changeMonth = useCallback((direction: 'prev' | 'next') => {
     // 月切り替え時はスクロール位置をクリア（一番上に戻る）
@@ -209,7 +201,6 @@ export function ScheduleManager() {
 
   // 月間の日付リストを生成
   const monthDays = useMemo(() => generateMonthDays(currentDate), [currentDate])
-
 
   // カテゴリごとの公演数を計算
   const categoryCounts = useMemo(() => getCategoryCounts(events), [events])
@@ -295,7 +286,7 @@ export function ScheduleManager() {
             stores={stores}
             getEventsForSlot={getEventsForSlot}
             shiftData={shiftData}
-            categoryConfig={categoryConfig}
+            categoryConfig={CATEGORY_CONFIG}
             getReservationBadgeClass={getReservationBadgeClass}
             getMemo={getMemo}
             onSaveMemo={handleSaveMemo}
