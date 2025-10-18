@@ -5,7 +5,6 @@ import { useSessionState } from '@/hooks/useSessionState'
 import SalesSidebar from '@/components/layout/SalesSidebar'
 import AuthorReport from '../AuthorReport'
 import { useSalesData } from './hooks/useSalesData'
-import { usePeriodSelector } from './hooks/usePeriodSelector'
 import { SalesOverview } from './components/SalesOverview'
 import { ScenarioPerformance } from './components/ScenarioPerformance'
 
@@ -27,13 +26,10 @@ const SalesManagement: React.FC = () => {
     loadSalesData
   } = useSalesData()
 
-  // 期間選択フック
-  const { handlePeriodChange } = usePeriodSelector(loadSalesData)
-
   // 初回ロード
   useEffect(() => {
     loadSalesData('thisMonth', 'all')
-  }, [])
+  }, [loadSalesData])
 
   // タブ切り替え時のスクロール復元
   useEffect(() => {
@@ -62,7 +58,7 @@ const SalesManagement: React.FC = () => {
             selectedPeriod={selectedPeriod}
             selectedStore={selectedStore}
             dateRange={dateRange}
-            onPeriodChange={handlePeriodChange}
+            onPeriodChange={(period) => loadSalesData(period, selectedStore)}
             onStoreChange={(store) => {
               setSelectedStore(store)
               loadSalesData(selectedPeriod, store)
@@ -91,7 +87,7 @@ const SalesManagement: React.FC = () => {
             selectedPeriod={selectedPeriod}
             selectedStore={selectedStore}
             dateRange={dateRange}
-            onPeriodChange={handlePeriodChange}
+            onPeriodChange={(period) => loadSalesData(period, selectedStore)}
             onStoreChange={(store) => {
               setSelectedStore(store)
               loadSalesData(selectedPeriod, store)

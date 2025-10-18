@@ -20,16 +20,12 @@ interface Store {
   short_name: string
 }
 
-interface UseSalesDataProps {
-  selectedPeriod: string
-  selectedStore: string
-  dateRange: { startDate: string; endDate: string }
-}
-
-export function useSalesData({ selectedPeriod, selectedStore, dateRange }: UseSalesDataProps) {
+export function useSalesData() {
   const [salesData, setSalesData] = useState<SalesData | null>(null)
   const [loading, setLoading] = useState(false)
   const [stores, setStores] = useState<Store[]>([])
+  const [selectedPeriod, setSelectedPeriod] = useState('thisMonth')
+  const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
 
   // 店舗一覧を取得
   useEffect(() => {
@@ -44,15 +40,53 @@ export function useSalesData({ selectedPeriod, selectedStore, dateRange }: UseSa
     fetchStores()
   }, [])
 
-  // 売上データを取得
-  const fetchSalesData = useCallback(async () => {
-    if (!dateRange.startDate || !dateRange.endDate) return
-
+  // 売上データを取得（期間とストアを引数で受け取る）
+  const loadSalesData = useCallback(async (period: string, storeId: string) => {
     setLoading(true)
+    setSelectedPeriod(period)
+
+    // 日付範囲を計算
+    let range: { startDate: string; endDate: string }
+    switch (period) {
+      case 'thisMonth':
+        range = getThisMonthRangeJST()
+        break
+      case 'lastMonth':
+        range = getLastMonthRangeJST()
+        break
+      case 'thisWeek':
+        range = getThisWeekRangeJST()
+        break
+      case 'lastWeek':
+        range = getLastWeekRangeJST()
+        break
+      case 'last7days':
+        range = getPastDaysRangeJST(7)
+        break
+      case 'last30days':
+        range = getPastDaysRangeJST(30)
+        break
+      case 'thisYear':
+        range = getThisYearRangeJST()
+        break
+      case 'lastYear':
+        range = getLastYearRangeJST()
+        break
+      default:
+        range = getThisMonthRangeJST()
+    }
+
+    setDateRange(range)
+
+    if (!range.startDate || !range.endDate) {
+      setLoading(false)
+      return
+    }
+
     try {
       // 期間に応じてグラフ用のデータ取得期間を決定
-      const startDate = new Date(dateRange.startDate + 'T00:00:00+09:00')
-      const endDate = new Date(dateRange.endDate + 'T23:59:59+09:00')
+      const startDate = new Date(range.startDate + 'T00:00:00+09:00')
+      const endDate = new Date(range.endDate + 'T23:59:59+09:00')
       const daysDiff = getDaysDiff(startDate, endDate)
       
       let chartStartDate: Date
@@ -74,8 +108,8 @@ export function useSalesData({ selectedPeriod, selectedStore, dateRange }: UseSa
       )
       
       // 店舗フィルタリング
-      if (selectedStore !== 'all') {
-        events = events.filter(e => e.store_id === selectedStore)
+      if (storeId !== 'all') {
+        events = events.filter(e => e.store_id === storeId)
       }
       
       // 売上データを計算
@@ -86,26 +120,21 @@ export function useSalesData({ selectedPeriod, selectedStore, dateRange }: UseSa
     } finally {
       setLoading(false)
     }
-  }, [dateRange.startDate, dateRange.endDate, selectedStore, stores])
-
-  // 期間または店舗が変更されたらデータを再取得
-  useEffect(() => {
-    if (dateRange.startDate && dateRange.endDate) {
-      fetchSalesData()
-    }
-  }, [fetchSalesData])
+  }, [stores])
 
   return {
     salesData,
     loading,
     stores,
-    refetch: fetchSalesData
+    dateRange,
+    selectedPeriod,
+    loadSalesData
   }
 }
 
 // 売上データ計算関数
 function calculateSalesData(
-  events: any[],
+  events: Array<{ revenue?: number; store_id: string; scenario?: string; scenario_id?: string; date: string }>,
   stores: Store[],
   startDate: Date,
   endDate: Date
@@ -142,8 +171,8 @@ function calculateSalesData(
   const scenarioRevenues = new Map<string, { revenue: number; events: number; title: string; id: string }>()
   
   events.forEach(event => {
-    const scenarioId = event.scenario_id || 'unknown'
-    const scenarioTitle = event.scenario_title || '不明'
+    const scenarioId = event.scenario_id || event.scenario || '不明'
+    const scenarioTitle = event.scenario || '不明'
     
     if (!scenarioRevenues.has(scenarioId)) {
       scenarioRevenues.set(scenarioId, { revenue: 0, events: 0, title: scenarioTitle, id: scenarioId })
@@ -161,14 +190,31 @@ function calculateSalesData(
     }))
     .sort((a, b) => b.revenue - a.revenue)
 
+  // チャート用の日別データ
+  const dailyRevenues = new Map<string, number>()
+  events.forEach(event => {
+    const date = event.date
+    dailyRevenues.set(date, (dailyRevenues.get(date) || 0) + (event.revenue || 0))
+  })
+
+  const chartData = {
+    labels: Array.from(dailyRevenues.keys()).sort(),
+    datasets: [{
+      label: '売上',
+      data: Array.from(dailyRevenues.keys()).sort().map(date => dailyRevenues.get(date) || 0),
+      borderColor: 'rgb(75, 192, 192)',
+      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+      tension: 0.1
+    }]
+  }
+
   return {
     totalRevenue,
     totalEvents,
     averageRevenuePerEvent,
+    storeCount: storeRevenues.size,
     storeRanking,
     scenarioRanking,
-    periodStart: startDate.toISOString(),
-    periodEnd: endDate.toISOString()
+    chartData
   }
 }
-
