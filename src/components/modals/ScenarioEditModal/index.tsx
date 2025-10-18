@@ -10,72 +10,23 @@ import { Badge } from '@/components/ui/badge'
 import { ConditionalSetting } from '@/components/ui/conditional-settings'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
-import type { Scenario, FlexiblePricing, Staff } from '@/types'
+import type { Scenario, Staff } from '@/types'
 import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 import { logger } from '@/utils/logger'
 
-// 全角数字を半角数字に変換
-const convertFullWidthToHalfWidth = (str: string) => {
-  return str.replace(/[０-９]/g, (char) => {
-    return String.fromCharCode(char.charCodeAt(0) - 0xFEE0)
-  })
-}
+// 型定義
+import type { ScenarioEditModalProps, ScenarioFormData } from './types'
+
+// 定数
+import { statusOptions, genreOptions } from './utils/constants'
+
+// ヘルパー関数
+import { convertFullWidthToHalfWidth, handleNumericInput } from './utils/helpers'
 
 // 注: formatCurrency と parseCurrency は現在未使用ですが、
 // 将来的な料金表示機能のために残しています
-
-interface ScenarioEditModalProps {
-  scenario: Scenario | null
-  isOpen: boolean
-  onClose: () => void
-  onSave: (scenario: Scenario) => void
-}
-
-interface ScenarioFormData {
-  title: string
-  author: string
-  description: string
-  duration: number // 分単位
-  player_count_min: number
-  player_count_max: number
-  difficulty: number
-  rating?: number
-  status: string
-  participation_fee: number
-  production_costs: { item: string; amount: number }[]
-  genre: string[]
-  required_props: { item: string; amount: number; frequency: 'recurring' | 'one-time' }[]
-  license_rewards: { item: string; amount: number; type?: 'fixed' | 'percentage'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }[]
-  has_pre_reading: boolean
-  gm_count: number
-  gm_assignments: { role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }[]
-  // 時間帯別料金設定
-  participation_costs: { time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }[]
-  // 柔軟な料金設定
-  use_flexible_pricing: boolean
-  flexible_pricing: FlexiblePricing
-}
-
-const statusOptions = [
-  { value: 'available', label: '利用可能' },
-  { value: 'maintenance', label: 'メンテナンス中' },
-  { value: 'retired', label: '引退済み' }
-]
-
-const genreOptions = [
-  'ホラー',
-  'ミステリー',
-  'クラシック',
-  'コメディ',
-  'SF',
-  'ファンタジー',
-  'サスペンス',
-  'アクション',
-  'ドラマ',
-  'ロマンス'
-].map(genre => ({ id: genre, name: genre }))
 
 export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: ScenarioEditModalProps) {
   const [formData, setFormData] = useState<ScenarioFormData>({
