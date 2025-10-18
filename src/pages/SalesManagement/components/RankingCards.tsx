@@ -23,7 +23,7 @@ const formatCurrency = (amount: number): string => {
   }).format(amount)
 }
 
-export const RankingCards: React.FC<RankingCardsProps> = ({
+const RankingCardsBase: React.FC<RankingCardsProps> = ({
   storeRanking,
   scenarioRanking
 }) => {
@@ -95,4 +95,7 @@ export const RankingCards: React.FC<RankingCardsProps> = ({
     </div>
   )
 }
+
+// React.memoでメモ化してエクスポート
+export const RankingCards = React.memo(RankingCardsBase)
 

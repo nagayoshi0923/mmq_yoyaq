@@ -116,7 +116,6 @@ export function ScheduleManager() {
   // UI状態管理
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
-  const [availableStaffByScenario, setAvailableStaffByScenario] = useState<Record<string, Staff[]>>({})
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -133,54 +132,52 @@ export function ScheduleManager() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  // シナリオごとの出勤可能GMを計算
-  useEffect(() => {
-    const calculateAvailableGMs = () => {
-      if (!eventOperations.isPerformanceModalOpen || !scenarios.length) return
-      
-      // 日付とタイムスロットの取得
-      let date: string
-      let timeSlot: string
-      
-      if (eventOperations.modalInitialData) {
-        date = eventOperations.modalInitialData.date
-        timeSlot = eventOperations.modalInitialData.timeSlot
-      } else if (eventOperations.editingEvent) {
-        date = eventOperations.editingEvent.date
-        // 開始時刻からタイムスロットを判定
-        const startHour = parseInt(eventOperations.editingEvent.start_time.split(':')[0])
-        if (startHour < 12) {
-          timeSlot = 'morning'
-        } else if (startHour < 17) {
-          timeSlot = 'afternoon'
-        } else {
-          timeSlot = 'evening'
-        }
-      } else {
-        return
-      }
-      
-      const key = `${date}-${timeSlot}`
-      const availableStaff = shiftData[key] || []
-      
-      // シナリオごとに、そのシナリオを担当できるGMをフィルタリング
-      const staffByScenario: Record<string, Staff[]> = {}
-      
-      for (const scenario of scenarios) {
-        const gmList = availableStaff.filter(staffMember => {
-          // 担当シナリオに含まれているかチェック
-          const specialScenarios = staffMember.special_scenarios || []
-          const hasScenarioById = specialScenarios.includes(scenario.id)
-          const hasScenarioByTitle = specialScenarios.includes(scenario.title)
-          return hasScenarioById || hasScenarioByTitle
-        })
-        staffByScenario[scenario.title] = gmList
-      }
-      
-      setAvailableStaffByScenario(staffByScenario)
+  // シナリオごとの出勤可能GMを計算（useMemoに最適化）
+  const availableStaffByScenario = useMemo(() => {
+    if (!eventOperations.isPerformanceModalOpen || !scenarios.length) {
+      return {}
     }
     
-    calculateAvailableGMs()
+    // 日付とタイムスロットの取得
+    let date: string
+    let timeSlot: string
+    
+    if (eventOperations.modalInitialData) {
+      date = eventOperations.modalInitialData.date
+      timeSlot = eventOperations.modalInitialData.timeSlot
+    } else if (eventOperations.editingEvent) {
+      date = eventOperations.editingEvent.date
+      // 開始時刻からタイムスロットを判定
+      const startHour = parseInt(eventOperations.editingEvent.start_time.split(':')[0])
+      if (startHour < 12) {
+        timeSlot = 'morning'
+      } else if (startHour < 17) {
+        timeSlot = 'afternoon'
+      } else {
+        timeSlot = 'evening'
+      }
+    } else {
+      return {}
+    }
+    
+    const key = `${date}-${timeSlot}`
+    const availableStaff = shiftData[key] || []
+    
+    // シナリオごとに、そのシナリオを担当できるGMをフィルタリング
+    const staffByScenario: Record<string, Staff[]> = {}
+    
+    for (const scenario of scenarios) {
+      const gmList = availableStaff.filter(staffMember => {
+        // 担当シナリオに含まれているかチェック
+        const specialScenarios = staffMember.special_scenarios || []
+        const hasScenarioById = specialScenarios.includes(scenario.id)
+        const hasScenarioByTitle = specialScenarios.includes(scenario.title)
+        return hasScenarioById || hasScenarioByTitle
+      })
+      staffByScenario[scenario.title] = gmList
+    }
+    
+    return staffByScenario
   }, [eventOperations.isPerformanceModalOpen, eventOperations.modalInitialData, eventOperations.editingEvent, shiftData, scenarios])
 
   // 月の変更

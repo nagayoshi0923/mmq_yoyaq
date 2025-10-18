@@ -22,7 +22,7 @@ const formatCurrency = (amount: number): string => {
   }).format(amount)
 }
 
-export const SummaryCards: React.FC<SummaryCardsProps> = ({
+const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
   totalRevenue,
   averageRevenue,
   totalEvents,
@@ -92,4 +92,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
     </div>
   )
 }
+
+// React.memoでメモ化してエクスポート
+export const SummaryCards = React.memo(SummaryCardsBase)
 

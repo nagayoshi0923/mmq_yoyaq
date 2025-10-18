@@ -8,7 +8,7 @@ interface SalesChartProps {
   chartRef?: any
 }
 
-export const SalesChart: React.FC<SalesChartProps> = ({
+const SalesChartBase: React.FC<SalesChartProps> = ({
   chartData,
   chartOptions,
   chartRef
@@ -30,4 +30,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({
     </Card>
   )
 }
+
+// React.memoでメモ化してエクスポート（Chart.jsは再レンダーコストが高いため）
+export const SalesChart = React.memo(SalesChartBase)
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { TableCell } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -26,7 +26,7 @@ function useDebounce(callback: Function, delay: number) {
   return debouncedCallback
 }
 
-export function MemoCell({ date, venue, initialMemo = '', onSave }: MemoCellProps) {
+function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [memo, setMemo] = useState(initialMemo)
 
@@ -96,3 +96,6 @@ export function MemoCell({ date, venue, initialMemo = '', onSave }: MemoCellProp
     </TableCell>
   )
 }
+
+// React.memoでメモ化してエクスポート
+export const MemoCell = React.memo(MemoCellBase)
