@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
 
@@ -81,15 +82,15 @@ export function useScheduleData(currentDate: Date) {
         // 店舗・シナリオ・スタッフを並列で読み込み
         const [storeData, scenarioData, staffData] = await Promise.all([
           storeApi.getAll().catch(err => {
-            console.error('店舗データの読み込みエラー:', err)
+            logger.error('店舗データの読み込みエラー:', err)
             return []
           }),
           scenarioApi.getAll().catch(err => {
-            console.error('シナリオデータの読み込みエラー:', err)
+            logger.error('シナリオデータの読み込みエラー:', err)
             return []
           }),
           staffApi.getAll().catch(err => {
-            console.error('スタッフデータの読み込みエラー:', err)
+            logger.error('スタッフデータの読み込みエラー:', err)
             return []
           })
         ])
@@ -128,7 +129,7 @@ export function useScheduleData(currentDate: Date) {
         sessionStorage.setItem('scheduleStaff', JSON.stringify(staffWithScenarios))
         setStaffLoading(false)
       } catch (err) {
-        console.error('初期データの読み込みエラー:', err)
+        logger.error('初期データの読み込みエラー:', err)
         setStoresLoading(false)
         setScenariosLoading(false)
         setStaffLoading(false)
@@ -196,7 +197,7 @@ export function useScheduleData(currentDate: Date) {
           .eq('status', 'confirmed') // 確定のみ表示
         
         if (privateError) {
-          console.error('貸切リクエスト取得エラー:', privateError)
+          logger.error('貸切リクエスト取得エラー:', privateError)
         }
         
         // 貸切リクエストをスケジュールイベントに変換
@@ -284,7 +285,7 @@ export function useScheduleData(currentDate: Date) {
         
         setEvents([...formattedEvents, ...privateEvents])
       } catch (err) {
-        console.error('公演データの読み込みエラー:', err)
+        logger.error('公演データの読み込みエラー:', err)
         setError('公演データの読み込みに失敗しました')
         
         // エラー時はモックデータを使用
@@ -333,7 +334,7 @@ export function useScheduleData(currentDate: Date) {
       setScenarios(scenarioData)
       sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenarioData))
     } catch (err) {
-      console.error('シナリオデータの再読み込みエラー:', err)
+      logger.error('シナリオデータの再読み込みエラー:', err)
     }
   }
 
@@ -344,7 +345,7 @@ export function useScheduleData(currentDate: Date) {
       setStaff(staffData)
       sessionStorage.setItem('scheduleStaff', JSON.stringify(staffData))
     } catch (err) {
-      console.error('スタッフデータの再読み込みエラー:', err)
+      logger.error('スタッフデータの再読み込みエラー:', err)
     }
   }
 

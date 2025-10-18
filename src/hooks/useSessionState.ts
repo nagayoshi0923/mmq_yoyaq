@@ -1,6 +1,7 @@
 // sessionStorageと同期するstate管理フック（汎用版）
 
 import { useState, useEffect, useCallback } from 'react'
+import { logger } from '@/utils/logger'
 
 /**
  * sessionStorageと自動同期するuseStateの代替
@@ -21,7 +22,7 @@ export function useSessionState<T>(key: string, defaultValue: T) {
         return JSON.parse(saved) as T
       }
     } catch (error) {
-      console.warn(`Failed to load "${key}" from sessionStorage:`, error)
+      logger.warn(`Failed to load "${key}" from sessionStorage:`, error)
     }
     return defaultValue
   })
@@ -31,7 +32,7 @@ export function useSessionState<T>(key: string, defaultValue: T) {
     try {
       sessionStorage.setItem(key, JSON.stringify(state))
     } catch (error) {
-      console.warn(`Failed to save "${key}" to sessionStorage:`, error)
+      logger.warn(`Failed to save "${key}" to sessionStorage:`, error)
     }
   }, [key, state])
 

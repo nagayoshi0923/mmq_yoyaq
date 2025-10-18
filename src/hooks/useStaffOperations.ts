@@ -5,6 +5,7 @@ import { staffApi, storeApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 import type { Staff, Store } from '@/types'
 
 export function useStaffOperations() {
@@ -57,7 +58,7 @@ export function useStaffOperations() {
               experienced_scenarios: experiencedScenarios // 体験済みシナリオ（GM不可）
             }
           } catch (error) {
-            console.error(`Error loading assignments for staff ${staffMember.id}:`, error)
+            logger.error(`Error loading assignments for staff ${staffMember.id}:`, error)
             return {
               ...staffMember,
               special_scenarios: staffMember.special_scenarios || [],
@@ -75,7 +76,7 @@ export function useStaffOperations() {
       
       setStaff(staffWithScenarios)
     } catch (err: any) {
-      console.error('Error loading staff:', err)
+      logger.error('Error loading staff:', err)
       setError('スタッフデータの読み込みに失敗しました: ' + err.message)
       setStaff([])
     } finally {
@@ -89,7 +90,7 @@ export function useStaffOperations() {
       const data = await storeApi.getAll()
       setStores(data)
     } catch (err: any) {
-      console.error('Error loading stores:', err)
+      logger.error('Error loading stores:', err)
     }
   }, [])
 
@@ -99,7 +100,7 @@ export function useStaffOperations() {
       const data = await scenarioApi.getAll()
       setScenarios(data)
     } catch (err: any) {
-      console.error('Error loading scenarios:', err)
+      logger.error('Error loading scenarios:', err)
     }
   }, [])
 
@@ -140,7 +141,7 @@ export function useStaffOperations() {
       setIsEditModalOpen(false)
       setEditingStaff(null)
     } catch (err: any) {
-      console.error('Error saving staff:', err)
+      logger.error('Error saving staff:', err)
       setError('スタッフの保存に失敗しました: ' + err.message)
     }
   }, [staff, loadStaff])
@@ -172,7 +173,7 @@ export function useStaffOperations() {
       setIsInviteModalOpen(false)
       await loadStaff()
     } catch (err: any) {
-      console.error('Error inviting staff:', err)
+      logger.error('Error inviting staff:', err)
       alert('招待に失敗しました: ' + err.message)
     } finally {
       setInviteLoading(false)
@@ -202,7 +203,7 @@ export function useStaffOperations() {
       setLinkingStaff(null)
       await loadStaff()
     } catch (err: any) {
-      console.error('Error linking user:', err)
+      logger.error('Error linking user:', err)
       alert('紐付けに失敗しました: ' + err.message)
     } finally {
       setLinkLoading(false)
@@ -235,7 +236,7 @@ export function useStaffOperations() {
       setLinkingStaff(null)
       await loadStaff()
     } catch (err: any) {
-      console.error('Error inviting and linking:', err)
+      logger.error('Error inviting and linking:', err)
       alert('招待に失敗しました: ' + err.message)
     } finally {
       setLinkLoading(false)
@@ -259,7 +260,7 @@ export function useStaffOperations() {
       setDeleteDialogOpen(false)
       setStaffToDelete(null)
     } catch (err: any) {
-      console.error('Error deleting staff:', err)
+      logger.error('Error deleting staff:', err)
       setError('スタッフの削除に失敗しました: ' + err.message)
     } finally {
       setLoading(false)

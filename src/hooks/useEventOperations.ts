@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 import { getTimeSlot, TIME_SLOT_DEFAULTS } from '@/utils/scheduleUtils'
 import type { ScheduleEvent } from '@/types/schedule'
 
@@ -135,7 +136,7 @@ export function useEventOperations({
       setDraggedEvent(null)
       setDropTarget(null)
     } catch (error) {
-      console.error('公演移動エラー:', error)
+      logger.error('公演移動エラー:', error)
       alert('公演の移動に失敗しました')
     }
   }, [draggedEvent, dropTarget, stores, setEvents])
@@ -170,7 +171,7 @@ export function useEventOperations({
       setDraggedEvent(null)
       setDropTarget(null)
     } catch (error) {
-      console.error('公演複製エラー:', error)
+      logger.error('公演複製エラー:', error)
       alert('公演の複製に失敗しました')
     }
   }, [draggedEvent, dropTarget, stores, setEvents])
@@ -350,7 +351,7 @@ export function useEventOperations({
 
       handleCloseModal()
     } catch (error) {
-      console.error('公演保存エラー:', error)
+      logger.error('公演保存エラー:', error)
       alert(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
     }
   }, [modalMode, stores, scenarios, setEvents, handleCloseModal])
@@ -390,7 +391,7 @@ export function useEventOperations({
       setIsDeleteDialogOpen(false)
       setDeletingEvent(null)
     } catch (error) {
-      console.error('公演削除エラー:', error)
+      logger.error('公演削除エラー:', error)
       alert('公演の削除に失敗しました')
     }
   }, [deletingEvent, setEvents])
@@ -430,7 +431,7 @@ export function useEventOperations({
       setIsCancelDialogOpen(false)
       setCancellingEvent(null)
     } catch (error) {
-      console.error('公演中止エラー:', error)
+      logger.error('公演中止エラー:', error)
       alert('公演の中止処理に失敗しました')
     }
   }, [cancellingEvent, setEvents])
@@ -459,7 +460,7 @@ export function useEventOperations({
         ))
       }
     } catch (error) {
-      console.error('公演キャンセル解除エラー:', error)
+      logger.error('公演キャンセル解除エラー:', error)
       alert('公演のキャンセル解除処理に失敗しました')
     }
   }, [setEvents])
@@ -498,7 +499,7 @@ export function useEventOperations({
       setIsPublishDialogOpen(false)
       setPublishingEvent(null)
     } catch (error) {
-      console.error('予約サイト公開状態の更新エラー:', error)
+      logger.error('予約サイト公開状態の更新エラー:', error)
       alert('予約サイト公開状態の更新に失敗しました')
     }
   }, [publishingEvent, setEvents])
@@ -561,7 +562,7 @@ export function useEventOperations({
       setIsConflictWarningOpen(false)
       setConflictInfo(null)
     } catch (error) {
-      console.error('既存公演の削除エラー:', error)
+      logger.error('既存公演の削除エラー:', error)
       alert('既存公演の削除に失敗しました')
     }
   }, [pendingPerformanceData, conflictInfo, events, modalMode, setEvents, doSavePerformance])

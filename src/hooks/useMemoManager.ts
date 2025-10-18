@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { memoApi } from '@/lib/api'
+import { logger } from '@/utils/logger'
 import { getMemoKey } from '@/utils/scheduleUtils'
 
 interface Store {
@@ -35,7 +36,7 @@ export function useMemoManager(currentDate: Date, stores: Store[]) {
         setMemos(memoMap)
         setStoreIdMap(storeMap)
       } catch (error) {
-        console.error('メモ読み込みエラー:', error)
+        logger.error('メモ読み込みエラー:', error)
       }
     }
 
@@ -65,10 +66,10 @@ export function useMemoManager(currentDate: Date, stores: Store[]) {
         await memoApi.save(date, venueId, memo)
         console.log('メモ保存成功:', { date, venue, memo })
       } else {
-        console.error('店舗IDが見つかりません:', venue)
+        logger.error('店舗IDが見つかりません:', venue)
       }
     } catch (error) {
-      console.error('メモ保存エラー:', error)
+      logger.error('メモ保存エラー:', error)
     }
   }
 

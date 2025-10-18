@@ -1,5 +1,7 @@
 // API エラーハンドリングの統一
 
+import { logger } from '@/utils/logger'
+
 /**
  * API エラーの種類
  */
@@ -182,23 +184,23 @@ export function getUserFriendlyMessage(error: ApiError): string {
  */
 export function logApiError(error: ApiError, additionalInfo?: Record<string, any>): void {
   if (import.meta.env.DEV) {
-    console.group(`🔴 API Error: ${error.type}`)
-    console.error('Message:', error.message)
-    console.error('Type:', error.type)
+    logger.group(`🔴 API Error: ${error.type}`)
+    logger.error('Message:', error.message)
+    logger.error('Type:', error.type)
     if (error.statusCode) {
-      console.error('Status Code:', error.statusCode)
+      logger.error('Status Code:', error.statusCode)
     }
     if (error.originalError) {
-      console.error('Original Error:', error.originalError)
+      logger.error('Original Error:', error.originalError)
     }
     if (additionalInfo) {
-      console.error('Additional Info:', additionalInfo)
+      logger.error('Additional Info:', additionalInfo)
     }
-    console.error('Stack:', error.stack)
-    console.groupEnd()
+    logger.error('Stack:', error.stack)
+    logger.groupEnd()
   } else {
     // 本番環境では簡潔なログ
-    console.error(`API Error [${error.type}]:`, error.message)
+    logger.error(`API Error [${error.type}]:`, error.message)
   }
 }
 
