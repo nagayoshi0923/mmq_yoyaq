@@ -1,5 +1,5 @@
 // React
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
 
 // UI Components
 import { Button } from '@/components/ui/button'
@@ -640,16 +640,16 @@ export function ScheduleManager() {
 
 
   // 予約状況によるバッジクラス取得
-  const getReservationBadgeClass = (current: number, max: number): string => {
+  const getReservationBadgeClass = useCallback((current: number, max: number): string => {
     const ratio = current / max
     if (ratio >= 1) return 'bg-red-100' // 満席
     if (ratio >= 0.8) return 'bg-yellow-100' // ほぼ満席
     if (ratio >= 0.5) return 'bg-green-100' // 順調
     return 'bg-gray-100' // 空きあり
-  }
+  }, [])
 
   // 月の変更
-  const changeMonth = (direction: 'prev' | 'next') => {
+  const changeMonth = useCallback((direction: 'prev' | 'next') => {
     // 月切り替え時はスクロール位置をクリア（一番上に戻る）
     sessionStorage.removeItem('scheduleScrollY')
     sessionStorage.removeItem('scheduleScrollTime')
@@ -663,32 +663,26 @@ export function ScheduleManager() {
       }
       return newDate
     })
-  }
+  }, [])
 
   // 月間の日付リストを生成
-  const generateMonthDays = () => {
+  const monthDays = useMemo(() => {
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    
-    const days = []
+    const days = [] as Array<{ date: string; dayOfWeek: string; day: number; displayDate: string }>
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day)
-      // UTCではなくローカル時間で日付文字列を生成
       const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
       days.push({
         date: dateString,
         dayOfWeek: date.toLocaleDateString('ja-JP', { weekday: 'short' }),
-        day: day,
+        day,
         displayDate: `${month + 1}/${day}`
       })
     }
-    
     return days
-  }
-
-
-  const monthDays = generateMonthDays()
+  }, [currentDate])
 
   // 時間帯判定（開始時間のみで判定）
   const getTimeSlot = (startTime: string) => {
@@ -699,7 +693,7 @@ export function ScheduleManager() {
   }
 
   // カテゴリごとの公演数を計算
-  const getCategoryCounts = () => {
+  const getCategoryCounts = useCallback(() => {
     const counts: Record<string, number> = {
       all: events.length,
       open: 0,
@@ -733,9 +727,9 @@ export function ScheduleManager() {
     })
     
     return counts
-  }
+  }, [events])
 
-  const categoryCounts = getCategoryCounts()
+  const categoryCounts = useMemo(() => getCategoryCounts(), [getCategoryCounts])
 
   // 特定の日付・店舗・時間帯の公演を取得
   const getEventsForSlot = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
