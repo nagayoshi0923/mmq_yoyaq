@@ -46,6 +46,8 @@ interface TimeSlotCellProps {
   onAddPerformance?: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => void
   onToggleReservation?: (event: ScheduleEvent) => void
   onDrop?: (droppedEvent: ScheduleEvent, targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => void
+  onContextMenuCell?: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', x: number, y: number) => void
+  onContextMenuEvent?: (event: ScheduleEvent, x: number, y: number) => void
 }
 
 export function TimeSlotCell({
@@ -62,7 +64,9 @@ export function TimeSlotCell({
   onDelete,
   onAddPerformance,
   onToggleReservation,
-  onDrop
+  onDrop,
+  onContextMenuCell,
+  onContextMenuEvent
 }: TimeSlotCellProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -91,6 +95,13 @@ export function TimeSlotCell({
     }
   }
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (onContextMenuCell) {
+      onContextMenuCell(date, venue, timeSlot, e.clientX, e.clientY)
+    }
+  }
+
   return (
     <TableCell 
       className={`schedule-table-cell p-1 border-r border-gray-200 transition-colors ${
@@ -99,6 +110,7 @@ export function TimeSlotCell({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onContextMenu={handleContextMenu}
     >
       {events.length > 0 ? (
         // 公演ありの場合: アバター非表示
@@ -112,6 +124,7 @@ export function TimeSlotCell({
           onDelete={onDelete}
           onClick={onEdit}
           onToggleReservation={onToggleReservation}
+          onContextMenu={onContextMenuEvent}
         />
       ) : (
         <div className="grid grid-rows-[10px_10px_10px] gap-0 h-full">

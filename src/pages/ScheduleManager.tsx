@@ -13,6 +13,7 @@ import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
 import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
+import { ContextMenu, Copy, Clipboard } from '@/components/schedule/ContextMenu'
 import { memoApi, scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { shiftApi } from '@/lib/shiftApi'
@@ -20,7 +21,11 @@ import { supabase } from '@/lib/supabase'
 import type { Staff } from '@/types'
 import { 
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Edit,
+  Ban,
+  RotateCcw,
+  Trash2
 } from 'lucide-react'
 
 // スケジュールイベントの型定義
@@ -95,6 +100,14 @@ export function ScheduleManager() {
   const [pendingPerformanceData, setPendingPerformanceData] = useState<any>(null)
   const [draggedEvent, setDraggedEvent] = useState<ScheduleEvent | null>(null)
   const [dropTarget, setDropTarget] = useState<{ date: string, venue: string, timeSlot: string } | null>(null)
+  const [clipboardEvent, setClipboardEvent] = useState<ScheduleEvent | null>(null)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    type: 'event' | 'cell'
+    event?: ScheduleEvent
+    cellInfo?: { date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening' }
+  } | null>(null)
   const [events, setEvents] = useState<ScheduleEvent[]>(() => {
     try {
       const cached = sessionStorage.getItem('scheduleEvents')
@@ -888,6 +901,63 @@ export function ScheduleManager() {
     }
   }
 
+  // 公演カードの右クリックメニューを表示
+  const handleEventContextMenu = (event: ScheduleEvent, x: number, y: number) => {
+    setContextMenu({ x, y, type: 'event', event })
+  }
+
+  // セルの右クリックメニューを表示
+  const handleCellContextMenu = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', x: number, y: number) => {
+    setContextMenu({ x, y, type: 'cell', cellInfo: { date, venue, timeSlot } })
+  }
+
+  // 公演をコピー（クリップボードに保存）
+  const handleCopyToClipboard = (event: ScheduleEvent) => {
+    setClipboardEvent(event)
+    setContextMenu(null)
+  }
+
+  // クリップボードから公演をペースト
+  const handlePasteFromClipboard = async (targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => {
+    if (!clipboardEvent) return
+
+    setContextMenu(null)
+
+    try {
+      // 移動先の時間を計算
+      const timeSlotDefaults = {
+        morning: { start_time: '10:00', end_time: '14:00' },
+        afternoon: { start_time: '14:30', end_time: '18:30' },
+        evening: { start_time: '19:00', end_time: '23:00' }
+      }
+      const defaults = timeSlotDefaults[targetTimeSlot as keyof typeof timeSlotDefaults]
+
+      // 新しい位置に公演を作成（元の公演は残す）
+      const newEventData: any = {
+        date: targetDate,
+        store_id: targetVenue,
+        venue: stores.find(s => s.id === targetVenue)?.name || '',
+        scenario: clipboardEvent.scenario,
+        category: clipboardEvent.category,
+        start_time: defaults.start_time,
+        end_time: defaults.end_time,
+        capacity: clipboardEvent.max_participants,
+        gms: clipboardEvent.gms,
+        notes: clipboardEvent.notes
+      }
+
+      const savedEvent = await scheduleApi.create(newEventData)
+
+      // ローカル状態を更新
+      setEvents(prev => [...prev, { ...savedEvent, venue: targetVenue }])
+
+      console.log('公演をペーストしました')
+    } catch (error) {
+      console.error('公演ペーストエラー:', error)
+      alert('公演のペーストに失敗しました')
+    }
+  }
+
   // 公演を複製
   const handleCopyEvent = async () => {
     if (!draggedEvent || !dropTarget) return
@@ -1472,6 +1542,8 @@ export function ScheduleManager() {
                           onAddPerformance={handleAddPerformance}
                           onToggleReservation={handleToggleReservation}
                           onDrop={handleDrop}
+                          onContextMenuCell={handleCellContextMenu}
+                          onContextMenuEvent={handleEventContextMenu}
                         />
                         
                         {/* 午後セル */}
@@ -1493,6 +1565,8 @@ export function ScheduleManager() {
                           onAddPerformance={handleAddPerformance}
                           onDrop={handleDrop}
                           onToggleReservation={handleToggleReservation}
+                          onContextMenuCell={handleCellContextMenu}
+                          onContextMenuEvent={handleEventContextMenu}
                         />
                         
                         {/* 夜間セル */}
@@ -1511,6 +1585,8 @@ export function ScheduleManager() {
                           onDelete={handleDeletePerformance}
                           onAddPerformance={handleAddPerformance}
                           onDrop={handleDrop}
+                          onContextMenuCell={handleCellContextMenu}
+                          onContextMenuEvent={handleEventContextMenu}
                         />
                         
                         {/* メモセル */}
@@ -1762,6 +1838,71 @@ export function ScheduleManager() {
         }}
         conflictInfo={conflictInfo}
       />
+
+      {/* コンテキストメニュー */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={contextMenu.type === 'event' && contextMenu.event ? [
+            {
+              label: '編集',
+              icon: <Edit className="w-4 h-4" />,
+              onClick: () => {
+                handleEditPerformance(contextMenu.event!)
+                setContextMenu(null)
+              }
+            },
+            {
+              label: 'コピー',
+              icon: <Copy className="w-4 h-4" />,
+              onClick: () => handleCopyToClipboard(contextMenu.event!),
+              separator: true
+            },
+            ...(contextMenu.event.is_cancelled ? [
+              {
+                label: '復活',
+                icon: <RotateCcw className="w-4 h-4" />,
+                onClick: () => {
+                  handleUncancelPerformance(contextMenu.event!)
+                  setContextMenu(null)
+                }
+              }
+            ] : [
+              {
+                label: '中止',
+                icon: <Ban className="w-4 h-4" />,
+                onClick: () => {
+                  handleCancelConfirmPerformance(contextMenu.event!)
+                  setContextMenu(null)
+                }
+              }
+            ]),
+            {
+              label: '削除',
+              icon: <Trash2 className="w-4 h-4" />,
+              onClick: () => {
+                if (confirm('この公演を削除しますか？')) {
+                  handleDeletePerformance(contextMenu.event!)
+                }
+                setContextMenu(null)
+              },
+              separator: true
+            }
+          ] : contextMenu.type === 'cell' && contextMenu.cellInfo ? [
+            {
+              label: 'ペースト',
+              icon: <Clipboard className="w-4 h-4" />,
+              onClick: () => {
+                const { date, venue, timeSlot } = contextMenu.cellInfo!
+                handlePasteFromClipboard(date, venue, timeSlot)
+              },
+              disabled: !clipboardEvent
+            }
+          ] : []}
+        />
+      )}
     </div>
   )
 }

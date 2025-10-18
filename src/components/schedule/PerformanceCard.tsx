@@ -1,7 +1,7 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, Ban, Plus, AlertTriangle, Trash2, Globe, Check } from 'lucide-react'
+import { Users, AlertTriangle } from 'lucide-react'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -39,6 +39,7 @@ interface PerformanceCardProps {
   onDelete?: (event: ScheduleEvent) => void
   onClick?: (event: ScheduleEvent) => void
   onToggleReservation?: (event: ScheduleEvent) => void
+  onContextMenu?: (event: ScheduleEvent, x: number, y: number) => void
 }
 
 export function PerformanceCard({
@@ -50,7 +51,8 @@ export function PerformanceCard({
   onEdit,
   onDelete,
   onClick,
-  onToggleReservation
+  onToggleReservation,
+  onContextMenu
 }: PerformanceCardProps) {
   const reservationCount = event.participant_count || 0
   const maxCapacity = event.max_participants || 8
@@ -88,6 +90,14 @@ export function PerformanceCard({
                   ? 'border-l-green-600'
                   : 'border-l-gray-500'
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!event.is_cancelled && onContextMenu) {
+      onContextMenu(event, e.clientX, e.clientY)
+    }
+  }
+
   return (
     <div
       draggable={!event.is_cancelled}
@@ -96,6 +106,7 @@ export function PerformanceCard({
         e.dataTransfer.effectAllowed = 'move'
         e.dataTransfer.setData('application/json', JSON.stringify(event))
       }}
+      onContextMenu={handleContextMenu}
       className={`p-2 border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-xs relative ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
@@ -114,7 +125,6 @@ export function PerformanceCard({
           {event.is_cancelled && (
             <Badge variant="cancelled" size="sm" className="font-normal">
               中止
-              <Ban className="w-3 h-3 ml-1" />
             </Badge>
           )}
           
@@ -196,43 +206,6 @@ export function PerformanceCard({
         >
           {event.is_reservation_enabled || event.is_private_request ? '公開中' : '公開前'}
         </Badge>
-        
-        {/* 削除ボタン */}
-        <button
-          className={`h-5 w-5 rounded flex items-center justify-center ring-1 ring-inset ${borderColorClass} transition-all`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete?.(event);
-          }}
-          title="公演を削除"
-        >
-          <Trash2 className={`w-3 h-3 ${badgeTextColor}`} />
-        </button>
-        
-        {/* キャンセル/復活ボタン */}
-        {!event.is_cancelled ? (
-          <button
-            className={`h-5 w-5 rounded flex items-center justify-center ring-1 ring-inset ${borderColorClass} transition-all`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onCancelConfirm?.(event);
-            }}
-            title="公演を中止"
-          >
-            <Ban className={`w-3 h-3 ${badgeTextColor}`} />
-          </button>
-        ) : (
-          <button
-            className={`h-5 w-5 rounded flex items-center justify-center ring-1 ring-inset ${borderColorClass} transition-all`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onUncancel?.(event);
-            }}
-            title="公演を復活"
-          >
-            <Plus className={`w-3 h-3 ${badgeTextColor}`} />
-          </button>
-        )}
       </div>
     </div>
   )
