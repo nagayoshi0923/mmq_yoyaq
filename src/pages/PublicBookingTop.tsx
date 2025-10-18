@@ -11,6 +11,7 @@ import { Search, Calendar, Clock, Users, MapPin } from 'lucide-react'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
 import { getColorFromName } from '@/lib/utils'
 import type { PublicScenarioEvent } from '@/types'
+import { logger } from '@/utils/logger'
 
 interface ScenarioCard {
   scenario_id: string
@@ -81,7 +82,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         storesData = await storeApi.getAll()
         
       } catch (error) {
-        console.error('店舗データの取得エラー:', error)
+        logger.error('店舗データの取得エラー:', error)
         storesData = []
       }
       
@@ -100,7 +101,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         allEvents.push(...events)
       }
       
-      // console.log('取得した公演数:', allEvents.length)
+      // logger.log('取得した公演数:', allEvents.length)
       
       // 予約可能な公演 + 確定貸切公演をフィルタリング
       const publicEvents = allEvents.filter((event: any) => {
@@ -115,7 +116,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         return isNotCancelled && (isOpenAndEnabled || isPrivateBooking)
       })
       
-      // console.log('予約可能な公演数:', publicEvents.length)
+      // logger.log('予約可能な公演数:', publicEvents.length)
       
       // シナリオごとにグループ化
       const scenarioMap = new Map<string, ScenarioCard>()
@@ -135,7 +136,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
           return false
         })
         
-        // console.log(`シナリオ「${scenario.title}」の公演数:`, scenarioEvents.length)
+        // logger.log(`シナリオ「${scenario.title}」の公演数:`, scenarioEvents.length)
         
         // 新着判定（リリース日から30日以内）
         const isNew = scenario.release_date ? 
@@ -193,7 +194,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       })
       
       const scenarioList = Array.from(scenarioMap.values())
-      // console.log('最終的なシナリオ数:', scenarioList.length)
+      // logger.log('最終的なシナリオ数:', scenarioList.length)
       
       setScenarios(scenarioList)
       setAllEvents(publicEvents) // カレンダー用に全公演データを保存
@@ -209,7 +210,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         console.warn('4. シナリオと公演の紐付けが正しくない')
       }
     } catch (error) {
-      console.error('データの読み込みエラー:', error)
+      logger.error('データの読み込みエラー:', error)
     } finally {
       setIsLoading(false)
     }
@@ -266,7 +267,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     if (onScenarioSelect) {
       onScenarioSelect(scenarioId)
     } else {
-      // console.log('シナリオ詳細へ:', scenarioId)
+      // logger.log('シナリオ詳細へ:', scenarioId)
     }
   }
   

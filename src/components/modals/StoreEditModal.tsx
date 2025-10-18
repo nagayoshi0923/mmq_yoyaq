@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { X, Save } from 'lucide-react'
 import type { Store } from '@/types'
+import { logger } from '@/utils/logger'
 
 interface StoreEditModalProps {
   store: Store | null
@@ -45,13 +46,13 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
       await onSave(updatedStore)
       onClose()
     } catch (error) {
-      console.error('Error saving store:', error)
+      logger.error('Error saving store:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleInputChange = (field: keyof Store, value: any) => {
+  const handleInputChange = (field: keyof Store, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 

@@ -10,6 +10,9 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, CheckCircle2, XCircle, MapPin, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSessionState } from '@/hooks/useSessionState'
+import { useScrollRestoration } from '@/hooks/useScrollRestoration'
+import { logger } from '@/utils/logger'
 
 interface PrivateBookingRequest {
   id: string
@@ -48,16 +51,13 @@ export function PrivateBookingManagement() {
   const { user } = useAuth()
   const [requests, setRequests] = useState<PrivateBookingRequest[]>([])
   const [loading, setLoading] = useState(true)
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<PrivateBookingRequest | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   
-  // sessionStorageからタブの状態を復元
-  const [activeTab, setActiveTab] = useState<'pending' | 'all'>(() => {
-    const saved = sessionStorage.getItem('privateBookingActiveTab')
-    return (saved === 'all' || saved === 'pending') ? saved : 'pending'
-  })
+  // sessionStorageと同期する状態（汎用フックを使用）
+  const [activeTab, setActiveTab] = useSessionState<'pending' | 'all'>('privateBookingActiveTab', 'pending')
+  
   const [currentDate, setCurrentDate] = useState(new Date())
   const [availableGMs, setAvailableGMs] = useState<any[]>([])
   const [selectedGMId, setSelectedGMId] = useState<string>('')
@@ -175,58 +175,8 @@ export function PrivateBookingManagement() {
     })
   }
 
-  // スクロール位置の保存と復元
-  useEffect(() => {
-    if ('scrollRestoration' in history) {
-      history.scrollRestoration = 'manual'
-    }
-    let scrollTimer: NodeJS.Timeout
-    const handleScroll = () => {
-      clearTimeout(scrollTimer)
-      scrollTimer = setTimeout(() => {
-        sessionStorage.setItem('privateBookingScrollY', window.scrollY.toString())
-        sessionStorage.setItem('privateBookingScrollTime', Date.now().toString())
-      }, 100)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
-
-  useEffect(() => {
-    const savedY = sessionStorage.getItem('privateBookingScrollY')
-    const savedTime = sessionStorage.getItem('privateBookingScrollTime')
-    if (savedY && savedTime) {
-      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-      if (timeSinceScroll < 10000) {
-        setTimeout(() => {
-          window.scrollTo(0, parseInt(savedY, 10))
-        }, 100)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!loading && !initialLoadComplete) {
-      setInitialLoadComplete(true)
-      const savedY = sessionStorage.getItem('privateBookingScrollY')
-      const savedTime = sessionStorage.getItem('privateBookingScrollTime')
-      if (savedY && savedTime) {
-        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-        if (timeSinceScroll < 10000) {
-          setTimeout(() => {
-            window.scrollTo(0, parseInt(savedY, 10))
-          }, 200)
-        }
-      }
-    }
-  }, [loading, initialLoadComplete])
-
-  // タブの状態を保存
-  useEffect(() => {
-    sessionStorage.setItem('privateBookingActiveTab', activeTab)
-  }, [activeTab])
+  // スクロール位置の保存と復元（汎用フックを使用）
+  useScrollRestoration({ pageKey: 'privateBooking', isLoading: loading })
 
   useEffect(() => {
     loadRequests()
@@ -301,23 +251,28 @@ export function PrivateBookingManagement() {
       if (error) throw error
       setStores(data || [])
     } catch (error) {
-      console.error('店舗情報取得エラー:', error)
+      logger.error('店舗情報取得エラー:', error)
     }
   }
 
+  // 🚨 CRITICAL: スケジュール競合チェック機能
+  // この関数は以下の両方をチェックする必要があります：
+  // 1. reservations テーブル（確定済み貸切予約）
+  // 2. schedule_events テーブル（手動追加・インポートされた全公演）
+  // ⚠️ どちらか一方だけのチェックでは不十分です！削除・変更時は必ず両方を確認してください
   const loadConflictInfo = async (currentRequestId: string) => {
     try {
-      // 確定済みの予約を全て取得
-      const { data: confirmedReservations, error } = await supabase
+      const storeDateConflicts = new Set<string>()
+      const gmDateConflicts = new Set<string>()
+
+      // 1. 確定済みの予約を全て取得（reservationsテーブル）
+      const { data: confirmedReservations, error: reservationsError } = await supabase
         .from('reservations')
         .select('id, store_id, gm_staff, candidate_datetimes')
         .eq('status', 'confirmed')
         .neq('id', currentRequestId)
 
-      if (error) throw error
-
-      const storeDateConflicts = new Set<string>()
-      const gmDateConflicts = new Set<string>()
+      if (reservationsError) throw reservationsError
 
       confirmedReservations?.forEach(reservation => {
         const candidates = reservation.candidate_datetimes?.candidates || []
@@ -335,9 +290,45 @@ export function PrivateBookingManagement() {
         })
       })
 
+      // 2. スケジュールイベントも取得（schedule_eventsテーブル）
+      const { data: scheduleEvents, error: scheduleError } = await supabase
+        .from('schedule_events')
+        .select('id, store_id, date, start_time, gms, is_cancelled')
+        .eq('is_cancelled', false)
+
+      if (scheduleError) throw scheduleError
+
+      // 時間帯判定関数（ScheduleManagerと同じロジック）
+      const getTimeSlot = (startTime: string): string => {
+        const hour = parseInt(startTime.split(':')[0])
+        if (hour < 12) return '朝'
+        if (hour < 17) return '昼'
+        return '夜'
+      }
+
+      scheduleEvents?.forEach(event => {
+        if (!event.date || !event.start_time) return
+        
+        const timeSlot = getTimeSlot(event.start_time)
+        
+        // 店舗の競合情報
+        if (event.store_id) {
+          storeDateConflicts.add(`${event.store_id}-${event.date}-${timeSlot}`)
+        }
+        
+        // GMの競合情報（複数GMの場合は全員追加）
+        if (event.gms && Array.isArray(event.gms)) {
+          event.gms.forEach((gmId: string) => {
+            if (gmId) {
+              gmDateConflicts.add(`${gmId}-${event.date}-${timeSlot}`)
+            }
+          })
+        }
+      })
+
       setConflictInfo({ storeDateConflicts, gmDateConflicts })
     } catch (error) {
-      console.error('競合情報取得エラー:', error)
+      logger.error('競合情報取得エラー:', error)
     }
   }
 
@@ -385,7 +376,7 @@ export function PrivateBookingManagement() {
       
       setAllGMs(gmStaff)
     } catch (error) {
-      console.error('GM情報取得エラー:', error)
+      logger.error('GM情報取得エラー:', error)
     }
   }
 
@@ -414,7 +405,7 @@ export function PrivateBookingManagement() {
         .not('response_type', 'is', null)
       
       // デバッグ：取得したデータをログ出力
-      console.log('🔍 貸切確認ページ - GM回答データ:', {
+      logger.log('🔍 貸切確認ページ - GM回答データ:', {
         reservationId,
         availableDataCount: availableData?.length || 0,
         availableData: availableData,
@@ -492,7 +483,7 @@ export function PrivateBookingManagement() {
         setSelectedGMId(allGMs[0].id)
       }
     } catch (error) {
-      console.error('GM情報取得エラー:', error)
+      logger.error('GM情報取得エラー:', error)
       setAvailableGMs([])
     }
   }
@@ -505,7 +496,7 @@ export function PrivateBookingManagement() {
       let allowedScenarioIds: string[] | null = null
       
       if (user?.role !== 'admin') {
-        console.log('📋 スタッフユーザー - 担当シナリオのみ表示')
+        logger.log('📋 スタッフユーザー - 担当シナリオのみ表示')
         
         // ログインユーザーのstaffレコードを取得
         const { data: staffData } = await supabase
@@ -523,17 +514,17 @@ export function PrivateBookingManagement() {
           
           if (assignments && assignments.length > 0) {
             allowedScenarioIds = assignments.map(a => a.scenario_id)
-            console.log(`✅ ${allowedScenarioIds.length}件の担当シナリオを検出`)
+            logger.log(`✅ ${allowedScenarioIds.length}件の担当シナリオを検出`)
           } else {
-            console.log('⚠️ 担当シナリオなし - 空の結果を返します')
+            logger.log('⚠️ 担当シナリオなし - 空の結果を返します')
             allowedScenarioIds = [] // 空配列で何も表示しない
           }
         } else {
-          console.log('⚠️ スタッフレコード未紐づけ - 空の結果を返します')
+          logger.log('⚠️ スタッフレコード未紐づけ - 空の結果を返します')
           allowedScenarioIds = [] // 空配列で何も表示しない
         }
       } else {
-        console.log('👑 管理者ユーザー - 全てのリクエスト表示')
+        logger.log('👑 管理者ユーザー - 全てのリクエスト表示')
       }
       
       // reservationsテーブルから貸切リクエストを取得
@@ -571,7 +562,7 @@ export function PrivateBookingManagement() {
       const { data, error } = await query
 
       if (error) {
-        console.error('Supabaseエラー:', error)
+        logger.error('Supabaseエラー:', error)
         throw error
       }
 
@@ -605,7 +596,7 @@ export function PrivateBookingManagement() {
 
       setRequests(formattedData)
     } catch (error) {
-      console.error('貸切リクエスト取得エラー:', error)
+      logger.error('貸切リクエスト取得エラー:', error)
     } finally {
       setLoading(false)
     }
@@ -613,17 +604,17 @@ export function PrivateBookingManagement() {
 
   const handleApprove = async (requestId: string) => {
     if (!selectedGMId) {
-      console.error('承認に必要な情報が不足しています: selectedGMId')
+      logger.error('承認に必要な情報が不足しています: selectedGMId')
       return
     }
 
     if (!selectedStoreId) {
-      console.error('承認に必要な情報が不足しています: selectedStoreId')
+      logger.error('承認に必要な情報が不足しています: selectedStoreId')
       return
     }
 
     if (!selectedCandidateOrder) {
-      console.error('承認に必要な情報が不足しています: selectedCandidateOrder')
+      logger.error('承認に必要な情報が不足しています: selectedCandidateOrder')
       return
     }
 
@@ -678,7 +669,7 @@ export function PrivateBookingManagement() {
 
       // 必須項目の検証
       if (!selectedCandidate.date || !selectedCandidate.startTime || !selectedCandidate.endTime || !storeName) {
-        console.error('スケジュール記録に必要な情報が不足しています:', {
+        logger.error('スケジュール記録に必要な情報が不足しています:', {
           date: selectedCandidate.date,
           startTime: selectedCandidate.startTime,
           endTime: selectedCandidate.endTime,
@@ -703,10 +694,10 @@ export function PrivateBookingManagement() {
           })
 
         if (scheduleError) {
-          console.error('スケジュール記録エラー:', scheduleError)
+          logger.error('スケジュール記録エラー:', scheduleError)
           // スケジュール記録に失敗しても承認は完了させる
         } else {
-          console.log('スケジュール記録完了:', {
+          logger.log('スケジュール記録完了:', {
             date: selectedCandidate.date,
             venue: storeName,
             gms: selectedGMId ? [selectedGMId] : []
@@ -719,11 +710,11 @@ export function PrivateBookingManagement() {
         const customerEmail = selectedRequest?.customer_email
         if (customerEmail) {
           // メール送信のロジックをここに追加
-          console.log('承認完了メールを送信:', customerEmail)
+          logger.log('承認完了メールを送信:', customerEmail)
           // 実際のメール送信API呼び出しをここに実装
         }
       } catch (emailError) {
-        console.error('メール送信エラー:', emailError)
+        logger.error('メール送信エラー:', emailError)
         // メール送信に失敗しても承認は完了させる
       }
 
@@ -736,7 +727,7 @@ export function PrivateBookingManagement() {
       // リクエスト一覧を再読み込み
       await loadRequests()
     } catch (error) {
-      console.error('承認エラー:', error)
+      logger.error('承認エラー:', error)
     } finally {
       setSubmitting(false)
     }
@@ -784,7 +775,7 @@ export function PrivateBookingManagement() {
       setRejectRequestId(null)
       loadRequests()
     } catch (error) {
-      console.error('却下エラー:', error)
+      logger.error('却下エラー:', error)
     } finally {
       setSubmitting(false)
     }
@@ -899,13 +890,13 @@ export function PrivateBookingManagement() {
                         >
                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                             hasConflict
-                              ? 'border-red-300 bg-red-100'
+                              ? 'border-red-500 bg-red-500'
                               : isSelected
                               ? 'border-purple-500 bg-purple-500'
                               : 'border-gray-300'
                           }`}>
                             {hasConflict ? (
-                              <XCircle className="w-4 h-4 text-red-600" />
+                              <XCircle className="w-4 h-4 text-white" />
                             ) : isSelected ? (
                               <CheckCircle2 className="w-4 h-4 text-white" />
                             ) : null}
@@ -974,7 +965,7 @@ export function PrivateBookingManagement() {
                             isStoreDisabled = conflictInfo.storeDateConflicts.has(conflictKey)
                             
                             if (isStoreDisabled) {
-                              console.log(`🚫 店舗競合: ${store.name} (${conflictKey})`)
+                              logger.log(`🚫 店舗競合: ${store.name} (${conflictKey})`)
                             }
                           }
                         }

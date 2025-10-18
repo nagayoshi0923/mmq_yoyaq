@@ -9,6 +9,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 
 interface BookingConfirmationProps {
   eventId: string
@@ -187,7 +188,7 @@ export function BookingConfirmation({
           }
         }
       } catch (error) {
-        console.error('顧客レコードの作成/更新エラー:', error)
+        logger.error('顧客レコードの作成/更新エラー:', error)
         // エラーでも予約は続行（customer_idなしで）
       }
       
@@ -220,7 +221,7 @@ export function BookingConfirmation({
         .single()
 
       if (reservationError) {
-        console.error('予約エラー:', reservationError)
+        logger.error('予約エラー:', reservationError)
         setError('予約の作成に失敗しました。もう一度お試しください。')
         setIsSubmitting(false)
         return
@@ -235,7 +236,7 @@ export function BookingConfirmation({
         .eq('id', eventId)
 
       if (updateError) {
-        console.error('参加者数の更新エラー:', updateError)
+        logger.error('参加者数の更新エラー:', updateError)
         // エラーだが予約は作成されているので成功とする
       }
 
@@ -261,13 +262,13 @@ export function BookingConfirmation({
         })
 
         if (emailResponse.error) {
-          console.error('メール送信エラー:', emailResponse.error)
+          logger.error('メール送信エラー:', emailResponse.error)
           // メール送信失敗してもエラー表示はしない（予約自体は成功しているため）
         } else {
-          console.log('予約確認メールを送信しました')
+          logger.log('予約確認メールを送信しました')
         }
       } catch (emailError) {
-        console.error('メール送信処理エラー:', emailError)
+        logger.error('メール送信処理エラー:', emailError)
         // メール送信失敗してもエラー表示はしない
       }
 
@@ -280,7 +281,7 @@ export function BookingConfirmation({
         }
       }, 3000)
     } catch (error) {
-      console.error('予約処理エラー:', error)
+      logger.error('予約処理エラー:', error)
       setError('予約処理中にエラーが発生しました')
       setIsSubmitting(false)
     }

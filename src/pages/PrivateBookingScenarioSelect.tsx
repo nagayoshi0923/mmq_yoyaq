@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Header } from '@/components/layout/Header'
 import { ArrowLeft } from 'lucide-react'
 import { scenarioApi } from '@/lib/api'
+import { logger } from '@/utils/logger'
 
 interface Scenario {
   id: string
@@ -45,7 +46,7 @@ export function PrivateBookingScenarioSelect() {
       const data = await scenarioApi.getAll()
       setScenarios(data)
     } catch (error) {
-      console.error('シナリオの読み込みエラー:', error)
+      logger.error('シナリオの読み込みエラー:', error)
     } finally {
       setLoading(false)
     }

@@ -1,0 +1,49 @@
+When generating git commit messages, always write them in Japanese.
+Use conventional commit format with Japanese descriptions.
+
+Example:
+feat: 新機能を追加
+fix: バグを修正
+docs: ドキュメントを更新
+style: コードスタイルを修正
+refactor: コードをリファクタリング
+test: テストを追加・修正
+chore: ビルドプロセスや補助ツールの変更
+
+---
+
+# バックグラウンドコードレビュー
+
+目的：
+このプロジェクトは React + TypeScript + Supabase + shadcn/ui 構成で開発されています。
+バックグラウンドで常にコードを監視し、品質・保守性・パフォーマンス・再レンダー最適化の観点からレビューを行ってください。
+
+レビュー方針：
+- コードの可読性・命名規則・責務分離を重視して確認する
+- 関数・Hooks・コンポーネントの順序（state → effect → handler → utility → render）を確認し、順序が崩れていれば指摘する
+- useEffect / useLayoutEffect の依存配列をチェックし、不必要または不足があれば警告する
+- 不要な useState・useMemo・useCallback・useEffect の使用を検出して指摘
+- コンポーネントの再レンダー最適化を監視：
+  - 不要な再レンダーを引き起こす props/state の扱いを検出
+  - React.memo の適用が有効な箇所を提案
+  - useMemo / useCallback の過剰使用・不足を分析
+  - イベントハンドラやコールバック関数のインライン定義による再レンダー誘発を警告
+  - Suspense / React.lazy / バッチ更新（startTransitionなど）を活用できる箇所を提案
+- Supabase や API 呼び出しのエラーハンドリング漏れを検出
+- 型安全性（any / unknown / implicit any）を警告
+- JSX内の無駄なロジックやネストを検出し、UIロジックとビジネスロジックの分離を提案
+- 未使用 import や変数、循環参照を検出して削除提案
+- 大規模コンポーネント（300行以上）には、分割またはフック抽出の提案を行う
+- コンポーネント・フック・関数の命名が役割を明確に伝えているかを確認
+- パフォーマンスを低下させる重い useLayoutEffect の乱用を警告
+
+出力形式：
+- 問題点を簡潔な日本語でコメント
+- 修正例はコードブロック付きで提示（小規模・安全な変更のみ）
+- 提案内容には必ず「なぜそうすべきか」の理由を添える
+- 自動修正は行わず、常に確認を求める形式にする
+
+禁止事項：
+- 意図を読み違えて破壊的変更を行わない
+- コーディングスタイルを強制しない（プロジェクトの方針を優先）
+- コメントや変数名を自動翻訳しない

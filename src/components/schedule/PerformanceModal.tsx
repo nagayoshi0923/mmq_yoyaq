@@ -12,7 +12,9 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { scenarioApi, staffApi } from '@/lib/api'
+import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
+import { logger } from '@/utils/logger'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -34,10 +36,27 @@ interface ScheduleEvent {
 }
 
 
+interface EventFormData {
+  date: string
+  venue: string
+  scenario: string
+  scenario_id?: string
+  category: string
+  start_time: string
+  end_time: string
+  max_participants: number
+  capacity: number
+  gms: string[]
+  notes?: string
+  id?: string
+  is_private_request?: boolean
+  reservation_id?: string
+}
+
 interface PerformanceModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (eventData: any) => void
+  onSave: (eventData: EventFormData) => void
   mode: 'add' | 'edit'
   event?: ScheduleEvent | null  // 編集時のみ
   initialData?: { date: string, venue: string, timeSlot: string }  // 追加時のみ
@@ -79,6 +98,7 @@ export function PerformanceModal({
 }: PerformanceModalProps) {
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false)
+  const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
   const [formData, setFormData] = useState<any>({
     id: '',
     date: '',
@@ -89,24 +109,48 @@ export function PerformanceModal({
     end_time: '14:00',
     category: 'private',
     participant_count: 0,
-    max_participants: 8,
+    max_participants: DEFAULT_MAX_PARTICIPANTS,
     notes: ''
   })
+
+  // 時間帯のデフォルト設定
+  const timeSlotDefaults = {
+    morning: { start_time: '10:00', end_time: '14:00', label: '朝公演' },
+    afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
+    evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
+  }
+
+  // 時間帯が変更されたときに開始・終了時間を自動設定
+  const handleTimeSlotChange = (slot: 'morning' | 'afternoon' | 'evening') => {
+    setTimeSlot(slot)
+    const defaults = timeSlotDefaults[slot]
+    setFormData((prev: EventFormData) => ({
+      ...prev,
+      start_time: defaults.start_time,
+      end_time: defaults.end_time
+    }))
+  }
 
   // モードに応じてフォームを初期化
   useEffect(() => {
     if (mode === 'edit' && event) {
       // 編集モード：既存データで初期化
       setFormData(event)
+      // 既存の開始時間から時間帯を判定
+      const startHour = parseInt(event.start_time.split(':')[0])
+      if (startHour < 12) {
+        setTimeSlot('morning')
+      } else if (startHour < 17) {
+        setTimeSlot('afternoon')
+      } else {
+        setTimeSlot('evening')
+      }
     } else if (mode === 'add' && initialData) {
       // 追加モード：初期データで初期化
-      const timeSlotDefaults = {
-        morning: { start_time: '10:00', end_time: '14:00' },
-        afternoon: { start_time: '14:30', end_time: '18:30' },
-        evening: { start_time: '19:00', end_time: '23:00' }
-      }
+      const slot = initialData.timeSlot as 'morning' | 'afternoon' | 'evening'
+      setTimeSlot(slot)
       
-      const defaults = timeSlotDefaults[initialData.timeSlot as keyof typeof timeSlotDefaults] || timeSlotDefaults.morning
+      const defaults = timeSlotDefaults[slot] || timeSlotDefaults.morning
       
       setFormData({
         id: Date.now().toString(),
@@ -118,7 +162,7 @@ export function PerformanceModal({
         end_time: defaults.end_time,
         category: 'private',
         participant_count: 0,
-        max_participants: 8,
+        max_participants: DEFAULT_MAX_PARTICIPANTS,
         notes: ''
       })
     }
@@ -144,14 +188,14 @@ export function PerformanceModal({
     if (selectedScenario) {
       const endTime = calculateEndTime(formData.start_time, scenarioTitle)
       
-      setFormData((prev: any) => ({
+      setFormData((prev: EventFormData) => ({
         ...prev,
         scenario: scenarioTitle,
         end_time: endTime,
         max_participants: selectedScenario.player_count_max
       }))
     } else {
-      setFormData((prev: any) => ({
+      setFormData((prev: EventFormData) => ({
         ...prev,
         scenario: scenarioTitle
       }))
@@ -162,7 +206,7 @@ export function PerformanceModal({
   const handleStartTimeChange = (startTime: string) => {
     const endTime = formData.scenario ? calculateEndTime(startTime, formData.scenario) : startTime
     
-    setFormData((prev: any) => ({
+    setFormData((prev: EventFormData) => ({
       ...prev,
       start_time: startTime,
       end_time: endTime
@@ -189,20 +233,20 @@ export function PerformanceModal({
         ...scenarioForDB 
       } = newScenario as any
       
-      console.log('シナリオ作成リクエスト:', scenarioForDB)
+      logger.log('シナリオ作成リクエスト:', scenarioForDB)
       const createdScenario = await scenarioApi.create(scenarioForDB)
-      console.log('シナリオ作成成功:', createdScenario)
+      logger.log('シナリオ作成成功:', createdScenario)
       setIsScenarioModalOpen(false)
       // 親コンポーネントにシナリオリストの更新を通知
       if (onScenariosUpdate) {
         await onScenariosUpdate()
       }
       // 新しく作成したシナリオを選択
-      setFormData((prev: any) => ({ ...prev, scenario: newScenario.title }))
-    } catch (error: any) {
-      console.error('シナリオ作成エラー:', error)
-      console.error('エラー詳細:', error.message, error.details, error.hint)
-      alert(`シナリオの作成に失敗しました: ${error.message || 'エラーが発生しました'}`)
+      setFormData((prev: EventFormData) => ({ ...prev, scenario: newScenario.title }))
+    } catch (error: unknown) {
+      logger.error('シナリオ作成エラー:', error)
+      const message = error instanceof Error ? error.message : '不明なエラー'
+      alert(`シナリオの作成に失敗しました: ${message}`)
     }
   }
 
@@ -211,9 +255,9 @@ export function PerformanceModal({
       // データベースに送信する前に不要なフィールドを除外
       const { id, created_at, updated_at, ...staffForDB } = newStaff as any
       
-      console.log('スタッフ作成リクエスト:', staffForDB)
+      logger.log('スタッフ作成リクエスト:', staffForDB)
       const createdStaff = await staffApi.create(staffForDB)
-      console.log('スタッフ作成成功:', createdStaff)
+      logger.log('スタッフ作成成功:', createdStaff)
       
       setIsStaffModalOpen(false)
       
@@ -223,14 +267,14 @@ export function PerformanceModal({
       }
       
       // 新しく作成したスタッフをGMとして選択
-      setFormData((prev: any) => ({ 
+      setFormData((prev: EventFormData) => ({ 
         ...prev, 
         gms: [...prev.gms, newStaff.name] 
       }))
-    } catch (error: any) {
-      console.error('スタッフ作成エラー:', error)
-      console.error('エラー詳細:', error.message, error.details, error.hint)
-      alert(`スタッフの作成に失敗しました: ${error.message || 'エラーが発生しました'}`)
+    } catch (error: unknown) {
+      logger.error('スタッフ作成エラー:', error)
+      const message = error instanceof Error ? error.message : '不明なエラー'
+      alert(`スタッフの作成に失敗しました: ${message}`)
     }
   }
 
@@ -321,6 +365,27 @@ export function PerformanceModal({
             </div>
           </div>
 
+          {/* 時間帯選択 */}
+          <div>
+            <Label htmlFor="timeSlot">時間帯</Label>
+            <Select 
+              value={timeSlot} 
+              onValueChange={(value: 'morning' | 'afternoon' | 'evening') => handleTimeSlotChange(value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="morning">{timeSlotDefaults.morning.label}</SelectItem>
+                <SelectItem value="afternoon">{timeSlotDefaults.afternoon.label}</SelectItem>
+                <SelectItem value="evening">{timeSlotDefaults.evening.label}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              時間帯を選択すると開始・終了時間が自動設定されます
+            </p>
+          </div>
+
           {/* 時間設定 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -384,9 +449,9 @@ export function PerformanceModal({
               <Label htmlFor="category">公演カテゴリ</Label>
               <Select 
                 value={formData.category} 
-                onValueChange={(value: any) => {
+                onValueChange={(value: string) => {
                   // カテゴリ変更時もシナリオを維持
-                  setFormData((prev: any) => ({ 
+                  setFormData((prev: EventFormData) => ({ 
                     ...prev, 
                     category: value,
                     // 既存のシナリオ選択を明示的に保持
@@ -424,7 +489,7 @@ export function PerformanceModal({
                 min="1"
                 max="20"
                 value={formData.max_participants}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || 8 }))}
+                onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || DEFAULT_MAX_PARTICIPANTS }))}
                 disabled={formData.is_private_request}
               />
               {formData.scenario && (
@@ -581,7 +646,7 @@ export function PerformanceModal({
                       className="h-4 w-4 p-0 hover:bg-red-100"
                       onClick={() => {
                         const newGms = formData.gms.filter((g: string) => g !== gm)
-                        setFormData((prev: any) => ({ ...prev, gms: newGms }))
+                        setFormData((prev: EventFormData) => ({ ...prev, gms: newGms }))
                       }}
                     >
                       <X className="h-3 w-3" />

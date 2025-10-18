@@ -1,6 +1,45 @@
 import { supabase } from './supabase'
 import type { Store, Scenario, Staff } from '@/types'
 
+// 候補日時の型定義
+interface CandidateDateTime {
+  order: number
+  date: string
+  startTime?: string
+  endTime?: string
+  status?: 'confirmed' | 'pending' | 'rejected'
+}
+
+// GM空き状況レスポンスの型定義
+interface GMAvailabilityResponse {
+  response_status: 'available' | 'unavailable'
+  staff?: {
+    name: string
+  }
+}
+
+// スケジュールイベントの型定義（schedule_eventsテーブル互換）
+interface ScheduleEvent {
+  id: string
+  date: string
+  venue: string
+  store_id: string
+  scenario: string
+  scenario_id: string
+  start_time: string
+  end_time: string
+  category: string
+  is_cancelled: boolean
+  is_reservation_enabled: boolean
+  current_participants: number
+  max_participants: number
+  capacity: number
+  gms: string[]
+  stores?: any
+  scenarios?: any
+  is_private_booking?: boolean
+}
+
 // 店舗関連のAPI
 export const storeApi = {
   // 全店舗を取得
@@ -317,7 +356,7 @@ export const staffApi = {
       
       if (!resError && reservations && reservations.length > 0) {
         const updatePromises = reservations.map(reservation => {
-          const updates: any = {}
+          const updates: { assigned_staff?: string[]; gm_staff?: string } = {}
           
           // assigned_staff配列を更新
           if (reservation.assigned_staff && reservation.assigned_staff.includes(oldName)) {
@@ -402,7 +441,7 @@ export const staffApi = {
     
     if (reservations && reservations.length > 0) {
       const updatePromises = reservations.map(reservation => {
-        const updates: any = {}
+        const updates: { assigned_staff?: string[]; gm_staff?: string | null } = {}
         
         // assigned_staff配列から削除
         if (reservation.assigned_staff && reservation.assigned_staff.includes(staffName)) {
@@ -564,12 +603,12 @@ export const scheduleApi = {
     }
     
     // 貸切公演を schedule_events 形式に変換
-    const privateEvents: any[] = []
+    const privateEvents: ScheduleEvent[] = []
     if (confirmedPrivateBookings) {
       for (const booking of confirmedPrivateBookings) {
         if (booking.candidate_datetimes?.candidates) {
           // 確定済みの候補のみ取得（最初の1つだけ）
-          const confirmedCandidates = booking.candidate_datetimes.candidates.filter((c: any) => c.status === 'confirmed')
+          const confirmedCandidates = booking.candidate_datetimes.candidates.filter((c: CandidateDateTime) => c.status === 'confirmed')
           const candidatesToShow = confirmedCandidates.length > 0 
             ? confirmedCandidates.slice(0, 1)  // 確定候補がある場合は最初の1つ
             : booking.candidate_datetimes.candidates.slice(0, 1)  // フォールバック
@@ -604,9 +643,9 @@ export const scheduleApi = {
               // gmsから取得できなかった場合はgm_availability_responsesから取得
               if (gmNames.length === 0 && booking.gm_availability_responses) {
                 gmNames = booking.gm_availability_responses
-                  ?.filter((r: any) => r.response_status === 'available')
-                  ?.map((r: any) => r.staff?.name)
-                  ?.filter((name: string) => name) || []
+                  ?.filter((r: GMAvailabilityResponse) => r.response_status === 'available')
+                  ?.map((r: GMAvailabilityResponse) => r.staff?.name)
+                  ?.filter((name): name is string => !!name) || []
               }
               
               if (gmNames.length === 0) {

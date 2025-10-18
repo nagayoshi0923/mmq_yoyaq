@@ -33,3 +33,4 @@ yarn-error.log*
 # Supabase Access Token (機密情報)
 SUPABASE_ACCESS_TOKEN
 
+.vercel

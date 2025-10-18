@@ -1,7 +1,7 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, Ban, Plus, AlertTriangle, Trash2, Globe, Check } from 'lucide-react'
+import { Users, AlertTriangle } from 'lucide-react'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -39,9 +39,10 @@ interface PerformanceCardProps {
   onDelete?: (event: ScheduleEvent) => void
   onClick?: (event: ScheduleEvent) => void
   onToggleReservation?: (event: ScheduleEvent) => void
+  onContextMenu?: (event: ScheduleEvent, x: number, y: number) => void
 }
 
-export function PerformanceCard({
+function PerformanceCardBase({
   event,
   categoryConfig,
   getReservationBadgeClass,
@@ -50,7 +51,8 @@ export function PerformanceCard({
   onEdit,
   onDelete,
   onClick,
-  onToggleReservation
+  onToggleReservation,
+  onContextMenu
 }: PerformanceCardProps) {
   const reservationCount = event.participant_count || 0
   const maxCapacity = event.max_participants || 8
@@ -58,8 +60,8 @@ export function PerformanceCard({
   
   // 貸切リクエストの場合は紫色で表示
   const categoryColors = event.is_private_request 
-    ? 'bg-purple-50 border-purple-200'
-    : categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor || 'bg-gray-50 border-gray-200'
+    ? 'bg-purple-50'
+    : categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor.replace(/border-\S+/, '') || 'bg-gray-50'
   
   // バッジのテキストカラーを取得（例: 'bg-blue-100 text-blue-800' から 'text-blue-800' を抽出）
   const badgeTextColor = event.is_private_request
@@ -68,16 +70,49 @@ export function PerformanceCard({
   
   // ボーダー色を取得（テキスト色から対応するボーダー色を生成）
   const borderColorClass = badgeTextColor.replace('text-', 'ring-')
+  
+  // 左ボーダーの色を決定（濃いめのカラー）
+  const leftBorderColor = isIncomplete 
+    ? 'border-l-red-600'  // アラート時は赤
+    : event.is_cancelled
+      ? 'border-l-gray-500'
+      : event.is_private_request
+        ? 'border-l-purple-600'
+        : event.category === 'open'
+          ? 'border-l-blue-600'
+          : event.category === 'private'
+            ? 'border-l-purple-600'
+            : event.category === 'gmtest'
+              ? 'border-l-orange-600'
+              : event.category === 'testplay'
+                ? 'border-l-yellow-600'
+                : event.category === 'offsite'
+                  ? 'border-l-green-600'
+                  : 'border-l-gray-500'
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!event.is_cancelled && onContextMenu) {
+      onContextMenu(event, e.clientX, e.clientY)
+    }
+  }
 
   return (
     <div
-      className={`p-1 h-full w-full border-l-4 hover:shadow-sm transition-shadow text-xs relative cursor-pointer ${
+      draggable={!event.is_cancelled}
+      onDragStart={(e) => {
+        if (event.is_cancelled) return
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('application/json', JSON.stringify(event))
+      }}
+      onContextMenu={handleContextMenu}
+      className={`p-2 border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-xs relative ${
         event.is_cancelled 
-          ? 'bg-gray-100 border-l-gray-400 opacity-75' 
-          : categoryColors.replace('border-', 'border-l-')
-      } ${
-        isIncomplete ? 'border-l-yellow-400 border-l-4' : ''
-      }`}
+          ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
+          : 'cursor-move'
+      } ${categoryColors}`}
+      style={{ margin: '4px' }}
       onClick={() => onClick?.(event)}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
@@ -90,7 +125,6 @@ export function PerformanceCard({
           {event.is_cancelled && (
             <Badge variant="cancelled" size="sm" className="font-normal">
               中止
-              <Ban className="w-3 h-3 ml-1" />
             </Badge>
           )}
           
@@ -138,7 +172,7 @@ export function PerformanceCard({
       {/* 警告アイコン（右上） */}
       {isIncomplete && (
         <div className="absolute top-1 right-1">
-          <AlertTriangle className="w-3 h-3 text-yellow-500" />
+          <AlertTriangle className="w-3 h-3 text-red-600" />
         </div>
       )}
 
@@ -172,44 +206,9 @@ export function PerformanceCard({
         >
           {event.is_reservation_enabled || event.is_private_request ? '公開中' : '公開前'}
         </Badge>
-        
-        {/* 削除ボタン */}
-        <button
-          className={`h-5 w-5 rounded flex items-center justify-center ring-1 ring-inset ${borderColorClass} transition-all`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete?.(event);
-          }}
-          title="公演を削除"
-        >
-          <Trash2 className={`w-3 h-3 ${badgeTextColor}`} />
-        </button>
-        
-        {/* キャンセル/復活ボタン */}
-        {!event.is_cancelled ? (
-          <button
-            className={`h-5 w-5 rounded flex items-center justify-center ring-1 ring-inset ${borderColorClass} transition-all`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onCancelConfirm?.(event);
-            }}
-            title="公演を中止"
-          >
-            <Ban className={`w-3 h-3 ${badgeTextColor}`} />
-          </button>
-        ) : (
-          <button
-            className={`h-5 w-5 rounded flex items-center justify-center ring-1 ring-inset ${borderColorClass} transition-all`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onUncancel?.(event);
-            }}
-            title="公演を復活"
-          >
-            <Plus className={`w-3 h-3 ${badgeTextColor}`} />
-          </button>
-        )}
       </div>
     </div>
   )
 }
+
+export const PerformanceCard = React.memo(PerformanceCardBase)

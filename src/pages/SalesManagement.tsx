@@ -10,8 +10,10 @@ import { SalesData } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import { useSessionState } from '@/hooks/useSessionState'
 import SalesSidebar from '@/components/layout/SalesSidebar'
 import AuthorReport from './AuthorReport'
+import { logger } from '@/utils/logger'
 import { Calendar, TrendingUp, Store, BookOpen, DollarSign, Download, BarChart3, Users, Search, Filter } from 'lucide-react'
 import { SortableTableHeader } from '@/components/ui/sortable-table-header'
 import { useSortableTable } from '@/hooks/useSortableTable'
@@ -54,7 +56,6 @@ ChartJS.register(
   Legend
 )
 
-
 interface Store {
   id: string
   name: string
@@ -64,40 +65,18 @@ interface Store {
 const SalesManagement: React.FC = () => {
   const [salesData, setSalesData] = useState<SalesData | null>(null)
   const [loading, setLoading] = useState(false)
-  // sessionStorageから期間と店舗の選択状態を復元
-  const [selectedPeriod, setSelectedPeriod] = useState(() => {
-    const saved = sessionStorage.getItem('salesSelectedPeriod')
-    return saved || 'thisMonth'
-  })
-  const [selectedStore, setSelectedStore] = useState(() => {
-    const saved = sessionStorage.getItem('salesSelectedStore')
-    return saved || 'all'
-  })
+  
+  // sessionStorageと同期する状態（汎用フックを使用）
+  const [selectedPeriod, setSelectedPeriod] = useSessionState('salesSelectedPeriod', 'thisMonth')
+  const [selectedStore, setSelectedStore] = useSessionState('salesSelectedStore', 'all')
+  const [activeTab, setActiveTab] = useSessionState('salesActiveTab', 'overview')
+  
   const [stores, setStores] = useState<Store[]>([])
   const [chartRef, setChartRef] = useState<any>(null)
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
   })
-  // sessionStorageからタブの状態を復元
-  const [activeTab, setActiveTab] = useState(() => {
-    const saved = sessionStorage.getItem('salesActiveTab')
-    return saved || 'overview'
-  })
-
-  // タブが変更されたらsessionStorageに保存
-  useEffect(() => {
-    sessionStorage.setItem('salesActiveTab', activeTab)
-  }, [activeTab])
-
-  // 期間と店舗が変更されたらsessionStorageに保存
-  useEffect(() => {
-    sessionStorage.setItem('salesSelectedPeriod', selectedPeriod)
-  }, [selectedPeriod])
-
-  useEffect(() => {
-    sessionStorage.setItem('salesSelectedStore', selectedStore)
-  }, [selectedStore])
 
   // コンテンツの条件分岐表示
   const renderContent = () => {
@@ -390,7 +369,7 @@ const SalesManagement: React.FC = () => {
       )
       setScenarioData(data)
     } catch (error) {
-      console.error('シナリオ別公演データの取得に失敗しました:', error)
+      logger.error('シナリオ別公演データの取得に失敗しました:', error)
     } finally {
       setScenarioLoading(false)
     }
@@ -414,7 +393,7 @@ const SalesManagement: React.FC = () => {
       if (error) throw error
       setAllScenarios(data || [])
     } catch (error) {
-      console.error('シナリオ一覧の取得に失敗しました:', error)
+      logger.error('シナリオ一覧の取得に失敗しました:', error)
     } finally {
       setScenariosLoading(false)
     }
@@ -1098,10 +1077,6 @@ const SalesManagement: React.FC = () => {
   // 作者レポートコンテンツ
   const renderAuthorReportContent = () => <AuthorReport />
 
-  // dateRangeの変化を監視（デバッグ用）
-  // useEffect(() => {
-  //   console.log('dateRange変化:', dateRange.startDate, '～', dateRange.endDate)
-  // }, [dateRange])
 
   // 期間選択の初期化
   useEffect(() => {
@@ -1116,7 +1091,7 @@ const SalesManagement: React.FC = () => {
         const storeData = await salesApi.getStores()
         setStores(storeData)
       } catch (error) {
-        console.error('店舗データの取得に失敗しました:', error)
+        logger.error('店舗データの取得に失敗しました:', error)
       }
     }
     fetchStores()
@@ -1237,7 +1212,7 @@ const SalesManagement: React.FC = () => {
       }
       
       // デバッグログ
-      console.log('売上計算デバッグ:', {
+      logger.log('売上計算デバッグ:', {
         totalEvents: events.length,
         selectedPeriodEvents: selectedPeriodEvents.length,
         sampleEvent: selectedPeriodEvents[0],
@@ -1255,7 +1230,7 @@ const SalesManagement: React.FC = () => {
       const totalEvents = selectedPeriodEvents.length
       const averageRevenuePerEvent = totalEvents > 0 ? totalRevenue / totalEvents : 0
       
-      console.log('売上計算結果:', {
+      logger.log('売上計算結果:', {
         totalRevenue,
         totalEvents,
         averageRevenuePerEvent
@@ -1286,7 +1261,7 @@ const SalesManagement: React.FC = () => {
         const participationFee = event.scenarios?.participation_fee || 0
         
         // デバッグログ
-        console.log('店舗別集計デバッグ:', {
+        logger.log('店舗別集計デバッグ:', {
           eventId: event.id,
           venue: event.venue,
           storeName: storeName,
@@ -1414,7 +1389,7 @@ const SalesManagement: React.FC = () => {
         dailyRevenue: [],
       })
     } catch (error) {
-      console.error('売上データの取得に失敗しました:', error)
+      logger.error('売上データの取得に失敗しました:', error)
     } finally {
       setLoading(false)
     }
@@ -1754,7 +1729,7 @@ const SalesManagement: React.FC = () => {
       : defaultMaxEvents
     
     // デバッグログ
-    console.log('グラフレンジ計算:', { 
+    logger.log('グラフレンジ計算:', { 
       hasData, 
       storeCount, 
       isDailyChart, 

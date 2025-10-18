@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 
 export function LoginForm() {
   const [email, setEmail] = useState('')
@@ -45,20 +46,21 @@ export function LoginForm() {
         // ログイン成功後、予約サイトへリダイレクト
         window.location.hash = 'customer-booking'
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : ''
       if (isForgotPassword) {
-        setError('パスワードリセットメールの送信に失敗しました。' + (error.message || ''))
+        setError('パスワードリセットメールの送信に失敗しました。' + message)
       } else if (isSignUp) {
-        setError('アカウント作成に失敗しました。' + (error.message || ''))
+        setError('アカウント作成に失敗しました。' + message)
       } else {
         // メール未確認エラーの場合
-        if (error.message?.includes('Email not confirmed')) {
+        if (message.includes('Email not confirmed')) {
           setError('メールアドレスが確認されていません。登録時に送信された確認メールのリンクをクリックしてください。')
         } else {
           setError('ログインに失敗しました。メールアドレスとパスワードを確認してください。')
         }
       }
-      console.error('Auth error:', error)
+      logger.error('Auth error:', error)
     }
   }
 
@@ -83,9 +85,10 @@ export function LoginForm() {
       setEmail(testEmail)
       setPassword(testPassword)
       setMessage(`${role}用テストアカウントを作成しました。\nメール: ${testEmail}\nパスワード: ${testPassword}\n\n※ メールアドレスの確認が必要です。受信トレイを確認してください。`)
-    } catch (error: any) {
-      setError('テストアカウント作成に失敗しました。' + (error.message || ''))
-      console.error('Test account creation error:', error)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : ''
+      setError('テストアカウント作成に失敗しました。' + message)
+      logger.error('Test account creation error:', error)
     }
   }
 
@@ -110,6 +113,7 @@ export function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="username"
                 className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 placeholder="your@email.com"
               />
@@ -127,6 +131,7 @@ export function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
+                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
                   className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   placeholder={isSignUp ? "6文字以上のパスワード" : "パスワードを入力"}
                 />

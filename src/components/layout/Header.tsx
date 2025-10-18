@@ -1,7 +1,9 @@
+import { useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Bell, LogOut } from 'lucide-react'
+import { logger } from '@/utils/logger'
 
 interface HeaderProps {
   onPageChange?: (pageId: string) => void
@@ -10,22 +12,22 @@ interface HeaderProps {
 export function Header({ onPageChange }: HeaderProps) {
   const { user, signOut } = useAuth()
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     try {
       await signOut()
     } catch (error) {
-      console.error('Sign out error:', error)
+      logger.error('Sign out error:', error)
     }
-  }
+  }, [signOut])
 
-  const handleTitleClick = () => {
+  const handleTitleClick = useCallback(() => {
     if (onPageChange) {
       onPageChange('dashboard')
     } else {
       // 各機能ページから呼ばれた場合はハッシュを変更
       window.location.hash = ''
     }
-  }
+  }, [onPageChange])
 
   return (
     <header className="border-b border-border bg-card">

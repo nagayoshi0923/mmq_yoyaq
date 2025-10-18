@@ -1,15 +1,14 @@
 // パスワード設定ページ（招待メールからのリンク先）
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertCircle, CheckCircle, Lock } from 'lucide-react'
+import { logger } from '@/utils/logger'
 
 export function SetPassword() {
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -60,11 +59,11 @@ export function SetPassword() {
 
       // 3秒後にログイン画面にリダイレクト
       setTimeout(() => {
-        navigate('/#login')
+        window.location.hash = '#login'
       }, 3000)
 
     } catch (err: any) {
-      console.error('Password set error:', err)
+      logger.error('Password set error:', err)
       setError(err.message || 'パスワードの設定に失敗しました')
     } finally {
       setLoading(false)
@@ -87,7 +86,7 @@ export function SetPassword() {
           <CardContent>
             <Button
               className="w-full"
-              onClick={() => navigate('/#login')}
+              onClick={() => window.location.hash = '#login'}
             >
               今すぐログイン
             </Button>

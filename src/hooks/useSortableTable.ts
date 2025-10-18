@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { SortDirection, SortState, SortableConfig } from '@/types/sortable'
+import { logger } from '@/utils/logger'
 
 export function useSortableTable<T extends string, D = any>(
   config: SortableConfig<T>
@@ -54,8 +55,8 @@ export function useSortableTable<T extends string, D = any>(
   // データの並び替え
   const sortData = useCallback((data: D[]) => {
     return [...data].sort((a, b) => {
-      let aValue: any = (a as any)[sortState.field]
-      let bValue: any = (b as any)[sortState.field]
+      let aValue: unknown = (a as Record<string, unknown>)[sortState.field]
+      let bValue: unknown = (b as Record<string, unknown>)[sortState.field]
       
       // 文字列の場合は小文字で比較
       if (typeof aValue === 'string') {

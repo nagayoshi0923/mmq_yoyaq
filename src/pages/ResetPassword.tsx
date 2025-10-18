@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
+import { logger } from '@/utils/logger'
 
 export function ResetPassword() {
   const [newPassword, setNewPassword] = useState('')
@@ -19,7 +20,7 @@ export function ResetPassword() {
       try {
         // URLの形式: #reset-password#access_token=...&refresh_token=...
         const hash = window.location.hash
-        console.log('Current hash:', hash)
+        logger.log('Current hash:', hash)
         
         // #reset-password# の後の部分を取得
         const tokenPart = hash.split('#reset-password#')[1]
@@ -32,8 +33,8 @@ export function ResetPassword() {
         const accessToken = hashParams.get('access_token')
         const refreshToken = hashParams.get('refresh_token')
         
-        console.log('Access token:', accessToken ? 'Found' : 'Not found')
-        console.log('Refresh token:', refreshToken ? 'Found' : 'Not found')
+        logger.log('Access token:', accessToken ? 'Found' : 'Not found')
+        logger.log('Refresh token:', refreshToken ? 'Found' : 'Not found')
         
         if (!accessToken || !refreshToken) {
           setError('無効なリセットリンクです。もう一度パスワードリセットを申請してください。')
@@ -47,14 +48,14 @@ export function ResetPassword() {
         })
 
         if (sessionError) {
-          console.error('Session error:', sessionError)
+          logger.error('Session error:', sessionError)
           setError('セッションの確立に失敗しました。もう一度お試しください。')
           return
         }
 
         setSessionReady(true)
       } catch (err) {
-        console.error('Setup error:', err)
+        logger.error('Setup error:', err)
         setError('エラーが発生しました。もう一度お試しください。')
       }
     }
@@ -98,7 +99,7 @@ export function ResetPassword() {
       }, 3000)
     } catch (error: any) {
       setError('パスワードの更新に失敗しました: ' + (error.message || ''))
-      console.error('Password reset error:', error)
+      logger.error('Password reset error:', error)
     } finally {
       setIsLoading(false)
     }

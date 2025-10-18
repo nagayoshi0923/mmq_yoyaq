@@ -6,7 +6,9 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { StoreEditModal } from '@/components/modals/StoreEditModal'
 import { storeApi } from '@/lib/api'
+import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import type { Store } from '@/types'
+import { logger } from '@/utils/logger'
 import { 
   Store as StoreIcon, 
   Plus, 
@@ -29,55 +31,9 @@ export function StoreManagement() {
   const [error, setError] = useState('')
   const [editingStore, setEditingStore] = useState<Store | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
 
-  // スクロール位置の保存と復元
-  useEffect(() => {
-    if ('scrollRestoration' in history) {
-      history.scrollRestoration = 'manual'
-    }
-    let scrollTimer: NodeJS.Timeout
-    const handleScroll = () => {
-      clearTimeout(scrollTimer)
-      scrollTimer = setTimeout(() => {
-        sessionStorage.setItem('storeScrollY', window.scrollY.toString())
-        sessionStorage.setItem('storeScrollTime', Date.now().toString())
-      }, 100)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
-
-  useEffect(() => {
-    const savedY = sessionStorage.getItem('storeScrollY')
-    const savedTime = sessionStorage.getItem('storeScrollTime')
-    if (savedY && savedTime) {
-      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-      if (timeSinceScroll < 10000) {
-        setTimeout(() => {
-          window.scrollTo(0, parseInt(savedY, 10))
-        }, 100)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!loading && !initialLoadComplete) {
-      setInitialLoadComplete(true)
-      const savedY = sessionStorage.getItem('storeScrollY')
-      const savedTime = sessionStorage.getItem('storeScrollTime')
-      if (savedY && savedTime) {
-        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-        if (timeSinceScroll < 10000) {
-          setTimeout(() => {
-            window.scrollTo(0, parseInt(savedY, 10))
-          }, 200)
-        }
-      }
-    }
-  }, [loading, initialLoadComplete])
+  // スクロール位置の保存と復元（汎用フックを使用）
+  useScrollRestoration({ pageKey: 'store', isLoading: loading })
 
   useEffect(() => {
     loadStores()
@@ -107,7 +63,7 @@ export function StoreManagement() {
       const data = await storeApi.getAll()
       setStores(data)
     } catch (err: any) {
-      console.error('Error loading stores:', err)
+      logger.error('Error loading stores:', err)
       setError('店舗データの読み込みに失敗しました: ' + err.message)
       // エラー時は空配列を設定
       setStores([])
@@ -126,7 +82,7 @@ export function StoreManagement() {
       // 削除成功後、リストから除去
       setStores(prev => prev.filter(s => s.id !== store.id))
     } catch (err: any) {
-      console.error('Error deleting store:', err)
+      logger.error('Error deleting store:', err)
       alert('店舗の削除に失敗しました: ' + err.message)
     }
   }
@@ -142,7 +98,7 @@ export function StoreManagement() {
       // 更新成功後、リストを更新
       setStores(prev => prev.map(s => s.id === savedStore.id ? savedStore : s))
     } catch (err: any) {
-      console.error('Error updating store:', err)
+      logger.error('Error updating store:', err)
       alert('店舗の更新に失敗しました: ' + err.message)
       throw err // モーダルでエラーハンドリングするため再throw
     }

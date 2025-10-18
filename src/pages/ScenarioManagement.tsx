@@ -12,6 +12,7 @@ import { scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { useSortableTable } from '@/hooks/useSortableTable'
 import type { Scenario } from '@/types'
+import { logger } from '@/utils/logger'
 import { 
   BookOpen, 
   Plus, 
@@ -207,7 +208,7 @@ export function ScenarioManagement() {
               available_gms: assignedGMs // リレーションテーブルから取得した担当GM名を設定
             }
           } catch (error) {
-            console.error(`Error loading assignments for scenario ${scenario.id}:`, error)
+            logger.error(`Error loading assignments for scenario ${scenario.id}:`, error)
             return {
               ...scenario,
               available_gms: scenario.available_gms || [] // エラー時は既存の値を使用
@@ -218,7 +219,7 @@ export function ScenarioManagement() {
       
       setScenarios(scenariosWithGMs)
     } catch (err: any) {
-      console.error('Error loading scenarios:', err)
+      logger.error('Error loading scenarios:', err)
       setError('シナリオデータの読み込みに失敗しました: ' + err.message)
       // エラー時はモックデータを使用
       setScenarios(mockScenarios)
@@ -255,7 +256,7 @@ export function ScenarioManagement() {
       // シナリオ保存後、担当GM情報を含めてリストを再読み込み（スクロール位置保持）
       await loadScenarios(true)
     } catch (err: any) {
-      console.error('Error saving scenario:', err)
+      logger.error('Error saving scenario:', err)
       alert('シナリオの保存に失敗しました: ' + err.message)
     }
   }
@@ -275,7 +276,7 @@ export function ScenarioManagement() {
       setDeleteDialogOpen(false)
       setScenarioToDelete(null)
     } catch (err: any) {
-      console.error('Error deleting scenario:', err)
+      logger.error('Error deleting scenario:', err)
       alert('シナリオの削除に失敗しました: ' + err.message)
     }
   }
@@ -383,7 +384,7 @@ export function ScenarioManagement() {
           await scenarioApi.create(scenarioData)
           successCount++
         } catch (err) {
-          console.error('Error importing scenario:', err)
+          logger.error('Error importing scenario:', err)
           errorCount++
         }
       }
@@ -391,7 +392,7 @@ export function ScenarioManagement() {
       alert(`CSVインポート完了\n成功: ${successCount}件\n失敗: ${errorCount}件`)
       await loadScenarios()
     } catch (err: any) {
-      console.error('CSV import error:', err)
+      logger.error('CSV import error:', err)
       alert('CSVインポートに失敗しました: ' + err.message)
     } finally {
       setIsImporting(false)

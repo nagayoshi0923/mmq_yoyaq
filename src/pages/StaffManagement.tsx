@@ -14,6 +14,7 @@ import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
 import { supabase } from '@/lib/supabase'
 import { usePageState } from '@/hooks/usePageState'
 import type { Staff, Store } from '@/types'
+import { logger } from '@/utils/logger'
 import { 
   Users, 
   Plus, 
@@ -157,7 +158,7 @@ export function StaffManagement() {
               experienced_scenarios: experiencedScenarios // 体験済みシナリオ（GM不可）
             }
           } catch (error) {
-            console.error(`Error loading assignments for staff ${staffMember.id}:`, error)
+            logger.error(`Error loading assignments for staff ${staffMember.id}:`, error)
             return {
               ...staffMember,
               special_scenarios: staffMember.special_scenarios || [], // エラー時は既存の値を使用
@@ -167,14 +168,14 @@ export function StaffManagement() {
         })
       )
       
-        console.log('📥 読み込んだスタッフデータ（最初の1件）:', staffWithScenarios[0] ? {
+        logger.log('📥 読み込んだスタッフデータ（最初の1件）:', staffWithScenarios[0] ? {
           name: staffWithScenarios[0].name,
           avatar_color: staffWithScenarios[0].avatar_color,
           avatar_url: staffWithScenarios[0].avatar_url
         } : 'データなし')
         setStaff(staffWithScenarios)
     } catch (err: any) {
-      console.error('Error loading staff:', err)
+      logger.error('Error loading staff:', err)
       setError('スタッフデータの読み込みに失敗しました: ' + err.message)
       // エラー時はモックデータを使用
       setStaff(mockStaff)
@@ -188,7 +189,7 @@ export function StaffManagement() {
       const data = await storeApi.getAll()
       setStores(data)
     } catch (err: any) {
-      console.error('Error loading stores:', err)
+      logger.error('Error loading stores:', err)
     }
   }
 
@@ -197,7 +198,7 @@ export function StaffManagement() {
       const data = await scenarioApi.getAll()
       setScenarios(data)
     } catch (err: any) {
-      console.error('Error loading scenarios:', err)
+      logger.error('Error loading scenarios:', err)
     }
   }
 
@@ -216,7 +217,7 @@ export function StaffManagement() {
         const specialScenariosChanged = JSON.stringify(originalStaff?.special_scenarios?.sort()) !== JSON.stringify(staffData.special_scenarios?.sort())
         
         // まず基本情報を更新
-        console.log('💾 保存するスタッフデータ:', { id: staffData.id, avatar_color: staffData.avatar_color, name: staffData.name })
+        logger.log('💾 保存するスタッフデータ:', { id: staffData.id, avatar_color: staffData.avatar_color, name: staffData.name })
         await staffApi.update(staffData.id, staffData)
         
         // 担当シナリオが変更された場合、リレーションテーブルも更新
@@ -236,7 +237,7 @@ export function StaffManagement() {
       // スタッフ保存後、担当シナリオ情報を含めてリストを再読み込み
       await loadStaff()
     } catch (err: any) {
-      console.error('Error saving staff:', err)
+      logger.error('Error saving staff:', err)
       alert('スタッフの保存に失敗しました: ' + err.message)
     }
   }
@@ -277,7 +278,7 @@ export function StaffManagement() {
         throw new Error(result.error || '招待に失敗しました')
       }
     } catch (err: any) {
-      console.error('Error inviting staff:', err)
+      logger.error('Error inviting staff:', err)
       alert('スタッフの招待に失敗しました: ' + err.message)
     } finally {
       setInviteLoading(false)
@@ -326,7 +327,7 @@ export function StaffManagement() {
       setLinkingStaff(null)
       await loadStaff()
     } catch (err: any) {
-      console.error('Error linking user:', err)
+      logger.error('Error linking user:', err)
       alert('ユーザーとの紐付けに失敗しました: ' + err.message)
     } finally {
       setLinkLoading(false)
@@ -368,7 +369,7 @@ export function StaffManagement() {
         throw new Error(result.error || '招待に失敗しました')
       }
     } catch (err: any) {
-      console.error('Error inviting and linking:', err)
+      logger.error('Error inviting and linking:', err)
       alert('招待に失敗しました: ' + err.message)
     } finally {
       setLinkLoading(false)
@@ -396,7 +397,7 @@ export function StaffManagement() {
       setDeleteDialogOpen(false)
       setStaffToDelete(null)
     } catch (err: any) {
-      console.error('Error deleting staff:', err)
+      logger.error('Error deleting staff:', err)
       alert('スタッフの削除に失敗しました: ' + err.message)
     }
   }
@@ -645,12 +646,12 @@ export function StaffManagement() {
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全ステータス</SelectItem>
-                  <SelectItem value="active">在籍中</SelectItem>
-                  <SelectItem value="inactive">休職中</SelectItem>
-                  <SelectItem value="on-leave">休暇中</SelectItem>
-                </SelectContent>
+              <SelectContent>
+                <SelectItem value="all">全ステータス</SelectItem>
+                <SelectItem value="active">在籍中</SelectItem>
+                <SelectItem value="inactive">休職中</SelectItem>
+                <SelectItem value="on_leave">休暇中</SelectItem>
+              </SelectContent>
               </Select>
             </div>
 

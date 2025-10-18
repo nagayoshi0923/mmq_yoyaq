@@ -7,7 +7,7 @@ interface UsePageStateOptions {
 }
 
 interface PageState {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 /**
@@ -71,7 +71,7 @@ export function usePageState(options: UsePageStateOptions) {
   }, [pageKey])
 
   // 状態を保存する関数
-  const saveState = useCallback((key: string, value: any) => {
+  const saveState = useCallback((key: string, value: unknown) => {
     if (value === null || value === undefined) {
       sessionStorage.removeItem(`${pageKey}_${key}`)
     } else if (typeof value === 'string') {

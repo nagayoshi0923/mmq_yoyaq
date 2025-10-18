@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Search, Filter, Calendar, User, BarChart3, TrendingUp, ChevronDown, ChevronRight, Copy, Mail, Check } from 'lucide-react'
 import { salesApi, scenarioApi, storeApi } from '@/lib/api'
 import { Scenario, Store } from '@/types'
+import { logger } from '@/utils/logger'
 
 interface AuthorPerformance {
   author: string
@@ -93,7 +94,7 @@ export default function AuthorReport() {
       setCopiedAuthor(author.author)
       setTimeout(() => setCopiedAuthor(null), 2000)
     } catch (err) {
-      console.error('コピーに失敗しました:', err)
+      logger.error('コピーに失敗しました:', err)
       alert('コピーに失敗しました')
     }
   }, [generateAuthorReportText])
@@ -168,7 +169,7 @@ export default function AuthorReport() {
     const startStr = fmt.format(startLocal) // 例: "2025-09-01"
     const endStr = fmt.format(endLocal) // 例: "2025-09-30"
     
-    console.log('計算された日付範囲:', { startStr, endStr })
+    logger.log('計算された日付範囲:', { startStr, endStr })
     
     return { startStr, endStr }
   }, [])
@@ -187,7 +188,7 @@ export default function AuthorReport() {
         salesApi.getScenarioPerformance(startStr, endStr, selectedStore === 'all' ? undefined : selectedStore)
       ])
 
-      console.log('取得データ:', { 
+      logger.log('取得データ:', { 
         scenariosData: scenariosData.length, 
         storesData: storesData.length, 
         performanceData: performanceData.length,
@@ -283,13 +284,13 @@ export default function AuthorReport() {
 
       // 月別データとして設定
       const monthName = `${selectedYear}年${selectedMonth}月`
-      console.log('作者データ集計結果:', authorsArray)
+      logger.log('作者データ集計結果:', authorsArray)
       setMonthlyData([{
         month: monthName,
         authors: authorsArray
       }])
     } catch (error) {
-      console.error('データ取得エラー:', error)
+      logger.error('データ取得エラー:', error)
     } finally {
       setLoading(false)
     }
