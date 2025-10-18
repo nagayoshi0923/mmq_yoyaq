@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { TableCell } from '@/components/ui/table'
 import { PerformanceCard } from './PerformanceCard'
 import { EmptySlot } from './EmptySlot'
@@ -44,6 +45,7 @@ interface TimeSlotCellProps {
   onDelete?: (event: ScheduleEvent) => void
   onAddPerformance?: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => void
   onToggleReservation?: (event: ScheduleEvent) => void
+  onDrop?: (droppedEvent: ScheduleEvent, targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => void
 }
 
 export function TimeSlotCell({
@@ -59,10 +61,45 @@ export function TimeSlotCell({
   onEdit,
   onDelete,
   onAddPerformance,
-  onToggleReservation
+  onToggleReservation,
+  onDrop
 }: TimeSlotCellProps) {
+  const [isDragOver, setIsDragOver] = useState(false)
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = () => {
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    
+    try {
+      const eventData = e.dataTransfer.getData('application/json')
+      if (!eventData) return
+      
+      const droppedEvent = JSON.parse(eventData) as ScheduleEvent
+      onDrop?.(droppedEvent, date, venue, timeSlot)
+    } catch (error) {
+      console.error('ドロップエラー:', error)
+    }
+  }
+
   return (
-    <TableCell className="schedule-table-cell p-1 border-r border-gray-200">
+    <TableCell 
+      className={`schedule-table-cell p-1 border-r border-gray-200 transition-colors ${
+        isDragOver ? 'bg-purple-50 border-purple-300' : ''
+      }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {events.length > 0 ? (
         // 公演ありの場合: アバター非表示
         <PerformanceCard

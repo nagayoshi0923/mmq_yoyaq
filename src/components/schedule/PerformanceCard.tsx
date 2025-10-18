@@ -90,11 +90,17 @@ export function PerformanceCard({
 
   return (
     <div
-      className={`p-2 border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-xs relative cursor-pointer ${
+      draggable={!event.is_cancelled}
+      onDragStart={(e) => {
+        if (event.is_cancelled) return
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('application/json', JSON.stringify(event))
+      }}
+      className={`p-2 border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-xs relative ${
         event.is_cancelled 
-          ? 'bg-gray-100 opacity-75' 
-          : categoryColors
-      }`}
+          ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
+          : 'cursor-move'
+      } ${categoryColors}`}
       style={{ margin: '4px' }}
       onClick={() => onClick?.(event)}
     >

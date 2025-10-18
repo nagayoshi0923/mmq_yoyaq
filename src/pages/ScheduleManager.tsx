@@ -12,6 +12,7 @@ import { MemoCell } from '@/components/schedule/MemoCell'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
+import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
 import { memoApi, scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { shiftApi } from '@/lib/shiftApi'
@@ -75,6 +76,7 @@ export function ScheduleManager() {
   const [storeIdMap, setStoreIdMap] = useState<Record<string, string>>({})
   const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [isMoveOrCopyDialogOpen, setIsMoveOrCopyDialogOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
   const [modalInitialData, setModalInitialData] = useState<{
     date: string
@@ -91,6 +93,8 @@ export function ScheduleManager() {
   const [isConflictWarningOpen, setIsConflictWarningOpen] = useState(false)
   const [conflictInfo, setConflictInfo] = useState<any>(null)
   const [pendingPerformanceData, setPendingPerformanceData] = useState<any>(null)
+  const [draggedEvent, setDraggedEvent] = useState<ScheduleEvent | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ date: string, venue: string, timeSlot: string } | null>(null)
   const [events, setEvents] = useState<ScheduleEvent[]>(() => {
     try {
       const cached = sessionStorage.getItem('scheduleEvents')
@@ -824,6 +828,106 @@ export function ScheduleManager() {
     setEditingEvent(null)
   }
 
+  // ドラッグ&ドロップハンドラー
+  const handleDrop = (droppedEvent: ScheduleEvent, targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => {
+    // 同じ場所へのドロップは無視
+    const sourceTimeSlot = getTimeSlot(droppedEvent.start_time)
+    if (droppedEvent.date === targetDate && droppedEvent.venue === targetVenue && sourceTimeSlot === targetTimeSlot) {
+      return
+    }
+
+    // ドラッグされた公演と移動先情報を保存
+    setDraggedEvent(droppedEvent)
+    setDropTarget({ date: targetDate, venue: targetVenue, timeSlot: targetTimeSlot })
+    setIsMoveOrCopyDialogOpen(true)
+  }
+
+  // 公演を移動
+  const handleMoveEvent = async () => {
+    if (!draggedEvent || !dropTarget) return
+
+    try {
+      // 移動先の時間を計算
+      const timeSlotDefaults = {
+        morning: { start_time: '10:00', end_time: '14:00' },
+        afternoon: { start_time: '14:30', end_time: '18:30' },
+        evening: { start_time: '19:00', end_time: '23:00' }
+      }
+      const defaults = timeSlotDefaults[dropTarget.timeSlot as keyof typeof timeSlotDefaults]
+
+      // 元の公演を削除
+      await scheduleApi.delete(draggedEvent.id)
+
+      // 新しい位置に公演を作成
+      const newEventData: any = {
+        date: dropTarget.date,
+        store_id: dropTarget.venue,
+        venue: stores.find(s => s.id === dropTarget.venue)?.name || '',
+        scenario: draggedEvent.scenario,
+        category: draggedEvent.category,
+        start_time: defaults.start_time,
+        end_time: defaults.end_time,
+        capacity: draggedEvent.max_participants,
+        gms: draggedEvent.gms,
+        notes: draggedEvent.notes
+      }
+
+      const savedEvent = await scheduleApi.create(newEventData)
+
+      // ローカル状態を更新
+      setEvents(prev => {
+        const filtered = prev.filter(e => e.id !== draggedEvent.id)
+        return [...filtered, { ...savedEvent, venue: dropTarget.venue }]
+      })
+
+      setDraggedEvent(null)
+      setDropTarget(null)
+    } catch (error) {
+      console.error('公演移動エラー:', error)
+      alert('公演の移動に失敗しました')
+    }
+  }
+
+  // 公演を複製
+  const handleCopyEvent = async () => {
+    if (!draggedEvent || !dropTarget) return
+
+    try {
+      // 移動先の時間を計算
+      const timeSlotDefaults = {
+        morning: { start_time: '10:00', end_time: '14:00' },
+        afternoon: { start_time: '14:30', end_time: '18:30' },
+        evening: { start_time: '19:00', end_time: '23:00' }
+      }
+      const defaults = timeSlotDefaults[dropTarget.timeSlot as keyof typeof timeSlotDefaults]
+
+      // 新しい位置に公演を作成（元の公演は残す）
+      const newEventData: any = {
+        date: dropTarget.date,
+        store_id: dropTarget.venue,
+        venue: stores.find(s => s.id === dropTarget.venue)?.name || '',
+        scenario: draggedEvent.scenario,
+        category: draggedEvent.category,
+        start_time: defaults.start_time,
+        end_time: defaults.end_time,
+        capacity: draggedEvent.max_participants,
+        gms: draggedEvent.gms,
+        notes: draggedEvent.notes
+      }
+
+      const savedEvent = await scheduleApi.create(newEventData)
+
+      // ローカル状態を更新（元の公演は残す）
+      setEvents(prev => [...prev, { ...savedEvent, venue: dropTarget.venue }])
+
+      setDraggedEvent(null)
+      setDropTarget(null)
+    } catch (error) {
+      console.error('公演複製エラー:', error)
+      alert('公演の複製に失敗しました')
+    }
+  }
+
   // 🚨 CRITICAL: 公演保存時の重複チェック機能
   // この関数は同じ日付・店舗・時間帯の重複を防ぎます
   // ⚠️ 重複チェックを削除・スキップすると、同じ枠に複数の公演が登録されてしまいます
@@ -1367,6 +1471,7 @@ export function ScheduleManager() {
                           onDelete={handleDeletePerformance}
                           onAddPerformance={handleAddPerformance}
                           onToggleReservation={handleToggleReservation}
+                          onDrop={handleDrop}
                         />
                         
                         {/* 午後セル */}
@@ -1386,6 +1491,7 @@ export function ScheduleManager() {
                           onEdit={handleEditPerformance}
                           onDelete={handleDeletePerformance}
                           onAddPerformance={handleAddPerformance}
+                          onDrop={handleDrop}
                           onToggleReservation={handleToggleReservation}
                         />
                         
@@ -1404,6 +1510,7 @@ export function ScheduleManager() {
                           onToggleReservation={handleToggleReservation}
                           onDelete={handleDeletePerformance}
                           onAddPerformance={handleAddPerformance}
+                          onDrop={handleDrop}
                         />
                         
                         {/* メモセル */}
@@ -1566,6 +1673,24 @@ export function ScheduleManager() {
       />
 
       {/* 重複警告モーダル */}
+      {/* 移動/複製確認ダイアログ */}
+      <MoveOrCopyDialog
+        isOpen={isMoveOrCopyDialogOpen}
+        onClose={() => {
+          setIsMoveOrCopyDialogOpen(false)
+          setDraggedEvent(null)
+          setDropTarget(null)
+        }}
+        onMove={handleMoveEvent}
+        onCopy={handleCopyEvent}
+        eventInfo={draggedEvent && dropTarget ? {
+          scenario: draggedEvent.scenario,
+          date: dropTarget.date,
+          storeName: stores.find(s => s.id === dropTarget.venue)?.name || '',
+          timeSlot: dropTarget.timeSlot === 'morning' ? '午前' : dropTarget.timeSlot === 'afternoon' ? '午後' : '夜間'
+        } : null}
+      />
+
       <ConflictWarningModal
         isOpen={isConflictWarningOpen}
         onClose={() => {
