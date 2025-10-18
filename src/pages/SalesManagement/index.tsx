@@ -26,10 +26,13 @@ const SalesManagement: React.FC = () => {
     loadSalesData
   } = useSalesData()
 
-  // 初回ロード
+  // 店舗データ取得後にデータをロード
   useEffect(() => {
-    loadSalesData('thisMonth', 'all')
-  }, [loadSalesData])
+    if (stores.length > 0) {
+      loadSalesData('thisMonth', 'all')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stores.length])
 
   // タブ切り替え時のスクロール復元
   useEffect(() => {
@@ -50,7 +53,7 @@ const SalesManagement: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return (
+    return (
           <SalesOverview
             salesData={salesData}
             loading={loading}
@@ -66,7 +69,7 @@ const SalesManagement: React.FC = () => {
           />
         )
       case 'scenario-performance':
-        return (
+                return (
           <ScenarioPerformance
             stores={stores}
             selectedStore={selectedStore}
@@ -79,7 +82,7 @@ const SalesManagement: React.FC = () => {
       case 'author-report':
         return <AuthorReport />
       default:
-        return (
+    return (
           <SalesOverview
             salesData={salesData}
             loading={loading}
@@ -101,11 +104,11 @@ const SalesManagement: React.FC = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <NavigationBar currentPage="sales" />
-      <SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          <SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />
       
       <div className="ml-64 min-h-screen">
         <div className="container mx-auto max-w-7xl px-8 py-6">
-          {renderContent()}
+            {renderContent()}
         </div>
       </div>
     </div>

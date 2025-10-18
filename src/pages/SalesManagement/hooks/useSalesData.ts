@@ -31,10 +31,12 @@ export function useSalesData() {
   useEffect(() => {
     const fetchStores = async () => {
       try {
+        logger.log('🏪 店舗データ取得開始')
         const storeData = await salesApi.getStores()
+        logger.log('🏪 店舗データ取得完了:', { storesCount: storeData.length })
         setStores(storeData)
       } catch (error) {
-        logger.error('店舗データの取得に失敗しました:', error)
+        logger.error('❌ 店舗データの取得に失敗しました:', error)
       }
     }
     fetchStores()
@@ -42,52 +44,63 @@ export function useSalesData() {
 
   // 売上データを取得（期間とストアを引数で受け取る）
   const loadSalesData = useCallback(async (period: string, storeId: string) => {
+    logger.log('📊 売上データ取得開始:', { period, storeId, storesCount: stores.length })
     setLoading(true)
     setSelectedPeriod(period)
 
     // 日付範囲を計算
-    let range: { startDate: string; endDate: string }
+    let rangeResult
     switch (period) {
       case 'thisMonth':
-        range = getThisMonthRangeJST()
+        rangeResult = getThisMonthRangeJST()
         break
       case 'lastMonth':
-        range = getLastMonthRangeJST()
+        rangeResult = getLastMonthRangeJST()
         break
       case 'thisWeek':
-        range = getThisWeekRangeJST()
+        rangeResult = getThisWeekRangeJST()
         break
       case 'lastWeek':
-        range = getLastWeekRangeJST()
+        rangeResult = getLastWeekRangeJST()
         break
       case 'last7days':
-        range = getPastDaysRangeJST(7)
+        rangeResult = getPastDaysRangeJST(7)
         break
       case 'last30days':
-        range = getPastDaysRangeJST(30)
+        rangeResult = getPastDaysRangeJST(30)
         break
       case 'thisYear':
-        range = getThisYearRangeJST()
+        rangeResult = getThisYearRangeJST()
         break
       case 'lastYear':
-        range = getLastYearRangeJST()
+        rangeResult = getLastYearRangeJST()
         break
       default:
-        range = getThisMonthRangeJST()
+        rangeResult = getThisMonthRangeJST()
+    }
+    
+    const range = {
+      startDate: rangeResult.startDateStr,
+      endDate: rangeResult.endDateStr
     }
 
     setDateRange(range)
+    logger.log('📊 計算された日付範囲:', { range })
 
     if (!range.startDate || !range.endDate) {
+      logger.error('❌ 日付範囲が不正です:', { range })
       setLoading(false)
       return
     }
 
     try {
       // 期間に応じてグラフ用のデータ取得期間を決定
+      logger.log('📊 日付変換:', { rangeStart: range.startDate, rangeEnd: range.endDate })
       const startDate = new Date(range.startDate + 'T00:00:00+09:00')
       const endDate = new Date(range.endDate + 'T23:59:59+09:00')
+      logger.log('📊 日付オブジェクト作成:', { startDate, endDate })
       const daysDiff = getDaysDiff(startDate, endDate)
+      logger.log('📊 日数差:', { daysDiff })
       
       let chartStartDate: Date
       let chartEndDate: Date
@@ -102,6 +115,11 @@ export function useSalesData() {
         chartEndDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), 0)
       }
       
+      logger.log('📊 API呼び出し:', { 
+        start: formatDateJST(chartStartDate), 
+        end: formatDateJST(chartEndDate) 
+      })
+      
       let events = await salesApi.getSalesByPeriod(
         formatDateJST(chartStartDate),
         formatDateJST(chartEndDate)
@@ -113,10 +131,12 @@ export function useSalesData() {
       }
       
       // 売上データを計算
+      logger.log('📊 イベントデータ取得完了:', { eventsCount: events.length })
       const data = calculateSalesData(events, stores, startDate, endDate)
+      logger.log('📊 売上データ計算完了:', { totalRevenue: data.totalRevenue })
       setSalesData(data)
     } catch (error) {
-      logger.error('売上データの取得に失敗しました:', error)
+      logger.error('❌ 売上データの取得に失敗しました:', error)
     } finally {
       setLoading(false)
     }
