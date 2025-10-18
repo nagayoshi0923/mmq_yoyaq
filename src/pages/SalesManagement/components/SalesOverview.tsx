@@ -54,14 +54,15 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div>
+      {/* ヘッダー：タイトルとエクスポートボタン */}
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">売上管理</h1>
         <ExportButtons salesData={salesData} />
       </div>
 
       {/* フィルター */}
-      <div className="flex gap-4">
+      <div className="flex gap-4 mb-6">
         <div className="flex-1">
           <Label>期間</Label>
           <Select value={selectedPeriod} onValueChange={onPeriodChange}>
@@ -102,18 +103,22 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       {/* サマリーカード */}
       {salesData ? (
         <>
-          <SummaryCards 
-            totalRevenue={salesData.totalRevenue}
-            averageRevenue={salesData.averageRevenuePerEvent}
-            totalEvents={salesData.totalEvents}
-            storeCount={salesData.storeCount}
-          />
+          <div className="mb-6">
+            <SummaryCards 
+              totalRevenue={salesData.totalRevenue}
+              averageRevenue={salesData.averageRevenuePerEvent}
+              totalEvents={salesData.totalEvents}
+              storeCount={salesData.storeCount}
+            />
+          </div>
 
           {/* ランキングカード */}
-          <RankingCards 
-            storeRanking={salesData.storeRanking} 
-            scenarioRanking={salesData.scenarioRanking} 
-          />
+          <div className="mb-6">
+            <RankingCards 
+              storeRanking={salesData.storeRanking} 
+              scenarioRanking={salesData.scenarioRanking} 
+            />
+          </div>
 
           {/* チャート */}
           <SalesChart 

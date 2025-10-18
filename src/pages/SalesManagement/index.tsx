@@ -127,7 +127,7 @@ const SalesManagement: React.FC = () => {
       <SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />
       
       <div className="ml-64">
-        <div className="container mx-auto max-w-7xl px-8 py-6">
+        <div className="container mx-auto max-w-7xl px-8 pt-6 pb-12">
           {renderContent()}
         </div>
       </div>
