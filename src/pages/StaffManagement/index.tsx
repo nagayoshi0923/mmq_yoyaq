@@ -15,6 +15,12 @@ import { supabase } from '@/lib/supabase'
 import { usePageState } from '@/hooks/usePageState'
 import type { Staff, Store } from '@/types'
 import { logger } from '@/utils/logger'
+
+// 分離されたフック
+import { useStaffData } from './hooks/useStaffData'
+
+// ユーティリティ
+import { formatStaffAvailability, getAvailabilityBadgeVariant } from './utils/staffFormatters'
 import { 
   Users, 
   Plus, 
