@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
+import { logger } from '@/utils/logger'
 
 interface PrivateBookingRequest {
   id: string
@@ -250,7 +251,7 @@ export function PrivateBookingManagement() {
       if (error) throw error
       setStores(data || [])
     } catch (error) {
-      console.error('店舗情報取得エラー:', error)
+      logger.error('店舗情報取得エラー:', error)
     }
   }
 
@@ -327,7 +328,7 @@ export function PrivateBookingManagement() {
 
       setConflictInfo({ storeDateConflicts, gmDateConflicts })
     } catch (error) {
-      console.error('競合情報取得エラー:', error)
+      logger.error('競合情報取得エラー:', error)
     }
   }
 
@@ -375,7 +376,7 @@ export function PrivateBookingManagement() {
       
       setAllGMs(gmStaff)
     } catch (error) {
-      console.error('GM情報取得エラー:', error)
+      logger.error('GM情報取得エラー:', error)
     }
   }
 
@@ -404,7 +405,7 @@ export function PrivateBookingManagement() {
         .not('response_type', 'is', null)
       
       // デバッグ：取得したデータをログ出力
-      console.log('🔍 貸切確認ページ - GM回答データ:', {
+      logger.log('🔍 貸切確認ページ - GM回答データ:', {
         reservationId,
         availableDataCount: availableData?.length || 0,
         availableData: availableData,
@@ -482,7 +483,7 @@ export function PrivateBookingManagement() {
         setSelectedGMId(allGMs[0].id)
       }
     } catch (error) {
-      console.error('GM情報取得エラー:', error)
+      logger.error('GM情報取得エラー:', error)
       setAvailableGMs([])
     }
   }
@@ -495,7 +496,7 @@ export function PrivateBookingManagement() {
       let allowedScenarioIds: string[] | null = null
       
       if (user?.role !== 'admin') {
-        console.log('📋 スタッフユーザー - 担当シナリオのみ表示')
+        logger.log('📋 スタッフユーザー - 担当シナリオのみ表示')
         
         // ログインユーザーのstaffレコードを取得
         const { data: staffData } = await supabase
@@ -513,17 +514,17 @@ export function PrivateBookingManagement() {
           
           if (assignments && assignments.length > 0) {
             allowedScenarioIds = assignments.map(a => a.scenario_id)
-            console.log(`✅ ${allowedScenarioIds.length}件の担当シナリオを検出`)
+            logger.log(`✅ ${allowedScenarioIds.length}件の担当シナリオを検出`)
           } else {
-            console.log('⚠️ 担当シナリオなし - 空の結果を返します')
+            logger.log('⚠️ 担当シナリオなし - 空の結果を返します')
             allowedScenarioIds = [] // 空配列で何も表示しない
           }
         } else {
-          console.log('⚠️ スタッフレコード未紐づけ - 空の結果を返します')
+          logger.log('⚠️ スタッフレコード未紐づけ - 空の結果を返します')
           allowedScenarioIds = [] // 空配列で何も表示しない
         }
       } else {
-        console.log('👑 管理者ユーザー - 全てのリクエスト表示')
+        logger.log('👑 管理者ユーザー - 全てのリクエスト表示')
       }
       
       // reservationsテーブルから貸切リクエストを取得
@@ -561,7 +562,7 @@ export function PrivateBookingManagement() {
       const { data, error } = await query
 
       if (error) {
-        console.error('Supabaseエラー:', error)
+        logger.error('Supabaseエラー:', error)
         throw error
       }
 
@@ -595,7 +596,7 @@ export function PrivateBookingManagement() {
 
       setRequests(formattedData)
     } catch (error) {
-      console.error('貸切リクエスト取得エラー:', error)
+      logger.error('貸切リクエスト取得エラー:', error)
     } finally {
       setLoading(false)
     }
@@ -603,17 +604,17 @@ export function PrivateBookingManagement() {
 
   const handleApprove = async (requestId: string) => {
     if (!selectedGMId) {
-      console.error('承認に必要な情報が不足しています: selectedGMId')
+      logger.error('承認に必要な情報が不足しています: selectedGMId')
       return
     }
 
     if (!selectedStoreId) {
-      console.error('承認に必要な情報が不足しています: selectedStoreId')
+      logger.error('承認に必要な情報が不足しています: selectedStoreId')
       return
     }
 
     if (!selectedCandidateOrder) {
-      console.error('承認に必要な情報が不足しています: selectedCandidateOrder')
+      logger.error('承認に必要な情報が不足しています: selectedCandidateOrder')
       return
     }
 
@@ -668,7 +669,7 @@ export function PrivateBookingManagement() {
 
       // 必須項目の検証
       if (!selectedCandidate.date || !selectedCandidate.startTime || !selectedCandidate.endTime || !storeName) {
-        console.error('スケジュール記録に必要な情報が不足しています:', {
+        logger.error('スケジュール記録に必要な情報が不足しています:', {
           date: selectedCandidate.date,
           startTime: selectedCandidate.startTime,
           endTime: selectedCandidate.endTime,
@@ -693,10 +694,10 @@ export function PrivateBookingManagement() {
           })
 
         if (scheduleError) {
-          console.error('スケジュール記録エラー:', scheduleError)
+          logger.error('スケジュール記録エラー:', scheduleError)
           // スケジュール記録に失敗しても承認は完了させる
         } else {
-          console.log('スケジュール記録完了:', {
+          logger.log('スケジュール記録完了:', {
             date: selectedCandidate.date,
             venue: storeName,
             gms: selectedGMId ? [selectedGMId] : []
@@ -709,11 +710,11 @@ export function PrivateBookingManagement() {
         const customerEmail = selectedRequest?.customer_email
         if (customerEmail) {
           // メール送信のロジックをここに追加
-          console.log('承認完了メールを送信:', customerEmail)
+          logger.log('承認完了メールを送信:', customerEmail)
           // 実際のメール送信API呼び出しをここに実装
         }
       } catch (emailError) {
-        console.error('メール送信エラー:', emailError)
+        logger.error('メール送信エラー:', emailError)
         // メール送信に失敗しても承認は完了させる
       }
 
@@ -726,7 +727,7 @@ export function PrivateBookingManagement() {
       // リクエスト一覧を再読み込み
       await loadRequests()
     } catch (error) {
-      console.error('承認エラー:', error)
+      logger.error('承認エラー:', error)
     } finally {
       setSubmitting(false)
     }
@@ -774,7 +775,7 @@ export function PrivateBookingManagement() {
       setRejectRequestId(null)
       loadRequests()
     } catch (error) {
-      console.error('却下エラー:', error)
+      logger.error('却下エラー:', error)
     } finally {
       setSubmitting(false)
     }
@@ -964,7 +965,7 @@ export function PrivateBookingManagement() {
                             isStoreDisabled = conflictInfo.storeDateConflicts.has(conflictKey)
                             
                             if (isStoreDisabled) {
-                              console.log(`🚫 店舗競合: ${store.name} (${conflictKey})`)
+                              logger.log(`🚫 店舗競合: ${store.name} (${conflictKey})`)
                             }
                           }
                         }
