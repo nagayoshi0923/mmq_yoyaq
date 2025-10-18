@@ -1,5 +1,6 @@
 // スケジュール管理の各種ダイアログ
 
+import { memo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { ScheduleEvent } from '@/types/schedule'
@@ -24,7 +25,7 @@ interface ScheduleDialogsProps {
   onConfirmPublishToggle: () => void
 }
 
-export function ScheduleDialogs({
+export const ScheduleDialogs = memo(function ScheduleDialogs({
   isDeleteDialogOpen,
   deletingEvent,
   onDeleteDialogClose,
@@ -134,5 +135,5 @@ export function ScheduleDialogs({
       )}
     </>
   )
-}
+})
 

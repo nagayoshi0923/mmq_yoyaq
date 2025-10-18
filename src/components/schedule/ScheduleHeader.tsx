@@ -1,5 +1,6 @@
 // スケジュール管理のヘッダー部分
 
+import { memo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -12,7 +13,7 @@ interface ScheduleHeaderProps {
   onImportClick: () => void
 }
 
-export function ScheduleHeader({
+export const ScheduleHeader = memo(function ScheduleHeader({
   currentDate,
   isLoading,
   onMonthChange,
@@ -68,5 +69,5 @@ export function ScheduleHeader({
       </div>
     </div>
   )
-}
+})
 

@@ -1,5 +1,6 @@
 // スケジュールカテゴリのタブ
 
+import { memo } from 'react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface CategoryTabsProps {
@@ -8,7 +9,7 @@ interface CategoryTabsProps {
   onCategoryChange: (category: string) => void
 }
 
-export function CategoryTabs({
+export const CategoryTabs = memo(function CategoryTabs({
   selectedCategory,
   categoryCounts,
   onCategoryChange
@@ -45,5 +46,5 @@ export function CategoryTabs({
       </Tabs>
     </div>
   )
-}
+})
 
