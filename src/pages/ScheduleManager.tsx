@@ -1,32 +1,38 @@
+// React
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+
+// UI Components
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+// Layout Components
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
-import { MemoCell } from '@/components/schedule/MemoCell'
-import { PerformanceModal } from '@/components/schedule/PerformanceModal'
-import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
+
+// Schedule Components
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
-import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
 import { ContextMenu, Copy, Clipboard } from '@/components/schedule/ContextMenu'
+import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
+import { MemoCell } from '@/components/schedule/MemoCell'
+import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
+import { PerformanceModal } from '@/components/schedule/PerformanceModal'
+import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
+
+// API
 import { memoApi, scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { shiftApi } from '@/lib/shiftApi'
 import { supabase } from '@/lib/supabase'
+
+// Types
 import type { Staff } from '@/types'
-import { 
-  ChevronLeft,
-  ChevronRight,
-  Edit,
-  Ban,
-  RotateCcw,
-  Trash2
-} from 'lucide-react'
+
+// Icons
+import { Ban, ChevronLeft, ChevronRight, Edit, RotateCcw, Trash2 } from 'lucide-react'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
