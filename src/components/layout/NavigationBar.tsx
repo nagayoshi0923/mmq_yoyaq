@@ -1,5 +1,4 @@
-import { useMemo, useCallback } from 'react'
-import { Button } from '@/components/ui/button'
+import { useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
   Store, 
@@ -43,15 +42,6 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
     allTabs.filter(tab => !user || tab.roles.includes(user.role)),
     [allTabs, user]
   )
-
-  const handlePageChange = useCallback((pageId: string) => {
-    if (onPageChange) {
-      onPageChange(pageId)
-    } else {
-      // 各機能ページから呼ばれた場合はハッシュを変更
-      window.location.hash = pageId === 'dashboard' ? '' : pageId
-    }
-  }, [onPageChange])
 
   return (
     <nav className="border-b border-border bg-muted/30">

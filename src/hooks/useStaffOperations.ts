@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react'
 import { staffApi, storeApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
-import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { Staff, Store } from '@/types'
 

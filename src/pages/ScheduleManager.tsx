@@ -1,6 +1,9 @@
 // React
 import { useState, useEffect, useMemo, useCallback } from 'react'
 
+// Utils
+import { logger } from '@/utils/logger'
+
 // Custom Hooks
 import { useScheduleData } from '@/hooks/useScheduleData'
 import { useShiftData } from '@/hooks/useShiftData'
@@ -8,9 +11,6 @@ import { useMemoManager } from '@/hooks/useMemoManager'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { useEventOperations } from '@/hooks/useEventOperations'
 import { useContextMenuActions } from '@/hooks/useContextMenuActions'
-
-// UI Components
-import { Button } from '@/components/ui/button'
 
 // Layout Components
 import { Header } from '@/components/layout/Header'
@@ -29,7 +29,6 @@ import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // API
 import { scheduleApi } from '@/lib/api'
-import { supabase } from '@/lib/supabase'
 
 // Types
 import type { Staff } from '@/types'
@@ -43,7 +42,6 @@ import {
   generateMonthDays,
   getTimeSlot,
   getCategoryCounts,
-  TIME_SLOT_DEFAULTS,
   getReservationBadgeClass,
   CATEGORY_CONFIG
 } from '@/utils/scheduleUtils'
@@ -75,7 +73,7 @@ export function ScheduleManager() {
     try {
       localStorage.setItem('scheduleCurrentDate', currentDate.toISOString())
     } catch (error) {
-      console.error('Failed to save current date:', error)
+      logger.error('Failed to save current date:', error)
     }
   }, [currentDate])
 
@@ -94,9 +92,6 @@ export function ScheduleManager() {
     staff,
     isLoading,
     error,
-    storesLoading,
-    scenariosLoading,
-    staffLoading,
     hasEverLoadedStores,
     refetchScenarios,
     refetchStaff
