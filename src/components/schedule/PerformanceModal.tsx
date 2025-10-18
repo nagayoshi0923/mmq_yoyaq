@@ -12,6 +12,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { scenarioApi, staffApi } from '@/lib/api'
+import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store } from '@/types'
 
 // スケジュールイベントの型定義
@@ -90,7 +91,7 @@ export function PerformanceModal({
     end_time: '14:00',
     category: 'private',
     participant_count: 0,
-    max_participants: 8,
+    max_participants: DEFAULT_MAX_PARTICIPANTS,
     notes: ''
   })
 
@@ -143,7 +144,7 @@ export function PerformanceModal({
         end_time: defaults.end_time,
         category: 'private',
         participant_count: 0,
-        max_participants: 8,
+        max_participants: DEFAULT_MAX_PARTICIPANTS,
         notes: ''
       })
     }
@@ -470,7 +471,7 @@ export function PerformanceModal({
                 min="1"
                 max="20"
                 value={formData.max_participants}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || 8 }))}
+                onChange={(e) => setFormData((prev: any) => ({ ...prev, max_participants: parseInt(e.target.value) || DEFAULT_MAX_PARTICIPANTS }))}
                 disabled={formData.is_private_request}
               />
               {formData.scenario && (

@@ -35,11 +35,14 @@ import { supabase } from '@/lib/supabase'
 import type { Staff } from '@/types'
 import type { ScheduleEvent } from '@/types/schedule'
 
+// Constants
+import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
+
 // Utils
-import { 
-  generateMonthDays, 
-  getTimeSlot, 
-  getCategoryCounts, 
+import {
+  generateMonthDays,
+  getTimeSlot,
+  getCategoryCounts,
   TIME_SLOT_DEFAULTS,
   getReservationBadgeClass,
   CATEGORY_CONFIG
@@ -369,7 +372,7 @@ export function ScheduleManager() {
               category: event.category,
               is_cancelled: event.is_cancelled || false,
               participant_count: event.current_participants || 0,
-              max_participants: event.capacity || 8,
+              max_participants: event.capacity || DEFAULT_MAX_PARTICIPANTS,
               notes: event.notes || '',
               is_reservation_enabled: event.is_reservation_enabled || false
             }))
