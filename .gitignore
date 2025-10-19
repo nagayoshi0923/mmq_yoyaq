@@ -33,4 +33,9 @@ yarn-error.log*
 # Supabase Access Token (機密情報)
 SUPABASE_ACCESS_TOKEN
 
+# Backup files (リファクタリング時の一時ファイル)
+*.backup
+*.old
+*.bak
+
 .vercel

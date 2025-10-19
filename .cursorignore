@@ -5,3 +5,7 @@ build
 .turbo
 .cache
 
+# Backup files (リファクタリング時の一時ファイル)
+*.backup
+*.old
+*.bak
