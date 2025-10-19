@@ -134,7 +134,8 @@ export function ScheduleManager() {
           onEventEdit={eventOperations.handleEditEvent}
           onEventCancel={eventOperations.handleCancelEvent}
           onEventDelete={eventOperations.handleDeleteEvent}
-          onContextMenu={contextMenuActions.handleContextMenu}
+          onContextMenuCell={contextMenuActions.handleCellContextMenu}
+          onContextMenuEvent={contextMenuActions.handleEventContextMenu}
           isLoading={isLoading}
           selectedStores={selectedStores}
           setSelectedStores={setSelectedStores}
