@@ -30,9 +30,9 @@ export function createStaffColumns(
 
   return [
     {
-      key: 'basic_info',
+      key: 'name',
       header: '基本情報',
-      sortable: false,
+      sortable: true,
       width: 'w-56',
       render: (staff) => (
         <div className="flex items-center gap-2">
@@ -115,7 +115,7 @@ export function createStaffColumns(
     {
       key: 'special_scenarios',
       header: 'GM可能',
-      sortable: false,
+      sortable: true,
       render: (staff) => {
         if (!staff.special_scenarios || staff.special_scenarios.length === 0) {
           return <span className="text-xs text-muted-foreground">-</span>
@@ -163,7 +163,7 @@ export function createStaffColumns(
     {
       key: 'experienced_scenarios',
       header: '体験済み',
-      sortable: false,
+      sortable: true,
       render: (staff) => {
         const experiencedScenarios = (staff as any).experienced_scenarios
         if (!experiencedScenarios || experiencedScenarios.length === 0) {

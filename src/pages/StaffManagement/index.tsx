@@ -66,12 +66,46 @@ export function StaffManagement() {
     return 'all'
   })
 
+  // ソート状態
+  const [sortState, setSortState] = useState<{ field: string; direction: 'asc' | 'desc' } | undefined>(undefined)
+
   // フィルタリング
   const { filteredStaff } = useStaffFilters({
     staff,
     searchTerm,
     statusFilter
   })
+
+  // ソート処理
+  const sortedStaff = useMemo(() => {
+    if (!sortState) return filteredStaff
+
+    return [...filteredStaff].sort((a, b) => {
+      let aValue: any
+      let bValue: any
+
+      switch (sortState.field) {
+        case 'name':
+          aValue = a.name || ''
+          bValue = b.name || ''
+          break
+        case 'special_scenarios':
+          aValue = a.special_scenarios?.length || 0
+          bValue = b.special_scenarios?.length || 0
+          break
+        case 'experienced_scenarios':
+          aValue = (a as any).experienced_scenarios?.length || 0
+          bValue = (b as any).experienced_scenarios?.length || 0
+          break
+        default:
+          return 0
+      }
+
+      if (aValue < bValue) return sortState.direction === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortState.direction === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredStaff, sortState])
 
   // モーダル管理
   const {
@@ -314,9 +348,11 @@ export function StaffManagement() {
 
             {/* スタッフ一覧テーブル */}
             <TanStackDataTable
-              data={filteredStaff}
+              data={sortedStaff}
               columns={tableColumns}
               getRowKey={(staff) => staff.id}
+              sortState={sortState}
+              onSort={setSortState}
               emptyMessage={
                 searchTerm || statusFilter !== 'all'
                   ? '検索条件に一致するスタッフが見つかりません'
