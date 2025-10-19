@@ -200,7 +200,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
       {/* ヘッダー行 */}
       <Card>
         <CardContent className="p-0">
-          <div className="flex items-center h-[50px] bg-muted/30">
+          <div className="flex items-stretch min-h-[50px] bg-muted/30">
             {table.getHeaderGroups().map((headerGroup) =>
               headerGroup.headers.map((header) => {
                 const meta = header.column.columnDef.meta as any
@@ -213,7 +213,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                     key={header.id}
                     className={`${widthClass} px-3 py-2 border-r font-medium text-sm ${alignClass} ${
                       isSortable ? 'cursor-pointer hover:bg-muted/50' : ''
-                    } ${meta?.headerClassName || ''}`}
+                    } ${meta?.headerClassName || ''} flex items-center justify-center`}
                     onClick={
                       isSortable
                         ? header.column.getToggleSortingHandler()
