@@ -16,16 +16,54 @@ import { BookingConfirmation } from '../BookingConfirmation'
 import { PrivateBookingRequest } from '../PrivateBookingRequest'
 import { logger } from '@/utils/logger'
 
-// 分離された型定義とユーティリティ
-import type { ScenarioDetail, EventSchedule, TimeSlot } from './utils/types'
-import { TIME_SLOTS } from './utils/types'
-import { formatTime } from './utils/formatters'
+interface ScenarioDetail {
+  scenario_id: string
+  scenario_title: string
+  key_visual_url?: string
+  synopsis?: string
+  description?: string
+  author: string
+  genre: string[]
+  duration: number
+  player_count_min: number
+  player_count_max: number
+  difficulty: number
+  rating?: number
+  has_pre_reading: boolean
+  official_site_url?: string
+  participation_fee: number
+}
 
-// 分離されたフック
-import { useScenarioDetail } from './hooks/useScenarioDetail'
+interface EventSchedule {
+  event_id: string
+  date: string
+  start_time: string
+  end_time: string
+  store_id: string
+  store_name: string
+  store_short_name: string
+  store_color?: string
+  store_address?: string
+  scenario_title?: string
+  max_participants: number
+  current_participants: number
+  available_seats: number
+  reservation_deadline_hours: number
+  is_available: boolean
+}
 
-// 分離されたコンポーネント
-import { ScenarioInfo } from './components/ScenarioInfo'
+// 時間枠の定義
+interface TimeSlot {
+  label: string
+  startTime: string
+  endTime: string
+}
+
+const TIME_SLOTS: TimeSlot[] = [
+  { label: '朝', startTime: '10:00', endTime: '13:00' },
+  { label: '昼', startTime: '14:00', endTime: '17:00' },
+  { label: '夜', startTime: '18:00', endTime: '21:00' },
+]
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -34,15 +72,15 @@ interface ScenarioDetailPageProps {
 
 export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPageProps) {
   const { user } = useAuth()
-  
-  // 分離されたフックを使用
-  const { scenario, events, stores, isLoading } = useScenarioDetail(scenarioId)
-  
+  const [scenario, setScenario] = useState<ScenarioDetail | null>(null)
+  const [events, setEvents] = useState<EventSchedule[]>([])
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<EventSchedule | null>(null)
   const [participantCount, setParticipantCount] = useState(1)
+  const [isLoading, setIsLoading] = useState(true)
   const [showBookingConfirmation, setShowBookingConfirmation] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [stores, setStores] = useState<any[]>([])
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
