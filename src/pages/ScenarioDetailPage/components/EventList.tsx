@@ -20,7 +20,7 @@ export const EventList = memo(function EventList({
   selectedEventId,
   scenarioTitle,
   onEventSelect
-}) => {
+}: EventListProps) {
   if (events.length === 0) {
     return (
       <Card>

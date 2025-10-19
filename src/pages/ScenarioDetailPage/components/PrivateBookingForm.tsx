@@ -1,4 +1,4 @@
-import React from 'react'
+import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ interface PrivateBookingFormProps {
 /**
  * 貸切リクエストフォーム
  */
-export const PrivateBookingForm: React.FC<PrivateBookingFormProps> = ({
+export const PrivateBookingForm = memo(function PrivateBookingForm({
   stores,
   selectedStoreIds,
   onStoreIdsChange,
@@ -39,7 +39,7 @@ export const PrivateBookingForm: React.FC<PrivateBookingFormProps> = ({
   selectedSlots,
   onTimeSlotToggle,
   checkTimeSlotAvailability
-}) => {
+}: PrivateBookingFormProps) {
   const isTimeSlotSelected = (date: string, slot: TimeSlot): boolean => {
     return selectedSlots.some(s => s.date === date && s.timeSlot === slot.value)
   }
