@@ -29,7 +29,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('all')
 
   // データ取得フック
-  const { scenarios, allEvents, stores, isLoading, loadScenarios } = useBookingData()
+  const { scenarios, allEvents, stores, isLoading, loadData } = useBookingData()
 
   // カレンダーデータフック
   const { currentMonth, changeMonth, generateCalendarDays, getEventsForDate } = useCalendarData(
@@ -49,8 +49,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
   // 初期データロード
   useEffect(() => {
-    loadScenarios()
-  }, [])
+    loadData()
+  }, [loadData])
 
   // タブ変更時にURLハッシュを更新
   const handleTabChange = (value: string) => {
