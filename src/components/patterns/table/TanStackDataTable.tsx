@@ -71,7 +71,7 @@ export interface DataTableProps<T> {
   /**
    * ソート変更ハンドラ
    */
-  onSort?: (field: string) => void
+  onSort?: (sortState: { field: string; direction: 'asc' | 'desc' } | undefined) => void
   /**
    * データがない場合のメッセージ
    */
