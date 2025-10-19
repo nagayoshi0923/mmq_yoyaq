@@ -107,6 +107,14 @@ export function PrivateBookingManagement() {
         setTimeout(() => {
           selectFirstAvailableCandidate()
         }, 150)
+        
+        // 詳細セクションまでスムーズにスクロール
+        setTimeout(() => {
+          const detailSection = document.querySelector('[data-detail-section]')
+          if (detailSection) {
+            detailSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        }, 200)
       }
     }
     
@@ -247,7 +255,7 @@ export function PrivateBookingManagement() {
 
         {/* 選択されたリクエストの詳細 */}
         {selectedRequest && (
-          <Card className="mt-6">
+          <Card className="mt-6" data-detail-section>
             <CardHeader>
               <CardTitle>リクエスト詳細 {console.log('🟣 詳細セクション表示:', selectedRequest.id)}</CardTitle>
             </CardHeader>
