@@ -61,13 +61,13 @@ StaffManagement/
 - [x] `useStaffModals.ts` - モーダル状態 ✅ **完了 (126行)**
 - [x] `useStaffInvitation.ts` - 招待ロジック ✅ **完了 (157行)**
 
-#### Phase 3: コンポーネント分離（優先度: 中）✋ **← 現在ここ**
+#### Phase 3: コンポーネント分離（優先度: 中）✅ **完了！**
 - [x] `StaffCard.tsx` - カード表示 ✅ **完了 (264行)**
-- [ ] `StaffList.tsx` - リスト表示 **← 作業中**
-- [ ] `StaffFilters.tsx` - フィルタUI
+- [x] `StaffList.tsx` - リスト表示 ✅ **完了 (71行)**
+- [x] `StaffFilters.tsx` - フィルタUI ✅ **完了 (78行)**
 
-#### Phase 4: モーダルコンポーネント（優先度: 低）
-- [ ] `StaffInviteModal.tsx` - 招待モーダル
+#### Phase 4: モーダルコンポーネント（優先度: 低）✋ **← 現在ここ**
+- [ ] `StaffInviteModal.tsx` - 招待モーダル **← 作業中**
 - [ ] `StaffLinkModal.tsx` - 紐付けモーダル
 - [ ] `DeleteStaffDialog.tsx` - 削除確認
 
