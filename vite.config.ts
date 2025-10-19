@@ -10,6 +10,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    // lucide-react の Tree-shaking を最適化
+    include: ['lucide-react']
+  },
   build: {
     // チャンクサイズ警告のしきい値を上げる（KB単位）
     chunkSizeWarningLimit: 1000,
@@ -38,7 +42,13 @@ export default defineConfig({
           'vendor-supabase': ['@supabase/supabase-js'],
           
           // ユーティリティ
-          'vendor-utils': ['date-fns', 'clsx']
+          'vendor-utils': ['date-fns', 'clsx'],
+          
+          // チャートライブラリ（SalesManagement のみ使用）
+          'vendor-chart': ['chart.js', 'react-chartjs-2'],
+          
+          // エクスポートライブラリ（使用時のみロード）
+          'vendor-xlsx': ['xlsx']
         }
       }
     },

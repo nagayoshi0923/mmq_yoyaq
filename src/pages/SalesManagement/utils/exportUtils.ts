@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 import { SalesData } from '@/types'
 
@@ -60,7 +59,10 @@ export function exportToCSV({ salesData, dateRange, storeName }: ExportOptions) 
   saveAs(blob, fileName)
 }
 
-export function exportToExcel({ salesData, dateRange, storeName }: ExportOptions) {
+export async function exportToExcel({ salesData, dateRange, storeName }: ExportOptions) {
+  // XLSX を動的インポート（使用時のみロード）
+  const XLSX = await import('xlsx')
+  
   const workbook = XLSX.utils.book_new()
 
   // 概要シート
