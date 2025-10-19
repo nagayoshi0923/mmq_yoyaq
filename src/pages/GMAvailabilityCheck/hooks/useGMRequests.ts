@@ -297,6 +297,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
     activeTab,
     setActiveTab,
     currentDate,
+    setCurrentDate,
     selectedCandidates,
     setSelectedCandidates,
     notes,
@@ -312,7 +313,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
     pendingRequests,
     allRequests,
     
-    // ナビゲーション
+    // ナビゲーション (非推奨: MonthSwitcher使用を推奨)
     handlePrevMonth,
     handleNextMonth,
     formatMonthYear

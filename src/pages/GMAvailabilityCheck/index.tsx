@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useGMRequests } from './hooks/useGMRequests'
 import { useAvailabilityCheck } from './hooks/useAvailabilityCheck'
@@ -25,6 +25,7 @@ export function GMAvailabilityCheck() {
     activeTab,
     setActiveTab,
     currentDate,
+    setCurrentDate,
     selectedCandidates,
     setSelectedCandidates,
     notes,
@@ -32,10 +33,7 @@ export function GMAvailabilityCheck() {
     loadGMRequests,
     toggleCandidate,
     pendingRequests,
-    allRequests,
-    handlePrevMonth,
-    handleNextMonth,
-    formatMonthYear
+    allRequests
   } = useGMRequests({ userId: user?.id })
 
   const {
@@ -126,26 +124,13 @@ export function GMAvailabilityCheck() {
           {/* 全てのリクエストタブ（月別） */}
           <TabsContent value="all" className="space-y-6">
             {/* 月ナビゲーション */}
-            <div className="flex items-center justify-between bg-card rounded-lg p-4 border">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrevMonth}
-              >
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                前月
-              </Button>
-              <div className="text-lg font-semibold">
-                {formatMonthYear(currentDate)}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNextMonth}
-              >
-                次月
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
+            <div className="flex items-center justify-center bg-card rounded-lg p-4 border">
+              <MonthSwitcher
+                value={currentDate}
+                onChange={setCurrentDate}
+                showToday
+                enableKeyboard
+              />
             </div>
 
             {/* リクエスト一覧 */}
