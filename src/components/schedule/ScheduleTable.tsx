@@ -20,7 +20,7 @@ interface ScheduleTableProps {
   stores: Array<{ id: string; name: string; short_name: string }>
   getEventsForSlot: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => ScheduleEvent[]
   shiftData: Record<string, Array<Staff & { timeSlot: string }>>
-  categoryConfig: Record<string, { label: string; color: string; textColor: string }>
+  categoryConfig: Record<string, { label: string; badgeColor: string; cardColor: string }>
   getReservationBadgeClass: (current: number, max: number) => string
   getMemo: (date: string, venue: string) => string
   onSaveMemo: (date: string, venue: string, memo: string) => Promise<void>

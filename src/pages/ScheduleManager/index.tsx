@@ -29,6 +29,9 @@ import { CategoryTabs } from '@/components/schedule/CategoryTabs'
 import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
+// Utils
+import { CATEGORY_CONFIG, getReservationBadgeClass } from '@/utils/scheduleUtils'
+
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
 
@@ -128,23 +131,8 @@ export function ScheduleManager() {
           stores={stores}
           getEventsForSlot={getEventsForSlot}
           shiftData={shiftData}
-          categoryConfig={{
-            open: { label: '通常公演', color: '#3b82f6', textColor: '#ffffff' },
-            private: { label: '貸切公演', color: '#10b981', textColor: '#ffffff' },
-            gmtest: { label: 'GMテスト', color: '#f59e0b', textColor: '#ffffff' },
-            testplay: { label: 'テストプレイ', color: '#8b5cf6', textColor: '#ffffff' },
-            offsite: { label: 'オフサイト', color: '#ec4899', textColor: '#ffffff' },
-            venue_rental: { label: '会場貸し', color: '#6366f1', textColor: '#ffffff' },
-            venue_rental_free: { label: '会場貸し(無料)', color: '#14b8a6', textColor: '#ffffff' },
-            package: { label: 'パッケージ', color: '#f97316', textColor: '#ffffff' }
-          }}
-          getReservationBadgeClass={(current: number, max: number) => {
-            const ratio = current / max
-            if (ratio >= 1) return 'bg-red-500 text-white'
-            if (ratio >= 0.8) return 'bg-orange-500 text-white'
-            if (ratio >= 0.5) return 'bg-yellow-500 text-white'
-            return 'bg-green-500 text-white'
-          }}
+          categoryConfig={CATEGORY_CONFIG}
+          getReservationBadgeClass={getReservationBadgeClass}
           getMemo={getMemo}
           onSaveMemo={handleSaveMemo}
           onAddPerformance={eventOperations.handleAddPerformance}
