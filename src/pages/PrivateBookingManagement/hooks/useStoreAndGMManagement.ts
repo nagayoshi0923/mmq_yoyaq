@@ -112,9 +112,9 @@ export function useStoreAndGMManagement() {
     try {
       const { data, error } = await supabase
         .from('staff')
-        .select('id, name, name_kana')
+        .select('id, name')
         .eq('role', 'gm')
-        .order('name_kana')
+        .order('name')
 
       if (error) throw error
       setAllGMs(data || [])
