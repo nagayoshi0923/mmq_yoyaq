@@ -5,7 +5,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
+import { MapPin } from 'lucide-react'
+import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -166,14 +167,7 @@ export function PrivateBookingManagement() {
     }
   }
 
-  // 月切り替え
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
-  }
-
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
-  }
+  // 月切り替え（MonthSwitcher に移行）
 
   // フィルタリング
   const pendingRequests = requests.filter(r => 
@@ -212,14 +206,14 @@ export function PrivateBookingManagement() {
 
           <TabsContent value={activeTab} className="mt-6">
             {activeTab === 'pending' && (
-              <div className="flex justify-between items-center mb-4">
-                <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-100 rounded">
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <h2 className="text-xl font-bold">{formatMonthYear(currentDate)}</h2>
-                <button onClick={handleNextMonth} className="p-2 hover:bg-gray-100 rounded">
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+              <div className="flex justify-center mb-4">
+                <MonthSwitcher
+                  value={currentDate}
+                  onChange={setCurrentDate}
+                  showToday
+                  quickJump
+                  enableKeyboard
+                />
               </div>
             )}
 
