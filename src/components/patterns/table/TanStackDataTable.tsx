@@ -201,11 +201,12 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                 const meta = header.column.columnDef.meta as any
                 const isSortable = header.column.getCanSort()
                 const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
+                const widthClass = meta?.width ? `flex-shrink-0 ${meta.width}` : 'flex-1 min-w-0'
                 
                 return (
                   <div
                     key={header.id}
-                    className={`${meta?.width || 'flex-1'} px-3 py-2 border-r font-medium text-sm ${alignClass} ${
+                    className={`${widthClass} px-3 py-2 border-r font-medium text-sm ${alignClass} ${
                       isSortable ? 'cursor-pointer hover:bg-muted/50' : ''
                     } ${meta?.headerClassName || ''}`}
                     onClick={
@@ -233,14 +234,15 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
           {table.getRowModel().rows.map((row) => (
             <Card key={getRowKey(row.original)}>
               <CardContent className="p-0">
-                <div className="flex items-center min-h-[60px]">
+                <div className="flex items-center h-[50px]">
                   {row.getVisibleCells().map((cell) => {
                     const meta = cell.column.columnDef.meta as any
                     const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
+                    const widthClass = meta?.width ? `flex-shrink-0 ${meta.width}` : 'flex-1 min-w-0'
                     return (
                       <div
                         key={cell.id}
-                        className={`${meta?.width || 'flex-1'} px-3 py-2 border-r ${alignClass} ${
+                        className={`${widthClass} px-3 py-2 border-r ${alignClass} ${
                           meta?.cellClassName || ''
                         }`}
                       >
