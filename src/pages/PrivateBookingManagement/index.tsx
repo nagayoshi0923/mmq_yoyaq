@@ -2,19 +2,19 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
+import { logger } from '@/utils/logger'
 
 // 分離されたコンポーネント
 import { BookingRequestCard } from './components/BookingRequestCard'
 import { CustomerInfo } from './components/CustomerInfo'
 import { CandidateDateSelector } from './components/CandidateDateSelector'
-import { StoreSelector } from './components/StoreSelector'
-import { GMSelector } from './components/GMSelector'
 import { ActionButtons } from './components/ActionButtons'
 
 // 分離されたフック
@@ -262,23 +262,115 @@ export function PrivateBookingManagement() {
                 conflictInfo={conflictInfo}
               />
 
-              <StoreSelector
-                stores={stores}
-                selectedStoreId={selectedStoreId}
-                onSelect={setSelectedStoreId}
-                requestedStores={selectedRequest.candidate_datetimes?.requestedStores || []}
-                candidates={selectedRequest.candidate_datetimes?.candidates || []}
-                conflictInfo={conflictInfo}
-              />
+              {/* 開催店舗の選択 */}
+              <div className="pt-6 border-t">
+                <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
+                  <MapPin className="w-4 h-4" />
+                  開催店舗の選択
+                </h3>
+                <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="店舗を選択してください" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stores.map((store) => {
+                      const requestedStores = selectedRequest.candidate_datetimes?.requestedStores || []
+                      const isAllStoresRequested = requestedStores.length === 0
+                      const isRequested = isAllStoresRequested || requestedStores.some(rs => rs.storeId === store.id)
+                      
+                      let isStoreDisabled = false
+                      if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
+                        const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
+                          c => c.order === selectedCandidateOrder
+                        )
+                        if (selectedCandidate) {
+                          const conflictKey = `${store.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
+                          isStoreDisabled = conflictInfo.storeDateConflicts.has(conflictKey)
+                          
+                          if (isStoreDisabled) {
+                            logger.log(`🚫 店舗競合: ${store.name} (${conflictKey})`)
+                          }
+                        }
+                      }
+                      
+                      return (
+                        <SelectItem 
+                          key={store.id} 
+                          value={store.id}
+                          disabled={isStoreDisabled}
+                        >
+                          {store.name}
+                          {isRequested && ' (お客様希望)'}
+                          {isStoreDisabled && ' - 予約済み'}
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  {selectedRequest.candidate_datetimes?.requestedStores?.length === 0 ? (
+                    <span>ℹ️ お客様は全ての店舗を希望しています</span>
+                  ) : (selectedRequest.candidate_datetimes?.requestedStores?.length ?? 0) > 0 ? (
+                    <span>ℹ️ (お客様希望) の店舗がお客様の希望店舗です</span>
+                  ) : null}
+                </div>
+              </div>
 
-              <GMSelector
-                availableGMs={availableGMs}
-                allGMs={allGMs}
-                selectedGMId={selectedGMId}
-                onSelect={setSelectedGMId}
-                candidates={selectedRequest.candidate_datetimes?.candidates || []}
-                conflictInfo={conflictInfo}
-              />
+              {/* 顧客メモ */}
+              {selectedRequest.notes && (
+                <div>
+                  <h3 className="font-semibold mb-3 text-purple-800">お客様からのメモ</h3>
+                  <div className="p-4 bg-background rounded-lg border">
+                    <p className="text-sm whitespace-pre-wrap">{selectedRequest.notes}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 担当GMの選択 */}
+              <div className="pt-6 border-t">
+                <h3 className="font-semibold mb-3 text-purple-800">担当GMを選択してください</h3>
+                <Select value={selectedGMId} onValueChange={setSelectedGMId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="GMを選択してください" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allGMs.map((gm) => {
+                      const availableGM = availableGMs.find(ag => ag.gm_id === gm.id)
+                      const isAvailable = availableGM?.response_type === 'available'
+                      const gmNotes = availableGM?.notes || ''
+                      
+                      let isGMDisabled = false
+                      if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
+                        const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
+                          c => c.order === selectedCandidateOrder
+                        )
+                        if (selectedCandidate) {
+                          const conflictKey = `${gm.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
+                          isGMDisabled = conflictInfo.gmDateConflicts.has(conflictKey)
+                        }
+                      }
+                      
+                      return (
+                        <SelectItem 
+                          key={gm.id} 
+                          value={gm.id}
+                          disabled={isGMDisabled}
+                        >
+                          {gm.name}
+                          {isAvailable && ' (対応可能)'}
+                          {gmNotes && ` - ${gmNotes}`}
+                          {isGMDisabled && ' - 予約済み'}
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+                {availableGMs.length > 0 && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    ℹ️ (対応可能) がこのシナリオに対応可能なGMです
+                  </div>
+                )}
+              </div>
 
               <ActionButtons
                 onApprove={() => handleApprove(
