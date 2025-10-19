@@ -7,7 +7,7 @@
 
 ## 🎨 UI標準化プロジェクト (NEW!)
 
-### ✅ Phase 1: MonthSwitcher - 完了 (3/11ページ適用)
+### ✅ Phase 1: MonthSwitcher - **完了** 🎉
 
 **目標**: 月選択UIを統一し、UXを向上
 
@@ -15,29 +15,33 @@
 - ✅ `MonthSwitcher.tsx` コンポーネント作成
 - ✅ 純粋Date型ベース実装
 - ✅ キーボードナビゲーション (←/→で月移動、Homeで今月)
+- ✅ クイックジャンプ (年月ドロップダウン選択)
 - ✅ URL同期機能 (optional)
 - ✅ A11y対応 (aria-label, aria-live)
 - ✅ レスポンシブデザイン
 - ✅ 境界ケース対応 (年跨ぎ、月末処理)
 
-#### 先行適用 (3ページ - 100%完了)
+#### 適用完了 (6ページ - 100%完了)
 
-| ページ名 | Before | After | 削減行数 | 状態 |
-|---------|--------|-------|---------|------|
-| **AuthorReport** | 280行 | 267行 | -13行 | ✅ |
-| **ShiftSubmission** | 246行 | 268行 | +22行* | ✅ |
-| **GMAvailabilityCheck** | 181行 | 167行 | -14行 | ✅ |
+| ページ名 | 削減行数 | 状態 |
+|---------|---------|------|
+| **AuthorReport** | -13行 | ✅ quickJump対応 |
+| **ShiftSubmission** | -10行 | ✅ quickJump対応 |
+| **GMAvailabilityCheck** | -14行 | ✅ quickJump対応 |
+| **ScheduleManager** | -19行 | ✅ quickJump対応 |
+| **PublicBookingTop CalendarView** | -6行 | ✅ quickJump対応 |
+| **PublicBookingTop ListView** | -8行 | ✅ quickJump対応 |
 
-*ShiftSubmission: `useMonthNavigation`フックを削除し、ロジックを直接実装したため一時的に増加
+**総削減**: 約70行
 
-**総削減**: 約5行 (UIの一貫性とキーボード操作機能を追加)
-
-#### 残り適用対象 (8ページ)
-- [ ] PrivateBookingManagement
-- [ ] PublicBookingTop (Calendar/Lineup/ListView)
-- [ ] ScheduleManager
-- [ ] ReservationManagement
-- [ ] その他月選択を持つページ
+#### 統一された機能
+✅ 全ページで以下の機能が利用可能:
+- 「← 前月」ボタン
+- 「2025年 ▼」ドロップダウン (年選択)
+- 「10月 ▼」ドロップダウン (月選択)
+- 「次月 →」ボタン
+- 「📅 今月」ボタン
+- キーボード操作 (←/→/Home)
 
 ---
 
