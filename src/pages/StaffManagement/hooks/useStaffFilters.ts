@@ -17,8 +17,8 @@ export function useStaffFilters({ staff, searchTerm, statusFilter }: UseStaffFil
   const filteredStaff = useMemo(() => {
     return staff.filter(member => {
       // 検索条件: 名前またはLINE名に部分一致
-      const matchesSearch = 
-        member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const matchesSearch = !searchTerm || 
+        (member.name && member.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (member.line_name && member.line_name.toLowerCase().includes(searchTerm.toLowerCase()))
       
       // ステータスフィルタ: 'all' または一致するステータス
