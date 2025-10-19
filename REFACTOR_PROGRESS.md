@@ -1,8 +1,8 @@
-# ScenarioDetailPage リファクタリング進捗
+# リファクタリング進捗
 
 ## 📊 完了状態
 
-### ✅ **リファクタリング完了！**
+### ✅ ScenarioDetailPage リファクタリング完了
 
 **元のファイルサイズ**: 1,092行（単一ファイル）  
 **現在のファイルサイズ**: 311行（index.tsx）  
@@ -14,139 +14,118 @@
 - **カスタムフック3個**: 354行
 - **合計**: 1,588行（16ファイル）
 
----
-
-## 🎯 達成した目標
-
-### Step 1: UI部品の分離 ✅
-1. ✅ **ScenarioHero.tsx** (102行) - ヒーローセクション
-2. ✅ **EventList.tsx** (130行) - 公演日程一覧
-3. ✅ **PrivateBookingForm.tsx** (172行) - 貸切リクエスト日時選択
-4. ✅ **ScenarioInfo.tsx** (117行) - シナリオ詳細情報
-5. ✅ **ScenarioAbout.tsx** (54行) - ABOUTセクション
-6. ✅ **VenueAccess.tsx** (44行) - 会場アクセス情報
-7. ✅ **BookingNotice.tsx** (31行) - 注意事項
-8. ✅ **OrganizerInfo.tsx** (27行) - 主催者情報
-9. ✅ **BookingPanel.tsx** (91行) - 予約パネル（人数・料金・ボタン）
-10. ✅ **PrivateBookingPanel.tsx** (64行) - 貸切リクエストパネル
-
-### Step 2: カスタムフックの分離 ✅
-1. ✅ **useScenarioDetail.ts** (149行) - データ取得
-2. ✅ **usePrivateBooking.ts** (114行) - 貸切リクエストロジック
-3. ✅ **useBookingActions.ts** (91行) - 予約・貸切アクション管理
-
-### Step 3: React.memoの適用 ✅
-全11個のコンポーネントに`React.memo`を適用し、不要な再レンダーを防止：
-- ✅ ScenarioHero
-- ✅ EventList
-- ✅ PrivateBookingForm
-- ✅ ScenarioAbout
-- ✅ VenueAccess
-- ✅ BookingNotice
-- ✅ OrganizerInfo
-- ✅ BookingPanel
-- ✅ PrivateBookingPanel
-- ✅ ScenarioInfo（既存）
+**詳細**: コンポーネント・フック分離、React.memo適用による最適化完了
 
 ---
 
-## 📂 最終的なファイル構造
+### 🔄 PrivateBookingManagement リファクタリング中
+
+**現在のファイルサイズ**: 1,479行（index.tsx）  
+**目標**: 300行以下
+
+#### ✅ 完了（Phase 1）
+
+新規カスタムフック3個を作成（合計519行）：
+
+1. **useBookingRequests.ts** (155行)
+   - データロード・フィルタリング
+   - 担当シナリオのフィルタリング（スタッフ用）
+   - 月ごとのフィルタリング
+
+2. **useBookingApproval.ts** (200行)
+   - 承認・却下処理
+   - スケジュールへの自動登録
+   - ダイアログ管理
+
+3. **useStoreAndGMManagement.ts** (164行)
+   - 店舗・GM管理
+   - 競合チェック（🚨 CRITICAL: 2テーブルチェック）
+   - GMの可否情報取得
+
+#### 🚧 次のフェーズ（Phase 2）
+
+**目標**: index.tsx を簡潔化（1,479行 → 300行以下）
+
+**タスク**:
+1. 新しいフックをindex.tsxに統合
+2. 残りのロジックを分離
+   - 候補日時選択ロジック
+   - 月切り替えロジック
+3. UIコンポーネントの最適化
+4. React.memoの適用
+
+**期待される効果**:
+- 削減率: 約80%（1,179行削減）
+- 可読性の大幅向上
+- 保守性の改善
+
+---
+
+## 📝 コミット履歴
+
+### 最新のコミット
 
 ```
-src/pages/ScenarioDetailPage/
-├── index.tsx (311行) ← 薄いコンテナ
-├── components/
-│   ├── ScenarioHero.tsx (102行)
-│   ├── EventList.tsx (130行)
-│   ├── PrivateBookingForm.tsx (172行)
-│   ├── ScenarioInfo.tsx (117行)
-│   ├── ScenarioAbout.tsx (54行)
-│   ├── VenueAccess.tsx (44行)
-│   ├── BookingNotice.tsx (31行)
-│   ├── OrganizerInfo.tsx (27行)
-│   ├── BookingPanel.tsx (91行)
-│   └── PrivateBookingPanel.tsx (64行)
-├── hooks/
-│   ├── useScenarioDetail.ts (149行)
-│   ├── usePrivateBooking.ts (114行)
-│   └── useBookingActions.ts (91行)
-└── utils/
-    ├── types.ts
-    └── formatters.ts
+674c3d7 - feat: PrivateBookingManagement用カスタムフック3個を追加
+e91b3ae - feat: ScenarioDetailPage完全リファクタリング (1092行→311行、71.5%削減)
 ```
 
 ---
 
-## 🚀 達成した改善
+## 🎯 次のタスク
 
-### 1. **可読性の向上**
-- 各コンポーネントが単一責任の原則に従う
-- ファイルサイズが300行以下に収まり、理解しやすい
+1. **PrivateBookingManagement Phase 2** 🔥 優先度：高
+   - index.tsx を簡潔化（300行以下）
+   - 新しいフックの統合
 
-### 2. **保守性の向上**
-- コンポーネントとロジックが明確に分離
-- 変更の影響範囲が限定的
+2. **その他のページリファクタリング** 🔧 優先度：中
+   - ReservationManagement.tsx (545行)
+   - ScheduleManager.tsx (463行)
+   - StoreManagement.tsx (399行)
+   - UserManagement.tsx (388行)
 
-### 3. **パフォーマンスの最適化**
-- `React.memo`により不要な再レンダーを防止
-- カスタムフックで`useCallback`を活用
-
-### 4. **再利用性の向上**
-- 各コンポーネントが独立して動作可能
-- 他のページでも再利用可能な設計
+3. **パスワード変更UX改善** 🎯 優先度：中
+   - ローディング状態の追加
+   - ボタンの無効化
 
 ---
 
-## 📝 設計原則（遵守完了）
+## 📐 設計原則
 
 ✅ **各コンポーネントは300行以内**  
 ✅ **propsは完成形データ + 最低限のコールバック**  
 ✅ **UIロジックとビジネスロジックを分離**  
 ✅ **責務を明確に**  
 ✅ **React.memoで最適化**  
+✅ **CRITICAL機能の保護**  
 
 ---
 
-## 🎉 コミット履歴
+## 🚀 達成した改善
 
-### 最新のコミット
+### ScenarioDetailPage
+1. **可読性**: 各ファイルが300行以下で、役割が明確
+2. **保守性**: 単一責任の原則に従い、変更の影響範囲が限定的
+3. **パフォーマンス**: 全コンポーネントに`React.memo`を適用
+4. **再利用性**: 各コンポーネントが独立して動作可能
 
-```
-[pending] - feat: ScenarioDetailPage完全リファクタリング (1092行→311行、71.5%削減)
-          - 11個のコンポーネントに分離
-          - 3個のカスタムフックに分離
-          - React.memo適用によるパフォーマンス最適化
-```
-
----
-
-## 📐 コードレビュー結果
-
-### ✅ クリーンコード原則
-- 単一責任の原則: 完全遵守
-- DRY原則: ロジックの重複なし
-- 命名規則: 明確で理解しやすい
-
-### ✅ パフォーマンス
-- 不要な再レンダーを防止（React.memo）
-- useCallbackでコールバック最適化
-- 依存配列が正しく設定されている
-
-### ✅ 型安全性
-- 全てのpropsに型定義
-- anyの使用を最小限に抑制
+### PrivateBookingManagement（Phase 1）
+1. **ロジック分離**: 519行のビジネスロジックをフックに分離
+2. **CRITICAL機能保護**: 競合チェックロジックを保持
+3. **型安全性**: 全てのフックに適切な型定義
+4. **テスト可能性**: ロジックが独立したフックになり、テストが容易
 
 ---
 
-## 🏁 結論
+## 📊 統計
 
-**ScenarioDetailPage**のリファクタリングが完全に完了しました。
+| ファイル | 元のサイズ | 現在のサイズ | 削減率 | 状態 |
+|---------|----------|------------|--------|------|
+| ScenarioDetailPage/index.tsx | 1,092行 | 311行 | 71.5% | ✅ 完了 |
+| PrivateBookingManagement/index.tsx | 1,479行 | 1,479行 | 0% | 🔄 Phase 1完了 |
+| ReservationManagement.tsx | 545行 | 545行 | 0% | 📋 未着手 |
+| ScheduleManager.tsx | 463行 | 463行 | 0% | 📋 未着手 |
 
-- **コードの品質**: A+
-- **可読性**: A+
-- **保守性**: A+
-- **パフォーマンス**: A+
-- **再利用性**: A+
-
-このリファクタリングにより、今後の機能追加や変更が大幅に容易になります。
+**合計削減**: 781行  
+**目標追加削減**: 約1,179行（PrivateBookingManagement Phase 2完了時）
 
