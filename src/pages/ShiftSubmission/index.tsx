@@ -1,15 +1,13 @@
 import { useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { CheckSquare, Square } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
+import { TanStackDataTable } from '@/components/patterns/table'
 import { useShiftData } from './hooks/useShiftData'
 import { useShiftSubmit } from './hooks/useShiftSubmit'
-import { getDayOfWeekColor } from './utils/shiftFormatters'
+import { createShiftColumns, type ShiftTableRow } from './utils/tableColumns'
 import type { DayInfo } from './types'
 
 /**
@@ -60,6 +58,34 @@ export function ShiftSubmission() {
     setLoading
   })
 
+  // テーブル用のデータ変換
+  const tableData: ShiftTableRow[] = useMemo(() => {
+    return monthDays.map((day) => ({
+      dayInfo: day,
+      shiftData: shiftData[day.date] || {
+        id: '',
+        staff_id: currentStaffId || '',
+        date: day.date,
+        morning: false,
+        afternoon: false,
+        evening: false,
+        all_day: false,
+        submitted_at: '',
+        status: 'draft'
+      }
+    }))
+  }, [monthDays, shiftData, currentStaffId])
+
+  // テーブル列定義（メモ化）
+  const tableColumns = useMemo(
+    () => createShiftColumns({
+      onShiftChange: handleShiftChange,
+      onSelectAll: handleSelectAll,
+      onDeselectAll: handleDeselectAll
+    }),
+    [handleShiftChange, handleSelectAll, handleDeselectAll]
+  )
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -99,165 +125,13 @@ export function ShiftSubmission() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-20 border-r">日付</TableHead>
-                    <TableHead className="w-16 border-r">曜日</TableHead>
-                    <TableHead className="w-32 border-r text-center">
-                      <div className="flex flex-col items-center space-y-1">
-                        <span>午前</span>
-                        <span className="text-xs text-muted-foreground">(~12:00)</span>
-                        <div className="flex space-x-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSelectAll('morning')}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <CheckSquare className="h-3 w-3 mr-1" />
-                            全選択
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeselectAll('morning')}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <Square className="h-3 w-3 mr-1" />
-                            全解除
-                          </Button>
-                        </div>
-                      </div>
-                    </TableHead>
-                    <TableHead className="w-32 border-r text-center">
-                      <div className="flex flex-col items-center space-y-1">
-                        <span>午後</span>
-                        <span className="text-xs text-muted-foreground">(12:00-17:00)</span>
-                        <div className="flex space-x-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSelectAll('afternoon')}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <CheckSquare className="h-3 w-3 mr-1" />
-                            全選択
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeselectAll('afternoon')}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <Square className="h-3 w-3 mr-1" />
-                            全解除
-                          </Button>
-                        </div>
-                      </div>
-                    </TableHead>
-                    <TableHead className="w-32 border-r text-center">
-                      <div className="flex flex-col items-center space-y-1">
-                        <span>夜間</span>
-                        <span className="text-xs text-muted-foreground">(17:00~)</span>
-                        <div className="flex space-x-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSelectAll('evening')}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <CheckSquare className="h-3 w-3 mr-1" />
-                            全選択
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeselectAll('evening')}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <Square className="h-3 w-3 mr-1" />
-                            全解除
-                          </Button>
-                        </div>
-                      </div>
-                    </TableHead>
-                    <TableHead className="w-32 text-center">
-                      <div className="flex flex-col items-center space-y-1">
-                        <span>終日</span>
-                        <span className="text-xs text-muted-foreground">(全日)</span>
-                        <div className="flex space-x-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSelectAll('all_day')}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <CheckSquare className="h-3 w-3 mr-1" />
-                            全選択
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeselectAll('all_day')}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <Square className="h-3 w-3 mr-1" />
-                            全解除
-                          </Button>
-                        </div>
-                      </div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {monthDays.map((day) => {
-                    const dayShift = shiftData[day.date]
-                    if (!dayShift) return null
-
-                    return (
-                      <TableRow key={day.date} className="hover:bg-muted/30">
-                        <TableCell className="border-r font-medium">{day.displayDate}</TableCell>
-                        <TableCell className={`border-r ${getDayOfWeekColor(day.dayOfWeek)}`}>
-                          {day.dayOfWeek}
-                        </TableCell>
-                        <TableCell className="border-r text-center">
-                          <Checkbox
-                            checked={dayShift.morning}
-                            onCheckedChange={(checked) =>
-                              handleShiftChange(day.date, 'morning', checked as boolean)
-                            }
-                          />
-                        </TableCell>
-                        <TableCell className="border-r text-center">
-                          <Checkbox
-                            checked={dayShift.afternoon}
-                            onCheckedChange={(checked) =>
-                              handleShiftChange(day.date, 'afternoon', checked as boolean)
-                            }
-                          />
-                        </TableCell>
-                        <TableCell className="border-r text-center">
-                          <Checkbox
-                            checked={dayShift.evening}
-                            onCheckedChange={(checked) =>
-                              handleShiftChange(day.date, 'evening', checked as boolean)
-                            }
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Checkbox
-                            checked={dayShift.all_day}
-                            onCheckedChange={(checked) =>
-                              handleShiftChange(day.date, 'all_day', checked as boolean)
-                            }
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+              <TanStackDataTable
+                data={tableData}
+                columns={tableColumns}
+                getRowKey={(row) => row.dayInfo.date}
+                emptyMessage="シフトデータがありません"
+                loading={loading}
+              />
             </CardContent>
           </Card>
         </div>
