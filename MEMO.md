@@ -54,8 +54,8 @@ StaffManagement/
 #### Phase 1: フック分離（優先度: 高）✋ **← 現在ここ**
 - [x] `useStaffData.ts`（既存確認）
 - [x] `useStaffOperations.ts` - CRUD操作 ✅ **完了 (161行)**
-- [ ] `useStaffFilters.ts` - フィルタリング **← 作業中**
-- [ ] `useStoresAndScenarios.ts` - 店舗・シナリオ管理
+- [x] `useStaffFilters.ts` - フィルタリング ✅ **完了 (61行)**
+- [ ] `useStoresAndScenarios.ts` - 店舗・シナリオ管理 **← 作業中**
 
 #### Phase 2: モーダル分離（優先度: 中）
 - [ ] `useStaffModals.ts` - モーダル状態
