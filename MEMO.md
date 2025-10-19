@@ -51,14 +51,14 @@ StaffManagement/
 
 ### 🔄 実装手順（Phase順）
 
-#### Phase 1: フック分離（優先度: 高）✋ **← 現在ここ**
+#### Phase 1: フック分離（優先度: 高）✅ **完了！**
 - [x] `useStaffData.ts`（既存確認）
 - [x] `useStaffOperations.ts` - CRUD操作 ✅ **完了 (161行)**
 - [x] `useStaffFilters.ts` - フィルタリング ✅ **完了 (61行)**
-- [ ] `useStoresAndScenarios.ts` - 店舗・シナリオ管理 **← 作業中**
+- [x] `useStoresAndScenarios.ts` - 店舗・シナリオ管理 ✅ **完了 (97行)**
 
-#### Phase 2: モーダル分離（優先度: 中）
-- [ ] `useStaffModals.ts` - モーダル状態
+#### Phase 2: モーダル分離（優先度: 中）✋ **← 現在ここ**
+- [ ] `useStaffModals.ts` - モーダル状態 **← 作業中**
 - [ ] `useStaffInvitation.ts` - 招待ロジック
 
 #### Phase 3: コンポーネント分離（優先度: 中）
