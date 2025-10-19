@@ -20,7 +20,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 
 // Schedule Components
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
-import { ContextMenu } from '@/components/schedule/ContextMenu'
+import { ContextMenu, Copy, Clipboard } from '@/components/schedule/ContextMenu'
 import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
 import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
@@ -28,6 +28,9 @@ import { ScheduleHeader } from '@/components/schedule/ScheduleHeader'
 import { CategoryTabs } from '@/components/schedule/CategoryTabs'
 import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
+
+// Icons
+import { Ban, Edit, RotateCcw, Trash2 } from 'lucide-react'
 
 // Utils
 import { CATEGORY_CONFIG, getReservationBadgeClass } from '@/utils/scheduleUtils'
@@ -209,18 +212,60 @@ export function ScheduleManager() {
             onClose={() => contextMenuActions.setContextMenu(null)}
             items={contextMenuActions.contextMenu.type === 'event' && contextMenuActions.contextMenu.event ? [
               {
+                label: '編集',
+                icon: <Edit className="w-4 h-4" />,
+                onClick: () => {
+                  eventOperations.handleEditPerformance(contextMenuActions.contextMenu!.event!)
+                  contextMenuActions.setContextMenu(null)
+                }
+              },
+              {
                 label: 'コピー',
+                icon: <Copy className="w-4 h-4" />,
                 onClick: () => {
                   contextMenuActions.handleCopyToClipboard(contextMenuActions.contextMenu!.event!)
+                },
+                separator: true
+              },
+              ...(contextMenuActions.contextMenu.event.is_cancelled ? [
+                {
+                  label: '復活',
+                  icon: <RotateCcw className="w-4 h-4" />,
+                  onClick: () => {
+                    eventOperations.handleUncancelPerformance(contextMenuActions.contextMenu!.event!)
+                    contextMenuActions.setContextMenu(null)
+                  }
                 }
+              ] : [
+                {
+                  label: '中止',
+                  icon: <Ban className="w-4 h-4" />,
+                  onClick: () => {
+                    eventOperations.handleCancelConfirmPerformance(contextMenuActions.contextMenu!.event!)
+                    contextMenuActions.setContextMenu(null)
+                  }
+                }
+              ]),
+              {
+                label: '削除',
+                icon: <Trash2 className="w-4 h-4" />,
+                onClick: () => {
+                  if (confirm('この公演を削除しますか？')) {
+                    eventOperations.handleDeletePerformance(contextMenuActions.contextMenu!.event!)
+                  }
+                  contextMenuActions.setContextMenu(null)
+                },
+                separator: true
               }
-            ] : contextMenuActions.clipboardEvent ? [
+            ] : contextMenuActions.contextMenu.type === 'cell' && contextMenuActions.contextMenu.cellInfo ? [
               {
                 label: 'ペースト',
+                icon: <Clipboard className="w-4 h-4" />,
                 onClick: () => {
-                  const cellInfo = contextMenuActions.contextMenu!.cellInfo!
-                  contextMenuActions.handlePasteFromClipboard(cellInfo.date, cellInfo.venue, cellInfo.timeSlot)
-                }
+                  const { date, venue, timeSlot } = contextMenuActions.contextMenu!.cellInfo!
+                  contextMenuActions.handlePasteFromClipboard(date, venue, timeSlot)
+                },
+                disabled: !contextMenuActions.clipboardEvent
               }
             ] : []}
           />
