@@ -49,31 +49,23 @@ export function ScheduleManager() {
   const memoManager = useMemoManager(currentDate, scheduleData.stores)
 
   // 分割代入
-  const { events, stores, staff, scenarios, storeColors, isLoading, selectedStores, setSelectedStores, hiddenStores, setHiddenStores, fetchSchedule } = scheduleData
+  const { events, setEvents, stores, staff, scenarios, storeColors, isLoading, selectedStores, setSelectedStores, hiddenStores, setHiddenStores, fetchSchedule } = scheduleData
   // shiftDataHookがundefinedまたはshiftDataがundefinedの場合に空オブジェクトを設定
   const shiftData = shiftDataHook?.shiftData ?? {}
   const { handleSaveMemo, getMemo } = memoManager
 
   // イベント操作
   const eventOperations = useEventOperations({
-    currentDate,
-    selectedStores,
+    events,
+    setEvents,
     stores,
-    fetchSchedule
+    scenarios
   })
 
   // コンテキストメニュー操作
   const contextMenuActions = useContextMenuActions({
     stores,
-    setEvents: (updater) => {
-      // setEventsの代わりにfetchScheduleを呼ぶ
-      if (typeof updater === 'function') {
-        // 関数の場合は現在のeventsを渡して新しいeventsを取得
-        fetchSchedule()
-      } else {
-        fetchSchedule()
-      }
-    }
+    setEvents
   })
 
   // カテゴリーフィルター
@@ -152,14 +144,15 @@ export function ScheduleManager() {
         {/* モーダル・ダイアログ群 */}
         <PerformanceModal
           isOpen={eventOperations.isPerformanceModalOpen}
-          onClose={eventOperations.handleClosePerformanceModal}
-          onSave={eventOperations.handleSaveEvent}
+          onClose={eventOperations.handleCloseModal}
+          onSave={eventOperations.handleSavePerformance}
+          mode={eventOperations.modalMode}
+          event={eventOperations.editingEvent}
+          initialData={eventOperations.modalInitialData}
           stores={stores}
           scenarios={scenarios}
           staff={staff}
           availableStaffByScenario={availableStaffByScenario}
-          initialData={eventOperations.modalInitialData}
-          editingEvent={eventOperations.editingEvent}
         />
 
         <ImportScheduleModal

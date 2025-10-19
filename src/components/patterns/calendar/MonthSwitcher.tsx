@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
-import { memo } from 'react'
+import { memo, useEffect, useCallback } from 'react'
 
 interface MonthSwitcherProps {
   /**
@@ -28,12 +28,35 @@ interface MonthSwitcherProps {
    * 次月ボタンのラベル
    */
   nextLabel?: string
+  /**
+   * キーボード操作を有効にするか (← → キーで月移動、Home で今月)
+   */
+  enableKeyboard?: boolean
+  /**
+   * URL同期を有効にするか (queryParamName指定時のみ)
+   */
+  urlSync?: {
+    /** URL param名 (例: 'month') */
+    paramName: string
+    /** URL更新時のフォーマット (デフォルト: 'YYYY-MM') */
+    format?: 'YYYY-MM' | 'YYYY-MM-DD'
+  }
+  /**
+   * カスタムクラス名
+   */
+  className?: string
 }
 
 /**
  * 月表示切り替えUI（共通コンポーネント）
  * 
  * すべての画面で統一されたデザインとUXを提供します。
+ * 
+ * 機能:
+ * - キーボード操作 (← → で月移動、Home で今月)
+ * - 境界ケース対応 (年跨ぎ、12月→1月)
+ * - オプションのURL同期
+ * - aria-label でアクセシビリティ対応
  * 
  * @example
  * ```tsx
@@ -42,6 +65,7 @@ interface MonthSwitcherProps {
  *   onChange={setCurrentDate}
  *   showToday
  *   quickJump
+ *   enableKeyboard
  * />
  * ```
  */
@@ -50,77 +74,147 @@ export const MonthSwitcher = memo(function MonthSwitcher({
   onChange,
   showToday = true,
   quickJump = false,
-  prevLabel = '← 前月',
-  nextLabel = '次月 →'
+  prevLabel = '前月',
+  nextLabel = '次月',
+  enableKeyboard = true,
+  urlSync,
+  className = ''
 }: MonthSwitcherProps) {
   const year = value.getFullYear()
   const month = value.getMonth() + 1
 
   /**
    * 前月へ移動
+   * 境界ケース: 1月 → 前年12月
    */
-  const handlePrevMonth = () => {
+  const handlePrevMonth = useCallback(() => {
     const newDate = new Date(value)
     newDate.setMonth(value.getMonth() - 1)
     onChange(newDate)
-  }
+  }, [value, onChange])
 
   /**
    * 次月へ移動
+   * 境界ケース: 12月 → 翌年1月
    */
-  const handleNextMonth = () => {
+  const handleNextMonth = useCallback(() => {
     const newDate = new Date(value)
     newDate.setMonth(value.getMonth() + 1)
     onChange(newDate)
-  }
+  }, [value, onChange])
 
   /**
    * 今月へ移動
    */
-  const handleToday = () => {
+  const handleToday = useCallback(() => {
     onChange(new Date())
-  }
+  }, [onChange])
 
   /**
    * 年を変更
    */
-  const handleYearChange = (newYear: string) => {
+  const handleYearChange = useCallback((newYear: string) => {
     const newDate = new Date(value)
-    newDate.setFullYear(parseInt(newYear))
+    newDate.setFullYear(parseInt(newYear, 10))
     onChange(newDate)
-  }
+  }, [value, onChange])
 
   /**
    * 月を変更
    */
-  const handleMonthChange = (newMonth: string) => {
+  const handleMonthChange = useCallback((newMonth: string) => {
     const newDate = new Date(value)
-    newDate.setMonth(parseInt(newMonth) - 1)
+    newDate.setMonth(parseInt(newMonth, 10) - 1)
     onChange(newDate)
-  }
+  }, [value, onChange])
+
+  /**
+   * キーボードショートカット
+   * ← → で月移動、Home で今月
+   */
+  useEffect(() => {
+    if (!enableKeyboard) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // input/textarea/select要素内では無効
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return
+      }
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault()
+          handlePrevMonth()
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          handleNextMonth()
+          break
+        case 'Home':
+          e.preventDefault()
+          handleToday()
+          break
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [enableKeyboard, handlePrevMonth, handleNextMonth, handleToday])
+
+  /**
+   * URL同期 (オプション)
+   */
+  useEffect(() => {
+    if (!urlSync) return
+
+    const params = new URLSearchParams(window.location.search)
+    const format = urlSync.format || 'YYYY-MM'
+    
+    let formattedDate: string
+    if (format === 'YYYY-MM-DD') {
+      formattedDate = value.toISOString().split('T')[0]
+    } else {
+      formattedDate = `${year}-${month.toString().padStart(2, '0')}`
+    }
+
+    params.set(urlSync.paramName, formattedDate)
+    const newUrl = `${window.location.pathname}?${params.toString()}`
+    window.history.replaceState({}, '', newUrl)
+  }, [value, year, month, urlSync])
+
+  /**
+   * 年の範囲を生成 (現在年の前後2年、計5年)
+   */
+  const yearRange = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 ${className}`} role="group" aria-label="月選択">
       {/* 前月ボタン */}
       <Button
         variant="outline"
         size="sm"
         onClick={handlePrevMonth}
         className="h-9 px-3"
+        aria-label={`前月へ移動 (${prevLabel})`}
+        title="← キーでも移動できます"
       >
         <ChevronLeft className="h-4 w-4 mr-1" />
-        {prevLabel}
+        <span className="hidden sm:inline">{prevLabel}</span>
       </Button>
 
       {/* 年月表示 / 選択 */}
       {quickJump ? (
         <div className="flex items-center gap-2">
           <Select value={year.toString()} onValueChange={handleYearChange}>
-            <SelectTrigger className="h-9 w-[100px]">
+            <SelectTrigger className="h-9 w-[100px]" aria-label="年を選択">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+              {yearRange.map(y => (
                 <SelectItem key={y} value={y.toString()}>
                   {y}年
                 </SelectItem>
@@ -129,7 +223,7 @@ export const MonthSwitcher = memo(function MonthSwitcher({
           </Select>
 
           <Select value={month.toString()} onValueChange={handleMonthChange}>
-            <SelectTrigger className="h-9 w-[80px]">
+            <SelectTrigger className="h-9 w-[80px]" aria-label="月を選択">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -142,7 +236,11 @@ export const MonthSwitcher = memo(function MonthSwitcher({
           </Select>
         </div>
       ) : (
-        <div className="text-lg font-bold min-w-[140px] text-center">
+        <div 
+          className="text-lg font-bold min-w-[140px] text-center" 
+          aria-live="polite"
+          aria-atomic="true"
+        >
           {year}年{month}月
         </div>
       )}
@@ -153,8 +251,10 @@ export const MonthSwitcher = memo(function MonthSwitcher({
         size="sm"
         onClick={handleNextMonth}
         className="h-9 px-3"
+        aria-label={`次月へ移動 (${nextLabel})`}
+        title="→ キーでも移動できます"
       >
-        {nextLabel}
+        <span className="hidden sm:inline">{nextLabel}</span>
         <ChevronRight className="h-4 w-4 ml-1" />
       </Button>
 
@@ -165,12 +265,13 @@ export const MonthSwitcher = memo(function MonthSwitcher({
           size="sm"
           onClick={handleToday}
           className="h-9 px-3"
+          aria-label="今月へ移動"
+          title="Home キーでも移動できます"
         >
           <Calendar className="h-4 w-4 mr-1" />
-          今月
+          <span className="hidden sm:inline">今月</span>
         </Button>
       )}
     </div>
   )
 })
-
