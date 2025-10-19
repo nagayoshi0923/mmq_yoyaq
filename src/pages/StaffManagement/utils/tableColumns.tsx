@@ -35,7 +35,10 @@ export function createStaffColumns(
       sortable: true,
       width: 'w-56',
       render: (staff) => (
-        <div className="flex items-center gap-2">
+        <button
+          onClick={() => actions.onEdit(staff)}
+          className="flex items-center gap-2 w-full hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1 transition-colors text-left"
+        >
           <StaffAvatar
             name={staff.name}
             avatarUrl={staff.avatar_url}
@@ -43,7 +46,7 @@ export function createStaffColumns(
             size="sm"
           />
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-sm truncate leading-tight">{staff.name}</h3>
+            <h3 className="font-medium text-sm truncate leading-tight hover:text-blue-600">{staff.name}</h3>
             {!staff.user_id && (
               <Badge size="sm" className="bg-amber-100 text-amber-800 text-xs mt-0.5">
                 未紐付け
@@ -53,7 +56,7 @@ export function createStaffColumns(
           <div className="flex-shrink-0">
             {getStatusBadge(staff.status)}
           </div>
-        </div>
+        </button>
       )
     },
     {

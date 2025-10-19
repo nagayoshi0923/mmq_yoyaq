@@ -31,9 +31,13 @@ export function createScenarioColumns(
       width: 'w-40',
       sortable: true,
       render: (scenario) => (
-        <p className="font-medium text-sm truncate" title={scenario.title}>
+        <button
+          onClick={() => actions.onEdit(scenario)}
+          className="font-medium text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
+          title={scenario.title}
+        >
           {scenario.title}
-        </p>
+        </button>
       )
     },
     {
