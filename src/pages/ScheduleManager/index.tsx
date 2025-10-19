@@ -149,9 +149,9 @@ export function ScheduleManager() {
           onAddPerformance={eventOperations.handleAddPerformance}
           onEditPerformance={eventOperations.handleEditPerformance}
           onDeletePerformance={eventOperations.handleDeletePerformance}
-          onCancelConfirm={eventOperations.handleCancelConfirm}
+          onCancelConfirm={eventOperations.handleCancelConfirmPerformance}
           onUncancel={eventOperations.handleUncancelPerformance}
-          onToggleReservation={eventOperations.handleToggleReservation}
+          onToggleReservation={eventOperations.handleTogglePublish}
           onDrop={eventOperations.handleDrop}
           onContextMenuCell={contextMenuActions.handleCellContextMenu}
           onContextMenuEvent={contextMenuActions.handleEventContextMenu}
