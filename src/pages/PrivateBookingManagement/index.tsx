@@ -254,9 +254,9 @@ export function PrivateBookingManagement() {
               <CustomerInfo request={selectedRequest} />
               
               <CandidateDateSelector
-                request={selectedRequest}
-                selectedOrder={selectedCandidateOrder}
-                onSelect={setSelectedCandidateOrder}
+                candidates={selectedRequest.candidate_datetimes?.candidates || []}
+                selectedCandidateOrder={selectedCandidateOrder}
+                onSelectCandidate={setSelectedCandidateOrder}
                 selectedStoreId={selectedStoreId}
                 selectedGMId={selectedGMId}
                 conflictInfo={conflictInfo}
