@@ -1,21 +1,18 @@
 import { Users } from 'lucide-react'
 
 interface CustomerInfoProps {
-  customerName: string
-  customerEmail: string
-  customerPhone: string
-  participantCount: number
+  request: {
+    customer_name: string
+    customer_email?: string
+    customer_phone?: string
+    participant_count: number
+  }
 }
 
 /**
  * 顧客情報表示コンポーネント
  */
-export const CustomerInfo = ({ 
-  customerName, 
-  customerEmail, 
-  customerPhone, 
-  participantCount 
-}: CustomerInfoProps) => {
+export const CustomerInfo = ({ request }: CustomerInfoProps) => {
   return (
     <div>
       <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
@@ -25,19 +22,19 @@ export const CustomerInfo = ({
       <div className="space-y-2 text-sm p-4 bg-background rounded-lg border">
         <div className="flex items-center gap-2">
           <span className="font-medium min-w-[80px]">お名前:</span>
-          <span>{customerName}</span>
+          <span>{request.customer_name}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-medium min-w-[80px]">メール:</span>
-          <span>{customerEmail || '未登録'}</span>
+          <span>{request.customer_email || '未登録'}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-medium min-w-[80px]">電話番号:</span>
-          <span>{customerPhone || '未登録'}</span>
+          <span>{request.customer_phone || '未登録'}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-medium min-w-[80px]">参加人数:</span>
-          <span>{participantCount}名</span>
+          <span>{request.participant_count}名</span>
         </div>
       </div>
     </div>
