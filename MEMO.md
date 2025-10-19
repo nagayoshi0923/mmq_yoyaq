@@ -62,8 +62,8 @@ StaffManagement/
 - [x] `useStaffInvitation.ts` - 招待ロジック ✅ **完了 (157行)**
 
 #### Phase 3: コンポーネント分離（優先度: 中）✋ **← 現在ここ**
-- [ ] `StaffCard.tsx` - カード表示 **← 作業中**
-- [ ] `StaffList.tsx` - リスト表示
+- [x] `StaffCard.tsx` - カード表示 ✅ **完了 (264行)**
+- [ ] `StaffList.tsx` - リスト表示 **← 作業中**
 - [ ] `StaffFilters.tsx` - フィルタUI
 
 #### Phase 4: モーダルコンポーネント（優先度: 低）
