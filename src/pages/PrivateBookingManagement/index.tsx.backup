@@ -24,12 +24,45 @@ import { GMSelector } from './components/GMSelector'
 import { ActionButtons } from './components/ActionButtons'
 
 // 分離されたフック
-import { usePrivateBookingData, type PrivateBookingRequest } from './hooks/usePrivateBookingData'
+import { usePrivateBookingData } from './hooks/usePrivateBookingData'
 import { useGMSelection } from './hooks/useGMSelection'
 import { useConflictCheck } from './hooks/useConflictCheck'
 
 // ユーティリティ
-import { formatDate, formatDateTime, getElapsedTime, getCardClassName, formatMonthYear } from './utils/bookingFormatters'
+import { formatDate, formatDateTime, getElapsedTime } from './utils/bookingFormatters'
+
+interface PrivateBookingRequest {
+  id: string
+  reservation_number: string
+  scenario_id?: string
+  scenario_title: string
+  customer_name: string
+  customer_email: string
+  customer_phone: string
+  candidate_datetimes: {
+    candidates: Array<{
+      order: number
+      date: string
+      timeSlot: string
+      startTime: string
+      endTime: string
+      status: string
+    }>
+    requestedStores?: Array<{
+      storeId: string
+      storeName: string
+    }>
+    confirmedStore?: {
+      storeId: string
+      storeName: string
+    }
+  }
+  participant_count: number
+  notes: string
+  status: string
+  gm_responses?: any[]
+  created_at: string
+}
 
 export function PrivateBookingManagement() {
   const { user } = useAuth()
@@ -56,8 +89,96 @@ export function PrivateBookingManagement() {
     gmDateConflicts: Set<string> // 'gmId-date-timeSlot' の形式
   }>({ storeDateConflicts: new Set(), gmDateConflicts: new Set() })
 
-  // formatters.ts から import した関数を使用
-  // StatusBadge コンポーネントを使用
+  // ヘルパー関数を先に定義
+  const getElapsedTime = (createdAt: string) => {
+    const now = new Date()
+    const created = new Date(createdAt)
+    const diffMs = now.getTime() - created.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffDays > 0) {
+      return `${diffDays}日前`
+    } else if (diffHours > 0) {
+      return `${diffHours}時間前`
+    } else if (diffMins > 0) {
+      return `${diffMins}分前`
+    } else {
+      return '今'
+    }
+  }
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+      case 'pending_gm':
+        return (
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+            GM確認待ち
+          </Badge>
+        )
+      case 'gm_confirmed':
+      case 'pending_store':
+        return (
+          <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+            店舗確認待ち
+          </Badge>
+        )
+      case 'confirmed':
+        return (
+          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+            承認済み
+          </Badge>
+        )
+      case 'cancelled':
+        return (
+          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+            却下
+          </Badge>
+        )
+      default:
+        return null
+    }
+  }
+
+  const getCardClassName = (status: string) => {
+    switch (status) {
+      case 'pending':
+      case 'pending_gm':
+        return 'border-yellow-200 bg-yellow-50/30'
+      case 'gm_confirmed':
+      case 'pending_store':
+        return 'border-orange-200 bg-orange-50/30'
+      case 'confirmed':
+        return 'border-green-200 bg-green-50/30'
+      case 'cancelled':
+        return 'border-red-200 bg-red-50/30'
+      default:
+        return ''
+    }
+  }
+
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr)
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
+  }
+
+  const formatMonthYear = (date: Date): string => {
+    return `${date.getFullYear()}年${date.getMonth() + 1}月`
+  }
 
   // 月ごとにフィルタリング
   const filterByMonth = (reqs: PrivateBookingRequest[]) => {
@@ -717,7 +838,7 @@ export function PrivateBookingManagement() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-2xl">{selectedRequest.scenario_title}</CardTitle>
-                <StatusBadge status={selectedRequest.status} />
+                {getStatusBadge(selectedRequest.status)}
               </div>
               <div className="text-sm text-muted-foreground space-y-1 mt-2">
                 <div>予約番号: {selectedRequest.reservation_number}</div>
@@ -1128,7 +1249,7 @@ export function PrivateBookingManagement() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xl">{request.scenario_title}</CardTitle>
-                    <StatusBadge status={request.status} />
+                    {getStatusBadge(request.status)}
                   </div>
                   <div className="text-sm text-muted-foreground space-y-1 mt-2">
                     <div>予約番号: {request.reservation_number}</div>
@@ -1234,7 +1355,7 @@ export function PrivateBookingManagement() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xl">{request.scenario_title}</CardTitle>
-                    <StatusBadge status={request.status} />
+                    {getStatusBadge(request.status)}
                   </div>
                   <div className="text-sm text-muted-foreground space-y-1 mt-2">
                     <div>予約番号: {request.reservation_number}</div>
@@ -1382,7 +1503,7 @@ export function PrivateBookingManagement() {
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-xl">{request.scenario_title}</CardTitle>
-                        <StatusBadge status={request.status} />
+                        {getStatusBadge(request.status)}
                       </div>
                       <div className="text-sm text-muted-foreground space-y-1 mt-2">
                         <div>予約番号: {request.reservation_number}</div>
