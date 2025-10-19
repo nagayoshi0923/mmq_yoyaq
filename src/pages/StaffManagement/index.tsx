@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Users, Shield, Clock } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -59,8 +59,8 @@ export function StaffManagement() {
   } = useStoresAndScenarios()
 
   // フィルタ状態
-  const [searchTerm, setSearchTerm] = restoreState('searchTerm', '')
-  const [statusFilter, setStatusFilter] = restoreState('statusFilter', 'all')
+  const [searchTerm, setSearchTerm] = useState(() => restoreState('searchTerm', ''))
+  const [statusFilter, setStatusFilter] = useState(() => restoreState('statusFilter', 'all'))
 
   // フィルタリング
   const { filteredStaff } = useStaffFilters({
