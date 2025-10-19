@@ -185,6 +185,7 @@ export function createScenarioColumns(
       key: 'genre',
       header: 'ジャンル',
       width: 'flex-1 min-w-0',
+      sortable: true,
       cellClassName: 'min-w-0',
       render: (scenario) => {
         if (!scenario.genre || scenario.genre.length === 0) return null
