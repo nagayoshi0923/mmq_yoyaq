@@ -44,8 +44,11 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     selectedStoreFilter
   )
 
+  // 検索キーワード
+  const [searchTerm, setSearchTerm] = useState('')
+  
   // フィルタリングフック
-  const { searchTerm, setSearchTerm, getFilteredScenarios, getNewScenarios, getUpcomingScenarios, getAllScenarios } = useBookingFilters(scenarios)
+  const { filteredScenarios, newScenarios, upcomingScenarios, allScenarios } = useBookingFilters(scenarios, searchTerm)
 
   // 初期データロード
   useEffect(() => {
@@ -130,9 +133,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             {/* ラインナップ表示 */}
             <TabsContent value="lineup">
               <LineupView
-                newScenarios={getNewScenarios()}
-                upcomingScenarios={getUpcomingScenarios()}
-                allScenarios={getAllScenarios()}
+                newScenarios={newScenarios}
+                upcomingScenarios={upcomingScenarios}
+                allScenarios={allScenarios}
                 onCardClick={handleCardClick}
               />
             </TabsContent>

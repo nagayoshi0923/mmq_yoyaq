@@ -63,7 +63,10 @@ export function AdminDashboard() {
   }
 
   const [currentPage, setCurrentPage] = useState(() => {
-    const { page } = parseHash(window.location.hash.slice(1), user?.role)
+    const hash = window.location.hash.slice(1)
+    // ハッシュがない場合はダッシュボードを表示（ユーザーロールによる判定は後で行う）
+    if (!hash) return 'dashboard'
+    const { page } = parseHash(hash, user?.role)
     return page
   })
   
@@ -90,6 +93,17 @@ export function AdminDashboard() {
     setSelectedScenarioId(null)
     window.location.hash = 'customer-booking'
   }, [])
+
+  // ユーザーロールが確定したときに初回リダイレクト
+  React.useEffect(() => {
+    if (user && currentPage === 'dashboard' && !window.location.hash) {
+      // customerロールの場合のみ予約サイトにリダイレクト
+      if (user.role === 'customer') {
+        setCurrentPage('customer-booking')
+        window.location.hash = 'customer-booking'
+      }
+    }
+  }, [user, currentPage])
 
   // ブラウザの戻る/進むボタンに対応
   React.useEffect(() => {
