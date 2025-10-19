@@ -20,7 +20,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 
 // Schedule Components
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
-import { ContextMenu } from '@/components/schedule/ContextMenu'
+import { ContextMenu, Copy, Clipboard } from '@/components/schedule/ContextMenu'
 import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
 import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
@@ -29,13 +29,19 @@ import { CategoryTabs } from '@/components/schedule/CategoryTabs'
 import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
+// Icons
+import { Ban, Edit, RotateCcw, Trash2 } from 'lucide-react'
+
+// Utils
+import { CATEGORY_CONFIG, getReservationBadgeClass } from '@/utils/scheduleUtils'
+
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
 
 export function ScheduleManager() {
   // 月ナビゲーション
   const scrollRestoration = useScrollRestoration({ pageKey: 'schedule', isLoading: false })
-  const { currentDate, changeMonth, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
+  const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
 
   // データ取得
   const scheduleData = useScheduleData(currentDate)
@@ -43,21 +49,23 @@ export function ScheduleManager() {
   const memoManager = useMemoManager(currentDate, scheduleData.stores)
 
   // 分割代入
-  const { events, stores, staff, scenarios, storeColors, isLoading, selectedStores, setSelectedStores, hiddenStores, setHiddenStores, fetchSchedule } = scheduleData
-  const { shiftData } = shiftDataHook
+  const { events, setEvents, stores, staff, scenarios, storeColors, isLoading, selectedStores, setSelectedStores, hiddenStores, setHiddenStores, fetchSchedule } = scheduleData
+  // shiftDataHookがundefinedまたはshiftDataがundefinedの場合に空オブジェクトを設定
+  const shiftData = shiftDataHook?.shiftData ?? {}
   const { handleSaveMemo, getMemo } = memoManager
 
   // イベント操作
   const eventOperations = useEventOperations({
-    currentDate,
-    selectedStores,
+    events,
+    setEvents,
     stores,
-    fetchSchedule
+    scenarios
   })
 
   // コンテキストメニュー操作
   const contextMenuActions = useContextMenuActions({
-    fetchSchedule
+    stores,
+    setEvents
   })
 
   // カテゴリーフィルター
@@ -99,9 +107,9 @@ export function ScheduleManager() {
         {/* ヘッダー */}
         <ScheduleHeader
           currentDate={currentDate}
-          onChangeMonth={changeMonth}
-          onOpenImportModal={() => setIsImportModalOpen(true)}
-          onCreateEvent={eventOperations.handleCreateEvent}
+          isLoading={isLoading}
+          onDateChange={setCurrentDate}
+          onImportClick={() => setIsImportModalOpen(true)}
         />
 
         {/* カテゴリータブ */}
@@ -113,35 +121,38 @@ export function ScheduleManager() {
 
         {/* スケジュールテーブル */}
         <ScheduleTable
+          currentDate={currentDate}
           monthDays={monthDays}
           stores={stores}
-          hiddenStores={hiddenStores}
-          storeColors={storeColors}
           getEventsForSlot={getEventsForSlot}
+          shiftData={shiftData}
+          categoryConfig={CATEGORY_CONFIG}
+          getReservationBadgeClass={getReservationBadgeClass}
           getMemo={getMemo}
           onSaveMemo={handleSaveMemo}
-          onEventClick={eventOperations.handleEventClick}
-          onEventEdit={eventOperations.handleEditEvent}
-          onEventCancel={eventOperations.handleCancelEvent}
-          onEventDelete={eventOperations.handleDeleteEvent}
-          onContextMenu={contextMenuActions.handleContextMenu}
-          isLoading={isLoading}
-          selectedStores={selectedStores}
-          setSelectedStores={setSelectedStores}
-          setHiddenStores={setHiddenStores}
+          onAddPerformance={eventOperations.handleAddPerformance}
+          onEditPerformance={eventOperations.handleEditPerformance}
+          onDeletePerformance={eventOperations.handleDeletePerformance}
+          onCancelConfirm={eventOperations.handleCancelConfirmPerformance}
+          onUncancel={eventOperations.handleUncancelPerformance}
+          onToggleReservation={eventOperations.handleTogglePublish}
+          onDrop={eventOperations.handleDrop}
+          onContextMenuCell={contextMenuActions.handleCellContextMenu}
+          onContextMenuEvent={contextMenuActions.handleEventContextMenu}
         />
 
         {/* モーダル・ダイアログ群 */}
         <PerformanceModal
           isOpen={eventOperations.isPerformanceModalOpen}
-          onClose={eventOperations.handleClosePerformanceModal}
-          onSave={eventOperations.handleSaveEvent}
+          onClose={eventOperations.handleCloseModal}
+          onSave={eventOperations.handleSavePerformance}
+          mode={eventOperations.modalMode}
+          event={eventOperations.editingEvent}
+          initialData={eventOperations.modalInitialData}
           stores={stores}
           scenarios={scenarios}
           staff={staff}
           availableStaffByScenario={availableStaffByScenario}
-          initialData={eventOperations.modalInitialData}
-          editingEvent={eventOperations.editingEvent}
         />
 
         <ImportScheduleModal
@@ -187,13 +198,71 @@ export function ScheduleManager() {
           monthDays={monthDays}
         />
 
-        <ContextMenu
-          isOpen={contextMenuActions.isContextMenuOpen}
-          position={contextMenuActions.contextMenuPosition}
-          onClose={contextMenuActions.handleCloseContextMenu}
-          onCopy={contextMenuActions.handleCopy}
-          onMove={contextMenuActions.handleMove}
-        />
+        {contextMenuActions.contextMenu && (
+          <ContextMenu
+            x={contextMenuActions.contextMenu.x}
+            y={contextMenuActions.contextMenu.y}
+            onClose={() => contextMenuActions.setContextMenu(null)}
+            items={contextMenuActions.contextMenu.type === 'event' && contextMenuActions.contextMenu.event ? [
+              {
+                label: '編集',
+                icon: <Edit className="w-4 h-4" />,
+                onClick: () => {
+                  eventOperations.handleEditPerformance(contextMenuActions.contextMenu!.event!)
+                  contextMenuActions.setContextMenu(null)
+                }
+              },
+              {
+                label: 'コピー',
+                icon: <Copy className="w-4 h-4" />,
+                onClick: () => {
+                  contextMenuActions.handleCopyToClipboard(contextMenuActions.contextMenu!.event!)
+                },
+                separator: true
+              },
+              ...(contextMenuActions.contextMenu.event.is_cancelled ? [
+                {
+                  label: '復活',
+                  icon: <RotateCcw className="w-4 h-4" />,
+                  onClick: () => {
+                    eventOperations.handleUncancelPerformance(contextMenuActions.contextMenu!.event!)
+                    contextMenuActions.setContextMenu(null)
+                  }
+                }
+              ] : [
+                {
+                  label: '中止',
+                  icon: <Ban className="w-4 h-4" />,
+                  onClick: () => {
+                    eventOperations.handleCancelConfirmPerformance(contextMenuActions.contextMenu!.event!)
+                    contextMenuActions.setContextMenu(null)
+                  }
+                }
+              ]),
+              {
+                label: '削除',
+                icon: <Trash2 className="w-4 h-4" />,
+                onClick: () => {
+                  if (confirm('この公演を削除しますか？')) {
+                    eventOperations.handleDeletePerformance(contextMenuActions.contextMenu!.event!)
+                  }
+                  contextMenuActions.setContextMenu(null)
+                },
+                separator: true
+              }
+            ] : contextMenuActions.contextMenu.type === 'cell' && contextMenuActions.contextMenu.cellInfo ? [
+              {
+                label: 'ペースト',
+                icon: <Clipboard className="w-4 h-4" />,
+                onClick: () => {
+                  const { date, venue, timeSlot } = contextMenuActions.contextMenu!.cellInfo!
+                  contextMenuActions.handlePasteFromClipboard(date, venue, timeSlot)
+                },
+                disabled: !contextMenuActions.clipboardEvent
+              }
+            ] : []}
+          />
+        )}
       </div>
     </div>
   )

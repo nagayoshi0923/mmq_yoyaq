@@ -92,11 +92,13 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
 
   return {
     listViewMonth,
+    setListViewMonth,
     listViewData,
     changeListViewMonth,
     getEventsForDateStore,
     getStoreName,
-    getStoreColor
+    getStoreColor,
+    generateListViewData: () => listViewData
   }
 }
 

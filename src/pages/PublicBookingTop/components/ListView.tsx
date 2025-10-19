@@ -1,6 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { memo } from 'react'
+import { MonthSwitcher } from '@/components/patterns/calendar'
 
 interface ListViewData {
   date: number
@@ -9,7 +10,7 @@ interface ListViewData {
 
 interface ListViewProps {
   listViewMonth: Date
-  onChangeMonth: (direction: 'prev' | 'next') => void
+  onMonthChange: (date: Date) => void
   selectedStoreFilter: string
   onStoreFilterChange: (storeId: string) => void
   stores: any[]
@@ -25,7 +26,7 @@ interface ListViewProps {
  */
 export const ListView = memo(function ListView({
   listViewMonth,
-  onChangeMonth,
+  onMonthChange,
   selectedStoreFilter,
   onStoreFilterChange,
   stores,
@@ -114,23 +115,12 @@ export const ListView = memo(function ListView({
     <div className="space-y-4">
       {/* 月ナビゲーション */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">
-          {listViewMonth.getFullYear()}年{listViewMonth.getMonth() + 1}月
-        </h2>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onChangeMonth('prev')}
-            className="px-3 py-1 border rounded hover:bg-gray-50"
-          >
-            前月
-          </button>
-          <button
-            onClick={() => onChangeMonth('next')}
-            className="px-3 py-1 border rounded hover:bg-gray-50"
-          >
-            次月
-          </button>
-        </div>
+        <MonthSwitcher
+          value={listViewMonth}
+          onChange={onMonthChange}
+          showToday
+          quickJump
+        />
       </div>
 
       {/* 店舗フィルター */}

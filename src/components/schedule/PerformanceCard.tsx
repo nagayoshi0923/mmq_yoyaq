@@ -61,12 +61,12 @@ function PerformanceCardBase({
   // 貸切リクエストの場合は紫色で表示
   const categoryColors = event.is_private_request 
     ? 'bg-purple-50'
-    : categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor.replace(/border-\S+/, '') || 'bg-gray-50'
+    : (categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor?.replace(/border-\S+/, '') ?? 'bg-gray-50')
   
   // バッジのテキストカラーを取得（例: 'bg-blue-100 text-blue-800' から 'text-blue-800' を抽出）
   const badgeTextColor = event.is_private_request
     ? 'text-purple-800'
-    : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor.split(' ').find(cls => cls.startsWith('text-')) || 'text-gray-800'
+    : (categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor?.split(' ').find(cls => cls.startsWith('text-')) ?? 'text-gray-800')
   
   // ボーダー色を取得（テキスト色から対応するボーダー色を生成）
   const borderColorClass = badgeTextColor.replace('text-', 'ring-')

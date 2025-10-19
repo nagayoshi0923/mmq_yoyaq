@@ -2,22 +2,19 @@
 
 import { memo } from 'react'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { MonthSwitcher } from '@/components/patterns/calendar'
 
 interface ScheduleHeaderProps {
   currentDate: Date
   isLoading: boolean
-  onMonthChange: (direction: 'prev' | 'next') => void
-  onMonthSelect: (month: number) => void
+  onDateChange: (date: Date) => void
   onImportClick: () => void
 }
 
 export const ScheduleHeader = memo(function ScheduleHeader({
   currentDate,
   isLoading,
-  onMonthChange,
-  onMonthSelect,
+  onDateChange,
   onImportClick
 }: ScheduleHeaderProps) {
   return (
@@ -34,29 +31,13 @@ export const ScheduleHeader = memo(function ScheduleHeader({
       </div>
       <div className="flex gap-2 items-center">
         {/* 月選択コントロール */}
-        <div className="flex items-center gap-2 border rounded-lg p-1">
-          <Button variant="ghost" size="sm" onClick={() => onMonthChange('prev')}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Select 
-            value={currentDate.getMonth().toString()} 
-            onValueChange={(value) => onMonthSelect(parseInt(value))}
-          >
-            <SelectTrigger className="w-32 border-0 focus:ring-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Array.from({ length: 12 }, (_, i) => (
-                <SelectItem key={i} value={i.toString()}>
-                  {new Date(2025, i).toLocaleDateString('ja-JP', { month: 'long' })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="ghost" size="sm" onClick={() => onMonthChange('next')}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <MonthSwitcher
+          value={currentDate}
+          onChange={onDateChange}
+          showToday
+          quickJump
+          enableKeyboard
+        />
         
         {/* インポートボタン */}
         <Button 

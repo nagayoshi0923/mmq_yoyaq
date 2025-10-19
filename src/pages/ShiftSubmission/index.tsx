@@ -1,21 +1,48 @@
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-react'
-import { useMonthNavigation } from './hooks/useMonthNavigation'
+import { CheckSquare, Square } from 'lucide-react'
+import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useShiftData } from './hooks/useShiftData'
 import { useShiftSubmit } from './hooks/useShiftSubmit'
 import { getDayOfWeekColor } from './utils/shiftFormatters'
+import type { DayInfo } from './types'
 
 /**
  * シフト提出ページ
  */
 export function ShiftSubmission() {
-  // フック
-  const { currentDate, changeMonth, monthDays, formatMonthYear } = useMonthNavigation()
+  // 月選択
+  const [currentDate, setCurrentDate] = useState(() => new Date())
+  
+  // 月間の日付リストを生成
+  const monthDays = useMemo((): DayInfo[] => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    
+    const days: DayInfo[] = []
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day)
+      const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      days.push({
+        date: dateString,
+        dayOfWeek: date.toLocaleDateString('ja-JP', { weekday: 'short' }),
+        day: day,
+        displayDate: `${month + 1}/${day}`
+      })
+    }
+    
+    return days
+  }, [currentDate])
+  
+  const formatMonthYear = () => {
+    return `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月`
+  }
   
   const {
     shiftData,
@@ -48,17 +75,12 @@ export function ShiftSubmission() {
                 出勤可能な日時を選択してください
               </p>
             </div>
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" onClick={() => changeMonth('prev')}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-lg font-semibold min-w-[120px] text-center">
-                {formatMonthYear()}
-              </span>
-              <Button variant="outline" size="sm" onClick={() => changeMonth('next')}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+            <MonthSwitcher
+              value={currentDate}
+              onChange={setCurrentDate}
+              showToday
+              quickJump
+            />
           </div>
 
           {/* メインカード・テーブル */}

@@ -29,16 +29,16 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('all')
 
   // データ取得フック
-  const { scenarios, allEvents, stores, isLoading, loadData } = useBookingData()
+  const { scenarios, allEvents, stores, isLoading, loadScenarios } = useBookingData()
 
   // カレンダーデータフック
-  const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(
+  const { currentMonth, changeMonth, generateCalendarDays, getEventsForDate } = useCalendarData(
     allEvents,
     selectedStoreFilter
   )
 
   // リストビューデータフック
-  const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(
+  const { listViewMonth, changeListViewMonth, generateListViewData, getEventsForDateStore } = useListViewData(
     allEvents,
     stores,
     selectedStoreFilter
@@ -49,8 +49,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
   // 初期データロード
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    loadScenarios()
+  }, [])
 
   // タブ変更時にURLハッシュを更新
   const handleTabChange = (value: string) => {
@@ -141,8 +141,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             <TabsContent value="calendar">
               <CalendarView
                 currentMonth={currentMonth}
-                onMonthChange={setCurrentMonth}
-                calendarDays={calendarDays}
+                onChangeMonth={changeMonth}
+                calendarDays={generateCalendarDays()}
                 getEventsForDate={getEventsForDate}
                 selectedStoreFilter={selectedStoreFilter}
                 onStoreFilterChange={setSelectedStoreFilter}
@@ -158,11 +158,11 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             <TabsContent value="list">
               <ListView
                 listViewMonth={listViewMonth}
-                onMonthChange={setListViewMonth}
+                onChangeMonth={changeListViewMonth}
                 selectedStoreFilter={selectedStoreFilter}
                 onStoreFilterChange={setSelectedStoreFilter}
                 stores={stores}
-                listViewData={listViewData}
+                listViewData={generateListViewData()}
                 getEventsForDateStore={getEventsForDateStore}
                 getColorFromName={getColorFromName}
                 scenarios={scenarios}

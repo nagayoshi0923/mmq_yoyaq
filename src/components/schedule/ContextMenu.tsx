@@ -14,7 +14,7 @@ interface ContextMenuProps {
   }>
 }
 
-export function ContextMenu({ x, y, onClose, items }: ContextMenuProps) {
+export function ContextMenu({ x, y, onClose, items = [] }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

@@ -29,7 +29,7 @@ export function MoveOrCopyDialog({ isOpen, onClose, onMove, onCopy, eventInfo }:
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>公演を移動・複製</DialogTitle>
