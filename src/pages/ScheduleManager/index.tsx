@@ -44,7 +44,8 @@ export function ScheduleManager() {
 
   // 分割代入
   const { events, stores, staff, scenarios, storeColors, isLoading, selectedStores, setSelectedStores, hiddenStores, setHiddenStores, fetchSchedule } = scheduleData
-  const { shiftData = {} } = shiftDataHook || {}
+  // shiftDataHookがundefinedまたはshiftDataがundefinedの場合に空オブジェクトを設定
+  const shiftData = shiftDataHook?.shiftData ?? {}
   const { handleSaveMemo, getMemo } = memoManager
 
   // イベント操作
