@@ -5,7 +5,7 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { BookingConfirmation } from '../BookingConfirmation'
+import { BookingConfirmation } from '../BookingConfirmation/index'
 import { PrivateBookingRequest } from '../PrivateBookingRequest'
 
 // 分離された型定義
