@@ -13,16 +13,7 @@ import {
   Download,
   AlertTriangle
 } from 'lucide-react'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmModal } from '@/components/patterns/modal'
 
 // 分離されたコンポーネント
 import { ScenarioStats } from './components/ScenarioStats'
@@ -363,26 +354,15 @@ export function ScenarioManagement() {
       )}
 
       {/* 削除確認ダイアログ */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>シナリオを削除しますか？</AlertDialogTitle>
-            <AlertDialogDescription>
-              {scenarioToDelete && (
-                <>
-                  「{scenarioToDelete.title}」を削除します。この操作は取り消せません。
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>キャンセル</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
-              削除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmModal
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={confirmDelete}
+        title="シナリオを削除"
+        message={scenarioToDelete ? `「${scenarioToDelete.title}」を削除します。この操作は取り消せません。` : ''}
+        variant="danger"
+        confirmLabel="削除"
+      />
     </div>
   )
 }

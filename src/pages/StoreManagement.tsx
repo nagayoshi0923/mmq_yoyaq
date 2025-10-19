@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { StoreEditModal } from '@/components/modals/StoreEditModal'
+import { ConfirmModal } from '@/components/patterns/modal'
 import { storeApi } from '@/lib/api'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import type { Store } from '@/types'
@@ -31,6 +32,8 @@ export function StoreManagement() {
   const [error, setError] = useState('')
   const [editingStore, setEditingStore] = useState<Store | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [storeToDelete, setStoreToDelete] = useState<Store | null>(null)
 
   // スクロール位置の保存と復元（汎用フックを使用）
   useScrollRestoration({ pageKey: 'store', isLoading: loading })
@@ -72,15 +75,20 @@ export function StoreManagement() {
     }
   }
 
-  async function handleDeleteStore(store: Store) {
-    if (!confirm(`「${store.name}」を削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
-      return
-    }
+  function openDeleteDialog(store: Store) {
+    setStoreToDelete(store)
+    setDeleteDialogOpen(true)
+  }
+
+  async function confirmDeleteStore() {
+    if (!storeToDelete) return
 
     try {
-      await storeApi.delete(store.id)
+      await storeApi.delete(storeToDelete.id)
       // 削除成功後、リストから除去
-      setStores(prev => prev.filter(s => s.id !== store.id))
+      setStores(prev => prev.filter(s => s.id !== storeToDelete.id))
+      setDeleteDialogOpen(false)
+      setStoreToDelete(null)
     } catch (err: any) {
       logger.error('Error deleting store:', err)
       alert('店舗の削除に失敗しました: ' + err.message)
@@ -373,7 +381,7 @@ export function StoreManagement() {
                         variant="destructive" 
                         size="sm" 
                         className="flex-1"
-                        onClick={() => handleDeleteStore(store)}
+                        onClick={() => openDeleteDialog(store)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         削除
@@ -393,6 +401,17 @@ export function StoreManagement() {
         isOpen={isEditModalOpen}
         onClose={handleCloseEditModal}
         onSave={handleSaveStore}
+      />
+
+      {/* 削除確認ダイアログ */}
+      <ConfirmModal
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={confirmDeleteStore}
+        title="店舗を削除"
+        message={storeToDelete ? `「${storeToDelete.name}」を削除します。この操作は取り消せません。` : ''}
+        variant="danger"
+        confirmLabel="削除"
       />
     </div>
   )

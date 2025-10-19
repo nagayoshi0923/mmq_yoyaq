@@ -243,9 +243,7 @@ export function ScheduleManager() {
                 label: '削除',
                 icon: <Trash2 className="w-4 h-4" />,
                 onClick: () => {
-                  if (confirm('この公演を削除しますか？')) {
-                    eventOperations.handleDeletePerformance(contextMenuActions.contextMenu!.event!)
-                  }
+                  eventOperations.handleDeletePerformance(contextMenuActions.contextMenu!.event!)
                   contextMenuActions.setContextMenu(null)
                 },
                 separator: true

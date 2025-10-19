@@ -5,17 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { ConfirmModal } from '@/components/patterns/modal'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
@@ -334,22 +325,15 @@ export function StaffManagement() {
         />
 
         {/* 削除確認ダイアログ */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={closeDeleteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>スタッフを削除しますか？</AlertDialogTitle>
-              <AlertDialogDescription>
-                {staffToDelete?.name}さんのデータを削除します。この操作は取り消せません。
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>キャンセル</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteStaff} className="bg-red-600 hover:bg-red-700">
-                削除する
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <ConfirmModal
+          open={deleteDialogOpen}
+          onClose={closeDeleteDialog}
+          onConfirm={handleDeleteStaff}
+          title="スタッフを削除"
+          message={`${staffToDelete?.name}さんのデータを削除します。この操作は取り消せません。`}
+          variant="danger"
+          confirmLabel="削除する"
+        />
 
         {/* スタッフ招待モーダル（既存コードを一時的に簡略化） */}
         <Dialog open={isInviteModalOpen} onOpenChange={closeInviteModal}>

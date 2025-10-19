@@ -93,7 +93,7 @@ function PerformanceCardBase({
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!event.is_cancelled && onContextMenu) {
+    if (onContextMenu) {
       onContextMenu(event, e.clientX, e.clientY)
     }
   }

@@ -58,7 +58,7 @@ export const ConfirmModal = memo(function ConfirmModal({
               onConfirm()
               onClose()
             }}
-            variant={variant === 'danger' ? 'destructive' : 'default'}
+            variant={variant === 'danger' || variant === 'warning' ? 'destructive' : 'default'}
           >
             {confirmLabel}
           </Button>
