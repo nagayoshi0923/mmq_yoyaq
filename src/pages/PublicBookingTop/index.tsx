@@ -38,7 +38,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   )
 
   // リストビューデータフック
-  const { listViewMonth, changeListViewMonth, generateListViewData, getEventsForDateStore } = useListViewData(
+  const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(
     allEvents,
     stores,
     selectedStoreFilter
@@ -158,11 +158,11 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             <TabsContent value="list">
               <ListView
                 listViewMonth={listViewMonth}
-                onChangeMonth={changeListViewMonth}
+                onMonthChange={setListViewMonth}
                 selectedStoreFilter={selectedStoreFilter}
                 onStoreFilterChange={setSelectedStoreFilter}
                 stores={stores}
-                listViewData={generateListViewData()}
+                listViewData={listViewData}
                 getEventsForDateStore={getEventsForDateStore}
                 getColorFromName={getColorFromName}
                 scenarios={scenarios}
