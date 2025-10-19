@@ -17,15 +17,19 @@ export interface Column<T> {
   /**
    * 列のヘッダーラベル
    */
-  label: string
+  header: string
   /**
-   * 列の幅（Tailwindクラス）
+   * 列の幅（Tailwindクラス、オプション）
    */
-  width: string
+  width?: string
   /**
    * ソート可能か
    */
   sortable?: boolean
+  /**
+   * テキスト配置
+   */
+  align?: 'left' | 'center' | 'right'
   /**
    * セルのレンダリング関数
    */
@@ -120,11 +124,12 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
       columns.map((col) => ({
         id: col.key,
         accessorFn: (row) => row,
-        header: () => col.renderHeader?.() || col.label,
+        header: () => col.renderHeader?.() || col.header,
         cell: ({ row }) => col.render(row.original),
         enableSorting: col.sortable ?? false,
         meta: {
           width: col.width,
+          align: col.align,
           headerClassName: col.headerClassName,
           cellClassName: col.cellClassName,
         },
@@ -195,11 +200,12 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
               headerGroup.headers.map((header) => {
                 const meta = header.column.columnDef.meta as any
                 const isSortable = header.column.getCanSort()
+                const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
                 
                 return (
                   <div
                     key={header.id}
-                    className={`flex-shrink-0 ${meta?.width || 'flex-1'} px-3 py-2 border-r font-medium text-sm ${
+                    className={`${meta?.width || 'flex-1'} px-3 py-2 border-r font-medium text-sm ${alignClass} ${
                       isSortable ? 'cursor-pointer hover:bg-muted/50' : ''
                     } ${meta?.headerClassName || ''}`}
                     onClick={
@@ -230,10 +236,11 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                 <div className="flex items-center min-h-[60px]">
                   {row.getVisibleCells().map((cell) => {
                     const meta = cell.column.columnDef.meta as any
+                    const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
                     return (
                       <div
                         key={cell.id}
-                        className={`flex-shrink-0 ${meta?.width || 'flex-1'} px-3 py-2 border-r ${
+                        className={`${meta?.width || 'flex-1'} px-3 py-2 border-r ${alignClass} ${
                           meta?.cellClassName || ''
                         }`}
                       >

@@ -27,7 +27,7 @@ export function createScenarioColumns(
   const columns: Column<Scenario>[] = [
     {
       key: 'title',
-      label: 'タイトル',
+      header: 'タイトル',
       width: 'w-40',
       sortable: true,
       render: (scenario) => (
@@ -38,7 +38,7 @@ export function createScenarioColumns(
     },
     {
       key: 'author',
-      label: '作者',
+      header: '作者',
       width: 'w-32',
       sortable: true,
       render: (scenario) => (
@@ -49,7 +49,7 @@ export function createScenarioColumns(
     },
     {
       key: 'duration',
-      label: '所要時間',
+      header: '所要時間',
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
@@ -60,7 +60,7 @@ export function createScenarioColumns(
     },
     {
       key: 'player_count',
-      label: '人数',
+      header: '人数',
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
@@ -76,7 +76,7 @@ export function createScenarioColumns(
   if (displayMode === 'compact') {
     columns.push({
       key: 'available_gms',
-      label: '担当GM',
+      header: '担当GM',
       width: 'w-96',
       sortable: true,
       render: (scenario) => {
@@ -108,7 +108,7 @@ export function createScenarioColumns(
     columns.push(
       {
         key: 'difficulty',
-        label: '難易度',
+        header: '難易度',
         width: 'w-24',
         sortable: true,
         render: (scenario) => (
@@ -124,7 +124,7 @@ export function createScenarioColumns(
       },
       {
         key: 'license',
-        label: 'ライセンス料',
+        header: 'ライセンス料',
         width: 'w-28',
         render: (scenario) => {
           const normalLicense = scenario.license_amount || 0
@@ -153,7 +153,7 @@ export function createScenarioColumns(
   columns.push(
     {
       key: 'participation_fee',
-      label: '参加費',
+      header: '参加費',
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
@@ -164,7 +164,7 @@ export function createScenarioColumns(
     },
     {
       key: 'status',
-      label: 'ステータス',
+      header: 'ステータス',
       width: 'w-28',
       sortable: true,
       render: (scenario) => (
@@ -183,7 +183,7 @@ export function createScenarioColumns(
   if (displayMode === 'detailed') {
     columns.push({
       key: 'genre',
-      label: 'ジャンル',
+      header: 'ジャンル',
       width: 'flex-1 min-w-0',
       cellClassName: 'min-w-0',
       render: (scenario) => {
@@ -209,7 +209,7 @@ export function createScenarioColumns(
   // アクション列
   columns.push({
     key: 'actions',
-    label: 'アクション',
+      header: 'アクション',
     width: 'w-24',
     headerClassName: 'text-center',
     render: (scenario) => (
