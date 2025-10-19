@@ -113,7 +113,7 @@ export function useStoreAndGMManagement() {
       const { data, error } = await supabase
         .from('staff')
         .select('id, name')
-        .eq('role', 'gm')
+        .contains('role', ['gm'])
         .order('name')
 
       if (error) throw error
