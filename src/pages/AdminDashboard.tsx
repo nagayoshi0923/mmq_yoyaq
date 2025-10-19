@@ -1,22 +1,9 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, lazy, Suspense } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { StoreManagement } from './StoreManagement'
-import { ScenarioManagement } from './ScenarioManagement'
-import { StaffManagement } from './StaffManagement'
-import { ScheduleManager } from './ScheduleManager/index'
-import SalesManagement from './SalesManagement'
-import { ShiftSubmission } from './ShiftSubmission/index'
-import { ReservationManagement } from './ReservationManagement'
-import { PublicBookingTop } from './PublicBookingTop'
-import { ScenarioDetailPage } from './ScenarioDetailPage'
-import { GMAvailabilityCheck } from './GMAvailabilityCheck'
-import { PrivateBookingScenarioSelect } from './PrivateBookingScenarioSelect'
-import { PrivateBookingRequestPage } from './PrivateBookingRequestPage'
-import { PrivateBookingManagement } from './PrivateBookingManagement'
-import { UserManagement } from './UserManagement'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
   Store, 
@@ -28,6 +15,22 @@ import {
   Settings,
   UserCog
 } from 'lucide-react'
+
+// コード分割：各ページを動的インポート
+const StoreManagement = lazy(() => import('./StoreManagement').then(m => ({ default: m.StoreManagement })))
+const ScenarioManagement = lazy(() => import('./ScenarioManagement').then(m => ({ default: m.ScenarioManagement })))
+const StaffManagement = lazy(() => import('./StaffManagement').then(m => ({ default: m.StaffManagement })))
+const ScheduleManager = lazy(() => import('./ScheduleManager/index').then(m => ({ default: m.ScheduleManager })))
+const SalesManagement = lazy(() => import('./SalesManagement'))
+const ShiftSubmission = lazy(() => import('./ShiftSubmission/index').then(m => ({ default: m.ShiftSubmission })))
+const ReservationManagement = lazy(() => import('./ReservationManagement').then(m => ({ default: m.ReservationManagement })))
+const PublicBookingTop = lazy(() => import('./PublicBookingTop').then(m => ({ default: m.PublicBookingTop })))
+const ScenarioDetailPage = lazy(() => import('./ScenarioDetailPage').then(m => ({ default: m.ScenarioDetailPage })))
+const GMAvailabilityCheck = lazy(() => import('./GMAvailabilityCheck').then(m => ({ default: m.GMAvailabilityCheck })))
+const PrivateBookingScenarioSelect = lazy(() => import('./PrivateBookingScenarioSelect').then(m => ({ default: m.PrivateBookingScenarioSelect })))
+const PrivateBookingRequestPage = lazy(() => import('./PrivateBookingRequestPage').then(m => ({ default: m.PrivateBookingRequestPage })))
+const PrivateBookingManagement = lazy(() => import('./PrivateBookingManagement').then(m => ({ default: m.PrivateBookingManagement })))
+const UserManagement = lazy(() => import('./UserManagement').then(m => ({ default: m.UserManagement })))
 
 export function AdminDashboard() {
   const { user } = useAuth()
@@ -60,7 +63,10 @@ export function AdminDashboard() {
   }
 
   const [currentPage, setCurrentPage] = useState(() => {
-    const { page } = parseHash(window.location.hash.slice(1), user?.role)
+    const hash = window.location.hash.slice(1)
+    // ハッシュがない場合はダッシュボードを表示（ユーザーロールによる判定は後で行う）
+    if (!hash) return 'dashboard'
+    const { page } = parseHash(hash, user?.role)
     return page
   })
   
@@ -88,6 +94,17 @@ export function AdminDashboard() {
     window.location.hash = 'customer-booking'
   }, [])
 
+  // ユーザーロールが確定したときに初回リダイレクト
+  React.useEffect(() => {
+    if (user && currentPage === 'dashboard' && !window.location.hash) {
+      // customerロールの場合のみ予約サイトにリダイレクト
+      if (user.role === 'customer') {
+        setCurrentPage('customer-booking')
+        window.location.hash = 'customer-booking'
+      }
+    }
+  }, [user, currentPage])
+
   // ブラウザの戻る/進むボタンに対応
   React.useEffect(() => {
     const handleHashChange = () => {
@@ -100,13 +117,28 @@ export function AdminDashboard() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [user?.role])
 
-  // モックデータ（後でSupabaseから取得）
-  const stats = {
-    stores: 6,
-    performances: 42,
-    reservations: 128,
-    revenue: 1250000
-  }
+  // 統計情報を遅延ロード（ダッシュボード表示をブロックしない）
+  const [stats, setStats] = React.useState({
+    stores: 0,
+    performances: 0,
+    reservations: 0,
+    revenue: 0
+  })
+
+  // ダッシュボード表示時のみ統計を取得
+  React.useEffect(() => {
+    if (currentPage === 'dashboard') {
+      // モックデータ（後でSupabaseから取得）
+      setTimeout(() => {
+        setStats({
+          stores: 6,
+          performances: 42,
+          reservations: 128,
+          revenue: 1250000
+        })
+      }, 100) // 少し遅延させてUIを優先
+    }
+  }, [currentPage])
 
   const navigationTabs = [
     { id: 'stores', label: '店舗', icon: Store, color: 'bg-blue-100 text-blue-800' },
@@ -122,67 +154,121 @@ export function AdminDashboard() {
     { id: 'settings', label: '設定', icon: Settings, color: 'bg-gray-100 text-gray-800' }
   ]
 
-  // ページ切り替え処理
+  // ページ切り替え処理（Suspense でラップ）
   if (currentPage === 'stores') {
-    return <StoreManagement />
+    return (
+      <Suspense fallback={<LoadingScreen message="店舗管理を読み込み中..." />}>
+        <StoreManagement />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'schedule') {
-    return <ScheduleManager />
+    return (
+      <Suspense fallback={<LoadingScreen message="スケジュールを読み込み中..." />}>
+        <ScheduleManager />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'scenarios') {
-    return <ScenarioManagement />
+    return (
+      <Suspense fallback={<LoadingScreen message="シナリオ管理を読み込み中..." />}>
+        <ScenarioManagement />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'staff') {
-    return <StaffManagement />
+    return (
+      <Suspense fallback={<LoadingScreen message="スタッフ管理を読み込み中..." />}>
+        <StaffManagement />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'sales') {
-    return <SalesManagement />
+    return (
+      <Suspense fallback={<LoadingScreen message="売上管理を読み込み中..." />}>
+        <SalesManagement />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'shift-submission') {
-    return <ShiftSubmission />
+    return (
+      <Suspense fallback={<LoadingScreen message="シフト提出を読み込み中..." />}>
+        <ShiftSubmission />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'customer-booking') {
     // シナリオ詳細が選択されている場合
     if (selectedScenarioId) {
       return (
-        <ScenarioDetailPage 
-          scenarioId={selectedScenarioId}
-          onClose={handleScenarioClose}
-        />
+        <Suspense fallback={<LoadingScreen message="シナリオ詳細を読み込み中..." />}>
+          <ScenarioDetailPage 
+            scenarioId={selectedScenarioId}
+            onClose={handleScenarioClose}
+          />
+        </Suspense>
       )
     }
     // トップページを表示
-    return <PublicBookingTop onScenarioSelect={handleScenarioSelect} />
+    return (
+      <Suspense fallback={<LoadingScreen message="予約サイトを読み込み中..." />}>
+        <PublicBookingTop onScenarioSelect={handleScenarioSelect} />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'reservations') {
-    return <ReservationManagement />
+    return (
+      <Suspense fallback={<LoadingScreen message="予約管理を読み込み中..." />}>
+        <ReservationManagement />
+      </Suspense>
+    )
   }
 
   if (currentPage === 'gm-availability') {
-    return <GMAvailabilityCheck />
+    return (
+      <Suspense fallback={<LoadingScreen message="GM可否確認を読み込み中..." />}>
+        <GMAvailabilityCheck />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'private-booking-select') {
-    return <PrivateBookingScenarioSelect />
+    return (
+      <Suspense fallback={<LoadingScreen message="貸切予約を読み込み中..." />}>
+        <PrivateBookingScenarioSelect />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'private-booking-request') {
-    return <PrivateBookingRequestPage />
+    return (
+      <Suspense fallback={<LoadingScreen message="貸切予約リクエストを読み込み中..." />}>
+        <PrivateBookingRequestPage />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'private-booking-management') {
-    return <PrivateBookingManagement />
+    return (
+      <Suspense fallback={<LoadingScreen message="貸切予約管理を読み込み中..." />}>
+        <PrivateBookingManagement />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'user-management') {
-    return <UserManagement />
+    return (
+      <Suspense fallback={<LoadingScreen message="ユーザー管理を読み込み中..." />}>
+        <UserManagement />
+      </Suspense>
+    )
   }
 
   return (

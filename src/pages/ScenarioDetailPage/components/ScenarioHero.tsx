@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Clock, Users, Star, ExternalLink } from 'lucide-react'
 import type { ScenarioDetail } from '../utils/types'
 
@@ -19,19 +20,23 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHer
           {/* キービジュアル */}
           <div className="lg:col-span-4">
             <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden shadow-2xl">
-              {scenario.key_visual_url ? (
-                <img
-                  src={scenario.key_visual_url}
-                  alt={scenario.scenario_title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                  <div className="text-center p-8">
-                    <p className="font-bold text-2xl">{scenario.scenario_title}</p>
+              <OptimizedImage
+                src={scenario.key_visual_url}
+                alt={scenario.scenario_title}
+                className="w-full h-full object-cover"
+                responsive={true}
+                srcSetSizes={[400, 800, 1200]}
+                breakpoints={{ mobile: 400, tablet: 600, desktop: 800 }}
+                useWebP={true}
+                quality={90}
+                fallback={
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    <div className="text-center p-8">
+                      <p className="font-bold text-2xl">{scenario.scenario_title}</p>
+                    </div>
                   </div>
-                </div>
-              )}
+                }
+              />
             </div>
           </div>
 
