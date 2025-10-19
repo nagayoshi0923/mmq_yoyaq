@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
@@ -14,16 +14,18 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import { ConfirmModal } from '@/components/patterns/modal'
+import { DataTable } from '@/components/patterns/table'
 
 // 分離されたコンポーネント
 import { ScenarioStats } from './components/ScenarioStats'
 import { ScenarioFilters } from './components/ScenarioFilters'
-import { ScenarioTableHeader } from './components/ScenarioTableHeader'
-import { ScenarioTableRow } from './components/ScenarioTableRow'
 
 // 分離されたフック
 import { useScenarioData } from './hooks/useScenarioData'
 import { useScenarioFilters } from './hooks/useScenarioFilters'
+
+// テーブル列定義
+import { createScenarioColumns } from './utils/tableColumns'
 
 export function ScenarioManagement() {
   // データ管理
@@ -303,47 +305,29 @@ export function ScenarioManagement() {
           </div>
 
           {/* テーブル */}
-          <div className="space-y-2">
-            {/* ヘッダー */}
-            <ScenarioTableHeader
-              displayMode={displayMode}
-              sortState={sortState}
-              onSort={handleSort}
-            />
-
-            {/* データ行 */}
-            {filteredAndSortedScenarios.length > 0 ? (
-              <div className="space-y-1">
-                {filteredAndSortedScenarios.map((scenario) => (
-                  <ScenarioTableRow
-                    key={scenario.id}
-                    scenario={scenario}
-                    displayMode={displayMode}
-                    onEdit={handleEditScenario}
-                    onDelete={openDeleteDialog}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    {searchTerm || statusFilter !== 'all' 
-                      ? '検索条件に一致するシナリオが見つかりません' 
-                      : 'シナリオが登録されていません'}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <DataTable
+            data={filteredAndSortedScenarios}
+            columns={useMemo(() => createScenarioColumns(displayMode, {
+              onEdit: handleEditScenario,
+              onDelete: openDeleteDialog
+            }), [displayMode])}
+            getRowKey={(scenario) => scenario.id}
+            sortState={sortState}
+            onSort={handleSort}
+            emptyMessage={
+              searchTerm || statusFilter !== 'all' 
+                ? '検索条件に一致するシナリオが見つかりません' 
+                : 'シナリオが登録されていません'
+            }
+            loading={loading}
+          />
         </div>
       </div>
 
       {/* 編集モーダル */}
       {isEditModalOpen && (
         <ScenarioEditModal
-          open={isEditModalOpen}
+          isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false)
             setEditingScenario(null)

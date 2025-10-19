@@ -1,209 +1,184 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ReactNode, memo } from 'react'
+import { Card, CardContent } from '@/components/ui/card'
 
-export interface DataTableColumn<T> {
+export interface Column<T> {
   /**
-   * カラムの一意なキー
+   * 列のキー
    */
   key: string
   /**
-   * カラムのヘッダーラベル
+   * 列のヘッダーラベル
    */
-  header: string
+  label: string
   /**
-   * セルの内容をレンダリングする関数
+   * 列の幅（Tailwindクラス）
    */
-  cell: (row: T, index: number) => ReactNode
-  /**
-   * カラムの幅
-   */
-  width?: string
-  /**
-   * テキストの配置
-   */
-  align?: 'left' | 'center' | 'right'
+  width: string
   /**
    * ソート可能か
    */
   sortable?: boolean
+  /**
+   * セルのレンダリング関数
+   */
+  render: (item: T) => ReactNode
+  /**
+   * ヘッダーのカスタムレンダリング（オプション）
+   */
+  renderHeader?: () => ReactNode
+  /**
+   * ヘッダーのクラス名
+   */
+  headerClassName?: string
+  /**
+   * セルのクラス名
+   */
+  cellClassName?: string
 }
 
-interface DataTableProps<T> {
-  /**
-   * カラム定義
-   */
-  columns: DataTableColumn<T>[]
+export interface DataTableProps<T> {
   /**
    * 表示するデータ
    */
   data: T[]
   /**
+   * 列定義
+   */
+  columns: Column<T>[]
+  /**
    * 行のキーを取得する関数
    */
-  getRowKey: (row: T, index: number) => string
+  getRowKey: (item: T) => string
   /**
-   * ツールバー（検索、フィルターなど）
+   * ソート状態
    */
-  toolbar?: ReactNode
+  sortState?: {
+    field: string
+    direction: 'asc' | 'desc'
+  }
   /**
-   * 行アクション（各行の右端に表示されるボタンなど）
+   * ソート変更ハンドラ
    */
-  rowActions?: (row: T, index: number) => ReactNode
+  onSort?: (field: string) => void
   /**
-   * 空の状態の表示
+   * データがない場合のメッセージ
    */
-  emptyState?: ReactNode
+  emptyMessage?: string
   /**
-   * 読み込み中の表示
+   * ローディング中か
    */
   loading?: boolean
-  /**
-   * 行クリック時のコールバック
-   */
-  onRowClick?: (row: T, index: number) => void
-  /**
-   * カスタムスタイル
-   */
-  className?: string
 }
 
 /**
- * DataTable<T> - 汎用的なテーブルコンポーネント
+ * DataTable - 汎用テーブルコンポーネント
  * 
- * ScenarioTableをベースにした再利用可能なテーブル。
- * 型安全で、カラム定義のみで様々なテーブルを構築できます。
+ * ScenarioManagement のテーブルレイアウトをベースにした共通テーブル
  * 
  * @example
  * ```tsx
- * interface User {
- *   id: string
- *   name: string
- *   email: string
- * }
- * 
- * const columns: DataTableColumn<User>[] = [
+ * const columns: Column<Scenario>[] = [
  *   {
- *     key: 'name',
- *     header: '名前',
- *     cell: (user) => user.name
- *   },
- *   {
- *     key: 'email',
- *     header: 'メール',
- *     cell: (user) => user.email
+ *     key: 'title',
+ *     label: 'タイトル',
+ *     width: 'w-40',
+ *     sortable: true,
+ *     render: (item) => <p>{item.title}</p>
  *   }
  * ]
  * 
  * <DataTable
+ *   data={scenarios}
  *   columns={columns}
- *   data={users}
- *   getRowKey={(user) => user.id}
- *   rowActions={(user) => (
- *     <Button onClick={() => handleEdit(user)}>編集</Button>
- *   )}
+ *   getRowKey={(item) => item.id}
+ *   sortState={sortState}
+ *   onSort={handleSort}
  * />
  * ```
  */
 export const DataTable = memo(function DataTable<T>({
-  columns,
   data,
+  columns,
   getRowKey,
-  toolbar,
-  rowActions,
-  emptyState,
-  loading = false,
-  onRowClick,
-  className = ''
+  sortState,
+  onSort,
+  emptyMessage = 'データがありません',
+  loading = false
 }: DataTableProps<T>) {
-  const hasRowActions = !!rowActions
+  const handleHeaderClick = (column: Column<T>) => {
+    if (column.sortable && onSort) {
+      onSort(column.key)
+    }
+  }
+
+  const getSortIcon = (columnKey: string) => {
+    if (!sortState || sortState.field !== columnKey) return null
+    return sortState.direction === 'asc' ? ' ↑' : ' ↓'
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">
+          読み込み中...
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {/* ツールバー */}
-      {toolbar && (
-        <div className="flex items-center justify-between">
-          {toolbar}
-        </div>
-      )}
+    <div className="space-y-1">
+      {/* ヘッダー行 */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="flex items-center h-[50px] bg-muted/30">
+            {columns.map((column) => (
+              <div
+                key={column.key}
+                className={`flex-shrink-0 ${column.width} px-3 py-2 border-r font-medium text-sm ${
+                  column.sortable ? 'cursor-pointer hover:bg-muted/50' : ''
+                } ${column.headerClassName || ''}`}
+                onClick={() => handleHeaderClick(column)}
+              >
+                {column.renderHeader ? column.renderHeader() : (
+                  <>
+                    {column.label}
+                    {column.sortable && getSortIcon(column.key)}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* テーブル */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {columns.map((column) => (
-                <TableHead
-                  key={column.key}
-                  style={{ width: column.width }}
-                  className={`
-                    ${column.align === 'center' ? 'text-center' : ''}
-                    ${column.align === 'right' ? 'text-right' : ''}
-                  `}
-                >
-                  {column.header}
-                </TableHead>
-              ))}
-              {hasRowActions && (
-                <TableHead className="w-[100px] text-right">アクション</TableHead>
-              )}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length + (hasRowActions ? 1 : 0)}
-                  className="h-24 text-center"
-                >
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                    <span className="ml-2 text-muted-foreground">読み込み中...</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : data.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length + (hasRowActions ? 1 : 0)}
-                  className="h-24 text-center"
-                >
-                  {emptyState || (
-                    <div className="text-muted-foreground">
-                      データがありません
-                    </div>
-                  )}
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((row, index) => (
-                <TableRow
-                  key={getRowKey(row, index)}
-                  onClick={onRowClick ? () => onRowClick(row, index) : undefined}
-                  className={onRowClick ? 'cursor-pointer hover:bg-muted/50' : ''}
-                >
+      {/* データ行 */}
+      {data.length > 0 ? (
+        <div className="space-y-1">
+          {data.map((item) => (
+            <Card key={getRowKey(item)}>
+              <CardContent className="p-0">
+                <div className="flex items-center min-h-[60px]">
                   {columns.map((column) => (
-                    <TableCell
+                    <div
                       key={column.key}
-                      className={`
-                        ${column.align === 'center' ? 'text-center' : ''}
-                        ${column.align === 'right' ? 'text-right' : ''}
-                      `}
+                      className={`flex-shrink-0 ${column.width} px-3 py-2 border-r ${column.cellClassName || ''}`}
                     >
-                      {column.cell(row, index)}
-                    </TableCell>
+                      {column.render(item)}
+                    </div>
                   ))}
-                  {hasRowActions && (
-                    <TableCell className="text-right">
-                      {rowActions(row, index)}
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            {emptyMessage}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }) as <T>(props: DataTableProps<T>) => JSX.Element
-
