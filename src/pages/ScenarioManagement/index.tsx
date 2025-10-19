@@ -60,22 +60,9 @@ export function ScenarioManagement() {
     statusFilter,
     setStatusFilter,
     sortState,
-    handleSort: handleSortInternal,
+    handleSort,
     filteredAndSortedScenarios
   } = useScenarioFilters(scenarios)
-
-  // TanStack Table用のソートハンドラー（アダプター）
-  const handleSort: (sortState: { field: string; direction: 'asc' | 'desc' } | undefined) => void = (newSortState) => {
-    if (newSortState) {
-      handleSortInternal(newSortState.field as any)
-    }
-  }
-
-  // TanStack Table用のソート状態（変換）
-  const tanStackSortState = sortState ? {
-    field: sortState.field,
-    direction: sortState.direction
-  } : undefined
   
   // テーブル列定義（useMemoは常に呼ばれる位置に）
   const tableColumns = useMemo(() => createScenarioColumns(displayMode, {
@@ -326,7 +313,7 @@ export function ScenarioManagement() {
             data={filteredAndSortedScenarios}
             columns={tableColumns}
             getRowKey={(scenario) => scenario.id}
-            sortState={tanStackSortState}
+            sortState={sortState}
             onSort={handleSort}
             emptyMessage={
               searchTerm || statusFilter !== 'all' 

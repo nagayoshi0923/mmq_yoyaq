@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import type { Scenario } from '@/types'
-import { useSortableTable } from '@/hooks/useSortableTable'
 
 type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count' | 'player_count_min' | 'difficulty' | 'participation_fee' | 'status' | 'available_gms' | 'genre'
 
@@ -11,12 +10,13 @@ export function useScenarioFilters(scenarios: Scenario[]) {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   
-  // 並び替え機能
-  const { sortState, handleSort, sortData } = useSortableTable<ScenarioSortField>({
-    storageKey: 'scenario_sort_state',
-    defaultField: 'title',
-    defaultDirection: 'desc'
-  })
+  // ソート状態
+  const [sortState, setSortState] = useState<{ field: ScenarioSortField; direction: 'asc' | 'desc' } | undefined>(undefined)
+
+  // ソートハンドラー
+  const handleSort = (newSortState: { field: string; direction: 'asc' | 'desc' } | undefined) => {
+    setSortState(newSortState as any)
+  }
 
   // フィルタリング済みシナリオ
   const filteredScenarios = useMemo(() => {
