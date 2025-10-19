@@ -15,7 +15,14 @@ export function useStaffFilters({ staff, searchTerm, statusFilter }: UseStaffFil
    * フィルタリングされたスタッフリスト
    */
   const filteredStaff = useMemo(() => {
-    return staff.filter(member => {
+    console.log('🔍 フィルタリング開始:', { 
+      総スタッフ数: staff.length, 
+      検索ワード: searchTerm, 
+      ステータスフィルタ: statusFilter,
+      スタッフサンプル: staff[0]
+    })
+    
+    const filtered = staff.filter(member => {
       // 検索条件: 名前またはLINE名に部分一致
       const matchesSearch = !searchTerm || 
         (member.name && member.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -24,8 +31,13 @@ export function useStaffFilters({ staff, searchTerm, statusFilter }: UseStaffFil
       // ステータスフィルタ: 'all' または一致するステータス
       const matchesStatus = statusFilter === 'all' || member.status === statusFilter
       
+      console.log(`📝 ${member.name}:`, { matchesSearch, matchesStatus, status: member.status })
+      
       return matchesSearch && matchesStatus
     })
+    
+    console.log('✅ フィルタリング結果:', filtered.length, '件')
+    return filtered
   }, [staff, searchTerm, statusFilter])
 
   /**

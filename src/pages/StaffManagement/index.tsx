@@ -59,8 +59,23 @@ export function StaffManagement() {
   } = useStoresAndScenarios()
 
   // フィルタ状態
-  const [searchTerm, setSearchTerm] = useState(() => restoreState('searchTerm', ''))
-  const [statusFilter, setStatusFilter] = useState(() => restoreState('statusFilter', 'all'))
+  const [searchTerm, setSearchTerm] = useState(() => {
+    const restored = restoreState('searchTerm', '')
+    console.log('🔍 searchTerm restored:', restored)
+    return restored || ''
+  })
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    const restored = restoreState('statusFilter', 'all')
+    console.log('🎯 statusFilter restored:', restored, 'type:', typeof restored)
+    // 有効な値かチェック
+    const validStatuses = ['all', 'active', 'inactive', 'on_leave']
+    if (restored && validStatuses.includes(restored)) {
+      return restored
+    }
+    // 無効な値の場合は 'all' にリセット
+    console.warn('⚠️ Invalid statusFilter:', restored, '→ reset to "all"')
+    return 'all'
+  })
 
   // フィルタリング
   const { filteredStaff } = useStaffFilters({
