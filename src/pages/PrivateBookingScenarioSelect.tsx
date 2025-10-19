@@ -130,6 +130,7 @@ export function PrivateBookingScenarioSelect() {
                       <img
                         src={scenario.key_visual_url}
                         alt={scenario.title}
+                        loading="lazy"
                         className="w-full h-full object-cover"
                       />
                     </div>

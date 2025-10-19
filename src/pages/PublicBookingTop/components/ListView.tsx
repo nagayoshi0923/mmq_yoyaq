@@ -82,6 +82,7 @@ export const ListView = memo(function ListView({
                 <img
                   src={event.scenarios.image_url}
                   alt={event.scenario || event.scenarios?.title}
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
               ) : (

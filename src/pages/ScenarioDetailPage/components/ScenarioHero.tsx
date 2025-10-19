@@ -23,6 +23,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHer
                 <img
                   src={scenario.key_visual_url}
                   alt={scenario.scenario_title}
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
               ) : (

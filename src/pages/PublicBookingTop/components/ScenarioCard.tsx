@@ -51,6 +51,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick }: Sc
           <img 
             src={scenario.key_visual_url} 
             alt={scenario.scenario_title}
+            loading="lazy"
             className="w-full h-full object-cover"
           />
         ) : (
