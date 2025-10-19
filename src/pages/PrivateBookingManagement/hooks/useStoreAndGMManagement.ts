@@ -128,14 +128,14 @@ export function useStoreAndGMManagement() {
     try {
       const { data: responses, error } = await supabase
         .from('gm_availability_responses')
-        .select('gm_id, gm_name, response_type, available_candidates, selected_candidate_index, notes')
+        .select('staff_id, gm_name, response_type, available_candidates, selected_candidate_index, notes')
         .eq('reservation_id', reservationId)
         .in('response_type', ['available', 'unavailable'])
       
       if (error) throw error
 
       const gmList = (responses || []).map(response => ({
-        gm_id: response.gm_id,
+        gm_id: response.staff_id,
         gm_name: response.gm_name,
         response_type: response.response_type,
         available_candidates: response.available_candidates || [],
