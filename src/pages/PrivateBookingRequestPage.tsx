@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { PrivateBookingRequest } from './PrivateBookingRequest'
+import { PrivateBookingRequest } from './PrivateBookingRequest/index'
 import { scenarioApi, storeApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 

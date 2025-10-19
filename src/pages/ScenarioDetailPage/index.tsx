@@ -6,7 +6,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { BookingConfirmation } from '../BookingConfirmation/index'
-import { PrivateBookingRequest } from '../PrivateBookingRequest'
+import { PrivateBookingRequest } from '../PrivateBookingRequest/index'
 
 // 分離された型定義
 import { TIME_SLOTS } from './utils/types'
