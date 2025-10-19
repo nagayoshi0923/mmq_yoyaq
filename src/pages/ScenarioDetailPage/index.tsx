@@ -27,6 +27,8 @@ import { useScenarioDetail } from './hooks/useScenarioDetail'
 // 分離されたコンポーネント
 import { ScenarioInfo } from './components/ScenarioInfo'
 import { ScenarioHero } from './components/ScenarioHero'
+import { EventList } from './components/EventList'
+import { PrivateBookingForm } from './components/PrivateBookingForm'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -601,282 +603,63 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 <TabsContent value="schedule">
               <div>
                 <h3 className="font-bold mb-3">日付を選択</h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {events.length === 0 ? (
-                    <Card>
-                      <CardContent className="p-4 text-center text-muted-foreground">
-                        現在予約可能な公演はありません
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    events.map((event) => {
-                      const isSelected = selectedEventId === event.event_id
-                      const eventDate = new Date(event.date)
-                      const month = eventDate.getMonth() + 1
-                      const day = eventDate.getDate()
-                      const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-                      const weekday = weekdays[eventDate.getDay()]
-                      const dayOfWeek = eventDate.getDay()
-                      const weekdayColor = dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
-                      
-                      return (
-                        <Card 
-                          key={event.event_id}
-                          className={`transition-all overflow-hidden ${
-                            event.available_seats === 0
-                              ? 'opacity-50 cursor-not-allowed bg-gray-50 border border-gray-200'
-                              : `cursor-pointer ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'hover:bg-accent border'}`
-                          }`}
-                          onClick={() => {
-                            if (event.available_seats === 0) return
-                            setSelectedEventId(isSelected ? null : event.event_id)
-                          }}
-                        >
-                          <div className="flex items-center justify-between gap-2 p-2">
-                            {/* 左側：日付と店舗情報 */}
-                            <div className="flex items-start gap-2 flex-1 min-w-0">
-                              {/* 日付 */}
-                              <div className="font-semibold text-sm whitespace-nowrap min-w-[45px] text-center">
-                                <div>{month}/{day}</div>
-                                <div className={`text-xs ${weekdayColor}`}>
-                                  ({weekday})
-                                </div>
-                              </div>
-                              
-                              {/* 店舗カラーの正方形 + 店舗名 + 時間 */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <div 
-                                    className="flex-shrink-0 w-3 h-3 rounded-sm"
-                              style={{ 
-                                      backgroundColor: event.store_color || '#9CA3AF'
-                                    }}
-                                  />
-                                  <span 
-                                    className="text-sm font-medium"
-                                    style={{ 
-                                      color: event.store_color || '#6B7280'
-                                    }}
-                                  >
-                                    {event.store_short_name}
-                                  </span>
-                                  <span className="font-semibold text-sm">
-                                    {formatTime(event.start_time)}〜
-                                  </span>
-                                </div>
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {event.scenario_title || scenario.scenario_title}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* 中央：残り人数 / 満席バッジ */}
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              {event.available_seats === 0 ? (
-                                <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-sm px-3 py-1">
-                                  満席
-                                </Badge>
-                              ) : (
-                                <div className="text-right">
-                                  <div className="font-semibold text-base">
-                                    残り{event.available_seats}人
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* 右側：選択ボタン */}
-                              <Button
-                                variant={isSelected ? "default" : "outline"}
-                                size="sm"
-                              disabled={event.available_seats === 0}
-                              className={`flex-shrink-0 min-w-[70px] ${
-                                isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
-                              }`}
-                              >
-                              {event.available_seats === 0 ? '満席' : '選択'}
-                              </Button>
-                          </div>
-                        </Card>
-                      )
-                    })
-                  )}
-                </div>
+                <EventList
+                  events={events}
+                  selectedEventId={selectedEventId}
+                  scenarioTitle={scenario.scenario_title}
+                  onEventSelect={setSelectedEventId}
+                />
               </div>
                 </TabsContent>
                 
                 {/* 貸切リクエストタブ */}
                 <TabsContent value="private">
-                  <div>
-                    {/* 店舗選択 */}
-                    <div className="mb-3">
-                      <label className="text-sm font-medium mb-1.5 block">店舗を選択</label>
-                      <MultiSelect
-                        options={stores.map(store => ({
-                          id: store.id,
-                          name: store.name
-                        }))}
-                        selectedValues={selectedStoreIds.map(id => stores.find(s => s.id === id)?.name || '').filter(Boolean)}
-                        onSelectionChange={(storeNames) => {
-                          const storeIds = storeNames.map(name => 
-                            stores.find(s => s.name === name)?.id || ''
-                          ).filter(Boolean)
-                          setSelectedStoreIds(storeIds)
-                        }}
-                        placeholder="店舗を選択（未選択=すべて）"
-                        showBadges={false}
-                      />
-                      {/* 選択された店舗を小さいバッジで表示 */}
-                      {selectedStoreIds.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {selectedStoreIds.map(id => {
-                            const store = stores.find(s => s.id === id)
-                            return store ? (
-                              <Badge 
-                                key={id} 
-                                variant="secondary" 
-                                className="text-[10px] px-1.5 py-0 h-auto"
-                              >
-                                {store.short_name || store.name}
-                              </Badge>
-                            ) : null
-                          })}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* 月切り替え */}
-                    <div className="flex items-center justify-between mb-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => changeMonth(-1)}
-                        disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
-                      >
-                        &lt; 前月
-                      </Button>
-                      <h3 className="font-bold">
-                        {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
-                      </h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => changeMonth(1)}
-                      >
-                        次月 &gt;
-                      </Button>
-                    </div>
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {generatePrivateDates().map((date) => {
-                        const dateObj = new Date(date)
-                        const month = dateObj.getMonth() + 1
-                        const day = dateObj.getDate()
-                        const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-                        const weekday = weekdays[dateObj.getDay()]
-                        
-                        // 曜日の色分け
-                        const dayOfWeek = dateObj.getDay()
-                        const weekdayColor = dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
-                        
-                        return (
-                          <Card key={date}>
-                            <CardContent className="p-2">
-                              <div className="flex items-center gap-2">
-                                {/* 日付 */}
-                                <div className="font-semibold text-sm whitespace-nowrap min-w-[45px] text-center">
-                                  <div>{month}/{day}</div>
-                                  <div className={`text-xs ${weekdayColor}`}>
-                                    ({weekday})
-                                  </div>
-                                </div>
-                                
-                                {/* 時間枠ボタン */}
-                                <div className="flex gap-1 flex-1">
-                                  {TIME_SLOTS.map((slot) => {
-                                    const isAvailable = checkTimeSlotAvailability(date, slot, selectedStoreIds.length > 0 ? selectedStoreIds : undefined)
-                                    const isSelected = isTimeSlotSelected(date, slot)
-                                    
-                                    return (
-                                      <Button
-                                        key={slot.label}
-                                        variant={isSelected ? "default" : "outline"}
-                                        size="sm"
-                                        className={`flex-1 py-1.5 h-auto text-xs px-1 ${
-                                          !isAvailable 
-                                            ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
-                                            : isSelected
-                                            ? 'bg-purple-500 text-white hover:bg-purple-600 border-purple-500'
-                                            : 'hover:border-purple-300'
-                                        }`}
-                                        disabled={!isAvailable}
-                                        onClick={() => {
-                                          if (isAvailable) {
-                                            toggleTimeSlot(date, slot)
-                                          }
-                                        }}
-                                      >
-                                        <div className="flex flex-col items-center leading-tight gap-0.5">
-                                          <span className={`font-semibold ${isSelected ? 'text-white' : ''}`}>
-                                            {slot.label}
-                                          </span>
-                                          <div className="flex items-center gap-1">
-                                            <span className={`text-[10px] font-medium ${
-                                              isSelected ? 'text-white' : isAvailable ? 'text-purple-600' : 'text-gray-500'
-                                            }`}>
-                                              {slot.startTime}〜
-                                            </span>
-                                            {!isAvailable && (
-                                              <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-[9px] px-1 py-0 h-auto">
-                                                満席
-                                              </Badge>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </Button>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        )
-                      })}
-                    </div>
-                    
-                    {/* 選択された時間枠の表示 */}
-                    {selectedTimeSlots.length > 0 && (
-                      <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
-                        <div className="text-xs font-medium text-purple-900 mb-2">
-                          選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
-                        </div>
-                        <div className="space-y-1">
-                          {selectedTimeSlots.map((item, index) => {
-                            const dateObj = new Date(item.date)
-                            const month = dateObj.getMonth() + 1
-                            const day = dateObj.getDate()
-                            const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-                            const weekday = weekdays[dateObj.getDay()]
-                            
-                            return (
-                              <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs">
-                                <span className="text-purple-900">
-                                  {index + 1}. {month}/{day}({weekday}) {item.slot.label} {item.slot.startTime}〜
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-5 w-5 p-0 hover:bg-red-100"
-                                  onClick={() => toggleTimeSlot(item.date, item.slot)}
-                                >
-                                  ×
-                                </Button>
-                              </div>
-                            )
-                          })}
-                        </div>
+                  <PrivateBookingForm
+                    stores={stores}
+                    selectedStoreIds={selectedStoreIds}
+                    onStoreIdsChange={setSelectedStoreIds}
+                    currentMonth={currentMonth}
+                    onMonthChange={changeMonth}
+                    availableDates={generatePrivateDates()}
+                    timeSlots={TIME_SLOTS}
+                    selectedSlots={selectedTimeSlots}
+                    onTimeSlotToggle={toggleTimeSlot}
+                    checkTimeSlotAvailability={checkTimeSlotAvailability}
+                  />
+                  
+                  {/* 選択された時間枠の表示 */}
+                  {selectedTimeSlots.length > 0 && (
+                    <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
+                      <div className="text-xs font-medium text-purple-900 mb-2">
+                        選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                       </div>
-                    )}
-                  </div>
+                      <div className="space-y-1">
+                        {selectedTimeSlots.map((item, index) => {
+                          const dateObj = new Date(item.date)
+                          const month = dateObj.getMonth() + 1
+                          const day = dateObj.getDate()
+                          const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+                          const weekday = weekdays[dateObj.getDay()]
+                          
+                          return (
+                            <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs">
+                              <span className="text-purple-900">
+                                {index + 1}. {month}/{day}({weekday}) {item.slot.label} {item.slot.startTime}〜
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 w-5 p-0 hover:bg-red-100"
+                                onClick={() => toggleTimeSlot(item.date, item.slot)}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
 
