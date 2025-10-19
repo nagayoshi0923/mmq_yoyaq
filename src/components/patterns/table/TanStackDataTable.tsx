@@ -169,7 +169,12 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
           : updaterOrValue
 
       if (newSorting.length > 0) {
-        onSort(newSorting[0].id)
+        onSort({
+          field: newSorting[0].id,
+          direction: newSorting[0].desc ? 'desc' : 'asc'
+        })
+      } else {
+        onSort(undefined)
       }
     },
     manualSorting: !!onSort, // 外部でソートを管理する場合
