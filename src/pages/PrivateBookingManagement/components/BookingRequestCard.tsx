@@ -174,10 +174,7 @@ export const BookingRequestCard = ({
           {showActionButton && (
             <div className="pt-3 border-t">
               <Button
-                onClick={() => {
-                  console.log('🔵 ボタンクリック:', request.id, request.scenario_title)
-                  onSelectRequest(request)
-                }}
+                onClick={() => onSelectRequest(request)}
                 className="w-full"
                 variant="default"
               >

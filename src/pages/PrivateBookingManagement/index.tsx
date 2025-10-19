@@ -92,7 +92,6 @@ export function PrivateBookingManagement() {
   useEffect(() => {
     const initializeRequest = async () => {
       if (selectedRequest) {
-        console.log('🟢 リクエスト選択:', selectedRequest.id, selectedRequest.scenario_title)
         loadAvailableGMs(selectedRequest.id)
         await loadConflictInfo(selectedRequest.id)
         
@@ -268,7 +267,7 @@ export function PrivateBookingManagement() {
                   </button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6 p-6">{console.log('🟣 詳細セクション表示:', selectedRequest.id)}
+              <CardContent className="space-y-6 p-6">
               <CustomerInfo request={selectedRequest} />
               
               <CandidateDateSelector
