@@ -57,7 +57,16 @@ export function ScheduleManager() {
 
   // コンテキストメニュー操作
   const contextMenuActions = useContextMenuActions({
-    fetchSchedule
+    stores,
+    setEvents: (updater) => {
+      // setEventsの代わりにfetchScheduleを呼ぶ
+      if (typeof updater === 'function') {
+        // 関数の場合は現在のeventsを渡して新しいeventsを取得
+        fetchSchedule()
+      } else {
+        fetchSchedule()
+      }
+    }
   })
 
   // カテゴリーフィルター
@@ -188,14 +197,29 @@ export function ScheduleManager() {
           monthDays={monthDays}
         />
 
-        <ContextMenu
-          isOpen={contextMenuActions.isContextMenuOpen}
-          position={contextMenuActions.contextMenuPosition}
-          onClose={contextMenuActions.handleCloseContextMenu}
-          onCopy={contextMenuActions.handleCopy}
-          onMove={contextMenuActions.handleMove}
-          monthDays={monthDays}
-        />
+        {contextMenuActions.contextMenu && (
+          <ContextMenu
+            x={contextMenuActions.contextMenu.x}
+            y={contextMenuActions.contextMenu.y}
+            onClose={() => contextMenuActions.setContextMenu(null)}
+            items={contextMenuActions.contextMenu.type === 'event' && contextMenuActions.contextMenu.event ? [
+              {
+                label: 'コピー',
+                onClick: () => {
+                  contextMenuActions.handleCopyToClipboard(contextMenuActions.contextMenu!.event!)
+                }
+              }
+            ] : contextMenuActions.clipboardEvent ? [
+              {
+                label: 'ペースト',
+                onClick: () => {
+                  const cellInfo = contextMenuActions.contextMenu!.cellInfo!
+                  contextMenuActions.handlePasteFromClipboard(cellInfo.date, cellInfo.venue, cellInfo.timeSlot)
+                }
+              }
+            ] : []}
+          />
+        )}
       </div>
     </div>
   )
