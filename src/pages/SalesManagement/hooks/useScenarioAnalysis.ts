@@ -15,6 +15,8 @@ interface ScenarioPerformance {
   id: string
   title: string
   events: number
+  category?: string
+  author?: string
 }
 
 export function useScenarioAnalysis() {

@@ -11,13 +11,15 @@ export const ScenarioAnalysisTable: React.FC<ScenarioAnalysisTableProps> = ({
   scenarioData
 }) => {
   // ソート状態
-  const [sortState, setSortState] = useState<{ field: string; direction: 'asc' | 'desc' }>({ 
+  const [sortState, setSortState] = useState<{ field: string; direction: 'asc' | 'desc' } | undefined>({ 
     field: 'events', 
     direction: 'desc' 
   })
 
   // ソート処理
   const sortedData = useMemo(() => {
+    if (!sortState) return scenarioData
+
     return [...scenarioData].sort((a, b) => {
       let aValue: any
       let bValue: any
@@ -56,7 +58,7 @@ export const ScenarioAnalysisTable: React.FC<ScenarioAnalysisTableProps> = ({
         <TanStackDataTable
           data={sortedData}
           columns={tableColumns}
-          getRowKey={(scenario) => scenario.id}
+          getRowKey={(scenario) => `${scenario.id}_${scenario.category || 'open'}`}
           sortState={sortState}
           onSort={setSortState}
           emptyMessage="期間内に公演されたシナリオがありません"

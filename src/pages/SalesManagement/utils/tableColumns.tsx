@@ -4,6 +4,8 @@ export interface ScenarioPerformance {
   id: string
   title: string
   events: number
+  category?: string
+  author?: string
 }
 
 /**
@@ -18,7 +20,9 @@ export function createScenarioAnalysisColumns(data: ScenarioPerformance[]): Colu
       sortable: false,
       align: 'center',
       render: (scenario) => {
-        const index = data.findIndex(s => s.id === scenario.id)
+        const index = data.findIndex(s => 
+          s.id === scenario.id && (s.category || 'open') === (scenario.category || 'open')
+        )
         return (
           <div className="w-8 h-8 mx-auto rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
             {index + 1}
