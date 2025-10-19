@@ -20,35 +20,46 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // マニュアルチャンク分割でベンダーライブラリを分離
-        manualChunks: {
-          // React 関連
-          'vendor-react': ['react', 'react-dom'],
-          
-          // UI ライブラリ
-          'vendor-ui': [
-            'lucide-react',
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-select',
-            '@radix-ui/react-checkbox',
-            '@radix-ui/react-label',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-tooltip'
-          ],
-          
-          // テーブルライブラリ
-          'vendor-table': ['@tanstack/react-table'],
-          
-          // Supabase
-          'vendor-supabase': ['@supabase/supabase-js'],
-          
-          // ユーティリティ
-          'vendor-utils': ['date-fns', 'clsx'],
-          
-          // チャートライブラリ（SalesManagement のみ使用）
-          'vendor-chart': ['chart.js', 'react-chartjs-2'],
-          
-          // エクスポートライブラリ（使用時のみロード）
-          'vendor-xlsx': ['xlsx']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            // React 関連
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor-react'
+            }
+            
+            // UI ライブラリ
+            if (id.includes('lucide-react') || id.includes('@radix-ui')) {
+              return 'vendor-ui'
+            }
+            
+            // テーブルライブラリ
+            if (id.includes('@tanstack/react-table')) {
+              return 'vendor-table'
+            }
+            
+            // Supabase
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase'
+            }
+            
+            // ユーティリティ
+            if (id.includes('date-fns') || id.includes('clsx')) {
+              return 'vendor-utils'
+            }
+            
+            // チャートライブラリ
+            if (id.includes('chart.js') || id.includes('react-chartjs-2')) {
+              return 'vendor-chart'
+            }
+            
+            // エクスポートライブラリ
+            if (id.includes('xlsx')) {
+              return 'vendor-xlsx'
+            }
+            
+            // その他の node_modules
+            return 'vendor'
+          }
         }
       }
     },
