@@ -199,23 +199,24 @@ export function PrivateBookingManagement() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')}>
-          <TabsList>
-            <TabsTrigger value="pending">店舗確認待ち ({pendingRequests.length})</TabsTrigger>
-            <TabsTrigger value="all">全て ({requests.length})</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value={activeTab} className="mt-6">
+          <div className="flex items-center justify-between mb-6">
+            <TabsList>
+              <TabsTrigger value="pending">店舗確認待ち ({pendingRequests.length})</TabsTrigger>
+              <TabsTrigger value="all">全て ({requests.length})</TabsTrigger>
+            </TabsList>
+            
             {activeTab === 'pending' && (
-              <div className="flex justify-center mb-4">
-                <MonthSwitcher
-                  value={currentDate}
-                  onChange={setCurrentDate}
-                  showToday
-                  quickJump
-                  enableKeyboard
-                />
-              </div>
+              <MonthSwitcher
+                value={currentDate}
+                onChange={setCurrentDate}
+                showToday
+                quickJump
+                enableKeyboard
+              />
             )}
+          </div>
+
+          <TabsContent value={activeTab} className="mt-0">
 
             {filteredRequests.length === 0 ? (
               <Card>
