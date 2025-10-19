@@ -171,7 +171,7 @@ export const BookingRequestCard = ({
           )}
 
           {/* 詳細確認ボタン */}
-          {showActionButton && (request.status === 'gm_confirmed' || request.status === 'pending_store') && (
+          {showActionButton && (
             <div className="pt-3 border-t">
               <Button
                 onClick={() => onSelectRequest(request)}
