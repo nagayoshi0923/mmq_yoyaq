@@ -129,7 +129,7 @@ export function GMAvailabilityCheck() {
                 value={currentDate}
                 onChange={setCurrentDate}
                 showToday
-                enableKeyboard
+                quickJump
               />
             </div>
 

@@ -46,7 +46,7 @@ export const CalendarView = memo(function CalendarView({
           value={currentMonth}
           onChange={onMonthChange}
           showToday
-          enableKeyboard
+          quickJump
         />
         
         {/* 店舗フィルター */}

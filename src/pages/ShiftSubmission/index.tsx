@@ -79,7 +79,7 @@ export function ShiftSubmission() {
               value={currentDate}
               onChange={setCurrentDate}
               showToday
-              enableKeyboard
+              quickJump
             />
           </div>
 

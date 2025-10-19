@@ -94,7 +94,6 @@ export default function AuthorReport() {
                 onChange={setCurrentDate}
                 showToday
                 quickJump
-                enableKeyboard
               />
             </div>
 

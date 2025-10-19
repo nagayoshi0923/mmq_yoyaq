@@ -119,7 +119,7 @@ export const ListView = memo(function ListView({
           value={listViewMonth}
           onChange={onMonthChange}
           showToday
-          enableKeyboard
+          quickJump
         />
       </div>
 
