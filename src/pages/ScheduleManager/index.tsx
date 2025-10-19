@@ -125,21 +125,36 @@ export function ScheduleManager() {
           currentDate={currentDate}
           monthDays={monthDays}
           stores={stores}
-          hiddenStores={hiddenStores}
-          storeColors={storeColors}
           getEventsForSlot={getEventsForSlot}
+          shiftData={shiftData}
+          categoryConfig={{
+            open: { label: '通常公演', color: '#3b82f6', textColor: '#ffffff' },
+            private: { label: '貸切公演', color: '#10b981', textColor: '#ffffff' },
+            gmtest: { label: 'GMテスト', color: '#f59e0b', textColor: '#ffffff' },
+            testplay: { label: 'テストプレイ', color: '#8b5cf6', textColor: '#ffffff' },
+            offsite: { label: 'オフサイト', color: '#ec4899', textColor: '#ffffff' },
+            venue_rental: { label: '会場貸し', color: '#6366f1', textColor: '#ffffff' },
+            venue_rental_free: { label: '会場貸し(無料)', color: '#14b8a6', textColor: '#ffffff' },
+            package: { label: 'パッケージ', color: '#f97316', textColor: '#ffffff' }
+          }}
+          getReservationBadgeClass={(current: number, max: number) => {
+            const ratio = current / max
+            if (ratio >= 1) return 'bg-red-500 text-white'
+            if (ratio >= 0.8) return 'bg-orange-500 text-white'
+            if (ratio >= 0.5) return 'bg-yellow-500 text-white'
+            return 'bg-green-500 text-white'
+          }}
           getMemo={getMemo}
           onSaveMemo={handleSaveMemo}
-          onEventClick={eventOperations.handleEventClick}
-          onEventEdit={eventOperations.handleEditEvent}
-          onEventCancel={eventOperations.handleCancelEvent}
-          onEventDelete={eventOperations.handleDeleteEvent}
+          onAddPerformance={eventOperations.handleAddPerformance}
+          onEditPerformance={eventOperations.handleEditPerformance}
+          onDeletePerformance={eventOperations.handleDeletePerformance}
+          onCancelConfirm={eventOperations.handleCancelConfirm}
+          onUncancel={eventOperations.handleUncancelPerformance}
+          onToggleReservation={eventOperations.handleToggleReservation}
+          onDrop={eventOperations.handleDrop}
           onContextMenuCell={contextMenuActions.handleCellContextMenu}
           onContextMenuEvent={contextMenuActions.handleEventContextMenu}
-          isLoading={isLoading}
-          selectedStores={selectedStores}
-          setSelectedStores={setSelectedStores}
-          setHiddenStores={setHiddenStores}
         />
 
         {/* モーダル・ダイアログ群 */}
