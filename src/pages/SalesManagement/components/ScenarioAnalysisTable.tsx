@@ -1,11 +1,7 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-interface ScenarioPerformance {
-  id: string
-  title: string
-  events: number
-}
+import { TanStackDataTable } from '@/components/patterns/table'
+import { createScenarioAnalysisColumns, type ScenarioPerformance } from '../utils/tableColumns'
 
 interface ScenarioAnalysisTableProps {
   scenarioData: ScenarioPerformance[]
@@ -14,8 +10,42 @@ interface ScenarioAnalysisTableProps {
 export const ScenarioAnalysisTable: React.FC<ScenarioAnalysisTableProps> = ({
   scenarioData
 }) => {
-  // 公演数でソート
-  const sortedData = [...scenarioData].sort((a, b) => b.events - a.events)
+  // ソート状態
+  const [sortState, setSortState] = useState<{ field: string; direction: 'asc' | 'desc' }>({ 
+    field: 'events', 
+    direction: 'desc' 
+  })
+
+  // ソート処理
+  const sortedData = useMemo(() => {
+    return [...scenarioData].sort((a, b) => {
+      let aValue: any
+      let bValue: any
+
+      switch (sortState.field) {
+        case 'title':
+          aValue = a.title.toLowerCase()
+          bValue = b.title.toLowerCase()
+          break
+        case 'events':
+          aValue = a.events
+          bValue = b.events
+          break
+        default:
+          return 0
+      }
+
+      if (aValue < bValue) return sortState.direction === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortState.direction === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [scenarioData, sortState])
+
+  // テーブル列定義（メモ化）
+  const tableColumns = useMemo(
+    () => createScenarioAnalysisColumns(sortedData),
+    [sortedData]
+  )
 
   return (
     <Card>
@@ -23,33 +53,14 @@ export const ScenarioAnalysisTable: React.FC<ScenarioAnalysisTableProps> = ({
         <CardTitle>シナリオ別公演数</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {sortedData.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">
-              期間内に公演されたシナリオがありません
-            </div>
-          ) : (
-            sortedData.map((scenario, index) => (
-              <div
-                key={scenario.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <div className="font-medium">{scenario.title}</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold">{scenario.events}</div>
-                  <div className="text-sm text-muted-foreground">公演</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <TanStackDataTable
+          data={sortedData}
+          columns={tableColumns}
+          getRowKey={(scenario) => scenario.id}
+          sortState={sortState}
+          onSort={setSortState}
+          emptyMessage="期間内に公演されたシナリオがありません"
+        />
       </CardContent>
     </Card>
   )
