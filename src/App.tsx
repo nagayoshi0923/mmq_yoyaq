@@ -21,10 +21,11 @@ function AppContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
-          <div className="animate-pulse">
-            <div className="w-16 h-16 bg-primary/20 rounded-full mx-auto"></div>
+          <div className="relative w-16 h-16 mx-auto">
+            <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
           </div>
-          <p className="text-muted-foreground">読み込み中...</p>
+          <p className="text-sm text-muted-foreground">読み込み中...</p>
         </div>
       </div>
     )

@@ -90,7 +90,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       logger.log('📊 usersテーブルからロール取得開始')
       try {
-        // タイムアウト付きでロールを取得（5秒でフォールバック）
+        // タイムアウトを1.5秒に短縮（早期フォールバック）
         const rolePromise = supabase
           .from('users')
           .select('role')
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           .maybeSingle()
 
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 5000)
+          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 1500)
         )
 
         const { data: userData, error: roleError } = await Promise.race([
@@ -138,72 +138,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
                          supabaseUser.email?.split('@')[0] ||
                          'ユーザー'
 
-      // スタッフの場合、スタッフテーブルから名前を取得（エラーが発生しても認証処理は継続）
+      // スタッフ情報は遅延ロード（認証処理をブロックしない）
       let staffName: string | undefined
       
-      // 開発環境でスタッフ情報取得をスキップするフラグ
-      const skipStaffLookup = import.meta.env.DEV && import.meta.env.VITE_SKIP_STAFF_LOOKUP === 'true'
-      
-      if ((role === 'staff' || role === 'admin') && !skipStaffLookup) {
-        // キャッシュから確認
-        const cachedName = staffCache.get(supabaseUser.id)
-        if (cachedName) {
-          staffName = cachedName
-          logger.log('📋 ⚡ キャッシュからスタッフ名取得:', staffName)
-        } else {
-          logger.log('📋 スタッフ情報取得開始 - ユーザーID:', supabaseUser.id)
-          try {
-            // タイムアウト付きでスタッフ情報を取得（3秒でタイムアウト）
-            const staffPromise = supabase
-              .from('staff')
-              .select('name, email, user_id, discord_id, discord_channel_id')
-              .eq('user_id', supabaseUser.id)
-              .maybeSingle() // single()の代わりにmaybeSingle()を使用
-            
-            const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('スタッフ情報取得タイムアウト（3000ms）')), 3000)
-            )
-            
-            const { data: staffData, error: staffError } = await Promise.race([
-              staffPromise,
-              timeoutPromise
-            ]) as any
-            
-            if (staffError) {
-              logger.log('📋 スタッフ情報の取得エラー:', {
-                code: staffError.code,
-                message: staffError.message,
-                details: staffError.details,
-                hint: staffError.hint
-              })
-              
-              // テーブルが存在しない場合の詳細ログ
-              if (staffError.code === 'PGRST116' || staffError.message.includes('relation') || staffError.message.includes('does not exist')) {
-                logger.log('📋 ❌ staffテーブルが存在しません')
-                logger.log('📋 💡 解決方法: Supabaseダッシュボードで database/setup_staff_with_user_id.sql を実行してください')
-              } else if (staffError.code === 'PGRST118') {
-                logger.log('📋 ❌ 該当するスタッフデータが見つかりません')
-                logger.log('📋 💡 解決方法: スタッフデータを作成するか、user_idを設定してください')
+      // キャッシュから確認のみ（既に取得済みの場合のみ使用）
+      const cachedName = staffCache.get(supabaseUser.id)
+      if (cachedName) {
+        staffName = cachedName
+        logger.log('📋 ⚡ キャッシュからスタッフ名取得:', staffName)
+      } else {
+        // バックグラウンドで非同期取得（認証完了を待たない）
+        if (role === 'staff' || role === 'admin') {
+          logger.log('📋 スタッフ情報をバックグラウンドで取得開始')
+          // 非同期で取得（await しない）
+          supabase
+            .from('staff')
+            .select('name')
+            .eq('user_id', supabaseUser.id)
+            .maybeSingle()
+            .then(({ data }) => {
+              if (data?.name) {
+                setStaffCache(prev => new Map(prev.set(supabaseUser.id, data.name)))
+                logger.log('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
               }
-            } else {
-              staffName = staffData?.name
-              // キャッシュに保存
-              if (staffName) {
-                setStaffCache(prev => new Map(prev.set(supabaseUser.id, staffName)))
-              }
-              logger.log('📋 ✅ スタッフ名取得成功:', {
-                name: staffName,
-                email: staffData?.email,
-                user_id: staffData?.user_id
-              })
-            }
-          } catch (error) {
-            logger.log('📋 ❌ スタッフ情報の取得に失敗:', error)
-            // エラーが発生してもstaffNameはundefinedのまま継続
-          }
+            })
+            .catch((error) => {
+              logger.log('📋 スタッフ情報の取得エラー（バックグラウンド）:', error)
+            })
         }
-      } else if (skipStaffLookup) {
-        logger.log('📋 スタッフ情報取得をスキップ（開発モード）')
       }
 
       const userData = {

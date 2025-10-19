@@ -103,13 +103,28 @@ export function AdminDashboard() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [user?.role])
 
-  // モックデータ（後でSupabaseから取得）
-  const stats = {
-    stores: 6,
-    performances: 42,
-    reservations: 128,
-    revenue: 1250000
-  }
+  // 統計情報を遅延ロード（ダッシュボード表示をブロックしない）
+  const [stats, setStats] = React.useState({
+    stores: 0,
+    performances: 0,
+    reservations: 0,
+    revenue: 0
+  })
+
+  // ダッシュボード表示時のみ統計を取得
+  React.useEffect(() => {
+    if (currentPage === 'dashboard') {
+      // モックデータ（後でSupabaseから取得）
+      setTimeout(() => {
+        setStats({
+          stores: 6,
+          performances: 42,
+          reservations: 128,
+          revenue: 1250000
+        })
+      }, 100) // 少し遅延させてUIを優先
+    }
+  }, [currentPage])
 
   const navigationTabs = [
     { id: 'stores', label: '店舗', icon: Store, color: 'bg-blue-100 text-blue-800' },
