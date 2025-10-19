@@ -28,6 +28,17 @@ import { useScenarioFilters } from './hooks/useScenarioFilters'
 import { createScenarioColumns } from './utils/tableColumns'
 
 export function ScenarioManagement() {
+  // UI状態（Hooksのルール: 全てのuseStateを最初に）
+  const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [displayMode, setDisplayMode] = useState<'compact' | 'detailed'>('compact')
+  const [isImporting, setIsImporting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
+  
+  // ファイルインput参照
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   // データ管理
   const {
     scenarios,
@@ -52,19 +63,12 @@ export function ScenarioManagement() {
     handleSort,
     filteredAndSortedScenarios
   } = useScenarioFilters(scenarios)
-
-  // UI状態
-  const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [displayMode, setDisplayMode] = useState<'compact' | 'detailed'>('compact')
-  const [isImporting, setIsImporting] = useState(false)
   
-  // 削除確認ダイアログ用のstate
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
-  
-  // ファイルインput参照
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // テーブル列定義（useMemoは常に呼ばれる位置に）
+  const tableColumns = useMemo(() => createScenarioColumns(displayMode, {
+    onEdit: handleEditScenario,
+    onDelete: openDeleteDialog
+  }), [displayMode])
 
   // スクロール位置の保存と復元
   useEffect(() => {
@@ -307,10 +311,7 @@ export function ScenarioManagement() {
           {/* テーブル */}
           <TanStackDataTable
             data={filteredAndSortedScenarios}
-            columns={useMemo(() => createScenarioColumns(displayMode, {
-              onEdit: handleEditScenario,
-              onDelete: openDeleteDialog
-            }), [displayMode])}
+            columns={tableColumns}
             getRowKey={(scenario) => scenario.id}
             sortState={sortState}
             onSort={handleSort}
