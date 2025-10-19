@@ -32,7 +32,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const { scenarios, allEvents, stores, isLoading, loadData } = useBookingData()
 
   // カレンダーデータフック
-  const { currentMonth, changeMonth, generateCalendarDays, getEventsForDate } = useCalendarData(
+  const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(
     allEvents,
     selectedStoreFilter
   )
@@ -141,8 +141,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             <TabsContent value="calendar">
               <CalendarView
                 currentMonth={currentMonth}
-                onChangeMonth={changeMonth}
-                calendarDays={generateCalendarDays()}
+                onMonthChange={setCurrentMonth}
+                calendarDays={calendarDays}
                 getEventsForDate={getEventsForDate}
                 selectedStoreFilter={selectedStoreFilter}
                 onStoreFilterChange={setSelectedStoreFilter}

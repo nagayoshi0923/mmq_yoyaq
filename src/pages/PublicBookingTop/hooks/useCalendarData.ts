@@ -87,9 +87,11 @@ export function useCalendarData(allEvents: any[], selectedStoreFilter: string) {
 
   return {
     currentMonth,
+    setCurrentMonth,
     calendarDays,
     changeMonth,
-    getEventsForDate
+    getEventsForDate,
+    generateCalendarDays: () => calendarDays
   }
 }
 

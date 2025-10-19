@@ -1,6 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MapPin } from 'lucide-react'
 import { memo } from 'react'
+import { MonthSwitcher } from '@/components/patterns/calendar'
 
 interface CalendarDay {
   date: Date
@@ -9,7 +10,7 @@ interface CalendarDay {
 
 interface CalendarViewProps {
   currentMonth: Date
-  onChangeMonth: (direction: 'prev' | 'next') => void
+  onMonthChange: (date: Date) => void
   calendarDays: CalendarDay[]
   getEventsForDate: (date: Date) => any[]
   selectedStoreFilter: string
@@ -26,7 +27,7 @@ interface CalendarViewProps {
  */
 export const CalendarView = memo(function CalendarView({
   currentMonth,
-  onChangeMonth,
+  onMonthChange,
   calendarDays,
   getEventsForDate,
   selectedStoreFilter,
@@ -41,21 +42,12 @@ export const CalendarView = memo(function CalendarView({
     <div>
       {/* 月選択と店舗フィルター */}
       <div className="flex items-center justify-between mb-6 gap-4">
-        <button
-          onClick={() => onChangeMonth('prev')}
-          className="px-4 py-2 rounded border hover:bg-muted transition-colors"
-        >
-          ← 前月
-        </button>
-        <h2 className="text-2xl font-bold">
-          {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
-        </h2>
-        <button
-          onClick={() => onChangeMonth('next')}
-          className="px-4 py-2 rounded border hover:bg-muted transition-colors"
-        >
-          次月 →
-        </button>
+        <MonthSwitcher
+          value={currentMonth}
+          onChange={onMonthChange}
+          showToday
+          enableKeyboard
+        />
         
         {/* 店舗フィルター */}
         <div className="flex items-center gap-2">
