@@ -1,8 +1,7 @@
 // スケジュール管理の各種ダイアログ
 
 import { memo } from 'react'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ConfirmModal } from '@/components/patterns/modal'
 
 interface ScheduleDialogsProps {
   // 削除ダイアログ
@@ -35,64 +34,37 @@ export const ScheduleDialogs = memo(function ScheduleDialogs({
   return (
     <>
       {/* 削除確認ダイアログ */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={(open) => !open && onCloseDeleteDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>公演を削除</DialogTitle>
-            <DialogDescription>
-              この公演を削除してもよろしいですか？この操作は取り消せません。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={onCloseDeleteDialog}>
-              キャンセル
-            </Button>
-            <Button variant="destructive" onClick={onConfirmDelete}>
-              削除
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmModal
+        open={isDeleteDialogOpen}
+        onClose={onCloseDeleteDialog}
+        onConfirm={onConfirmDelete}
+        title="公演を削除"
+        message="この公演を削除してもよろしいですか？この操作は取り消せません。"
+        variant="danger"
+        confirmLabel="削除"
+      />
 
       {/* 中止確認ダイアログ */}
-      <Dialog open={isCancelDialogOpen} onOpenChange={(open) => !open && onCloseCancelDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>公演を中止</DialogTitle>
-            <DialogDescription>
-              この公演を中止してもよろしいですか？中止後も復活させることができます。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={onCloseCancelDialog}>
-              キャンセル
-            </Button>
-            <Button variant="destructive" onClick={onConfirmCancel}>
-              中止
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmModal
+        open={isCancelDialogOpen}
+        onClose={onCloseCancelDialog}
+        onConfirm={onConfirmCancel}
+        title="公演を中止"
+        message="この公演を中止してもよろしいですか？中止後も復活させることができます。"
+        variant="warning"
+        confirmLabel="中止"
+      />
       
       {/* 復活確認ダイアログ */}
-      <Dialog open={isRestoreDialogOpen} onOpenChange={(open) => !open && onCloseRestoreDialog()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>公演を復活</DialogTitle>
-            <DialogDescription>
-              この公演を復活してもよろしいですか？
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={onCloseRestoreDialog}>
-              キャンセル
-            </Button>
-            <Button onClick={onConfirmRestore}>
-              復活
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmModal
+        open={isRestoreDialogOpen}
+        onClose={onCloseRestoreDialog}
+        onConfirm={onConfirmRestore}
+        title="公演を復活"
+        message="この公演を復活してもよろしいですか？"
+        variant="default"
+        confirmLabel="復活"
+      />
     </>
   )
 })
