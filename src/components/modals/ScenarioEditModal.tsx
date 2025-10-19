@@ -74,6 +74,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   
   // スタッフデータ用のstate
   const [staff, setStaff] = useState<Staff[]>([])
+  const [loadingStaff, setLoadingStaff] = useState(false)
   
   // 担当関係データ用のstate
   const [currentAssignments, setCurrentAssignments] = useState<any[]>([])
