@@ -50,11 +50,11 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
     {
       key: 'morning',
       header: '午前',
-      width: 'w-32',
+      width: 'w-48',
       sortable: false,
       align: 'center',
       renderHeader: () => (
-        <div className="flex flex-col items-center space-y-1">
+        <div className="flex flex-col items-center space-y-1 w-full">
           <span>午前</span>
           <span className="text-xs text-muted-foreground">(~12:00)</span>
           <div className="flex space-x-1">
@@ -93,11 +93,11 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
     {
       key: 'afternoon',
       header: '午後',
-      width: 'w-32',
+      width: 'w-48',
       sortable: false,
       align: 'center',
       renderHeader: () => (
-        <div className="flex flex-col items-center space-y-1">
+        <div className="flex flex-col items-center space-y-1 w-full">
           <span>午後</span>
           <span className="text-xs text-muted-foreground">(12:00-17:00)</span>
           <div className="flex space-x-1">
@@ -136,11 +136,11 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
     {
       key: 'evening',
       header: '夜間',
-      width: 'w-32',
+      width: 'w-48',
       sortable: false,
       align: 'center',
       renderHeader: () => (
-        <div className="flex flex-col items-center space-y-1">
+        <div className="flex flex-col items-center space-y-1 w-full">
           <span>夜間</span>
           <span className="text-xs text-muted-foreground">(17:00~)</span>
           <div className="flex space-x-1">
@@ -179,11 +179,11 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
     {
       key: 'all_day',
       header: '終日',
-      width: 'w-32',
+      width: 'w-48',
       sortable: false,
       align: 'center',
       renderHeader: () => (
-        <div className="flex flex-col items-center space-y-1">
+        <div className="flex flex-col items-center space-y-1 w-full">
           <span>終日</span>
           <span className="text-xs text-muted-foreground">(全日)</span>
           <div className="flex space-x-1">
