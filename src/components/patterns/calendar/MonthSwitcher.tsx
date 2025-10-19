@@ -192,13 +192,13 @@ export const MonthSwitcher = memo(function MonthSwitcher({
   const yearRange = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
 
   return (
-    <div className={`flex items-center gap-2 ${className}`} role="group" aria-label="月選択">
+    <div className={`flex flex-wrap items-center justify-center gap-2 ${className}`} role="group" aria-label="月選択">
       {/* 前月ボタン */}
       <Button
         variant="outline"
         size="sm"
         onClick={handlePrevMonth}
-        className="h-9 px-3"
+        className="h-9 px-3 flex-shrink-0"
         aria-label={`前月へ移動 (${prevLabel})`}
         title="← キーでも移動できます"
       >
@@ -208,7 +208,7 @@ export const MonthSwitcher = memo(function MonthSwitcher({
 
       {/* 年月表示 / 選択 */}
       {quickJump ? (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 flex-shrink-0">
           <Select value={year.toString()} onValueChange={handleYearChange}>
             <SelectTrigger className="h-9 w-[100px]" aria-label="年を選択">
               <SelectValue />
@@ -250,7 +250,7 @@ export const MonthSwitcher = memo(function MonthSwitcher({
         variant="outline"
         size="sm"
         onClick={handleNextMonth}
-        className="h-9 px-3"
+        className="h-9 px-3 flex-shrink-0"
         aria-label={`次月へ移動 (${nextLabel})`}
         title="→ キーでも移動できます"
       >
@@ -264,7 +264,7 @@ export const MonthSwitcher = memo(function MonthSwitcher({
           variant="ghost"
           size="sm"
           onClick={handleToday}
-          className="h-9 px-3"
+          className="h-9 px-3 flex-shrink-0"
           aria-label="今月へ移動"
           title="Home キーでも移動できます"
         >
