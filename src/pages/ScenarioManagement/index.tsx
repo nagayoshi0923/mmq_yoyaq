@@ -14,7 +14,7 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import { ConfirmModal } from '@/components/patterns/modal'
-import { DataTable } from '@/components/patterns/table'
+import { TanStackDataTable } from '@/components/patterns/table'
 
 // 分離されたコンポーネント
 import { ScenarioStats } from './components/ScenarioStats'
@@ -305,7 +305,7 @@ export function ScenarioManagement() {
           </div>
 
           {/* テーブル */}
-          <DataTable
+          <TanStackDataTable
             data={filteredAndSortedScenarios}
             columns={useMemo(() => createScenarioColumns(displayMode, {
               onEdit: handleEditScenario,
