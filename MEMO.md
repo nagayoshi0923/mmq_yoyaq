@@ -58,8 +58,8 @@ StaffManagement/
 - [x] `useStoresAndScenarios.ts` - 店舗・シナリオ管理 ✅ **完了 (97行)**
 
 #### Phase 2: モーダル分離（優先度: 中）✋ **← 現在ここ**
-- [ ] `useStaffModals.ts` - モーダル状態 **← 作業中**
-- [ ] `useStaffInvitation.ts` - 招待ロジック
+- [x] `useStaffModals.ts` - モーダル状態 ✅ **完了 (126行)**
+- [ ] `useStaffInvitation.ts` - 招待ロジック **← 作業中**
 
 #### Phase 3: コンポーネント分離（優先度: 中）
 - [ ] `StaffCard.tsx` - カード表示
