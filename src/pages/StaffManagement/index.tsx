@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ArrowLeft, Users, Shield, Clock } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ConfirmModal } from '@/components/patterns/modal'
+import { TanStackDataTable } from '@/components/patterns/table'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
@@ -19,9 +20,9 @@ import { useStoresAndScenarios } from './hooks/useStoresAndScenarios'
 import { useStaffModals } from './hooks/useStaffModals'
 import { useStaffInvitation } from './hooks/useStaffInvitation'
 
-// 分離されたコンポーネント
-import { StaffList } from './components/StaffList'
+// 分離されたコンポーネントとユーティリティ
 import { StaffFilters } from './components/StaffFilters'
+import { createStaffColumns } from './utils/tableColumns'
 
 export function StaffManagement() {
   // ページ状態管理
@@ -139,6 +140,15 @@ export function StaffManagement() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  // テーブル列定義（メモ化）
+  const tableColumns = useMemo(
+    () => createStaffColumns(
+      { stores, getScenarioName },
+      { onEdit: openEditModal, onLink: openLinkModal, onDelete: openDeleteDialog }
+    ),
+    [stores, getScenarioName]
+  )
 
   // スタッフ保存ハンドラ
   const handleSaveStaff = async (staffData: any) => {
@@ -302,14 +312,17 @@ export function StaffManagement() {
               }}
             />
 
-            {/* スタッフ一覧 */}
-            <StaffList
-              filteredStaff={filteredStaff}
-              stores={stores}
-              getScenarioName={getScenarioName}
-              onEdit={openEditModal}
-              onLink={openLinkModal}
-              onDelete={openDeleteDialog}
+            {/* スタッフ一覧テーブル */}
+            <TanStackDataTable
+              data={filteredStaff}
+              columns={tableColumns}
+              getRowKey={(staff) => staff.id}
+              emptyMessage={
+                searchTerm || statusFilter !== 'all'
+                  ? '検索条件に一致するスタッフが見つかりません'
+                  : 'スタッフが登録されていません'
+              }
+              loading={loading}
             />
           </div>
         </div>
