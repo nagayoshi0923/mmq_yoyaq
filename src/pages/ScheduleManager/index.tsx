@@ -41,7 +41,7 @@ export type { ScheduleEvent } from '@/types/schedule'
 export function ScheduleManager() {
   // 月ナビゲーション
   const scrollRestoration = useScrollRestoration({ pageKey: 'schedule', isLoading: false })
-  const { currentDate, changeMonth, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
+  const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
 
   // データ取得
   const scheduleData = useScheduleData(currentDate)
@@ -107,9 +107,9 @@ export function ScheduleManager() {
         {/* ヘッダー */}
         <ScheduleHeader
           currentDate={currentDate}
-          onChangeMonth={changeMonth}
-          onOpenImportModal={() => setIsImportModalOpen(true)}
-          onCreateEvent={eventOperations.handleCreateEvent}
+          isLoading={isLoading}
+          onDateChange={setCurrentDate}
+          onImportClick={() => setIsImportModalOpen(true)}
         />
 
         {/* カテゴリータブ */}
