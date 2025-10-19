@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Search, Filter, Copy, Mail, Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuthorReportData } from './hooks/useAuthorReportData'
 import { useReportFilters } from './hooks/useReportFilters'
 import { generateAuthorReportText, generateEmailUrl, copyToClipboard } from './utils/reportFormatters'
@@ -13,13 +14,14 @@ import type { AuthorPerformance } from './types'
 export default function AuthorReport() {
   const [copiedAuthor, setCopiedAuthor] = useState<string | null>(null)
   const [expandedAuthors, setExpandedAuthors] = useState<Set<string>>(new Set())
+  
+  // 月選択（MonthSwitcher用）
+  const [currentDate, setCurrentDate] = useState(() => new Date())
+  const selectedYear = currentDate.getFullYear()
+  const selectedMonth = currentDate.getMonth() + 1
 
   // フィルター
   const {
-    selectedYear,
-    setSelectedYear,
-    selectedMonth,
-    setSelectedMonth,
     selectedStore,
     setSelectedStore,
     searchAuthor,
@@ -83,61 +85,46 @@ export default function AuthorReport() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* 年 */}
+          <div className="space-y-4">
+            {/* 月選択 */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">年</label>
-              <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
-                    <SelectItem key={year} value={year.toString()}>{year}年</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">対象月</label>
+              <MonthSwitcher
+                value={currentDate}
+                onChange={setCurrentDate}
+                showToday
+                quickJump
+                enableKeyboard
+              />
             </div>
 
-            {/* 月 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">月</label>
-              <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                    <SelectItem key={month} value={month.toString()}>{month}月</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* その他のフィルター */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 店舗 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">店舗</label>
+                <Select value={selectedStore} onValueChange={setSelectedStore}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全店舗</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* 店舗 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">店舗</label>
-              <Select value={selectedStore} onValueChange={setSelectedStore}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全店舗</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 作者検索 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">作者検索</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="作者名で検索..."
-                  value={searchAuthor}
-                  onChange={(e) => setSearchAuthor(e.target.value)}
-                  className="pl-10"
-                />
+              {/* 作者検索 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">作者検索</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="作者名で検索..."
+                    value={searchAuthor}
+                    onChange={(e) => setSearchAuthor(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
             </div>
           </div>
