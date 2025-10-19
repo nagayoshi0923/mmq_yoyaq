@@ -194,6 +194,7 @@ export function ScheduleManager() {
           onClose={contextMenuActions.handleCloseContextMenu}
           onCopy={contextMenuActions.handleCopy}
           onMove={contextMenuActions.handleMove}
+          monthDays={monthDays}
         />
       </div>
     </div>
