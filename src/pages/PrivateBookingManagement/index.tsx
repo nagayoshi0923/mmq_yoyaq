@@ -107,14 +107,6 @@ export function PrivateBookingManagement() {
         setTimeout(() => {
           selectFirstAvailableCandidate()
         }, 150)
-        
-        // 詳細セクションまでスムーズにスクロール
-        setTimeout(() => {
-          const detailSection = document.querySelector('[data-detail-section]')
-          if (detailSection) {
-            detailSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          }
-        }, 200)
       }
     }
     
@@ -253,13 +245,30 @@ export function PrivateBookingManagement() {
           </TabsContent>
         </Tabs>
 
-        {/* 選択されたリクエストの詳細 */}
+        {/* 選択されたリクエストの詳細モーダル */}
         {selectedRequest && (
-          <Card className="mt-6" data-detail-section>
-            <CardHeader>
-              <CardTitle>リクエスト詳細 {console.log('🟣 詳細セクション表示:', selectedRequest.id)}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto" data-detail-section>
+              <CardHeader className="sticky top-0 bg-background z-10 border-b">
+                <div className="flex items-center justify-between">
+                  <CardTitle>リクエスト詳細 - {selectedRequest.scenario_title}</CardTitle>
+                  <button
+                    onClick={() => {
+                      setSelectedRequest(null)
+                      setSelectedGMId('')
+                      setSelectedStoreId('')
+                      setSelectedCandidateOrder(null)
+                    }}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    aria-label="閉じる"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6 p-6">{console.log('🟣 詳細セクション表示:', selectedRequest.id)}
               <CustomerInfo request={selectedRequest} />
               
               <CandidateDateSelector
@@ -401,11 +410,12 @@ export function PrivateBookingManagement() {
               />
             </CardContent>
           </Card>
+          </div>
         )}
 
         {/* 却下ダイアログ */}
         {showRejectDialog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
             <Card className="w-full max-w-lg">
               <CardHeader>
                 <CardTitle>貸切リクエストの却下</CardTitle>
