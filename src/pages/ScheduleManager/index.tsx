@@ -113,6 +113,7 @@ export function ScheduleManager() {
 
         {/* スケジュールテーブル */}
         <ScheduleTable
+          currentDate={currentDate}
           monthDays={monthDays}
           stores={stores}
           hiddenStores={hiddenStores}
