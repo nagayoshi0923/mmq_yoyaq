@@ -235,8 +235,8 @@ export function PrivateBookingManagement() {
                   <BookingRequestCard
                     key={req.id}
                     request={req}
-                    isSelected={selectedRequest?.id === req.id}
-                    onSelect={() => setSelectedRequest(req)}
+                    onSelectRequest={() => setSelectedRequest(req)}
+                    showActionButton={true}
                   />
                 ))}
               </div>
