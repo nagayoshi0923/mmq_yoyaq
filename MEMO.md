@@ -57,12 +57,12 @@ StaffManagement/
 - [x] `useStaffFilters.ts` - フィルタリング ✅ **完了 (61行)**
 - [x] `useStoresAndScenarios.ts` - 店舗・シナリオ管理 ✅ **完了 (97行)**
 
-#### Phase 2: モーダル分離（優先度: 中）✋ **← 現在ここ**
+#### Phase 2: モーダル分離（優先度: 中）✅ **完了！**
 - [x] `useStaffModals.ts` - モーダル状態 ✅ **完了 (126行)**
-- [ ] `useStaffInvitation.ts` - 招待ロジック **← 作業中**
+- [x] `useStaffInvitation.ts` - 招待ロジック ✅ **完了 (157行)**
 
-#### Phase 3: コンポーネント分離（優先度: 中）
-- [ ] `StaffCard.tsx` - カード表示
+#### Phase 3: コンポーネント分離（優先度: 中）✋ **← 現在ここ**
+- [ ] `StaffCard.tsx` - カード表示 **← 作業中**
 - [ ] `StaffList.tsx` - リスト表示
 - [ ] `StaffFilters.tsx` - フィルタUI
 
