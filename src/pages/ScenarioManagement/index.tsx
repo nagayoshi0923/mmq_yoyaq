@@ -65,7 +65,7 @@ export function ScenarioManagement() {
   } = useScenarioFilters(scenarios)
 
   // TanStack Table用のソートハンドラー（アダプター）
-  const handleSort = (newSortState: { field: string; direction: 'asc' | 'desc' } | undefined) => {
+  const handleSort: (sortState: { field: string; direction: 'asc' | 'desc' } | undefined) => void = (newSortState) => {
     if (newSortState) {
       handleSortInternal(newSortState.field as any)
     }
