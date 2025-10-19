@@ -1,4 +1,4 @@
-import React from 'react'
+import { memo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Clock, Users, Star, ExternalLink } from 'lucide-react'
@@ -11,7 +11,7 @@ interface ScenarioHeroProps {
 /**
  * シナリオヒーローセクション（キービジュアル + タイトル + 基本情報）
  */
-export const ScenarioHero: React.FC<ScenarioHeroProps> = ({ scenario }) => {
+export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHeroProps) {
   return (
     <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white">
       <div className="container mx-auto max-w-7xl px-6 py-8">
@@ -98,5 +98,5 @@ export const ScenarioHero: React.FC<ScenarioHeroProps> = ({ scenario }) => {
       </div>
     </div>
   )
-}
+})
 

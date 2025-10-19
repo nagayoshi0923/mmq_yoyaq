@@ -1,4 +1,4 @@
-import React from 'react'
+import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,7 @@ interface EventListProps {
 /**
  * イベントリストコンポーネント（公演日程一覧）
  */
-export const EventList: React.FC<EventListProps> = ({
+export const EventList = memo(function EventList({
   events,
   selectedEventId,
   scenarioTitle,
@@ -126,5 +126,5 @@ export const EventList: React.FC<EventListProps> = ({
       })}
     </div>
   )
-}
+})
 

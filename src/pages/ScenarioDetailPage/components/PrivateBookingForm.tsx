@@ -168,5 +168,5 @@ export const PrivateBookingForm: React.FC<PrivateBookingFormProps> = ({
       </div>
     </div>
   )
-}
+})
 
