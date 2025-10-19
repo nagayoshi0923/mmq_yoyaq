@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Calendar, Clock, Users, MapPin } from 'lucide-react'
 import { getColorFromName } from '@/lib/utils'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
@@ -47,20 +48,23 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick }: Sc
     >
       {/* キービジュアル */}
       <div className="relative w-full aspect-[1/1.4] bg-gray-200 overflow-hidden flex items-center justify-center">
-        {scenario.key_visual_url ? (
-          <img 
-            src={scenario.key_visual_url} 
-            alt={scenario.scenario_title}
-            loading="lazy"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="text-center px-4">
-            <div className="text-xl font-medium text-gray-400 leading-relaxed">
-              {scenario.scenario_title}
+        <OptimizedImage
+          src={scenario.key_visual_url}
+          alt={scenario.scenario_title}
+          className="w-full h-full object-cover"
+          responsive={true}
+          srcSetSizes={[300, 600, 900]}
+          breakpoints={{ mobile: 300, tablet: 400, desktop: 600 }}
+          useWebP={true}
+          quality={85}
+          fallback={
+            <div className="text-center px-4">
+              <div className="text-xl font-medium text-gray-400 leading-relaxed">
+                {scenario.scenario_title}
+              </div>
             </div>
-          </div>
-        )}
+          }
+        />
       </div>
 
       <CardContent className="p-2 space-y-1 bg-white">

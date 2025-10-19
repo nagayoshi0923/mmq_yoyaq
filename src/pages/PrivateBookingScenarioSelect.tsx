@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Header } from '@/components/layout/Header'
 import { ArrowLeft } from 'lucide-react'
 import { scenarioApi } from '@/lib/api'
@@ -127,11 +128,15 @@ export function PrivateBookingScenarioSelect() {
                   {/* キービジュアル */}
                   {scenario.key_visual_url && (
                     <div className="aspect-video bg-gradient-to-br from-gray-200 to-gray-300 overflow-hidden">
-                      <img
+                      <OptimizedImage
                         src={scenario.key_visual_url}
                         alt={scenario.title}
-                        loading="lazy"
                         className="w-full h-full object-cover"
+                        responsive={true}
+                        srcSetSizes={[400, 800, 1200]}
+                        breakpoints={{ mobile: 400, tablet: 600, desktop: 800 }}
+                        useWebP={true}
+                        quality={85}
                       />
                     </div>
                   )}
