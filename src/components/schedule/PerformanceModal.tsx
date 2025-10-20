@@ -712,7 +712,6 @@ export function PerformanceModal({
             {mode === 'add' ? '追加' : '保存'}
           </Button>
         </div>
-            </div>
           </TabsContent>
           
           <TabsContent value="reservations" className="mt-4">
