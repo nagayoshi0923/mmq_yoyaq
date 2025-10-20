@@ -24,18 +24,20 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
     
     setLoading(true)
     try {
-      // シフトデータを配列に変換して保存
-      const shiftsToSave = Object.values(shiftData).filter(shift => 
+      // 全てのシフトデータを処理（選択なしの場合は削除扱い）
+      const allShifts = Object.values(shiftData)
+      
+      // チェックありのシフト
+      const shiftsToSave = allShifts.filter(shift => 
         shift.morning || shift.afternoon || shift.evening || shift.all_day
       )
       
-      if (shiftsToSave.length === 0) {
-        alert('シフトが選択されていません')
-        setLoading(false)
-        return
-      }
+      // チェックなしのシフト（削除対象）
+      const shiftsToDelete = allShifts.filter(shift => 
+        !shift.morning && !shift.afternoon && !shift.evening && !shift.all_day
+      )
       
-      // シフトデータを準備（upsert用）
+      // 保存用データ準備
       const shiftsToUpsert = shiftsToSave.map(shift => ({
         staff_id: currentStaffId,
         date: shift.date,
@@ -47,15 +49,31 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
         submitted_at: new Date().toISOString()
       }))
       
-      // データベースに保存（upsert）
-      await shiftApi.upsertStaffShifts(shiftsToUpsert)
+      // 削除用データ準備（全てfalseで保存）
+      const shiftsToRemove = shiftsToDelete.map(shift => ({
+        staff_id: currentStaffId,
+        date: shift.date,
+        morning: false,
+        afternoon: false,
+        evening: false,
+        all_day: false,
+        status: 'submitted' as const,
+        submitted_at: new Date().toISOString()
+      }))
       
-      logger.log('シフト提出成功:', shiftsToUpsert)
-      alert('シフトを提出しました。\n\nスケジュール管理ページで確認できます。')
+      // 全てのデータを送信（チェックあり + チェックなし）
+      const allShiftsToSubmit = [...shiftsToUpsert, ...shiftsToRemove]
+      
+      if (allShiftsToSubmit.length > 0) {
+        await shiftApi.upsertStaffShifts(allShiftsToSubmit)
+      }
+      
+      logger.log('シフト提出成功:', { 保存: shiftsToUpsert.length, 削除: shiftsToRemove.length })
+      alert(`シフトを更新しました。\n\n保存: ${shiftsToUpsert.length}件\n削除: ${shiftsToRemove.length}件\n\nスケジュール管理ページで確認できます。`)
       
     } catch (error) {
       logger.error('シフト提出エラー:', error)
-      alert('シフトの提出に失敗しました')
+      alert('シフトの更新に失敗しました')
     } finally {
       setLoading(false)
     }
