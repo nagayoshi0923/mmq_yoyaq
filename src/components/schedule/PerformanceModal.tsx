@@ -106,6 +106,10 @@ export function PerformanceModal({
   const [loadingReservations, setLoadingReservations] = useState(false)
   const [expandedReservation, setExpandedReservation] = useState<string | null>(null)
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set())
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
+  const [emailSubject, setEmailSubject] = useState('')
+  const [emailBody, setEmailBody] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(false)
   const [formData, setFormData] = useState<any>({
     id: '',
     date: '',
@@ -741,7 +745,7 @@ export function PerformanceModal({
                           .map(r => r.customer_email)
                           .filter(Boolean)
                         if (selectedEmails.length > 0) {
-                          window.location.href = `mailto:${selectedEmails.join(',')}`
+                          setIsEmailModalOpen(true)
                         } else {
                           alert('選択した予約にメールアドレスが設定されていません')
                         }
@@ -911,6 +915,110 @@ export function PerformanceModal({
         stores={stores}
         scenarios={scenarios as any}
       />
+
+      {/* メール送信モーダル */}
+      <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>メール送信</DialogTitle>
+            <DialogDescription>
+              選択した{selectedReservations.size}件の予約者にメールを送信します
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email-subject">件名</Label>
+              <Input
+                id="email-subject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                placeholder="例: 公演のご案内"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email-body">本文</Label>
+              <Textarea
+                id="email-body"
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                placeholder="メール本文を入力してください..."
+                rows={10}
+              />
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              <p className="font-medium mb-1">送信先:</p>
+              <ul className="list-disc list-inside space-y-1">
+                {reservations
+                  .filter(r => selectedReservations.has(r.id))
+                  .map(r => (
+                    <li key={r.id}>
+                      {r.customer_name} ({r.customer_email})
+                    </li>
+                  ))}
+              </ul>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEmailModalOpen(false)
+                  setEmailSubject('')
+                  setEmailBody('')
+                }}
+                disabled={sendingEmail}
+              >
+                キャンセル
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!emailSubject.trim() || !emailBody.trim()) {
+                    alert('件名と本文を入力してください')
+                    return
+                  }
+
+                  setSendingEmail(true)
+                  try {
+                    // TODO: メール送信API実装
+                    logger.log('メール送信:', {
+                      to: reservations
+                        .filter(r => selectedReservations.has(r.id))
+                        .map(r => r.customer_email),
+                      subject: emailSubject,
+                      body: emailBody
+                    })
+                    
+                    // 仮実装: mailtoリンクを開く
+                    const selectedEmails = reservations
+                      .filter(r => selectedReservations.has(r.id))
+                      .map(r => r.customer_email)
+                      .filter(Boolean)
+                    
+                    const mailtoLink = `mailto:${selectedEmails.join(',')}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`
+                    window.location.href = mailtoLink
+                    
+                    setIsEmailModalOpen(false)
+                    setEmailSubject('')
+                    setEmailBody('')
+                    setSelectedReservations(new Set())
+                  } catch (error) {
+                    logger.error('メール送信エラー:', error)
+                    alert('メール送信に失敗しました')
+                  } finally {
+                    setSendingEmail(false)
+                  }
+                }}
+                disabled={sendingEmail}
+              >
+                {sendingEmail ? '送信中...' : '送信'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
