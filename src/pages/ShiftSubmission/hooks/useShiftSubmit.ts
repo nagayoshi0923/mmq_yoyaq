@@ -51,7 +51,7 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
       await shiftApi.upsertStaffShifts(shiftsToUpsert)
       
       logger.log('シフト提出成功:', shiftsToUpsert)
-      alert('シフトを提出しました')
+      alert('シフトを提出しました。\n\nスケジュール管理ページで確認できます。')
       
     } catch (error) {
       logger.error('シフト提出エラー:', error)
