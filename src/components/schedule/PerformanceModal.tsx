@@ -15,6 +15,7 @@ import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { scenarioApi, staffApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi'
+import { sendEmail } from '@/lib/emailApi'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store, Reservation } from '@/types'
 import { logger } from '@/utils/logger'
@@ -983,27 +984,33 @@ export function PerformanceModal({
                   setSendingEmail(true)
                   try {
                     // TODO: メール送信API実装
-                    logger.log('メール送信:', {
-                      to: reservations
-                        .filter(r => selectedReservations.has(r.id))
-                        .map(r => r.customer_email),
-                      subject: emailSubject,
-                      body: emailBody
-                    })
-                    
-                    // 仮実装: mailtoリンクを開く
                     const selectedEmails = reservations
                       .filter(r => selectedReservations.has(r.id))
                       .map(r => r.customer_email)
                       .filter(Boolean)
                     
-                    const mailtoLink = `mailto:${selectedEmails.join(',')}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`
-                    window.location.href = mailtoLink
+                    logger.log('メール送信:', {
+                      to: selectedEmails,
+                      subject: emailSubject,
+                      body: emailBody
+                    })
                     
-                    setIsEmailModalOpen(false)
-                    setEmailSubject('')
-                    setEmailBody('')
-                    setSelectedReservations(new Set())
+                    // Google Apps Script でメール送信
+                    const result = await sendEmail({
+                      to: selectedEmails,
+                      subject: emailSubject,
+                      body: emailBody,
+                    })
+                    
+                    if (result.success) {
+                      alert('メールを送信しました')
+                      setIsEmailModalOpen(false)
+                      setEmailSubject('')
+                      setEmailBody('')
+                      setSelectedReservations(new Set())
+                    } else {
+                      alert(`メール送信に失敗しました: ${result.error}`)
+                    }
                   } catch (error) {
                     logger.error('メール送信エラー:', error)
                     alert('メール送信に失敗しました')
