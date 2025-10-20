@@ -10,6 +10,7 @@ import { useGMRequests } from './hooks/useGMRequests'
 import { useAvailabilityCheck } from './hooks/useAvailabilityCheck'
 import { useResponseSubmit } from './hooks/useResponseSubmit'
 import { RequestCard } from './components/RequestCard'
+import { formatMonthYear } from './utils/gmFormatters'
 
 /**
  * GM可否確認ページ
@@ -76,86 +77,80 @@ export function GMAvailabilityCheck() {
       <Header />
       <NavigationBar currentPage="gm-availability" />
       
-      <div className="container mx-auto max-w-4xl px-6 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-purple-900 mb-2">
-            GM可否確認
-          </h1>
-          <p className="text-muted-foreground">
-            貸切予約のリクエストに回答してください
-          </p>
+      <div className="container mx-auto max-w-7xl px-6 py-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">GM可否確認</h1>
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="pending" className="flex items-center gap-2">
-              未回答 ({pendingRequests.length})
-            </TabsTrigger>
-            <TabsTrigger value="all" className="flex items-center gap-2">
-              全てのリクエスト（月別）
-            </TabsTrigger>
-          </TabsList>
-
-          {/* 未回答タブ */}
-          <TabsContent value="pending" className="space-y-6">
-            {pendingRequests.length === 0 ? (
-              <Card>
-                <CardContent className="pt-6 text-center py-12">
-                  <p className="text-muted-foreground">未回答のリクエストはありません</p>
-                </CardContent>
-              </Card>
-            ) : (
-              pendingRequests.map((request) => (
-                <RequestCard
-                  key={request.id}
-                  request={request}
-                  selectedCandidates={selectedCandidates[request.id] || []}
-                  candidateAvailability={candidateAvailability[request.id] || {}}
-                  notes={notes[request.id] || ''}
-                  submitting={submitting === request.id}
-                  onToggleCandidate={(order) => toggleCandidate(request.id, order)}
-                  onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
-                  onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
-                />
-              ))
-            )}
-          </TabsContent>
-
-          {/* 全てのリクエストタブ（月別） */}
-          <TabsContent value="all" className="space-y-6">
-            {/* 月ナビゲーション */}
-            <div className="flex items-center justify-center bg-card rounded-lg p-4 border">
+          <div className="flex items-center justify-between mb-6">
+            <TabsList>
+              <TabsTrigger value="pending">未回答 ({pendingRequests.length})</TabsTrigger>
+              <TabsTrigger value="all">全て ({requests.length})</TabsTrigger>
+            </TabsList>
+            
+            {activeTab === 'all' && (
               <MonthSwitcher
                 value={currentDate}
                 onChange={setCurrentDate}
                 showToday
                 quickJump
+                enableKeyboard
               />
-            </div>
+            )}
+          </div>
 
-            {/* リクエスト一覧 */}
-            {allRequests.length === 0 ? (
+          {/* 未回答タブ */}
+          <TabsContent value="pending" className="mt-0">
+            {pendingRequests.length === 0 ? (
               <Card>
-                <CardContent className="pt-6 text-center py-12">
-                  <p className="text-muted-foreground">
-                    {formatMonthYear(currentDate)}のリクエストはありません
-                  </p>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  未回答のリクエストはありません
                 </CardContent>
               </Card>
             ) : (
-              allRequests.map((request) => (
-                <RequestCard
-                  key={request.id}
-                  request={request}
-                  selectedCandidates={selectedCandidates[request.id] || []}
-                  candidateAvailability={candidateAvailability[request.id] || {}}
-                  notes={notes[request.id] || ''}
-                  submitting={submitting === request.id}
-                  onToggleCandidate={(order) => toggleCandidate(request.id, order)}
-                  onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
-                  onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
-                />
-              ))
+              <div className="space-y-4">
+                {pendingRequests.map((request) => (
+                  <RequestCard
+                    key={request.id}
+                    request={request}
+                    selectedCandidates={selectedCandidates[request.id] || []}
+                    candidateAvailability={candidateAvailability[request.id] || {}}
+                    notes={notes[request.id] || ''}
+                    submitting={submitting === request.id}
+                    onToggleCandidate={(order) => toggleCandidate(request.id, order)}
+                    onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
+                    onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* 全てのリクエストタブ（月別） */}
+          <TabsContent value="all" className="mt-0">
+            {allRequests.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  {formatMonthYear(currentDate)}のリクエストはありません
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {allRequests.map((request) => (
+                  <RequestCard
+                    key={request.id}
+                    request={request}
+                    selectedCandidates={selectedCandidates[request.id] || []}
+                    candidateAvailability={candidateAvailability[request.id] || {}}
+                    notes={notes[request.id] || ''}
+                    submitting={submitting === request.id}
+                    onToggleCandidate={(order) => toggleCandidate(request.id, order)}
+                    onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
+                    onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
+                  />
+                ))}
+              </div>
             )}
           </TabsContent>
         </Tabs>
