@@ -89,15 +89,13 @@ export function GMAvailabilityCheck() {
               <TabsTrigger value="all">全て ({requests.length})</TabsTrigger>
             </TabsList>
             
-            {activeTab === 'all' && (
-              <MonthSwitcher
-                value={currentDate}
-                onChange={setCurrentDate}
-                showToday
-                quickJump
-                enableKeyboard
-              />
-            )}
+            <MonthSwitcher
+              value={currentDate}
+              onChange={setCurrentDate}
+              showToday
+              quickJump
+              enableKeyboard
+            />
           </div>
 
           {/* 未回答タブ */}
