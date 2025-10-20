@@ -887,6 +887,7 @@ export function PerformanceModal({
                   )
                 })}
                 </div>
+                </div>
               </div>
             )}
           </TabsContent>
