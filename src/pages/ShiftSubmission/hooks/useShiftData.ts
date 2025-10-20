@@ -23,14 +23,19 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
     const getCurrentStaff = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data: staffData } = await supabase
+        const { data: staffData, error } = await supabase
           .from('staff')
-          .select('id')
+          .select('id, email')
           .eq('email', user.email)
           .maybeSingle()
         
+        console.log('📋 スタッフ検索:', { email: user.email, staffData, error })
+        
         if (staffData) {
           setCurrentStaffId(staffData.id)
+        } else {
+          console.error('❌ スタッフデータが見つかりません:', user.email)
+          alert(`スタッフ情報が見つかりません。\nログイン中: ${user.email}\n\n管理者に連絡してスタッフ登録を依頼してください。`)
         }
       }
     }
