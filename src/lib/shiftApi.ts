@@ -81,6 +81,11 @@ export const shiftApi = {
     return data || []
   },
 
+  // エイリアス: upsertStaffShifts
+  async upsertStaffShifts(submissions: Partial<ShiftSubmission>[]): Promise<ShiftSubmission[]> {
+    return this.upsertMultiple(submissions)
+  },
+
   // 月間シフトを提出
   async submitMonthly(staffId: string, year: number, month: number): Promise<void> {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
