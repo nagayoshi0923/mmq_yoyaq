@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Calendar, Clock, Users, MapPin } from 'lucide-react'
 import { getColorFromName } from '@/lib/utils'
+import { usePrefetch } from '@/hooks/usePrefetch'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
 interface ScenarioCardProps {
@@ -15,6 +16,8 @@ interface ScenarioCardProps {
  * シナリオカード表示コンポーネント
  */
 export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick }: ScenarioCardProps) {
+  const { prefetchScenario } = usePrefetch()
+  
   const formatDate = (dateStr?: string): string => {
     if (!dateStr) return ''
     const date = new Date(dateStr)
@@ -45,6 +48,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick }: Sc
     <Card 
       className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer border border-gray-200"
       onClick={() => onClick(scenario.scenario_id)}
+      onMouseEnter={() => prefetchScenario(scenario.scenario_id)}
     >
       {/* キービジュアル */}
       <div className="relative w-full aspect-[1/1.4] bg-gray-200 overflow-hidden flex items-center justify-center">
