@@ -13,8 +13,9 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { scenarioApi, staffApi } from '@/lib/api'
+import { reservationApi } from '@/lib/reservationApi'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
-import type { Staff as StaffType, Scenario, Store } from '@/types'
+import type { Staff as StaffType, Scenario, Store, Reservation } from '@/types'
 import { logger } from '@/utils/logger'
 
 // スケジュールイベントの型定義
@@ -100,6 +101,8 @@ export function PerformanceModal({
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false)
   const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
+  const [reservations, setReservations] = useState<Reservation[]>([])
+  const [loadingReservations, setLoadingReservations] = useState(false)
   const [formData, setFormData] = useState<any>({
     id: '',
     date: '',
@@ -131,6 +134,28 @@ export function PerformanceModal({
       end_time: defaults.end_time
     }))
   }
+
+  // 予約データを読み込む
+  useEffect(() => {
+    const loadReservations = async () => {
+      if (mode === 'edit' && event?.id) {
+        setLoadingReservations(true)
+        try {
+          const data = await reservationApi.getByScheduleEvent(event.id)
+          setReservations(data)
+        } catch (error) {
+          logger.error('予約データの取得に失敗:', error)
+          setReservations([])
+        } finally {
+          setLoadingReservations(false)
+        }
+      } else {
+        setReservations([])
+      }
+    }
+    
+    loadReservations()
+  }, [mode, event?.id])
 
   // モードに応じてフォームを初期化
   useEffect(() => {
@@ -691,9 +716,59 @@ export function PerformanceModal({
           </TabsContent>
           
           <TabsContent value="reservations" className="mt-4">
-            <div className="text-center py-8 text-muted-foreground">
-              予約者機能は実装中です
-            </div>
+            {loadingReservations ? (
+              <div className="text-center py-8 text-muted-foreground">
+                読み込み中...
+              </div>
+            ) : reservations.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                予約はありません
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reservations.map((reservation, index) => (
+                  <div key={reservation.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-lg">{reservation.customer_name}</span>
+                        <Badge variant={reservation.status === 'confirmed' ? 'default' : 'secondary'}>
+                          {reservation.status === 'confirmed' ? '確定' : '保留中'}
+                        </Badge>
+                      </div>
+                      <span className="text-sm text-muted-foreground">予約#{index + 1}</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {reservation.customer_email && (
+                        <div>
+                          <span className="text-muted-foreground">メール: </span>
+                          <span>{reservation.customer_email}</span>
+                        </div>
+                      )}
+                      {reservation.customer_phone && (
+                        <div>
+                          <span className="text-muted-foreground">電話: </span>
+                          <span>{reservation.customer_phone}</span>
+                        </div>
+                      )}
+                      {reservation.participant_count && (
+                        <div>
+                          <span className="text-muted-foreground">参加人数: </span>
+                          <span>{reservation.participant_count}名</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {reservation.notes && (
+                      <div className="mt-2 text-sm">
+                        <span className="text-muted-foreground">備考: </span>
+                        <span>{reservation.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
