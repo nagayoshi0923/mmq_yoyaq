@@ -14,11 +14,11 @@ import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { usePageState } from '@/hooks/usePageState'
 
 // 分離されたフック
-import { useStaffOperations } from './hooks/useStaffOperations'
 import { useStaffFilters } from './hooks/useStaffFilters'
 import { useStoresAndScenarios } from './hooks/useStoresAndScenarios'
 import { useStaffModals } from './hooks/useStaffModals'
 import { useStaffInvitation } from './hooks/useStaffInvitation'
+import { useStaffQuery, useStaffMutation, useDeleteStaffMutation } from './hooks/useStaffQuery'
 
 // 分離されたコンポーネントとユーティリティ
 import { StaffFilters } from './components/StaffFilters'
@@ -31,15 +31,11 @@ export function StaffManagement() {
     scrollRestoration: true
   })
 
-  // CRUD操作
-  const {
-    staff,
-    loading,
-    error,
-    loadStaff,
-    saveStaff,
-    deleteStaff
-  } = useStaffOperations()
+  // React Query でCRUD操作
+  const { data: staff = [], isLoading: loading, error: queryError } = useStaffQuery()
+  const staffMutation = useStaffMutation()
+  const deleteStaffMutation = useDeleteStaffMutation()
+  const error = queryError ? (queryError as Error).message : ''
 
   // 店舗・シナリオ管理
   const {
@@ -147,7 +143,6 @@ export function StaffManagement() {
 
   // 初期データ読み込み
   useEffect(() => {
-    loadStaff()
     loadStores()
     loadScenarios()
   }, [])
@@ -187,7 +182,7 @@ export function StaffManagement() {
   // スタッフ保存ハンドラ
   const handleSaveStaff = async (staffData: any) => {
     try {
-      await saveStaff(staffData)
+      await staffMutation.mutateAsync({ staff: staffData, isEdit: !!editingStaff })
       closeEditModal()
     } catch (err: any) {
       alert(err.message)
@@ -198,7 +193,7 @@ export function StaffManagement() {
   const handleDeleteStaff = async () => {
     if (!staffToDelete) return
     try {
-      await deleteStaff(staffToDelete.id)
+      await deleteStaffMutation.mutateAsync(staffToDelete.id)
       closeDeleteDialog()
     } catch (err: any) {
       alert(err.message)
