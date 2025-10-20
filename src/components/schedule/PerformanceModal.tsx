@@ -724,46 +724,29 @@ export function PerformanceModal({
                 予約はありません
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {reservations.map((reservation, index) => (
-                  <div key={reservation.id} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-lg">{reservation.customer_name}</span>
-                        <Badge variant={reservation.status === 'confirmed' ? 'default' : 'secondary'}>
-                          {reservation.status === 'confirmed' ? '確定' : '保留中'}
-                        </Badge>
-                      </div>
-                      <span className="text-sm text-muted-foreground">予約#{index + 1}</span>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      {reservation.customer_email && (
-                        <div>
-                          <span className="text-muted-foreground">メール: </span>
-                          <span>{reservation.customer_email}</span>
-                        </div>
-                      )}
-                      {reservation.customer_phone && (
-                        <div>
-                          <span className="text-muted-foreground">電話: </span>
-                          <span>{reservation.customer_phone}</span>
-                        </div>
-                      )}
+                  <div key={reservation.id} className="border rounded-lg p-3 h-[60px] flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span className="font-medium truncate">{reservation.customer_name}</span>
+                      <Badge variant={reservation.status === 'confirmed' ? 'default' : 'secondary'} className="flex-shrink-0">
+                        {reservation.status === 'confirmed' ? '確定' : '保留中'}
+                      </Badge>
                       {reservation.participant_count && (
-                        <div>
-                          <span className="text-muted-foreground">参加人数: </span>
-                          <span>{reservation.participant_count}名</span>
-                        </div>
+                        <span className="text-sm text-muted-foreground flex-shrink-0">
+                          {reservation.participant_count}名
+                        </span>
                       )}
                     </div>
                     
-                    {reservation.notes && (
-                      <div className="mt-2 text-sm">
-                        <span className="text-muted-foreground">備考: </span>
-                        <span>{reservation.notes}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground flex-shrink-0">
+                      {reservation.customer_phone && (
+                        <span className="truncate max-w-[120px]">{reservation.customer_phone}</span>
+                      )}
+                      {reservation.customer_email && (
+                        <span className="truncate max-w-[150px]">{reservation.customer_email}</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
