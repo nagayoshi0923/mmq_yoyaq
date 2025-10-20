@@ -25,11 +25,11 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
       if (user) {
         const { data: staffData, error } = await supabase
           .from('staff')
-          .select('id, email')
-          .eq('email', user.email)
+          .select('id, name')
+          .eq('user_id', user.id)
           .maybeSingle()
         
-        console.log('📋 スタッフ検索:', { email: user.email, staffData, error })
+        console.log('📋 スタッフ検索:', { userId: user.id, email: user.email, staffData, error })
         
         if (staffData) {
           setCurrentStaffId(staffData.id)
