@@ -45,7 +45,7 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
 
   return (
     <nav className="border-b border-border bg-muted/30">
-      <div className="container mx-auto max-w-7xl px-8 py-3">
+      <div className="mx-auto px-8 py-3">
         <div className="flex flex-wrap" style={{ gap: '1px' }}>
           {navigationTabs.map((tab) => {
             const Icon = tab.icon
