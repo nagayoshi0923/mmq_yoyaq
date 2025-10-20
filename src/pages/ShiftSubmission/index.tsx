@@ -124,7 +124,7 @@ export function ShiftSubmission() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-4">
               <TanStackDataTable
                 data={tableData}
                 columns={tableColumns}

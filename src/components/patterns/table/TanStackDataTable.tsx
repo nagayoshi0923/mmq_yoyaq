@@ -240,15 +240,14 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
             <Card key={getRowKey(row.original)}>
               <CardContent className="p-0">
                 <div className="flex items-center h-[50px]">
-                  {row.getVisibleCells().map((cell, cellIndex, cells) => {
+                  {row.getVisibleCells().map((cell) => {
                     const meta = cell.column.columnDef.meta as any
                     const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
                     const widthClass = meta?.width ? `flex-shrink-0 ${meta.width}` : 'flex-1 min-w-0'
-                    const isLastCell = cellIndex === cells.length - 1
                     return (
                       <div
                         key={cell.id}
-                        className={`${widthClass} px-3 py-2 ${!isLastCell ? 'border-r' : ''} ${alignClass} ${
+                        className={`${widthClass} px-3 py-2 border-r ${alignClass} ${
                           meta?.cellClassName || ''
                         }`}
                       >
