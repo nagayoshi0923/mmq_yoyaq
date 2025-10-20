@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import { X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { X, ChevronDown, ChevronUp, Mail } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
@@ -104,6 +105,7 @@ export function PerformanceModal({
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loadingReservations, setLoadingReservations] = useState(false)
   const [expandedReservation, setExpandedReservation] = useState<string | null>(null)
+  const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set())
   const [formData, setFormData] = useState<any>({
     id: '',
     date: '',
@@ -725,32 +727,106 @@ export function PerformanceModal({
                 予約はありません
               </div>
             ) : (
-              <div className="space-y-2">
-                {reservations.map((reservation, index) => {
+              <div>
+                {selectedReservations.size > 0 && (
+                  <div className="mb-3 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      {selectedReservations.size}件選択中
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const selectedEmails = reservations
+                          .filter(r => selectedReservations.has(r.id))
+                          .map(r => r.customer_email)
+                          .filter(Boolean)
+                        if (selectedEmails.length > 0) {
+                          window.location.href = `mailto:${selectedEmails.join(',')}`
+                        } else {
+                          alert('選択した予約にメールアドレスが設定されていません')
+                        }
+                      }}
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      メール送信
+                    </Button>
+                  </div>
+                )}
+                <div>
+                {/* ヘッダー */}
+                <div className="border rounded-t-lg bg-muted/30 p-3 h-[50px] flex items-center justify-between font-medium text-sm">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="w-[40px] flex items-center justify-center">
+                      <Checkbox
+                        checked={selectedReservations.size === reservations.length && reservations.length > 0}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedReservations(new Set(reservations.map(r => r.id)))
+                          } else {
+                            setSelectedReservations(new Set())
+                          }
+                        }}
+                      />
+                    </div>
+                    <span className="w-[100px]">顧客名</span>
+                    <span className="w-[60px]">人数</span>
+                    <span className="w-[100px]">支払い</span>
+                    <span className="w-[140px]">申し込み日時</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="w-[100px]">ステータス</span>
+                    <span className="w-[80px]"></span>
+                  </div>
+                </div>
+                
+                {/* データ行 */}
+                <div className="border-l border-r border-b rounded-b-lg">
+                  {reservations.map((reservation, index) => {
                   const isExpanded = expandedReservation === reservation.id
+                  const isLast = index === reservations.length - 1
                   return (
-                    <div key={reservation.id} className="border rounded-lg">
+                    <div key={reservation.id} className={isLast ? '' : 'border-b'}>
                       {/* メイン行 */}
                       <div className="p-3 h-[60px] flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <span className="font-medium truncate">{reservation.customer_name}</span>
-                          {reservation.participant_count && (
-                            <span className="text-sm text-muted-foreground flex-shrink-0">
-                              {reservation.participant_count}名
-                            </span>
-                          )}
+                          <div className="w-[40px] flex items-center justify-center">
+                            <Checkbox
+                              checked={selectedReservations.has(reservation.id)}
+                              onCheckedChange={(checked) => {
+                                const newSelected = new Set(selectedReservations)
+                                if (checked) {
+                                  newSelected.add(reservation.id)
+                                } else {
+                                  newSelected.delete(reservation.id)
+                                }
+                                setSelectedReservations(newSelected)
+                              }}
+                            />
+                          </div>
+                          <span className="font-medium truncate w-[100px]">{reservation.customer_name}</span>
+                          <span className="text-sm text-muted-foreground flex-shrink-0 w-[60px]">
+                            {reservation.participant_count ? `${reservation.participant_count}名` : '-'}
+                          </span>
                           <Badge 
                             variant={
                               reservation.payment_method === 'onsite' ? 'outline' : 
                               reservation.payment_method === 'online' ? 'default' : 
                               'secondary'
                             } 
-                            className="flex-shrink-0"
+                            className="flex-shrink-0 w-[100px] justify-center"
                           >
                             {reservation.payment_method === 'onsite' ? '現地決済' : 
                              reservation.payment_method === 'online' ? '事前決済' : 
                              '未設定'}
                           </Badge>
+                          <span className="text-sm text-muted-foreground w-[140px]">
+                            {reservation.created_at ? new Date(reservation.created_at).toLocaleString('ja-JP', {
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }) : '-'}
+                          </span>
                         </div>
                         
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -810,6 +886,7 @@ export function PerformanceModal({
                     </div>
                   )
                 })}
+                </div>
               </div>
             )}
           </TabsContent>
