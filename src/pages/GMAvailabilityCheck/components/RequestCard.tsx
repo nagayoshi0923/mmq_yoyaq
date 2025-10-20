@@ -37,7 +37,7 @@ export function RequestCard({
   const elapsedTime = getElapsedTime(request.created_at)
 
   return (
-    <Card className="shadow-md">
+    <Card className="shadow-none">
       <CardHeader className="bg-purple-50 border-b">
         <div className="flex justify-between items-start">
           <div>
