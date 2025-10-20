@@ -27,7 +27,7 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
           .from('staff')
           .select('id')
           .eq('email', user.email)
-          .single()
+          .maybeSingle()
         
         if (staffData) {
           setCurrentStaffId(staffData.id)
