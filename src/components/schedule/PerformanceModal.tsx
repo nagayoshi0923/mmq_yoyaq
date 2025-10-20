@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -313,7 +314,14 @@ export function PerformanceModal({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <Tabs defaultValue="edit" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="edit">公演情報</TabsTrigger>
+            <TabsTrigger value="reservations">予約者</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="edit" className="mt-4">
+            <div className="space-y-4">
           {/* 基本情報 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -679,6 +687,15 @@ export function PerformanceModal({
             {mode === 'add' ? '追加' : '保存'}
           </Button>
         </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="reservations" className="mt-4">
+            <div className="text-center py-8 text-muted-foreground">
+              予約者機能は実装中です
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
 
       {/* シナリオ作成モーダル */}
