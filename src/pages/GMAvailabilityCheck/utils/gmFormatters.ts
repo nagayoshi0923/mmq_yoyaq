@@ -47,3 +47,10 @@ export const formatDateTime = (dateString: string) => {
   })
 }
 
+/**
+ * 年月を「YYYY年MM月」形式にフォーマット
+ */
+export const formatMonthYear = (date: Date): string => {
+  return `${date.getFullYear()}年${date.getMonth() + 1}月`
+}
+
