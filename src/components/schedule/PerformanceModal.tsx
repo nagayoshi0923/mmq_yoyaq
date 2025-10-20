@@ -331,7 +331,7 @@ export function PerformanceModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="md" className="h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent size="lg" className="overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>{modalTitle}</DialogTitle>
           <DialogDescription>

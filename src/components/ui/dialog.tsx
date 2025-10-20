@@ -36,10 +36,10 @@ const DialogContent = React.forwardRef<
   DialogContentProps
 >(({ className, children, size = 'md', ...props }, ref) => {
   const sizeClasses = {
-    sm: 'max-w-sm',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl'
+    sm: 'max-w-sm max-h-[60vh]',
+    md: 'max-w-lg max-h-[70vh]',
+    lg: 'max-w-2xl max-h-[85vh]',
+    xl: 'max-w-4xl max-h-[90vh]'
   }
   
   return (
