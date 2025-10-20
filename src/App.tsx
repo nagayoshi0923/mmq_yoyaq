@@ -1,9 +1,25 @@
 import React from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { SetPassword } from '@/pages/SetPassword'
+
+// QueryClient の設定
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5分間キャッシュ
+      gcTime: 10 * 60 * 1000, // 10分間メモリ保持（旧cacheTime）
+      retry: 1, // 失敗時1回リトライ
+      refetchOnWindowFocus: true, // タブに戻ったら再取得
+    },
+    mutations: {
+      retry: 0, // ミューテーションはリトライしない
+    },
+  },
+})
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -64,9 +80,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </QueryClientProvider>
   )
 }
 

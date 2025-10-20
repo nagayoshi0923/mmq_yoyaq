@@ -8,7 +8,6 @@ import type { Scenario } from '@/types'
 import { 
   BookOpen, 
   Plus, 
-  RefreshCw,
   Upload,
   Download,
   AlertTriangle
@@ -21,8 +20,13 @@ import { ScenarioStats } from './components/ScenarioStats'
 import { ScenarioFilters } from './components/ScenarioFilters'
 
 // 分離されたフック
-import { useScenarioData } from './hooks/useScenarioData'
 import { useScenarioFilters } from './hooks/useScenarioFilters'
+import {
+  useScenariosQuery,
+  useScenarioMutation,
+  useDeleteScenarioMutation,
+  useImportScenariosMutation
+} from './hooks/useScenarioQuery'
 
 // テーブル列定義
 import { createScenarioColumns } from './utils/tableColumns'
@@ -39,19 +43,17 @@ export function ScenarioManagement() {
   // ファイルインput参照
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // データ管理
-  const {
-    scenarios,
-    loading,
-    initialLoadComplete,
-    setInitialLoadComplete,
-    error,
-    loadScenarios,
-    saveScenario,
-    deleteScenario,
-    importFromCSV,
-    exportToCSV
-  } = useScenarioData()
+  // React Query でデータ管理
+  const { data: scenarios = [], isLoading: loading, error: queryError } = useScenariosQuery()
+  const scenarioMutation = useScenarioMutation()
+  const deleteScenarioMutation = useDeleteScenarioMutation()
+  const importScenariosMutation = useImportScenariosMutation()
+  
+  // エラーメッセージ
+  const error = queryError ? (queryError as Error).message : ''
+  
+  // 初回ロード完了フラグ（スクロール復元用）
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
 
   // フィルタとソート
   const {
@@ -136,7 +138,7 @@ export function ScenarioManagement() {
 
   async function handleSaveScenario(scenario: Scenario) {
     try {
-      await saveScenario(scenario, !!editingScenario)
+      await scenarioMutation.mutateAsync({ scenario, isEdit: !!editingScenario })
       setIsEditModalOpen(false)
       setEditingScenario(null)
     } catch (err: unknown) {
@@ -154,7 +156,7 @@ export function ScenarioManagement() {
     if (!scenarioToDelete) return
 
     try {
-      await deleteScenario(scenarioToDelete.id)
+      await deleteScenarioMutation.mutateAsync(scenarioToDelete.id)
       setDeleteDialogOpen(false)
       setScenarioToDelete(null)
     } catch (err: unknown) {
@@ -173,10 +175,8 @@ export function ScenarioManagement() {
 
     try {
       setIsImporting(true)
-      const result = await importFromCSV(file)
-      if (result.success) {
-        alert(`${result.count}件のシナリオをインポートしました`)
-      }
+      const result = await importScenariosMutation.mutateAsync(file)
+      alert(`${result.count}件のシナリオをインポートしました`)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
       alert(message)
@@ -190,7 +190,26 @@ export function ScenarioManagement() {
 
   function handleExport() {
     try {
-      exportToCSV()
+      // CSVエクスポート（React Query不要）
+      const headers = ['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']
+      const rows = scenarios.map(s => [
+        s.title,
+        s.author,
+        s.description || '',
+        s.duration.toString(),
+        s.player_count_min.toString(),
+        s.player_count_max?.toString() || s.player_count_min.toString(),
+        s.difficulty?.toString() || '3',
+        s.participation_fee?.toString() || '3000'
+      ])
+      
+      const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n')
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `scenarios_${new Date().toISOString().split('T')[0]}.csv`
+      link.click()
+      
       alert('シナリオをCSVファイルにエクスポートしました')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
@@ -224,14 +243,7 @@ export function ScenarioManagement() {
               <h1 className="text-3xl font-bold">シナリオ管理</h1>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => loadScenarios(true)}
-                title="更新"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+              {/* React Query が自動で再取得するため、更新ボタンは不要 */}
               <Button
                 variant="outline"
                 size="sm"
