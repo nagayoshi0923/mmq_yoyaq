@@ -331,7 +331,7 @@ export function PerformanceModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>{modalTitle}</DialogTitle>
           <DialogDescription>
@@ -339,13 +339,13 @@ export function PerformanceModal({
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs defaultValue="edit" className="w-full">
+        <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col overflow-hidden">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="edit">公演情報</TabsTrigger>
             <TabsTrigger value="reservations">予約者</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="edit" className="mt-4">
+          <TabsContent value="edit" className="mt-4 overflow-y-auto flex-1">
             <div className="space-y-4">
           {/* 基本情報 */}
           <div className="grid grid-cols-2 gap-4">
@@ -714,7 +714,7 @@ export function PerformanceModal({
         </div>
           </TabsContent>
           
-          <TabsContent value="reservations" className="mt-4">
+          <TabsContent value="reservations" className="mt-4 overflow-y-auto flex-1">
             {loadingReservations ? (
               <div className="text-center py-8 text-muted-foreground">
                 読み込み中...
