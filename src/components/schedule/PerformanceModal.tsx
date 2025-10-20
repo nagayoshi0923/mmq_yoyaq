@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import { X } from 'lucide-react'
+import { X, ChevronDown, ChevronUp } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
@@ -103,6 +103,7 @@ export function PerformanceModal({
   const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loadingReservations, setLoadingReservations] = useState(false)
+  const [expandedReservation, setExpandedReservation] = useState<string | null>(null)
   const [formData, setFormData] = useState<any>({
     id: '',
     date: '',
@@ -725,30 +726,90 @@ export function PerformanceModal({
               </div>
             ) : (
               <div className="space-y-2">
-                {reservations.map((reservation, index) => (
-                  <div key={reservation.id} className="border rounded-lg p-3 h-[60px] flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className="font-medium truncate">{reservation.customer_name}</span>
-                      <Badge variant={reservation.status === 'confirmed' ? 'default' : 'secondary'} className="flex-shrink-0">
-                        {reservation.status === 'confirmed' ? '確定' : '保留中'}
-                      </Badge>
-                      {reservation.participant_count && (
-                        <span className="text-sm text-muted-foreground flex-shrink-0">
-                          {reservation.participant_count}名
-                        </span>
+                {reservations.map((reservation, index) => {
+                  const isExpanded = expandedReservation === reservation.id
+                  return (
+                    <div key={reservation.id} className="border rounded-lg">
+                      {/* メイン行 */}
+                      <div className="p-3 h-[60px] flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className="font-medium truncate">{reservation.customer_name}</span>
+                          {reservation.participant_count && (
+                            <span className="text-sm text-muted-foreground flex-shrink-0">
+                              {reservation.participant_count}名
+                            </span>
+                          )}
+                          <Badge 
+                            variant={
+                              reservation.payment_method === 'onsite' ? 'outline' : 
+                              reservation.payment_method === 'online' ? 'default' : 
+                              'secondary'
+                            } 
+                            className="flex-shrink-0"
+                          >
+                            {reservation.payment_method === 'onsite' ? '現地決済' : 
+                             reservation.payment_method === 'online' ? '事前決済' : 
+                             '未設定'}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Select 
+                            value={reservation.status} 
+                            onValueChange={(value) => {
+                              // TODO: 予約ステータス更新処理
+                              logger.log('予約ステータス変更:', { id: reservation.id, status: value })
+                            }}
+                          >
+                            <SelectTrigger className="w-[100px] h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="confirmed">確定</SelectItem>
+                              <SelectItem value="cancelled">キャンセル</SelectItem>
+                              <SelectItem value="pending">保留中</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedReservation(isExpanded ? null : reservation.id)}
+                          >
+                            詳細
+                            {isExpanded ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* 詳細エリア */}
+                      {isExpanded && (
+                        <div className="px-3 pb-3 pt-0 border-t">
+                          <div className="grid grid-cols-2 gap-3 text-sm mt-3">
+                            {reservation.customer_email && (
+                              <div>
+                                <span className="text-muted-foreground">メール: </span>
+                                <span>{reservation.customer_email}</span>
+                              </div>
+                            )}
+                            {reservation.customer_phone && (
+                              <div>
+                                <span className="text-muted-foreground">電話: </span>
+                                <span>{reservation.customer_phone}</span>
+                              </div>
+                            )}
+                          </div>
+                          {reservation.notes && (
+                            <div className="mt-3 text-sm">
+                              <span className="text-muted-foreground">顧客メモ: </span>
+                              <p className="mt-1 text-foreground whitespace-pre-wrap">{reservation.notes}</p>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-                    
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground flex-shrink-0">
-                      {reservation.customer_phone && (
-                        <span className="truncate max-w-[120px]">{reservation.customer_phone}</span>
-                      )}
-                      {reservation.customer_email && (
-                        <span className="truncate max-w-[150px]">{reservation.customer_email}</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </TabsContent>
