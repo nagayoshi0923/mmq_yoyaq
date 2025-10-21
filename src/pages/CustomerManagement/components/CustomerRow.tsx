@@ -4,8 +4,6 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronDown, ChevronUp, Edit2, Mail, Phone } from 'lucide-react'
 import type { Customer, Reservation } from '@/types'
 import { supabase } from '@/lib/supabase'
-import { format } from 'date-fns'
-import { ja } from 'date-fns/locale'
 
 interface CustomerRowProps {
   customer: Customer
@@ -45,7 +43,13 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
 
   const formatDate = (date: string | null) => {
     if (!date) return '未設定'
-    return format(new Date(date), 'yyyy/MM/dd', { locale: ja })
+    const d = new Date(date)
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const formatDateTime = (date: string) => {
+    const d = new Date(date)
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
 
   const formatCurrency = (amount: number) => {
@@ -140,7 +144,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
                     <div className="flex-1">
                       <div className="font-medium">{reservation.title}</div>
                       <div className="text-sm text-muted-foreground">
-                        {format(new Date(reservation.requested_datetime), 'yyyy/MM/dd HH:mm', { locale: ja })}
+                        {formatDateTime(reservation.requested_datetime)}
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
