@@ -9,7 +9,8 @@ import {
   Clock,
   Settings,
   ClipboardCheck,
-  UserCog
+  UserCog,
+  User
 } from 'lucide-react'
 
 interface NavigationBarProps {
@@ -32,6 +33,7 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
     { id: 'customer-booking', label: '予約サイト', icon: Calendar, roles: ['admin', 'staff', 'customer'] },
     { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin', 'staff'] },
     { id: 'customer-management', label: '顧客管理', icon: Users, roles: ['admin', 'staff'] },
+    { id: 'my-page', label: 'マイページ', icon: User, roles: ['admin', 'staff', 'customer'] },
     { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },
     { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin', 'staff'] },
     { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] }
