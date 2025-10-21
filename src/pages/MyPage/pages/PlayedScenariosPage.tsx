@@ -6,6 +6,7 @@ import { BookOpen, Calendar, MapPin, Star, EyeOff } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface PlayedScenario {
   scenario: string
@@ -13,6 +14,7 @@ interface PlayedScenario {
   venue: string
   gms: string[]
   scenario_id?: string
+  key_visual_url?: string
 }
 
 export function PlayedScenariosPage() {
@@ -91,6 +93,17 @@ export function PlayedScenariosPage() {
             .eq('scenario', reservation.title)
             .maybeSingle()
 
+          // シナリオの画像を取得
+          let keyVisualUrl = null
+          if (reservation.scenario_id) {
+            const { data: scenarioData } = await supabase
+              .from('scenarios')
+              .select('key_visual_url')
+              .eq('id', reservation.scenario_id)
+              .maybeSingle()
+            keyVisualUrl = scenarioData?.key_visual_url
+          }
+
           if (!eventError && event) {
             scenarios.push({
               scenario: event.scenario,
@@ -98,6 +111,7 @@ export function PlayedScenariosPage() {
               venue: event.venue,
               gms: event.gms || [],
               scenario_id: reservation.scenario_id || undefined,
+              key_visual_url: keyVisualUrl,
             })
           } else {
             // イベントが見つからない場合でも予約情報から追加
@@ -107,6 +121,7 @@ export function PlayedScenariosPage() {
               venue: '店舗不明',
               gms: [],
               scenario_id: reservation.scenario_id || undefined,
+              key_visual_url: keyVisualUrl,
             })
           }
         }
@@ -248,35 +263,62 @@ export function PlayedScenariosPage() {
 
                   return (
                     <div key={idx} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3 flex-1">
-                          <h3 className="font-bold text-lg">{group.scenario}</h3>
-                          <Badge variant="secondary" className="text-sm">
-                            {group.count}回プレイ
-                          </Badge>
+                      <div className="flex items-start gap-4 mb-3">
+                        {/* シナリオ画像 */}
+                        <div className="flex-shrink-0 w-16 h-20 bg-gray-200 rounded overflow-hidden">
+                          {group.plays[0]?.key_visual_url ? (
+                            <OptimizedImage
+                              src={group.plays[0].key_visual_url}
+                              alt={group.scenario}
+                              className="w-full h-full object-cover"
+                              responsive={true}
+                              srcSetSizes={[64, 128, 256]}
+                              breakpoints={{ mobile: 64, tablet: 80, desktop: 128 }}
+                              useWebP={true}
+                              quality={85}
+                              fallback={
+                                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                  No Image
+                                </div>
+                              }
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                              No Image
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleToggleLike(scenarioId)}
-                            className="hover:bg-yellow-50"
-                            title={isLiked ? '遊びたいリストから削除' : '遊びたいリストに追加'}
-                          >
-                            <Star className={`h-5 w-5 ${isLiked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleToggleHide(group.scenario)}
-                            className="hover:bg-gray-50"
-                            title="非表示にする"
-                          >
-                            <EyeOff className="h-5 w-5 text-gray-400" />
-                          </Button>
-                        </div>
-                      </div>
-                  <div className="space-y-2">
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <h3 className="font-bold text-lg">{group.scenario}</h3>
+                              <Badge variant="secondary" className="text-sm">
+                                {group.count}回プレイ
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleToggleLike(scenarioId)}
+                                className="hover:bg-yellow-50"
+                                title={isLiked ? '遊びたいリストから削除' : '遊びたいリストに追加'}
+                              >
+                                <Star className={`h-5 w-5 ${isLiked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleToggleHide(group.scenario)}
+                                className="hover:bg-gray-50"
+                                title="非表示にする"
+                              >
+                                <EyeOff className="h-5 w-5 text-gray-400" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
                     {group.plays.map((play, playIdx) => (
                       <div
                         key={playIdx}
@@ -304,7 +346,9 @@ export function PlayedScenariosPage() {
                         )}
                       </div>
                     ))}
-                  </div>
+                          </div>
+                        </div>
+                      </div>
                 </div>
               )})}
             </div>

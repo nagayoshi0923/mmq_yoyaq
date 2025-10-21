@@ -6,6 +6,7 @@ import { Star, Users, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface WantToPlayScenario {
   id: string
@@ -23,6 +24,7 @@ interface WantToPlayScenario {
     genre: string[]
     rating: number
     play_count: number
+    key_visual_url?: string
   }
 }
 
@@ -74,7 +76,8 @@ export function WantToPlayPage() {
             difficulty,
             genre,
             rating,
-            play_count
+            play_count,
+            key_visual_url
           )
         `)
         .eq('customer_id', customer.id)
@@ -159,30 +162,58 @@ export function WantToPlayPage() {
                   key={item.id}
                   className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg mb-1">{item.scenario.title}</h3>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        作者: {item.scenario.author}
-                      </p>
-                      {item.scenario.description && (
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                          {item.scenario.description}
-                        </p>
+                  <div className="flex items-start gap-4 mb-3">
+                    {/* シナリオ画像 */}
+                    <div className="flex-shrink-0 w-16 h-20 bg-gray-200 rounded overflow-hidden">
+                      {item.scenario.key_visual_url ? (
+                        <OptimizedImage
+                          src={item.scenario.key_visual_url}
+                          alt={item.scenario.title}
+                          className="w-full h-full object-cover"
+                          responsive={true}
+                          srcSetSizes={[64, 128, 256]}
+                          breakpoints={{ mobile: 64, tablet: 80, desktop: 128 }}
+                          useWebP={true}
+                          quality={85}
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                              No Image
+                            </div>
+                          }
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                          No Image
+                        </div>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemove(item.id)}
-                      className="hover:bg-red-50"
-                      title="リストから削除"
-                    >
-                      <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                    </Button>
-                  </div>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg mb-1">{item.scenario.title}</h3>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            作者: {item.scenario.author}
+                          </p>
+                          {item.scenario.description && (
+                            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                              {item.scenario.description}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemove(item.id)}
+                          className="hover:bg-red-50"
+                          title="リストから削除"
+                        >
+                          <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                        </Button>
+                      </div>
+                    </div>
 
-                  <div className="flex flex-wrap items-center gap-4 text-sm mb-3">
+                    <div className="flex flex-wrap items-center gap-4 text-sm mb-3">
                     <div className="flex items-center gap-1">
                       <Users className="h-4 w-4 text-muted-foreground" />
                       <span>
@@ -212,8 +243,9 @@ export function WantToPlayPage() {
                     </div>
                   )}
 
-                  <div className="text-xs text-muted-foreground">
-                    追加日: {formatDate(item.created_at)}
+                    <div className="text-xs text-muted-foreground">
+                      追加日: {formatDate(item.created_at)}
+                    </div>
                   </div>
                 </div>
               ))}

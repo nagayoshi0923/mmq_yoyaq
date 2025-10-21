@@ -5,12 +5,14 @@ import { Calendar, Clock, CheckCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 import type { Reservation } from '@/types'
 
 export function ReservationsPage() {
   const { user } = useAuth()
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
+  const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (user?.email) {
@@ -45,6 +47,30 @@ export function ReservationsPage() {
 
       if (error) throw error
       setReservations(data || [])
+
+      // シナリオの画像を取得
+      if (data && data.length > 0) {
+        const scenarioIds = data
+          .map(r => r.scenario_id)
+          .filter((id): id is string => id !== null)
+        
+        if (scenarioIds.length > 0) {
+          const { data: scenarios } = await supabase
+            .from('scenarios')
+            .select('id, key_visual_url')
+            .in('id', scenarioIds)
+          
+          if (scenarios) {
+            const imageMap: Record<string, string> = {}
+            scenarios.forEach(s => {
+              if (s.key_visual_url) {
+                imageMap[s.id] = s.key_visual_url
+              }
+            })
+            setScenarioImages(imageMap)
+          }
+        }
+      }
     } catch (error) {
       logger.error('予約履歴取得エラー:', error)
     } finally {
@@ -137,8 +163,33 @@ export function ReservationsPage() {
               {upcomingReservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-blue-50"
+                  className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-blue-50"
                 >
+                  {/* シナリオ画像 */}
+                  <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
+                    {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
+                      <OptimizedImage
+                        src={scenarioImages[reservation.scenario_id]}
+                        alt={reservation.title}
+                        className="w-full h-full object-cover"
+                        responsive={true}
+                        srcSetSizes={[48, 96, 192]}
+                        breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
+                        useWebP={true}
+                        quality={85}
+                        fallback={
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                            No Image
+                          </div>
+                        }
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                        No Image
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium">{reservation.title}</span>
@@ -189,8 +240,33 @@ export function ReservationsPage() {
               {pastReservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
+                  {/* シナリオ画像 */}
+                  <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
+                    {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
+                      <OptimizedImage
+                        src={scenarioImages[reservation.scenario_id]}
+                        alt={reservation.title}
+                        className="w-full h-full object-cover"
+                        responsive={true}
+                        srcSetSizes={[48, 96, 192]}
+                        breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
+                        useWebP={true}
+                        quality={85}
+                        fallback={
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                            No Image
+                          </div>
+                        }
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                        No Image
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium">{reservation.title}</span>
@@ -237,8 +313,33 @@ export function ReservationsPage() {
               {cancelledReservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors opacity-60"
+                  className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors opacity-60"
                 >
+                  {/* シナリオ画像 */}
+                  <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
+                    {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
+                      <OptimizedImage
+                        src={scenarioImages[reservation.scenario_id]}
+                        alt={reservation.title}
+                        className="w-full h-full object-cover"
+                        responsive={true}
+                        srcSetSizes={[48, 96, 192]}
+                        breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
+                        useWebP={true}
+                        quality={85}
+                        fallback={
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                            No Image
+                          </div>
+                        }
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                        No Image
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium line-through">{reservation.title}</span>
