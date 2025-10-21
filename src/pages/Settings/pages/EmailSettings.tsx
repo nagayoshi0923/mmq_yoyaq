@@ -144,6 +144,7 @@ interface EmailSettings {
     days_before: number
     time: string
     enabled: boolean
+    template?: string
   }>
   reminder_time: string
   reminder_send_time: 'morning' | 'afternoon' | 'evening'
@@ -222,7 +223,7 @@ export function EmailSettings() {
     }))
   }
 
-  const updateReminderSchedule = (index: number, field: 'days_before' | 'time' | 'enabled', value: any) => {
+  const updateReminderSchedule = (index: number, field: 'days_before' | 'time' | 'enabled' | 'template', value: any) => {
     setFormData(prev => ({
       ...prev,
       reminder_schedule: prev.reminder_schedule.map((item, i) => 
@@ -513,56 +514,101 @@ export function EmailSettings() {
                   </Button>
                 </div>
                 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {formData.reminder_schedule.map((schedule, index) => (
-                    <div key={index} className="flex items-center gap-4 p-3 border border-gray-200 rounded-lg">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={schedule.enabled}
-                          onChange={(e) => updateReminderSchedule(index, 'enabled', e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                      </div>
-                      
-                      <div className="flex-1 grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-sm">何日前</Label>
-                          <select
-                            value={schedule.days_before}
-                            onChange={(e) => updateReminderSchedule(index, 'days_before', parseInt(e.target.value))}
-                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                          >
-                            <option value={1}>1日前</option>
-                            <option value={2}>2日前</option>
-                            <option value={3}>3日前</option>
-                            <option value={7}>1週間前</option>
-                            <option value={14}>2週間前</option>
-                            <option value={30}>1ヶ月前</option>
-                          </select>
-                        </div>
-                        
-                        <div>
-                          <Label className="text-sm">送信時刻</Label>
-                          <Input
-                            type="time"
-                            value={schedule.time}
-                            onChange={(e) => updateReminderSchedule(index, 'time', e.target.value)}
-                            className="text-sm"
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-4">
+                      {/* 基本設定 */}
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={schedule.enabled}
+                            onChange={(e) => updateReminderSchedule(index, 'enabled', e.target.checked)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
                         </div>
+                        
+                        <div className="flex-1 grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-sm">何日前</Label>
+                            <select
+                              value={schedule.days_before}
+                              onChange={(e) => updateReminderSchedule(index, 'days_before', parseInt(e.target.value))}
+                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            >
+                              <option value={1}>1日前</option>
+                              <option value={2}>2日前</option>
+                              <option value={3}>3日前</option>
+                              <option value={7}>1週間前</option>
+                              <option value={14}>2週間前</option>
+                              <option value={30}>1ヶ月前</option>
+                            </select>
+                          </div>
+                          
+                          <div>
+                            <Label className="text-sm">送信時刻</Label>
+                            <Input
+                              type="time"
+                              value={schedule.time}
+                              onChange={(e) => updateReminderSchedule(index, 'time', e.target.value)}
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                        
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeReminderSchedule(index)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          disabled={formData.reminder_schedule.length <= 1}
+                        >
+                          ×
+                        </Button>
                       </div>
-                      
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeReminderSchedule(index)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        disabled={formData.reminder_schedule.length <= 1}
-                      >
-                        ×
-                      </Button>
+
+                      {/* テンプレート編集 */}
+                      <div className="border-t pt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-sm font-medium">メールテンプレート</Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const defaultTemplate = getDefaultReminderTemplate(
+                                formData.company_name,
+                                formData.company_phone,
+                                formData.company_email,
+                                schedule.days_before
+                              )
+                              updateReminderSchedule(index, 'template', defaultTemplate)
+                            }}
+                            className="text-xs"
+                          >
+                            デフォルトに戻す
+                          </Button>
+                        </div>
+                        
+                        <Textarea
+                          value={schedule.template || getDefaultReminderTemplate(
+                            formData.company_name,
+                            formData.company_phone,
+                            formData.company_email,
+                            schedule.days_before
+                          )}
+                          onChange={(e) => updateReminderSchedule(index, 'template', e.target.value)}
+                          rows={8}
+                          placeholder="メールテンプレートを編集"
+                          className="text-sm font-mono"
+                          disabled={!schedule.enabled}
+                        />
+                        
+                        <p className="text-xs text-muted-foreground mt-1">
+                          使用可能な変数: {'{customer_name}'}, {'{scenario_title}'}, {'{date}'}, {'{time}'}, {'{venue}'}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -622,53 +668,10 @@ export function EmailSettings() {
           <CardTitle>リマインドメールテンプレート</CardTitle>
           <CardDescription>公演前に送信されるリマインドメールの内容（各送信タイミングで動的に生成）</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* テンプレートプレビュー */}
-          <div>
-            <Label className="text-sm font-medium mb-2 block">テンプレートプレビュー</Label>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
-              <div className="space-y-2">
-                {formData.reminder_schedule.map((schedule, index) => (
-                  <div key={index} className="border-b border-gray-200 pb-2 last:border-b-0">
-                    <div className="font-medium text-blue-600 mb-1">
-                      {schedule.days_before === 1 ? '1日前' : 
-                       schedule.days_before === 2 ? '2日前' :
-                       schedule.days_before === 3 ? '3日前' :
-                       schedule.days_before === 7 ? '1週間前' :
-                       schedule.days_before === 14 ? '2週間前' :
-                       schedule.days_before === 30 ? '1ヶ月前' :
-                       `${schedule.days_before}日前`} ({schedule.time})
-                    </div>
-                    <div className="text-gray-600 whitespace-pre-wrap">
-                      {getDefaultReminderTemplate(
-                        formData.company_name,
-                        formData.company_phone,
-                        formData.company_email,
-                        schedule.days_before
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              各送信タイミングに応じてメッセージが自動的に調整されます
-            </p>
-          </div>
-
-          {/* カスタムテンプレート編集（将来の拡張用） */}
-          <div>
-            <Label className="text-sm font-medium mb-2 block">カスタムテンプレート（上級者向け）</Label>
-            <Textarea
-              value={formData.reminder_template}
-              onChange={(e) => setFormData(prev => ({ ...prev, reminder_template: e.target.value }))}
-              rows={6}
-              placeholder="カスタムテンプレートを編集できます（通常は自動生成を使用）"
-              disabled={!formData.reminder_enabled}
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              使用可能な変数: {'{customer_name}'}, {'{scenario_title}'}, {'{date}'}, {'{time}'}, {'{venue}'}, {'{days_before}'}
-            </p>
+        <CardContent>
+          <div className="text-center text-gray-500 py-8">
+            <p className="text-sm">各リマインドスケジュールカード内でテンプレートを編集できます</p>
+            <p className="text-xs mt-1">上記のスケジュール設定で個別にカスタマイズしてください</p>
           </div>
         </CardContent>
       </Card>
