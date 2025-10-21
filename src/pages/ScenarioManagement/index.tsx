@@ -27,6 +27,7 @@ import {
   useDeleteScenarioMutation,
   useImportScenariosMutation
 } from './hooks/useScenarioQuery'
+import { useQueryClient } from '@tanstack/react-query'
 
 // テーブル列定義
 import { createScenarioColumns } from './utils/tableColumns'
@@ -50,6 +51,7 @@ export function ScenarioManagement() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // React Query でデータ管理
+  const queryClient = useQueryClient()
   const { data: scenarios = [], isLoading: loading, error: queryError } = useScenariosQuery()
   const scenarioMutation = useScenarioMutation()
   const deleteScenarioMutation = useDeleteScenarioMutation()
@@ -176,10 +178,14 @@ export function ScenarioManagement() {
         return
       }
 
-      // React Query のキャッシュを更新
-      await scenarioMutation.mutateAsync({
-        ...scenario,
-        key_visual_url: result.url
+      // React Query のキャッシュを直接更新
+      queryClient.setQueryData(['scenarios'], (oldData: Scenario[] | undefined) => {
+        if (!oldData) return oldData
+        return oldData.map(s => 
+          s.id === scenario.id 
+            ? { ...s, key_visual_url: result.url }
+            : s
+        )
       })
 
       alert('画像をアップロードしました')
@@ -212,10 +218,14 @@ export function ScenarioManagement() {
         return
       }
 
-      // React Query のキャッシュを更新
-      await scenarioMutation.mutateAsync({
-        ...scenario,
-        key_visual_url: undefined
+      // React Query のキャッシュを直接更新
+      queryClient.setQueryData(['scenarios'], (oldData: Scenario[] | undefined) => {
+        if (!oldData) return oldData
+        return oldData.map(s => 
+          s.id === scenario.id 
+            ? { ...s, key_visual_url: undefined }
+            : s
+        )
       })
 
       alert('画像を削除しました')
