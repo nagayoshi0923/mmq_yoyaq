@@ -16,6 +16,7 @@ import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { scenarioApi, staffApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi'
 import { sendEmail } from '@/lib/emailApi'
+import { supabase } from '@/lib/supabase'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store, Reservation } from '@/types'
 import { logger } from '@/utils/logger'
@@ -125,12 +126,12 @@ export function PerformanceModal({
     notes: ''
   })
 
-  // 時間帯のデフォルト設定
-  const timeSlotDefaults = {
+  // 時間帯のデフォルト設定（設定から動的に取得）
+  const [timeSlotDefaults, setTimeSlotDefaults] = useState({
     morning: { start_time: '10:00', end_time: '14:00', label: '朝公演' },
     afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
     evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
-  }
+  })
 
   // 時間帯が変更されたときに開始・終了時間を自動設定
   const handleTimeSlotChange = (slot: 'morning' | 'afternoon' | 'evening') => {
@@ -142,6 +143,58 @@ export function PerformanceModal({
       end_time: defaults.end_time
     }))
   }
+
+  // 公演スケジュール設定を読み込む
+  useEffect(() => {
+    const loadPerformanceSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('performance_schedule_settings')
+          .select('performance_times, default_duration')
+          .eq('store_id', formData.venue || stores[0]?.id)
+          .maybeSingle()
+
+        if (error && error.code !== 'PGRST116') {
+          logger.error('公演スケジュール設定取得エラー:', error)
+          return
+        }
+
+        if (data?.performance_times) {
+          const newDefaults = {
+            morning: { start_time: '10:00', end_time: '14:00', label: '朝公演' },
+            afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
+            evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
+          }
+
+          // 設定された時間に基づいて更新
+          data.performance_times.forEach((time: any, index: number) => {
+            const slotKey = time.slot as keyof typeof newDefaults
+            if (slotKey && newDefaults[slotKey]) {
+              const duration = data.default_duration || 240 // デフォルト4時間
+              const startTime = time.start_time
+              const endTime = new Date(`2000-01-01T${startTime}`)
+              endTime.setMinutes(endTime.getMinutes() + duration)
+              const endTimeStr = endTime.toTimeString().slice(0, 5)
+              
+              newDefaults[slotKey] = {
+                start_time: startTime,
+                end_time: endTimeStr,
+                label: newDefaults[slotKey].label
+              }
+            }
+          })
+
+          setTimeSlotDefaults(newDefaults)
+        }
+      } catch (error) {
+        logger.error('公演スケジュール設定読み込みエラー:', error)
+      }
+    }
+
+    if (formData.venue || stores.length > 0) {
+      loadPerformanceSettings()
+    }
+  }, [formData.venue, stores])
 
   // 予約データを読み込む
   useEffect(() => {
@@ -743,7 +796,7 @@ export function PerformanceModal({
                       onClick={() => {
                         const selectedEmails = reservations
                           .filter(r => selectedReservations.has(r.id))
-                          .map(r => r.customer_email)
+                          .map(r => r.customer_id) // TODO: customer_idからemailを取得する必要がある
                           .filter(Boolean)
                         if (selectedEmails.length > 0) {
                           setIsEmailModalOpen(true)
@@ -808,7 +861,7 @@ export function PerformanceModal({
                               }}
                             />
                           </div>
-                          <span className="font-medium truncate w-[100px]">{reservation.customer_name}</span>
+                          <span className="font-medium truncate w-[100px]">{reservation.customer_notes || '顧客名なし'}</span>
                           <span className="text-sm text-muted-foreground flex-shrink-0 w-[60px]">
                             {reservation.participant_count ? `${reservation.participant_count}名` : '-'}
                           </span>
@@ -867,25 +920,10 @@ export function PerformanceModal({
                       {isExpanded && (
                         <div className="px-3 pb-3 pt-0 border-t">
                           <div className="grid grid-cols-2 gap-3 text-sm mt-3">
-                            {reservation.customer_email && (
-                              <div>
-                                <span className="text-muted-foreground">メール: </span>
-                                <span>{reservation.customer_email}</span>
-                              </div>
-                            )}
-                            {reservation.customer_phone && (
-                              <div>
-                                <span className="text-muted-foreground">電話: </span>
-                                <span>{reservation.customer_phone}</span>
-                              </div>
-                            )}
+                            {/* TODO: customer_emailは別途実装が必要 */}
+                            {/* TODO: customer_phoneは別途実装が必要 */}
                           </div>
-                          {reservation.notes && (
-                            <div className="mt-3 text-sm">
-                              <span className="text-muted-foreground">顧客メモ: </span>
-                              <p className="mt-1 text-foreground whitespace-pre-wrap">{reservation.notes}</p>
-                            </div>
-                          )}
+                          {/* TODO: notesは別途実装が必要 */}
                         </div>
                       )}
                     </div>
@@ -956,7 +994,7 @@ export function PerformanceModal({
                   .filter(r => selectedReservations.has(r.id))
                   .map(r => (
                     <li key={r.id}>
-                      {r.customer_name} ({r.customer_email})
+                      {r.customer_notes || '顧客名なし'} ({r.customer_id})
                     </li>
                   ))}
               </ul>
@@ -986,7 +1024,7 @@ export function PerformanceModal({
                     // TODO: メール送信API実装
                     const selectedEmails = reservations
                       .filter(r => selectedReservations.has(r.id))
-                      .map(r => r.customer_email)
+                      .map(r => r.customer_id) // TODO: customer_idからemailを取得する必要がある
                       .filter(Boolean)
                     
                     logger.log('メール送信:', {
