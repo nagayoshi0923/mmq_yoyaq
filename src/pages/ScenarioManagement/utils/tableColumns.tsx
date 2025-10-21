@@ -1,3 +1,4 @@
+import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Users, Star, Edit, Trash2, Upload, X } from 'lucide-react'
@@ -35,6 +36,8 @@ export function createScenarioColumns(
       headerClassName: 'text-center',
       cellClassName: 'p-1',
       render: (scenario) => {
+        const [isDragging, setIsDragging] = React.useState(false)
+
         const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           const file = e.target.files?.[0]
           if (file && actions.onImageUpload) {
@@ -44,10 +47,38 @@ export function createScenarioColumns(
           e.target.value = ''
         }
 
+        const handleDragOver = (e: React.DragEvent) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setIsDragging(true)
+        }
+
+        const handleDragLeave = (e: React.DragEvent) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setIsDragging(false)
+        }
+
+        const handleDrop = (e: React.DragEvent) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setIsDragging(false)
+
+          const file = e.dataTransfer.files?.[0]
+          if (file && file.type.startsWith('image/') && actions.onImageUpload) {
+            actions.onImageUpload(scenario, file)
+          }
+        }
+
         return (
           <div className="flex items-center justify-center">
             {scenario.key_visual_url ? (
-              <div className="relative w-8 h-10 bg-gray-200 rounded overflow-hidden group">
+              <div 
+                className="relative w-8 h-10 bg-gray-200 rounded overflow-hidden group"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
                 <OptimizedImage
                   src={scenario.key_visual_url}
                   alt={scenario.title}
@@ -63,6 +94,11 @@ export function createScenarioColumns(
                     </div>
                   }
                 />
+                {isDragging && (
+                  <div className="absolute inset-0 bg-blue-500 bg-opacity-50 flex items-center justify-center">
+                    <Upload className="h-4 w-4 text-white" />
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -78,8 +114,17 @@ export function createScenarioColumns(
                 </button>
               </div>
             ) : (
-              <label className="w-8 h-10 border border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
-                <Upload className="h-3 w-3 text-gray-400" />
+              <label 
+                className={`w-8 h-10 border border-dashed rounded flex flex-col items-center justify-center cursor-pointer transition-colors ${
+                  isDragging 
+                    ? 'border-blue-500 bg-blue-100' 
+                    : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <Upload className={`h-3 w-3 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
                 <input
                   type="file"
                   accept="image/*"
