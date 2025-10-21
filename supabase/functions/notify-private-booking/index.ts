@@ -39,6 +39,32 @@ interface PrivateBookingNotification {
 serve(async (req) => {
   try {
     const payload: PrivateBookingNotification = await req.json()
+
+    // Supabaseクライアントを初期化
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // 通知設定をチェック
+    const { data: notificationSettings, error: settingsError } = await supabaseClient
+      .from('notification_settings')
+      .select('new_reservation_email, new_reservation_discord')
+      .eq('store_id', 'default')
+      .maybeSingle()
+
+    if (settingsError) {
+      console.error('通知設定取得エラー:', settingsError)
+    }
+
+    // すべての通知が無効の場合はスキップ
+    if (notificationSettings && !notificationSettings.new_reservation_email && !notificationSettings.new_reservation_discord) {
+      console.log('⚠️ All notifications are disabled in settings')
+      return new Response(
+        JSON.stringify({ message: 'All notifications are disabled' }),
+        { headers: { "Content-Type": "application/json" }, status: 200 }
+      )
+    }
     
     // 新規作成のみ通知（更新は除外）
     if (payload.type !== 'insert') {
@@ -82,8 +108,8 @@ ${booking.notes ? `📝 備考: ${booking.notes}` : ''}
 
 ▶️ 確認: ${Deno.env.get('SITE_URL') || 'https://your-site.com'}#gm-availability-check`
 
-    // LINE通知を送信
-    if (LINE_NOTIFY_TOKEN) {
+    // LINE通知を送信（メール通知設定が有効な場合のみ）
+    if (LINE_NOTIFY_TOKEN && notificationSettings?.new_reservation_email !== false) {
       const lineResponse = await fetch('https://notify-api.line.me/api/notify', {
         method: 'POST',
         headers: {
@@ -98,8 +124,8 @@ ${booking.notes ? `📝 備考: ${booking.notes}` : ''}
       }
     }
 
-    // Discord通知を送信（Embed形式）
-    if (DISCORD_WEBHOOK_URL) {
+    // Discord通知を送信（Discord通知設定が有効な場合のみ）
+    if (DISCORD_WEBHOOK_URL && notificationSettings?.new_reservation_discord !== false) {
       const candidateFields = booking.candidate_datetimes.candidates.map(c => {
         const date = new Date(c.date)
         const dateStr = `${date.getMonth() + 1}/${date.getDate()}(${['日','月','火','水','木','金','土'][date.getDay()]})`

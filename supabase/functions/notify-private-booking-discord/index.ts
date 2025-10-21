@@ -223,6 +223,26 @@ serve(async (req) => {
 
     console.log('✅ Processing insert operation')
     const booking = payload.record
+
+    // 通知設定をチェック
+    const { data: notificationSettings, error: settingsError } = await supabase
+      .from('notification_settings')
+      .select('new_reservation_discord')
+      .eq('store_id', 'default') // デフォルト設定を使用
+      .maybeSingle()
+
+    if (settingsError) {
+      console.error('通知設定取得エラー:', settingsError)
+    }
+
+    // Discord通知が無効の場合はスキップ
+    if (notificationSettings && !notificationSettings.new_reservation_discord) {
+      console.log('⚠️ Discord notifications are disabled in settings')
+      return new Response(
+        JSON.stringify({ message: 'Discord notifications are disabled' }),
+        { headers: { "Content-Type": "application/json" }, status: 200 }
+      )
+    }
     console.log('📋 Booking data:', {
       id: booking.id,
       customer_name: booking.customer_name,
