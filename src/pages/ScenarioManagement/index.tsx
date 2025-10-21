@@ -31,6 +31,11 @@ import {
 // テーブル列定義
 import { createScenarioColumns } from './utils/tableColumns'
 
+// 画像アップロード
+import { uploadImage, validateImageFile } from '@/lib/uploadImage'
+import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
+
 export function ScenarioManagement() {
   // UI状態（Hooksのルール: 全てのuseStateを最初に）
   const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
@@ -39,6 +44,7 @@ export function ScenarioManagement() {
   const [isImporting, setIsImporting] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
+  const [uploadingImages, setUploadingImages] = useState<Set<string>>(new Set())
   
   // ファイルインput参照
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -69,7 +75,9 @@ export function ScenarioManagement() {
   // テーブル列定義（useMemoは常に呼ばれる位置に）
   const tableColumns = useMemo(() => createScenarioColumns(displayMode, {
     onEdit: handleEditScenario,
-    onDelete: openDeleteDialog
+    onDelete: openDeleteDialog,
+    onImageUpload: handleImageUpload,
+    onImageRemove: handleImageRemove
   }), [displayMode])
 
   // スクロール位置の保存と復元
@@ -134,6 +142,87 @@ export function ScenarioManagement() {
   function handleNewScenario() {
     setEditingScenario(null)
     setIsEditModalOpen(true)
+  }
+
+  // 画像アップロードハンドラー
+  async function handleImageUpload(scenario: Scenario, file: File) {
+    // バリデーション
+    const validation = validateImageFile(file, 5)
+    if (!validation.valid) {
+      alert(validation.error)
+      return
+    }
+
+    // アップロード中フラグを設定
+    setUploadingImages(prev => new Set(prev).add(scenario.id))
+
+    try {
+      // 画像をアップロード
+      const result = await uploadImage(file, 'scenario-images', 'key-visuals')
+      if (!result) {
+        alert('画像のアップロードに失敗しました')
+        return
+      }
+
+      // データベースを更新
+      const { error } = await supabase
+        .from('scenarios')
+        .update({ key_visual_url: result.url })
+        .eq('id', scenario.id)
+
+      if (error) {
+        logger.error('画像URL更新エラー:', error)
+        alert('画像の保存に失敗しました')
+        return
+      }
+
+      // React Query のキャッシュを更新
+      await scenarioMutation.mutateAsync({
+        ...scenario,
+        key_visual_url: result.url
+      })
+
+      alert('画像をアップロードしました')
+    } catch (error) {
+      logger.error('画像アップロードエラー:', error)
+      alert('画像のアップロードに失敗しました')
+    } finally {
+      setUploadingImages(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(scenario.id)
+        return newSet
+      })
+    }
+  }
+
+  // 画像削除ハンドラー
+  async function handleImageRemove(scenario: Scenario) {
+    if (!confirm('画像を削除しますか？')) return
+
+    try {
+      // データベースを更新
+      const { error } = await supabase
+        .from('scenarios')
+        .update({ key_visual_url: null })
+        .eq('id', scenario.id)
+
+      if (error) {
+        logger.error('画像削除エラー:', error)
+        alert('画像の削除に失敗しました')
+        return
+      }
+
+      // React Query のキャッシュを更新
+      await scenarioMutation.mutateAsync({
+        ...scenario,
+        key_visual_url: undefined
+      })
+
+      alert('画像を削除しました')
+    } catch (error) {
+      logger.error('画像削除エラー:', error)
+      alert('画像の削除に失敗しました')
+    }
   }
 
   async function handleSaveScenario(scenario: Scenario) {
