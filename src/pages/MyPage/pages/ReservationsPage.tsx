@@ -52,15 +52,17 @@ export function ReservationsPage() {
       if (data && data.length > 0) {
         const scenarioIds = data
           .map(r => r.scenario_id)
-          .filter((id): id is string => id !== null)
+          .filter((id): id is string => id !== null && id !== undefined)
         
         if (scenarioIds.length > 0) {
-          const { data: scenarios } = await supabase
+          const { data: scenarios, error: scenariosError } = await supabase
             .from('scenarios')
             .select('id, key_visual_url')
             .in('id', scenarioIds)
           
-          if (scenarios) {
+          if (scenariosError) {
+            logger.error('シナリオ画像取得エラー:', scenariosError)
+          } else if (scenarios) {
             const imageMap: Record<string, string> = {}
             scenarios.forEach(s => {
               if (s.key_visual_url) {

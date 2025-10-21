@@ -59,32 +59,51 @@ export function WantToPlayPage() {
       }
 
       // 遊びたいシナリオを取得
-      const { data, error } = await supabase
+      const { data: likesData, error: likesError } = await supabase
         .from('scenario_likes')
-        .select(`
-          id,
-          scenario_id,
-          created_at,
-          scenario:scenarios (
-            id,
-            title,
-            description,
-            author,
-            duration,
-            player_count_min,
-            player_count_max,
-            difficulty,
-            genre,
-            rating,
-            play_count,
-            key_visual_url
-          )
-        `)
+        .select('id, scenario_id, created_at')
         .eq('customer_id', customer.id)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
-      setWantToPlayScenarios(data || [])
+      if (likesError) throw likesError
+      if (!likesData || likesData.length === 0) {
+        setWantToPlayScenarios([])
+        return
+      }
+
+      // シナリオ情報を取得
+      const scenarioIds = likesData.map(like => like.scenario_id)
+      const { data: scenariosData, error: scenariosError } = await supabase
+        .from('scenarios')
+        .select('id, title, description, author, duration, player_count_min, player_count_max, difficulty, genre, rating, play_count, key_visual_url')
+        .in('id', scenarioIds)
+
+      if (scenariosError) throw scenariosError
+
+      // データを結合
+      const combined = likesData.map(like => {
+        const scenario = scenariosData?.find(s => s.id === like.scenario_id)
+        return {
+          id: like.id,
+          scenario_id: like.scenario_id,
+          created_at: like.created_at,
+          scenario: scenario || {
+            id: like.scenario_id,
+            title: '不明',
+            description: '',
+            author: '',
+            duration: 0,
+            player_count_min: 0,
+            player_count_max: 0,
+            difficulty: 0,
+            genre: [],
+            rating: 0,
+            play_count: 0,
+          }
+        }
+      })
+
+      setWantToPlayScenarios(combined)
     } catch (error) {
       logger.error('遊びたいシナリオ取得エラー:', error)
     } finally {
