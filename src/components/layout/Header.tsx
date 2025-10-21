@@ -63,7 +63,11 @@ export function Header({ onPageChange }: HeaderProps) {
             <Button 
               variant="ghost" 
               size="icon"
-              onClick={() => onPageChange?.('my-page')}
+              onClick={() => {
+                console.log('マイページボタンがクリックされました')
+                console.log('onPageChange:', onPageChange)
+                onPageChange?.('my-page')
+              }}
               title="マイページ"
             >
               <User className="h-4 w-4" />

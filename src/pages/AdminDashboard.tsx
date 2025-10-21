@@ -79,6 +79,7 @@ export function AdminDashboard() {
 
   // ページ変更時にURLのハッシュを更新
   const handlePageChange = useCallback((pageId: string) => {
+    console.log('handlePageChange called with:', pageId)
     setCurrentPage(pageId)
     setSelectedScenarioId(null) // ページ変更時はシナリオ選択をクリア
     window.location.hash = pageId === 'dashboard' ? '' : pageId
