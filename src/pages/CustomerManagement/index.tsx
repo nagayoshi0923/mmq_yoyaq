@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, UserPlus, ChevronDown, ChevronUp } from 'lucide-react'
+import { Search, UserPlus } from 'lucide-react'
+import { Header } from '@/components/layout/Header'
+import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useCustomerData } from './hooks/useCustomerData'
 import { CustomerRow } from './components/CustomerRow'
 import { CustomerEditModal } from './components/CustomerEditModal'
@@ -34,8 +36,17 @@ export default function CustomerManagement() {
     setExpandedCustomerId(expandedCustomerId === customerId ? null : customerId)
   }
 
+  const handlePageChange = (pageId: string) => {
+    window.location.hash = pageId === 'dashboard' ? '' : pageId
+  }
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-background">
+      <Header onPageChange={handlePageChange} />
+      <NavigationBar currentPage="customer-management" onPageChange={handlePageChange} />
+      
+      <main className="container mx-auto px-8 py-6">
+        <div className="space-y-6">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">顧客管理</h1>
@@ -113,6 +124,8 @@ export default function CustomerManagement() {
         customer={selectedCustomer}
         onSave={refreshCustomers}
       />
+        </div>
+      </main>
     </div>
   )
 }
