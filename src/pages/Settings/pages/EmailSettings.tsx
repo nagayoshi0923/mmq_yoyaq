@@ -74,14 +74,30 @@ ${emailLine}
 ─────────────────────────`
 }
 
-function getDefaultReminderTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp') {
+function getDefaultReminderTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp', daysBefore = 1) {
   const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
   const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
   const contactInfo = companyPhone ? `・当日連絡先: ${companyPhone}` : ''
   
+  // 日数に応じたメッセージを生成
+  let dayMessage = ''
+  if (daysBefore === 1) {
+    dayMessage = '明日の公演についてリマインドいたします。'
+  } else if (daysBefore === 2) {
+    dayMessage = '明後日の公演についてリマインドいたします。'
+  } else if (daysBefore === 3) {
+    dayMessage = '3日後の公演についてリマインドいたします。'
+  } else if (daysBefore === 7) {
+    dayMessage = '1週間後の公演についてリマインドいたします。'
+  } else if (daysBefore === 14) {
+    dayMessage = '2週間後の公演についてリマインドいたします。'
+  } else {
+    dayMessage = `${daysBefore}日後の公演についてリマインドいたします。`
+  }
+  
   return `{customer_name} 様
 
-明日の公演についてリマインドいたします。
+${dayMessage}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 ■ ご予約内容
@@ -174,11 +190,27 @@ export function EmailSettings() {
         reminder_template: getDefaultReminderTemplate(
           prev.company_name,
           prev.company_phone,
-          prev.company_email
+          prev.company_email,
+          prev.reminder_days_before
         )
       }))
     }
   }, [formData.company_name, formData.company_phone, formData.company_email])
+
+  // リマインド日数が変更されたときにテンプレートを更新
+  useEffect(() => {
+    if (formData.reminder_enabled && formData.company_name) {
+      setFormData(prev => ({
+        ...prev,
+        reminder_template: getDefaultReminderTemplate(
+          prev.company_name,
+          prev.company_phone,
+          prev.company_email,
+          prev.reminder_days_before
+        )
+      }))
+    }
+  }, [formData.reminder_days_before])
 
   const fetchData = async () => {
     setLoading(true)
