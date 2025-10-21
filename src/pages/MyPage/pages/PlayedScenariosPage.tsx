@@ -43,11 +43,13 @@ export function PlayedScenariosPage() {
 
       if (customerError) throw customerError
       if (!customer) {
+        logger.log('顧客情報が見つかりません:', user.email)
         setPlayedScenarios([])
         setLoading(false)
         return
       }
 
+      logger.log('取得した顧客情報:', customer)
       setCustomerId(customer.id)
 
       // いいね済みシナリオを取得
@@ -70,6 +72,8 @@ export function PlayedScenariosPage() {
         .order('requested_datetime', { ascending: false })
 
       if (reservationsError) throw reservationsError
+      
+      logger.log('取得した予約データ:', reservations)
 
       // 予約から日時とタイトルを取得し、スケジュールイベントと照合
       const scenarios: PlayedScenario[] = []
