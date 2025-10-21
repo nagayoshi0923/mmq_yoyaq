@@ -4,8 +4,9 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import SettingsSidebar from '@/components/layout/SettingsSidebar'
 import { useSessionState } from '@/hooks/useSessionState'
 
-// 設定ページコンポーネント（後で実装）
+// 設定ページコンポーネント
 import { StoreBasicSettings } from './pages/StoreBasicSettings'
+import { BusinessHoursSettings } from './pages/BusinessHoursSettings'
 
 export function Settings() {
   const [activeTab, setActiveTab] = useSessionState('settingsActiveTab', 'store-basic')
@@ -15,7 +16,7 @@ export function Settings() {
       case 'store-basic':
         return <StoreBasicSettings />
       case 'business-hours':
-        return <div className="text-center py-12 text-muted-foreground">営業時間設定（準備中）</div>
+        return <BusinessHoursSettings />
       case 'performance-schedule':
         return <div className="text-center py-12 text-muted-foreground">公演スケジュール設定（準備中）</div>
       case 'reservation':
