@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Bell, LogOut } from 'lucide-react'
+import { Bell, LogOut, User } from 'lucide-react'
 import { logger } from '@/utils/logger'
 
 interface HeaderProps {
@@ -60,6 +60,14 @@ export function Header({ onPageChange }: HeaderProps) {
               </div>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
             </div>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => onPageChange?.('my-page')}
+              title="マイページ"
+            >
+              <User className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="icon">
               <Bell className="h-4 w-4" />
             </Button>
