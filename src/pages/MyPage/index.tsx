@@ -4,6 +4,8 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Sidebar } from './components/Sidebar'
 import { ProfilePage } from './pages/ProfilePage'
 import { ReservationsPage } from './pages/ReservationsPage'
+import { PlayedScenariosPage } from './pages/PlayedScenariosPage'
+import { LikedScenariosPage } from './pages/LikedScenariosPage'
 import { GmHistoryPage } from './pages/GmHistoryPage'
 import { AccountPage } from './pages/AccountPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -21,6 +23,10 @@ export default function MyPage() {
         return <ProfilePage />
       case 'reservations':
         return <ReservationsPage />
+      case 'played-scenarios':
+        return <PlayedScenariosPage />
+      case 'liked-scenarios':
+        return <LikedScenariosPage />
       case 'gm-history':
         return <GmHistoryPage />
       case 'account':
