@@ -9,6 +9,7 @@ import { StoreBasicSettings } from './pages/StoreBasicSettings'
 import { BusinessHoursSettings } from './pages/BusinessHoursSettings'
 import { PerformanceScheduleSettings } from './pages/PerformanceScheduleSettings'
 import { ReservationSettings } from './pages/ReservationSettings'
+import { PricingSettings } from './pages/PricingSettings'
 
 export function Settings() {
   const [activeTab, setActiveTab] = useSessionState('settingsActiveTab', 'store-basic')
@@ -24,7 +25,7 @@ export function Settings() {
       case 'reservation':
         return <ReservationSettings />
       case 'pricing':
-        return <div className="text-center py-12 text-muted-foreground">料金設定（準備中）</div>
+        return <PricingSettings />
       case 'sales-report':
         return <div className="text-center py-12 text-muted-foreground">売上・レポート設定（準備中）</div>
       case 'notifications':
