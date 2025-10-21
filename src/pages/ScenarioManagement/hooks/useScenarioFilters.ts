@@ -20,7 +20,7 @@ export function useScenarioFilters(scenarios: Scenario[]) {
 
   // フィルタリング済みシナリオ
   const filteredScenarios = useMemo(() => {
-    return scenarios.filter((scenario) => {
+    const filtered = scenarios.filter((scenario) => {
       const matchesSearch = 
         searchTerm === '' ||
         scenario.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -34,6 +34,15 @@ export function useScenarioFilters(scenarios: Scenario[]) {
       
       return matchesSearch && matchesStatus
     })
+    
+    console.log('フィルター結果:', {
+      searchTerm,
+      statusFilter,
+      totalScenarios: scenarios.length,
+      filteredCount: filtered.length
+    })
+    
+    return filtered
   }, [scenarios, searchTerm, statusFilter])
 
   // ソート済みシナリオ（カスタムソート処理）

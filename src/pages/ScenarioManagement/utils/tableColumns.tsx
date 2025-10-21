@@ -65,18 +65,13 @@ export function createScenarioColumns(
           setIsDragging(false)
 
           const files = e.dataTransfer.files
-          console.log('Drop event:', files.length, 'files')
           
           if (files && files.length > 0) {
             const file = files[0]
-            console.log('File type:', file.type, 'Name:', file.name)
             
             if (file.type.startsWith('image/')) {
               if (actions.onImageUpload) {
-                console.log('Calling onImageUpload')
                 actions.onImageUpload(scenario, file)
-              } else {
-                console.log('onImageUpload is not defined')
               }
             } else {
               alert('画像ファイルのみアップロード可能です')
