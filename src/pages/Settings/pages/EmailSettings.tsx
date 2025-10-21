@@ -9,10 +9,10 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 
 // デフォルトテンプレート
-function getDefaultReservationTemplate() {
+function getDefaultReservationTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp') {
   return `{customer_name} 様
 
-この度はクイーンズワルツをご予約いただき、誠にありがとうございます。
+この度は${companyName}をご予約いただき、誠にありがとうございます。
 以下の内容で予約を承りました。
 
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -38,13 +38,13 @@ function getDefaultReservationTemplate() {
 当日お会いできることを、スタッフ一同楽しみにしております。
 
 ─────────────────────────
-クイーンズワルツ
-TEL: 03-XXXX-XXXX
-Email: info@queens-waltz.jp
+${companyName}
+TEL: ${companyPhone}
+Email: ${companyEmail}
 ─────────────────────────`
 }
 
-function getDefaultCancellationTemplate() {
+function getDefaultCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp') {
   return `{customer_name} 様
 
 ご予約のキャンセルを承りました。
@@ -62,13 +62,13 @@ function getDefaultCancellationTemplate() {
 またのご利用を心よりお待ちしております。
 
 ─────────────────────────
-クイーンズワルツ
-TEL: 03-XXXX-XXXX
-Email: info@queens-waltz.jp
+${companyName}
+TEL: ${companyPhone}
+Email: ${companyEmail}
 ─────────────────────────`
 }
 
-function getDefaultReminderTemplate() {
+function getDefaultReminderTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp') {
   return `{customer_name} 様
 
 明日の公演についてリマインドいたします。
@@ -87,7 +87,7 @@ function getDefaultReminderTemplate() {
 
 ・開演15分前までにお越しください
 ・お時間に余裕を持ってご来店ください
-・当日連絡先: 03-XXXX-XXXX
+・当日連絡先: ${companyPhone}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -95,9 +95,9 @@ function getDefaultReminderTemplate() {
 スタッフ一同、お待ちしております。
 
 ─────────────────────────
-クイーンズワルツ
-TEL: 03-XXXX-XXXX
-Email: info@queens-waltz.jp
+${companyName}
+TEL: ${companyPhone}
+Email: ${companyEmail}
 ─────────────────────────`
 }
 
@@ -106,6 +106,10 @@ interface EmailSettings {
   store_id: string
   from_email: string
   from_name: string
+  company_name: string
+  company_phone: string
+  company_email: string
+  company_address: string
   reservation_confirmation_template: string
   cancellation_template: string
   reminder_template: string
@@ -119,9 +123,13 @@ export function EmailSettings() {
     store_id: '',
     from_email: '',
     from_name: '',
-    reservation_confirmation_template: getDefaultReservationTemplate(),
-    cancellation_template: getDefaultCancellationTemplate(),
-    reminder_template: getDefaultReminderTemplate()
+    company_name: 'クイーンズワルツ',
+    company_phone: '03-XXXX-XXXX',
+    company_email: 'info@queens-waltz.jp',
+    company_address: '',
+    reservation_confirmation_template: '',
+    cancellation_template: '',
+    reminder_template: ''
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -129,6 +137,30 @@ export function EmailSettings() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // 会社情報が変更されたときにテンプレートを更新
+  useEffect(() => {
+    if (formData.company_name || formData.company_phone || formData.company_email) {
+      setFormData(prev => ({
+        ...prev,
+        reservation_confirmation_template: getDefaultReservationTemplate(
+          prev.company_name,
+          prev.company_phone,
+          prev.company_email
+        ),
+        cancellation_template: getDefaultCancellationTemplate(
+          prev.company_name,
+          prev.company_phone,
+          prev.company_email
+        ),
+        reminder_template: getDefaultReminderTemplate(
+          prev.company_name,
+          prev.company_phone,
+          prev.company_email
+        )
+      }))
+    }
+  }, [formData.company_name, formData.company_phone, formData.company_email])
 
   const fetchData = async () => {
     setLoading(true)
@@ -252,6 +284,57 @@ export function EmailSettings() {
           {saving ? '保存中...' : '保存'}
         </Button>
       </div>
+
+      {/* 会社情報 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>会社情報</CardTitle>
+          <CardDescription>メールテンプレートに表示される会社情報を設定します</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="company_name">会社名 *</Label>
+              <Input
+                id="company_name"
+                value={formData.company_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
+                placeholder="クイーンズワルツ"
+              />
+            </div>
+            <div>
+              <Label htmlFor="company_phone">電話番号 *</Label>
+              <Input
+                id="company_phone"
+                value={formData.company_phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, company_phone: e.target.value }))}
+                placeholder="03-XXXX-XXXX"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="company_email">会社メールアドレス *</Label>
+              <Input
+                id="company_email"
+                type="email"
+                value={formData.company_email}
+                onChange={(e) => setFormData(prev => ({ ...prev, company_email: e.target.value }))}
+                placeholder="info@queens-waltz.jp"
+              />
+            </div>
+            <div>
+              <Label htmlFor="company_address">住所</Label>
+              <Input
+                id="company_address"
+                value={formData.company_address}
+                onChange={(e) => setFormData(prev => ({ ...prev, company_address: e.target.value }))}
+                placeholder="東京都渋谷区..."
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 送信元情報 */}
       <Card>
