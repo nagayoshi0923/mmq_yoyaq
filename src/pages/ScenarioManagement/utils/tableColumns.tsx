@@ -32,7 +32,7 @@ export function createScenarioColumns(
     {
       key: 'image',
       header: '画像',
-      width: 'w-16',
+      width: 'w-20',
       headerClassName: 'text-center',
       cellClassName: 'p-1',
       render: (scenario) => {
@@ -88,7 +88,7 @@ export function createScenarioColumns(
           <div className="flex items-center justify-center">
             {scenario.key_visual_url ? (
               <div 
-                className="relative w-8 h-10 bg-gray-200 rounded overflow-hidden group"
+                className="relative w-10 h-12 bg-gray-200 rounded overflow-hidden group"
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -129,7 +129,7 @@ export function createScenarioColumns(
               </div>
             ) : (
               <div 
-                className={`relative w-8 h-10 border border-dashed rounded flex flex-col items-center justify-center cursor-pointer transition-colors ${
+                className={`relative w-10 h-12 border border-dashed rounded flex flex-col items-center justify-center cursor-pointer transition-colors ${
                   isDragging 
                     ? 'border-blue-500 bg-blue-100' 
                     : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
