@@ -64,9 +64,23 @@ export function createScenarioColumns(
           e.stopPropagation()
           setIsDragging(false)
 
-          const file = e.dataTransfer.files?.[0]
-          if (file && file.type.startsWith('image/') && actions.onImageUpload) {
-            actions.onImageUpload(scenario, file)
+          const files = e.dataTransfer.files
+          console.log('Drop event:', files.length, 'files')
+          
+          if (files && files.length > 0) {
+            const file = files[0]
+            console.log('File type:', file.type, 'Name:', file.name)
+            
+            if (file.type.startsWith('image/')) {
+              if (actions.onImageUpload) {
+                console.log('Calling onImageUpload')
+                actions.onImageUpload(scenario, file)
+              } else {
+                console.log('onImageUpload is not defined')
+              }
+            } else {
+              alert('画像ファイルのみアップロード可能です')
+            }
           }
         }
 
@@ -114,8 +128,8 @@ export function createScenarioColumns(
                 </button>
               </div>
             ) : (
-              <label 
-                className={`w-8 h-10 border border-dashed rounded flex flex-col items-center justify-center cursor-pointer transition-colors ${
+              <div 
+                className={`relative w-8 h-10 border border-dashed rounded flex flex-col items-center justify-center cursor-pointer transition-colors ${
                   isDragging 
                     ? 'border-blue-500 bg-blue-100' 
                     : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
@@ -123,6 +137,11 @@ export function createScenarioColumns(
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const input = e.currentTarget.querySelector('input[type="file"]') as HTMLInputElement
+                  input?.click()
+                }}
               >
                 <Upload className={`h-3 w-3 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
                 <input
@@ -132,7 +151,7 @@ export function createScenarioColumns(
                   className="hidden"
                   onClick={(e) => e.stopPropagation()}
                 />
-              </label>
+              </div>
             )}
           </div>
         )
