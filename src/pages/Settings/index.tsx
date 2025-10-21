@@ -13,6 +13,7 @@ import { PricingSettings } from './pages/PricingSettings'
 import { SalesReportSettings } from './pages/SalesReportSettings'
 import { NotificationSettings } from './pages/NotificationSettings'
 import { StaffSettings } from './pages/StaffSettings'
+import { SystemSettings } from './pages/SystemSettings'
 
 export function Settings() {
   const [activeTab, setActiveTab] = useSessionState('settingsActiveTab', 'store-basic')
@@ -36,7 +37,7 @@ export function Settings() {
       case 'staff':
         return <StaffSettings />
       case 'system':
-        return <div className="text-center py-12 text-muted-foreground">システム設定（準備中）</div>
+        return <SystemSettings />
       case 'email':
         return <div className="text-center py-12 text-muted-foreground">メール設定（準備中）</div>
       case 'customer':
