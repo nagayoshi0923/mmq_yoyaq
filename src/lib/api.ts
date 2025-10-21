@@ -987,7 +987,7 @@ export const salesApi = {
 
   // シナリオ別公演数データ取得
   async getScenarioPerformance(startDate: string, endDate: string, storeId?: string) {
-    // まずschedule_eventsを取得（scenario_idの有無に関わらず全て）
+    // schedule_eventsを取得（scenario_idの有無に関わらず全て）
     let query = supabase
       .from('schedule_events')
       .select('*')
@@ -1013,7 +1013,7 @@ export const salesApi = {
       .select('id, title, author, license_amount, gm_test_license_amount')
     
     if (scenariosError) {
-      // scenarios fetch error
+      console.error('scenarios取得エラー:', scenariosError)
     }
 
     // シナリオ名でマッピング
@@ -1022,7 +1022,7 @@ export const salesApi = {
       scenarioMap.set(s.title, s)
     })
 
-    // シナリオ別に集計（カテゴリも考慮）
+    // シナリオ別に集計（GMテストのみ分離、それ以外は統合）
     const performanceMap = new Map()
     
     events.forEach(event => {
@@ -1045,7 +1045,9 @@ export const salesApi = {
 
       if (scenarioInfo) {
         const category = event.category || 'open'
-        const key = `${scenarioInfo.id}_${category}`
+        // GMテストのみ分離、それ以外（open, private等）は統合
+        const isGMTest = category === 'gmtest'
+        const key = isGMTest ? `${scenarioInfo.id}_gmtest` : scenarioInfo.id
         
         if (performanceMap.has(key)) {
           const existing = performanceMap.get(key)
@@ -1058,7 +1060,7 @@ export const salesApi = {
             id: scenarioInfo.id,
             title: scenarioInfo.title,
             author: scenarioInfo.author,
-            category: category,
+            category: isGMTest ? 'gmtest' : 'open',  // GMテストかそれ以外
             events: 1,
             stores: new Set(event.venue ? [event.venue] : [])
           })

@@ -1,16 +1,15 @@
-import { useState, useMemo, Fragment } from 'react'
+import { useState, Fragment } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Filter } from 'lucide-react'
+import { Search, Filter, ChevronDown, ChevronRight, Copy, Mail, Check } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
-import { TanStackDataTable } from '@/components/patterns/table'
 import { useAuthorReportData } from './hooks/useAuthorReportData'
 import { useReportFilters } from './hooks/useReportFilters'
 import { generateAuthorReportText, generateEmailUrl, copyToClipboard } from './utils/reportFormatters'
-import { createAuthorColumns, renderExpandedRow } from './utils/tableColumns'
+import { renderExpandedRow } from './utils/tableColumns'
 import type { AuthorPerformance } from './types'
 
 export default function AuthorReport() {
@@ -67,15 +66,6 @@ export default function AuthorReport() {
       return newSet
     })
   }
-
-  // テーブル列定義（メモ化）
-  const tableColumns = useMemo(
-    () => createAuthorColumns(
-      { copiedAuthor, expandedAuthors },
-      { onCopy: handleCopy, onEmail: handleSendEmail, onToggleExpand: toggleAuthorExpand }
-    ),
-    [copiedAuthor, expandedAuthors]
-  )
 
   return (
     <div className="space-y-6">
@@ -158,30 +148,94 @@ export default function AuthorReport() {
               {monthData.authors.length === 0 ? (
                 <p className="text-center py-8 text-muted-foreground">データがありません</p>
               ) : (
-                <div className="space-y-0">
-                  {/* メインテーブル（TanStack Table） */}
-                  <TanStackDataTable
-                    data={monthData.authors}
-                    columns={tableColumns}
-                    getRowKey={(author) => author.author}
-                    emptyMessage="データがありません"
-                    loading={false}
-                  />
-                  
-                  {/* 展開行（カスタムレンダリング） */}
-                  {monthData.authors.map((author) => {
-                    const isExpanded = expandedAuthors.has(author.author)
-                    if (!isExpanded) return null
-                    
-                    return (
-                      <Card key={`${author.author}-expanded`} className="mt-1">
-                        <CardContent className="p-0">
-                          {renderExpandedRow(author)}
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead>作者</TableHead>
+                      <TableHead className="text-right w-24">公演数</TableHead>
+                      <TableHead className="text-right w-32">ライセンス料</TableHead>
+                      <TableHead className="text-right w-28">所要時間</TableHead>
+                      <TableHead className="text-right w-[150px]">アクション</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {monthData.authors.map((author) => {
+                      const isExpanded = expandedAuthors.has(author.author)
+                      return (
+                        <Fragment key={author.author}>
+                          {/* メイン行 */}
+                          <TableRow>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleAuthorExpand(author.author)}
+                                className="h-6 w-6 p-0"
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">{author.author}</span>
+                            </TableCell>
+                            <TableCell className="text-right">{author.totalEvents}回</TableCell>
+                            <TableCell className="text-right">
+                              <span className="font-medium">¥{author.totalLicenseCost.toLocaleString()}</span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {Math.round(author.totalDuration / 60)}時間
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex gap-2 justify-end">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCopy(author)}
+                                  className="h-8"
+                                >
+                                  {copiedAuthor === author.author ? (
+                                    <>
+                                      <Check className="h-4 w-4 mr-1" />
+                                      コピー済み
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="h-4 w-4 mr-1" />
+                                      コピー
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleSendEmail(author)}
+                                  className="h-8"
+                                >
+                                  <Mail className="h-4 w-4 mr-1" />
+                                  Gmail
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          
+                          {/* 展開行 */}
+                          {isExpanded && (
+                            <TableRow>
+                              <TableCell colSpan={6} className="p-0">
+                                {renderExpandedRow(author)}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>

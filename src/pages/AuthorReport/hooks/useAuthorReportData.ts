@@ -71,13 +71,13 @@ export function useAuthorReportData(year: number, month: number, storeId: string
 
         const author = scenario.author
         const events = perf.events as number
+        const isGMTest = perf.category === 'gmtest'
         const avgParticipants = 6
         const revenue = scenario.participation_fee * avgParticipants * events
         const duration = scenario.duration || 0
         const totalDuration = duration * events
 
         // GMテストの場合は専用のライセンス金額を取得
-        const isGMTest = perf.category === 'gmtest'
         let licenseAmountPerEvent = 0
 
         if (isGMTest) {
