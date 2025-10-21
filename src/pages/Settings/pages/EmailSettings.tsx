@@ -530,7 +530,7 @@ export function EmailSettings() {
                         
                         <div className="flex-1 grid grid-cols-2 gap-3">
                           <div>
-                            <Label className="text-sm">何日前</Label>
+                            <Label className="text-sm">送信タイミング</Label>
                             <select
                               value={schedule.days_before}
                               onChange={(e) => updateReminderSchedule(index, 'days_before', parseInt(e.target.value))}
@@ -662,19 +662,6 @@ export function EmailSettings() {
         </CardContent>
       </Card>
 
-      {/* リマインドメールテンプレート */}
-      <Card>
-        <CardHeader>
-          <CardTitle>リマインドメールテンプレート</CardTitle>
-          <CardDescription>公演前に送信されるリマインドメールの内容（各送信タイミングで動的に生成）</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center text-gray-500 py-8">
-            <p className="text-sm">各リマインドスケジュールカード内でテンプレートを編集できます</p>
-            <p className="text-xs mt-1">上記のスケジュール設定で個別にカスタマイズしてください</p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
