@@ -8,6 +8,7 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, MapPin, Search } from 'lucide-react'
 import { scheduleApi, storeApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 
 interface PublicEvent {
@@ -27,6 +28,52 @@ interface PublicEvent {
   participation_fee: number
   is_reservation_enabled: boolean
   reservation_deadline_hours: number
+}
+
+// 営業時間内かどうかをチェックする関数
+const isWithinBusinessHours = async (date: string, startTime: string, storeId: string): Promise<boolean> => {
+  try {
+    // 営業時間設定を取得
+    const { data, error } = await supabase
+      .from('business_hours_settings')
+      .select('opening_hours, holidays, time_restrictions')
+      .eq('store_id', storeId)
+      .maybeSingle()
+
+    if (error && error.code !== 'PGRST116') {
+      logger.error('営業時間設定取得エラー:', error)
+      return true // エラーの場合は制限しない
+    }
+
+    if (!data) return true // 設定がない場合は制限しない
+
+    // 休日チェック
+    if (data.holidays && data.holidays.includes(date)) {
+      return false
+    }
+
+    // 営業時間チェック
+    if (data.opening_hours) {
+      const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+      const dayName = dayNames[dayOfWeek]
+      
+      const dayHours = data.opening_hours[dayName]
+      if (!dayHours || !dayHours.is_open) {
+        return false
+      }
+
+      const eventTime = startTime.slice(0, 5) // HH:MM形式
+      if (eventTime < dayHours.open_time || eventTime > dayHours.close_time) {
+        return false
+      }
+    }
+
+    return true
+  } catch (error) {
+    logger.error('営業時間チェックエラー:', error)
+    return true // エラーの場合は制限しない
+  }
 }
 
 export function CustomerBookingPage() {
@@ -76,13 +123,18 @@ export function CustomerBookingPage() {
         const data = await scheduleApi.getByMonth(year, month)
         
         // 予約可能な公演のみをフィルタリング
-        const publicEvents = data
-          .filter((event: any) => 
-            event.is_reservation_enabled && 
-            !event.is_cancelled &&
-            event.category === 'open' // オープン公演のみ
-          )
-          .map((event: any) => ({
+        const filteredData = data.filter((event: any) => 
+          event.is_reservation_enabled && 
+          !event.is_cancelled &&
+          event.category === 'open' // オープン公演のみ
+        )
+
+        // 営業時間制限を適用
+        const publicEvents = []
+        for (const event of filteredData) {
+          const isWithinHours = await isWithinBusinessHours(event.date, event.start_time, event.store_id)
+          if (isWithinHours) {
+            publicEvents.push({
             id: event.id,
             date: event.date,
             start_time: event.start_time,
@@ -99,7 +151,9 @@ export function CustomerBookingPage() {
             participation_fee: 3000, // TODO: シナリオから取得
             is_reservation_enabled: event.is_reservation_enabled,
             reservation_deadline_hours: event.reservation_deadline_hours || 24
-          }))
+            })
+          }
+        }
         
         events.push(...publicEvents)
       }

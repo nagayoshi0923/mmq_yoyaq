@@ -144,22 +144,37 @@ export function PerformanceModal({
     }))
   }
 
-  // 公演スケジュール設定を読み込む
+  // 公演スケジュール設定と営業時間設定を読み込む
   useEffect(() => {
-    const loadPerformanceSettings = async () => {
+    const loadSettings = async () => {
       try {
-        const { data, error } = await supabase
+        const storeId = formData.venue || stores[0]?.id
+        if (!storeId) return
+
+        // 公演スケジュール設定を取得
+        const { data: performanceData, error: performanceError } = await supabase
           .from('performance_schedule_settings')
           .select('performance_times, default_duration')
-          .eq('store_id', formData.venue || stores[0]?.id)
+          .eq('store_id', storeId)
           .maybeSingle()
 
-        if (error && error.code !== 'PGRST116') {
-          logger.error('公演スケジュール設定取得エラー:', error)
-          return
+        if (performanceError && performanceError.code !== 'PGRST116') {
+          logger.error('公演スケジュール設定取得エラー:', performanceError)
         }
 
-        if (data?.performance_times) {
+        // 営業時間設定を取得
+        const { data: businessHoursData, error: businessHoursError } = await supabase
+          .from('business_hours_settings')
+          .select('opening_hours, holidays, time_restrictions')
+          .eq('store_id', storeId)
+          .maybeSingle()
+
+        if (businessHoursError && businessHoursError.code !== 'PGRST116') {
+          logger.error('営業時間設定取得エラー:', businessHoursError)
+        }
+
+        // 公演スケジュール設定の適用
+        if (performanceData?.performance_times) {
           const newDefaults = {
             morning: { start_time: '10:00', end_time: '14:00', label: '朝公演' },
             afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
@@ -167,10 +182,10 @@ export function PerformanceModal({
           }
 
           // 設定された時間に基づいて更新
-          data.performance_times.forEach((time: any, index: number) => {
+          performanceData.performance_times.forEach((time: any, index: number) => {
             const slotKey = time.slot as keyof typeof newDefaults
             if (slotKey && newDefaults[slotKey]) {
-              const duration = data.default_duration || 240 // デフォルト4時間
+              const duration = performanceData.default_duration || 240 // デフォルト4時間
               const startTime = time.start_time
               const endTime = new Date(`2000-01-01T${startTime}`)
               endTime.setMinutes(endTime.getMinutes() + duration)
@@ -186,13 +201,20 @@ export function PerformanceModal({
 
           setTimeSlotDefaults(newDefaults)
         }
+
+        // 営業時間制限の適用（時間選択肢の制限）
+        if (businessHoursData?.opening_hours) {
+          // TODO: 営業時間制限を時間選択肢に適用
+          logger.log('営業時間設定を読み込みました:', businessHoursData)
+        }
+
       } catch (error) {
-        logger.error('公演スケジュール設定読み込みエラー:', error)
+        logger.error('設定読み込みエラー:', error)
       }
     }
 
     if (formData.venue || stores.length > 0) {
-      loadPerformanceSettings()
+      loadSettings()
     }
   }, [formData.venue, stores])
 
