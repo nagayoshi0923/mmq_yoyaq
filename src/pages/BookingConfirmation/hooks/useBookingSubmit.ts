@@ -4,6 +4,67 @@ import { logger } from '@/utils/logger'
 import { formatDate } from '../utils/bookingFormatters'
 
 /**
+ * 参加費を計算する関数
+ */
+const calculateParticipationFee = async (scenarioId: string, startTime: string, date: string): Promise<number> => {
+  try {
+    // シナリオの料金設定を取得
+    const { data: scenario, error } = await supabase
+      .from('scenarios')
+      .select('participation_fee, participation_costs, flexible_pricing')
+      .eq('id', scenarioId)
+      .single()
+
+    if (error) {
+      logger.error('シナリオ料金設定取得エラー:', error)
+      return 3000 // デフォルト料金
+    }
+
+    if (!scenario) return 3000
+
+    // 基本料金
+    let baseFee = scenario.participation_fee || 3000
+
+    // 時間帯別料金設定をチェック
+    if (scenario.participation_costs && scenario.participation_costs.length > 0) {
+      const timeSlot = getTimeSlot(startTime)
+      const timeSlotCost = scenario.participation_costs.find(cost => 
+        cost.time_slot === timeSlot && cost.status === 'active'
+      )
+
+      if (timeSlotCost) {
+        if (timeSlotCost.type === 'percentage') {
+          baseFee = Math.round(baseFee * (1 + timeSlotCost.amount / 100))
+        } else {
+          baseFee = timeSlotCost.amount
+        }
+      }
+    }
+
+    // 柔軟な料金設定をチェック
+    if (scenario.flexible_pricing) {
+      // TODO: 柔軟な料金設定の適用ロジックを実装
+      logger.log('柔軟な料金設定が設定されています:', scenario.flexible_pricing)
+    }
+
+    return baseFee
+  } catch (error) {
+    logger.error('料金計算エラー:', error)
+    return 3000 // デフォルト料金
+  }
+}
+
+/**
+ * 時間帯を判定する関数
+ */
+const getTimeSlot = (startTime: string): string => {
+  const hour = parseInt(startTime.slice(0, 2))
+  if (hour < 12) return 'morning'
+  if (hour < 18) return 'afternoon'
+  return 'evening'
+}
+
+/**
  * 予約制限をチェックする関数
  */
 const checkReservationLimits = async (
@@ -135,6 +196,13 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       if (!limitCheck.allowed) {
         throw new Error(limitCheck.reason || '予約制限により予約できません')
       }
+
+      // 料金を計算
+      const calculatedFee = await calculateParticipationFee(
+        props.scenarioId,
+        props.startTime,
+        props.eventDate
+      )
       // 予約番号を生成
       const reservationNumber = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-6)}`
       const eventDateTime = `${props.eventDate}T${props.startTime}`
@@ -197,9 +265,9 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
           actual_datetime: eventDateTime,
           duration: 180,
           participant_count: participantCount,
-          base_price: props.participationFee * participantCount,
-          total_price: props.participationFee * participantCount,
-          final_price: props.participationFee * participantCount,
+          base_price: calculatedFee * participantCount,
+          total_price: calculatedFee * participantCount,
+          final_price: calculatedFee * participantCount,
           status: 'confirmed',
           customer_notes: notes || null,
           created_by: props.userId,

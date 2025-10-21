@@ -30,6 +30,63 @@ interface PublicEvent {
   reservation_deadline_hours: number
 }
 
+// 参加費を計算する関数
+const calculateParticipationFee = async (scenarioId: string, startTime: string, date: string): Promise<number> => {
+  try {
+    // シナリオの料金設定を取得
+    const { data: scenario, error } = await supabase
+      .from('scenarios')
+      .select('participation_fee, participation_costs, flexible_pricing')
+      .eq('id', scenarioId)
+      .single()
+
+    if (error) {
+      logger.error('シナリオ料金設定取得エラー:', error)
+      return 3000 // デフォルト料金
+    }
+
+    if (!scenario) return 3000
+
+    // 基本料金
+    let baseFee = scenario.participation_fee || 3000
+
+    // 時間帯別料金設定をチェック
+    if (scenario.participation_costs && scenario.participation_costs.length > 0) {
+      const timeSlot = getTimeSlot(startTime)
+      const timeSlotCost = scenario.participation_costs.find(cost => 
+        cost.time_slot === timeSlot && cost.status === 'active'
+      )
+
+      if (timeSlotCost) {
+        if (timeSlotCost.type === 'percentage') {
+          baseFee = Math.round(baseFee * (1 + timeSlotCost.amount / 100))
+        } else {
+          baseFee = timeSlotCost.amount
+        }
+      }
+    }
+
+    // 柔軟な料金設定をチェック
+    if (scenario.flexible_pricing) {
+      // TODO: 柔軟な料金設定の適用ロジックを実装
+      logger.log('柔軟な料金設定が設定されています:', scenario.flexible_pricing)
+    }
+
+    return baseFee
+  } catch (error) {
+    logger.error('料金計算エラー:', error)
+    return 3000 // デフォルト料金
+  }
+}
+
+// 時間帯を判定する関数
+const getTimeSlot = (startTime: string): string => {
+  const hour = parseInt(startTime.slice(0, 2))
+  if (hour < 12) return 'morning'
+  if (hour < 18) return 'afternoon'
+  return 'evening'
+}
+
 // 営業時間内かどうかをチェックする関数
 const isWithinBusinessHours = async (date: string, startTime: string, storeId: string): Promise<boolean> => {
   try {
@@ -148,7 +205,7 @@ export function CustomerBookingPage() {
             max_participants: event.max_participants || event.capacity || 8,
             current_participants: event.current_participants || 0,
             available_seats: (event.max_participants || event.capacity || 8) - (event.current_participants || 0),
-            participation_fee: 3000, // TODO: シナリオから取得
+            participation_fee: await calculateParticipationFee(event.scenario_id, event.start_time, event.date), // 料金設定から計算
             is_reservation_enabled: event.is_reservation_enabled,
             reservation_deadline_hours: event.reservation_deadline_hours || 24
             })
