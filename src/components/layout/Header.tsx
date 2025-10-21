@@ -60,18 +60,24 @@ export function Header({ onPageChange }: HeaderProps) {
               </div>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon"
+            <button 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 w-10"
               onClick={() => {
-                console.log('マイページボタンがクリックされました')
-                console.log('onPageChange:', onPageChange)
-                onPageChange?.('my-page')
+                console.log('ボタンがクリックされました！')
+                if (onPageChange) {
+                  console.log('onPageChange実行:', onPageChange)
+                  onPageChange('my-page')
+                } else {
+                  console.log('onPageChangeがundefinedです')
+                  // 直接URLハッシュを変更
+                  console.log('直接URLハッシュを変更します')
+                  window.location.hash = 'my-page'
+                }
               }}
               title="マイページ"
             >
               <User className="h-4 w-4" />
-            </Button>
+            </button>
             <Button variant="ghost" size="icon">
               <Bell className="h-4 w-4" />
             </Button>
