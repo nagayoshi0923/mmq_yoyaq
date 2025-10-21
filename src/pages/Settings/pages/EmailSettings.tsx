@@ -123,6 +123,10 @@ interface EmailSettings {
   reservation_confirmation_template: string
   cancellation_template: string
   reminder_template: string
+  reminder_enabled: boolean
+  reminder_days_before: number
+  reminder_time: string
+  reminder_send_time: 'morning' | 'afternoon' | 'evening'
 }
 
 export function EmailSettings() {
@@ -139,7 +143,11 @@ export function EmailSettings() {
     company_address: '',
     reservation_confirmation_template: '',
     cancellation_template: '',
-    reminder_template: ''
+    reminder_template: '',
+    reminder_enabled: true,
+    reminder_days_before: 1,
+    reminder_time: '10:00',
+    reminder_send_time: 'morning'
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -415,11 +423,107 @@ export function EmailSettings() {
         </CardContent>
       </Card>
 
+      {/* リマインドメール設定 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>リマインドメール設定</CardTitle>
+          <CardDescription>公演前に送信されるリマインドメールの設定</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* リマインド有効/無効 */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="reminder_enabled">リマインドメールを送信する</Label>
+              <p className="text-sm text-muted-foreground">予約者にリマインドメールを送信します</p>
+            </div>
+            <input
+              id="reminder_enabled"
+              type="checkbox"
+              checked={formData.reminder_enabled}
+              onChange={(e) => setFormData(prev => ({ ...prev, reminder_enabled: e.target.checked }))}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+          </div>
+
+          {formData.reminder_enabled && (
+            <>
+              {/* 送信タイミング */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="reminder_days_before">何日前に送信</Label>
+                  <select
+                    id="reminder_days_before"
+                    value={formData.reminder_days_before}
+                    onChange={(e) => setFormData(prev => ({ ...prev, reminder_days_before: parseInt(e.target.value) }))}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value={1}>1日前</option>
+                    <option value={2}>2日前</option>
+                    <option value={3}>3日前</option>
+                    <option value={7}>1週間前</option>
+                    <option value={14}>2週間前</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="reminder_time">送信時刻</Label>
+                  <Input
+                    id="reminder_time"
+                    type="time"
+                    value={formData.reminder_time}
+                    onChange={(e) => setFormData(prev => ({ ...prev, reminder_time: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* 送信時間帯の選択 */}
+              <div>
+                <Label>送信時間帯の目安</Label>
+                <div className="flex gap-4 mt-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="reminder_send_time"
+                      value="morning"
+                      checked={formData.reminder_send_time === 'morning'}
+                      onChange={(e) => setFormData(prev => ({ ...prev, reminder_send_time: e.target.value as 'morning' | 'afternoon' | 'evening' }))}
+                      className="mr-2"
+                    />
+                    朝（9:00-12:00）
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="reminder_send_time"
+                      value="afternoon"
+                      checked={formData.reminder_send_time === 'afternoon'}
+                      onChange={(e) => setFormData(prev => ({ ...prev, reminder_send_time: e.target.value as 'morning' | 'afternoon' | 'evening' }))}
+                      className="mr-2"
+                    />
+                    午後（13:00-17:00）
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="reminder_send_time"
+                      value="evening"
+                      checked={formData.reminder_send_time === 'evening'}
+                      onChange={(e) => setFormData(prev => ({ ...prev, reminder_send_time: e.target.value as 'morning' | 'afternoon' | 'evening' }))}
+                      className="mr-2"
+                    />
+                    夜（18:00-21:00）
+                  </label>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       {/* リマインドメールテンプレート */}
       <Card>
         <CardHeader>
           <CardTitle>リマインドメールテンプレート</CardTitle>
-          <CardDescription>公演前日に送信されるリマインドメールの内容</CardDescription>
+          <CardDescription>公演前に送信されるリマインドメールの内容</CardDescription>
         </CardHeader>
         <CardContent>
           <Textarea
@@ -427,6 +531,7 @@ export function EmailSettings() {
             onChange={(e) => setFormData(prev => ({ ...prev, reminder_template: e.target.value }))}
             rows={6}
             placeholder="リマインドメールのテンプレート"
+            disabled={!formData.reminder_enabled}
           />
           <p className="text-xs text-muted-foreground mt-2">
             使用可能な変数: {'{customer_name}'}, {'{scenario_title}'}, {'{date}'}, {'{time}'}, {'{venue}'}
