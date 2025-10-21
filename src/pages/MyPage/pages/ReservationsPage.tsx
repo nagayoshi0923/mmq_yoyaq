@@ -36,10 +36,10 @@ export function ReservationsPage() {
         return
       }
 
-      // 予約を取得
+      // 予約を取得（決済方法も含む）
       const { data, error } = await supabase
         .from('reservations')
-        .select('*')
+        .select('*, payment_method, payment_status')
         .eq('customer_id', customer.id)
         .order('requested_datetime', { ascending: false })
 
@@ -59,6 +59,44 @@ export function ReservationsPage() {
 
   const formatCurrency = (amount: number) => {
     return `¥${amount.toLocaleString()}`
+  }
+
+  const getPaymentMethodLabel = (method: string | null | undefined) => {
+    if (!method) return '未設定'
+    switch (method) {
+      case 'cash':
+        return '現地決済（現金）'
+      case 'credit_card':
+        return 'クレジットカード'
+      case 'online':
+        return 'オンライン決済'
+      case 'bank_transfer':
+        return '銀行振込'
+      case 'paypay':
+        return 'PayPay'
+      case 'line_pay':
+        return 'LINE Pay'
+      default:
+        return method
+    }
+  }
+
+  const getPaymentMethodBadgeColor = (method: string | null | undefined) => {
+    if (!method) return 'bg-gray-100 text-gray-800'
+    switch (method) {
+      case 'cash':
+        return 'bg-green-100 text-green-800'
+      case 'credit_card':
+      case 'online':
+        return 'bg-blue-100 text-blue-800'
+      case 'bank_transfer':
+        return 'bg-purple-100 text-purple-800'
+      case 'paypay':
+      case 'line_pay':
+        return 'bg-yellow-100 text-yellow-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
   }
 
   if (loading) {
@@ -121,6 +159,11 @@ export function ReservationsPage() {
                     <div className="text-sm text-muted-foreground">金額</div>
                     <div className="font-medium">{formatCurrency(reservation.final_price)}</div>
                   </div>
+                  <div className="ml-4">
+                    <Badge className={getPaymentMethodBadgeColor(reservation.payment_method)}>
+                      {getPaymentMethodLabel(reservation.payment_method)}
+                    </Badge>
+                  </div>
                 </div>
               ))}
             </div>
@@ -168,6 +211,11 @@ export function ReservationsPage() {
                     <div className="text-sm text-muted-foreground">金額</div>
                     <div className="font-medium">{formatCurrency(reservation.final_price)}</div>
                   </div>
+                  <div className="ml-4">
+                    <Badge className={getPaymentMethodBadgeColor(reservation.payment_method)}>
+                      {getPaymentMethodLabel(reservation.payment_method)}
+                    </Badge>
+                  </div>
                 </div>
               ))}
             </div>
@@ -203,6 +251,15 @@ export function ReservationsPage() {
                   <div className="text-right">
                     <div className="text-sm text-muted-foreground">参加人数</div>
                     <div className="font-medium">{reservation.participant_count}名</div>
+                  </div>
+                  <div className="text-right ml-4">
+                    <div className="text-sm text-muted-foreground">金額</div>
+                    <div className="font-medium">{formatCurrency(reservation.final_price)}</div>
+                  </div>
+                  <div className="ml-4">
+                    <Badge className={getPaymentMethodBadgeColor(reservation.payment_method)}>
+                      {getPaymentMethodLabel(reservation.payment_method)}
+                    </Badge>
                   </div>
                 </div>
               ))}
