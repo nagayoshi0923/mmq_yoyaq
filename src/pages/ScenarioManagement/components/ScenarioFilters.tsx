@@ -28,10 +28,7 @@ export const ScenarioFilters: React.FC<ScenarioFiltersProps> = ({
           type="text"
           placeholder="シナリオを検索（タイトル、作者、説明、ジャンル）..."
           value={searchTerm}
-          onChange={(e) => {
-            console.log('検索キーワード:', e.target.value)
-            onSearchChange(e.target.value)
-          }}
+          onChange={(e) => onSearchChange(e.target.value)}
           className="pl-9"
         />
       </div>

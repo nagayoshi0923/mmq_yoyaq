@@ -9,8 +9,7 @@ import {
   Clock,
   Settings,
   ClipboardCheck,
-  UserCog,
-  User
+  UserCog
 } from 'lucide-react'
 
 interface NavigationBarProps {
