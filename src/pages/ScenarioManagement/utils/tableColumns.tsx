@@ -31,7 +31,9 @@ export function createScenarioColumns(
     {
       key: 'image',
       header: '画像',
-      width: 'w-20',
+      width: 'w-16',
+      headerClassName: 'text-center',
+      cellClassName: 'p-1',
       render: (scenario) => {
         const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           const file = e.target.files?.[0]
@@ -43,20 +45,20 @@ export function createScenarioColumns(
         }
 
         return (
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center py-1">
             {scenario.key_visual_url ? (
-              <div className="relative w-12 h-16 bg-gray-200 rounded overflow-hidden group">
+              <div className="relative w-10 h-14 bg-gray-200 rounded overflow-hidden group">
                 <OptimizedImage
                   src={scenario.key_visual_url}
                   alt={scenario.title}
                   className="w-full h-full object-cover"
                   responsive={true}
-                  srcSetSizes={[48, 96]}
-                  breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
+                  srcSetSizes={[40, 80]}
+                  breakpoints={{ mobile: 40, tablet: 40, desktop: 80 }}
                   useWebP={true}
                   quality={85}
                   fallback={
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                    <div className="w-full h-full flex items-center justify-center text-gray-400" style={{ fontSize: '8px' }}>
                       No Image
                     </div>
                   }
@@ -69,15 +71,15 @@ export function createScenarioColumns(
                       actions.onImageRemove(scenario)
                     }
                   }}
-                  className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                   title="画像を削除"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5" />
                 </button>
               </div>
             ) : (
-              <label className="w-12 h-16 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
-                <Upload className="h-4 w-4 text-gray-400" />
+              <label className="w-10 h-14 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                <Upload className="h-3 w-3 text-gray-400" />
                 <input
                   type="file"
                   accept="image/*"
