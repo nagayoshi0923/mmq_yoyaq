@@ -3,6 +3,88 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDate } from '../utils/bookingFormatters'
 
+/**
+ * 予約制限をチェックする関数
+ */
+const checkReservationLimits = async (
+  eventId: string,
+  participantCount: number,
+  eventDate: string,
+  startTime: string
+): Promise<{ allowed: boolean; reason?: string }> => {
+  try {
+    // 予約設定を取得
+    const { data: reservationSettings, error: settingsError } = await supabase
+      .from('reservation_settings')
+      .select('max_participants_per_booking, advance_booking_days, same_day_booking_cutoff, max_bookings_per_customer')
+      .eq('store_id', eventId) // TODO: 実際のstore_idを取得する必要がある
+      .maybeSingle()
+
+    if (settingsError && settingsError.code !== 'PGRST116') {
+      logger.error('予約設定取得エラー:', settingsError)
+      return { allowed: true } // エラーの場合は制限しない
+    }
+
+    // 公演の最大参加人数をチェック
+    const { data: eventData, error: eventError } = await supabase
+      .from('schedule_events')
+      .select('max_participants, current_participants, reservation_deadline_hours')
+      .eq('id', eventId)
+      .single()
+
+    if (eventError) {
+      logger.error('公演データ取得エラー:', eventError)
+      return { allowed: true }
+    }
+
+    // 最大参加人数チェック
+    if (eventData.max_participants && participantCount > eventData.max_participants) {
+      return { allowed: false, reason: `最大参加人数は${eventData.max_participants}名です` }
+    }
+
+    // 現在の参加人数チェック
+    const currentParticipants = eventData.current_participants || 0
+    if (eventData.max_participants && (currentParticipants + participantCount) > eventData.max_participants) {
+      return { allowed: false, reason: `残り${eventData.max_participants - currentParticipants}名分の空きしかありません` }
+    }
+
+    // 予約締切チェック
+    if (eventData.reservation_deadline_hours) {
+      const eventDateTime = new Date(`${eventDate}T${startTime}`)
+      const now = new Date()
+      const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
+      
+      if (hoursUntilEvent < eventData.reservation_deadline_hours) {
+        return { allowed: false, reason: `予約締切は公演開始の${eventData.reservation_deadline_hours}時間前です` }
+      }
+    }
+
+    // 予約設定の制限チェック
+    if (reservationSettings) {
+      // 1回の予約の最大参加人数
+      if (reservationSettings.max_participants_per_booking && participantCount > reservationSettings.max_participants_per_booking) {
+        return { allowed: false, reason: `1回の予約で最大${reservationSettings.max_participants_per_booking}名までです` }
+      }
+
+      // 事前予約日数制限
+      if (reservationSettings.advance_booking_days) {
+        const eventDateTime = new Date(`${eventDate}T${startTime}`)
+        const now = new Date()
+        const daysUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        
+        if (daysUntilEvent > reservationSettings.advance_booking_days) {
+          return { allowed: false, reason: `最大${reservationSettings.advance_booking_days}日前まで予約可能です` }
+        }
+      }
+    }
+
+    return { allowed: true }
+  } catch (error) {
+    logger.error('予約制限チェックエラー:', error)
+    return { allowed: true } // エラーの場合は制限しない
+  }
+}
+
 interface UseBookingSubmitProps {
   eventId: string
   scenarioTitle: string
@@ -42,6 +124,17 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
     setIsSubmitting(true)
 
     try {
+      // 予約制限をチェック
+      const limitCheck = await checkReservationLimits(
+        props.eventId,
+        participantCount,
+        props.eventDate,
+        props.startTime
+      )
+
+      if (!limitCheck.allowed) {
+        throw new Error(limitCheck.reason || '予約制限により予約できません')
+      }
       // 予約番号を生成
       const reservationNumber = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-6)}`
       const eventDateTime = `${props.eventDate}T${props.startTime}`
