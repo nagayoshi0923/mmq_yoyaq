@@ -187,8 +187,6 @@ export function ScenarioManagement() {
             : s
         )
       })
-
-      alert('画像をアップロードしました')
     } catch (error) {
       logger.error('画像アップロードエラー:', error)
       alert('画像のアップロードに失敗しました')
@@ -227,8 +225,6 @@ export function ScenarioManagement() {
             : s
         )
       })
-
-      alert('画像を削除しました')
     } catch (error) {
       logger.error('画像削除エラー:', error)
       alert('画像の削除に失敗しました')

@@ -174,7 +174,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       const result = await uploadImage(file, 'key-visuals')
       if (result) {
         setFormData(prev => ({ ...prev, key_visual_url: result.url }))
-        alert('画像をアップロードしました')
       } else {
         alert('画像のアップロードに失敗しました')
       }
