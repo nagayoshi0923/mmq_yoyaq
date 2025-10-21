@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,11 +10,14 @@ import { Badge } from '@/components/ui/badge'
 import { ConditionalSetting } from '@/components/ui/conditional-settings'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
+import { Upload, X } from 'lucide-react'
 import type { Scenario, Staff } from '@/types'
 import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 import { logger } from '@/utils/logger'
+import { uploadImage, validateImageFile } from '@/lib/uploadImage'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 
 // 型定義
 import type { ScenarioEditModalProps, ScenarioFormData } from './ScenarioEditModal/types'
@@ -63,8 +66,13 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         total_max: 2,
         special_requirements: ''
       }
-    }
+    },
+    key_visual_url: ''
   })
+
+  // 画像アップロード用のstate
+  const [uploading, setUploading] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   const [newProductionItem, setNewProductionItem] = useState('')
   const [newProductionAmount, setNewProductionAmount] = useState(0)
@@ -149,6 +157,46 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   ]
 
   // GM役割の英語値を日本語表示に変換
+  // 画像アップロードハンドラー
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // ファイルバリデーション
+    const validation = validateImageFile(file, 5)
+    if (!validation.valid) {
+      alert(validation.error)
+      return
+    }
+
+    setUploading(true)
+    try {
+      const result = await uploadImage(file, 'scenario-images', 'key-visuals')
+      if (result) {
+        setFormData(prev => ({ ...prev, key_visual_url: result.url }))
+        alert('画像をアップロードしました')
+      } else {
+        alert('画像のアップロードに失敗しました')
+      }
+    } catch (error) {
+      logger.error('画像アップロードエラー:', error)
+      alert('画像のアップロードに失敗しました')
+    } finally {
+      setUploading(false)
+      // inputをリセット
+      if (imageInputRef.current) {
+        imageInputRef.current.value = ''
+      }
+    }
+  }
+
+  // 画像削除ハンドラー
+  const handleImageRemove = () => {
+    if (confirm('画像を削除しますか？')) {
+      setFormData(prev => ({ ...prev, key_visual_url: '' }))
+    }
+  }
+
   const getGmRoleLabel = (roleValue: string) => {
     const option = gmRoleOptions.find(opt => opt.value === roleValue)
     return option ? option.label : roleValue
@@ -674,7 +722,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             total_max: 2,
             special_requirements: ''
           }
-        }
+        },
+        key_visual_url: scenario.key_visual_url || ''
       })
     } else {
       // 新規作成時のデフォルト値
@@ -742,7 +791,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             total_max: 2,
             special_requirements: ''
           }
-        }
+        },
+        key_visual_url: ''
       })
     }
   }, [scenario])
@@ -836,6 +886,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         // 柔軟な料金設定を保存
         flexible_pricing: formData.use_flexible_pricing ? formData.flexible_pricing : undefined,
         play_count: scenario?.play_count || 0,
+        key_visual_url: formData.key_visual_url || undefined,
         created_at: scenario?.created_at || formatDateJST(getCurrentJST()),
         updated_at: formatDateJST(getCurrentJST())
       }
@@ -907,24 +958,78 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             </div>
             
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="title">タイトル *</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="シナリオタイトル"
-                  />
+              <div className="flex gap-4">
+                {/* キービジュアル画像 */}
+                <div className="flex-shrink-0">
+                  <Label>キービジュアル</Label>
+                  <div className="mt-2">
+                    {formData.key_visual_url ? (
+                      <div className="relative w-32 h-40 bg-gray-200 rounded overflow-hidden group">
+                        <OptimizedImage
+                          src={formData.key_visual_url}
+                          alt="キービジュアル"
+                          className="w-full h-full object-cover"
+                          responsive={true}
+                          srcSetSizes={[128, 256]}
+                          breakpoints={{ mobile: 128, tablet: 128, desktop: 256 }}
+                          useWebP={true}
+                          quality={85}
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                              No Image
+                            </div>
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={handleImageRemove}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="画像を削除"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="w-32 h-40 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                        <span className="text-xs text-gray-500 text-center px-2">
+                          {uploading ? 'アップロード中...' : '画像を選択'}
+                        </span>
+                        <input
+                          ref={imageInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={uploading}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="author">作者 *</Label>
-                  <Input
-                    id="author"
-                    value={formData.author}
-                    onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
-                    placeholder="作者名"
-                  />
+
+                {/* タイトルと作者 */}
+                <div className="flex-1 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="title">タイトル *</Label>
+                      <Input
+                        id="title"
+                        value={formData.title}
+                        onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="シナリオタイトル"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="author">作者 *</Label>
+                      <Input
+                        id="author"
+                        value={formData.author}
+                        onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
+                        placeholder="作者名"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
