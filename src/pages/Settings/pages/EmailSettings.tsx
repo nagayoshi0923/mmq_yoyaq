@@ -8,6 +8,99 @@ import { Mail, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 
+// デフォルトテンプレート
+function getDefaultReservationTemplate() {
+  return `{customer_name} 様
+
+この度はクイーンズワルツをご予約いただき、誠にありがとうございます。
+以下の内容で予約を承りました。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ ご予約内容
+━━━━━━━━━━━━━━━━━━━━━━
+
+シナリオ名: {scenario_title}
+開催日時: {date} {time}開演
+参加人数: {participants}名様
+ご請求金額: ¥{total_price}
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 当日のご案内
+━━━━━━━━━━━━━━━━━━━━━━
+
+・開演15分前までに受付をお済ませください
+・お飲み物は店内でご購入いただけます
+・キャンセルは3日前までにご連絡ください
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+ご不明な点がございましたら、お気軽にお問い合わせください。
+当日お会いできることを、スタッフ一同楽しみにしております。
+
+─────────────────────────
+クイーンズワルツ
+TEL: 03-XXXX-XXXX
+Email: info@queens-waltz.jp
+─────────────────────────`
+}
+
+function getDefaultCancellationTemplate() {
+  return `{customer_name} 様
+
+ご予約のキャンセルを承りました。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ キャンセル内容
+━━━━━━━━━━━━━━━━━━━━━━
+
+シナリオ名: {scenario_title}
+開催日時: {date}
+キャンセル料: ¥{cancellation_fee}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+またのご利用を心よりお待ちしております。
+
+─────────────────────────
+クイーンズワルツ
+TEL: 03-XXXX-XXXX
+Email: info@queens-waltz.jp
+─────────────────────────`
+}
+
+function getDefaultReminderTemplate() {
+  return `{customer_name} 様
+
+明日の公演についてリマインドいたします。
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ ご予約内容
+━━━━━━━━━━━━━━━━━━━━━━
+
+シナリオ名: {scenario_title}
+開催日時: {date} {time}開演
+会場: {venue}
+
+━━━━━━━━━━━━━━━━━━━━━━
+■ 当日のお願い
+━━━━━━━━━━━━━━━━━━━━━━
+
+・開演15分前までにお越しください
+・お時間に余裕を持ってご来店ください
+・当日連絡先: 03-XXXX-XXXX
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+お気をつけてお越しください。
+スタッフ一同、お待ちしております。
+
+─────────────────────────
+クイーンズワルツ
+TEL: 03-XXXX-XXXX
+Email: info@queens-waltz.jp
+─────────────────────────`
+}
+
 interface EmailSettings {
   id: string
   store_id: string
@@ -26,9 +119,9 @@ export function EmailSettings() {
     store_id: '',
     from_email: '',
     from_name: '',
-    reservation_confirmation_template: '',
-    cancellation_template: '',
-    reminder_template: ''
+    reservation_confirmation_template: getDefaultReservationTemplate(),
+    cancellation_template: getDefaultCancellationTemplate(),
+    reminder_template: getDefaultReminderTemplate()
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -249,98 +342,5 @@ export function EmailSettings() {
       </Card>
     </div>
   )
-}
-
-// デフォルトテンプレート
-function getDefaultReservationTemplate() {
-  return `{customer_name} 様
-
-この度はクイーンズワルツをご予約いただき、誠にありがとうございます。
-以下の内容で予約を承りました。
-
-━━━━━━━━━━━━━━━━━━━━━━
-■ ご予約内容
-━━━━━━━━━━━━━━━━━━━━━━
-
-シナリオ名: {scenario_title}
-開催日時: {date} {time}開演
-参加人数: {participants}名様
-ご請求金額: ¥{total_price}
-
-━━━━━━━━━━━━━━━━━━━━━━
-■ 当日のご案内
-━━━━━━━━━━━━━━━━━━━━━━
-
-・開演15分前までに受付をお済ませください
-・お飲み物は店内でご購入いただけます
-・キャンセルは3日前までにご連絡ください
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-ご不明な点がございましたら、お気軽にお問い合わせください。
-当日お会いできることを、スタッフ一同楽しみにしております。
-
-─────────────────────────
-クイーンズワルツ
-TEL: 03-XXXX-XXXX
-Email: info@queens-waltz.jp
-─────────────────────────`
-}
-
-function getDefaultCancellationTemplate() {
-  return `{customer_name} 様
-
-ご予約のキャンセルを承りました。
-
-━━━━━━━━━━━━━━━━━━━━━━
-■ キャンセル内容
-━━━━━━━━━━━━━━━━━━━━━━
-
-シナリオ名: {scenario_title}
-開催日時: {date}
-キャンセル料: ¥{cancellation_fee}
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-またのご利用を心よりお待ちしております。
-
-─────────────────────────
-クイーンズワルツ
-TEL: 03-XXXX-XXXX
-Email: info@queens-waltz.jp
-─────────────────────────`
-}
-
-function getDefaultReminderTemplate() {
-  return `{customer_name} 様
-
-明日の公演についてリマインドいたします。
-
-━━━━━━━━━━━━━━━━━━━━━━
-■ ご予約内容
-━━━━━━━━━━━━━━━━━━━━━━
-
-シナリオ名: {scenario_title}
-開催日時: {date} {time}開演
-会場: {venue}
-
-━━━━━━━━━━━━━━━━━━━━━━
-■ 当日のお願い
-━━━━━━━━━━━━━━━━━━━━━━
-
-・開演15分前までにお越しください
-・お時間に余裕を持ってご来店ください
-・当日連絡先: 03-XXXX-XXXX
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-お気をつけてお越しください。
-スタッフ一同、お待ちしております。
-
-─────────────────────────
-クイーンズワルツ
-TEL: 03-XXXX-XXXX
-Email: info@queens-waltz.jp
-─────────────────────────`
 }
 
