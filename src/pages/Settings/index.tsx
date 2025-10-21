@@ -16,6 +16,7 @@ import { StaffSettings } from './pages/StaffSettings'
 import { SystemSettings } from './pages/SystemSettings'
 import { EmailSettings } from './pages/EmailSettings'
 import { CustomerSettings } from './pages/CustomerSettings'
+import { DataManagementSettings } from './pages/DataManagementSettings'
 
 export function Settings() {
   const [activeTab, setActiveTab] = useSessionState('settingsActiveTab', 'store-basic')
@@ -45,7 +46,7 @@ export function Settings() {
       case 'customer':
         return <CustomerSettings />
       case 'data':
-        return <div className="text-center py-12 text-muted-foreground">データ管理設定（準備中）</div>
+        return <DataManagementSettings />
       default:
         return <StoreBasicSettings />
     }
