@@ -140,7 +140,11 @@ interface EmailSettings {
   cancellation_template: string
   reminder_template: string
   reminder_enabled: boolean
-  reminder_days_before: number
+  reminder_schedule: Array<{
+    days_before: number
+    time: string
+    enabled: boolean
+  }>
   reminder_time: string
   reminder_send_time: 'morning' | 'afternoon' | 'evening'
 }
@@ -161,7 +165,10 @@ export function EmailSettings() {
     cancellation_template: '',
     reminder_template: '',
     reminder_enabled: true,
-    reminder_days_before: 1,
+    reminder_schedule: [
+      { days_before: 7, time: '10:00', enabled: true },
+      { days_before: 1, time: '10:00', enabled: true }
+    ],
     reminder_time: '10:00',
     reminder_send_time: 'morning'
   })
@@ -191,26 +198,38 @@ export function EmailSettings() {
           prev.company_name,
           prev.company_phone,
           prev.company_email,
-          prev.reminder_days_before
+          1 // デフォルトは1日前
         )
       }))
     }
   }, [formData.company_name, formData.company_phone, formData.company_email])
 
-  // リマインド日数が変更されたときにテンプレートを更新
-  useEffect(() => {
-    if (formData.reminder_enabled && formData.company_name) {
-      setFormData(prev => ({
-        ...prev,
-        reminder_template: getDefaultReminderTemplate(
-          prev.company_name,
-          prev.company_phone,
-          prev.company_email,
-          prev.reminder_days_before
-        )
-      }))
-    }
-  }, [formData.reminder_days_before])
+  // リマインドスケジュール管理関数
+  const addReminderSchedule = () => {
+    setFormData(prev => ({
+      ...prev,
+      reminder_schedule: [
+        ...prev.reminder_schedule,
+        { days_before: 1, time: '10:00', enabled: true }
+      ]
+    }))
+  }
+
+  const removeReminderSchedule = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      reminder_schedule: prev.reminder_schedule.filter((_, i) => i !== index)
+    }))
+  }
+
+  const updateReminderSchedule = (index: number, field: 'days_before' | 'time' | 'enabled', value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      reminder_schedule: prev.reminder_schedule.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      )
+    }))
+  }
 
   const fetchData = async () => {
     setLoading(true)
@@ -479,32 +498,78 @@ export function EmailSettings() {
 
           {formData.reminder_enabled && (
             <>
-              {/* 送信タイミング */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="reminder_days_before">何日前に送信</Label>
-                  <select
-                    id="reminder_days_before"
-                    value={formData.reminder_days_before}
-                    onChange={(e) => setFormData(prev => ({ ...prev, reminder_days_before: parseInt(e.target.value) }))}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              {/* リマインドスケジュール */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <Label>リマインド送信スケジュール</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addReminderSchedule}
+                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
                   >
-                    <option value={1}>1日前</option>
-                    <option value={2}>2日前</option>
-                    <option value={3}>3日前</option>
-                    <option value={7}>1週間前</option>
-                    <option value={14}>2週間前</option>
-                  </select>
+                    + 追加
+                  </Button>
                 </div>
-                <div>
-                  <Label htmlFor="reminder_time">送信時刻</Label>
-                  <Input
-                    id="reminder_time"
-                    type="time"
-                    value={formData.reminder_time}
-                    onChange={(e) => setFormData(prev => ({ ...prev, reminder_time: e.target.value }))}
-                  />
+                
+                <div className="space-y-3">
+                  {formData.reminder_schedule.map((schedule, index) => (
+                    <div key={index} className="flex items-center gap-4 p-3 border border-gray-200 rounded-lg">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={schedule.enabled}
+                          onChange={(e) => updateReminderSchedule(index, 'enabled', e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                      </div>
+                      
+                      <div className="flex-1 grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-sm">何日前</Label>
+                          <select
+                            value={schedule.days_before}
+                            onChange={(e) => updateReminderSchedule(index, 'days_before', parseInt(e.target.value))}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                          >
+                            <option value={1}>1日前</option>
+                            <option value={2}>2日前</option>
+                            <option value={3}>3日前</option>
+                            <option value={7}>1週間前</option>
+                            <option value={14}>2週間前</option>
+                            <option value={30}>1ヶ月前</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <Label className="text-sm">送信時刻</Label>
+                          <Input
+                            type="time"
+                            value={schedule.time}
+                            onChange={(e) => updateReminderSchedule(index, 'time', e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                      
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeReminderSchedule(index)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        disabled={formData.reminder_schedule.length <= 1}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
                 </div>
+                
+                <p className="text-xs text-muted-foreground mt-2">
+                  複数のリマインドを設定できます。例：1週間前と前日の両方に送信
+                </p>
               </div>
 
               {/* 送信時間帯の選択 */}
