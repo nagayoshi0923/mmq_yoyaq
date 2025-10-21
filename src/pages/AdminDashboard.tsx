@@ -79,7 +79,6 @@ export function AdminDashboard() {
 
   // ページ変更時にURLのハッシュを更新
   const handlePageChange = useCallback((pageId: string) => {
-    console.log('handlePageChange called with:', pageId)
     setCurrentPage(pageId)
     setSelectedScenarioId(null) // ページ変更時はシナリオ選択をクリア
     window.location.hash = pageId === 'dashboard' ? '' : pageId
@@ -284,9 +283,13 @@ export function AdminDashboard() {
 
   if (currentPage === 'my-page') {
     return (
-      <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
-        <MyPage />
-      </Suspense>
+      <div className="min-h-screen bg-background">
+        <Header onPageChange={handlePageChange} />
+        <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
+        <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
+          <MyPage />
+        </Suspense>
+      </div>
     )
   }
 
