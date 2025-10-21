@@ -3,18 +3,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { User, Mail, Phone, Building2, Calendar, Shield } from 'lucide-react'
+import { User, Mail, Phone, Building2, Calendar, Shield, Clock, CheckCircle, BookOpen } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import type { Reservation } from '@/types'
 
 export default function MyPage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [staffInfo, setStaffInfo] = useState<any>(null)
+  const [reservations, setReservations] = useState<Reservation[]>([])
+  const [playedScenarios, setPlayedScenarios] = useState<any[]>([])
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -25,8 +29,15 @@ export default function MyPage() {
   useEffect(() => {
     if (user?.email) {
       fetchStaffInfo()
+      fetchReservations()
     }
   }, [user])
+
+  useEffect(() => {
+    if (staffInfo?.id) {
+      fetchPlayedScenarios()
+    }
+  }, [staffInfo])
 
   const fetchStaffInfo = async () => {
     if (!user?.email) return
@@ -54,6 +65,67 @@ export default function MyPage() {
       logger.error('スタッフ情報取得エラー:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchReservations = async () => {
+    if (!user?.email) return
+
+    try {
+      // 顧客情報を取得
+      const { data: customer, error: customerError } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('email', user.email)
+        .maybeSingle()
+
+      if (customerError) throw customerError
+      if (!customer) return
+
+      // 予約を取得
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('*')
+        .eq('customer_id', customer.id)
+        .order('requested_datetime', { ascending: false })
+
+      if (error) throw error
+      setReservations(data || [])
+    } catch (error) {
+      logger.error('予約履歴取得エラー:', error)
+    }
+  }
+
+  const fetchPlayedScenarios = async () => {
+    if (!staffInfo?.id) return
+
+    try {
+      // スタッフが担当した公演を取得
+      const { data, error } = await supabase
+        .from('schedule_events')
+        .select('scenario, date, venue')
+        .contains('gms', [staffInfo.name])
+        .eq('is_cancelled', false)
+        .lte('date', new Date().toISOString().split('T')[0])
+        .order('date', { ascending: false })
+
+      if (error) throw error
+
+      // シナリオごとにグループ化してカウント
+      const scenarioMap = new Map()
+      data?.forEach((event) => {
+        const count = scenarioMap.get(event.scenario) || 0
+        scenarioMap.set(event.scenario, count + 1)
+      })
+
+      const scenarios = Array.from(scenarioMap.entries()).map(([scenario, count]) => ({
+        scenario,
+        count,
+      }))
+
+      setPlayedScenarios(scenarios)
+    } catch (error) {
+      logger.error('プレイ済みシナリオ取得エラー:', error)
     }
   }
 
@@ -95,6 +167,15 @@ export default function MyPage() {
   const formatDate = (date: string) => {
     const d = new Date(date)
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const formatDateTime = (date: string) => {
+    const d = new Date(date)
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+
+  const formatCurrency = (amount: number) => {
+    return `¥${amount.toLocaleString()}`
   }
 
   return (
@@ -237,6 +318,104 @@ export default function MyPage() {
                       >
                         {saving ? '保存中...' : '保存'}
                       </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 予約履歴 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    予約履歴
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {reservations.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      予約履歴がありません
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {reservations.slice(0, 10).map((reservation) => {
+                        const isPast = new Date(reservation.requested_datetime) < new Date()
+                        const isUpcoming = !isPast && reservation.status === 'confirmed'
+                        
+                        return (
+                          <div
+                            key={reservation.id}
+                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium">{reservation.title}</span>
+                                {isUpcoming && (
+                                  <Badge variant="default" className="bg-blue-100 text-blue-800">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    参加予定
+                                  </Badge>
+                                )}
+                                {isPast && reservation.status === 'confirmed' && (
+                                  <Badge variant="secondary">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    参加済み
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {formatDateTime(reservation.requested_datetime)}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm text-muted-foreground">参加人数</div>
+                              <div className="font-medium">{reservation.participant_count}名</div>
+                            </div>
+                            <div className="text-right ml-4">
+                              <div className="text-sm text-muted-foreground">金額</div>
+                              <div className="font-medium">{formatCurrency(reservation.final_price)}</div>
+                            </div>
+                            <div className="ml-4">
+                              <Badge
+                                variant={
+                                  reservation.status === 'confirmed' ? 'default' :
+                                  reservation.status === 'cancelled' ? 'destructive' :
+                                  'secondary'
+                                }
+                              >
+                                {reservation.status === 'confirmed' ? '確定' :
+                                 reservation.status === 'cancelled' ? 'キャンセル' :
+                                 reservation.status === 'pending' ? '保留' : reservation.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* プレイ済みシナリオ (スタッフのみ) */}
+              {staffInfo && playedScenarios.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BookOpen className="h-5 w-5" />
+                      GMとして担当したシナリオ
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-3">
+                      {playedScenarios.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 border rounded-lg"
+                        >
+                          <span className="font-medium">{item.scenario}</span>
+                          <Badge variant="secondary">{item.count}回</Badge>
+                        </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
