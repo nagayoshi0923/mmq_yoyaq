@@ -620,19 +620,56 @@ export function EmailSettings() {
       <Card>
         <CardHeader>
           <CardTitle>リマインドメールテンプレート</CardTitle>
-          <CardDescription>公演前に送信されるリマインドメールの内容</CardDescription>
+          <CardDescription>公演前に送信されるリマインドメールの内容（各送信タイミングで動的に生成）</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Textarea
-            value={formData.reminder_template}
-            onChange={(e) => setFormData(prev => ({ ...prev, reminder_template: e.target.value }))}
-            rows={6}
-            placeholder="リマインドメールのテンプレート"
-            disabled={!formData.reminder_enabled}
-          />
-          <p className="text-xs text-muted-foreground mt-2">
-            使用可能な変数: {'{customer_name}'}, {'{scenario_title}'}, {'{date}'}, {'{time}'}, {'{venue}'}
-          </p>
+        <CardContent className="space-y-4">
+          {/* テンプレートプレビュー */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">テンプレートプレビュー</Label>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm">
+              <div className="space-y-2">
+                {formData.reminder_schedule.map((schedule, index) => (
+                  <div key={index} className="border-b border-gray-200 pb-2 last:border-b-0">
+                    <div className="font-medium text-blue-600 mb-1">
+                      {schedule.days_before === 1 ? '1日前' : 
+                       schedule.days_before === 2 ? '2日前' :
+                       schedule.days_before === 3 ? '3日前' :
+                       schedule.days_before === 7 ? '1週間前' :
+                       schedule.days_before === 14 ? '2週間前' :
+                       schedule.days_before === 30 ? '1ヶ月前' :
+                       `${schedule.days_before}日前`} ({schedule.time})
+                    </div>
+                    <div className="text-gray-600 whitespace-pre-wrap">
+                      {getDefaultReminderTemplate(
+                        formData.company_name,
+                        formData.company_phone,
+                        formData.company_email,
+                        schedule.days_before
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              各送信タイミングに応じてメッセージが自動的に調整されます
+            </p>
+          </div>
+
+          {/* カスタムテンプレート編集（将来の拡張用） */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">カスタムテンプレート（上級者向け）</Label>
+            <Textarea
+              value={formData.reminder_template}
+              onChange={(e) => setFormData(prev => ({ ...prev, reminder_template: e.target.value }))}
+              rows={6}
+              placeholder="カスタムテンプレートを編集できます（通常は自動生成を使用）"
+              disabled={!formData.reminder_enabled}
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              使用可能な変数: {'{customer_name}'}, {'{scenario_title}'}, {'{date}'}, {'{time}'}, {'{venue}'}, {'{days_before}'}
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
