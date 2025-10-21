@@ -31,7 +31,7 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
     { id: 'private-booking-management', label: '貸切確認', icon: ClipboardCheck, roles: ['admin', 'staff'] },
     { id: 'customer-booking', label: '予約サイト', icon: Calendar, roles: ['admin', 'staff', 'customer'] },
     { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin', 'staff'] },
-    { id: 'customers', label: '顧客', icon: Users, roles: ['admin', 'staff'] },
+    { id: 'customer-management', label: '顧客管理', icon: Users, roles: ['admin', 'staff'] },
     { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },
     { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin', 'staff'] },
     { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] }

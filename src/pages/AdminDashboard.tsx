@@ -31,6 +31,7 @@ const PrivateBookingScenarioSelect = lazy(() => import('./PrivateBookingScenario
 const PrivateBookingRequestPage = lazy(() => import('./PrivateBookingRequestPage').then(m => ({ default: m.PrivateBookingRequestPage })))
 const PrivateBookingManagement = lazy(() => import('./PrivateBookingManagement').then(m => ({ default: m.PrivateBookingManagement })))
 const UserManagement = lazy(() => import('./UserManagement').then(m => ({ default: m.UserManagement })))
+const CustomerManagement = lazy(() => import('./CustomerManagement'))
 
 export function AdminDashboard() {
   const { user } = useAuth()
@@ -267,6 +268,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="ユーザー管理を読み込み中..." />}>
         <UserManagement />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'customer-management') {
+    return (
+      <Suspense fallback={<LoadingScreen message="顧客管理を読み込み中..." />}>
+        <CustomerManagement />
       </Suspense>
     )
   }
