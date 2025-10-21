@@ -158,7 +158,7 @@ export function ScenarioManagement() {
 
     try {
       // 画像をアップロード
-      const result = await uploadImage(file, 'scenario-images', 'key-visuals')
+      const result = await uploadImage(file, 'key-visuals')
       if (!result) {
         alert('画像のアップロードに失敗しました')
         return

@@ -15,23 +15,22 @@
 
 3. **新しいバケットを作成**
    - **Create bucket** ボタンをクリック
-   - バケット名: `scenario-images`
+   - バケット名: `key-visuals`
    - Public bucket: **ON** （公開バケットにする）
    - **Create bucket** をクリック
 
 ## 2. フォルダ構造（オプション）
 
-バケット内で以下のフォルダ構造を作成することを推奨：
+バケット内にファイルが直接保存されます：
 
 ```
-scenario-images/
-└── key-visuals/
-    ├── scenario1.jpg
-    ├── scenario2.png
-    └── ...
+key-visuals/
+├── scenario1.jpg
+├── scenario2.png
+└── ...
 ```
 
-フォルダは自動的に作成されるため、手動作成は不要です。
+フォルダは不要です。すべての画像がバケット直下に保存されます。
 
 ## 3. ストレージポリシーの設定
 
@@ -41,7 +40,7 @@ scenario-images/
 -- 誰でも画像を閲覧可能
 CREATE POLICY "Public read access"
 ON storage.objects FOR SELECT
-USING (bucket_id = 'scenario-images');
+USING (bucket_id = 'key-visuals');
 ```
 
 ### 3.2 管理者とスタッフのみアップロード可能
@@ -51,7 +50,7 @@ USING (bucket_id = 'scenario-images');
 CREATE POLICY "Admin and staff can upload"
 ON storage.objects FOR INSERT
 WITH CHECK (
-  bucket_id = 'scenario-images' AND
+  bucket_id = 'key-visuals' AND
   auth.role() = 'authenticated' AND
   EXISTS (
     SELECT 1 FROM users
@@ -68,7 +67,7 @@ WITH CHECK (
 CREATE POLICY "Admin and staff can delete"
 ON storage.objects FOR DELETE
 USING (
-  bucket_id = 'scenario-images' AND
+  bucket_id = 'key-visuals' AND
   auth.role() = 'authenticated' AND
   EXISTS (
     SELECT 1 FROM users
@@ -85,7 +84,7 @@ USING (
 CREATE POLICY "Admin and staff can update"
 ON storage.objects FOR UPDATE
 USING (
-  bucket_id = 'scenario-images' AND
+  bucket_id = 'key-visuals' AND
   auth.role() = 'authenticated' AND
   EXISTS (
     SELECT 1 FROM users
@@ -115,16 +114,15 @@ USING (
 ### アップロードされた画像の確認
 
 1. Supabase Dashboard の Storage ページを開く
-2. `scenario-images` バケットをクリック
-3. `key-visuals/` フォルダを確認
-4. アップロードされた画像が表示される
+2. `key-visuals` バケットをクリック
+3. アップロードされた画像が表示される
 
 ## 6. トラブルシューティング
 
 ### 画像がアップロードできない
 
 **原因1: バケットが公開されていない**
-- Storage > scenario-images > Settings
+- Storage > key-visuals > Settings
 - Public bucket が **ON** になっているか確認
 
 **原因2: ポリシーが設定されていない**
@@ -137,7 +135,7 @@ USING (
 ### 画像が表示されない
 
 **原因1: 公開URLが正しくない**
-- Storage > scenario-images > ファイルを右クリック > Get URL
+- Storage > key-visuals > ファイルを右クリック > Get URL
 - URLが正しく取得できるか確認
 
 **原因2: CORSの問題**

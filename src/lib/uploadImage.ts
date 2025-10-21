@@ -4,13 +4,13 @@ import { logger } from '@/utils/logger'
 /**
  * 画像をSupabase Storageにアップロード
  * @param file アップロードするファイル
- * @param bucket バケット名（デフォルト: 'scenario-images'）
+ * @param bucket バケット名（デフォルト: 'key-visuals'）
  * @param folder フォルダ名（オプション）
  * @returns アップロードされた画像の公開URL
  */
 export async function uploadImage(
   file: File,
-  bucket: string = 'scenario-images',
+  bucket: string = 'key-visuals',
   folder?: string
 ): Promise<{ url: string; path: string } | null> {
   try {
@@ -54,12 +54,12 @@ export async function uploadImage(
 /**
  * 画像をSupabase Storageから削除
  * @param path 削除する画像のパス
- * @param bucket バケット名（デフォルト: 'scenario-images'）
+ * @param bucket バケット名（デフォルト: 'key-visuals'）
  * @returns 削除成功の真偽値
  */
 export async function deleteImage(
   path: string,
-  bucket: string = 'scenario-images'
+  bucket: string = 'key-visuals'
 ): Promise<boolean> {
   try {
     logger.log('画像削除開始:', path)
