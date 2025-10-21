@@ -45,20 +45,20 @@ export function createScenarioColumns(
         }
 
         return (
-          <div className="flex items-center justify-center py-1">
+          <div className="flex items-center justify-center">
             {scenario.key_visual_url ? (
-              <div className="relative w-10 h-14 bg-gray-200 rounded overflow-hidden group">
+              <div className="relative w-8 h-10 bg-gray-200 rounded overflow-hidden group">
                 <OptimizedImage
                   src={scenario.key_visual_url}
                   alt={scenario.title}
                   className="w-full h-full object-cover"
                   responsive={true}
-                  srcSetSizes={[40, 80]}
-                  breakpoints={{ mobile: 40, tablet: 40, desktop: 80 }}
+                  srcSetSizes={[32, 64]}
+                  breakpoints={{ mobile: 32, tablet: 32, desktop: 64 }}
                   useWebP={true}
                   quality={85}
                   fallback={
-                    <div className="w-full h-full flex items-center justify-center text-gray-400" style={{ fontSize: '8px' }}>
+                    <div className="w-full h-full flex items-center justify-center text-gray-400" style={{ fontSize: '7px' }}>
                       No Image
                     </div>
                   }
@@ -74,11 +74,11 @@ export function createScenarioColumns(
                   className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                   title="画像を削除"
                 >
-                  <X className="h-2.5 w-2.5" />
+                  <X className="h-2 w-2" />
                 </button>
               </div>
             ) : (
-              <label className="w-10 h-14 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+              <label className="w-8 h-10 border border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
                 <Upload className="h-3 w-3 text-gray-400" />
                 <input
                   type="file"
