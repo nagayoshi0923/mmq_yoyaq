@@ -10,6 +10,9 @@ import { logger } from '@/utils/logger'
 
 // デフォルトテンプレート
 function getDefaultReservationTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
   return `{customer_name} 様
 
 この度は${companyName}をご予約いただき、誠にありがとうございます。
@@ -39,12 +42,15 @@ function getDefaultReservationTemplate(companyName = 'クイーンズワルツ',
 
 ─────────────────────────
 ${companyName}
-TEL: ${companyPhone}
-Email: ${companyEmail}
+${phoneLine}
+${emailLine}
 ─────────────────────────`
 }
 
 function getDefaultCancellationTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  
   return `{customer_name} 様
 
 ご予約のキャンセルを承りました。
@@ -63,12 +69,16 @@ function getDefaultCancellationTemplate(companyName = 'クイーンズワルツ'
 
 ─────────────────────────
 ${companyName}
-TEL: ${companyPhone}
-Email: ${companyEmail}
+${phoneLine}
+${emailLine}
 ─────────────────────────`
 }
 
 function getDefaultReminderTemplate(companyName = 'クイーンズワルツ', companyPhone = '03-XXXX-XXXX', companyEmail = 'info@queens-waltz.jp') {
+  const phoneLine = companyPhone ? `TEL: ${companyPhone}` : ''
+  const emailLine = companyEmail ? `Email: ${companyEmail}` : ''
+  const contactInfo = companyPhone ? `・当日連絡先: ${companyPhone}` : ''
+  
   return `{customer_name} 様
 
 明日の公演についてリマインドいたします。
@@ -87,7 +97,7 @@ function getDefaultReminderTemplate(companyName = 'クイーンズワルツ', co
 
 ・開演15分前までにお越しください
 ・お時間に余裕を持ってご来店ください
-・当日連絡先: ${companyPhone}
+${contactInfo}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -96,8 +106,8 @@ function getDefaultReminderTemplate(companyName = 'クイーンズワルツ', co
 
 ─────────────────────────
 ${companyName}
-TEL: ${companyPhone}
-Email: ${companyEmail}
+${phoneLine}
+${emailLine}
 ─────────────────────────`
 }
 
@@ -303,7 +313,7 @@ export function EmailSettings() {
               />
             </div>
             <div>
-              <Label htmlFor="company_phone">電話番号 *</Label>
+              <Label htmlFor="company_phone">電話番号</Label>
               <Input
                 id="company_phone"
                 value={formData.company_phone}
