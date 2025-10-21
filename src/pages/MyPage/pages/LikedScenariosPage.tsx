@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Heart, Users, Clock, Star } from 'lucide-react'
+import { Star, Users, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 
-interface LikedScenario {
+interface WantToPlayScenario {
   id: string
   scenario_id: string
   created_at: string
@@ -26,18 +26,18 @@ interface LikedScenario {
   }
 }
 
-export function LikedScenariosPage() {
+export function WantToPlayPage() {
   const { user } = useAuth()
-  const [likedScenarios, setLikedScenarios] = useState<LikedScenario[]>([])
+  const [wantToPlayScenarios, setWantToPlayScenarios] = useState<WantToPlayScenario[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (user?.email) {
-      fetchLikedScenarios()
+      fetchWantToPlayScenarios()
     }
   }, [user])
 
-  const fetchLikedScenarios = async () => {
+  const fetchWantToPlayScenarios = async () => {
     if (!user?.email) return
 
     setLoading(true)
@@ -51,12 +51,12 @@ export function LikedScenariosPage() {
 
       if (customerError) throw customerError
       if (!customer) {
-        setLikedScenarios([])
+        setWantToPlayScenarios([])
         setLoading(false)
         return
       }
 
-      // いいねしたシナリオを取得
+      // 遊びたいシナリオを取得
       const { data, error } = await supabase
         .from('scenario_likes')
         .select(`
@@ -81,15 +81,15 @@ export function LikedScenariosPage() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setLikedScenarios(data || [])
+      setWantToPlayScenarios(data || [])
     } catch (error) {
-      logger.error('いいねシナリオ取得エラー:', error)
+      logger.error('遊びたいシナリオ取得エラー:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleUnlike = async (likeId: string) => {
+  const handleRemove = async (likeId: string) => {
     try {
       const { error } = await supabase
         .from('scenario_likes')
@@ -99,10 +99,10 @@ export function LikedScenariosPage() {
       if (error) throw error
 
       // ローカルステートを更新
-      setLikedScenarios((prev) => prev.filter((item) => item.id !== likeId))
+      setWantToPlayScenarios((prev) => prev.filter((item) => item.id !== likeId))
     } catch (error) {
-      logger.error('いいね解除エラー:', error)
-      alert('いいねの解除に失敗しました')
+      logger.error('削除エラー:', error)
+      alert('削除に失敗しました')
     }
   }
 
@@ -143,18 +143,18 @@ export function LikedScenariosPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Heart className="h-5 w-5 fill-red-500 text-red-500" />
-            いいねしたシナリオ ({likedScenarios.length})
+            <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+            遊びたいシナリオ ({wantToPlayScenarios.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {likedScenarios.length === 0 ? (
+          {wantToPlayScenarios.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              いいねしたシナリオがありません
+              遊びたいシナリオがありません
             </div>
           ) : (
             <div className="space-y-4">
-              {likedScenarios.map((item) => (
+              {wantToPlayScenarios.map((item) => (
                 <div
                   key={item.id}
                   className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
@@ -174,10 +174,11 @@ export function LikedScenariosPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleUnlike(item.id)}
+                      onClick={() => handleRemove(item.id)}
                       className="hover:bg-red-50"
+                      title="リストから削除"
                     >
-                      <Heart className="h-5 w-5 fill-red-500 text-red-500" />
+                      <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
                     </Button>
                   </div>
 
@@ -212,7 +213,7 @@ export function LikedScenariosPage() {
                   )}
 
                   <div className="text-xs text-muted-foreground">
-                    いいねした日: {formatDate(item.created_at)}
+                    追加日: {formatDate(item.created_at)}
                   </div>
                 </div>
               ))}

@@ -5,7 +5,7 @@ import { Sidebar } from './components/Sidebar'
 import { ProfilePage } from './pages/ProfilePage'
 import { ReservationsPage } from './pages/ReservationsPage'
 import { PlayedScenariosPage } from './pages/PlayedScenariosPage'
-import { LikedScenariosPage } from './pages/LikedScenariosPage'
+import { WantToPlayPage } from './pages/LikedScenariosPage'
 import { GmHistoryPage } from './pages/GmHistoryPage'
 import { AccountPage } from './pages/AccountPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -25,8 +25,8 @@ export default function MyPage() {
         return <ReservationsPage />
       case 'played-scenarios':
         return <PlayedScenariosPage />
-      case 'liked-scenarios':
-        return <LikedScenariosPage />
+      case 'want-to-play':
+        return <WantToPlayPage />
       case 'gm-history':
         return <GmHistoryPage />
       case 'account':

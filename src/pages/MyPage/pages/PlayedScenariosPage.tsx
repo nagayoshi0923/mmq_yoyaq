@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { BookOpen, Calendar, MapPin } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { BookOpen, Calendar, MapPin, Star, EyeOff } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -11,11 +12,15 @@ interface PlayedScenario {
   date: string
   venue: string
   gms: string[]
+  scenario_id?: string
 }
 
 export function PlayedScenariosPage() {
   const { user } = useAuth()
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
+  const [hiddenScenarios, setHiddenScenarios] = useState<Set<string>>(new Set())
+  const [likedScenarios, setLikedScenarios] = useState<Set<string>>(new Set())
+  const [customerId, setCustomerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -43,10 +48,22 @@ export function PlayedScenariosPage() {
         return
       }
 
+      setCustomerId(customer.id)
+
+      // いいね済みシナリオを取得
+      const { data: likes } = await supabase
+        .from('scenario_likes')
+        .select('scenario_id')
+        .eq('customer_id', customer.id)
+
+      if (likes) {
+        setLikedScenarios(new Set(likes.map(l => l.scenario_id)))
+      }
+
       // 予約を取得
       const { data: reservations, error: reservationsError } = await supabase
         .from('reservations')
-        .select('requested_datetime, title')
+        .select('requested_datetime, title, scenario_id')
         .eq('customer_id', customer.id)
         .eq('status', 'confirmed')
         .lte('requested_datetime', new Date().toISOString())
@@ -76,6 +93,7 @@ export function PlayedScenariosPage() {
               date: event.date,
               venue: event.venue,
               gms: event.gms || [],
+              scenario_id: reservation.scenario_id || undefined,
             })
           } else {
             // イベントが見つからない場合でも予約情報から追加
@@ -84,6 +102,7 @@ export function PlayedScenariosPage() {
               date: dateStr,
               venue: '店舗不明',
               gms: [],
+              scenario_id: reservation.scenario_id || undefined,
             })
           }
         }
@@ -100,6 +119,54 @@ export function PlayedScenariosPage() {
   const formatDate = (date: string) => {
     const d = new Date(date)
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const handleToggleLike = async (scenarioId: string | undefined) => {
+    if (!scenarioId || !customerId) return
+
+    try {
+      if (likedScenarios.has(scenarioId)) {
+        // いいね解除
+        const { error } = await supabase
+          .from('scenario_likes')
+          .delete()
+          .eq('customer_id', customerId)
+          .eq('scenario_id', scenarioId)
+
+        if (error) throw error
+        setLikedScenarios(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(scenarioId)
+          return newSet
+        })
+      } else {
+        // いいね追加
+        const { error } = await supabase
+          .from('scenario_likes')
+          .insert({
+            customer_id: customerId,
+            scenario_id: scenarioId,
+          })
+
+        if (error) throw error
+        setLikedScenarios(prev => new Set(prev).add(scenarioId))
+      }
+    } catch (error) {
+      logger.error('いいね切り替えエラー:', error)
+      alert('操作に失敗しました')
+    }
+  }
+
+  const handleToggleHide = (scenarioName: string) => {
+    setHiddenScenarios(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(scenarioName)) {
+        newSet.delete(scenarioName)
+      } else {
+        newSet.add(scenarioName)
+      }
+      return newSet
+    })
   }
 
   // シナリオごとにグループ化
@@ -169,14 +236,42 @@ export function PlayedScenariosPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {scenarioGroups.map((group, idx) => (
-                <div key={idx} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-lg">{group.scenario}</h3>
-                    <Badge variant="secondary" className="text-sm">
-                      {group.count}回プレイ
-                    </Badge>
-                  </div>
+              {scenarioGroups
+                .filter(group => !hiddenScenarios.has(group.scenario))
+                .map((group, idx) => {
+                  const scenarioId = group.plays[0]?.scenario_id
+                  const isLiked = scenarioId ? likedScenarios.has(scenarioId) : false
+
+                  return (
+                    <div key={idx} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3 flex-1">
+                          <h3 className="font-bold text-lg">{group.scenario}</h3>
+                          <Badge variant="secondary" className="text-sm">
+                            {group.count}回プレイ
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleToggleLike(scenarioId)}
+                            className="hover:bg-yellow-50"
+                            title={isLiked ? '遊びたいリストから削除' : '遊びたいリストに追加'}
+                          >
+                            <Star className={`h-5 w-5 ${isLiked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleToggleHide(group.scenario)}
+                            className="hover:bg-gray-50"
+                            title="非表示にする"
+                          >
+                            <EyeOff className="h-5 w-5 text-gray-400" />
+                          </Button>
+                        </div>
+                      </div>
                   <div className="space-y-2">
                     {group.plays.map((play, playIdx) => (
                       <div
@@ -207,11 +302,39 @@ export function PlayedScenariosPage() {
                     ))}
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* 非表示にしたシナリオ */}
+      {hiddenScenarios.size > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <EyeOff className="h-5 w-5 text-muted-foreground" />
+              非表示のシナリオ ({hiddenScenarios.size})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {Array.from(hiddenScenarios).map((scenarioName, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 border rounded-lg opacity-60">
+                  <span className="font-medium">{scenarioName}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleToggleHide(scenarioName)}
+                  >
+                    表示する
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
