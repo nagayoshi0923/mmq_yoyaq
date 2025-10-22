@@ -15,7 +15,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     // lucide-react の Tree-shaking を最適化
-    include: ['lucide-react']
+    include: ['lucide-react', 'react', 'react-dom']
   },
   build: {
     // チャンクサイズ警告のしきい値を上げる（KB単位）
