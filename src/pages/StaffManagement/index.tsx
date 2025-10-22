@@ -11,6 +11,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import StaffSidebar from '@/components/layout/StaffSidebar'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { usePageState } from '@/hooks/usePageState'
+import { Users, UserCheck, UserX, Clock } from 'lucide-react'
 
 // 分離されたフック
 import { useStaffFilters } from './hooks/useStaffFilters'
@@ -469,7 +470,6 @@ export function StaffManagement() {
             )}
           </DialogContent>
         </Dialog>
-        </div>
       </AppLayout>
     </TooltipProvider>
   )
