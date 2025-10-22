@@ -2,44 +2,71 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "routes": [
+  "functions": {
+    "src/pages/api/**/*.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "headers": [
     {
-      "src": "/assets/(.*)",
-      "headers": {
-        "Cache-Control": "public, max-age=31536000, immutable"
-      },
-      "continue": true
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
-      "src": "/(.*)\\.js",
-      "headers": {
-        "Content-Type": "text/javascript; charset=utf-8"
-      },
-      "continue": true
+      "source": "/(.*\\.js)$",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/javascript; charset=utf-8"
+        }
+      ]
     },
     {
-      "src": "/(.*)\\.mjs",
-      "headers": {
-        "Content-Type": "text/javascript; charset=utf-8"
-      },
-      "continue": true
+      "source": "/(.*\\.mjs)$",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/javascript; charset=utf-8"
+        }
+      ]
     },
     {
-      "src": "/(.*)\\.css",
-      "headers": {
-        "Content-Type": "text/css; charset=utf-8"
-      },
-      "continue": true
+      "source": "/(.*\\.css)$",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/css; charset=utf-8"
+        }
+      ]
     },
     {
-      "src": "/manifest.webmanifest",
-      "headers": {
-        "Content-Type": "application/manifest+json"
-      }
+      "source": "/manifest.webmanifest",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json"
+        }
+      ]
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/javascript; charset=utf-8"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/((?!assets/|.*\\.(js|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webmanifest|sw\\.js)).*)",
+      "destination": "/index.html"
     }
   ]
 }
