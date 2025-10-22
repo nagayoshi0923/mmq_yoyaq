@@ -48,7 +48,8 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     setEvents, 
     stores, 
     scenarios, 
-    staff
+    staff,
+    fetchSchedule
   } = scheduleData
   
   const shiftData = shiftDataHook?.shiftData ?? {}
