@@ -206,6 +206,53 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
       </div>
 
 
+      {/* キャンセルポリシー */}
+      <Card>
+        <CardHeader>
+          <CardTitle>キャンセルポリシー</CardTitle>
+          <CardDescription>キャンセルに関する規約を設定します</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="cancellation_policy">キャンセルポリシー文章</Label>
+            <Textarea
+              id="cancellation_policy"
+              value={formData.cancellation_policy}
+              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_policy: e.target.value }))}
+              placeholder="例: ご予約のキャンセルはお早めにご連絡ください。キャンセル料はキャンセル時期により異なります。"
+              rows={4}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              この文章は予約確認メールやサイトに表示されます
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* キャンセル受付期限 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>キャンセル受付期限</CardTitle>
+          <CardDescription>この時間以降はキャンセル不可</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div>
+            <Label htmlFor="cancellation_deadline_hours">キャンセル受付期限（時間前）</Label>
+            <Input
+              id="cancellation_deadline_hours"
+              type="number"
+              value={formData.cancellation_deadline_hours}
+              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
+              min="0"
+              max="720"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              公演開始の{formData.cancellation_deadline_hours}時間前までキャンセル受付
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* キャンセル料金設定 */}
       <Card>
         <CardHeader>
@@ -307,53 +354,6 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
               <li>• 0%に設定するとキャンセル料は発生しません</li>
               <li>• 100%に設定すると全額キャンセル料が発生します</li>
             </ul>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* キャンセルポリシー */}
-      <Card>
-        <CardHeader>
-          <CardTitle>キャンセルポリシー</CardTitle>
-          <CardDescription>キャンセルに関する規約を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="cancellation_policy">キャンセルポリシー文章</Label>
-            <Textarea
-              id="cancellation_policy"
-              value={formData.cancellation_policy}
-              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_policy: e.target.value }))}
-              placeholder="例: ご予約のキャンセルはお早めにご連絡ください。キャンセル料はキャンセル時期により異なります。"
-              rows={4}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              この文章は予約確認メールやサイトに表示されます
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* キャンセル受付期限 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>キャンセル受付期限</CardTitle>
-          <CardDescription>この時間以降はキャンセル不可</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div>
-            <Label htmlFor="cancellation_deadline_hours">キャンセル受付期限（時間前）</Label>
-            <Input
-              id="cancellation_deadline_hours"
-              type="number"
-              value={formData.cancellation_deadline_hours}
-              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
-              min="0"
-              max="720"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              公演開始の{formData.cancellation_deadline_hours}時間前までキャンセル受付
-            </p>
           </div>
         </CardContent>
       </Card>
