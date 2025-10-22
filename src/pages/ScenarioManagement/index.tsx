@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -259,7 +259,7 @@ export function ScenarioManagement() {
   }, [])
 
   // 初回レンダリング時のスクロール位置復元（早期）
-  useLayoutEffect(() => {
+  useEffect(() => {
     const savedY = sessionStorage.getItem('scenarioScrollY')
     const savedTime = sessionStorage.getItem('scenarioScrollTime')
     if (savedY && savedTime) {
