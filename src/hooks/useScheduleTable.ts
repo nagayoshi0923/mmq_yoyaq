@@ -114,11 +114,69 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     getReservationBadgeClass: customReservationBadgeClass || getReservationBadgeClass
   }), [customCategoryConfig, customReservationBadgeClass])
 
+  // モーダル関連の情報も含める
+  const { availableStaffByScenario } = useScheduleEvents(
+    events,
+    'all',
+    scenarios,
+    shiftData,
+    eventOperations
+  )
+
   return {
     viewConfig,
     dataProvider,
     eventHandlers,
-    displayConfig
+    displayConfig,
+    // モーダル用の追加情報
+    modals: {
+      performanceModal: {
+        isOpen: eventOperations.isPerformanceModalOpen,
+        onClose: eventOperations.handleCloseModal,
+        onSave: eventOperations.handleSavePerformance,
+        mode: eventOperations.modalMode,
+        event: eventOperations.editingEvent,
+        initialData: eventOperations.modalInitialData,
+        stores,
+        scenarios,
+        staff,
+        availableStaffByScenario
+      },
+      conflictWarning: {
+        isOpen: eventOperations.isConflictWarningOpen,
+        onClose: () => eventOperations.setIsConflictWarningOpen(false),
+        onContinue: eventOperations.handleConfirmWithConflict,
+        conflictInfo: eventOperations.conflicts
+      },
+      scheduleDialogs: {
+        isDeleteDialogOpen: eventOperations.isDeleteDialogOpen,
+        onCloseDeleteDialog: () => eventOperations.setIsDeleteDialogOpen(false),
+        onConfirmDelete: eventOperations.handleConfirmDelete,
+        isCancelDialogOpen: eventOperations.isCancelDialogOpen,
+        onCloseCancelDialog: () => eventOperations.setIsCancelDialogOpen(false),
+        onConfirmCancel: eventOperations.handleConfirmCancel,
+        isRestoreDialogOpen: eventOperations.isRestoreDialogOpen,
+        onCloseRestoreDialog: () => eventOperations.setIsRestoreDialogOpen(false),
+        onConfirmRestore: eventOperations.handleConfirmRestore
+      },
+      moveOrCopyDialog: {
+        isOpen: contextMenuActions.isMoveOrCopyDialogOpen,
+        onClose: contextMenuActions.handleCloseMoveOrCopyDialog,
+        onMove: () => contextMenuActions.handleConfirmMoveOrCopy('move'),
+        onCopy: () => contextMenuActions.handleConfirmMoveOrCopy('copy'),
+        action: contextMenuActions.moveOrCopyAction,
+        selectedEvent: contextMenuActions.selectedEvent,
+        stores
+      },
+      contextMenu: {
+        contextMenu: contextMenuActions.contextMenu,
+        setContextMenu: contextMenuActions.setContextMenu,
+        clipboardEvent: contextMenuActions.clipboardEvent,
+        handleCopyToClipboard: contextMenuActions.handleCopyToClipboard,
+        handlePasteFromClipboard: contextMenuActions.handlePasteFromClipboard
+      }
+    },
+    fetchSchedule: fetchSchedule
   }
 }
 

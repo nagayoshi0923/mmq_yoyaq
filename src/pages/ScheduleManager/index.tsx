@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 
 // Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
-import { useScheduleTable, useScheduleTableModals } from '@/hooks/useScheduleTable'
+import { useScheduleTable } from '@/hooks/useScheduleTable'
 
 // Custom Hooks (ScheduleManager専用)
 import { useCategoryFilter } from './hooks/useCategoryFilter'
@@ -40,7 +40,7 @@ export function ScheduleManager() {
 
   // スケジュールテーブルの共通フック
   const scheduleTableProps = useScheduleTable({ currentDate })
-  const modals = useScheduleTableModals(currentDate)
+  const modals = scheduleTableProps.modals
 
   // デバッグ用：モーダルの状態をコンソールに出力
   useEffect(() => {
@@ -83,21 +83,6 @@ export function ScheduleManager() {
       getEventsForSlot: filteredGetEventsForSlot
     }
   }), [scheduleTableProps, filteredGetEventsForSlot])
-
-  // モーダルのイベントハンドラーを取得
-  const eventHandlers = useMemo(() => {
-    return {
-      onAddPerformance: scheduleTableProps.eventHandlers.onAddPerformance,
-      onEditPerformance: scheduleTableProps.eventHandlers.onEditPerformance,
-      onDeletePerformance: scheduleTableProps.eventHandlers.onDeletePerformance,
-      onCancelConfirm: scheduleTableProps.eventHandlers.onCancelConfirm,
-      onUncancel: scheduleTableProps.eventHandlers.onUncancel,
-      onToggleReservation: scheduleTableProps.eventHandlers.onToggleReservation,
-      onDrop: scheduleTableProps.eventHandlers.onDrop,
-      onContextMenuCell: scheduleTableProps.eventHandlers.onContextMenuCell,
-      onContextMenuEvent: scheduleTableProps.eventHandlers.onContextMenuEvent
-    }
-  }, [scheduleTableProps.eventHandlers])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -178,7 +163,7 @@ export function ScheduleManager() {
         <ImportScheduleModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
-          onImportComplete={modals.fetchSchedule}
+          onImportComplete={scheduleTableProps.fetchSchedule}
         />
 
         <ConflictWarningModal

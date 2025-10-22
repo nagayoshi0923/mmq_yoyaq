@@ -50,6 +50,8 @@ export interface ScheduleTableProps {
   dataProvider: ScheduleTableDataProvider
   eventHandlers: ScheduleTableEventHandlers
   displayConfig: ScheduleTableDisplayConfig
+  modals?: any  // オプション: モーダル関連の情報
+  fetchSchedule?: () => void  // オプション: スケジュール再取得関数
 }
 
 export function ScheduleTable({
