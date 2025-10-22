@@ -93,6 +93,7 @@ export function ScheduleManager() {
       sidebar={<ScheduleSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
       maxWidth="max-w-[1600px]"
       containerPadding="px-4 py-4"
+      stickyLayout={true}
     >
       <div>
         {/* ヘッダー */}

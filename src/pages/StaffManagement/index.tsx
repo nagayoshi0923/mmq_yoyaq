@@ -206,7 +206,7 @@ export function StaffManagement() {
   // ローディング表示
   if (loading) {
     return (
-      <AppLayout currentPage="staff" sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />}>
+      <AppLayout currentPage="staff" sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />} stickyLayout={true}>
         <div className="space-y-6">
           <div className="h-16 bg-gray-200 rounded animate-pulse"></div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -226,7 +226,7 @@ export function StaffManagement() {
   // エラー表示
   if (error) {
     return (
-      <AppLayout currentPage="staff" sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />}>
+      <AppLayout currentPage="staff" sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />} stickyLayout={true}>
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <p className="text-red-800">{error}</p>
@@ -246,6 +246,7 @@ export function StaffManagement() {
         sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
         maxWidth="max-w-[1600px]"
         containerPadding="px-6 py-6"
+        stickyLayout={true}
       >
         <div className="space-y-6">
             {/* 統計情報 */}
