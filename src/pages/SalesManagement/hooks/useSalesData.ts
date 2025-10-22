@@ -154,7 +154,19 @@ export function useSalesData() {
 
 // 売上データ計算関数
 function calculateSalesData(
-  events: Array<{ revenue?: number; store_id: string; scenario?: string; scenario_id?: string; date: string }>,
+  events: Array<{ 
+    revenue?: number; 
+    store_id: string; 
+    scenario?: string; 
+    scenario_id?: string; 
+    date: string;
+    scenarios?: {
+      license_amount?: number;
+      gm_test_license_amount?: number;
+      gm_costs?: Array<{ role: string; reward: number }>;
+    };
+    category?: string;
+  }>,
   stores: Store[],
   startDate: Date,
   endDate: Date
@@ -163,8 +175,39 @@ function calculateSalesData(
   const totalEvents = events.length
   const averageRevenuePerEvent = totalEvents > 0 ? totalRevenue / totalEvents : 0
 
+  // ライセンス金額とGM給与を計算
+  let totalLicenseCost = 0
+  let totalGmCost = 0
+
+  events.forEach(event => {
+    const scenario = event.scenarios
+    if (scenario) {
+      // ライセンス金額の計算
+      const isGmTest = event.category === 'gmtest'
+      const licenseAmount = isGmTest 
+        ? (scenario.gm_test_license_amount || 0)
+        : (scenario.license_amount || 0)
+      totalLicenseCost += licenseAmount
+
+      // GM給与の計算
+      if (scenario.gm_costs && scenario.gm_costs.length > 0) {
+        const gmCost = scenario.gm_costs.reduce((sum, gm) => sum + gm.reward, 0)
+        totalGmCost += gmCost
+      }
+    }
+  })
+
+  const netProfit = totalRevenue - totalLicenseCost - totalGmCost
+
   // 店舗別売上ランキング
-  const storeRevenues = new Map<string, { revenue: number; events: number; name: string; id: string }>()
+  const storeRevenues = new Map<string, { 
+    revenue: number; 
+    events: number; 
+    name: string; 
+    id: string;
+    licenseCost: number;
+    gmCost: number;
+  }>()
   
   events.forEach(event => {
     const storeId = event.store_id
@@ -172,56 +215,128 @@ function calculateSalesData(
     const storeName = store?.name || '不明'
     
     if (!storeRevenues.has(storeId)) {
-      storeRevenues.set(storeId, { revenue: 0, events: 0, name: storeName, id: storeId })
+      storeRevenues.set(storeId, { 
+        revenue: 0, 
+        events: 0, 
+        name: storeName, 
+        id: storeId,
+        licenseCost: 0,
+        gmCost: 0
+      })
     }
     
     const storeData = storeRevenues.get(storeId)!
     storeData.revenue += event.revenue || 0
     storeData.events += 1
+
+    // 店舗別のライセンス金額とGM給与を計算
+    const scenario = event.scenarios
+    if (scenario) {
+      const isGmTest = event.category === 'gmtest'
+      const licenseAmount = isGmTest 
+        ? (scenario.gm_test_license_amount || 0)
+        : (scenario.license_amount || 0)
+      storeData.licenseCost += licenseAmount
+
+      if (scenario.gm_costs && scenario.gm_costs.length > 0) {
+        const gmCost = scenario.gm_costs.reduce((sum, gm) => sum + gm.reward, 0)
+        storeData.gmCost += gmCost
+      }
+    }
   })
 
   const storeRanking = Array.from(storeRevenues.values())
     .map(store => ({
       ...store,
-      averageRevenue: store.events > 0 ? store.revenue / store.events : 0
+      averageRevenue: store.events > 0 ? store.revenue / store.events : 0,
+      netProfit: store.revenue - store.licenseCost - store.gmCost
     }))
     .sort((a, b) => b.revenue - a.revenue)
 
   // シナリオ別売上ランキング
-  const scenarioRevenues = new Map<string, { revenue: number; events: number; title: string; id: string }>()
+  const scenarioRevenues = new Map<string, { 
+    revenue: number; 
+    events: number; 
+    title: string; 
+    id: string;
+    licenseCost: number;
+    gmCost: number;
+  }>()
   
   events.forEach(event => {
     const scenarioId = event.scenario_id || event.scenario || '不明'
     const scenarioTitle = event.scenario || '不明'
     
     if (!scenarioRevenues.has(scenarioId)) {
-      scenarioRevenues.set(scenarioId, { revenue: 0, events: 0, title: scenarioTitle, id: scenarioId })
+      scenarioRevenues.set(scenarioId, { 
+        revenue: 0, 
+        events: 0, 
+        title: scenarioTitle, 
+        id: scenarioId,
+        licenseCost: 0,
+        gmCost: 0
+      })
     }
     
     const scenarioData = scenarioRevenues.get(scenarioId)!
     scenarioData.revenue += event.revenue || 0
     scenarioData.events += 1
+
+    // シナリオ別のライセンス金額とGM給与を計算
+    const scenario = event.scenarios
+    if (scenario) {
+      const isGmTest = event.category === 'gmtest'
+      const licenseAmount = isGmTest 
+        ? (scenario.gm_test_license_amount || 0)
+        : (scenario.license_amount || 0)
+      scenarioData.licenseCost += licenseAmount
+
+      if (scenario.gm_costs && scenario.gm_costs.length > 0) {
+        const gmCost = scenario.gm_costs.reduce((sum, gm) => sum + gm.reward, 0)
+        scenarioData.gmCost += gmCost
+      }
+    }
   })
 
   const scenarioRanking = Array.from(scenarioRevenues.values())
     .map(scenario => ({
       ...scenario,
-      averageRevenue: scenario.events > 0 ? scenario.revenue / scenario.events : 0
+      averageRevenue: scenario.events > 0 ? scenario.revenue / scenario.events : 0,
+      netProfit: scenario.revenue - scenario.licenseCost - scenario.gmCost
     }))
     .sort((a, b) => b.revenue - a.revenue)
 
   // チャート用の日別データ
-  const dailyRevenues = new Map<string, number>()
+  const dailyRevenues = new Map<string, { revenue: number; licenseCost: number; gmCost: number; netProfit: number }>()
   events.forEach(event => {
     const date = event.date
-    dailyRevenues.set(date, (dailyRevenues.get(date) || 0) + (event.revenue || 0))
+    const current = dailyRevenues.get(date) || { revenue: 0, licenseCost: 0, gmCost: 0, netProfit: 0 }
+    
+    current.revenue += event.revenue || 0
+    
+    const scenario = event.scenarios
+    if (scenario) {
+      const isGmTest = event.category === 'gmtest'
+      const licenseAmount = isGmTest 
+        ? (scenario.gm_test_license_amount || 0)
+        : (scenario.license_amount || 0)
+      current.licenseCost += licenseAmount
+
+      if (scenario.gm_costs && scenario.gm_costs.length > 0) {
+        const gmCost = scenario.gm_costs.reduce((sum, gm) => sum + gm.reward, 0)
+        current.gmCost += gmCost
+      }
+    }
+    
+    current.netProfit = current.revenue - current.licenseCost - current.gmCost
+    dailyRevenues.set(date, current)
   })
 
   const chartData = {
     labels: Array.from(dailyRevenues.keys()).sort(),
     datasets: [{
       label: '売上',
-      data: Array.from(dailyRevenues.keys()).sort().map(date => dailyRevenues.get(date) || 0),
+      data: Array.from(dailyRevenues.keys()).sort().map(date => dailyRevenues.get(date)?.revenue || 0),
       borderColor: 'rgb(75, 192, 192)',
       backgroundColor: 'rgba(75, 192, 192, 0.2)',
       tension: 0.1
@@ -232,7 +347,9 @@ function calculateSalesData(
     totalRevenue,
     totalEvents,
     averageRevenuePerEvent,
-    storeCount: storeRevenues.size,
+    totalLicenseCost,
+    totalGmCost,
+    netProfit,
     storeRanking,
     scenarioRanking,
     chartData

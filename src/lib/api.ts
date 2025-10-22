@@ -864,7 +864,7 @@ export const salesApi = {
     // 全シナリオを取得
     const { data: scenarios, error: scenariosError } = await supabase
       .from('scenarios')
-      .select('id, title, author, participation_fee, participation_costs, license_amount, gm_test_license_amount')
+      .select('id, title, author, participation_fee, participation_costs, license_amount, gm_test_license_amount, gm_costs')
     
     if (scenariosError) {
       // scenarios fetch error
@@ -1010,7 +1010,7 @@ export const salesApi = {
     // 全シナリオを取得
     const { data: scenarios, error: scenariosError } = await supabase
       .from('scenarios')
-      .select('id, title, author, license_amount, gm_test_license_amount')
+      .select('id, title, author, license_amount, gm_test_license_amount, gm_costs')
     
     if (scenariosError) {
       console.error('scenarios取得エラー:', scenariosError)

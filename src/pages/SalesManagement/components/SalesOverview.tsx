@@ -104,12 +104,15 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       {salesData ? (
         <>
           <div className="mb-6">
-            <SummaryCards 
-              totalRevenue={salesData.totalRevenue}
-              averageRevenue={salesData.averageRevenuePerEvent}
-              totalEvents={salesData.totalEvents}
-              storeCount={salesData.storeCount}
-            />
+        <SummaryCards
+          totalRevenue={salesData.totalRevenue}
+          averageRevenue={salesData.averageRevenuePerEvent}
+          totalEvents={salesData.totalEvents}
+          storeCount={salesData.storeRanking.length}
+          totalLicenseCost={salesData.totalLicenseCost}
+          totalGmCost={salesData.totalGmCost}
+          netProfit={salesData.netProfit}
+        />
           </div>
 
           {/* ランキングカード */}

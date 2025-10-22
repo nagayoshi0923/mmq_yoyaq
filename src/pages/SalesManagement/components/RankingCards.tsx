@@ -8,6 +8,9 @@ interface RankingItem {
   revenue: number
   events: number
   averageRevenue: number
+  licenseCost: number
+  gmCost: number
+  netProfit: number
 }
 
 interface RankingCardsProps {
@@ -52,7 +55,10 @@ const RankingCardsBase: React.FC<RankingCardsProps> = ({
                 <div className="text-right">
                   <div className="font-bold">{formatCurrency(store.revenue)}</div>
                   <div className="text-sm text-muted-foreground">
-                    {formatCurrency(store.averageRevenue)}/回
+                    純利益 {formatCurrency(store.netProfit)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    ライセンス -{formatCurrency(store.licenseCost)} / GM -{formatCurrency(store.gmCost)}
                   </div>
                 </div>
               </div>
@@ -84,7 +90,10 @@ const RankingCardsBase: React.FC<RankingCardsProps> = ({
                 <div className="text-right">
                   <div className="font-bold">{formatCurrency(scenario.revenue)}</div>
                   <div className="text-sm text-muted-foreground">
-                    {formatCurrency(scenario.averageRevenue)}/回
+                    純利益 {formatCurrency(scenario.netProfit)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    ライセンス -{formatCurrency(scenario.licenseCost)} / GM -{formatCurrency(scenario.gmCost)}
                   </div>
                 </div>
               </div>
