@@ -14,7 +14,10 @@ export function EmptySlot({ onAddPerformance, date, venue, timeSlot }: EmptySlot
     <Button
       variant="ghost"
       className="w-full h-full min-h-[32px] hover:bg-gray-50 border border-transparent"
-      onClick={() => onAddPerformance?.(date, venue, timeSlot)}
+      onClick={() => {
+        console.log('EmptySlot onClick:', { date, venue, timeSlot, onAddPerformance: !!onAddPerformance })
+        onAddPerformance?.(date, venue, timeSlot)
+      }}
     >
       <Plus className="w-3 h-3 mr-1" />
       <span className="text-xs">公演追加</span>

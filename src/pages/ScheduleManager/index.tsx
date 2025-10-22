@@ -47,9 +47,13 @@ export function ScheduleManager() {
     console.log('PerformanceModal state:', {
       isOpen: modals.performanceModal.isOpen,
       mode: modals.performanceModal.mode,
-      event: modals.performanceModal.event
+      event: modals.performanceModal.event,
+      initialData: modals.performanceModal.initialData,
+      stores: modals.performanceModal.stores?.length,
+      scenarios: modals.performanceModal.scenarios?.length,
+      staff: modals.performanceModal.staff?.length
     })
-  }, [modals.performanceModal.isOpen, modals.performanceModal.mode, modals.performanceModal.event])
+  }, [modals.performanceModal.isOpen, modals.performanceModal.mode, modals.performanceModal.event, modals.performanceModal.initialData, modals.performanceModal.stores, modals.performanceModal.scenarios, modals.performanceModal.staff])
 
   // カテゴリーフィルター（ScheduleManager独自機能）
   const { selectedCategory, setSelectedCategory, categoryCounts } = useCategoryFilter(
@@ -142,8 +146,15 @@ export function ScheduleManager() {
           <button 
             className="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-sm"
             onClick={() => {
-              console.log('Manual modal open test')
+              console.log('Manual modal open test - before:', {
+                isOpen: modals.performanceModal.isOpen,
+                mode: modals.performanceModal.mode
+              })
               scheduleTableProps.eventHandlers.onAddPerformance('2024-01-01', 'store1', 'morning')
+              console.log('Manual modal open test - after:', {
+                isOpen: modals.performanceModal.isOpen,
+                mode: modals.performanceModal.mode
+              })
             }}
           >
             手動でモーダルを開くテスト
