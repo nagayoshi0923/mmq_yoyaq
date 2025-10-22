@@ -6,34 +6,7 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico'],
-      manifest: {
-        name: 'Queens Waltz - マーダーミステリー管理システム',
-        short_name: 'Queens Waltz',
-        description: 'マーダーミステリー店舗管理システム',
-        theme_color: '#ffffff',
-        icons: []
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 5 * 60 // 5分
-              }
-            }
-          }
-        ]
-      }
-    })
+    react()
   ],
   resolve: {
     alias: {
