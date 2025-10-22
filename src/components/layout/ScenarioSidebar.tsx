@@ -89,27 +89,28 @@ const ScenarioSidebar: React.FC<ScenarioSidebarProps> = ({ activeTab, onTabChang
 
   return (
     <div className="w-72 bg-slate-50 border-r border-slate-200 h-full flex-shrink-0">
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-slate-700" />
-            <h2 className="text-lg font-semibold text-slate-800">
-              {mode === 'list' ? 'シナリオ管理' : 'シナリオ編集'}
-            </h2>
-          </div>
-          {onBackToList && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onBackToList}
-              className="h-8 w-8 p-0"
-              title="シナリオ一覧に戻る"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          )}
+      <div className="p-4 flex flex-col h-full">
+        <div className="flex items-center gap-2 mb-4">
+          <BookOpen className="h-5 w-5 text-slate-700" />
+          <h2 className="text-lg font-semibold text-slate-800">
+            {mode === 'list' ? 'シナリオ管理' : 'シナリオ編集'}
+          </h2>
         </div>
-        <nav className="space-y-2">
+
+        {onBackToList && mode === 'edit' && (
+          <div className="mb-4 pb-4 border-b border-slate-200">
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={onBackToList}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              一覧に戻る
+            </Button>
+          </div>
+        )}
+        
+        <nav className="space-y-2 flex-1">
           {menuItems.map((item) => {
             const Icon = item.icon
             return (

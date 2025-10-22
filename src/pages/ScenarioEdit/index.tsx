@@ -63,6 +63,7 @@ export function ScenarioEdit() {
   // スタッフデータ
   const [staff, setStaff] = useState<Staff[]>([])
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false)
 
   // React Query
   const { data: scenarios = [] } = useScenariosQuery()
@@ -254,7 +255,9 @@ export function ScenarioEdit() {
         window.history.replaceState(null, '', `#scenarios/edit/${result.id || scenarioData.id}`)
       }
 
-      alert(scenarioId ? 'シナリオを更新しました' : 'シナリオを作成しました。引き続き編集できます。')
+      // 成功メッセージを表示
+      setShowSaveSuccess(true)
+      setTimeout(() => setShowSaveSuccess(false), 3000)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
       alert(`保存に失敗しました: ${message}`)
@@ -298,7 +301,7 @@ export function ScenarioEdit() {
   return (
     <AppLayout
       currentPage="scenarios"
-      sidebar={<ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      sidebar={<ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} onBackToList={handleBack} mode="edit" />}
       maxWidth="max-w-7xl"
       containerPadding="px-8 py-6"
       stickyLayout={true}
@@ -320,11 +323,12 @@ export function ScenarioEdit() {
             </p>
           )}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            一覧に戻る
-          </Button>
+        <div className="flex items-center gap-3">
+          {showSaveSuccess && (
+            <div className="text-sm text-green-600 font-medium animate-in fade-in slide-in-from-right-1">
+              ✓ 保存しました
+            </div>
+          )}
           <Button onClick={handleSave} disabled={scenarioMutation.isPending}>
             <Save className="h-4 w-4 mr-2" />
             {scenarioMutation.isPending ? '保存中...' : '保存'}
