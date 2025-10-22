@@ -9,19 +9,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'vite.svg'],
+      includeAssets: ['favicon.ico'],
       manifest: {
         name: 'Queens Waltz - マーダーミステリー管理システム',
         short_name: 'Queens Waltz',
         description: 'マーダーミステリー店舗管理システム',
         theme_color: '#ffffff',
-        icons: [
-          {
-            src: 'vite.svg',
-            sizes: '192x192',
-            type: 'image/svg+xml'
-          }
-        ]
+        icons: []
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
