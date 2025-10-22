@@ -4,9 +4,10 @@
  * - 自動キャッシュ・再取得
  * - 楽観的更新（Optimistic Update）
  * - エラーハンドリングの一元化
+ * - ページネーション対応
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import type { Scenario } from '@/types'
@@ -15,11 +16,13 @@ import { logger } from '@/utils/logger'
 // Query Keys
 export const scenarioKeys = {
   all: ['scenarios'] as const,
+  paginated: (pageSize: number) => ['scenarios', 'paginated', pageSize] as const,
   detail: (id: string) => ['scenarios', id] as const,
 }
 
 /**
  * シナリオデータの取得（自動キャッシュ）
+ * @deprecated ページネーション対応版（useScenariosInfiniteQuery）の使用を推奨
  */
 export function useScenariosQuery() {
   return useQuery({
@@ -28,29 +31,54 @@ export function useScenariosQuery() {
       logger.log('📖 シナリオデータ取得開始')
       const data = await scenarioApi.getAll()
       
-      // 各シナリオの担当GM情報をリレーションテーブルから取得
-      const scenariosWithGMs = await Promise.all(
-        data.map(async (scenario) => {
-          try {
-            const assignments = await assignmentApi.getScenarioAssignments(scenario.id)
-            const assignedGMs = assignments.map(a => a.staff?.name).filter(Boolean)
-            return {
-              ...scenario,
-              available_gms: assignedGMs
-            }
-          } catch (error) {
-            logger.error(`Error loading assignments for scenario ${scenario.id}:`, error)
-            return {
-              ...scenario,
-              available_gms: scenario.available_gms || []
-            }
-          }
-        })
-      )
+      // GM情報を一括取得（N+1問題を回避）
+      const scenarioIds = data.map(s => s.id)
+      const gmMap = await assignmentApi.getBatchScenarioAssignments(scenarioIds)
+      
+      // シナリオにGM情報をマージ
+      const scenariosWithGMs = data.map(scenario => ({
+        ...scenario,
+        available_gms: gmMap.get(scenario.id) || scenario.available_gms || []
+      }))
       
       logger.log('✅ シナリオデータ取得完了:', scenariosWithGMs.length)
       return scenariosWithGMs
     },
+    staleTime: 5 * 60 * 1000, // 5分間キャッシュ
+  })
+}
+
+/**
+ * シナリオデータの無限スクロール対応取得
+ */
+export function useScenariosInfiniteQuery(pageSize: number = 20) {
+  return useInfiniteQuery({
+    queryKey: scenarioKeys.paginated(pageSize),
+    queryFn: async ({ pageParam = 0 }) => {
+      logger.log(`📖 シナリオデータ取得開始 (ページ: ${pageParam})`)
+      const response = await scenarioApi.getPaginated(pageParam, pageSize)
+      
+      // GM情報を一括取得（N+1問題を回避）
+      const scenarioIds = response.data.map(s => s.id)
+      const gmMap = await assignmentApi.getBatchScenarioAssignments(scenarioIds)
+      
+      // シナリオにGM情報をマージ
+      const scenariosWithGMs = response.data.map(scenario => ({
+        ...scenario,
+        available_gms: gmMap.get(scenario.id) || scenario.available_gms || []
+      }))
+      
+      logger.log(`✅ シナリオデータ取得完了 (ページ: ${pageParam}, 件数: ${scenariosWithGMs.length})`)
+      
+      return {
+        data: scenariosWithGMs,
+        count: response.count,
+        hasMore: response.hasMore,
+        nextPage: response.hasMore ? pageParam + 1 : undefined
+      }
+    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 0,
     staleTime: 5 * 60 * 1000, // 5分間キャッシュ
   })
 }

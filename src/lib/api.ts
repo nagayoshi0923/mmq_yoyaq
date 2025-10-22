@@ -40,6 +40,13 @@ interface ScheduleEvent {
   is_private_booking?: boolean
 }
 
+// ページネーション用のレスポンス型
+interface PaginatedResponse<T> {
+  data: T[]
+  count: number
+  hasMore: boolean
+}
+
 // 店舗関連のAPI
 export const storeApi = {
   // 全店舗を取得
@@ -114,6 +121,27 @@ export const scenarioApi = {
     
     if (error) throw error
     return data || []
+  },
+
+  // ページネーション対応：シナリオを取得
+  async getPaginated(page: number = 0, pageSize: number = 20): Promise<PaginatedResponse<Scenario>> {
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    
+    // データ取得とカウントを同時に実行
+    const { data, error, count } = await supabase
+      .from('scenarios')
+      .select('*', { count: 'exact' })
+      .order('title', { ascending: true })
+      .range(from, to)
+    
+    if (error) throw error
+    
+    return {
+      data: data || [],
+      count: count || 0,
+      hasMore: count ? (from + pageSize) < count : false
+    }
   },
 
   // シナリオを作成

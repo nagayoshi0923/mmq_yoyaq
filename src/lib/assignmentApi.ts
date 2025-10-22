@@ -246,5 +246,48 @@ export const assignmentApi = {
     
     if (error) throw error
     return data
+  },
+
+  // 複数シナリオのGM情報を一括取得（N+1問題の回避）
+  async getBatchScenarioAssignments(scenarioIds: string[]) {
+    if (scenarioIds.length === 0) {
+      return new Map()
+    }
+
+    const { data, error } = await supabase
+      .from('staff_scenario_assignments')
+      .select(`
+        scenario_id,
+        staff:staff_id (
+          id,
+          name,
+          line_name
+        ),
+        can_main_gm,
+        can_sub_gm
+      `)
+      .in('scenario_id', scenarioIds)
+    
+    if (error) throw error
+    
+    // シナリオIDごとにGM可能なスタッフ名をグループ化
+    const assignmentMap = new Map<string, string[]>()
+    
+    data?.forEach((assignment) => {
+      // GM可能なスタッフのみ（can_main_gm = true OR can_sub_gm = true）
+      if (assignment.can_main_gm || assignment.can_sub_gm) {
+        const scenarioId = assignment.scenario_id
+        const staffName = assignment.staff?.name
+        
+        if (staffName) {
+          if (!assignmentMap.has(scenarioId)) {
+            assignmentMap.set(scenarioId, [])
+          }
+          assignmentMap.get(scenarioId)!.push(staffName)
+        }
+      }
+    })
+    
+    return assignmentMap
   }
 }
