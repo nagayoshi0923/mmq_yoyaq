@@ -25,35 +25,38 @@ export function Settings() {
   const { selectedStoreId, handleStoreChange } = useSettingsStore()
 
   const renderContent = () => {
+    // 全店舗選択時は店舗IDを空文字列に
+    const storeId = selectedStoreId === 'all' ? '' : selectedStoreId
+    
     switch (activeTab) {
       case 'store-basic':
-        return <StoreBasicSettings storeId={selectedStoreId} />
+        return <StoreBasicSettings storeId={storeId} />
       case 'business-hours':
-        return <BusinessHoursSettings storeId={selectedStoreId} />
+        return <BusinessHoursSettings storeId={storeId} />
       case 'performance-schedule':
-        return <PerformanceScheduleSettings storeId={selectedStoreId} />
+        return <PerformanceScheduleSettings storeId={storeId} />
       case 'reservation':
-        return <ReservationSettings storeId={selectedStoreId} />
+        return <ReservationSettings storeId={storeId} />
       case 'cancellation':
-        return <CancellationSettings storeId={selectedStoreId} />
+        return <CancellationSettings storeId={storeId} />
       case 'pricing':
-        return <PricingSettings storeId={selectedStoreId} />
+        return <PricingSettings storeId={storeId} />
       case 'sales-report':
-        return <SalesReportSettings storeId={selectedStoreId} />
+        return <SalesReportSettings storeId={storeId} />
       case 'notifications':
-        return <NotificationSettings storeId={selectedStoreId} />
+        return <NotificationSettings storeId={storeId} />
       case 'staff':
-        return <StaffSettings storeId={selectedStoreId} />
+        return <StaffSettings storeId={storeId} />
       case 'system':
-        return <SystemSettings storeId={selectedStoreId} />
+        return <SystemSettings storeId={storeId} />
       case 'email':
-        return <EmailSettings storeId={selectedStoreId} />
+        return <EmailSettings storeId={storeId} />
       case 'customer':
-        return <CustomerSettings storeId={selectedStoreId} />
+        return <CustomerSettings storeId={storeId} />
       case 'data':
-        return <DataManagementSettings storeId={selectedStoreId} />
+        return <DataManagementSettings storeId={storeId} />
       default:
-        return <StoreBasicSettings storeId={selectedStoreId} />
+        return <StoreBasicSettings storeId={storeId} />
     }
   }
 

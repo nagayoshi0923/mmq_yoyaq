@@ -48,8 +48,8 @@ export const StoreSelector: React.FC<StoreSelectorProps> = ({
     return null
   }
 
-  // 店舗が1つしかない場合は表示しない
-  if (stores.length <= 1) {
+  // 店舗が0個の場合は表示しない
+  if (stores.length === 0) {
     return null
   }
 
@@ -63,6 +63,7 @@ export const StoreSelector: React.FC<StoreSelectorProps> = ({
           onChange={(e) => onStoreChange(e.target.value)}
           className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
+          <option value="all">全店舗</option>
           {stores.map(store => (
             <option key={store.id} value={store.id}>{store.name}</option>
           ))}

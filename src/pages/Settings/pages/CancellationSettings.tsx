@@ -64,6 +64,25 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
   const fetchSettings = async (storeId: string) => {
     try {
+      // 全店舗選択時は設定を取得しない
+      if (!storeId) {
+        setFormData({
+          id: '',
+          store_id: '',
+          cancellation_policy: '',
+          cancellation_deadline_hours: 24,
+          cancellation_fees: [
+            { hours_before: 168, fee_percentage: 0, description: '1週間前まで無料' },
+            { hours_before: 72, fee_percentage: 30, description: '3日前まで30%' },
+            { hours_before: 24, fee_percentage: 50, description: '前日まで50%' },
+            { hours_before: 0, fee_percentage: 100, description: '当日100%' }
+          ],
+          auto_refund_enabled: false,
+          refund_processing_days: 7
+        })
+        return
+      }
+
       const { data, error } = await supabase
         .from('reservation_settings')
         .select('id, store_id, cancellation_policy, cancellation_deadline_hours, cancellation_fees')
@@ -103,6 +122,12 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
   const handleSave = async () => {
     setSaving(true)
     try {
+      // 全店舗選択時は保存しない
+      if (!storeId) {
+        alert('全店舗選択時は個別の設定を保存できません。特定の店舗を選択してください。')
+        return
+      }
+
       // cancellation_feesを時間順（降順）にソート
       const sortedFees = [...formData.cancellation_fees].sort((a, b) => b.hours_before - a.hours_before)
 
@@ -199,11 +224,19 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           <XCircle className="h-8 w-8 text-red-600" />
           <h1 className="text-3xl font-bold">キャンセル設定</h1>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving || !storeId}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
       </div>
+
+      {!storeId && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-sm text-yellow-800">
+            <strong>全店舗選択中:</strong> 設定を保存するには、特定の店舗を選択してください。
+          </p>
+        </div>
+      )}
 
 
       {/* キャンセルポリシー */}

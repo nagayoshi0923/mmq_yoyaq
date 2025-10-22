@@ -29,10 +29,8 @@ export const useSettingsStore = () => {
 
       setStores(data || [])
       
-      // 最初の店舗を選択
-      if (data && data.length > 0) {
-        setSelectedStoreId(data[0].id)
-      }
+      // デフォルトで「全店舗」を選択
+      setSelectedStoreId('all')
     } catch (error) {
       console.error('店舗取得エラー:', error)
     } finally {
