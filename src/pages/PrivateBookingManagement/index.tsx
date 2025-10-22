@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
+import PrivateBookingSidebar from '@/components/layout/PrivateBookingSidebar'
 import { MapPin } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -29,6 +29,7 @@ import { formatMonthYear } from './utils/bookingFormatters'
 
 export function PrivateBookingManagement() {
   const { user } = useAuth()
+  const [sidebarActiveTab, setSidebarActiveTab] = useState('booking-management')
   
   // タブ状態（sessionStorageと同期）
   const [activeTab, setActiveTab] = useSessionState<'pending' | 'all'>('privateBookingActiveTab', 'pending')
@@ -178,25 +179,29 @@ export function PrivateBookingManagement() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="private-booking" />
+      <AppLayout
+        currentPage="private-booking"
+        sidebar={<PrivateBookingSidebar activeTab={sidebarActiveTab} onTabChange={setSidebarActiveTab} />}
+        stickyLayout={true}
+      >
         <div className="flex items-center justify-center py-20">
           <p className="text-muted-foreground text-lg">読み込み中...</p>
         </div>
-      </div>
+      </AppLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="private-booking" />
-
-      <div className="container mx-auto max-w-7xl px-6 py-6">
+    <AppLayout
+      currentPage="private-booking"
+      sidebar={<PrivateBookingSidebar activeTab={sidebarActiveTab} onTabChange={setSidebarActiveTab} />}
+      maxWidth="max-w-[1600px]"
+      containerPadding="px-6 py-6"
+      stickyLayout={true}
+    >
+      <div className="space-y-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">貸切リクエスト管理</h1>
-        </div>
+          <div></div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')}>
           <div className="flex items-center justify-between mb-6">
@@ -445,6 +450,6 @@ export function PrivateBookingManagement() {
           </div>
         )}
       </div>
-    </div>
+    </AppLayout>
   )
 }
