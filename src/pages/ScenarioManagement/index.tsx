@@ -1,7 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import type { Scenario } from '@/types'
@@ -23,7 +22,6 @@ import { ScenarioFilters } from './components/ScenarioFilters'
 import { useScenarioFilters } from './hooks/useScenarioFilters'
 import {
   useScenariosQuery,
-  useScenarioMutation,
   useDeleteScenarioMutation,
   useImportScenariosMutation
 } from './hooks/useScenarioQuery'
@@ -38,14 +36,11 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 
 export function ScenarioManagement() {
-  // UI状態（Hooksのルール: 全てのuseStateを最初に）
-  const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  // UI状態
   const [displayMode, setDisplayMode] = useState<'compact' | 'detailed'>('compact')
   const [isImporting, setIsImporting] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
-  const [uploadingImages, setUploadingImages] = useState<Set<string>>(new Set())
   
   // ファイルインput参照
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -53,7 +48,6 @@ export function ScenarioManagement() {
   // React Query でデータ管理
   const queryClient = useQueryClient()
   const { data: scenarios = [], isLoading: loading, error: queryError } = useScenariosQuery()
-  const scenarioMutation = useScenarioMutation()
   const deleteScenarioMutation = useDeleteScenarioMutation()
   const importScenariosMutation = useImportScenariosMutation()
   
@@ -73,79 +67,18 @@ export function ScenarioManagement() {
     handleSort,
     filteredAndSortedScenarios
   } = useScenarioFilters(scenarios)
-  
-  // テーブル列定義（useMemoは常に呼ばれる位置に）
-  const tableColumns = useMemo(() => createScenarioColumns(displayMode, {
-    onEdit: handleEditScenario,
-    onDelete: openDeleteDialog,
-    onImageUpload: handleImageUpload,
-    onImageRemove: handleImageRemove
-  }), [displayMode])
 
-  // スクロール位置の保存と復元
-  useEffect(() => {
-    // ブラウザのデフォルトスクロール復元を無効化
-    if ('scrollRestoration' in history) {
-      history.scrollRestoration = 'manual'
-    }
-
-    let scrollTimer: NodeJS.Timeout
-    const handleScroll = () => {
-      clearTimeout(scrollTimer)
-      scrollTimer = setTimeout(() => {
-        sessionStorage.setItem('scenarioScrollY', window.scrollY.toString())
-        sessionStorage.setItem('scenarioScrollTime', Date.now().toString())
-      }, 100)
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
-
-  // 初回レンダリング時のスクロール位置復元（早期）
-  useLayoutEffect(() => {
-    const savedY = sessionStorage.getItem('scenarioScrollY')
-    const savedTime = sessionStorage.getItem('scenarioScrollTime')
-    if (savedY && savedTime) {
-      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-      if (timeSinceScroll < 10000) {
-        setTimeout(() => {
-          window.scrollTo(0, parseInt(savedY, 10))
-        }, 100)
-      }
-    }
-  }, [])
-
-  // 初回データロード後のスクロール位置復元（初回のみ）
-  useEffect(() => {
-    if (!loading && !initialLoadComplete) {
-      setInitialLoadComplete(true)
-      const savedY = sessionStorage.getItem('scenarioScrollY')
-      const savedTime = sessionStorage.getItem('scenarioScrollTime')
-      if (savedY && savedTime) {
-        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
-        if (timeSinceScroll < 10000) {
-          setTimeout(() => {
-            window.scrollTo(0, parseInt(savedY, 10))
-          }, 200)
-        }
-      }
-    }
-  }, [loading, initialLoadComplete, setInitialLoadComplete])
-
-  // イベントハンドラー
+  // シナリオ編集ページへ遷移
   function handleEditScenario(scenario: Scenario) {
-    setEditingScenario(scenario)
-    setIsEditModalOpen(true)
+    // シナリオIDをハッシュに設定して遷移
+    window.location.hash = `scenarios/edit/${scenario.id}`
   }
 
   function handleNewScenario() {
-    setEditingScenario(null)
-    setIsEditModalOpen(true)
+    // 新規作成ページへ遷移
+    window.location.hash = 'scenarios/edit/new'
   }
-
+  
   // 画像アップロードハンドラー
   async function handleImageUpload(scenario: Scenario, file: File) {
     // バリデーション
@@ -154,9 +87,6 @@ export function ScenarioManagement() {
       alert(validation.error)
       return
     }
-
-    // アップロード中フラグを設定
-    setUploadingImages(prev => new Set(prev).add(scenario.id))
 
     try {
       // 画像をアップロード
@@ -190,12 +120,6 @@ export function ScenarioManagement() {
     } catch (error) {
       logger.error('画像アップロードエラー:', error)
       alert('画像のアップロードに失敗しました')
-    } finally {
-      setUploadingImages(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(scenario.id)
-        return newSet
-      })
     }
   }
 
@@ -228,17 +152,6 @@ export function ScenarioManagement() {
     } catch (error) {
       logger.error('画像削除エラー:', error)
       alert('画像の削除に失敗しました')
-    }
-  }
-
-  async function handleSaveScenario(scenario: Scenario) {
-    try {
-      await scenarioMutation.mutateAsync({ scenario, isEdit: !!editingScenario })
-      setIsEditModalOpen(false)
-      setEditingScenario(null)
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '不明なエラー'
-      alert(message)
     }
   }
 
@@ -311,6 +224,67 @@ export function ScenarioManagement() {
       alert(message)
     }
   }
+  
+  // テーブル列定義（useMemoは常に呼ばれる位置に）
+  const tableColumns = useMemo(() => createScenarioColumns(displayMode, {
+    onEdit: handleEditScenario,
+    onDelete: openDeleteDialog,
+    onImageUpload: handleImageUpload,
+    onImageRemove: handleImageRemove
+  }), [displayMode])
+
+  // スクロール位置の保存と復元
+  useEffect(() => {
+    // ブラウザのデフォルトスクロール復元を無効化
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual'
+    }
+
+    let scrollTimer: NodeJS.Timeout
+    const handleScroll = () => {
+      clearTimeout(scrollTimer)
+      scrollTimer = setTimeout(() => {
+        sessionStorage.setItem('scenarioScrollY', window.scrollY.toString())
+        sessionStorage.setItem('scenarioScrollTime', Date.now().toString())
+      }, 100)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  // 初回レンダリング時のスクロール位置復元（早期）
+  useLayoutEffect(() => {
+    const savedY = sessionStorage.getItem('scenarioScrollY')
+    const savedTime = sessionStorage.getItem('scenarioScrollTime')
+    if (savedY && savedTime) {
+      const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+      if (timeSinceScroll < 10000) {
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedY, 10))
+        }, 100)
+      }
+    }
+  }, [])
+
+  // 初回データロード後のスクロール位置復元（初回のみ）
+  useEffect(() => {
+    if (!loading && !initialLoadComplete) {
+      setInitialLoadComplete(true)
+      const savedY = sessionStorage.getItem('scenarioScrollY')
+      const savedTime = sessionStorage.getItem('scenarioScrollTime')
+      if (savedY && savedTime) {
+        const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
+        if (timeSinceScroll < 10000) {
+          setTimeout(() => {
+            window.scrollTo(0, parseInt(savedY, 10))
+          }, 200)
+        }
+      }
+    }
+  }, [loading, initialLoadComplete, setInitialLoadComplete])
 
   if (loading) {
     return (
@@ -431,19 +405,6 @@ export function ScenarioManagement() {
           />
         </div>
       </div>
-
-      {/* 編集モーダル */}
-      {isEditModalOpen && (
-        <ScenarioEditModal
-          isOpen={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false)
-            setEditingScenario(null)
-          }}
-          scenario={editingScenario}
-          onSave={handleSaveScenario}
-        />
-      )}
 
       {/* 削除確認ダイアログ */}
       <ConfirmModal

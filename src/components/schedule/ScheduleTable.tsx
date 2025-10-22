@@ -1,4 +1,4 @@
-// スケジュールテーブルの本体
+// スケジュールテーブルの本体（汎用化版）
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -14,16 +14,21 @@ interface MonthDay {
   displayDate: string
 }
 
-interface ScheduleTableProps {
+// Propsをグループ化
+export interface ScheduleTableViewConfig {
   currentDate: Date
   monthDays: MonthDay[]
   stores: Array<{ id: string; name: string; short_name: string }>
+}
+
+export interface ScheduleTableDataProvider {
   getEventsForSlot: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => ScheduleEvent[]
   shiftData: Record<string, Array<Staff & { timeSlot: string }>>
-  categoryConfig: Record<string, { label: string; badgeColor: string; cardColor: string }>
-  getReservationBadgeClass: (current: number, max: number) => string
   getMemo: (date: string, venue: string) => string
   onSaveMemo: (date: string, venue: string, memo: string) => Promise<void>
+}
+
+export interface ScheduleTableEventHandlers {
   onAddPerformance: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => void
   onEditPerformance: (event: ScheduleEvent) => void
   onDeletePerformance: (event: ScheduleEvent) => void
@@ -35,26 +40,39 @@ interface ScheduleTableProps {
   onContextMenuEvent: (event: ScheduleEvent, x: number, y: number) => void
 }
 
+export interface ScheduleTableDisplayConfig {
+  categoryConfig: Record<string, { label: string; badgeColor: string; cardColor: string }>
+  getReservationBadgeClass: (current: number, max: number) => string
+}
+
+export interface ScheduleTableProps {
+  viewConfig: ScheduleTableViewConfig
+  dataProvider: ScheduleTableDataProvider
+  eventHandlers: ScheduleTableEventHandlers
+  displayConfig: ScheduleTableDisplayConfig
+}
+
 export function ScheduleTable({
-  currentDate,
-  monthDays,
-  stores,
-  getEventsForSlot,
-  shiftData,
-  categoryConfig,
-  getReservationBadgeClass,
-  getMemo,
-  onSaveMemo,
-  onAddPerformance,
-  onEditPerformance,
-  onDeletePerformance,
-  onCancelConfirm,
-  onUncancel,
-  onToggleReservation,
-  onDrop,
-  onContextMenuCell,
-  onContextMenuEvent
+  viewConfig,
+  dataProvider,
+  eventHandlers,
+  displayConfig
 }: ScheduleTableProps) {
+  const { currentDate, monthDays, stores } = viewConfig
+  const { getEventsForSlot, shiftData, getMemo, onSaveMemo } = dataProvider
+  const {
+    onAddPerformance,
+    onEditPerformance,
+    onDeletePerformance,
+    onCancelConfirm,
+    onUncancel,
+    onToggleReservation,
+    onDrop,
+    onContextMenuCell,
+    onContextMenuEvent
+  } = eventHandlers
+  const { categoryConfig, getReservationBadgeClass } = displayConfig
+
   return (
     <Card>
       <CardHeader className="bg-muted/30 border-b border-border">
@@ -185,4 +203,3 @@ export function ScheduleTable({
     </Card>
   )
 }
-

@@ -1,18 +1,13 @@
 // React
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
-// Custom Hooks (既存)
-import { useScheduleData } from '@/hooks/useScheduleData'
-import { useShiftData } from '@/hooks/useShiftData'
-import { useMemoManager } from '@/hooks/useMemoManager'
+// Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
-import { useEventOperations } from '@/hooks/useEventOperations'
-import { useContextMenuActions } from '@/hooks/useContextMenuActions'
+import { useScheduleTable, useScheduleTableModals } from '@/hooks/useScheduleTable'
 
-// Custom Hooks (新規 - ScheduleManager専用)
+// Custom Hooks (ScheduleManager専用)
 import { useCategoryFilter } from './hooks/useCategoryFilter'
 import { useMonthNavigation } from './hooks/useMonthNavigation'
-import { useScheduleEvents } from './hooks/useScheduleEvents'
 
 // Layout Components
 import { Header } from '@/components/layout/Header'
@@ -32,9 +27,6 @@ import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 // Icons
 import { Ban, Edit, RotateCcw, Trash2 } from 'lucide-react'
 
-// Utils
-import { CATEGORY_CONFIG, getReservationBadgeClass } from '@/utils/scheduleUtils'
-
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
 
@@ -43,45 +35,41 @@ export function ScheduleManager() {
   const scrollRestoration = useScrollRestoration({ pageKey: 'schedule', isLoading: false })
   const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
 
-  // データ取得
-  const scheduleData = useScheduleData(currentDate)
-  const shiftDataHook = useShiftData(currentDate, scheduleData.staff, scheduleData.staffLoading)
-  const memoManager = useMemoManager(currentDate, scheduleData.stores)
-
-  // 分割代入
-  const { events, setEvents, stores, staff, scenarios, storeColors, isLoading, selectedStores, setSelectedStores, hiddenStores, setHiddenStores, fetchSchedule } = scheduleData
-  // shiftDataHookがundefinedまたはshiftDataがundefinedの場合に空オブジェクトを設定
-  const shiftData = shiftDataHook?.shiftData ?? {}
-  const { handleSaveMemo, getMemo } = memoManager
-
-  // イベント操作
-  const eventOperations = useEventOperations({
-    events,
-    setEvents,
-    stores,
-    scenarios
-  })
-
-  // コンテキストメニュー操作
-  const contextMenuActions = useContextMenuActions({
-    stores,
-    setEvents
-  })
-
-  // カテゴリーフィルター
-  const { selectedCategory, setSelectedCategory, categoryCounts } = useCategoryFilter(events)
-
-  // イベント取得ロジック
-  const { getEventsForSlot, availableStaffByScenario } = useScheduleEvents(
-    events,
-    selectedCategory,
-    scenarios,
-    shiftData,
-    eventOperations
-  )
-
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+
+  // スケジュールテーブルの共通フック
+  const scheduleTableProps = useScheduleTable({ currentDate })
+  const modals = useScheduleTableModals(currentDate)
+
+  // カテゴリーフィルター（ScheduleManager独自機能）
+  const { selectedCategory, setSelectedCategory, categoryCounts } = useCategoryFilter(
+    scheduleTableProps.viewConfig.stores.flatMap(store => 
+      ['morning', 'afternoon', 'evening'].flatMap(timeSlot => 
+        monthDays.flatMap(day => 
+          scheduleTableProps.dataProvider.getEventsForSlot(day.date, store.id, timeSlot as any)
+        )
+      )
+    )
+  )
+
+  // カテゴリーフィルター適用版のgetEventsForSlot
+  const filteredGetEventsForSlot = useMemo(() => {
+    return (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
+      const events = scheduleTableProps.dataProvider.getEventsForSlot(date, venue, timeSlot)
+      if (selectedCategory === 'all') return events
+      return events.filter(event => event.category === selectedCategory)
+    }
+  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory])
+
+  // カテゴリーフィルター適用版のpropsを作成
+  const filteredScheduleTableProps = useMemo(() => ({
+    ...scheduleTableProps,
+    dataProvider: {
+      ...scheduleTableProps.dataProvider,
+      getEventsForSlot: filteredGetEventsForSlot
+    }
+  }), [scheduleTableProps, filteredGetEventsForSlot])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -107,7 +95,7 @@ export function ScheduleManager() {
         {/* ヘッダー */}
         <ScheduleHeader
           currentDate={currentDate}
-          isLoading={isLoading}
+          isLoading={false}
           onDateChange={setCurrentDate}
           onImportClick={() => setIsImportModalOpen(true)}
         />
@@ -120,113 +108,94 @@ export function ScheduleManager() {
         />
 
         {/* スケジュールテーブル */}
-        <ScheduleTable
-          currentDate={currentDate}
-          monthDays={monthDays}
-          stores={stores}
-          getEventsForSlot={getEventsForSlot}
-          shiftData={shiftData}
-          categoryConfig={CATEGORY_CONFIG}
-          getReservationBadgeClass={getReservationBadgeClass}
-          getMemo={getMemo}
-          onSaveMemo={handleSaveMemo}
-          onAddPerformance={eventOperations.handleAddPerformance}
-          onEditPerformance={eventOperations.handleEditPerformance}
-          onDeletePerformance={eventOperations.handleDeletePerformance}
-          onCancelConfirm={eventOperations.handleCancelConfirmPerformance}
-          onUncancel={eventOperations.handleUncancelPerformance}
-          onToggleReservation={eventOperations.handleTogglePublish}
-          onDrop={eventOperations.handleDrop}
-          onContextMenuCell={contextMenuActions.handleCellContextMenu}
-          onContextMenuEvent={contextMenuActions.handleEventContextMenu}
-        />
+        <ScheduleTable {...filteredScheduleTableProps} />
 
         {/* モーダル・ダイアログ群 */}
         <PerformanceModal
-          isOpen={eventOperations.isPerformanceModalOpen}
-          onClose={eventOperations.handleCloseModal}
-          onSave={eventOperations.handleSavePerformance}
-          mode={eventOperations.modalMode}
-          event={eventOperations.editingEvent}
-          initialData={eventOperations.modalInitialData}
-          stores={stores}
-          scenarios={scenarios}
-          staff={staff}
-          availableStaffByScenario={availableStaffByScenario}
+          isOpen={modals.performanceModal.isOpen}
+          onClose={modals.performanceModal.onClose}
+          onSave={modals.performanceModal.onSave as any}
+          mode={modals.performanceModal.mode}
+          event={modals.performanceModal.event}
+          initialData={modals.performanceModal.initialData}
+          stores={modals.performanceModal.stores as any}
+          scenarios={modals.performanceModal.scenarios as any}
+          staff={modals.performanceModal.staff}
+          availableStaffByScenario={modals.performanceModal.availableStaffByScenario}
         />
 
         <ImportScheduleModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
-          onImportSuccess={fetchSchedule}
+          onImportComplete={modals.fetchSchedule}
         />
 
         <ConflictWarningModal
-          isOpen={eventOperations.isConflictWarningOpen}
-          onClose={() => eventOperations.setIsConflictWarningOpen(false)}
-          onConfirm={eventOperations.handleConfirmWithConflict}
-          conflicts={eventOperations.conflicts}
+          isOpen={modals.conflictWarning.isOpen}
+          onClose={modals.conflictWarning.onClose}
+          onContinue={modals.conflictWarning.onContinue}
+          conflictInfo={modals.conflictWarning.conflictInfo}
         />
 
         <ScheduleDialogs
-          isDeleteDialogOpen={eventOperations.isDeleteDialogOpen}
-          onCloseDeleteDialog={() => eventOperations.setIsDeleteDialogOpen(false)}
-          onConfirmDelete={eventOperations.handleConfirmDelete}
-          isCancelDialogOpen={eventOperations.isCancelDialogOpen}
-          onCloseCancelDialog={() => eventOperations.setIsCancelDialogOpen(false)}
-          onConfirmCancel={eventOperations.handleConfirmCancel}
-          isRestoreDialogOpen={eventOperations.isRestoreDialogOpen}
-          onCloseRestoreDialog={() => eventOperations.setIsRestoreDialogOpen(false)}
-          onConfirmRestore={eventOperations.handleConfirmRestore}
+          isDeleteDialogOpen={modals.scheduleDialogs.isDeleteDialogOpen}
+          onCloseDeleteDialog={modals.scheduleDialogs.onCloseDeleteDialog}
+          onConfirmDelete={modals.scheduleDialogs.onConfirmDelete}
+          isCancelDialogOpen={modals.scheduleDialogs.isCancelDialogOpen}
+          onCloseCancelDialog={modals.scheduleDialogs.onCloseCancelDialog}
+          onConfirmCancel={modals.scheduleDialogs.onConfirmCancel}
+          isRestoreDialogOpen={modals.scheduleDialogs.isRestoreDialogOpen}
+          onCloseRestoreDialog={modals.scheduleDialogs.onCloseRestoreDialog}
+          onConfirmRestore={modals.scheduleDialogs.onConfirmRestore}
         />
 
         <MoveOrCopyDialog
-          isOpen={contextMenuActions.isMoveOrCopyDialogOpen}
-          onClose={contextMenuActions.handleCloseMoveOrCopyDialog}
-          onConfirm={contextMenuActions.handleConfirmMoveOrCopy}
-          action={contextMenuActions.moveOrCopyAction}
-          eventTitle={contextMenuActions.selectedEvent?.scenario || ''}
-          sourceDate={contextMenuActions.selectedEvent?.date || ''}
-          sourceVenue={contextMenuActions.selectedEvent?.venue || ''}
-          sourceTimeSlot={contextMenuActions.selectedEvent?.start_time ? (() => {
-            const hour = parseInt(contextMenuActions.selectedEvent.start_time.split(':')[0])
-            if (hour < 12) return 'morning'
-            if (hour < 17) return 'afternoon'
-            return 'evening'
-          })() : 'morning'}
-          stores={stores}
-          monthDays={monthDays}
+          isOpen={modals.moveOrCopyDialog.isOpen}
+          onClose={modals.moveOrCopyDialog.onClose}
+          onMove={modals.moveOrCopyDialog.onMove}
+          onCopy={modals.moveOrCopyDialog.onCopy}
+          eventInfo={modals.moveOrCopyDialog.selectedEvent ? {
+            scenario: modals.moveOrCopyDialog.selectedEvent.scenario || '',
+            date: modals.moveOrCopyDialog.selectedEvent.date || '',
+            storeName: modals.moveOrCopyDialog.stores.find(s => s.id === modals.moveOrCopyDialog.selectedEvent?.venue)?.name || '',
+            timeSlot: (() => {
+              const hour = parseInt(modals.moveOrCopyDialog.selectedEvent.start_time.split(':')[0])
+              if (hour < 12) return 'morning'
+              if (hour < 17) return 'afternoon'
+              return 'evening'
+            })()
+          } : null}
         />
 
-        {contextMenuActions.contextMenu && (
+        {modals.contextMenu.contextMenu && (
           <ContextMenu
-            x={contextMenuActions.contextMenu.x}
-            y={contextMenuActions.contextMenu.y}
-            onClose={() => contextMenuActions.setContextMenu(null)}
-            items={contextMenuActions.contextMenu.type === 'event' && contextMenuActions.contextMenu.event ? [
+            x={modals.contextMenu.contextMenu.x}
+            y={modals.contextMenu.contextMenu.y}
+            onClose={() => modals.contextMenu.setContextMenu(null)}
+            items={modals.contextMenu.contextMenu.type === 'event' && modals.contextMenu.contextMenu.event ? [
               {
                 label: '編集',
                 icon: <Edit className="w-4 h-4" />,
                 onClick: () => {
-                  eventOperations.handleEditPerformance(contextMenuActions.contextMenu!.event!)
-                  contextMenuActions.setContextMenu(null)
+                  scheduleTableProps.eventHandlers.onEditPerformance(modals.contextMenu.contextMenu!.event!)
+                  modals.contextMenu.setContextMenu(null)
                 }
               },
               {
                 label: 'コピー',
                 icon: <Copy className="w-4 h-4" />,
                 onClick: () => {
-                  contextMenuActions.handleCopyToClipboard(contextMenuActions.contextMenu!.event!)
+                  modals.contextMenu.handleCopyToClipboard(modals.contextMenu.contextMenu!.event!)
                 },
                 separator: true
               },
-              ...(contextMenuActions.contextMenu.event.is_cancelled ? [
+              ...(modals.contextMenu.contextMenu.event.is_cancelled ? [
                 {
                   label: '復活',
                   icon: <RotateCcw className="w-4 h-4" />,
                   onClick: () => {
-                    eventOperations.handleUncancelPerformance(contextMenuActions.contextMenu!.event!)
-                    contextMenuActions.setContextMenu(null)
+                    scheduleTableProps.eventHandlers.onUncancel(modals.contextMenu.contextMenu!.event!)
+                    modals.contextMenu.setContextMenu(null)
                   }
                 }
               ] : [
@@ -234,8 +203,8 @@ export function ScheduleManager() {
                   label: '中止',
                   icon: <Ban className="w-4 h-4" />,
                   onClick: () => {
-                    eventOperations.handleCancelConfirmPerformance(contextMenuActions.contextMenu!.event!)
-                    contextMenuActions.setContextMenu(null)
+                    scheduleTableProps.eventHandlers.onCancelConfirm(modals.contextMenu.contextMenu!.event!)
+                    modals.contextMenu.setContextMenu(null)
                   }
                 }
               ]),
@@ -243,20 +212,20 @@ export function ScheduleManager() {
                 label: '削除',
                 icon: <Trash2 className="w-4 h-4" />,
                 onClick: () => {
-                  eventOperations.handleDeletePerformance(contextMenuActions.contextMenu!.event!)
-                  contextMenuActions.setContextMenu(null)
+                  scheduleTableProps.eventHandlers.onDeletePerformance(modals.contextMenu.contextMenu!.event!)
+                  modals.contextMenu.setContextMenu(null)
                 },
                 separator: true
               }
-            ] : contextMenuActions.contextMenu.type === 'cell' && contextMenuActions.contextMenu.cellInfo ? [
+            ] : modals.contextMenu.contextMenu.type === 'cell' && modals.contextMenu.contextMenu.cellInfo ? [
               {
                 label: 'ペースト',
                 icon: <Clipboard className="w-4 h-4" />,
                 onClick: () => {
-                  const { date, venue, timeSlot } = contextMenuActions.contextMenu!.cellInfo!
-                  contextMenuActions.handlePasteFromClipboard(date, venue, timeSlot)
+                  const { date, venue, timeSlot } = modals.contextMenu.contextMenu!.cellInfo!
+                  modals.contextMenu.handlePasteFromClipboard(date, venue, timeSlot)
                 },
-                disabled: !contextMenuActions.clipboardEvent
+                disabled: !modals.contextMenu.clipboardEvent
               }
             ] : []}
           />
@@ -265,4 +234,3 @@ export function ScheduleManager() {
     </div>
   )
 }
-

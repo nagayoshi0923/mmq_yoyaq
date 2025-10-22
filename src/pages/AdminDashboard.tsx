@@ -19,6 +19,7 @@ import {
 // コード分割：各ページを動的インポート
 const StoreManagement = lazy(() => import('./StoreManagement').then(m => ({ default: m.StoreManagement })))
 const ScenarioManagement = lazy(() => import('./ScenarioManagement').then(m => ({ default: m.ScenarioManagement })))
+const ScenarioEdit = lazy(() => import('./ScenarioEdit'))
 const StaffManagement = lazy(() => import('./StaffManagement').then(m => ({ default: m.StaffManagement })))
 const ScheduleManager = lazy(() => import('./ScheduleManager/index').then(m => ({ default: m.ScheduleManager })))
 const SalesManagement = lazy(() => import('./SalesManagement'))
@@ -43,6 +44,9 @@ export function AdminDashboard() {
     const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/?]+)/)
     if (scenarioMatch) {
       return { page: 'customer-booking', scenarioId: scenarioMatch[1] }
+    }
+    if (hash.startsWith('scenarios/edit')) {
+      return { page: 'scenarios-edit', scenarioId: null }
     }
     if (hash.startsWith('customer-booking')) {
       return { page: 'customer-booking', scenarioId: null }
@@ -178,6 +182,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="シナリオ管理を読み込み中..." />}>
         <ScenarioManagement />
+      </Suspense>
+    )
+  }
+  
+  if (currentPage === 'scenarios-edit') {
+    return (
+      <Suspense fallback={<LoadingScreen message="シナリオ編集を読み込み中..." />}>
+        <ScenarioEdit />
       </Suspense>
     )
   }

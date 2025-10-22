@@ -1,0 +1,272 @@
+import { useState, useEffect } from 'react'
+import { Header } from '@/components/layout/Header'
+import { NavigationBar } from '@/components/layout/NavigationBar'
+import ScenarioSidebar from '@/components/layout/ScenarioSidebar'
+import { useSessionState } from '@/hooks/useSessionState'
+import { Button } from '@/components/ui/button'
+import { ArrowLeft, Save } from 'lucide-react'
+import type { Scenario, Staff } from '@/types'
+import { useScenariosQuery, useScenarioMutation } from '../ScenarioManagement/hooks/useScenarioQuery'
+import { staffApi } from '@/lib/api'
+import { assignmentApi } from '@/lib/assignmentApi'
+import { getCurrentJST } from '@/utils/dateUtils'
+import { logger } from '@/utils/logger'
+
+// 各セクションのコンポーネント
+import { BasicInfoSection } from './sections/BasicInfoSection'
+import { GameInfoSection } from './sections/GameInfoSection'
+import { PricingSection } from './sections/PricingSection'
+import { GmSettingsSection } from './sections/GmSettingsSection'
+import { CostsPropsSection } from './sections/CostsPropsSection'
+import { StaffAssignmentSection } from './sections/StaffAssignmentSection'
+import { PerformanceScheduleSection } from './sections/PerformanceScheduleSection'
+
+// 型定義
+import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
+
+export function ScenarioEdit() {
+  const [activeTab, setActiveTab] = useSessionState('scenarioEditActiveTab', 'basic')
+  const [scenarioId, setScenarioId] = useState<string | null>(null)
+  const [formData, setFormData] = useState<ScenarioFormData>({
+    title: '',
+    author: '',
+    description: '',
+    duration: 120,
+    player_count_min: 4,
+    player_count_max: 8,
+    difficulty: 3,
+    rating: undefined,
+    status: 'available',
+    participation_fee: 3000,
+    production_costs: [],
+    genre: [],
+    required_props: [],
+    license_amount: 1500,
+    gm_test_license_amount: 0,
+    license_rewards: [],
+    has_pre_reading: false,
+    gm_count: 1,
+    gm_assignments: [{ role: 'main', reward: 2000 }],
+    participation_costs: [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
+    use_flexible_pricing: false,
+    flexible_pricing: {
+      base_pricing: { participation_fee: 3000 },
+      pricing_modifiers: [],
+      gm_configuration: {
+        required_count: 1,
+        optional_count: 0,
+        total_max: 2,
+        special_requirements: ''
+      }
+    },
+    key_visual_url: ''
+  })
+
+  // スタッフデータ
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
+
+  // React Query
+  const { data: scenarios = [] } = useScenariosQuery()
+  const scenarioMutation = useScenarioMutation()
+
+  // URLからシナリオIDを取得
+  useEffect(() => {
+    const hash = window.location.hash
+    const match = hash.match(/scenarios\/edit\/(.+)/)
+    if (match) {
+      const id = match[1]
+      setScenarioId(id === 'new' ? null : id)
+    }
+  }, [])
+
+  // シナリオデータをロード
+  useEffect(() => {
+    if (scenarioId && scenarios.length > 0) {
+      const scenario = scenarios.find(s => s.id === scenarioId)
+      if (scenario) {
+        setFormData({
+          title: scenario.title || '',
+          author: scenario.author || '',
+          description: scenario.description || '',
+          duration: scenario.duration || 120,
+          player_count_min: scenario.player_count_min || 4,
+          player_count_max: scenario.player_count_max || 8,
+          difficulty: scenario.difficulty || 3,
+          rating: scenario.rating,
+          status: scenario.status || 'available',
+          participation_fee: scenario.participation_fee || 3000,
+          production_costs: scenario.production_costs || [],
+          genre: scenario.genre || [],
+          required_props: scenario.required_props || [],
+          license_amount: scenario.license_amount || 1500,
+          gm_test_license_amount: scenario.gm_test_license_amount || 0,
+          license_rewards: scenario.license_rewards || [],
+          has_pre_reading: scenario.has_pre_reading || false,
+          gm_count: scenario.gm_count || 1,
+          gm_assignments: scenario.gm_assignments || [{ role: 'main', reward: 2000 }],
+          participation_costs: scenario.participation_costs || [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
+          use_flexible_pricing: scenario.use_flexible_pricing || false,
+          flexible_pricing: scenario.flexible_pricing || {
+            base_pricing: { participation_fee: 3000 },
+            pricing_modifiers: [],
+            gm_configuration: {
+              required_count: 1,
+              optional_count: 0,
+              total_max: 2,
+              special_requirements: ''
+            }
+          },
+          key_visual_url: scenario.key_visual_url || ''
+        })
+        loadCurrentAssignments(scenarioId)
+      }
+    }
+  }, [scenarioId, scenarios])
+
+  // スタッフデータをロード
+  useEffect(() => {
+    loadStaffData()
+  }, [])
+
+  const loadStaffData = async () => {
+    try {
+      const staffData = await staffApi.getAll()
+      setStaff(staffData)
+    } catch (error) {
+      logger.error('スタッフデータの取得に失敗:', error)
+    }
+  }
+
+  const loadCurrentAssignments = async (id: string) => {
+    try {
+      const assignments = await assignmentApi.getScenarioAssignments(id)
+      setSelectedStaffIds(assignments.map((a: any) => a.staff_id))
+    } catch (error) {
+      logger.error('担当データの取得に失敗:', error)
+    }
+  }
+
+  const handleBack = () => {
+    window.location.hash = 'scenarios'
+  }
+
+  const handleSave = async () => {
+    // バリデーション
+    if (!formData.title.trim()) {
+      alert('タイトルを入力してください')
+      return
+    }
+    if (!formData.author.trim()) {
+      alert('作者を入力してください')
+      return
+    }
+
+    try {
+      const scenarioData: Scenario = {
+        id: scenarioId || crypto.randomUUID(),
+        ...formData,
+        created_at: scenarioId ? scenarios.find(s => s.id === scenarioId)?.created_at || getCurrentJST().toISOString() : getCurrentJST().toISOString(),
+        updated_at: getCurrentJST().toISOString()
+      }
+
+      await scenarioMutation.mutateAsync({ 
+        scenario: scenarioData, 
+        isEdit: !!scenarioId 
+      })
+
+      // スタッフ割り当ての更新
+      if (scenarioData.id) {
+        await assignmentApi.updateScenarioAssignments(scenarioData.id, selectedStaffIds)
+      }
+
+      alert(scenarioId ? 'シナリオを更新しました' : 'シナリオを作成しました')
+      handleBack()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '不明なエラー'
+      alert(`保存に失敗しました: ${message}`)
+    }
+  }
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'basic':
+        return <BasicInfoSection formData={formData} setFormData={setFormData} />
+      case 'game-info':
+        return <GameInfoSection formData={formData} setFormData={setFormData} />
+      case 'pricing':
+        return <PricingSection formData={formData} setFormData={setFormData} />
+      case 'gm-settings':
+        return <GmSettingsSection formData={formData} setFormData={setFormData} />
+      case 'costs-props':
+        return <CostsPropsSection formData={formData} setFormData={setFormData} />
+      case 'staff-assignment':
+        return (
+          <StaffAssignmentSection 
+            staff={staff}
+            selectedStaffIds={selectedStaffIds}
+            setSelectedStaffIds={setSelectedStaffIds}
+            isNewScenario={!scenarioId}
+          />
+        )
+      case 'performance-schedule':
+        return (
+          <PerformanceScheduleSection 
+            formData={formData}
+            scenarioId={scenarioId}
+          />
+        )
+      default:
+        return <BasicInfoSection formData={formData} setFormData={setFormData} />
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      <NavigationBar currentPage="scenarios" />
+      
+      <div className="flex">
+        {/* サイドバー */}
+        <div className="hidden lg:block">
+          <ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
+        
+        {/* メインコンテンツ */}
+        <div className="flex-1 min-w-0">
+          <div className="container mx-auto max-w-7xl px-8 py-6">
+            {/* ヘッダー */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">
+                  {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
+                </h2>
+                {scenarioId && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    ID: {scenarioId}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleBack}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  一覧に戻る
+                </Button>
+                <Button onClick={handleSave} disabled={scenarioMutation.isPending}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {scenarioMutation.isPending ? '保存中...' : '保存'}
+                </Button>
+              </div>
+            </div>
+
+            {/* コンテンツ */}
+            {renderContent()}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default ScenarioEdit
+

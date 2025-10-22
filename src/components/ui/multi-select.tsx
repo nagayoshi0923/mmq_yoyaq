@@ -69,6 +69,19 @@ export function MultiSelect({
       })
     : normalizedOptions
 
+  // 選択済みの項目を上に表示するようにソート
+  const sortedOptions = [...filteredOptions].sort((a, b) => {
+    const valueA = useIdAsValue ? a.id : a.name
+    const valueB = useIdAsValue ? b.id : b.name
+    const isSelectedA = (selectedValues || []).includes(valueA)
+    const isSelectedB = (selectedValues || []).includes(valueB)
+    
+    // 選択済みを上に
+    if (isSelectedA && !isSelectedB) return -1
+    if (!isSelectedA && isSelectedB) return 1
+    return 0
+  })
+
   const handleToggleSelection = (value: string) => {
     const currentValues = selectedValues || []
     const isSelected = currentValues.includes(value)
@@ -160,14 +173,14 @@ export function MultiSelect({
               }
             }}
           >
-            {filteredOptions.length === 0 ? (
+            {sortedOptions.length === 0 ? (
               <div className="px-4 py-3 text-center">
                 <p className="text-sm text-muted-foreground">
                   {emptyText || (searchTerm ? 'スタッフが見つかりません' : 'スタッフがいません')}
                 </p>
               </div>
             ) : (
-              filteredOptions.map(option => {
+              sortedOptions.map(option => {
                 const valueToCompare = useIdAsValue ? option.id : option.name
                 const isSelected = (selectedValues || []).includes(valueToCompare)
                 return (
