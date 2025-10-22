@@ -11,7 +11,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import StaffSidebar from '@/components/layout/StaffSidebar'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { usePageState } from '@/hooks/usePageState'
-import { Users, UserCheck, UserX, Clock } from 'lucide-react'
+import { Users, UserCheck, UserX, Clock, Shield } from 'lucide-react'
 
 // 分離されたフック
 import { useStaffFilters } from './hooks/useStaffFilters'
