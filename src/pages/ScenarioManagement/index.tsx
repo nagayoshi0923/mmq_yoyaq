@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import ScenarioSidebar from '@/components/layout/ScenarioSidebar'
 import type { Scenario } from '@/types'
 import { 
   BookOpen, 
@@ -37,6 +38,7 @@ import { logger } from '@/utils/logger'
 
 export function ScenarioManagement() {
   // UI状態
+  const [activeTab, setActiveTab] = useState('scenario-list')
   const [displayMode, setDisplayMode] = useState<'compact' | 'detailed'>('compact')
   const [isImporting, setIsImporting] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -70,11 +72,13 @@ export function ScenarioManagement() {
 
   // シナリオ編集ページへ遷移
   function handleEditScenario(scenario: Scenario) {
+    setActiveTab('scenario-edit')
     // シナリオIDをハッシュに設定して遷移
     window.location.hash = `scenarios/edit/${scenario.id}`
   }
 
   function handleNewScenario() {
+    setActiveTab('new-scenario')
     // 新規作成ページへ遷移
     window.location.hash = 'scenarios/edit/new'
   }
@@ -303,7 +307,15 @@ export function ScenarioManagement() {
       <Header />
       <NavigationBar currentPage="scenarios" />
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="flex">
+        {/* サイドバー */}
+        <div className="hidden lg:block">
+          <ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} mode="list" />
+        </div>
+        
+        {/* メインコンテンツ */}
+        <div className="flex-1 min-w-0">
+          <div className="container mx-auto px-4 py-8">
         <div className="space-y-6">
           {/* ヘッダー */}
           <div className="flex items-center justify-between">
@@ -403,6 +415,8 @@ export function ScenarioManagement() {
             }
             loading={loading}
           />
+        </div>
+          </div>
         </div>
       </div>
 

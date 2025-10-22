@@ -7,16 +7,46 @@ import {
   DollarSign,
   Users,
   Package,
-  Calendar
+  Calendar,
+  ArrowLeft
 } from 'lucide-react'
 
 interface ScenarioSidebarProps {
   activeTab: string
   onTabChange: (tab: string) => void
+  onBackToList?: () => void
+  mode?: 'list' | 'edit'
 }
 
-const ScenarioSidebar: React.FC<ScenarioSidebarProps> = ({ activeTab, onTabChange }) => {
-  const menuItems = [
+const ScenarioSidebar: React.FC<ScenarioSidebarProps> = ({ activeTab, onTabChange, onBackToList, mode = 'edit' }) => {
+  const scenarioListMenuItems = [
+    {
+      id: 'scenario-list',
+      label: 'シナリオ一覧',
+      icon: BookOpen,
+      description: 'すべてのシナリオを表示'
+    },
+    {
+      id: 'new-scenario',
+      label: '新規作成',
+      icon: FileText,
+      description: '新しいシナリオを作成'
+    },
+    {
+      id: 'search-filter',
+      label: '検索・フィルタ',
+      icon: DollarSign,
+      description: 'シナリオを検索・フィルタ'
+    },
+    {
+      id: 'import-export',
+      label: 'インポート・エクスポート',
+      icon: Users,
+      description: 'シナリオの一括操作'
+    }
+  ]
+
+  const scenarioEditMenuItems = [
     {
       id: 'basic',
       label: '基本情報',
@@ -55,12 +85,29 @@ const ScenarioSidebar: React.FC<ScenarioSidebarProps> = ({ activeTab, onTabChang
     }
   ]
 
+  const menuItems = mode === 'list' ? scenarioListMenuItems : scenarioEditMenuItems
+
   return (
     <div className="w-72 bg-slate-50 border-r border-slate-200 h-full flex-shrink-0">
       <div className="p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <BookOpen className="h-5 w-5 text-slate-700" />
-          <h2 className="text-lg font-semibold text-slate-800">シナリオ編集</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-slate-700" />
+            <h2 className="text-lg font-semibold text-slate-800">
+              {mode === 'list' ? 'シナリオ管理' : 'シナリオ編集'}
+            </h2>
+          </div>
+          {onBackToList && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBackToList}
+              className="h-8 w-8 p-0"
+              title="シナリオ一覧に戻る"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         <nav className="space-y-2">
           {menuItems.map((item) => {
