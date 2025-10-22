@@ -331,7 +331,6 @@ export function StaffManagement() {
               loading={loading}
             />
           </div>
-        </div>
 
         {/* スタッフ編集モーダル */}
         <StaffEditModal
