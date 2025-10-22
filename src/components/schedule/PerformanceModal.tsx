@@ -893,7 +893,7 @@ export function PerformanceModal({
                 ※ 貸切リクエストのシナリオは変更できません
               </p>
             )}
-            {/* シナリオ詳細へのリンク */}
+            {/* シナリオ編集へのリンク */}
             {formData.scenario && (() => {
               const selectedScenario = scenarios.find(s => s.title === formData.scenario)
               if (selectedScenario) {
@@ -903,10 +903,10 @@ export function PerformanceModal({
                     variant="link"
                     size="sm"
                     className="mt-1 h-auto p-0 text-xs"
-                    onClick={() => window.location.hash = `scenario/${selectedScenario.id}`}
+                    onClick={() => window.location.hash = `scenarios/edit/${selectedScenario.id}`}
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
-                    シナリオ詳細を確認
+                    シナリオを編集
                   </Button>
                 )
               }
