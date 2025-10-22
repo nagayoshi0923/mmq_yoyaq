@@ -24,6 +24,8 @@ interface LineupViewProps {
   upcomingScenarios: ScenarioWithEvents[]
   allScenarios: ScenarioWithEvents[]
   onCardClick: (scenarioId: string) => void
+  isFavorite: (scenarioId: string) => boolean
+  onToggleFavorite: (scenarioId: string, e: React.MouseEvent) => void
 }
 
 /**
@@ -33,7 +35,9 @@ export const LineupView = memo(function LineupView({
   newScenarios,
   upcomingScenarios,
   allScenarios,
-  onCardClick
+  onCardClick,
+  isFavorite,
+  onToggleFavorite
 }: LineupViewProps) {
   return (
     <div className="space-y-8">
@@ -46,7 +50,13 @@ export const LineupView = memo(function LineupView({
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {newScenarios.map((scenario) => (
-              <ScenarioCard key={scenario.scenario_id} scenario={scenario} onClick={onCardClick} />
+              <ScenarioCard 
+                key={scenario.scenario_id} 
+                scenario={scenario} 
+                onClick={onCardClick}
+                isFavorite={isFavorite(scenario.scenario_id)}
+                onToggleFavorite={onToggleFavorite}
+              />
             ))}
           </div>
         </section>
@@ -58,7 +68,13 @@ export const LineupView = memo(function LineupView({
           <h2 className="text-2xl font-bold mb-4">直近公演</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {upcomingScenarios.map((scenario) => (
-              <ScenarioCard key={scenario.scenario_id} scenario={scenario} onClick={onCardClick} />
+              <ScenarioCard 
+                key={scenario.scenario_id} 
+                scenario={scenario} 
+                onClick={onCardClick}
+                isFavorite={isFavorite(scenario.scenario_id)}
+                onToggleFavorite={onToggleFavorite}
+              />
             ))}
           </div>
         </section>
@@ -70,7 +86,13 @@ export const LineupView = memo(function LineupView({
           <h2 className="text-2xl font-bold mb-4">全タイトル</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {allScenarios.map((scenario) => (
-              <ScenarioCard key={scenario.scenario_id} scenario={scenario} onClick={onCardClick} />
+              <ScenarioCard 
+                key={scenario.scenario_id} 
+                scenario={scenario} 
+                onClick={onCardClick}
+                isFavorite={isFavorite(scenario.scenario_id)}
+                onToggleFavorite={onToggleFavorite}
+              />
             ))}
           </div>
         </section>

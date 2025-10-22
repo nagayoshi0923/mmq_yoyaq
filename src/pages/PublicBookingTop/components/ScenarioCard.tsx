@@ -1,8 +1,9 @@
 import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { Calendar, Clock, Users, MapPin } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, Heart } from 'lucide-react'
 import { getColorFromName } from '@/lib/utils'
 import { usePrefetch } from '@/hooks/usePrefetch'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
@@ -10,13 +11,20 @@ import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 interface ScenarioCardProps {
   scenario: ScenarioCardType
   onClick: (id: string) => void
+  isFavorite?: boolean
+  onToggleFavorite?: (scenarioId: string, e: React.MouseEvent) => void
 }
 
 /**
  * シナリオカード表示コンポーネント
  */
-export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick }: ScenarioCardProps) {
+export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFavorite = false, onToggleFavorite }: ScenarioCardProps) {
   const { prefetchScenario } = usePrefetch()
+  
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onToggleFavorite?.(scenario.scenario_id, e)
+  }
   
   const formatDate = (dateStr?: string): string => {
     if (!dateStr) return ''
@@ -51,7 +59,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick }: Sc
       onMouseEnter={() => prefetchScenario(scenario.scenario_id)}
     >
       {/* キービジュアル */}
-      <div className="relative w-full aspect-[1/1.4] bg-gray-200 overflow-hidden flex items-center justify-center">
+      <div className="relative w-full aspect-[1/1.4] bg-gray-200 overflow-hidden flex items-center justify-center group">
         <OptimizedImage
           src={scenario.key_visual_url}
           alt={scenario.scenario_title}
@@ -69,6 +77,22 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick }: Sc
             </div>
           }
         />
+        
+        {/* お気に入りボタン */}
+        {onToggleFavorite && (
+          <Button
+            onClick={handleFavoriteClick}
+            size="icon"
+            variant="ghost"
+            className={`absolute top-2 right-2 h-9 w-9 rounded-full bg-white/90 hover:bg-white shadow-md transition-all ${
+              isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'
+            }`}
+          >
+            <Heart 
+              className={`h-5 w-5 transition-all ${isFavorite ? 'fill-current' : ''}`}
+            />
+          </Button>
+        )}
       </div>
 
       <CardContent className="p-2 space-y-1 bg-white">

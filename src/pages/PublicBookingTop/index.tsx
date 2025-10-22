@@ -7,6 +7,7 @@ import { useBookingData } from './hooks/useBookingData'
 import { useCalendarData } from './hooks/useCalendarData'
 import { useListViewData } from './hooks/useListViewData'
 import { useBookingFilters } from './hooks/useBookingFilters'
+import { useFavorites } from '@/hooks/useFavorites'
 import { SearchBar } from './components/SearchBar'
 import { LineupView } from './components/LineupView'
 import { CalendarView } from './components/CalendarView'
@@ -47,8 +48,17 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   // 検索キーワード
   const [searchTerm, setSearchTerm] = useState('')
   
+  // お気に入り機能
+  const { isFavorite, toggleFavorite } = useFavorites()
+  
   // フィルタリングフック
   const { filteredScenarios, newScenarios, upcomingScenarios, allScenarios } = useBookingFilters(scenarios, searchTerm)
+  
+  // お気に入りトグルハンドラ
+  const handleToggleFavorite = (scenarioId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    toggleFavorite(scenarioId)
+  }
 
   // 初期データロード
   useEffect(() => {
@@ -137,6 +147,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                 upcomingScenarios={upcomingScenarios}
                 allScenarios={allScenarios}
                 onCardClick={handleCardClick}
+                isFavorite={isFavorite}
+                onToggleFavorite={handleToggleFavorite}
               />
             </TabsContent>
 

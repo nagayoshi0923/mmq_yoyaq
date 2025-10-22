@@ -163,12 +163,11 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         onConfirmRestore: eventOperations.handleConfirmRestore
       },
       moveOrCopyDialog: {
-        isOpen: contextMenuActions.isMoveOrCopyDialogOpen,
-        onClose: contextMenuActions.handleCloseMoveOrCopyDialog,
-        onMove: () => contextMenuActions.handleConfirmMoveOrCopy('move'),
-        onCopy: () => contextMenuActions.handleConfirmMoveOrCopy('copy'),
-        action: contextMenuActions.moveOrCopyAction,
-        selectedEvent: contextMenuActions.selectedEvent,
+        isOpen: eventOperations.isMoveOrCopyDialogOpen,
+        onClose: () => eventOperations.setIsMoveOrCopyDialogOpen(false),
+        onMove: eventOperations.handleMoveEvent,
+        onCopy: eventOperations.handleCopyEvent,
+        selectedEvent: eventOperations.draggedEvent,
         stores
       },
       contextMenu: {
@@ -251,12 +250,11 @@ export function useScheduleTableModals(currentDate: Date) {
     },
     // MoveOrCopyDialog用
     moveOrCopyDialog: {
-      isOpen: contextMenuActions.isMoveOrCopyDialogOpen,
-      onClose: contextMenuActions.handleCloseMoveOrCopyDialog,
-      onMove: () => contextMenuActions.handleConfirmMoveOrCopy('move'),
-      onCopy: () => contextMenuActions.handleConfirmMoveOrCopy('copy'),
-      action: contextMenuActions.moveOrCopyAction,
-      selectedEvent: contextMenuActions.selectedEvent,
+      isOpen: eventOperations.isMoveOrCopyDialogOpen,
+      onClose: () => eventOperations.setIsMoveOrCopyDialogOpen(false),
+      onMove: eventOperations.handleMoveEvent,
+      onCopy: eventOperations.handleCopyEvent,
+      selectedEvent: eventOperations.draggedEvent,
       stores  // ScheduleManagerで使用するため含める
     },
     // ContextMenu用
