@@ -45,7 +45,7 @@ export function ScenarioEdit() {
     license_rewards: [],
     has_pre_reading: false,
     gm_count: 1,
-    gm_assignments: [{ role: 'main', reward: 2000 }],
+    gm_assignments: [{ role: 'main', category: 'normal', reward: 2000 }],
     participation_costs: [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
     use_flexible_pricing: false,
     flexible_pricing: {
@@ -84,6 +84,60 @@ export function ScenarioEdit() {
     if (scenarioId && scenarios.length > 0) {
       const scenario = scenarios.find(s => s.id === scenarioId)
       if (scenario) {
+        // 参加費の配列を構築（既存データがない場合は participation_fee から生成）
+        let participationCosts = scenario.participation_costs || []
+        if (participationCosts.length === 0) {
+          const costs = []
+          // 通常参加費
+          if (scenario.participation_fee) {
+            costs.push({
+              time_slot: 'normal',
+              amount: scenario.participation_fee,
+              type: 'fixed' as const,
+              status: 'active' as const,
+              usageCount: 0
+            })
+          }
+          // GMテスト参加費
+          if (scenario.gm_test_participation_fee !== undefined && scenario.gm_test_participation_fee !== null) {
+            costs.push({
+              time_slot: 'gmtest',
+              amount: scenario.gm_test_participation_fee,
+              type: 'fixed' as const,
+              status: 'active' as const,
+              usageCount: 0
+            })
+          }
+          participationCosts = costs
+        }
+
+        // ライセンス料の配列を構築（既存データがない場合は license_amount から生成）
+        let licenseRewards = scenario.license_rewards || []
+        if (licenseRewards.length === 0) {
+          const rewards = []
+          // 通常ライセンス料
+          if (scenario.license_amount) {
+            rewards.push({
+              item: 'normal',
+              amount: scenario.license_amount,
+              type: 'fixed' as const,
+              status: 'active' as const,
+              usageCount: 0
+            })
+          }
+          // GMテストライセンス料
+          if (scenario.gm_test_license_amount !== undefined && scenario.gm_test_license_amount !== null) {
+            rewards.push({
+              item: 'gmtest',
+              amount: scenario.gm_test_license_amount,
+              type: 'fixed' as const,
+              status: 'active' as const,
+              usageCount: 0
+            })
+          }
+          licenseRewards = rewards
+        }
+
         setFormData({
           title: scenario.title || '',
           author: scenario.author || '',
@@ -100,11 +154,16 @@ export function ScenarioEdit() {
           required_props: scenario.required_props || [],
           license_amount: scenario.license_amount || 1500,
           gm_test_license_amount: scenario.gm_test_license_amount || 0,
-          license_rewards: scenario.license_rewards || [],
+          license_rewards: licenseRewards,
           has_pre_reading: scenario.has_pre_reading || false,
           gm_count: scenario.gm_count || 1,
-          gm_assignments: scenario.gm_assignments || [{ role: 'main', reward: 2000 }],
-          participation_costs: scenario.participation_costs || [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
+          gm_assignments: (scenario.gm_costs && scenario.gm_costs.length > 0) 
+            ? scenario.gm_costs.map(cost => ({
+                ...cost,
+                category: cost.category || 'normal' // デフォルトは通常公演
+              }))
+            : [{ role: 'main', category: 'normal', reward: 2000 }],
+          participation_costs: participationCosts,
           use_flexible_pricing: scenario.use_flexible_pricing || false,
           flexible_pricing: scenario.flexible_pricing || {
             base_pricing: { participation_fee: 3000 },
@@ -162,28 +221,45 @@ export function ScenarioEdit() {
     }
 
     try {
+      // formDataからScenarioデータに変換（gm_assignments → gm_costs）
+      // データベースに存在しないフィールドを除外
+      const { gm_assignments, use_flexible_pricing, flexible_pricing, gm_count, ...restFormData } = formData
+      
       const scenarioData: Scenario = {
         id: scenarioId || crypto.randomUUID(),
-        ...formData,
+        ...restFormData,
+        gm_costs: gm_assignments, // gm_assignmentsをgm_costsに変換
+        available_gms: [], // 必須フィールド
+        play_count: scenarioId ? scenarios.find(s => s.id === scenarioId)?.play_count || 0 : 0,
         created_at: scenarioId ? scenarios.find(s => s.id === scenarioId)?.created_at || getCurrentJST().toISOString() : getCurrentJST().toISOString(),
         updated_at: getCurrentJST().toISOString()
       }
 
-      await scenarioMutation.mutateAsync({ 
+      logger.log('保存するデータ:', scenarioData)
+
+      const result = await scenarioMutation.mutateAsync({ 
         scenario: scenarioData, 
         isEdit: !!scenarioId 
       })
+
+      logger.log('保存結果:', result)
 
       // スタッフ割り当ての更新
       if (scenarioData.id) {
         await assignmentApi.updateScenarioAssignments(scenarioData.id, selectedStaffIds)
       }
 
-      alert(scenarioId ? 'シナリオを更新しました' : 'シナリオを作成しました')
-      handleBack()
+      // 新規作成の場合はシナリオIDを設定して、URLも更新
+      if (!scenarioId && result) {
+        setScenarioId(result.id || scenarioData.id)
+        window.history.replaceState(null, '', `#scenarios/edit/${result.id || scenarioData.id}`)
+      }
+
+      alert(scenarioId ? 'シナリオを更新しました' : 'シナリオを作成しました。引き続き編集できます。')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
       alert(`保存に失敗しました: ${message}`)
+      logger.error('シナリオ保存エラー:', err)
     }
   }
 

@@ -42,19 +42,6 @@ export function ScheduleManager() {
   const scheduleTableProps = useScheduleTable({ currentDate })
   const modals = scheduleTableProps.modals
 
-  // デバッグ用：モーダルの状態をコンソールに出力
-  useEffect(() => {
-    console.log('PerformanceModal state:', {
-      isOpen: modals.performanceModal.isOpen,
-      mode: modals.performanceModal.mode,
-      event: modals.performanceModal.event,
-      initialData: modals.performanceModal.initialData,
-      stores: modals.performanceModal.stores?.length,
-      scenarios: modals.performanceModal.scenarios?.length,
-      staff: modals.performanceModal.staff?.length
-    })
-  }, [modals.performanceModal.isOpen, modals.performanceModal.mode, modals.performanceModal.event, modals.performanceModal.initialData, modals.performanceModal.stores, modals.performanceModal.scenarios, modals.performanceModal.staff])
-
   // カテゴリーフィルター（ScheduleManager独自機能）
   const { selectedCategory, setSelectedCategory, categoryCounts } = useCategoryFilter(
     scheduleTableProps.viewConfig.stores.flatMap(store => 
@@ -122,29 +109,6 @@ export function ScheduleManager() {
 
         {/* スケジュールテーブル */}
         <ScheduleTable {...filteredScheduleTableProps} />
-
-        {/* デバッグ用ボタン */}
-        <div className="mb-4 p-4 bg-yellow-100 border border-yellow-300 rounded">
-          <p className="text-sm mb-2">デバッグ情報:</p>
-          <p className="text-xs">PerformanceModal isOpen: {modals.performanceModal.isOpen ? 'true' : 'false'}</p>
-          <p className="text-xs">Modal mode: {modals.performanceModal.mode}</p>
-          <button 
-            className="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-sm"
-            onClick={() => {
-              console.log('Manual modal open test - before:', {
-                isOpen: modals.performanceModal.isOpen,
-                mode: modals.performanceModal.mode
-              })
-              scheduleTableProps.eventHandlers.onAddPerformance('2024-01-01', 'store1', 'morning')
-              console.log('Manual modal open test - after:', {
-                isOpen: modals.performanceModal.isOpen,
-                mode: modals.performanceModal.mode
-              })
-            }}
-          >
-            手動でモーダルを開くテスト
-          </button>
-        </div>
 
         {/* モーダル・ダイアログ群 */}
         <PerformanceModal

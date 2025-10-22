@@ -113,6 +113,7 @@ export interface Scenario {
   // 新しい時間帯別料金設定
   participation_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   participation_fee: number // 基本料金（後方互換性のため保持）
+  gm_test_participation_fee?: number // GMテスト参加費（後方互換性のため保持）
   // 新しい柔軟な料金設定
   flexible_pricing?: FlexiblePricing
   notes?: string

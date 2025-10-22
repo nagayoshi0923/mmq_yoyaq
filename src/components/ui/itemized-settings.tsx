@@ -72,6 +72,8 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
   const [newItem, setNewItem] = useState(conditionOptions[0]?.value || '')
   const [newAmountInput, setNewAmountInput] = useState('')
   const [newType, setNewType] = useState<'fixed' | 'percentage'>('fixed')
+  const [newStartDate, setNewStartDate] = useState('')
+  const [newEndDate, setNewEndDate] = useState('')
   
   // ダイアログ用state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -204,11 +206,12 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
         item: selectedOption ? selectedOption.label : newItem, // 日本語表示名を使用
         amount: parseCurrency(newAmountInput),
         type: newType,
-        status: startDate ? 'ready' : 'active', // 開始時期指定がある場合は待機設定
+        status: (startDate || newStartDate) ? 'ready' : 'active', // 開始時期指定がある場合は待機設定
         usageCount: 0,
         originalRole: newItem, // 元の英語値を保持
         originalTimeSlot: newItem, // 元の時間帯値を保持
-        startDate: startDate // 適用開始日を保持
+        startDate: startDate || newStartDate || undefined, // 適用開始日を保持
+        endDate: newEndDate || undefined // 適用終了日を保持
       }
       
       onItemsChange([...filteredItems, newActiveItem])
@@ -217,6 +220,8 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
       setNewItem(conditionOptions[0]?.value || '')
       setNewAmountInput('')
       setNewType('fixed')
+      setNewStartDate('')
+      setNewEndDate('')
       setExistingActiveItem(null)
     }
   }
@@ -262,73 +267,96 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
       </div>
       
       {/* 新規入力欄 */}
-      <div className="flex gap-2">
-        <Select value={newItem} onValueChange={setNewItem}>
-          <SelectTrigger className="flex-1">
-            <SelectValue placeholder="項目を選択" />
-          </SelectTrigger>
-          <SelectContent>
-            {conditionOptions.map(option => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-{showTypeSelector && (
-          <Select 
-            value={newType} 
-            onValueChange={(value: 'fixed' | 'percentage') => {
-              setNewType(value)
-              // タイプ変更時に既存の入力値を適切にフォーマット
-              if (newAmountInput) {
-                const parsed = parseCurrency(newAmountInput)
-                if (value === 'percentage') {
-                  const formatted = parsed === 0 ? '0%' : `${parsed}%`
-                  setNewAmountInput(formatted)
-                } else {
-                  const formatted = parsed === 0 ? '0円' : formatCurrency(parsed)
-                  setNewAmountInput(formatted)
-                }
-              }
-            }}
-          >
-            <SelectTrigger className="w-[120px]">
-              <SelectValue />
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <Select value={newItem} onValueChange={setNewItem}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="項目を選択" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="fixed">固定額</SelectItem>
-              <SelectItem value="percentage">割合</SelectItem>
+              {conditionOptions.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-        )}
+          
+  {showTypeSelector && (
+            <Select 
+              value={newType} 
+              onValueChange={(value: 'fixed' | 'percentage') => {
+                setNewType(value)
+                // タイプ変更時に既存の入力値を適切にフォーマット
+                if (newAmountInput) {
+                  const parsed = parseCurrency(newAmountInput)
+                  if (value === 'percentage') {
+                    const formatted = parsed === 0 ? '0%' : `${parsed}%`
+                    setNewAmountInput(formatted)
+                  } else {
+                    const formatted = parsed === 0 ? '0円' : formatCurrency(parsed)
+                    setNewAmountInput(formatted)
+                  }
+                }
+              }}
+            >
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fixed">固定額</SelectItem>
+                <SelectItem value="percentage">割合</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          
+          <Input
+            type="text"
+            placeholder={newType === 'percentage' ? '%' : '円'}
+            value={newAmountInput}
+            onChange={e => setNewAmountInput(e.target.value)}
+            onBlur={() => {
+              const parsed = parseCurrency(newAmountInput)
+              if (newType === 'percentage') {
+                const formatted = parsed === 0 ? '0%' : `${parsed}%`
+                setNewAmountInput(formatted)
+              } else {
+                const formatted = parsed === 0 ? '0円' : formatCurrency(parsed)
+                setNewAmountInput(formatted)
+              }
+            }}
+            className="w-[120px]"
+          />
+          
+          <Button 
+            type="button" 
+            onClick={handleAdd}
+            disabled={!newItem || newAmountInput === ''}
+          >
+            追加
+          </Button>
+        </div>
         
-        <Input
-          type="text"
-          placeholder={newType === 'percentage' ? '%' : '円'}
-          value={newAmountInput}
-          onChange={e => setNewAmountInput(e.target.value)}
-          onBlur={() => {
-            const parsed = parseCurrency(newAmountInput)
-            if (newType === 'percentage') {
-              const formatted = parsed === 0 ? '0%' : `${parsed}%`
-              setNewAmountInput(formatted)
-            } else {
-              const formatted = parsed === 0 ? '0円' : formatCurrency(parsed)
-              setNewAmountInput(formatted)
-            }
-          }}
-          className="w-[120px]"
-        />
-        
-        <Button 
-          type="button" 
-          onClick={handleAdd}
-          disabled={!newItem || newAmountInput === ''}
-        >
-          追加
-        </Button>
+        {/* 期間設定（オプション） */}
+        <div className="flex gap-2 items-center text-sm">
+          <span className="text-muted-foreground">適用期間:</span>
+          <Input
+            type="date"
+            placeholder="開始日"
+            value={newStartDate}
+            onChange={e => setNewStartDate(e.target.value)}
+            className="w-[150px]"
+          />
+          <span className="text-muted-foreground">〜</span>
+          <Input
+            type="date"
+            placeholder="終了日"
+            value={newEndDate}
+            onChange={e => setNewEndDate(e.target.value)}
+            className="w-[150px]"
+          />
+          <span className="text-xs text-muted-foreground">(未指定の場合は無期限)</span>
+        </div>
       </div>
       
       {/* アイテムリスト */}
