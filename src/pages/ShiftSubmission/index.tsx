@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
+import ShiftSidebar from '@/components/layout/ShiftSidebar'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { useShiftData } from './hooks/useShiftData'
@@ -16,6 +16,7 @@ import type { DayInfo } from './types'
 export function ShiftSubmission() {
   // 月選択
   const [currentDate, setCurrentDate] = useState(() => new Date())
+  const [activeTab, setActiveTab] = useState('shift-submission')
   
   // 月間の日付リストを生成
   const monthDays = useMemo((): DayInfo[] => {
@@ -87,16 +88,17 @@ export function ShiftSubmission() {
   )
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="shift-submission" />
-      
-      <div className="container mx-auto max-w-7xl px-8 py-6">
-        <div className="space-y-6">
-          {/* ヘッダー */}
+    <AppLayout
+      currentPage="shift-submission"
+      sidebar={<ShiftSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      maxWidth="max-w-[1600px]"
+      containerPadding="px-8 py-6"
+      stickyLayout={true}
+    >
+      <div className="space-y-6">
+          {/* 月選択 */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">シフト提出</h1>
               <p className="text-muted-foreground">
                 出勤可能な日時を選択してください
               </p>
@@ -135,8 +137,7 @@ export function ShiftSubmission() {
             </CardContent>
           </Card>
         </div>
-      </div>
-    </div>
+    </AppLayout>
   )
 }
 
