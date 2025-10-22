@@ -18,7 +18,6 @@ import { GameInfoSection } from './sections/GameInfoSection'
 import { PricingSection } from './sections/PricingSection'
 import { GmSettingsSection } from './sections/GmSettingsSection'
 import { CostsPropsSection } from './sections/CostsPropsSection'
-import { StaffAssignmentSection } from './sections/StaffAssignmentSection'
 import { PerformanceScheduleSection } from './sections/PerformanceScheduleSection'
 
 // 型定義
@@ -197,18 +196,18 @@ export function ScenarioEdit() {
       case 'pricing':
         return <PricingSection formData={formData} setFormData={setFormData} />
       case 'gm-settings':
-        return <GmSettingsSection formData={formData} setFormData={setFormData} />
-      case 'costs-props':
-        return <CostsPropsSection formData={formData} setFormData={setFormData} />
-      case 'staff-assignment':
         return (
-          <StaffAssignmentSection 
+          <GmSettingsSection 
+            formData={formData} 
+            setFormData={setFormData}
             staff={staff}
             selectedStaffIds={selectedStaffIds}
             setSelectedStaffIds={setSelectedStaffIds}
             isNewScenario={!scenarioId}
           />
         )
+      case 'costs-props':
+        return <CostsPropsSection formData={formData} setFormData={setFormData} />
       case 'performance-schedule':
         return (
           <PerformanceScheduleSection 

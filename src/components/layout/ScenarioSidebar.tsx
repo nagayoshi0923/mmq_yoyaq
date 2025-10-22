@@ -7,7 +7,6 @@ import {
   DollarSign,
   Users,
   Package,
-  UserCheck,
   Calendar
 } from 'lucide-react'
 
@@ -38,21 +37,15 @@ const ScenarioSidebar: React.FC<ScenarioSidebarProps> = ({ activeTab, onTabChang
     },
     {
       id: 'gm-settings',
-      label: 'GM設定',
+      label: 'GM・スタッフ設定',
       icon: Users,
-      description: 'GM数、報酬、事前読み込み'
+      description: 'GM数、報酬、担当GM設定'
     },
     {
       id: 'costs-props',
       label: '制作費・小道具',
       icon: Package,
       description: '制作費、必要小道具'
-    },
-    {
-      id: 'staff-assignment',
-      label: 'スタッフ担当',
-      icon: UserCheck,
-      description: '担当GM設定'
     },
     {
       id: 'performance-schedule',
