@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import { ArrowLeft, Users, Shield, Clock } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -8,8 +7,8 @@ import { Input } from '@/components/ui/input'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
+import StaffSidebar from '@/components/layout/StaffSidebar'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { usePageState } from '@/hooks/usePageState'
 
@@ -25,6 +24,9 @@ import { StaffFilters } from './components/StaffFilters'
 import { createStaffColumns } from './utils/tableColumns'
 
 export function StaffManagement() {
+  // サイドバー状態
+  const [activeTab, setActiveTab] = useState('staff-list')
+  
   // ページ状態管理
   const { restoreState, saveState } = usePageState({
     pageKey: 'staff',
@@ -203,75 +205,48 @@ export function StaffManagement() {
   // ローディング表示
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="staff" />
-        <div className="container mx-auto max-w-7xl px-8 py-6">
-          <div className="space-y-6">
-            <div className="h-16 bg-gray-200 rounded animate-pulse"></div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {[...Array(4)].map((_, i) => (
-                <Card key={i}>
-                  <CardContent className="pt-6">
-                    <div className="h-20 bg-gray-200 rounded animate-pulse"></div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+      <AppLayout currentPage="staff" sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />}>
+        <div className="space-y-6">
+          <div className="h-16 bg-gray-200 rounded animate-pulse"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i}>
+                <CardContent className="pt-6">
+                  <div className="h-20 bg-gray-200 rounded animate-pulse"></div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
-      </div>
+      </AppLayout>
     )
   }
 
   // エラー表示
   if (error) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="staff" />
-        <div className="container mx-auto max-w-7xl px-8 py-6">
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="pt-6">
-              <p className="text-red-800">{error}</p>
-              <Button onClick={() => loadStaff()} className="mt-4" variant="outline">
-                再読み込み
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <AppLayout currentPage="staff" sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />}>
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-red-800">{error}</p>
+            <Button onClick={() => window.location.reload()} className="mt-4" variant="outline">
+              再読み込み
+            </Button>
+          </CardContent>
+        </Card>
+      </AppLayout>
     )
   }
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="staff" />
-      
-        <div className="container mx-auto max-w-7xl px-8 py-6">
-          <div className="space-y-6">
-            {/* ヘッダー */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => window.history.back()}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  戻る
-                </Button>
-                <div>
-                  <h1>スタッフ管理</h1>
-                  <p className="text-muted-foreground">
-                    全{staff.length}名のスタッフ管理
-                  </p>
-                </div>
-              </div>
-            </div>
-
+      <AppLayout 
+        currentPage="staff" 
+        sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+        maxWidth="max-w-[1600px]"
+        containerPadding="px-6 py-6"
+      >
+        <div className="space-y-6">
             {/* 統計情報 */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
@@ -495,7 +470,8 @@ export function StaffManagement() {
             )}
           </DialogContent>
         </Dialog>
-      </div>
+        </div>
+      </AppLayout>
     </TooltipProvider>
   )
 }
