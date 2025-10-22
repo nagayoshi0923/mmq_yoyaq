@@ -202,6 +202,7 @@ export function PrivateBookingManagement() {
       <div className="space-y-6">
         <div className="flex justify-between items-center mb-6">
           <div></div>
+        </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')}>
           <div className="flex items-center justify-between mb-6">
