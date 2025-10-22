@@ -22,6 +22,7 @@ import { ScenarioFilters } from './components/ScenarioFilters'
 import { useScenarioFilters } from './hooks/useScenarioFilters'
 import {
   useScenariosQuery,
+  useScenariosInfiniteQuery,
   useDeleteScenarioMutation,
   useImportScenariosMutation
 } from './hooks/useScenarioQuery'
@@ -42,13 +43,39 @@ export function ScenarioManagement() {
   const [isImporting, setIsImporting] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
+  const [useInfiniteScroll] = useState(true) // 無限スクロールのON/OFF（将来的に切り替え機能を追加予定）
   
   // ファイルインput参照
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
 
   // React Query でデータ管理
   const queryClient = useQueryClient()
-  const { data: scenarios = [], isLoading: loading, error: queryError } = useScenariosQuery()
+  
+  // 無限スクロール版（デフォルト）
+  const {
+    data: infiniteData,
+    isLoading: infiniteLoading,
+    error: infiniteError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useScenariosInfiniteQuery(20)
+  
+  // 従来の全件取得版（フォールバック）
+  const {
+    data: allScenarios = [],
+    isLoading: allLoading,
+    error: allError
+  } = useScenariosQuery()
+  
+  // 使用するデータソースを選択
+  const scenarios = useInfiniteScroll
+    ? (infiniteData?.pages.flatMap(page => page.data) || [])
+    : allScenarios
+  const loading = useInfiniteScroll ? infiniteLoading : allLoading
+  const queryError = useInfiniteScroll ? infiniteError : allError
+  
   const deleteScenarioMutation = useDeleteScenarioMutation()
   const importScenariosMutation = useImportScenariosMutation()
   
@@ -68,6 +95,25 @@ export function ScenarioManagement() {
     handleSort,
     filteredAndSortedScenarios
   } = useScenarioFilters(scenarios)
+  
+  // 無限スクロール：Intersection Observer でスクロール監視
+  useEffect(() => {
+    if (!useInfiniteScroll || !loadMoreTriggerRef.current) return
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // トリガー要素が見えたら次のページを読み込む
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { threshold: 0.1 }
+    )
+    
+    observer.observe(loadMoreTriggerRef.current)
+    
+    return () => observer.disconnect()
+  }, [useInfiniteScroll, hasNextPage, isFetchingNextPage, fetchNextPage])
 
   // シナリオ編集ページへ遷移
   function handleEditScenario(scenario: Scenario) {
@@ -404,6 +450,33 @@ export function ScenarioManagement() {
             }
             loading={loading}
           />
+          
+          {/* 無限スクロール：トリガー要素 */}
+          {useInfiniteScroll && hasNextPage && (
+            <div 
+              ref={loadMoreTriggerRef}
+              className="flex justify-center py-4"
+            >
+              {isFetchingNextPage ? (
+                <div className="text-sm text-muted-foreground">読み込み中...</div>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                >
+                  さらに読み込む
+                </Button>
+              )}
+            </div>
+          )}
+          
+          {/* データ読み込み状況の表示 */}
+          {useInfiniteScroll && !hasNextPage && scenarios.length > 0 && (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              全{scenarios.length}件のシナリオを表示しています
+            </div>
+          )}
         </div>
 
         {/* 削除確認ダイアログ */}
