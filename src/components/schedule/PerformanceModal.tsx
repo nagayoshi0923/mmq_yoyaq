@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { X, ChevronDown, ChevronUp, Mail } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, Mail, ExternalLink } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
@@ -893,6 +893,25 @@ export function PerformanceModal({
                 ※ 貸切リクエストのシナリオは変更できません
               </p>
             )}
+            {/* シナリオ詳細へのリンク */}
+            {formData.scenario && (() => {
+              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+              if (selectedScenario) {
+                return (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="mt-1 h-auto p-0 text-xs"
+                    onClick={() => window.location.hash = `scenario/${selectedScenario.id}`}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    シナリオ詳細を確認
+                  </Button>
+                )
+              }
+              return null
+            })()}
           </div>
 
           {/* GM管理 */}
