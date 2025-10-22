@@ -276,22 +276,6 @@ export interface SalesData {
   totalLicenseCost: number
   totalGmCost: number
   netProfit: number
-  monthlyRevenue: Array<{
-    month: string
-    revenue: number
-    events: number
-    licenseCost: number
-    gmCost: number
-    netProfit: number
-  }>
-  dailyRevenue: Array<{
-    date: string
-    revenue: number
-    events: number
-    licenseCost: number
-    gmCost: number
-    netProfit: number
-  }>
   storeRanking: Array<{
     id: string
     name: string
@@ -322,6 +306,18 @@ export interface SalesData {
       tension: number
     }>
   }
+  eventList: Array<{
+    id: string
+    date: string
+    store_name: string
+    scenario_title: string
+    revenue: number
+    license_cost: number
+    gm_cost: number
+    net_profit: number
+    participant_count: number
+    category?: string
+  }>
 }
 
 // 顧客関連の型定義

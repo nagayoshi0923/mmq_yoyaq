@@ -155,11 +155,13 @@ export function useSalesData() {
 // 売上データ計算関数
 function calculateSalesData(
   events: Array<{ 
+    id?: string;
     revenue?: number; 
     store_id: string; 
     scenario?: string; 
     scenario_id?: string; 
     date: string;
+    current_participants?: number;
     scenarios?: {
       license_amount?: number;
       gm_test_license_amount?: number;
@@ -343,6 +345,40 @@ function calculateSalesData(
     }]
   }
 
+  // 実施公演リスト用のデータを作成
+  const eventList = events.map(event => {
+    const scenario = event.scenarios
+    let licenseCost = 0
+    let gmCost = 0
+
+    if (scenario) {
+      const isGmTest = event.category === 'gmtest'
+      licenseCost = isGmTest 
+        ? (scenario.gm_test_license_amount || 0)
+        : (scenario.license_amount || 0)
+
+      if (scenario.gm_costs && scenario.gm_costs.length > 0) {
+        gmCost = scenario.gm_costs.reduce((sum, gm) => sum + gm.reward, 0)
+      }
+    }
+
+    const store = stores.find(s => s.id === event.store_id)
+    const netProfit = (event.revenue || 0) - licenseCost - gmCost
+
+    return {
+      id: event.id || `${event.date}-${event.store_id}-${event.scenario}`,
+      date: event.date,
+      store_name: store?.name || '不明',
+      scenario_title: event.scenario || '不明',
+      revenue: event.revenue || 0,
+      license_cost: licenseCost,
+      gm_cost: gmCost,
+      net_profit: netProfit,
+      participant_count: event.current_participants || 0,
+      category: event.category
+    }
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // 新しい日付順でソート
+
   return {
     totalRevenue,
     totalEvents,
@@ -352,6 +388,7 @@ function calculateSalesData(
     netProfit,
     storeRanking,
     scenarioRanking,
-    chartData
+    chartData,
+    eventList
   }
 }

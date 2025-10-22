@@ -1,7 +1,7 @@
 import React from 'react'
 import { SalesData } from '@/types'
 import { SummaryCards } from './SummaryCards'
-import { RankingCards } from './RankingCards'
+import { EventListCard } from './EventListCard'
 import { SalesChart } from './SalesChart'
 import { ExportButtons } from './ExportButtons'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -115,12 +115,9 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
         />
           </div>
 
-          {/* ランキングカード */}
+          {/* 実施公演リスト */}
           <div className="mb-6">
-            <RankingCards 
-              storeRanking={salesData.storeRanking} 
-              scenarioRanking={salesData.scenarioRanking} 
-            />
+            <EventListCard events={salesData.eventList} />
           </div>
 
           {/* チャート */}
