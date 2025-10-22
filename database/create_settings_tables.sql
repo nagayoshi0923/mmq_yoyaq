@@ -54,6 +54,13 @@ CREATE TABLE IF NOT EXISTS reservation_settings (
   cancellation_deadline_hours INTEGER DEFAULT 24,
   max_bookings_per_customer INTEGER,
   require_phone_verification BOOLEAN DEFAULT false,
+  -- キャンセル料金設定（時間前による段階的な料金設定）
+  cancellation_fees JSONB DEFAULT '[
+    {"hours_before": 168, "fee_percentage": 0, "description": "1週間前まで無料"},
+    {"hours_before": 72, "fee_percentage": 30, "description": "3日前まで30%"},
+    {"hours_before": 24, "fee_percentage": 50, "description": "前日まで50%"},
+    {"hours_before": 0, "fee_percentage": 100, "description": "当日100%"}
+  ]'::JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(store_id)
