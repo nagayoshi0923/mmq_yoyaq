@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { Ticket, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -10,12 +12,13 @@ import { logger } from '@/utils/logger'
 interface ReservationSettings {
   id: string
   store_id: string
-  booking_start_days: number
-  booking_deadline_days: number
-  cancellation_deadline_days: number
-  min_participants: number
-  max_participants: number
-  max_simultaneous_bookings: number
+  max_participants_per_booking: number
+  advance_booking_days: number
+  same_day_booking_cutoff: number
+  cancellation_policy: string
+  cancellation_deadline_hours: number
+  max_bookings_per_customer: number | null
+  require_phone_verification: boolean
 }
 
 export function ReservationSettings() {
@@ -24,12 +27,13 @@ export function ReservationSettings() {
   const [formData, setFormData] = useState<ReservationSettings>({
     id: '',
     store_id: '',
-    booking_start_days: 30,
-    booking_deadline_days: 1,
-    cancellation_deadline_days: 3,
-    min_participants: 4,
-    max_participants: 8,
-    max_simultaneous_bookings: 3
+    max_participants_per_booking: 8,
+    advance_booking_days: 90,
+    same_day_booking_cutoff: 2,
+    cancellation_policy: '',
+    cancellation_deadline_hours: 24,
+    max_bookings_per_customer: null,
+    require_phone_verification: false
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -77,12 +81,13 @@ export function ReservationSettings() {
         setFormData({
           id: '',
           store_id: storeId,
-          booking_start_days: 30,
-          booking_deadline_days: 1,
-          cancellation_deadline_days: 3,
-          min_participants: 4,
-          max_participants: 8,
-          max_simultaneous_bookings: 3
+          max_participants_per_booking: 8,
+          advance_booking_days: 90,
+          same_day_booking_cutoff: 2,
+          cancellation_policy: '',
+          cancellation_deadline_hours: 24,
+          max_bookings_per_customer: null,
+          require_phone_verification: false
         })
       }
     } catch (error) {
@@ -102,12 +107,13 @@ export function ReservationSettings() {
         const { error } = await supabase
           .from('reservation_settings')
           .update({
-            booking_start_days: formData.booking_start_days,
-            booking_deadline_days: formData.booking_deadline_days,
-            cancellation_deadline_days: formData.cancellation_deadline_days,
-            min_participants: formData.min_participants,
-            max_participants: formData.max_participants,
-            max_simultaneous_bookings: formData.max_simultaneous_bookings
+            max_participants_per_booking: formData.max_participants_per_booking,
+            advance_booking_days: formData.advance_booking_days,
+            same_day_booking_cutoff: formData.same_day_booking_cutoff,
+            cancellation_policy: formData.cancellation_policy,
+            cancellation_deadline_hours: formData.cancellation_deadline_hours,
+            max_bookings_per_customer: formData.max_bookings_per_customer,
+            require_phone_verification: formData.require_phone_verification
           })
           .eq('id', formData.id)
 
@@ -117,23 +123,24 @@ export function ReservationSettings() {
           .from('reservation_settings')
           .insert({
             store_id: formData.store_id,
-            booking_start_days: formData.booking_start_days,
-            booking_deadline_days: formData.booking_deadline_days,
-            cancellation_deadline_days: formData.cancellation_deadline_days,
-            min_participants: formData.min_participants,
-            max_participants: formData.max_participants,
-            max_simultaneous_bookings: formData.max_simultaneous_bookings
+            max_participants_per_booking: formData.max_participants_per_booking,
+            advance_booking_days: formData.advance_booking_days,
+            same_day_booking_cutoff: formData.same_day_booking_cutoff,
+            cancellation_policy: formData.cancellation_policy,
+            cancellation_deadline_hours: formData.cancellation_deadline_hours,
+            max_bookings_per_customer: formData.max_bookings_per_customer,
+            require_phone_verification: formData.require_phone_verification
           })
           .select()
           .single()
 
         if (error) throw error
         if (data) {
-          setFormData(prev => ({ ...prev, id: data.id }))
+          setFormData(data)
         }
       }
 
-      alert('保存しました')
+      alert('設定を保存しました')
     } catch (error) {
       logger.error('保存エラー:', error)
       alert('保存に失敗しました')
@@ -163,50 +170,36 @@ export function ReservationSettings() {
       <Card>
         <CardHeader>
           <CardTitle>予約受付期間</CardTitle>
-          <CardDescription>予約の受付開始日と締切日を設定します</CardDescription>
+          <CardDescription>予約の受付開始日と締切を設定します</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="booking_start_days">予約開始（日前）</Label>
+              <Label htmlFor="advance_booking_days">事前予約可能日数</Label>
               <Input
-                id="booking_start_days"
+                id="advance_booking_days"
                 type="number"
-                value={formData.booking_start_days}
-                onChange={(e) => setFormData(prev => ({ ...prev, booking_start_days: parseInt(e.target.value) || 0 }))}
+                value={formData.advance_booking_days}
+                onChange={(e) => setFormData(prev => ({ ...prev, advance_booking_days: parseInt(e.target.value) || 0 }))}
                 min="1"
                 max="365"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                公演日の{formData.booking_start_days}日前から予約開始
+                {formData.advance_booking_days}日前から予約可能
               </p>
             </div>
             <div>
-              <Label htmlFor="booking_deadline_days">予約締切（日前）</Label>
+              <Label htmlFor="same_day_booking_cutoff">当日予約締切（時間前）</Label>
               <Input
-                id="booking_deadline_days"
+                id="same_day_booking_cutoff"
                 type="number"
-                value={formData.booking_deadline_days}
-                onChange={(e) => setFormData(prev => ({ ...prev, booking_deadline_days: parseInt(e.target.value) || 0 }))}
+                value={formData.same_day_booking_cutoff}
+                onChange={(e) => setFormData(prev => ({ ...prev, same_day_booking_cutoff: parseInt(e.target.value) || 0 }))}
                 min="0"
-                max="30"
+                max="24"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                公演日の{formData.booking_deadline_days}日前まで予約可能
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="cancellation_deadline_days">キャンセル期限（日前）</Label>
-              <Input
-                id="cancellation_deadline_days"
-                type="number"
-                value={formData.cancellation_deadline_days}
-                onChange={(e) => setFormData(prev => ({ ...prev, cancellation_deadline_days: parseInt(e.target.value) || 0 }))}
-                min="0"
-                max="30"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                公演日の{formData.cancellation_deadline_days}日前までキャンセル可能
+                公演開始の{formData.same_day_booking_cutoff}時間前まで予約可能
               </p>
             </div>
           </div>
@@ -216,51 +209,97 @@ export function ReservationSettings() {
       {/* 人数制限 */}
       <Card>
         <CardHeader>
-          <CardTitle>参加人数制限</CardTitle>
-          <CardDescription>最小・最大参加人数を設定します</CardDescription>
+          <CardTitle>参加人数・予約数制限</CardTitle>
+          <CardDescription>1回の予約あたりの最大人数と顧客あたりの予約数を設定します</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="min_participants">最小参加人数</Label>
+              <Label htmlFor="max_participants_per_booking">1回の予約の最大人数</Label>
               <Input
-                id="min_participants"
+                id="max_participants_per_booking"
                 type="number"
-                value={formData.min_participants}
-                onChange={(e) => setFormData(prev => ({ ...prev, min_participants: parseInt(e.target.value) || 0 }))}
-                min="1"
-                max="20"
-              />
-            </div>
-            <div>
-              <Label htmlFor="max_participants">最大参加人数</Label>
-              <Input
-                id="max_participants"
-                type="number"
-                value={formData.max_participants}
-                onChange={(e) => setFormData(prev => ({ ...prev, max_participants: parseInt(e.target.value) || 0 }))}
+                value={formData.max_participants_per_booking}
+                onChange={(e) => setFormData(prev => ({ ...prev, max_participants_per_booking: parseInt(e.target.value) || 0 }))}
                 min="1"
                 max="50"
               />
             </div>
             <div>
-              <Label htmlFor="max_simultaneous_bookings">同時予約可能数</Label>
+              <Label htmlFor="max_bookings_per_customer">顧客あたりの最大予約数</Label>
               <Input
-                id="max_simultaneous_bookings"
+                id="max_bookings_per_customer"
                 type="number"
-                value={formData.max_simultaneous_bookings}
-                onChange={(e) => setFormData(prev => ({ ...prev, max_simultaneous_bookings: parseInt(e.target.value) || 0 }))}
-                min="1"
-                max="10"
+                value={formData.max_bookings_per_customer || 0}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0
+                  setFormData(prev => ({ ...prev, max_bookings_per_customer: value === 0 ? null : value }))
+                }}
+                min="0"
+                max="20"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                1人のユーザーが同時に予約できる公演数
+                0 = 制限なし
               </p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* キャンセルポリシー */}
+      <Card>
+        <CardHeader>
+          <CardTitle>キャンセルポリシー</CardTitle>
+          <CardDescription>キャンセルの締切と規約を設定します</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="cancellation_deadline_hours">キャンセル期限（時間前）</Label>
+            <Input
+              id="cancellation_deadline_hours"
+              type="number"
+              value={formData.cancellation_deadline_hours}
+              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_deadline_hours: parseInt(e.target.value) || 0 }))}
+              min="0"
+              max="720"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              公演開始の{formData.cancellation_deadline_hours}時間前までキャンセル可能
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="cancellation_policy">キャンセルポリシー</Label>
+            <Textarea
+              id="cancellation_policy"
+              value={formData.cancellation_policy}
+              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_policy: e.target.value }))}
+              placeholder="キャンセルポリシーを入力"
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 電話番号認証 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>認証設定</CardTitle>
+          <CardDescription>予約時の認証要件を設定します</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="require_phone_verification">電話番号認証を要求</Label>
+              <p className="text-sm text-muted-foreground">予約時に電話番号の認証を必須にします</p>
+            </div>
+            <Switch
+              id="require_phone_verification"
+              checked={formData.require_phone_verification}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, require_phone_verification: checked }))}
+            />
           </div>
         </CardContent>
       </Card>
     </div>
   )
 }
-
