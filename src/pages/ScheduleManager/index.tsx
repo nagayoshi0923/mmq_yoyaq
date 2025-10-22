@@ -10,8 +10,7 @@ import { useCategoryFilter } from './hooks/useCategoryFilter'
 import { useMonthNavigation } from './hooks/useMonthNavigation'
 
 // Layout Components
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
 
 // Schedule Components
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
@@ -87,11 +86,12 @@ export function ScheduleManager() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <NavigationBar currentPage="schedule" />
-
-      <div className="container mx-auto p-4">
+    <AppLayout
+      currentPage="schedule"
+      maxWidth="max-w-[1800px]"
+      containerPadding="p-4"
+    >
+      <div className="space-y-4">
         {/* ヘッダー */}
         <ScheduleHeader
           currentDate={currentDate}
@@ -232,6 +232,6 @@ export function ScheduleManager() {
           />
         )}
       </div>
-    </div>
+    </AppLayout>
   )
 }
