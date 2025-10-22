@@ -240,7 +240,12 @@ export function ScenarioEdit() {
                 <h2 className="text-2xl font-bold">
                   {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
                 </h2>
-                {scenarioId && (
+                {formData.title && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {formData.title}
+                  </p>
+                )}
+                {scenarioId && !formData.title && (
                   <p className="text-sm text-muted-foreground mt-1">
                     ID: {scenarioId}
                   </p>
