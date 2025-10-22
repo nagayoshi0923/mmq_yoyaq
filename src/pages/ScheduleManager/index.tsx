@@ -11,6 +11,7 @@ import { useMonthNavigation } from './hooks/useMonthNavigation'
 
 // Layout Components
 import { AppLayout } from '@/components/layout/AppLayout'
+import ScheduleSidebar from '@/components/layout/ScheduleSidebar'
 
 // Schedule Components
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
@@ -36,6 +37,7 @@ export function ScheduleManager() {
 
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('schedule-view')
 
   // スケジュールテーブルの共通フック
   const scheduleTableProps = useScheduleTable({ currentDate })
@@ -87,11 +89,12 @@ export function ScheduleManager() {
 
   return (
     <AppLayout
-      currentPage="schedule"
-      maxWidth="max-w-[1800px]"
-      containerPadding="p-4"
+      currentPage="schedule" 
+      sidebar={<ScheduleSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      maxWidth="max-w-[1600px]"
+      containerPadding="px-4 py-4"
     >
-      <div className="space-y-4">
+      <div>
         {/* ヘッダー */}
         <ScheduleHeader
           currentDate={currentDate}
