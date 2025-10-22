@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
 import ScenarioSidebar from '@/components/layout/ScenarioSidebar'
 import { useSessionState } from '@/hooks/useSessionState'
 import { Button } from '@/components/ui/button'
@@ -297,54 +296,45 @@ export function ScenarioEdit() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="scenarios" />
-      
-      <div className="flex">
-        {/* サイドバー */}
-        <div className="hidden lg:block">
-          <ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+    <AppLayout
+      currentPage="scenarios"
+      sidebar={<ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      maxWidth="max-w-7xl"
+      containerPadding="px-8 py-6"
+      stickyLayout={true}
+    >
+      {/* ヘッダー */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold">
+            {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
+          </h2>
+          {formData.title && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {formData.title}
+            </p>
+          )}
+          {scenarioId && !formData.title && (
+            <p className="text-sm text-muted-foreground mt-1">
+              ID: {scenarioId}
+            </p>
+          )}
         </div>
-        
-        {/* メインコンテンツ */}
-        <div className="flex-1 min-w-0">
-          <div className="container mx-auto max-w-7xl px-8 py-6">
-            {/* ヘッダー */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold">
-                  {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
-                </h2>
-                {formData.title && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {formData.title}
-                  </p>
-                )}
-                {scenarioId && !formData.title && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    ID: {scenarioId}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleBack}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  一覧に戻る
-                </Button>
-                <Button onClick={handleSave} disabled={scenarioMutation.isPending}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {scenarioMutation.isPending ? '保存中...' : '保存'}
-                </Button>
-              </div>
-            </div>
-
-            {/* コンテンツ */}
-            {renderContent()}
-          </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            一覧に戻る
+          </Button>
+          <Button onClick={handleSave} disabled={scenarioMutation.isPending}>
+            <Save className="h-4 w-4 mr-2" />
+            {scenarioMutation.isPending ? '保存中...' : '保存'}
+          </Button>
         </div>
       </div>
-    </div>
+
+      {/* コンテンツ */}
+      {renderContent()}
+    </AppLayout>
   )
 }
 

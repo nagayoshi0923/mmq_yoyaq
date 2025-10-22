@@ -109,7 +109,7 @@ export interface Scenario {
     amount: number
   }>
   // GM配置システム
-  gm_costs: Array<{ role: string; reward: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
+  gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   // 新しい時間帯別料金設定
   participation_costs: Array<{ time_slot: string; amount: number; type: 'percentage' | 'fixed'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   participation_fee: number // 基本料金（後方互換性のため保持）

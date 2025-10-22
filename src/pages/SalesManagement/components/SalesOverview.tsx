@@ -6,6 +6,8 @@ import { SalesChart } from './SalesChart'
 import { ExportButtons } from './ExportButtons'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface Store {
@@ -21,6 +23,10 @@ interface SalesOverviewProps {
   selectedPeriod: string
   selectedStore: string
   dateRange: { startDate: string; endDate: string }
+  customStartDate: string
+  customEndDate: string
+  onCustomStartDateChange: (date: string) => void
+  onCustomEndDateChange: (date: string) => void
   onPeriodChange: (period: string) => void
   onStoreChange: (store: string) => void
 }
@@ -35,6 +41,10 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   selectedPeriod,
   selectedStore,
   dateRange,
+  customStartDate,
+  customEndDate,
+  onCustomStartDateChange,
+  onCustomEndDateChange,
   onPeriodChange,
   onStoreChange
 }) => {
@@ -62,42 +72,73 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       </div>
 
       {/* フィルター */}
-      <div className="flex gap-4 mb-6">
-        <div className="flex-1">
-          <Label>期間</Label>
-          <Select value={selectedPeriod} onValueChange={onPeriodChange}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="thisMonth">今月</SelectItem>
-              <SelectItem value="lastMonth">先月</SelectItem>
-              <SelectItem value="thisWeek">今週</SelectItem>
-              <SelectItem value="lastWeek">先週</SelectItem>
-              <SelectItem value="last7days">直近7日</SelectItem>
-              <SelectItem value="last30days">直近30日</SelectItem>
-              <SelectItem value="thisYear">今年</SelectItem>
-              <SelectItem value="lastYear">去年</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="space-y-4 mb-6">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <Label>期間</Label>
+            <Select value={selectedPeriod} onValueChange={onPeriodChange}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="thisMonth">今月</SelectItem>
+                <SelectItem value="lastMonth">先月</SelectItem>
+                <SelectItem value="thisWeek">今週</SelectItem>
+                <SelectItem value="lastWeek">先週</SelectItem>
+                <SelectItem value="last7days">直近7日</SelectItem>
+                <SelectItem value="last30days">直近30日</SelectItem>
+                <SelectItem value="thisYear">今年</SelectItem>
+                <SelectItem value="lastYear">去年</SelectItem>
+                <SelectItem value="custom">カスタム期間</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex-1">
+            <Label>店舗</Label>
+            <Select value={selectedStore} onValueChange={onStoreChange}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全店舗</SelectItem>
+                {stores.map(store => (
+                  <SelectItem key={store.id} value={store.id}>
+                    {store.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="flex-1">
-          <Label>店舗</Label>
-          <Select value={selectedStore} onValueChange={onStoreChange}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全店舗</SelectItem>
-              {stores.map(store => (
-                <SelectItem key={store.id} value={store.id}>
-                  {store.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* カスタム期間選択UI */}
+        {selectedPeriod === 'custom' && (
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <Label>開始日</Label>
+              <Input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => onCustomStartDateChange(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <Label>終了日</Label>
+              <Input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => onCustomEndDateChange(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={() => onPeriodChange('custom')}
+              disabled={!customStartDate || !customEndDate}
+            >
+              適用
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* サマリーカード */}

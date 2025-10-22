@@ -1,8 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
 import ScenarioSidebar from '@/components/layout/ScenarioSidebar'
 import type { Scenario } from '@/types'
 import { 
@@ -292,30 +291,20 @@ export function ScenarioManagement() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="scenarios" />
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">読み込み中...</div>
-        </div>
-      </div>
+      <AppLayout currentPage="scenarios">
+        <div className="text-center">読み込み中...</div>
+      </AppLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="scenarios" />
-
-      <div className="flex">
-        {/* サイドバー */}
-        <div className="hidden lg:block">
-          <ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} mode="list" />
-        </div>
-        
-        {/* メインコンテンツ */}
-        <div className="flex-1 min-w-0">
-          <div className="container mx-auto px-4 py-8">
+    <AppLayout
+      currentPage="scenarios"
+      sidebar={<ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} mode="list" />}
+      maxWidth="max-w-[1600px]"
+      containerPadding="px-4 py-8"
+      stickyLayout={true}
+    >
         <div className="space-y-6">
           {/* ヘッダー */}
           <div className="flex items-center justify-between">
@@ -416,12 +405,9 @@ export function ScenarioManagement() {
             loading={loading}
           />
         </div>
-          </div>
-        </div>
-      </div>
 
-      {/* 削除確認ダイアログ */}
-      <ConfirmModal
+        {/* 削除確認ダイアログ */}
+        <ConfirmModal
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
         onConfirm={confirmDelete}
@@ -430,6 +416,6 @@ export function ScenarioManagement() {
         variant="danger"
         confirmLabel="削除"
       />
-    </div>
+    </AppLayout>
   )
 }

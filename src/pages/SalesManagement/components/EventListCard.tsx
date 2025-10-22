@@ -122,14 +122,14 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
                   <div className="text-center min-w-[80px]">
                     <div className="text-xs text-muted-foreground">ライセンス</div>
                     <div className="font-bold text-red-600 text-sm">
-                      -{formatCurrency(event.license_cost)}
+                      {formatCurrency(event.license_cost)}
                     </div>
                   </div>
 
                   <div className="text-center min-w-[80px]">
                     <div className="text-xs text-muted-foreground">GM給与</div>
                     <div className="font-bold text-red-600 text-sm">
-                      -{formatCurrency(event.gm_cost)}
+                      {formatCurrency(event.gm_cost)}
                     </div>
                   </div>
 
@@ -156,13 +156,13 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
             <div>
               <div className="text-sm text-muted-foreground">総ライセンス</div>
               <div className="font-bold text-red-600">
-                -{formatCurrency(events.reduce((sum, event) => sum + event.license_cost, 0))}
+                {formatCurrency(events.reduce((sum, event) => sum + event.license_cost, 0))}
               </div>
             </div>
             <div>
               <div className="text-sm text-muted-foreground">総GM給与</div>
               <div className="font-bold text-red-600">
-                -{formatCurrency(events.reduce((sum, event) => sum + event.gm_cost, 0))}
+                {formatCurrency(events.reduce((sum, event) => sum + event.gm_cost, 0))}
               </div>
             </div>
             <div>

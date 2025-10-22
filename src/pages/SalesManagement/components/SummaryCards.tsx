@@ -103,7 +103,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-red-600">
-            -{formatCurrency(totalLicenseCost)}
+            {formatCurrency(totalLicenseCost)}
           </div>
           <p className="text-xs text-muted-foreground">
             作者への支払い
@@ -118,7 +118,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-red-600">
-            -{formatCurrency(totalGmCost)}
+            {formatCurrency(totalGmCost)}
           </div>
           <p className="text-xs text-muted-foreground">
             GMスタッフへの支払い

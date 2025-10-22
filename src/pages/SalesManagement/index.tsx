@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { useSessionState } from '@/hooks/useSessionState'
 import SalesSidebar from '@/components/layout/SalesSidebar'
 import AuthorReport from '../AuthorReport/index'
@@ -43,13 +42,17 @@ const SalesManagement: React.FC = () => {
     stores,
     dateRange,
     selectedPeriod,
+    customStartDate,
+    customEndDate,
+    setCustomStartDate,
+    setCustomEndDate,
     loadSalesData
   } = useSalesData()
 
   // 店舗データ取得後にデータをロード
   useEffect(() => {
     if (stores.length > 0) {
-      loadSalesData('thisMonth', 'all')
+      loadSalesData('thisMonth', selectedStore)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stores.length])
@@ -81,6 +84,10 @@ const SalesManagement: React.FC = () => {
             selectedPeriod={selectedPeriod}
             selectedStore={selectedStore}
             dateRange={dateRange}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            onCustomStartDateChange={setCustomStartDate}
+            onCustomEndDateChange={setCustomEndDate}
             onPeriodChange={(period) => loadSalesData(period, selectedStore)}
             onStoreChange={(store) => {
               setSelectedStore(store)
@@ -110,6 +117,10 @@ const SalesManagement: React.FC = () => {
             selectedPeriod={selectedPeriod}
             selectedStore={selectedStore}
             dateRange={dateRange}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            onCustomStartDateChange={setCustomStartDate}
+            onCustomEndDateChange={setCustomEndDate}
             onPeriodChange={(period) => loadSalesData(period, selectedStore)}
             onStoreChange={(store) => {
               setSelectedStore(store)
@@ -121,24 +132,15 @@ const SalesManagement: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="sales" />
-      
-      <div className="flex">
-        {/* サイドバー */}
-        <div className="hidden lg:block">
-          <SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        </div>
-        
-        {/* メインコンテンツ */}
-        <div className="flex-1 min-w-0">
-          <div className="container mx-auto max-w-7xl px-8 py-6">
-            {renderContent()}
-          </div>
-        </div>
-      </div>
-    </div>
+    <AppLayout
+      currentPage="sales"
+      sidebar={<SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      maxWidth="max-w-[1600px]"
+      containerPadding="px-8 py-6"
+      stickyLayout={true}
+    >
+      {renderContent()}
+    </AppLayout>
   )
 }
 

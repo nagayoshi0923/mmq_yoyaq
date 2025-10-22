@@ -26,6 +26,8 @@ export function useSalesData() {
   const [stores, setStores] = useState<Store[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState('thisMonth')
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
 
   // 店舗一覧を取得
   useEffect(() => {
@@ -50,38 +52,54 @@ export function useSalesData() {
 
     // 日付範囲を計算
     let rangeResult
-    switch (period) {
-      case 'thisMonth':
-        rangeResult = getThisMonthRangeJST()
-        break
-      case 'lastMonth':
-        rangeResult = getLastMonthRangeJST()
-        break
-      case 'thisWeek':
-        rangeResult = getThisWeekRangeJST()
-        break
-      case 'lastWeek':
-        rangeResult = getLastWeekRangeJST()
-        break
-      case 'last7days':
-        rangeResult = getPastDaysRangeJST(7)
-        break
-      case 'last30days':
-        rangeResult = getPastDaysRangeJST(30)
-        break
-      case 'thisYear':
-        rangeResult = getThisYearRangeJST()
-        break
-      case 'lastYear':
-        rangeResult = getLastYearRangeJST()
-        break
-      default:
-        rangeResult = getThisMonthRangeJST()
-    }
+    let range
     
-    const range = {
-      startDate: rangeResult.startDateStr,
-      endDate: rangeResult.endDateStr
+    if (period === 'custom') {
+      // カスタム期間の場合は、customStartDateとcustomEndDateを使用
+      if (!customStartDate || !customEndDate) {
+        logger.warn('⚠️ カスタム期間が未設定です')
+        setLoading(false)
+        return
+      }
+      range = {
+        startDate: customStartDate,
+        endDate: customEndDate
+      }
+    } else {
+      // プリセット期間の場合
+      switch (period) {
+        case 'thisMonth':
+          rangeResult = getThisMonthRangeJST()
+          break
+        case 'lastMonth':
+          rangeResult = getLastMonthRangeJST()
+          break
+        case 'thisWeek':
+          rangeResult = getThisWeekRangeJST()
+          break
+        case 'lastWeek':
+          rangeResult = getLastWeekRangeJST()
+          break
+        case 'last7days':
+          rangeResult = getPastDaysRangeJST(7)
+          break
+        case 'last30days':
+          rangeResult = getPastDaysRangeJST(30)
+          break
+        case 'thisYear':
+          rangeResult = getThisYearRangeJST()
+          break
+        case 'lastYear':
+          rangeResult = getLastYearRangeJST()
+          break
+        default:
+          rangeResult = getThisMonthRangeJST()
+      }
+      
+      range = {
+        startDate: rangeResult.startDateStr,
+        endDate: rangeResult.endDateStr
+      }
     }
 
     setDateRange(range)
@@ -140,7 +158,7 @@ export function useSalesData() {
     } finally {
       setLoading(false)
     }
-  }, [stores])
+  }, [stores, customStartDate, customEndDate])
 
   return {
     salesData,
@@ -148,6 +166,10 @@ export function useSalesData() {
     stores,
     dateRange,
     selectedPeriod,
+    customStartDate,
+    customEndDate,
+    setCustomStartDate,
+    setCustomEndDate,
     loadSalesData
   }
 }
@@ -165,7 +187,7 @@ function calculateSalesData(
     scenarios?: {
       license_amount?: number;
       gm_test_license_amount?: number;
-      gm_costs?: Array<{ role: string; reward: number }>;
+      gm_costs?: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }>;
     };
     category?: string;
   }>,
@@ -191,9 +213,16 @@ function calculateSalesData(
         : (scenario.license_amount || 0)
       totalLicenseCost += licenseAmount
 
-      // GM給与の計算
+      // GM給与の計算（カテゴリに応じてフィルタリング）
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const gmCost = scenario.gm_costs.reduce((sum, gm) => sum + gm.reward, 0)
+        const gmCost = scenario.gm_costs
+          .filter(gm => {
+            // categoryが設定されている場合はイベントカテゴリと一致するもののみ
+            // categoryが未設定の場合は通常公演として扱う（後方互換性）
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+          .reduce((sum, gm) => sum + gm.reward, 0)
         totalGmCost += gmCost
       }
     }
@@ -241,7 +270,12 @@ function calculateSalesData(
       storeData.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const gmCost = scenario.gm_costs.reduce((sum, gm) => sum + gm.reward, 0)
+        const gmCost = scenario.gm_costs
+          .filter(gm => {
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+          .reduce((sum, gm) => sum + gm.reward, 0)
         storeData.gmCost += gmCost
       }
     }
@@ -294,7 +328,12 @@ function calculateSalesData(
       scenarioData.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const gmCost = scenario.gm_costs.reduce((sum, gm) => sum + gm.reward, 0)
+        const gmCost = scenario.gm_costs
+          .filter(gm => {
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+          .reduce((sum, gm) => sum + gm.reward, 0)
         scenarioData.gmCost += gmCost
       }
     }
@@ -325,7 +364,12 @@ function calculateSalesData(
       current.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const gmCost = scenario.gm_costs.reduce((sum, gm) => sum + gm.reward, 0)
+        const gmCost = scenario.gm_costs
+          .filter(gm => {
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+          .reduce((sum, gm) => sum + gm.reward, 0)
         current.gmCost += gmCost
       }
     }
@@ -358,7 +402,12 @@ function calculateSalesData(
         : (scenario.license_amount || 0)
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        gmCost = scenario.gm_costs.reduce((sum, gm) => sum + gm.reward, 0)
+        gmCost = scenario.gm_costs
+          .filter(gm => {
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+          .reduce((sum, gm) => sum + gm.reward, 0)
       }
     }
 

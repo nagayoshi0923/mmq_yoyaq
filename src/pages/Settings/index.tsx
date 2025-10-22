@@ -1,5 +1,4 @@
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
 import SettingsSidebar from '@/components/layout/SettingsSidebar'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
@@ -61,29 +60,20 @@ export function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="settings" />
-      
-      <div className="flex">
-        {/* サイドバー */}
-        <div className="hidden lg:block">
-          <SettingsSidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        </div>
-        
-        {/* メインコンテンツ */}
-        <div className="flex-1 min-w-0">
-          <div className="container mx-auto max-w-7xl px-8 py-6">
-            <SettingsLayout 
-              selectedStoreId={selectedStoreId}
-              onStoreChange={handleStoreChange}
-            >
-              {renderContent()}
-            </SettingsLayout>
-          </div>
-        </div>
-      </div>
-    </div>
+    <AppLayout
+      currentPage="settings"
+      sidebar={<SettingsSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      maxWidth="max-w-[1600px]"
+      containerPadding="px-8 py-6"
+      stickyLayout={true}
+    >
+      <SettingsLayout 
+        selectedStoreId={selectedStoreId}
+        onStoreChange={handleStoreChange}
+      >
+        {renderContent()}
+      </SettingsLayout>
+    </AppLayout>
   )
 }
 

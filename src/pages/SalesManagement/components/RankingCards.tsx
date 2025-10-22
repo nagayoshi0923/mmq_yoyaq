@@ -58,7 +58,7 @@ const RankingCardsBase: React.FC<RankingCardsProps> = ({
                     純利益 {formatCurrency(store.netProfit)}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    ライセンス -{formatCurrency(store.licenseCost)} / GM -{formatCurrency(store.gmCost)}
+                    ライセンス {formatCurrency(store.licenseCost)} / GM {formatCurrency(store.gmCost)}
                   </div>
                 </div>
               </div>
@@ -93,7 +93,7 @@ const RankingCardsBase: React.FC<RankingCardsProps> = ({
                     純利益 {formatCurrency(scenario.netProfit)}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    ライセンス -{formatCurrency(scenario.licenseCost)} / GM -{formatCurrency(scenario.gmCost)}
+                    ライセンス {formatCurrency(scenario.licenseCost)} / GM {formatCurrency(scenario.gmCost)}
                   </div>
                 </div>
               </div>
