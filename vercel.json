@@ -2,48 +2,44 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/((?!.*\\.(js|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webmanifest)).*)",
-      "destination": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
+      "src": "/assets/(.*)",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      },
+      "continue": true
     },
     {
-      "source": "/(.*)\\.js",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "text/javascript; charset=utf-8"
-        }
-      ]
+      "src": "/(.*)\\.js",
+      "headers": {
+        "Content-Type": "text/javascript; charset=utf-8"
+      },
+      "continue": true
     },
     {
-      "source": "/(.*)\\.mjs",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "text/javascript; charset=utf-8"
-        }
-      ]
+      "src": "/(.*)\\.mjs",
+      "headers": {
+        "Content-Type": "text/javascript; charset=utf-8"
+      },
+      "continue": true
     },
     {
-      "source": "/manifest.webmanifest",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/manifest+json"
-        }
-      ]
+      "src": "/(.*)\\.css",
+      "headers": {
+        "Content-Type": "text/css; charset=utf-8"
+      },
+      "continue": true
+    },
+    {
+      "src": "/manifest.webmanifest",
+      "headers": {
+        "Content-Type": "application/manifest+json"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
