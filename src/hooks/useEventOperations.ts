@@ -23,6 +23,23 @@ interface UseEventOperationsProps {
   setEvents: React.Dispatch<React.SetStateAction<ScheduleEvent[]>>
   stores: Store[]
   scenarios: Scenario[]
+  fetchSchedule?: () => Promise<void>
+}
+
+// 参加者数の変更を処理する関数
+const handleParticipantChange = (
+  eventId: string, 
+  newCount: number,
+  setEvents: React.Dispatch<React.SetStateAction<ScheduleEvent[]>>
+) => {
+  setEvents(prevEvents => 
+    prevEvents.map(event => 
+      event.id === eventId 
+        ? { ...event, participant_count: newCount }
+        : event
+    )
+  )
+  logger.log('イベントの参加者数を即座に更新:', { eventId, newCount })
 }
 
 interface PerformanceData {
@@ -49,7 +66,8 @@ export function useEventOperations({
   events,
   setEvents,
   stores,
-  scenarios
+  scenarios,
+  fetchSchedule
 }: UseEventOperationsProps) {
   // モーダル状態
   const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
@@ -100,11 +118,21 @@ export function useEventOperations({
   }, [])
 
   // モーダルを閉じる
-  const handleCloseModal = useCallback(() => {
+  const handleCloseModal = useCallback(async () => {
     setIsPerformanceModalOpen(false)
     setModalInitialData(undefined)
     setEditingEvent(null)
-  }, [])
+    
+    // スケジュールデータを再読み込み（参加者数の更新を反映）
+    if (fetchSchedule) {
+      try {
+        await fetchSchedule()
+        logger.log('スケジュールデータを再読み込みしました')
+      } catch (error) {
+        logger.error('スケジュールデータの再読み込みに失敗:', error)
+      }
+    }
+  }, [fetchSchedule])
 
   // ドラッグ&ドロップハンドラー
   const handleDrop = useCallback((droppedEvent: ScheduleEvent, targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => {
@@ -640,7 +668,11 @@ export function useEventOperations({
     setIsPublishDialogOpen,
     setIsConflictWarningOpen,
     setConflictInfo,
-    setPendingPerformanceData
+    setPendingPerformanceData,
+    
+    // 参加者数変更ハンドラー
+    handleParticipantChange: (eventId: string, newCount: number) => 
+      handleParticipantChange(eventId, newCount, setEvents)
   }
 }
 

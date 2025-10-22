@@ -255,6 +255,15 @@ export function ScenarioEdit() {
         window.history.replaceState(null, '', `#scenarios/edit/${result.id || scenarioData.id}`)
       }
 
+      // formDataを保存したデータで更新（楽観的更新による上書きを防ぐ）
+      // gm_costsをgm_assignmentsに戻す
+      setFormData(prev => ({
+        ...prev,
+        gm_assignments: scenarioData.gm_costs,
+        participation_costs: scenarioData.participation_costs,
+        license_rewards: scenarioData.license_rewards
+      }))
+
       // 成功メッセージを表示
       setShowSaveSuccess(true)
       setTimeout(() => setShowSaveSuccess(false), 3000)

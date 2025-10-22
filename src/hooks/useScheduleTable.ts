@@ -60,7 +60,8 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     events,
     setEvents,
     stores,
-    scenarios
+    scenarios,
+    fetchSchedule
   })
 
   // コンテキストメニュー操作
@@ -141,7 +142,8 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         stores,
         scenarios,
         staff,
-        availableStaffByScenario
+        availableStaffByScenario,
+        onParticipantChange: eventOperations.handleParticipantChange
       },
       conflictWarning: {
         isOpen: eventOperations.isConflictWarningOpen,
@@ -225,7 +227,8 @@ export function useScheduleTableModals(currentDate: Date) {
       stores,
       scenarios,
       staff,
-      availableStaffByScenario
+      availableStaffByScenario,
+      onParticipantChange: eventOperations.handleParticipantChange
     },
     // ConflictWarningModal用
     conflictWarning: {

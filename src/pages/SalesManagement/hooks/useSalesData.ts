@@ -184,6 +184,7 @@ function calculateSalesData(
     scenario_id?: string; 
     date: string;
     current_participants?: number;
+    gms?: string[];
     scenarios?: {
       license_amount?: number;
       gm_test_license_amount?: number;
@@ -213,17 +214,32 @@ function calculateSalesData(
         : (scenario.license_amount || 0)
       totalLicenseCost += licenseAmount
 
-      // GM給与の計算（カテゴリに応じてフィルタリング）
+      // GM給与の計算（実際に参加したGMの数に基づいて計算）
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const gmCost = scenario.gm_costs
-          .filter(gm => {
-            // categoryが設定されている場合はイベントカテゴリと一致するもののみ
-            // categoryが未設定の場合は通常公演として扱う（後方互換性）
-            const gmCategory = gm.category || 'normal'
-            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-          })
-          .reduce((sum, gm) => sum + gm.reward, 0)
-        totalGmCost += gmCost
+        // 実際に参加したGMの数を取得
+        const actualGmCount = (event as any).gms?.length || 0
+        
+        if (actualGmCount > 0) {
+          // カテゴリに応じてフィルタリングし、役割でソート
+          const applicableGmCosts = scenario.gm_costs
+            .filter(gm => {
+              const gmCategory = gm.category || 'normal'
+              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+            })
+            .sort((a, b) => {
+              // main, sub, gm3... の順にソート
+              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+              return aOrder - bOrder
+            })
+          
+          // 実際のGM数分だけ報酬を合計
+          const gmCost = applicableGmCosts
+            .slice(0, actualGmCount)
+            .reduce((sum, gm) => sum + gm.reward, 0)
+          totalGmCost += gmCost
+        }
       }
     }
   })
@@ -270,13 +286,26 @@ function calculateSalesData(
       storeData.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const gmCost = scenario.gm_costs
-          .filter(gm => {
-            const gmCategory = gm.category || 'normal'
-            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-          })
-          .reduce((sum, gm) => sum + gm.reward, 0)
-        storeData.gmCost += gmCost
+        const actualGmCount = (event as any).gms?.length || 0
+        
+        if (actualGmCount > 0) {
+          const applicableGmCosts = scenario.gm_costs
+            .filter(gm => {
+              const gmCategory = gm.category || 'normal'
+              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+            })
+            .sort((a, b) => {
+              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+              return aOrder - bOrder
+            })
+          
+          const gmCost = applicableGmCosts
+            .slice(0, actualGmCount)
+            .reduce((sum, gm) => sum + gm.reward, 0)
+          storeData.gmCost += gmCost
+        }
       }
     }
   })
@@ -328,13 +357,26 @@ function calculateSalesData(
       scenarioData.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const gmCost = scenario.gm_costs
-          .filter(gm => {
-            const gmCategory = gm.category || 'normal'
-            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-          })
-          .reduce((sum, gm) => sum + gm.reward, 0)
-        scenarioData.gmCost += gmCost
+        const actualGmCount = (event as any).gms?.length || 0
+        
+        if (actualGmCount > 0) {
+          const applicableGmCosts = scenario.gm_costs
+            .filter(gm => {
+              const gmCategory = gm.category || 'normal'
+              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+            })
+            .sort((a, b) => {
+              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+              return aOrder - bOrder
+            })
+          
+          const gmCost = applicableGmCosts
+            .slice(0, actualGmCount)
+            .reduce((sum, gm) => sum + gm.reward, 0)
+          scenarioData.gmCost += gmCost
+        }
       }
     }
   })
@@ -364,13 +406,26 @@ function calculateSalesData(
       current.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const gmCost = scenario.gm_costs
-          .filter(gm => {
-            const gmCategory = gm.category || 'normal'
-            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-          })
-          .reduce((sum, gm) => sum + gm.reward, 0)
-        current.gmCost += gmCost
+        const actualGmCount = (event as any).gms?.length || 0
+        
+        if (actualGmCount > 0) {
+          const applicableGmCosts = scenario.gm_costs
+            .filter(gm => {
+              const gmCategory = gm.category || 'normal'
+              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+            })
+            .sort((a, b) => {
+              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+              return aOrder - bOrder
+            })
+          
+          const gmCost = applicableGmCosts
+            .slice(0, actualGmCount)
+            .reduce((sum, gm) => sum + gm.reward, 0)
+          current.gmCost += gmCost
+        }
       }
     }
     
@@ -402,12 +457,25 @@ function calculateSalesData(
         : (scenario.license_amount || 0)
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        gmCost = scenario.gm_costs
-          .filter(gm => {
-            const gmCategory = gm.category || 'normal'
-            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-          })
-          .reduce((sum, gm) => sum + gm.reward, 0)
+        const actualGmCount = (event as any).gms?.length || 0
+        
+        if (actualGmCount > 0) {
+          const applicableGmCosts = scenario.gm_costs
+            .filter(gm => {
+              const gmCategory = gm.category || 'normal'
+              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+            })
+            .sort((a, b) => {
+              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+              return aOrder - bOrder
+            })
+          
+          gmCost = applicableGmCosts
+            .slice(0, actualGmCount)
+            .reduce((sum, gm) => sum + gm.reward, 0)
+        }
       }
     }
 

@@ -71,6 +71,7 @@ interface PerformanceModalProps {
   availableStaffByScenario?: Record<string, StaffType[]>  // シナリオごとの出勤可能GM
   onScenariosUpdate?: () => void  // シナリオ作成後の更新用コールバック
   onStaffUpdate?: () => void  // スタッフ作成後の更新用コールバック
+  onParticipantChange?: (eventId: string, newCount: number) => void  // 参加者数変更時のコールバック
 }
 
 // 30分間隔の時間オプションを生成
@@ -99,7 +100,8 @@ export function PerformanceModal({
   staff,
   availableStaffByScenario = {},
   onScenariosUpdate,
-  onStaffUpdate
+  onStaffUpdate,
+  onParticipantChange
 }: PerformanceModalProps) {
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false)
@@ -112,6 +114,13 @@ export function PerformanceModal({
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
+  const [isAddingParticipant, setIsAddingParticipant] = useState(false)
+  const [newParticipant, setNewParticipant] = useState({
+    customer_name: '',
+    participant_count: 1,
+    payment_method: 'onsite' as 'onsite' | 'online',
+    notes: ''
+  })
   const [formData, setFormData] = useState<any>({
     id: '',
     date: '',
@@ -239,6 +248,177 @@ export function PerformanceModal({
     
     loadReservations()
   }, [mode, event?.id])
+
+  // 予約ステータスを更新する関数
+  const handleUpdateReservationStatus = async (reservationId: string, newStatus: string) => {
+    try {
+      // 変更前のステータスを取得
+      const reservation = reservations.find(r => r.id === reservationId)
+      if (!reservation) return
+      
+      const oldStatus = reservation.status
+      
+      await reservationApi.update(reservationId, { status: newStatus })
+      
+      // ローカルステートを更新
+      setReservations(prev => 
+        prev.map(r => r.id === reservationId ? { ...r, status: newStatus } : r)
+      )
+      
+      // schedule_eventsのcurrent_participantsを更新
+      // confirmed/pending → cancelled: 参加者数を減らす
+      // cancelled → confirmed/pending: 参加者数を増やす
+      if (event?.id) {
+        const wasActive = oldStatus === 'confirmed' || oldStatus === 'pending'
+        const isActive = newStatus === 'confirmed' || newStatus === 'pending'
+        
+        if (wasActive !== isActive) {
+          try {
+            const { data: eventData } = await supabase
+              .from('schedule_events')
+              .select('current_participants')
+              .eq('id', event.id)
+              .single()
+            
+            const currentCount = eventData?.current_participants || 0
+            const change = isActive ? reservation.participant_count : -reservation.participant_count
+            const newCount = Math.max(0, currentCount + change)
+            
+            await supabase
+              .from('schedule_events')
+              .update({ current_participants: newCount })
+              .eq('id', event.id)
+            
+            logger.log('公演参加者数を更新:', { 
+              eventId: event.id, 
+              oldCount: currentCount, 
+              newCount,
+              change,
+              reason: `${oldStatus} → ${newStatus}`
+            })
+            
+            // 親コンポーネントに参加者数変更を通知
+            if (onParticipantChange) {
+              onParticipantChange(event.id, newCount)
+            }
+          } catch (error) {
+            logger.error('公演参加者数の更新に失敗:', error)
+          }
+        }
+      }
+      
+      logger.log('予約ステータス更新成功:', { id: reservationId, oldStatus, newStatus })
+    } catch (error) {
+      logger.error('予約ステータス更新エラー:', error)
+      alert('ステータスの更新に失敗しました')
+    }
+  }
+
+  // 参加者を追加する関数
+  const handleAddParticipant = async () => {
+    if (!newParticipant.customer_name.trim()) {
+      alert('参加者名を入力してください')
+      return
+    }
+
+    if (!event?.id) {
+      alert('公演情報が不正です')
+      return
+    }
+
+    try {
+      // シナリオと店舗のIDを取得
+      const scenarioObj = scenarios.find(s => s.title === formData.scenario)
+      const storeObj = stores.find(s => s.id === formData.venue)
+      
+      const reservation: Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'> = {
+        schedule_event_id: event.id,
+        title: formData.scenario || '',
+        scenario_id: scenarioObj?.id || null,
+        store_id: storeObj?.id || null,
+        customer_id: null, // 匿名参加者として扱う（NULLを許可）
+        customer_notes: newParticipant.customer_name,
+        requested_datetime: `${formData.date}T${formData.start_time}+09:00`,
+        duration: scenarioObj?.duration || 120,
+        participant_count: newParticipant.participant_count,
+        participant_names: [newParticipant.customer_name],
+        assigned_staff: formData.gms || [],
+        base_price: 0,
+        options_price: 0,
+        total_price: 0,
+        discount_amount: 0,
+        final_price: 0,
+        payment_method: newParticipant.payment_method,
+        payment_status: newParticipant.payment_method === 'online' ? 'paid' : 'pending',
+        status: 'confirmed',
+        reservation_source: 'admin'
+      }
+
+      const createdReservation = await reservationApi.create(reservation)
+      logger.log('参加者追加成功:', createdReservation)
+      
+      // schedule_eventsのcurrent_participantsを更新
+      if (event.id) {
+        try {
+          // 現在の参加者数を計算
+          const { data: eventData } = await supabase
+            .from('schedule_events')
+            .select('current_participants')
+            .eq('id', event.id)
+            .single()
+          
+          const currentCount = eventData?.current_participants || 0
+          const newCount = currentCount + newParticipant.participant_count
+          
+          // 更新
+          await supabase
+            .from('schedule_events')
+            .update({ current_participants: newCount })
+            .eq('id', event.id)
+          
+          logger.log('公演参加者数を更新:', { eventId: event.id, oldCount: currentCount, newCount })
+          
+          // 親コンポーネントに参加者数変更を通知
+          if (onParticipantChange) {
+            onParticipantChange(event.id, newCount)
+          }
+        } catch (error) {
+          logger.error('公演参加者数の更新に失敗:', error)
+        }
+      }
+      
+      // 楽観的更新: 作成した予約を即座にリストに追加
+      if (createdReservation) {
+        setReservations(prev => [...prev, createdReservation])
+        logger.log('予約リストに追加しました:', createdReservation)
+      }
+      
+      // さらに念のため、サーバーから最新データを再取得
+      if (event.id) {
+        try {
+          const data = await reservationApi.getByScheduleEvent(event.id)
+          logger.log('予約リスト再読み込み:', data)
+          setReservations(data)
+        } catch (error) {
+          logger.error('予約データの取得に失敗:', error)
+        }
+      }
+      
+      // フォームをリセット
+      setNewParticipant({
+        customer_name: '',
+        participant_count: 1,
+        payment_method: 'onsite',
+        notes: ''
+      })
+      setIsAddingParticipant(false)
+      
+      alert('参加者を追加しました')
+    } catch (error) {
+      logger.error('参加者追加エラー:', error)
+      alert('参加者の追加に失敗しました')
+    }
+  }
 
   // モードに応じてフォームを初期化
   useEffect(() => {
@@ -802,13 +982,102 @@ export function PerformanceModal({
               <div className="text-center py-8 text-muted-foreground">
                 読み込み中...
               </div>
-            ) : reservations.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                予約はありません
-              </div>
             ) : (
               <div>
-                {selectedReservations.size > 0 && (
+                {/* 参加者追加ボタン */}
+                <div className="mb-4">
+                  {!isAddingParticipant ? (
+                    <Button
+                      onClick={() => setIsAddingParticipant(true)}
+                      size="sm"
+                    >
+                      + 参加者を追加
+                    </Button>
+                  ) : (
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      <h4 className="font-medium mb-3">新しい参加者を追加</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="customer_name">参加者名 *</Label>
+                          <Input
+                            id="customer_name"
+                            value={newParticipant.customer_name}
+                            onChange={(e) => setNewParticipant(prev => ({ ...prev, customer_name: e.target.value }))}
+                            placeholder="参加者名を入力"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="participant_count">人数</Label>
+                            <Input
+                              id="participant_count"
+                              type="number"
+                              min="1"
+                              value={newParticipant.participant_count}
+                              onChange={(e) => setNewParticipant(prev => ({ ...prev, participant_count: parseInt(e.target.value) || 1 }))}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="payment_method">支払い方法</Label>
+                            <Select
+                              value={newParticipant.payment_method}
+                              onValueChange={(value: 'onsite' | 'online') => setNewParticipant(prev => ({ ...prev, payment_method: value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="onsite">現地決済</SelectItem>
+                                <SelectItem value="online">事前決済</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="notes">メモ</Label>
+                          <Textarea
+                            id="notes"
+                            value={newParticipant.notes}
+                            onChange={(e) => setNewParticipant(prev => ({ ...prev, notes: e.target.value }))}
+                            placeholder="特記事項があれば入力"
+                            rows={2}
+                          />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setIsAddingParticipant(false)
+                              setNewParticipant({
+                                customer_name: '',
+                                participant_count: 1,
+                                payment_method: 'onsite',
+                                notes: ''
+                              })
+                            }}
+                          >
+                            キャンセル
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleAddParticipant}
+                          >
+                            追加
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {reservations.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    予約はありません
+                  </div>
+                ) : (
+                  <div>
+                    {selectedReservations.size > 0 && (
                   <div className="mb-3 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
                     <span className="text-sm font-medium">
                       {selectedReservations.size}件選択中
@@ -912,10 +1181,7 @@ export function PerformanceModal({
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <Select 
                             value={reservation.status} 
-                            onValueChange={(value) => {
-                              // TODO: 予約ステータス更新処理
-                              logger.log('予約ステータス変更:', { id: reservation.id, status: value })
-                            }}
+                            onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value)}
                           >
                             <SelectTrigger className="w-[100px] h-8">
                               <SelectValue />
@@ -950,9 +1216,11 @@ export function PerformanceModal({
                       )}
                     </div>
                   )
-                })}
-                </div>
-                </div>
+                  })}
+                    </div>
+                  </div>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
