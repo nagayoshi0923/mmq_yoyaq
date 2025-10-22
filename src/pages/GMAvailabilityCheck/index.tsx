@@ -1,9 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
+import GMSidebar from '@/components/layout/GMSidebar'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useGMRequests } from './hooks/useGMRequests'
@@ -17,6 +17,7 @@ import { formatMonthYear } from './utils/gmFormatters'
  */
 export function GMAvailabilityCheck() {
   const { user } = useAuth()
+  const [sidebarActiveTab, setSidebarActiveTab] = useState('availability-check')
 
   // フック
   const {
@@ -62,25 +63,29 @@ export function GMAvailabilityCheck() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="gm-availability" />
-        <div className="container mx-auto max-w-4xl px-6 py-12 text-center">
+      <AppLayout
+        currentPage="gm-availability"
+        sidebar={<GMSidebar activeTab={sidebarActiveTab} onTabChange={setSidebarActiveTab} />}
+        stickyLayout={true}
+      >
+        <div className="text-center py-12">
           <p className="text-muted-foreground">読み込み中...</p>
         </div>
-      </div>
+      </AppLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="gm-availability" />
-      
-      <div className="container mx-auto max-w-7xl px-6 py-6">
+    <AppLayout
+      currentPage="gm-availability"
+      sidebar={<GMSidebar activeTab={sidebarActiveTab} onTabChange={setSidebarActiveTab} />}
+      maxWidth="max-w-[1600px]"
+      containerPadding="px-6 py-6"
+      stickyLayout={true}
+    >
+      <div className="space-y-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">GM可否確認</h1>
-        </div>
+          <div></div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')} className="w-full">
           <div className="flex items-center justify-between mb-6">
@@ -153,7 +158,7 @@ export function GMAvailabilityCheck() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </AppLayout>
   )
 }
 
