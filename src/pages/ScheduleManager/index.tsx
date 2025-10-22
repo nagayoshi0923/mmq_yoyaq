@@ -71,6 +71,21 @@ export function ScheduleManager() {
     }
   }), [scheduleTableProps, filteredGetEventsForSlot])
 
+  // モーダルのイベントハンドラーを取得
+  const eventHandlers = useMemo(() => {
+    return {
+      onAddPerformance: scheduleTableProps.eventHandlers.onAddPerformance,
+      onEditPerformance: scheduleTableProps.eventHandlers.onEditPerformance,
+      onDeletePerformance: scheduleTableProps.eventHandlers.onDeletePerformance,
+      onCancelConfirm: scheduleTableProps.eventHandlers.onCancelConfirm,
+      onUncancel: scheduleTableProps.eventHandlers.onUncancel,
+      onToggleReservation: scheduleTableProps.eventHandlers.onToggleReservation,
+      onDrop: scheduleTableProps.eventHandlers.onDrop,
+      onContextMenuCell: scheduleTableProps.eventHandlers.onContextMenuCell,
+      onContextMenuEvent: scheduleTableProps.eventHandlers.onContextMenuEvent
+    }
+  }, [scheduleTableProps.eventHandlers])
+
   // ハッシュ変更でページ切り替え
   useEffect(() => {
     const handleHashChange = () => {
