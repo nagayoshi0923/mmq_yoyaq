@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AppLayout } from '@/components/layout/AppLayout'
+import UserSidebar from '@/components/layout/UserSidebar'
 import { searchUserByEmail, getAllUsers, updateUserRole, type User } from '@/lib/userApi'
 import { AlertCircle, Search, Users, Shield, UserCog, User as UserIcon } from 'lucide-react'
 import { logger } from '@/utils/logger'
@@ -15,11 +17,16 @@ export function UserManagement() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [showAllUsers, setShowAllUsers] = useState(false)
+  const [activeTab, setActiveTab] = useState('user-list')
 
   // 管理者チェック
   if (!user || user.role !== 'admin') {
     return (
-      <div className="container mx-auto p-6">
+      <AppLayout
+        currentPage="user-management"
+        sidebar={<UserSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+        stickyLayout={true}
+      >
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 text-red-800">
@@ -28,7 +35,7 @@ export function UserManagement() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </AppLayout>
     )
   }
 
@@ -213,13 +220,15 @@ export function UserManagement() {
   )
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">ユーザー管理</h1>
-        <p className="text-gray-600">メールアドレスでユーザーを検索し、ロールを付与できます</p>
-      </div>
-
-      {/* 検索フォーム */}
+    <AppLayout
+      currentPage="user-management"
+      sidebar={<UserSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      maxWidth="max-w-[1600px]"
+      containerPadding="p-6"
+      stickyLayout={true}
+    >
+      <div className="space-y-6">
+        <div></div>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -382,7 +391,8 @@ export function UserManagement() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </AppLayout>
   )
 }
 
