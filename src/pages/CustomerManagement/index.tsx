@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, UserPlus } from 'lucide-react'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
+import CustomerSidebar from '@/components/layout/CustomerSidebar'
 import { useCustomerData } from './hooks/useCustomerData'
 import { CustomerRow } from './components/CustomerRow'
 import { CustomerEditModal } from './components/CustomerEditModal'
@@ -16,6 +16,7 @@ export default function CustomerManagement() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('customer-list')
 
   // フィルタリング
   const filteredCustomers = customers.filter((customer) => {
@@ -41,15 +42,17 @@ export default function CustomerManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header onPageChange={handlePageChange} />
-      <NavigationBar currentPage="customer-management" onPageChange={handlePageChange} />
-      
-      <main className="container mx-auto px-8 py-6">
+    <AppLayout
+      currentPage="customer-management"
+      sidebar={<CustomerSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      maxWidth="max-w-[1600px]"
+      containerPadding="px-8 py-6"
+      stickyLayout={true}
+    >
+      <main className="space-y-6">
         <div className="space-y-6">
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">顧客管理</h1>
+          <div className="flex items-center justify-between">
+            <div></div>
         <Button onClick={() => {
           setSelectedCustomer(null)
           setIsEditModalOpen(true)
@@ -126,7 +129,7 @@ export default function CustomerManagement() {
       />
         </div>
       </main>
-    </div>
+    </AppLayout>
   )
 }
 
