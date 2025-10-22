@@ -3,8 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
+import ReservationSidebar from '@/components/layout/ReservationSidebar'
 import { Search, Calendar, Clock, User, DollarSign, Filter, ChevronDown, ChevronUp } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -12,6 +12,7 @@ import { useReservationData } from '@/hooks/useReservationData'
 
 export function ReservationManagement() {
   const [expandedReservations, setExpandedReservations] = useState<Set<string>>(new Set())
+  const [activeTab, setActiveTab] = useState('reservation-list')
   
   // フィルタ状態（sessionStorageと同期）
   const [searchTerm, setSearchTerm] = useSessionState('reservationSearchTerm', '')
@@ -88,23 +89,28 @@ export function ReservationManagement() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="reservation" />
+      <AppLayout
+        currentPage="reservation"
+        sidebar={<ReservationSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+        stickyLayout={true}
+      >
         <div className="flex items-center justify-center py-20">
           <p className="text-muted-foreground text-lg">読み込み中...</p>
         </div>
-      </div>
+      </AppLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="reservation" />
-
-      <div className="container mx-auto max-w-7xl px-6 py-6">
-        <h1 className="text-3xl font-bold mb-6">予約管理</h1>
+    <AppLayout
+      currentPage="reservation"
+      sidebar={<ReservationSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      maxWidth="max-w-[1600px]"
+      containerPadding="px-6 py-6"
+      stickyLayout={true}
+    >
+      <div className="space-y-6">
+        <div></div>
 
         {/* 統計サマリー */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -291,6 +297,6 @@ export function ReservationManagement() {
           )}
         </div>
       </div>
-    </div>
+    </AppLayout>
   )
 }
