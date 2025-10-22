@@ -22,7 +22,6 @@ import { ScenarioFilters } from './components/ScenarioFilters'
 import { useScenarioFilters } from './hooks/useScenarioFilters'
 import {
   useScenariosQuery,
-  useScenariosInfiniteQuery,
   useDeleteScenarioMutation,
   useImportScenariosMutation
 } from './hooks/useScenarioQuery'
@@ -52,32 +51,18 @@ export function ScenarioManagement() {
   // React Query でデータ管理
   const queryClient = useQueryClient()
   
-  // 無限スクロール版（デフォルト）
-  const {
-    data: infiniteData,
-    isLoading: infiniteLoading,
-    error: infiniteError,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
-  } = useScenariosInfiniteQuery(20)
-  
-  // 従来の全件取得版（フォールバック）
+  // 全件取得版（常に全データを取得してフィルタ・ソートに対応）
   const {
     data: allScenarios = [],
-    isLoading: allLoading,
-    error: allError
+    isLoading: loading,
+    error: queryError
   } = useScenariosQuery()
-  
-  // 使用するデータソースを選択
-  const scenarios = useInfiniteScroll
-    ? (infiniteData?.pages.flatMap(page => page.data) || [])
-    : allScenarios
-  const loading = useInfiniteScroll ? infiniteLoading : allLoading
-  const queryError = useInfiniteScroll ? infiniteError : allError
   
   const deleteScenarioMutation = useDeleteScenarioMutation()
   const importScenariosMutation = useImportScenariosMutation()
+  
+  // 表示用：段階的に表示する件数を管理
+  const [displayCount, setDisplayCount] = useState(20)
   
   // エラーメッセージ
   const error = queryError ? (queryError as Error).message : ''
@@ -85,7 +70,7 @@ export function ScenarioManagement() {
   // 初回ロード完了フラグ（スクロール復元用）
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
 
-  // フィルタとソート
+  // フィルタとソート（全データに対して実行）
   const {
     searchTerm,
     setSearchTerm,
@@ -94,17 +79,24 @@ export function ScenarioManagement() {
     sortState,
     handleSort,
     filteredAndSortedScenarios
-  } = useScenarioFilters(scenarios)
+  } = useScenarioFilters(allScenarios)
   
-  // 無限スクロール：Intersection Observer でスクロール監視
+  // 表示用：フィルタ・ソート後のデータから表示件数分だけ切り出す
+  const displayedScenarios = useMemo(() => {
+    return filteredAndSortedScenarios.slice(0, displayCount)
+  }, [filteredAndSortedScenarios, displayCount])
+  
+  const hasMore = displayCount < filteredAndSortedScenarios.length
+  
+  // 段階的表示：Intersection Observer でスクロール監視
   useEffect(() => {
-    if (!useInfiniteScroll || !loadMoreTriggerRef.current) return
+    if (!useInfiniteScroll || !loadMoreTriggerRef.current || !hasMore) return
     
     const observer = new IntersectionObserver(
       (entries) => {
-        // トリガー要素が見えたら次のページを読み込む
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage()
+        // トリガー要素が見えたら表示件数を増やす
+        if (entries[0].isIntersecting && hasMore) {
+          setDisplayCount(prev => Math.min(prev + 20, filteredAndSortedScenarios.length))
         }
       },
       { threshold: 0.1 }
@@ -113,7 +105,12 @@ export function ScenarioManagement() {
     observer.observe(loadMoreTriggerRef.current)
     
     return () => observer.disconnect()
-  }, [useInfiniteScroll, hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [useInfiniteScroll, hasMore, filteredAndSortedScenarios.length])
+  
+  // フィルタやソートが変更されたら表示件数をリセット
+  useEffect(() => {
+    setDisplayCount(20)
+  }, [searchTerm, statusFilter, sortState])
 
   // シナリオ編集ページへ遷移
   function handleEditScenario(scenario: Scenario) {
@@ -247,9 +244,9 @@ export function ScenarioManagement() {
 
   function handleExport() {
     try {
-      // CSVエクスポート（React Query不要）
+      // CSVエクスポート（全データを使用）
       const headers = ['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']
-      const rows = scenarios.map(s => [
+      const rows = allScenarios.map(s => [
         s.title,
         s.author,
         s.description || '',
@@ -406,7 +403,7 @@ export function ScenarioManagement() {
           )}
 
           {/* 統計情報 */}
-          <ScenarioStats scenarios={scenarios} />
+          <ScenarioStats scenarios={allScenarios} />
 
           {/* 検索・フィルター */}
           <div className="flex justify-between items-center gap-4">
@@ -438,7 +435,7 @@ export function ScenarioManagement() {
 
           {/* テーブル */}
           <TanStackDataTable
-            data={filteredAndSortedScenarios}
+            data={displayedScenarios}
             columns={tableColumns}
             getRowKey={(scenario) => scenario.id}
             sortState={sortState}
@@ -451,30 +448,29 @@ export function ScenarioManagement() {
             loading={loading}
           />
           
-          {/* 無限スクロール：トリガー要素 */}
-          {useInfiniteScroll && hasNextPage && (
+          {/* 段階的表示：トリガー要素 */}
+          {useInfiniteScroll && hasMore && (
             <div 
               ref={loadMoreTriggerRef}
               className="flex justify-center py-4"
             >
-              {isFetchingNextPage ? (
-                <div className="text-sm text-muted-foreground">読み込み中...</div>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => fetchNextPage()}
-                  disabled={isFetchingNextPage}
-                >
-                  さらに読み込む
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={() => setDisplayCount(prev => Math.min(prev + 20, filteredAndSortedScenarios.length))}
+              >
+                さらに表示 ({displayedScenarios.length} / {filteredAndSortedScenarios.length})
+              </Button>
             </div>
           )}
           
-          {/* データ読み込み状況の表示 */}
-          {useInfiniteScroll && !hasNextPage && scenarios.length > 0 && (
+          {/* データ表示状況 */}
+          {useInfiniteScroll && !hasMore && displayedScenarios.length > 0 && (
             <div className="text-center py-4 text-sm text-muted-foreground">
-              全{scenarios.length}件のシナリオを表示しています
+              {filteredAndSortedScenarios.length === allScenarios.length ? (
+                `全${allScenarios.length}件のシナリオを表示しています`
+              ) : (
+                `フィルタ結果：${filteredAndSortedScenarios.length}件のシナリオを表示しています（全体：${allScenarios.length}件）`
+              )}
             </div>
           )}
         </div>
