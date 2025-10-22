@@ -237,29 +237,6 @@ export function CancellationSettings() {
         </Card>
       )}
 
-      {/* キャンセルポリシー */}
-      <Card>
-        <CardHeader>
-          <CardTitle>キャンセルポリシー</CardTitle>
-          <CardDescription>キャンセルに関する規約を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="cancellation_policy">キャンセルポリシー文章</Label>
-            <Textarea
-              id="cancellation_policy"
-              value={formData.cancellation_policy}
-              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_policy: e.target.value }))}
-              placeholder="例: ご予約のキャンセルはお早めにご連絡ください。キャンセル料はキャンセル時期により異なります。"
-              rows={4}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              この文章は予約確認メールやサイトに表示されます
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* キャンセル料金設定 */}
       <Card>
         <CardHeader>
@@ -284,23 +261,25 @@ export function CancellationSettings() {
           <div className="space-y-3">
             {formData.cancellation_fees.map((fee, index) => (
               <div key={index} className="border rounded-lg p-4">
-                <div className="grid grid-cols-12 gap-3 items-end">
+                <div className="grid grid-cols-12 gap-4 items-start">
                   <div className="col-span-3">
-                    <Label className="text-sm">何時間前</Label>
-                    <Input
-                      type="number"
-                      value={fee.hours_before}
-                      onChange={(e) => updateCancellationFee(index, 'hours_before', parseInt(e.target.value) || 0)}
-                      min="0"
-                      className="text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {Math.floor(fee.hours_before / 24)}日{fee.hours_before % 24 > 0 ? `${fee.hours_before % 24}時間` : ''}前
-                    </p>
+                    <Label className="text-sm font-medium">何時間前</Label>
+                    <div className="mt-1">
+                      <Input
+                        type="number"
+                        value={fee.hours_before}
+                        onChange={(e) => updateCancellationFee(index, 'hours_before', parseInt(e.target.value) || 0)}
+                        min="0"
+                        className="text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {Math.floor(fee.hours_before / 24)}日{fee.hours_before % 24 > 0 ? `${fee.hours_before % 24}時間` : ''}前
+                      </p>
+                    </div>
                   </div>
                   <div className="col-span-3">
-                    <Label className="text-sm">キャンセル料率</Label>
-                    <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">キャンセル料率</Label>
+                    <div className="mt-1 flex items-center gap-2">
                       <Input
                         type="number"
                         value={fee.fee_percentage}
@@ -313,16 +292,18 @@ export function CancellationSettings() {
                     </div>
                   </div>
                   <div className="col-span-5">
-                    <Label className="text-sm">説明</Label>
-                    <Input
-                      type="text"
-                      value={fee.description}
-                      onChange={(e) => updateCancellationFee(index, 'description', e.target.value)}
-                      placeholder="例: 1週間前まで無料"
-                      className="text-sm"
-                    />
+                    <Label className="text-sm font-medium">説明</Label>
+                    <div className="mt-1">
+                      <Input
+                        type="text"
+                        value={fee.description}
+                        onChange={(e) => updateCancellationFee(index, 'description', e.target.value)}
+                        placeholder="例: 1週間前まで無料"
+                        className="text-sm"
+                      />
+                    </div>
                   </div>
-                  <div className="col-span-1 flex justify-end">
+                  <div className="col-span-1 flex justify-end items-start pt-6">
                     <Button
                       type="button"
                       variant="ghost"
@@ -361,96 +342,26 @@ export function CancellationSettings() {
         </CardContent>
       </Card>
 
-      {/* よくある設定例 */}
+      {/* キャンセルポリシー */}
       <Card>
         <CardHeader>
-          <CardTitle>よくある設定パターン</CardTitle>
-          <CardDescription>クリックするとその設定が適用されます</CardDescription>
+          <CardTitle>キャンセルポリシー</CardTitle>
+          <CardDescription>キャンセルに関する規約を設定します</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-start text-left h-auto py-3"
-            onClick={() => {
-              setFormData(prev => ({
-                ...prev,
-                cancellation_fees: [
-                  { hours_before: 168, fee_percentage: 0, description: '1週間前まで無料' },
-                  { hours_before: 72, fee_percentage: 30, description: '3日前まで30%' },
-                  { hours_before: 24, fee_percentage: 50, description: '前日まで50%' },
-                  { hours_before: 0, fee_percentage: 100, description: '当日100%' }
-                ]
-              }))
-            }}
-          >
-            <div>
-              <div className="font-medium">標準パターン</div>
-              <div className="text-xs text-muted-foreground">1週間前無料 → 3日前30% → 前日50% → 当日100%</div>
-            </div>
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-start text-left h-auto py-3"
-            onClick={() => {
-              setFormData(prev => ({
-                ...prev,
-                cancellation_fees: [
-                  { hours_before: 72, fee_percentage: 0, description: '3日前まで無料' },
-                  { hours_before: 0, fee_percentage: 100, description: '3日以内は全額' }
-                ]
-              }))
-            }}
-          >
-            <div>
-              <div className="font-medium">シンプルパターン</div>
-              <div className="text-xs text-muted-foreground">3日前まで無料 → それ以降は全額</div>
-            </div>
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-start text-left h-auto py-3"
-            onClick={() => {
-              setFormData(prev => ({
-                ...prev,
-                cancellation_fees: [
-                  { hours_before: 0, fee_percentage: 0, description: 'いつでも無料' }
-                ]
-              }))
-            }}
-          >
-            <div>
-              <div className="font-medium">キャンセル料なしパターン</div>
-              <div className="text-xs text-muted-foreground">いつでも無料でキャンセル可能</div>
-            </div>
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-start text-left h-auto py-3"
-            onClick={() => {
-              setFormData(prev => ({
-                ...prev,
-                cancellation_fees: [
-                  { hours_before: 336, fee_percentage: 0, description: '2週間前まで無料' },
-                  { hours_before: 168, fee_percentage: 20, description: '1週間前まで20%' },
-                  { hours_before: 72, fee_percentage: 50, description: '3日前まで50%' },
-                  { hours_before: 24, fee_percentage: 80, description: '前日まで80%' },
-                  { hours_before: 0, fee_percentage: 100, description: '当日100%' }
-                ]
-              }))
-            }}
-          >
-            <div>
-              <div className="font-medium">厳格パターン</div>
-              <div className="text-xs text-muted-foreground">2週間前無料 → 1週間前20% → 3日前50% → 前日80% → 当日100%</div>
-            </div>
-          </Button>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="cancellation_policy">キャンセルポリシー文章</Label>
+            <Textarea
+              id="cancellation_policy"
+              value={formData.cancellation_policy}
+              onChange={(e) => setFormData(prev => ({ ...prev, cancellation_policy: e.target.value }))}
+              placeholder="例: ご予約のキャンセルはお早めにご連絡ください。キャンセル料はキャンセル時期により異なります。"
+              rows={4}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              この文章は予約確認メールやサイトに表示されます
+            </p>
+          </div>
         </CardContent>
       </Card>
 
