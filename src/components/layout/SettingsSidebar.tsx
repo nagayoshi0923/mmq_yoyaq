@@ -6,6 +6,7 @@ import {
   Clock,
   Calendar,
   Ticket,
+  XCircle,
   DollarSign,
   FileText,
   Bell,
@@ -48,10 +49,16 @@ const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ activeTab, onTabChang
       description: '予約受付期間、人数制限'
     },
     {
+      id: 'cancellation',
+      label: 'キャンセル設定',
+      icon: XCircle,
+      description: 'キャンセル料金、ポリシー'
+    },
+    {
       id: 'pricing',
       label: '料金設定',
       icon: DollarSign,
-      description: '参加費、割引、キャンセル料'
+      description: '参加費、割引設定'
     },
     {
       id: 'sales-report',

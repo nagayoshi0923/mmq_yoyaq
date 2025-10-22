@@ -208,87 +208,113 @@ ALTER TABLE data_management_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales_report_settings ENABLE ROW LEVEL SECURITY;
 
 -- RLS ポリシー（管理者のみアクセス可能）
+-- 既存のポリシーを削除してから作成
+DROP POLICY IF EXISTS store_basic_settings_policy ON store_basic_settings;
 CREATE POLICY store_basic_settings_policy ON store_basic_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS business_hours_settings_policy ON business_hours_settings;
 CREATE POLICY business_hours_settings_policy ON business_hours_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS performance_schedule_settings_policy ON performance_schedule_settings;
 CREATE POLICY performance_schedule_settings_policy ON performance_schedule_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS reservation_settings_policy ON reservation_settings;
 CREATE POLICY reservation_settings_policy ON reservation_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS pricing_settings_policy ON pricing_settings;
 CREATE POLICY pricing_settings_policy ON pricing_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS email_settings_policy ON email_settings;
 CREATE POLICY email_settings_policy ON email_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS notification_settings_policy ON notification_settings;
 CREATE POLICY notification_settings_policy ON notification_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS staff_settings_policy ON staff_settings;
 CREATE POLICY staff_settings_policy ON staff_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS system_settings_policy ON system_settings;
 CREATE POLICY system_settings_policy ON system_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS customer_settings_policy ON customer_settings;
 CREATE POLICY customer_settings_policy ON customer_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS data_management_settings_policy ON data_management_settings;
 CREATE POLICY data_management_settings_policy ON data_management_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
+DROP POLICY IF EXISTS sales_report_settings_policy ON sales_report_settings;
 CREATE POLICY sales_report_settings_policy ON sales_report_settings FOR ALL USING (
   EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin')
 );
 
 -- updated_at自動更新のトリガーを追加
+-- 既存のトリガーを削除してから作成
+DROP TRIGGER IF EXISTS update_store_basic_settings_updated_at ON store_basic_settings;
 CREATE TRIGGER update_store_basic_settings_updated_at BEFORE UPDATE ON store_basic_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_business_hours_settings_updated_at ON business_hours_settings;
 CREATE TRIGGER update_business_hours_settings_updated_at BEFORE UPDATE ON business_hours_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_performance_schedule_settings_updated_at ON performance_schedule_settings;
 CREATE TRIGGER update_performance_schedule_settings_updated_at BEFORE UPDATE ON performance_schedule_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_reservation_settings_updated_at ON reservation_settings;
 CREATE TRIGGER update_reservation_settings_updated_at BEFORE UPDATE ON reservation_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_pricing_settings_updated_at ON pricing_settings;
 CREATE TRIGGER update_pricing_settings_updated_at BEFORE UPDATE ON pricing_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_email_settings_updated_at ON email_settings;
 CREATE TRIGGER update_email_settings_updated_at BEFORE UPDATE ON email_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_notification_settings_updated_at ON notification_settings;
 CREATE TRIGGER update_notification_settings_updated_at BEFORE UPDATE ON notification_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_staff_settings_updated_at ON staff_settings;
 CREATE TRIGGER update_staff_settings_updated_at BEFORE UPDATE ON staff_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_system_settings_updated_at ON system_settings;
 CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON system_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_customer_settings_updated_at ON customer_settings;
 CREATE TRIGGER update_customer_settings_updated_at BEFORE UPDATE ON customer_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_data_management_settings_updated_at ON data_management_settings;
 CREATE TRIGGER update_data_management_settings_updated_at BEFORE UPDATE ON data_management_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_sales_report_settings_updated_at ON sales_report_settings;
 CREATE TRIGGER update_sales_report_settings_updated_at BEFORE UPDATE ON sales_report_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import SettingsSidebar from '@/components/layout/SettingsSidebar'
@@ -9,6 +8,7 @@ import { StoreBasicSettings } from './pages/StoreBasicSettings'
 import { BusinessHoursSettings } from './pages/BusinessHoursSettings'
 import { PerformanceScheduleSettings } from './pages/PerformanceScheduleSettings'
 import { ReservationSettings } from './pages/ReservationSettings'
+import { CancellationSettings } from './pages/CancellationSettings'
 import { PricingSettings } from './pages/PricingSettings'
 import { SalesReportSettings } from './pages/SalesReportSettings'
 import { NotificationSettings } from './pages/NotificationSettings'
@@ -31,6 +31,8 @@ export function Settings() {
         return <PerformanceScheduleSettings />
       case 'reservation':
         return <ReservationSettings />
+      case 'cancellation':
+        return <CancellationSettings />
       case 'pricing':
         return <PricingSettings />
       case 'sales-report':
