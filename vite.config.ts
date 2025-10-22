@@ -49,6 +49,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
+        // ファイル名の形式を変更してMIMEタイプの問題を回避
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
         // マニュアルチャンク分割でベンダーライブラリを分離
         manualChunks(id) {
           if (id.includes('node_modules')) {

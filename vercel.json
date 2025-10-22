@@ -2,11 +2,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "functions": {
-    "src/pages/api/**/*.ts": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -18,7 +13,7 @@
       ]
     },
     {
-      "source": "/(.*\\.js)$",
+      "source": "/assets/(.*\\.js)$",
       "headers": [
         {
           "key": "Content-Type",
@@ -27,7 +22,7 @@
       ]
     },
     {
-      "source": "/(.*\\.mjs)$",
+      "source": "/assets/(.*\\.mjs)$",
       "headers": [
         {
           "key": "Content-Type",
@@ -36,7 +31,7 @@
       ]
     },
     {
-      "source": "/(.*\\.css)$",
+      "source": "/assets/(.*\\.css)$",
       "headers": [
         {
           "key": "Content-Type",
