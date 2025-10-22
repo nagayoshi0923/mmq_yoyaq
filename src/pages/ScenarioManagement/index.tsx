@@ -5,10 +5,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import ScenarioSidebar from '@/components/layout/ScenarioSidebar'
 import type { Scenario } from '@/types'
 import { 
-  BookOpen, 
   Plus, 
-  Upload,
-  Download,
   AlertTriangle
 } from 'lucide-react'
 import { ConfirmModal } from '@/components/patterns/modal'
@@ -17,6 +14,7 @@ import { TanStackDataTable } from '@/components/patterns/table'
 // 分離されたコンポーネント
 import { ScenarioStats } from './components/ScenarioStats'
 import { ScenarioFilters } from './components/ScenarioFilters'
+import { CsvImportExport } from '@/components/features/CsvImportExport'
 
 // 分離されたフック
 import { useScenarioFilters } from './hooks/useScenarioFilters'
@@ -44,8 +42,7 @@ export function ScenarioManagement() {
   const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
   const [useInfiniteScroll] = useState(true) // 無限スクロールのON/OFF（将来的に切り替え機能を追加予定）
   
-  // ファイルインput参照
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // スクロール監視用
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
 
   // React Query でデータ管理
@@ -219,55 +216,18 @@ export function ScenarioManagement() {
     }
   }
 
-  async function handleImport() {
-    fileInputRef.current?.click()
-  }
-
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) return
-
+  // CSVインポート処理
+  async function handleImport(file: File) {
+    setIsImporting(true)
     try {
-      setIsImporting(true)
       const result = await importScenariosMutation.mutateAsync(file)
       alert(`${result.count}件のシナリオをインポートしました`)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
       alert(message)
+      throw err // CsvImportExport コンポーネントでエラーハンドリング
     } finally {
       setIsImporting(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-    }
-  }
-
-  function handleExport() {
-    try {
-      // CSVエクスポート（全データを使用）
-      const headers = ['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']
-      const rows = allScenarios.map(s => [
-        s.title,
-        s.author,
-        s.description || '',
-        s.duration.toString(),
-        s.player_count_min.toString(),
-        s.player_count_max?.toString() || s.player_count_min.toString(),
-        s.difficulty?.toString() || '3',
-        s.participation_fee?.toString() || '3000'
-      ])
-      
-      const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n')
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `scenarios_${new Date().toISOString().split('T')[0]}.csv`
-      link.click()
-      
-      alert('シナリオをCSVファイルにエクスポートしました')
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '不明なエラー'
-      alert(message)
     }
   }
   
@@ -350,39 +310,25 @@ export function ScenarioManagement() {
     >
         <div className="space-y-6">
           {/* ヘッダー */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <BookOpen className="h-8 w-8" />
-              <h1 className="text-3xl font-bold">シナリオ管理</h1>
-            </div>
+          <div className="flex justify-end">
             <div className="flex gap-2">
-              {/* React Query が自動で再取得するため、更新ボタンは不要 */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleImport}
-                disabled={isImporting}
-                title="CSVインポート"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                {isImporting ? 'インポート中...' : 'インポート'}
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                style={{ display: 'none' }}
-                onChange={handleFileChange}
+              <CsvImportExport
+                data={allScenarios}
+                onImport={handleImport}
+                isImporting={isImporting}
+                exportFilename="scenarios"
+                headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
+                rowMapper={(s) => [
+                  s.title,
+                  s.author,
+                  s.description || '',
+                  s.duration.toString(),
+                  s.player_count_min.toString(),
+                  s.player_count_max?.toString() || s.player_count_min.toString(),
+                  s.difficulty?.toString() || '3',
+                  s.participation_fee?.toString() || '3000'
+                ]}
               />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExport}
-                title="CSVエクスポート"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                エクスポート
-              </Button>
               <Button onClick={handleNewScenario}>
                 <Plus className="h-4 w-4 mr-2" />
                 新規シナリオ
