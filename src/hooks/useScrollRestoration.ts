@@ -2,6 +2,9 @@
 
 import { useEffect, useLayoutEffect } from 'react'
 
+// useLayoutEffectのフォールバック
+const useLayoutEffectSafe = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
 interface UseScrollRestorationOptions {
   /** ページ識別用のキー（デフォルト: 'page'） */
   pageKey?: string
@@ -41,7 +44,7 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
   }, [scrollYKey, scrollTimeKey])
 
   // マウント時にスクロール位置を即座に復元（リロード直後のみ）
-  useLayoutEffect(() => {
+  useLayoutEffectSafe(() => {
     const savedY = sessionStorage.getItem(scrollYKey)
     const savedTime = sessionStorage.getItem(scrollTimeKey)
     

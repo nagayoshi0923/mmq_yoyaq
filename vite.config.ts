@@ -11,11 +11,14 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "react": "react",
+      "react-dom": "react-dom"
     },
   },
   optimizeDeps: {
     // lucide-react の Tree-shaking を最適化
-    include: ['lucide-react', 'react', 'react-dom']
+    include: ['lucide-react', 'react', 'react-dom'],
+    force: true
   },
   build: {
     // チャンクサイズ警告のしきい値を上げる（KB単位）
