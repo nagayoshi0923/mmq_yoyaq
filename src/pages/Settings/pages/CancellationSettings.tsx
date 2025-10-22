@@ -24,12 +24,14 @@ interface CancellationSettings {
   refund_processing_days: number
 }
 
-export function CancellationSettings() {
-  const [stores, setStores] = useState<any[]>([])
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('')
+interface CancellationSettingsProps {
+  storeId: string
+}
+
+export function CancellationSettings({ storeId }: CancellationSettingsProps) {
   const [formData, setFormData] = useState<CancellationSettings>({
     id: '',
-    store_id: '',
+    store_id: storeId,
     cancellation_policy: '',
     cancellation_deadline_hours: 24,
     cancellation_fees: [
@@ -46,23 +48,12 @@ export function CancellationSettings() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [storeId])
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const { data: storesData, error: storesError } = await supabase
-        .from('stores')
-        .select('*')
-        .order('name')
-
-      if (storesError) throw storesError
-
-      if (storesData && storesData.length > 0) {
-        setStores(storesData)
-        setSelectedStoreId(storesData[0].id)
-        await fetchSettings(storesData[0].id)
-      }
+      await fetchSettings(storeId)
     } catch (error) {
       logger.error('データ取得エラー:', error)
       alert('データの取得に失敗しました')
@@ -108,10 +99,6 @@ export function CancellationSettings() {
     }
   }
 
-  const handleStoreChange = async (storeId: string) => {
-    setSelectedStoreId(storeId)
-    await fetchSettings(storeId)
-  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -218,24 +205,6 @@ export function CancellationSettings() {
         </Button>
       </div>
 
-      {/* 店舗選択 */}
-      {stores.length > 1 && (
-        <Card>
-          <CardContent className="pt-6">
-            <Label htmlFor="store">店舗</Label>
-            <select
-              id="store"
-              value={selectedStoreId}
-              onChange={(e) => handleStoreChange(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {stores.map(store => (
-                <option key={store.id} value={store.id}>{store.name}</option>
-              ))}
-            </select>
-          </CardContent>
-        </Card>
-      )}
 
       {/* キャンセル料金設定 */}
       <Card>

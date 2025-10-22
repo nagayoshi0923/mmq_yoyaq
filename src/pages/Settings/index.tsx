@@ -2,6 +2,8 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import SettingsSidebar from '@/components/layout/SettingsSidebar'
 import { useSessionState } from '@/hooks/useSessionState'
+import { useSettingsStore } from '@/hooks/useSettingsStore'
+import { SettingsLayout } from '@/components/settings/SettingsLayout'
 
 // 設定ページコンポーネント
 import { StoreBasicSettings } from './pages/StoreBasicSettings'
@@ -20,37 +22,38 @@ import { DataManagementSettings } from './pages/DataManagementSettings'
 
 export function Settings() {
   const [activeTab, setActiveTab] = useSessionState('settingsActiveTab', 'store-basic')
+  const { selectedStoreId, handleStoreChange } = useSettingsStore()
 
   const renderContent = () => {
     switch (activeTab) {
       case 'store-basic':
-        return <StoreBasicSettings />
+        return <StoreBasicSettings storeId={selectedStoreId} />
       case 'business-hours':
-        return <BusinessHoursSettings />
+        return <BusinessHoursSettings storeId={selectedStoreId} />
       case 'performance-schedule':
-        return <PerformanceScheduleSettings />
+        return <PerformanceScheduleSettings storeId={selectedStoreId} />
       case 'reservation':
-        return <ReservationSettings />
+        return <ReservationSettings storeId={selectedStoreId} />
       case 'cancellation':
-        return <CancellationSettings />
+        return <CancellationSettings storeId={selectedStoreId} />
       case 'pricing':
-        return <PricingSettings />
+        return <PricingSettings storeId={selectedStoreId} />
       case 'sales-report':
-        return <SalesReportSettings />
+        return <SalesReportSettings storeId={selectedStoreId} />
       case 'notifications':
-        return <NotificationSettings />
+        return <NotificationSettings storeId={selectedStoreId} />
       case 'staff':
-        return <StaffSettings />
+        return <StaffSettings storeId={selectedStoreId} />
       case 'system':
-        return <SystemSettings />
+        return <SystemSettings storeId={selectedStoreId} />
       case 'email':
-        return <EmailSettings />
+        return <EmailSettings storeId={selectedStoreId} />
       case 'customer':
-        return <CustomerSettings />
+        return <CustomerSettings storeId={selectedStoreId} />
       case 'data':
-        return <DataManagementSettings />
+        return <DataManagementSettings storeId={selectedStoreId} />
       default:
-        return <StoreBasicSettings />
+        return <StoreBasicSettings storeId={selectedStoreId} />
     }
   }
 
@@ -68,7 +71,12 @@ export function Settings() {
         {/* メインコンテンツ */}
         <div className="flex-1 min-w-0">
           <div className="container mx-auto max-w-7xl px-8 py-6">
-            {renderContent()}
+            <SettingsLayout 
+              selectedStoreId={selectedStoreId}
+              onStoreChange={handleStoreChange}
+            >
+              {renderContent()}
+            </SettingsLayout>
           </div>
         </div>
       </div>
