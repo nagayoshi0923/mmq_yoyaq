@@ -85,16 +85,28 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       // 不足人数を計算
       const shortfall = maxParticipants - currentParticipants
       
-      // シナリオ情報を取得
+      // シナリオ情報を取得（シナリオ名が空の場合はスキップ）
+      if (!event.scenario || event.scenario.trim() === '') {
+        console.log('シナリオ名が空のためスキップ:', event.id)
+        skippedCount++
+        continue
+      }
+
       const { data: scenario, error: scenarioError } = await supabase
         .from('scenarios')
         .select('id, title, duration, participation_fee, gm_test_participation_fee')
-        .eq('title', event.scenario)
-        .single()
+        .eq('title', event.scenario.trim())
+        .maybeSingle()
       
       if (scenarioError) {
         console.error('シナリオ取得エラー:', scenarioError)
         failedCount++
+        continue
+      }
+
+      if (!scenario) {
+        console.log('シナリオが見つかりません:', event.scenario)
+        skippedCount++
         continue
       }
       
@@ -117,6 +129,15 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         continue
       }
       
+      // durationを数値に変換（文字列の場合はパース、失敗したら120分デフォルト）
+      let durationMinutes = 120
+      if (scenario?.duration) {
+        const parsed = parseInt(String(scenario.duration), 10)
+        if (!isNaN(parsed) && parsed > 0) {
+          durationMinutes = parsed
+        }
+      }
+
       // デモ参加者の予約を作成（不足人数分）
       const demoReservation = {
         schedule_event_id: event.id,
@@ -126,7 +147,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         customer_id: null,
         customer_notes: `デモ参加者（自動追加） - 不足人数: ${shortfall}名`,
         requested_datetime: `${event.date}T${event.start_time}+09:00`,
-        duration: scenario?.duration || 120,
+        duration: durationMinutes,
         participant_count: shortfall,
         participant_names: Array(shortfall).fill('デモ参加者'),
         assigned_staff: event.gms || [],

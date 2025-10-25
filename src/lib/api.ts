@@ -596,6 +596,44 @@ export const scheduleApi = {
     
     if (error) throw error
     
+    // 各イベントの実際の参加者数を計算
+    const eventsWithActualParticipants = await Promise.all(scheduleEvents.map(async (event) => {
+      // このイベントの予約データを取得
+      const { data: reservations, error: reservationError } = await supabase
+        .from('reservations')
+        .select('participant_count')
+        .eq('schedule_event_id', event.id)
+        .in('status', ['confirmed', 'pending'])
+      
+      if (reservationError) {
+        console.error('予約データの取得に失敗:', reservationError)
+        return event
+      }
+      
+      // 実際の参加者数を計算
+      const actualParticipants = reservations?.reduce((sum, reservation) => 
+        sum + (reservation.participant_count || 0), 0) || 0
+      
+      // schedule_eventsのcurrent_participantsが実際の値と異なる場合は更新
+      if (event.current_participants !== actualParticipants) {
+        try {
+          await supabase
+            .from('schedule_events')
+            .update({ current_participants: actualParticipants })
+            .eq('id', event.id)
+          
+          console.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
+        } catch (error) {
+          console.error('参加者数の同期に失敗:', error)
+        }
+      }
+      
+      return {
+        ...event,
+        current_participants: actualParticipants
+      }
+    }))
+    
     // 確定した貸切公演を取得
     const { data: confirmedPrivateBookings, error: privateError } = await supabase
       .from('reservations')
@@ -709,7 +747,7 @@ export const scheduleApi = {
     }
     
     // 通常公演と貸切公演を結合してソート
-    const allEvents = [...(scheduleEvents || []), ...privateEvents]
+    const allEvents = [...(eventsWithActualParticipants || []), ...privateEvents]
     allEvents.sort((a, b) => {
       const dateCompare = a.date.localeCompare(b.date)
       if (dateCompare !== 0) return dateCompare
@@ -809,6 +847,148 @@ export const scheduleApi = {
     
     if (error) throw error
     return data
+  },
+
+  // 中止でない全公演にデモ参加者を満席まで追加
+  async addDemoParticipantsToAllActiveEvents() {
+    try {
+      // 中止でない全公演を取得
+      const { data: events, error: eventsError } = await supabase
+        .from('schedule_events')
+        .select('*')
+        .eq('is_cancelled', false)
+        .order('date', { ascending: true })
+      
+      if (eventsError) {
+        console.error('公演データの取得に失敗:', eventsError)
+        return { success: false, error: eventsError }
+      }
+      
+      if (!events || events.length === 0) {
+        console.log('中止でない公演が見つかりません')
+        return { success: true, message: '中止でない公演が見つかりません' }
+      }
+      
+      console.log(`${events.length}件の公演にデモ参加者を追加します`)
+      
+      let successCount = 0
+      let errorCount = 0
+      
+      for (const event of events) {
+        try {
+          // このイベントの現在の予約データを取得
+          const { data: reservations, error: reservationError } = await supabase
+            .from('reservations')
+            .select('participant_count, participant_names')
+            .eq('schedule_event_id', event.id)
+            .in('status', ['confirmed', 'pending'])
+          
+          if (reservationError) {
+            console.error(`予約データの取得に失敗 (${event.id}):`, reservationError)
+            errorCount++
+            continue
+          }
+          
+          // 現在の参加者数を計算
+          const currentParticipants = reservations?.reduce((sum, reservation) => 
+            sum + (reservation.participant_count || 0), 0) || 0
+          
+          // デモ参加者が既に存在するかチェック
+          const hasDemoParticipant = reservations?.some(r => 
+            r.participant_names?.includes('デモ参加者') || 
+            r.participant_names?.some(name => name.includes('デモ'))
+          )
+          
+          // 満席でない場合、またはデモ参加者がいない場合は追加
+          if (currentParticipants < event.capacity && !hasDemoParticipant) {
+            // シナリオ情報を取得
+            const { data: scenario, error: scenarioError } = await supabase
+              .from('scenarios')
+              .select('id, title, duration, participation_fee, gm_test_participation_fee')
+              .eq('id', event.scenario_id)
+              .single()
+            
+            if (scenarioError) {
+              console.error(`シナリオ情報の取得に失敗 (${event.id}):`, scenarioError)
+              errorCount++
+              continue
+            }
+            
+            // デモ参加者の参加費を計算
+            const isGmTest = event.category === 'gmtest'
+            const participationFee = isGmTest 
+              ? (scenario?.gm_test_participation_fee || scenario?.participation_fee || 0)
+              : (scenario?.participation_fee || 0)
+            
+            // 満席まで必要なデモ参加者数を計算
+            const neededParticipants = event.capacity - currentParticipants
+            
+            // デモ参加者の予約を作成
+            const demoReservation = {
+              schedule_event_id: event.id,
+              title: event.scenario || '',
+              scenario_id: event.scenario_id || null,
+              store_id: event.store_id || null,
+              customer_id: null,
+              customer_notes: `デモ参加者${neededParticipants}名`,
+              requested_datetime: `${event.date}T${event.start_time}+09:00`,
+              duration: scenario?.duration || 120,
+              participant_count: neededParticipants,
+              participant_names: Array(neededParticipants).fill(null).map((_, i) => `デモ参加者${i + 1}`),
+              assigned_staff: event.gms || [],
+              base_price: participationFee * neededParticipants,
+              options_price: 0,
+              total_price: participationFee * neededParticipants,
+              discount_amount: 0,
+              final_price: participationFee * neededParticipants,
+              payment_method: 'onsite',
+              payment_status: 'paid',
+              status: 'confirmed',
+              reservation_source: 'demo'
+            }
+            
+            // デモ参加者の予約を作成
+            const { error: insertError } = await supabase
+              .from('reservations')
+              .insert(demoReservation)
+            
+            if (insertError) {
+              console.error(`デモ参加者の予約作成に失敗 (${event.id}):`, insertError)
+              errorCount++
+              continue
+            }
+            
+            // schedule_eventsのcurrent_participantsを更新
+            await supabase
+              .from('schedule_events')
+              .update({ current_participants: event.capacity })
+              .eq('id', event.id)
+            
+            console.log(`デモ参加者${neededParticipants}名を追加しました: ${event.scenario} (${event.date})`)
+            successCount++
+          } else if (hasDemoParticipant) {
+            console.log(`既にデモ参加者が存在します: ${event.scenario} (${event.date})`)
+          } else {
+            console.log(`既に満席です: ${event.scenario} (${event.date})`)
+          }
+        } catch (error) {
+          console.error(`デモ参加者の追加に失敗 (${event.id}):`, error)
+          errorCount++
+        }
+      }
+      
+      console.log(`デモ参加者追加完了: 成功${successCount}件, エラー${errorCount}件`)
+      
+      return {
+        success: true,
+        message: `デモ参加者追加完了: 成功${successCount}件, エラー${errorCount}件`,
+        successCount,
+        errorCount
+      }
+    } catch (error) {
+      console.error('デモ参加者追加処理でエラー:', error)
+      return { success: false, error }
+    }
   }
 }
 
@@ -969,6 +1149,12 @@ export const salesApi = {
         if (!hasDemoParticipant) {
           // デモ参加者の予約を自動作成
           try {
+            // デモ参加者の参加費を計算
+            const isGmTest = event.category === 'gmtest'
+            const participationFee = isGmTest 
+              ? (scenarioInfo?.gm_test_participation_fee || scenarioInfo?.participation_fee || 0)
+              : (scenarioInfo?.participation_fee || 0)
+            
             const demoReservation = {
               schedule_event_id: event.id,
               title: event.scenario || '',
@@ -981,11 +1167,11 @@ export const salesApi = {
               participant_count: 1,
               participant_names: ['デモ参加者'],
               assigned_staff: event.gms || [],
-              base_price: 0,
+              base_price: participationFee,
               options_price: 0,
-              total_price: 0,
+              total_price: participationFee,
               discount_amount: 0,
-              final_price: 0,
+              final_price: participationFee,
               payment_method: 'onsite',
               payment_status: 'paid',
               status: 'confirmed',
@@ -1003,8 +1189,14 @@ export const salesApi = {
           }
         }
         
-        // デモ参加者は参加費0円
-        totalRevenue += 0
+        // デモ参加者の参加費を計算
+        const isGmTest = event.category === 'gmtest'
+        const participationFee = isGmTest 
+          ? (scenarioInfo?.gm_test_participation_fee || scenarioInfo?.participation_fee || 0)
+          : (scenarioInfo?.participation_fee || 0)
+        
+        // デモ参加者も参加費を払う
+        totalRevenue += participationFee
         totalParticipants += 1 // デモ参加者1人を追加
       }
       

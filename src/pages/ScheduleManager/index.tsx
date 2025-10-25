@@ -106,11 +106,12 @@ export function ScheduleManager() {
   }
 
   // activeTabの変更を監視してデモ参加者追加を実行
-  useEffect(() => {
-    if (activeTab === 'add-demo' && !isAddingDemo) {
-      handleAddDemoParticipants()
-    }
-  }, [activeTab])
+  // 一時的にコメントアウト（データ型の問題を修正する必要がある）
+  // useEffect(() => {
+  //   if (activeTab === 'add-demo' && !isAddingDemo) {
+  //     handleAddDemoParticipants()
+  //   }
+  // }, [activeTab])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
