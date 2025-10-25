@@ -2,7 +2,16 @@ import { useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
-import ShiftSidebar from '@/components/layout/ShiftSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
+import { Calendar, Clock, CheckCircle, Settings } from 'lucide-react'
+
+// サイドバーのメニュー項目定義
+const SHIFT_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'shift-submission', label: 'シフト提出', icon: Calendar, description: 'シフトを提出' },
+  { id: 'my-shifts', label: '提出済みシフト', icon: CheckCircle, description: '提出済みシフト確認' },
+  { id: 'schedule', label: 'スケジュール', icon: Clock, description: 'スケジュール確認' },
+  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+]
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { useShiftData } from './hooks/useShiftData'
@@ -90,7 +99,15 @@ export function ShiftSubmission() {
   return (
     <AppLayout
       currentPage="shift-submission"
-      sidebar={<ShiftSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      sidebar={
+        <UnifiedSidebar
+          title="シフト提出"
+          mode="list"
+          menuItems={SHIFT_MENU_ITEMS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-8 py-6"
       stickyLayout={true}
