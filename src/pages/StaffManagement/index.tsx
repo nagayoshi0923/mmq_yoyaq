@@ -196,6 +196,8 @@ export function StaffManagement() {
     setCurrentStaffId(staff.id)
     setSidebarMode('edit')
     setActiveTab('basic')
+    // モーダルは使わない（editingStaffをセットするだけ）
+    openEditModal(staff)
     // スタッフIDをハッシュに設定して遷移
     window.location.hash = `staff/edit/${staff.id}`
   }
@@ -313,6 +315,18 @@ export function StaffManagement() {
         stickyLayout={true}
       >
         <div className="space-y-6">
+            {/* 編集モード時: スタッフ編集フォーム表示 */}
+            {sidebarMode === 'edit' && currentStaffId && editingStaff ? (
+              <StaffEditModal
+                isOpen={false} // モーダルとしては使わない
+                onClose={handleBackToList}
+                onSave={handleSaveStaff}
+                staff={editingStaff}
+                stores={stores}
+                scenarios={scenarios}
+              />
+            ) : (
+              <>
             {/* 統計情報 */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
@@ -396,17 +410,9 @@ export function StaffManagement() {
               }
               loading={loading}
             />
+              </>
+            )}
           </div>
-
-        {/* スタッフ編集モーダル */}
-        <StaffEditModal
-          isOpen={isEditModalOpen}
-          onClose={closeEditModal}
-          onSave={handleSaveStaff}
-          staff={editingStaff}
-          stores={stores}
-          scenarios={scenarios}
-        />
 
         {/* 削除確認ダイアログ */}
         <ConfirmModal
