@@ -81,21 +81,11 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
                     : 'text-slate-700 hover:bg-slate-100'
                 )}
               >
-                <div className="w-full">
-                  <div className={cn(
-                    'text-sm font-medium',
-                    isActive ? 'text-blue-700' : 'text-slate-700 group-hover:text-slate-900'
-                  )}>
-                    {item.label}
-                  </div>
-                  {item.description && (
-                    <div className={cn(
-                      'text-xs mt-0.5',
-                      isActive ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-600'
-                    )}>
-                      {item.description}
-                    </div>
-                  )}
+                <div className={cn(
+                  'text-sm font-medium',
+                  isActive ? 'text-blue-700' : 'text-slate-700 group-hover:text-slate-900'
+                )}>
+                  {item.label}
                 </div>
               </button>
             )
