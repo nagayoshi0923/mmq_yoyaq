@@ -48,11 +48,11 @@ export function StaffManagement() {
   const [sidebarMode, setSidebarMode] = useState<'list' | 'edit'>('list')
   const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
   
-  // ページ状態管理（一時的にコメントアウト）
-  // const { restoreState, saveState } = usePageState({
-  //   pageKey: 'staff',
-  //   scrollRestoration: true
-  // })
+  // ページ状態管理
+  const { restoreState, saveState } = usePageState({
+    pageKey: 'staff',
+    scrollRestoration: true
+  })
   
   // URLハッシュからスタッフIDとタブを復元
   useEffect(() => {
@@ -264,11 +264,14 @@ export function StaffManagement() {
       <AppLayout 
         currentPage="staff" 
         sidebar={
-          <StaffSidebar 
-            activeTab={activeTab} 
-            onTabChange={setActiveTab} 
+          <UnifiedSidebar
+            title="スタッフ管理"
             mode={sidebarMode}
+            menuItems={sidebarMode === 'list' ? STAFF_LIST_MENU_ITEMS : STAFF_EDIT_MENU_ITEMS}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
             onBackToList={sidebarMode === 'edit' ? handleBackToList : undefined}
+            editModeSubtitle={sidebarMode === 'edit' && editingStaff ? editingStaff.name : undefined}
           />
         } 
         stickyLayout={true}
@@ -295,11 +298,14 @@ export function StaffManagement() {
       <AppLayout 
         currentPage="staff" 
         sidebar={
-          <StaffSidebar 
-            activeTab={activeTab} 
-            onTabChange={setActiveTab} 
+          <UnifiedSidebar
+            title="スタッフ管理"
             mode={sidebarMode}
+            menuItems={sidebarMode === 'list' ? STAFF_LIST_MENU_ITEMS : STAFF_EDIT_MENU_ITEMS}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
             onBackToList={sidebarMode === 'edit' ? handleBackToList : undefined}
+            editModeSubtitle={sidebarMode === 'edit' && editingStaff ? editingStaff.name : undefined}
           />
         } 
         stickyLayout={true}
