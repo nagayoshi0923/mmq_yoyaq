@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useSessionState } from '@/hooks/useSessionState'
-import SalesSidebar from '@/components/layout/SalesSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
+import { TrendingUp, BarChart, FileText, Settings } from 'lucide-react'
+
+// サイドバーのメニュー項目定義
+const SALES_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'sales-overview', label: '売上概要', icon: TrendingUp, description: '売上サマリーを表示' },
+  { id: 'scenario-performance', label: 'シナリオ別', icon: BarChart, description: 'シナリオ別売上' },
+  { id: 'author-report', label: '作者別レポート', icon: FileText, description: '作者別売上レポート' }
+]
 import AuthorReport from '../AuthorReport/index'
 import { useSalesData } from './hooks/useSalesData'
 import { SalesOverview } from './components/SalesOverview'
@@ -134,7 +142,15 @@ const SalesManagement: React.FC = () => {
   return (
     <AppLayout
       currentPage="sales"
-      sidebar={<SalesSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      sidebar={
+        <UnifiedSidebar
+          title="売上管理"
+          mode="list"
+          menuItems={SALES_MENU_ITEMS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-8 py-6"
       stickyLayout={true}
