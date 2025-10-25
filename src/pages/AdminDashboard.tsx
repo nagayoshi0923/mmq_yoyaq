@@ -45,6 +45,10 @@ export function AdminDashboard() {
     if (scenarioMatch) {
       return { page: 'customer-booking', scenarioId: scenarioMatch[1] }
     }
+    // staff/edit/{staffId} のルーティング
+    if (hash.startsWith('staff/edit/') || hash.startsWith('staff-edit/')) {
+      return { page: 'staff', scenarioId: null }
+    }
     if (hash.startsWith('scenarios/edit')) {
       return { page: 'scenarios-edit', scenarioId: null }
     }
