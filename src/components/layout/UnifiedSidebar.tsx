@@ -77,8 +77,8 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
                   'w-full text-left px-4 py-3 rounded-md transition-all duration-200',
                   'flex items-start gap-3 group',
                   isActive
-                    ? 'bg-blue-50 text-blue-700 border-l-2 border-blue-500'
-                    : 'text-slate-700 hover:bg-slate-100 border-l-2 border-transparent'
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-slate-700 hover:bg-slate-100'
                 )}
               >
                 <Icon 
