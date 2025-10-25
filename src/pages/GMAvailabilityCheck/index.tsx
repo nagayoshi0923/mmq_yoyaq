@@ -3,7 +3,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
-import GMSidebar from '@/components/layout/GMSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
+import { CheckCircle, Clock, Calendar, Settings } from 'lucide-react'
+
+// サイドバーのメニュー項目定義
+const GM_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'gm-list', label: 'GM確認一覧', icon: CheckCircle, description: 'すべてのGM確認を表示' },
+  { id: 'pending', label: '承認待ち', icon: Clock, description: '承認待ちGM' },
+  { id: 'schedule', label: 'スケジュール', icon: Calendar, description: 'GMスケジュール' },
+  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+]
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useGMRequests } from './hooks/useGMRequests'
@@ -65,7 +74,15 @@ export function GMAvailabilityCheck() {
     return (
       <AppLayout
         currentPage="gm-availability"
-        sidebar={<GMSidebar activeTab={sidebarActiveTab} onTabChange={setSidebarActiveTab} />}
+        sidebar={
+          <UnifiedSidebar
+            title="GM確認"
+            mode="list"
+            menuItems={GM_MENU_ITEMS}
+            activeTab={sidebarActiveTab}
+            onTabChange={setSidebarActiveTab}
+          />
+        }
         stickyLayout={true}
       >
         <div className="text-center py-12">
@@ -78,7 +95,15 @@ export function GMAvailabilityCheck() {
   return (
     <AppLayout
       currentPage="gm-availability"
-      sidebar={<GMSidebar activeTab={sidebarActiveTab} onTabChange={setSidebarActiveTab} />}
+      sidebar={
+        <UnifiedSidebar
+          title="GM確認"
+          mode="list"
+          menuItems={GM_MENU_ITEMS}
+          activeTab={sidebarActiveTab}
+          onTabChange={setSidebarActiveTab}
+        />
+      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-6 py-6"
       stickyLayout={true}
