@@ -48,11 +48,11 @@ export function StaffManagement() {
   const [sidebarMode, setSidebarMode] = useState<'list' | 'edit'>('list')
   const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
   
-  // ページ状態管理
-  const { restoreState, saveState } = usePageState({
-    pageKey: 'staff',
-    scrollRestoration: true
-  })
+  // ページ状態管理（一時的にコメントアウト）
+  // const { restoreState, saveState } = usePageState({
+  //   pageKey: 'staff',
+  //   scrollRestoration: true
+  // })
   
   // URLハッシュからスタッフIDとタブを復元
   useEffect(() => {
