@@ -27,12 +27,30 @@ import { createStaffColumns } from './utils/tableColumns'
 export function StaffManagement() {
   // サイドバー状態
   const [activeTab, setActiveTab] = useState('staff-list')
+  const [sidebarMode, setSidebarMode] = useState<'list' | 'edit'>('list')
+  const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
   
   // ページ状態管理
   const { restoreState, saveState } = usePageState({
     pageKey: 'staff',
     scrollRestoration: true
   })
+  
+  // URLハッシュからスタッフIDとタブを復元
+  useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    if (hash.startsWith('staff/edit/')) {
+      const parts = hash.split('/')
+      const staffId = parts[2]
+      setCurrentStaffId(staffId)
+      setSidebarMode('edit')
+      setActiveTab('basic') // デフォルトタブ
+    } else {
+      setCurrentStaffId(null)
+      setSidebarMode('list')
+      setActiveTab('staff-list')
+    }
+  }, [])
 
   // React Query でCRUD操作
   const { data: staff = [], isLoading: loading, error: queryError } = useStaffQuery()
@@ -173,11 +191,28 @@ export function StaffManagement() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
+  // スタッフ編集ハンドラ（シナリオと同じパターン）
+  function handleEditStaff(staff: any) {
+    setCurrentStaffId(staff.id)
+    setSidebarMode('edit')
+    setActiveTab('basic')
+    // スタッフIDをハッシュに設定して遷移
+    window.location.hash = `staff/edit/${staff.id}`
+  }
+
+  // 一覧に戻るハンドラ
+  function handleBackToList() {
+    setCurrentStaffId(null)
+    setSidebarMode('list')
+    setActiveTab('staff-list')
+    window.location.hash = 'staff'
+  }
+
   // テーブル列定義（メモ化）
   const tableColumns = useMemo(
     () => createStaffColumns(
       { stores, getScenarioName },
-      { onEdit: openEditModal, onLink: openLinkModal, onDelete: openDeleteDialog }
+      { onEdit: handleEditStaff, onLink: openLinkModal, onDelete: openDeleteDialog }
     ),
     [stores, getScenarioName]
   )
@@ -206,7 +241,18 @@ export function StaffManagement() {
   // ローディング表示
   if (loading) {
     return (
-      <AppLayout currentPage="staff" sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />} stickyLayout={true}>
+      <AppLayout 
+        currentPage="staff" 
+        sidebar={
+          <StaffSidebar 
+            activeTab={activeTab} 
+            onTabChange={setActiveTab} 
+            mode={sidebarMode}
+            onBackToList={sidebarMode === 'edit' ? handleBackToList : undefined}
+          />
+        } 
+        stickyLayout={true}
+      >
         <div className="space-y-6">
           <div className="h-16 bg-gray-200 rounded animate-pulse"></div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -226,7 +272,18 @@ export function StaffManagement() {
   // エラー表示
   if (error) {
     return (
-      <AppLayout currentPage="staff" sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />} stickyLayout={true}>
+      <AppLayout 
+        currentPage="staff" 
+        sidebar={
+          <StaffSidebar 
+            activeTab={activeTab} 
+            onTabChange={setActiveTab} 
+            mode={sidebarMode}
+            onBackToList={sidebarMode === 'edit' ? handleBackToList : undefined}
+          />
+        } 
+        stickyLayout={true}
+      >
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <p className="text-red-800">{error}</p>
@@ -243,7 +300,14 @@ export function StaffManagement() {
     <TooltipProvider>
       <AppLayout 
         currentPage="staff" 
-        sidebar={<StaffSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+        sidebar={
+          <StaffSidebar 
+            activeTab={activeTab} 
+            onTabChange={setActiveTab} 
+            mode={sidebarMode}
+            onBackToList={sidebarMode === 'edit' ? handleBackToList : undefined}
+          />
+        }
         maxWidth="max-w-[1600px]"
         containerPadding="px-6 py-6"
         stickyLayout={true}
