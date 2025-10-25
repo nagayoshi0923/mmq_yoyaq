@@ -104,12 +104,25 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         ? (scenario?.gm_test_participation_fee || scenario?.participation_fee || 0)
         : (scenario?.participation_fee || 0)
       
+      // 店舗名から店舗IDを取得
+      const { data: store, error: storeError } = await supabase
+        .from('stores')
+        .select('id')
+        .or(`name.eq.${event.venue},short_name.eq.${event.venue}`)
+        .single()
+      
+      if (storeError) {
+        console.error('店舗ID取得エラー:', storeError)
+        failedCount++
+        continue
+      }
+      
       // デモ参加者の予約を作成（不足人数分）
       const demoReservation = {
         schedule_event_id: event.id,
         title: event.scenario || '',
         scenario_id: scenario?.id || null,
-        store_id: event.venue || null,
+        store_id: store?.id || null,
         customer_id: null,
         customer_notes: `デモ参加者（自動追加） - 不足人数: ${shortfall}名`,
         requested_datetime: `${event.date}T${event.start_time}+09:00`,
