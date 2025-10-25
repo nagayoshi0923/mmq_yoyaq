@@ -324,7 +324,7 @@ export function StaffManagement() {
           <UnifiedSidebar
             title="スタッフ管理"
             mode={sidebarMode}
-            menuItems={sidebarMode === 'list' ? staffListMenuItems : staffEditMenuItems}
+            menuItems={sidebarMode === 'list' ? STAFF_LIST_MENU_ITEMS : STAFF_EDIT_MENU_ITEMS}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             onBackToList={sidebarMode === 'edit' ? handleBackToList : undefined}
