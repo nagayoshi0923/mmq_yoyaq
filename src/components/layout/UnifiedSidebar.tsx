@@ -75,19 +75,13 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
                 onClick={() => onTabChange(item.id)}
                 className={cn(
                   'w-full text-left px-4 py-3 rounded-md transition-all duration-200',
-                  'flex items-start gap-3 group',
+                  'group',
                   isActive
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-slate-700 hover:bg-slate-100'
                 )}
               >
-                <Icon 
-                  className={cn(
-                    'h-5 w-5 flex-shrink-0 mt-0.5',
-                    isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'
-                  )} 
-                />
-                <div className="flex-1 min-w-0">
+                <div className="w-full">
                   <div className={cn(
                     'text-sm font-medium',
                     isActive ? 'text-blue-700' : 'text-slate-700 group-hover:text-slate-900'
