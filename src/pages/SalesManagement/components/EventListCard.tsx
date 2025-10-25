@@ -16,6 +16,7 @@ interface EventItem {
   net_profit: number
   participant_count: number
   category?: string
+  has_demo_participant?: boolean // デモ参加者がいるかどうか
 }
 
 interface EventListCardProps {
@@ -97,6 +98,11 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
                     {event.category === 'gmtest' && (
                       <Badge variant="secondary" className="text-xs">
                         GMテスト
+                      </Badge>
+                    )}
+                    {event.has_demo_participant && (
+                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                        デモ参加者
                       </Badge>
                     )}
                   </div>

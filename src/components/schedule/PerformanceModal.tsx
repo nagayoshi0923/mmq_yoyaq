@@ -118,7 +118,7 @@ export function PerformanceModal({
   const [newParticipant, setNewParticipant] = useState({
     customer_name: '',
     participant_count: 1,
-    payment_method: 'onsite' as 'onsite' | 'online',
+    payment_method: 'onsite' as 'onsite' | 'online' | 'staff',
     notes: ''
   })
   const [customerNames, setCustomerNames] = useState<string[]>([])
@@ -357,15 +357,22 @@ export function PerformanceModal({
     }
   }, [isOpen])
 
+  // 参加者名が変更された時にスタッフ名と一致するかチェック
+  useEffect(() => {
+    if (newParticipant.customer_name.trim()) {
+      const isStaff = staff.some(s => s.name === newParticipant.customer_name.trim())
+      if (isStaff && newParticipant.payment_method !== 'staff') {
+        setNewParticipant(prev => ({ ...prev, payment_method: 'staff' }))
+      }
+    }
+  }, [newParticipant.customer_name, staff])
+
   // 参加者を追加する関数
   const handleAddParticipant = async () => {
-    if (!newParticipant.customer_name.trim()) {
-      alert('参加者名を入力してください')
-      return
-    }
+    // 参加者名が未入力の場合はデモ参加者として追加
+    const participantName = newParticipant.customer_name.trim() || 'デモ参加者'
 
     if (!event?.id) {
-      alert('公演情報が不正です')
       return
     }
 
@@ -380,19 +387,19 @@ export function PerformanceModal({
         scenario_id: scenarioObj?.id || null,
         store_id: storeObj?.id || null,
         customer_id: null, // 匿名参加者として扱う（NULLを許可）
-        customer_notes: newParticipant.customer_name,
+        customer_notes: participantName,
         requested_datetime: `${formData.date}T${formData.start_time}+09:00`,
         duration: scenarioObj?.duration || 120,
         participant_count: newParticipant.participant_count,
-        participant_names: [newParticipant.customer_name],
+        participant_names: [participantName],
         assigned_staff: formData.gms || [],
-        base_price: 0,
+        base_price: (participantName === 'デモ参加者' || newParticipant.payment_method === 'staff') ? 0 : (scenarioObj?.participation_fee || 0),
         options_price: 0,
-        total_price: 0,
+        total_price: (participantName === 'デモ参加者' || newParticipant.payment_method === 'staff') ? 0 : (scenarioObj?.participation_fee || 0),
         discount_amount: 0,
-        final_price: 0,
-        payment_method: newParticipant.payment_method,
-        payment_status: newParticipant.payment_method === 'online' ? 'paid' : 'pending',
+        final_price: (participantName === 'デモ参加者' || newParticipant.payment_method === 'staff') ? 0 : (scenarioObj?.participation_fee || 0),
+        payment_method: participantName === 'デモ参加者' ? 'onsite' : newParticipant.payment_method,
+        payment_status: (participantName === 'デモ参加者' || newParticipant.payment_method === 'online') ? 'paid' : (newParticipant.payment_method === 'staff' ? 'paid' : 'pending'),
         status: 'confirmed',
         reservation_source: 'admin'
       }
@@ -456,7 +463,6 @@ export function PerformanceModal({
       })
       setIsAddingParticipant(false)
       
-      alert('参加者を追加しました')
     } catch (error) {
       logger.error('参加者追加エラー:', error)
       alert('参加者の追加に失敗しました')
@@ -1013,7 +1019,7 @@ export function PerformanceModal({
                             <Label htmlFor="payment_method">支払い方法</Label>
                             <Select
                               value={newParticipant.payment_method}
-                              onValueChange={(value: 'onsite' | 'online') => setNewParticipant(prev => ({ ...prev, payment_method: value }))}
+                              onValueChange={(value: 'onsite' | 'online' | 'staff') => setNewParticipant(prev => ({ ...prev, payment_method: value }))}
                             >
                               <SelectTrigger>
                                 <SelectValue />
@@ -1021,6 +1027,7 @@ export function PerformanceModal({
                               <SelectContent>
                                 <SelectItem value="onsite">現地決済</SelectItem>
                                 <SelectItem value="online">事前決済</SelectItem>
+                                <SelectItem value="staff">スタッフ参加（無料）</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>

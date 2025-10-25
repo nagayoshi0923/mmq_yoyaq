@@ -328,7 +328,12 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           scenarios={modalData.scenarios}
           staff={modalData.staff}
           availableStaffByScenario={modalData.availableStaffByScenario}
-          onParticipantChange={() => {}}
+          onParticipantChange={() => {
+            // 参加者数が変更された場合はデータをリフレッシュ
+            if (onDataRefresh) {
+              onDataRefresh()
+            }
+          }}
         />
       )}
     </div>

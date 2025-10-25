@@ -491,8 +491,9 @@ function calculateSalesData(
       license_cost: licenseCost,
       gm_cost: gmCost,
       net_profit: netProfit,
-      participant_count: event.current_participants || 0,
-      category: event.category
+      participant_count: (event as any).actual_participants || event.current_participants || 0,
+      category: event.category,
+      has_demo_participant: (event as any).has_demo_participant || false
     }
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // 新しい日付順でソート
 
