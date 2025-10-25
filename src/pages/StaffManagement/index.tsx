@@ -43,7 +43,7 @@ const STAFF_EDIT_MENU_ITEMS: SidebarMenuItem[] = [
 ]
 
 export function StaffManagement() {
-  // サイドバー状態
+  // サイドバー状態 (updated)
   const [activeTab, setActiveTab] = useState('staff-list')
   const [sidebarMode, setSidebarMode] = useState<'list' | 'edit'>('list')
   const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
