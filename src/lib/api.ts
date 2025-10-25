@@ -892,7 +892,7 @@ export const salesApi = {
     // 全シナリオを取得
     const { data: scenarios, error: scenariosError } = await supabase
       .from('scenarios')
-      .select('id, title, author, participation_fee, participation_costs, license_amount, gm_test_license_amount, gm_costs')
+      .select('id, title, author, participation_fee, gm_test_participation_fee, participation_costs, license_amount, gm_test_license_amount, gm_costs')
     
     if (scenariosError) {
       // scenarios fetch error
@@ -915,9 +915,12 @@ export const salesApi = {
         scenarioInfo = scenarioMap.get(event.scenario)
       }
       
-      // 売上を計算: 参加人数 × 参加費
+      // 売上を計算: 参加人数 × 参加費（GMテストの場合は専用料金を使用）
       const participantCount = event.current_participants || 0
-      const participationFee = scenarioInfo?.participation_fee || 0
+      const isGmTest = event.category === 'gmtest'
+      const participationFee = isGmTest 
+        ? (scenarioInfo?.gm_test_participation_fee || scenarioInfo?.participation_fee || 0)
+        : (scenarioInfo?.participation_fee || 0)
       const revenue = participantCount * participationFee
       
       return {

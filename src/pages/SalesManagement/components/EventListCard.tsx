@@ -2,6 +2,8 @@ import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, MapPin, Users, DollarSign, CreditCard, User } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Edit } from 'lucide-react'
 
 interface EventItem {
   id: string
@@ -19,6 +21,7 @@ interface EventItem {
 interface EventListCardProps {
   events: EventItem[]
   loading?: boolean
+  onEditEvent?: (event: EventItem) => void
 }
 
 const formatCurrency = (amount: number): string => {
@@ -40,7 +43,8 @@ const formatDate = (dateStr: string): string => {
 
 const EventListCardBase: React.FC<EventListCardProps> = ({
   events,
-  loading = false
+  loading = false,
+  onEditEvent
 }) => {
   if (loading) {
     return (
@@ -97,7 +101,24 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
                     )}
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-sm truncate">{event.scenario_title}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 
+                        className="font-semibold text-sm truncate cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => onEditEvent?.(event)}
+                        title="クリックして編集"
+                      >
+                        {event.scenario_title}
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => onEditEvent?.(event)}
+                        title="編集"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                    </div>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <MapPin className="h-3 w-3" />

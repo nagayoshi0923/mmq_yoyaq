@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { X, ChevronDown, ChevronUp, Mail, ExternalLink } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
-import { SearchableSelect } from '@/components/ui/searchable-select'
+import { AutocompleteInput } from '@/components/ui/autocomplete-input'
 import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { scenarioApi, staffApi } from '@/lib/api'
@@ -121,6 +121,7 @@ export function PerformanceModal({
     payment_method: 'onsite' as 'onsite' | 'online',
     notes: ''
   })
+  const [customerNames, setCustomerNames] = useState<string[]>([])
   const [formData, setFormData] = useState<any>({
     id: '',
     date: '',
@@ -314,6 +315,48 @@ export function PerformanceModal({
     }
   }
 
+  // 顧客名を取得する関数
+  const fetchCustomerNames = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('customer_notes, participant_names')
+        .not('customer_notes', 'is', null)
+        .not('customer_notes', 'eq', '')
+      
+      if (error) throw error
+      
+      const names = new Set<string>()
+      
+      // customer_notesから名前を抽出
+      data?.forEach(reservation => {
+        if (reservation.customer_notes) {
+          // 「様」を除去して名前を抽出
+          const name = reservation.customer_notes.replace(/様$/, '').trim()
+          if (name) names.add(name)
+        }
+        
+        // participant_namesからも名前を抽出
+        if (reservation.participant_names && Array.isArray(reservation.participant_names)) {
+          reservation.participant_names.forEach(name => {
+            if (name && name.trim()) names.add(name.trim())
+          })
+        }
+      })
+      
+      setCustomerNames(Array.from(names).sort())
+    } catch (error) {
+      console.error('顧客名の取得に失敗:', error)
+    }
+  }
+
+  // モーダルが開かれた時に顧客名を取得
+  useEffect(() => {
+    if (isOpen) {
+      fetchCustomerNames()
+    }
+  }, [isOpen])
+
   // 参加者を追加する関数
   const handleAddParticipant = async () => {
     if (!newParticipant.customer_name.trim()) {
@@ -468,27 +511,6 @@ export function PerformanceModal({
     const endHour = Math.floor(endMinutes / 60)
     const endMinute = endMinutes % 60
     return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`
-  }
-
-  // シナリオ選択時の自動設定
-  const handleScenarioChange = (scenarioTitle: string) => {
-    const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
-    
-    if (selectedScenario) {
-      const endTime = calculateEndTime(formData.start_time, scenarioTitle)
-      
-      setFormData((prev: EventFormData) => ({
-        ...prev,
-        scenario: scenarioTitle,
-        end_time: endTime,
-        max_participants: selectedScenario.player_count_max
-      }))
-    } else {
-      setFormData((prev: EventFormData) => ({
-        ...prev,
-        scenario: scenarioTitle
-      }))
-    }
   }
 
   // 開始時間変更時の自動設定
@@ -804,90 +826,39 @@ export function PerformanceModal({
           {/* シナリオ */}
           <div>
             <Label htmlFor="scenario">シナリオタイトル</Label>
-            <SearchableSelect
-              options={scenarios.map(scenario => {
-                const hours = scenario.duration / 60
-                const displayHours = hours % 1 === 0 ? hours.toFixed(1) : hours.toFixed(1)
-                
-                // 担当GMを取得
-                const allGMsForScenario = staff.filter(s => 
-                  s.role?.includes('gm') && 
-                  (s.special_scenarios?.includes(scenario.id) || s.special_scenarios?.includes(scenario.title))
-                )
-                
-                const availableGMs = availableStaffByScenario[scenario.title] || []
-                const availableStaffIds = new Set(availableGMs.map(gm => gm.id))
-                
-                // 検索キーワード（読み仮名）を準備
-                const searchKeywords = [
-                  (scenario as any).reading_katakana,
-                  (scenario as any).reading_alphabet,
-                  scenario.author
-                ].filter(Boolean)
-                
-                return {
-                  value: scenario.title,
-                  label: scenario.title,
-                  displayInfo: `${displayHours}h | ${scenario.player_count_min}-${scenario.player_count_max}人`,
-                  searchKeywords,
-                  renderContent: () => (
-                    <div className="flex items-center gap-2 w-full">
-                      {/* タイトル */}
-                      <span className="flex-shrink-0 min-w-0 truncate">{scenario.title}</span>
-                      
-                      {/* 時間・人数 */}
-                      <span className="flex-shrink-0 text-xs text-muted-foreground whitespace-nowrap">
-                        {displayHours}h | {scenario.player_count_min}-{scenario.player_count_max}人
-                      </span>
-                      
-                      {/* 担当GMバッジ */}
-                      {allGMsForScenario.length > 0 && (
-                        <div className="flex gap-0.5 flex-shrink-0">
-                          {allGMsForScenario.slice(0, 6).map((gm) => {
-                            const isAvailable = availableStaffIds.has(gm.id)
-                            const hash = gm.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-                            const colors = ['#EFF6FF', '#F0FDF4', '#FFFBEB', '#FEF2F2', '#F5F3FF', '#FDF2F8', '#ECFEFF', '#F7FEE7']
-                            const textColors = ['#2563EB', '#16A34A', '#D97706', '#DC2626', '#7C3AED', '#DB2777', '#0891B2', '#65A30D']
-                            const bgColor = gm.avatar_color || colors[hash % colors.length]
-                            const textColor = gm.avatar_color ? 
-                              ({'#EFF6FF': '#2563EB', '#F0FDF4': '#16A34A', '#FFFBEB': '#D97706', '#FEF2F2': '#DC2626', '#F5F3FF': '#7C3AED', '#FDF2F8': '#DB2777', '#ECFEFF': '#0891B2', '#F7FEE7': '#65A30D'}[gm.avatar_color] || '#374151') :
-                              textColors[hash % textColors.length]
-                            
-                            return (
-                              <Badge 
-                                key={gm.id} 
-                                variant="outline"
-                                style={isAvailable ? { 
-                                  backgroundColor: bgColor, 
-                                  color: textColor,
-                                  borderColor: textColor + '40'
-                                } : undefined}
-                                className={`text-[10px] px-1 py-0 h-4 font-normal ${!isAvailable ? 'bg-gray-100 text-gray-400' : ''}`}
-                              >
-                                {gm.name.slice(0, 3)}
-                              </Badge>
-                            )
-                          })}
-                          {allGMsForScenario.length > 6 && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 font-normal bg-gray-100 text-gray-500">
-                              +{allGMsForScenario.length - 6}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                }
-              })}
+            <Select
               value={formData.scenario}
-              onValueChange={handleScenarioChange}
-              placeholder="シナリオを検索..."
-              searchPlaceholder="シナリオ名で検索..."
-              emptyText="シナリオが見つかりません"
-              onEmptyAction={() => setIsScenarioModalOpen(true)}
-              emptyActionLabel="シナリオを作成"
-              disabled={formData.is_private_request}
-            />
+              onValueChange={(scenarioTitle) => {
+                const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
+                
+                if (selectedScenario) {
+                  const endTime = calculateEndTime(formData.start_time, scenarioTitle)
+                  
+                  setFormData((prev: EventFormData) => ({
+                    ...prev,
+                    scenario: scenarioTitle,
+                    end_time: endTime,
+                    max_participants: selectedScenario.player_count_max
+                  }))
+                } else {
+                  setFormData((prev: EventFormData) => ({
+                    ...prev,
+                    scenario: scenarioTitle
+                  }))
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="シナリオを選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {scenarios.map(scenario => (
+                  <SelectItem key={scenario.id} value={scenario.title}>
+                    {scenario.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {formData.is_private_request && (
               <p className="text-xs text-purple-600 mt-1">
                 ※ 貸切リクエストのシナリオは変更できません
@@ -1018,11 +989,13 @@ export function PerformanceModal({
                       <div className="space-y-3">
                         <div>
                           <Label htmlFor="customer_name">参加者名 *</Label>
-                          <Input
-                            id="customer_name"
+                          <AutocompleteInput
                             value={newParticipant.customer_name}
-                            onChange={(e) => setNewParticipant(prev => ({ ...prev, customer_name: e.target.value }))}
+                            onChange={(value) => setNewParticipant(prev => ({ ...prev, customer_name: value }))}
                             placeholder="参加者名を入力"
+                            staffOptions={staff.map(s => ({ value: s.name, label: s.name, type: 'staff' as const }))}
+                            customerOptions={customerNames.map(name => ({ value: name, label: name, type: 'customer' as const }))}
+                            showStaffOnFocus={true}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-3">

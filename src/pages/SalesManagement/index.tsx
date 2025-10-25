@@ -101,6 +101,7 @@ const SalesManagement: React.FC = () => {
               setSelectedStore(store)
               loadSalesData(selectedPeriod, store)
             }}
+            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStore)}
           />
         )
       case 'scenario-performance':
@@ -134,6 +135,7 @@ const SalesManagement: React.FC = () => {
               setSelectedStore(store)
               loadSalesData(selectedPeriod, store)
             }}
+            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStore)}
           />
         )
     }

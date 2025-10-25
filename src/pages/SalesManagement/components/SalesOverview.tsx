@@ -1,16 +1,19 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { SalesData } from '@/types'
 import { SummaryCards } from './SummaryCards'
 import { EventListCard } from './EventListCard'
 import { SalesChart } from './SalesChart'
 import { ExportButtons } from './ExportButtons'
+import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { scenarioApi, staffApi, storeApi, scheduleApi } from '@/lib/api'
+import type { Staff, Scenario, Store } from '@/types'
 
-interface Store {
+interface StoreInfo {
   id: string
   name: string
   short_name: string
@@ -19,7 +22,7 @@ interface Store {
 interface SalesOverviewProps {
   salesData: SalesData | null
   loading: boolean
-  stores: Store[]
+  stores: StoreInfo[]
   selectedPeriod: string
   selectedStore: string
   dateRange: { startDate: string; endDate: string }
@@ -29,6 +32,7 @@ interface SalesOverviewProps {
   onCustomEndDateChange: (date: string) => void
   onPeriodChange: (period: string) => void
   onStoreChange: (store: string) => void
+  onDataRefresh?: () => void
 }
 
 /**
@@ -46,8 +50,126 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   onCustomStartDateChange,
   onCustomEndDateChange,
   onPeriodChange,
-  onStoreChange
+  onStoreChange,
+  onDataRefresh
 }) => {
+  // 編集モーダルの状態管理
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<any>(null)
+  const [modalData, setModalData] = useState<{
+    stores: Store[]
+    scenarios: Scenario[]
+    staff: Staff[]
+    availableStaffByScenario: Record<string, Staff[]>
+  } | null>(null)
+
+  // モーダル用データの取得
+  useEffect(() => {
+    const fetchModalData = async () => {
+      try {
+        const [storesData, scenariosData, staffData] = await Promise.all([
+          storeApi.getAll(),
+          scenarioApi.getAll(),
+          staffApi.getAll()
+        ])
+
+        // シナリオ別の利用可能スタッフを計算
+        const availableStaffByScenario: Record<string, Staff[]> = {}
+        scenariosData.forEach(scenario => {
+          if (scenario.available_gms && Array.isArray(scenario.available_gms)) {
+            availableStaffByScenario[scenario.id] = staffData.filter(staff => 
+              scenario.available_gms.includes(staff.name)
+            )
+          } else {
+            availableStaffByScenario[scenario.id] = []
+          }
+        })
+
+        setModalData({
+          stores: storesData,
+          scenarios: scenariosData,
+          staff: staffData,
+          availableStaffByScenario
+        })
+      } catch (error) {
+        console.error('モーダル用データの取得に失敗:', error)
+      }
+    }
+
+    fetchModalData()
+  }, [])
+
+  // イベント編集ハンドラー
+  const handleEditEvent = (event: any) => {
+    // 売上データのイベントをPerformanceModalが期待する形式に変換
+    const modalEvent = {
+      id: event.id,
+      date: event.date,
+      venue: event.store_name, // 店舗名をvenueとして使用
+      store_id: stores.find(s => s.name === event.store_name)?.id || '',
+      scenario: event.scenario_title,
+      scenario_id: '', // シナリオIDは後でモーダル内で設定
+      start_time: '10:00', // デフォルト値
+      end_time: '18:00', // デフォルト値
+      category: event.category || 'open',
+      is_cancelled: false,
+      participant_count: event.participant_count,
+      max_participants: 8, // デフォルト値
+      capacity: 8, // デフォルト値
+      gms: [], // デフォルト値
+      notes: '',
+      is_reservation_enabled: true
+    }
+    
+    setEditingEvent(modalEvent)
+    setIsEditModalOpen(true)
+  }
+
+  // モーダル保存ハンドラー
+  const handleModalSave = async (eventData: any) => {
+    try {
+      if (!editingEvent?.id) {
+        console.error('編集対象のイベントIDがありません')
+        return
+      }
+
+      // スケジュール更新用のデータを準備
+      const updateData: any = {}
+      
+      if (eventData.scenario_id) updateData.scenario_id = eventData.scenario_id
+      if (eventData.scenario) updateData.scenario = eventData.scenario
+      if (eventData.category) updateData.category = eventData.category
+      if (eventData.start_time) updateData.start_time = eventData.start_time
+      if (eventData.end_time) updateData.end_time = eventData.end_time
+      if (eventData.capacity !== undefined) updateData.capacity = eventData.capacity
+      if (eventData.gms) updateData.gms = eventData.gms
+      if (eventData.notes !== undefined) updateData.notes = eventData.notes
+      if (eventData.is_cancelled !== undefined) updateData.is_cancelled = eventData.is_cancelled
+      if (eventData.is_reservation_enabled !== undefined) updateData.is_reservation_enabled = eventData.is_reservation_enabled
+
+      // スケジュールを更新
+      await scheduleApi.update(editingEvent.id, updateData)
+      
+      console.log('スケジュール更新完了:', updateData)
+      
+      // データ更新後にリフレッシュ
+      if (onDataRefresh) {
+        onDataRefresh()
+      }
+      
+      setIsEditModalOpen(false)
+      setEditingEvent(null)
+    } catch (error) {
+      console.error('保存に失敗:', error)
+      // エラーハンドリング（トースト通知など）をここに追加可能
+    }
+  }
+
+  // モーダル閉じるハンドラー
+  const handleModalClose = () => {
+    setIsEditModalOpen(false)
+    setEditingEvent(null)
+  }
   if (loading) {
     return (
       <div className="space-y-6">
@@ -158,7 +280,10 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
 
           {/* 実施公演リスト */}
           <div className="mb-6">
-            <EventListCard events={salesData.eventList} />
+            <EventListCard 
+              events={salesData.eventList} 
+              onEditEvent={handleEditEvent}
+            />
           </div>
 
           {/* チャート */}
@@ -188,6 +313,23 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* 編集モーダル */}
+      {modalData && (
+        <PerformanceModal
+          isOpen={isEditModalOpen}
+          onClose={handleModalClose}
+          onSave={handleModalSave}
+          mode="edit"
+          event={editingEvent}
+          initialData={editingEvent}
+          stores={modalData.stores}
+          scenarios={modalData.scenarios}
+          staff={modalData.staff}
+          availableStaffByScenario={modalData.availableStaffByScenario}
+          onParticipantChange={() => {}}
+        />
       )}
     </div>
   )

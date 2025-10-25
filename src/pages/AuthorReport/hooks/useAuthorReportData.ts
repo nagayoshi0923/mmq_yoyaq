@@ -73,7 +73,10 @@ export function useAuthorReportData(year: number, month: number, storeId: string
         const events = perf.events as number
         const isGMTest = perf.category === 'gmtest'
         const avgParticipants = 6
-        const revenue = scenario.participation_fee * avgParticipants * events
+        const participationFee = isGMTest 
+          ? (scenario.gm_test_participation_fee || scenario.participation_fee || 0)
+          : (scenario.participation_fee || 0)
+        const revenue = participationFee * avgParticipants * events
         const duration = scenario.duration || 0
         const totalDuration = duration * events
 

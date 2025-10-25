@@ -30,6 +30,7 @@ interface SearchableSelectProps {
   emptyText?: string
   onEmptyAction?: () => void
   emptyActionLabel?: string
+  allowCustomValue?: boolean  // カスタム値を許可するかどうか
 }
 
 export function SearchableSelect({
@@ -42,7 +43,8 @@ export function SearchableSelect({
   disabled = false,
   emptyText = "見つかりません",
   onEmptyAction,
-  emptyActionLabel = "作成"
+  emptyActionLabel = "作成",
+  allowCustomValue = false
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -124,6 +126,23 @@ export function SearchableSelect({
           {filteredOptions.length === 0 ? (
             <div className="py-3 text-center">
               <p className="text-sm text-muted-foreground">{emptyText}</p>
+              {allowCustomValue && searchTerm && (
+                <div className="mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      onValueChange(searchTerm)
+                      setOpen(false)
+                      setSearchTerm("")
+                    }}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    「{searchTerm}」で追加
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             filteredOptions.map((option) => (
