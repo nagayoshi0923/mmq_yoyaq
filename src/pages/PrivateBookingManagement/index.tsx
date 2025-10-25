@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { Calendar, CheckCircle, Clock, Settings } from 'lucide-react'
+import { Calendar, CheckCircle, Clock, Settings, MapPin } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const PRIVATE_BOOKING_MENU_ITEMS: SidebarMenuItem[] = [
@@ -14,7 +14,6 @@ const PRIVATE_BOOKING_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'approved', label: '承認済み', icon: CheckCircle, description: '承認済み予約' },
   { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
 ]
-import { MapPin } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSessionState } from '@/hooks/useSessionState'
