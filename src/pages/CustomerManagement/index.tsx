@@ -4,7 +4,16 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, UserPlus } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
-import CustomerSidebar from '@/components/layout/CustomerSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
+import { Users, UserPlus, Search, Settings } from 'lucide-react'
+
+// サイドバーのメニュー項目定義
+const CUSTOMER_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'customer-list', label: '顧客一覧', icon: Users, description: 'すべての顧客を表示' },
+  { id: 'new-customer', label: '新規登録', icon: UserPlus, description: '新しい顧客を追加' },
+  { id: 'search', label: '検索', icon: Search, description: '顧客を検索' },
+  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+]
 import { useCustomerData } from './hooks/useCustomerData'
 import { CustomerRow } from './components/CustomerRow'
 import { CustomerEditModal } from './components/CustomerEditModal'
@@ -44,7 +53,15 @@ export default function CustomerManagement() {
   return (
     <AppLayout
       currentPage="customer-management"
-      sidebar={<CustomerSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      sidebar={
+        <UnifiedSidebar
+          title="顧客管理"
+          mode="list"
+          menuItems={CUSTOMER_MENU_ITEMS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-8 py-6"
       stickyLayout={true}
