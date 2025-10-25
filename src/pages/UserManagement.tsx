@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { Users, UserPlus, Shield, Settings } from 'lucide-react'
+import { Users, UserPlus, Shield, Settings, AlertCircle, Search, UserCog, User as UserIcon } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const USER_MENU_ITEMS: SidebarMenuItem[] = [
@@ -14,7 +14,6 @@ const USER_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
 ]
 import { searchUserByEmail, getAllUsers, updateUserRole, type User } from '@/lib/userApi'
-import { AlertCircle, Search, Users, Shield, UserCog, User as UserIcon } from 'lucide-react'
 import { logger } from '@/utils/logger'
 
 export function UserManagement() {
