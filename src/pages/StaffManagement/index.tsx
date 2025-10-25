@@ -9,7 +9,7 @@ import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { AppLayout } from '@/components/layout/AppLayout'
 import StaffSidebar from '@/components/layout/StaffSidebar'
-import { StaffEditModal } from '@/components/modals/StaffEditModal'
+import { StaffEditForm } from './components/StaffEditForm'
 import { usePageState } from '@/hooks/usePageState'
 import { Users, UserCheck, UserX, Clock, Shield } from 'lucide-react'
 
@@ -317,17 +317,14 @@ export function StaffManagement() {
         <div className="space-y-6">
             {/* 編集モード時: スタッフ編集フォーム表示 */}
             {sidebarMode === 'edit' && currentStaffId && editingStaff ? (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold">スタッフ編集: {editingStaff.name}</h2>
-                <StaffEditModal
-                  isOpen={true}
-                  onClose={handleBackToList}
-                  onSave={handleSaveStaff}
-                  staff={editingStaff}
-                  stores={stores}
-                  scenarios={scenarios}
-                />
-              </div>
+              <StaffEditForm
+                staff={editingStaff}
+                stores={stores}
+                scenarios={scenarios}
+                onSave={handleSaveStaff}
+                onCancel={handleBackToList}
+                activeTab={activeTab}
+              />
             ) : (
               <>
             {/* 統計情報 */}
