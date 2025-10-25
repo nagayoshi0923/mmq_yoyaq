@@ -8,10 +8,13 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { AppLayout } from '@/components/layout/AppLayout'
-import StaffSidebar from '@/components/layout/StaffSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { StaffEditForm } from './components/StaffEditForm'
 import { usePageState } from '@/hooks/usePageState'
-import { Users, UserCheck, UserX, Clock, Shield } from 'lucide-react'
+import { 
+  Users, UserCheck, UserX, Clock, Shield,
+  List, UserPlus, Search, Mail, StickyNote, MapPin
+} from 'lucide-react'
 
 // 分離されたフック
 import { useStaffFilters } from './hooks/useStaffFilters'
@@ -29,6 +32,21 @@ export function StaffManagement() {
   const [activeTab, setActiveTab] = useState('staff-list')
   const [sidebarMode, setSidebarMode] = useState<'list' | 'edit'>('list')
   const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
+
+  // サイドバーのメニュー項目定義
+  const staffListMenuItems: SidebarMenuItem[] = [
+    { id: 'staff-list', label: 'スタッフ一覧', icon: List, description: 'すべてのスタッフを表示' },
+    { id: 'new-staff', label: '新規作成', icon: UserPlus, description: '新しいスタッフを追加' },
+    { id: 'search-filter', label: '検索・フィルタ', icon: Search, description: 'スタッフを検索・フィルタ' },
+    { id: 'invite-staff', label: 'スタッフ招待', icon: Mail, description: 'メールで招待を送信' }
+  ]
+
+  const staffEditMenuItems: SidebarMenuItem[] = [
+    { id: 'basic', label: '基本情報', icon: Users, description: '名前、ステータス、連絡先' },
+    { id: 'contact', label: '連絡先情報', icon: Mail, description: 'メール、電話、SNS' },
+    { id: 'role-store', label: '役割・担当店舗', icon: Shield, description: 'ロール、店舗、特別シナリオ' },
+    { id: 'notes', label: '備考', icon: StickyNote, description: 'メモ・特記事項' }
+  ]
   
   // ページ状態管理
   const { restoreState, saveState } = usePageState({
