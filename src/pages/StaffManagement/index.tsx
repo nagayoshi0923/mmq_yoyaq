@@ -27,26 +27,26 @@ import { useStaffQuery, useStaffMutation, useDeleteStaffMutation } from './hooks
 import { StaffFilters } from './components/StaffFilters'
 import { createStaffColumns } from './utils/tableColumns'
 
+// サイドバーのメニュー項目定義（定数として外に出す）
+const STAFF_LIST_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'staff-list', label: 'スタッフ一覧', icon: List, description: 'すべてのスタッフを表示' },
+  { id: 'new-staff', label: '新規作成', icon: UserPlus, description: '新しいスタッフを追加' },
+  { id: 'search-filter', label: '検索・フィルタ', icon: Search, description: 'スタッフを検索・フィルタ' },
+  { id: 'invite-staff', label: 'スタッフ招待', icon: Mail, description: 'メールで招待を送信' }
+]
+
+const STAFF_EDIT_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'basic', label: '基本情報', icon: Users, description: '名前、ステータス、連絡先' },
+  { id: 'contact', label: '連絡先情報', icon: Mail, description: 'メール、電話、SNS' },
+  { id: 'role-store', label: '役割・担当店舗', icon: Shield, description: 'ロール、店舗、特別シナリオ' },
+  { id: 'notes', label: '備考', icon: StickyNote, description: 'メモ・特記事項' }
+]
+
 export function StaffManagement() {
   // サイドバー状態
   const [activeTab, setActiveTab] = useState('staff-list')
   const [sidebarMode, setSidebarMode] = useState<'list' | 'edit'>('list')
   const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
-
-  // サイドバーのメニュー項目定義
-  const staffListMenuItems: SidebarMenuItem[] = [
-    { id: 'staff-list', label: 'スタッフ一覧', icon: List, description: 'すべてのスタッフを表示' },
-    { id: 'new-staff', label: '新規作成', icon: UserPlus, description: '新しいスタッフを追加' },
-    { id: 'search-filter', label: '検索・フィルタ', icon: Search, description: 'スタッフを検索・フィルタ' },
-    { id: 'invite-staff', label: 'スタッフ招待', icon: Mail, description: 'メールで招待を送信' }
-  ]
-
-  const staffEditMenuItems: SidebarMenuItem[] = [
-    { id: 'basic', label: '基本情報', icon: Users, description: '名前、ステータス、連絡先' },
-    { id: 'contact', label: '連絡先情報', icon: Mail, description: 'メール、電話、SNS' },
-    { id: 'role-store', label: '役割・担当店舗', icon: Shield, description: 'ロール、店舗、特別シナリオ' },
-    { id: 'notes', label: '備考', icon: StickyNote, description: 'メモ・特記事項' }
-  ]
   
   // ページ状態管理
   const { restoreState, saveState } = usePageState({
