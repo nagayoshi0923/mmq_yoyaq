@@ -1,7 +1,6 @@
 // React
 import { useState, useEffect, useMemo } from 'react'
 import { addDemoParticipantsToPastUnderfullEvents } from '@/hooks/useScheduleData'
-import { useToast } from '@/hooks/use-toast'
 
 // Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -44,7 +43,6 @@ export function ScheduleManager() {
   // 月ナビゲーション
   const scrollRestoration = useScrollRestoration({ pageKey: 'schedule', isLoading: false })
   const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
-  const { toast } = useToast()
 
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
@@ -86,28 +84,22 @@ export function ScheduleManager() {
 
   // デモ参加者追加処理
   const handleAddDemoParticipants = async () => {
+    if (!confirm('過去の定員未満公演にデモ参加者を追加します。よろしいですか？')) {
+      return
+    }
+    
     setIsAddingDemo(true)
-    toast({
-      title: '処理中',
-      description: '過去の定員未満公演にデモ参加者を追加しています...',
-    })
     
     try {
       const result = await addDemoParticipantsToPastUnderfullEvents()
       
-      toast({
-        title: '完了',
-        description: `成功: ${result.success}件、スキップ: ${result.skipped}件、失敗: ${result.failed}件`,
-      })
+      alert(`完了しました。\n成功: ${result.success}件\nスキップ: ${result.skipped}件\n失敗: ${result.failed}件`)
       
       // スケジュールを再読み込み
       scheduleTableProps.fetchSchedule()
     } catch (error) {
-      toast({
-        title: 'エラー',
-        description: 'デモ参加者の追加に失敗しました',
-        variant: 'destructive',
-      })
+      alert('エラー: デモ参加者の追加に失敗しました')
+      console.error(error)
     } finally {
       setIsAddingDemo(false)
     }
