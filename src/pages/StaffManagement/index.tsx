@@ -56,17 +56,21 @@ export function StaffManagement() {
   
   // URLハッシュからスタッフIDとタブを復元
   useEffect(() => {
-    const hash = window.location.hash.slice(1)
-    if (hash.startsWith('staff/edit/')) {
-      const parts = hash.split('/')
-      const staffId = parts[2]
-      setCurrentStaffId(staffId)
-      setSidebarMode('edit')
-      setActiveTab('basic') // デフォルトタブ
-    } else {
-      setCurrentStaffId(null)
-      setSidebarMode('list')
-      setActiveTab('staff-list')
+    try {
+      const hash = window.location.hash.slice(1)
+      if (hash.startsWith('staff/edit/')) {
+        const parts = hash.split('/')
+        const staffId = parts[2]
+        setCurrentStaffId(staffId)
+        setSidebarMode('edit')
+        setActiveTab('basic') // デフォルトタブ
+      } else {
+        setCurrentStaffId(null)
+        setSidebarMode('list')
+        setActiveTab('staff-list')
+      }
+    } catch (error) {
+      console.error('❌ StaffManagement useEffect error:', error)
     }
   }, [])
 
