@@ -43,16 +43,20 @@ const STAFF_EDIT_MENU_ITEMS: SidebarMenuItem[] = [
 ]
 
 export function StaffManagement() {
+  console.log('🔍 StaffManagement rendering...')
+  
   // サイドバー状態 (updated)
   const [activeTab, setActiveTab] = useState('staff-list')
   const [sidebarMode, setSidebarMode] = useState<'list' | 'edit'>('list')
   const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
   
+  console.log('🔍 usePageState calling...')
   // ページ状態管理
   const { restoreState, saveState } = usePageState({
     pageKey: 'staff',
     scrollRestoration: true
   })
+  console.log('🔍 usePageState success')
   
   // URLハッシュからスタッフIDとタブを復元
   useEffect(() => {
