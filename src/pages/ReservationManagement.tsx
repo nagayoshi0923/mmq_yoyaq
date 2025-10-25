@@ -4,7 +4,16 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { AppLayout } from '@/components/layout/AppLayout'
-import ReservationSidebar from '@/components/layout/ReservationSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
+import { Calendar, Search, CheckCircle, Settings } from 'lucide-react'
+
+// サイドバーのメニュー項目定義
+const RESERVATION_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'reservation-list', label: '予約一覧', icon: Calendar, description: 'すべての予約を表示' },
+  { id: 'search', label: '検索', icon: Search, description: '予約を検索' },
+  { id: 'status', label: 'ステータス管理', icon: CheckCircle, description: '予約ステータス' },
+  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+]
 import { Search, Calendar, Clock, User, DollarSign, Filter, ChevronDown, ChevronUp } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -91,7 +100,15 @@ export function ReservationManagement() {
     return (
       <AppLayout
         currentPage="reservation"
-        sidebar={<ReservationSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+        sidebar={
+          <UnifiedSidebar
+            title="予約管理"
+            mode="list"
+            menuItems={RESERVATION_MENU_ITEMS}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        }
         stickyLayout={true}
       >
         <div className="flex items-center justify-center py-20">
@@ -104,7 +121,15 @@ export function ReservationManagement() {
   return (
     <AppLayout
       currentPage="reservation"
-      sidebar={<ReservationSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      sidebar={
+        <UnifiedSidebar
+          title="予約管理"
+          mode="list"
+          menuItems={RESERVATION_MENU_ITEMS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-6 py-6"
       stickyLayout={true}
