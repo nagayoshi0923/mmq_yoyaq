@@ -1,5 +1,15 @@
 import { AppLayout } from '@/components/layout/AppLayout'
-import SettingsSidebar from '@/components/layout/SettingsSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
+import { Settings as SettingsIcon, User, Bell, Shield, Database } from 'lucide-react'
+
+// サイドバーのメニュー項目定義
+const SETTINGS_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'general', label: '一般設定', icon: SettingsIcon, description: '基本設定' },
+  { id: 'profile', label: 'プロフィール', icon: User, description: 'ユーザー情報' },
+  { id: 'notifications', label: '通知設定', icon: Bell, description: '通知の設定' },
+  { id: 'security', label: 'セキュリティ', icon: Shield, description: 'セキュリティ設定' },
+  { id: 'data', label: 'データ管理', icon: Database, description: 'データのバックアップ' }
+]
 import { useSessionState } from '@/hooks/useSessionState'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
@@ -62,7 +72,15 @@ export function Settings() {
   return (
     <AppLayout
       currentPage="settings"
-      sidebar={<SettingsSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      sidebar={
+        <UnifiedSidebar
+          title="設定"
+          mode="list"
+          menuItems={SETTINGS_MENU_ITEMS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-8 py-6"
       stickyLayout={true}
