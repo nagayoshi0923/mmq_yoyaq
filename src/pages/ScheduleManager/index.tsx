@@ -1,5 +1,7 @@
 // React
 import { useState, useEffect, useMemo } from 'react'
+import { addDemoParticipantsToPastUnderfullEvents } from '@/hooks/useScheduleData'
+import { useToast } from '@/hooks/use-toast'
 
 // Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -42,10 +44,12 @@ export function ScheduleManager() {
   // 月ナビゲーション
   const scrollRestoration = useScrollRestoration({ pageKey: 'schedule', isLoading: false })
   const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
+  const { toast } = useToast()
 
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('schedule-view')
+  const [isAddingDemo, setIsAddingDemo] = useState(false)
 
   // スケジュールテーブルの共通フック
   const scheduleTableProps = useScheduleTable({ currentDate })
