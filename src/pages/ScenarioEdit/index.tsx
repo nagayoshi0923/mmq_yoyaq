@@ -22,18 +22,18 @@ import { PerformanceScheduleSection } from './sections/PerformanceScheduleSectio
 // 型定義
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 
+// サイドバーのメニュー項目定義（定数として外に出す）
+const SCENARIO_EDIT_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'basic', label: '基本情報', icon: BookOpen, description: 'タイトル、作者、説明文' },
+  { id: 'pricing', label: '料金設定', icon: DollarSign, description: '参加費、ライセンス料' },
+  { id: 'gm-settings', label: 'GM・スタッフ設定', icon: Users, description: 'GM数、報酬、担当GM設定' },
+  { id: 'costs-props', label: '制作費・小道具', icon: Package, description: '制作費、必要小道具' },
+  { id: 'performance-schedule', label: '公演・スケジュール', icon: Calendar, description: '実施店舗、予約枠' }
+]
+
 export function ScenarioEdit() {
   const [activeTab, setActiveTab] = useSessionState('scenarioEditActiveTab', 'basic')
   const [scenarioId, setScenarioId] = useState<string | null>(null)
-
-  // サイドバーのメニュー項目定義
-  const scenarioEditMenuItems: SidebarMenuItem[] = [
-    { id: 'basic', label: '基本情報', icon: BookOpen, description: 'タイトル、作者、説明文' },
-    { id: 'pricing', label: '料金設定', icon: DollarSign, description: '参加費、ライセンス料' },
-    { id: 'gm-settings', label: 'GM・スタッフ設定', icon: Users, description: 'GM数、報酬、担当GM設定' },
-    { id: 'costs-props', label: '制作費・小道具', icon: Package, description: '制作費、必要小道具' },
-    { id: 'performance-schedule', label: '公演・スケジュール', icon: Calendar, description: '実施店舗、予約枠' }
-  ]
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
@@ -323,7 +323,7 @@ export function ScenarioEdit() {
         <UnifiedSidebar
           title="シナリオ管理"
           mode="edit"
-          menuItems={scenarioEditMenuItems}
+          menuItems={SCENARIO_EDIT_MENU_ITEMS}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onBackToList={handleBack}

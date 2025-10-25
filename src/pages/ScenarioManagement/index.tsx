@@ -37,6 +37,14 @@ import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 
+// サイドバーのメニュー項目定義（定数として外に出す）
+const SCENARIO_LIST_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'scenario-list', label: 'シナリオ一覧', icon: BookOpen, description: 'すべてのシナリオを表示' },
+  { id: 'new-scenario', label: '新規作成', icon: FileText, description: '新しいシナリオを作成' },
+  { id: 'search-filter', label: '検索・フィルタ', icon: Search, description: 'シナリオを検索・フィルタ' },
+  { id: 'import-export', label: 'インポート・エクスポート', icon: Upload, description: 'シナリオの一括操作' }
+]
+
 export function ScenarioManagement() {
   // UI状態
   const [activeTab, setActiveTab] = useState('scenario-list')
@@ -45,14 +53,6 @@ export function ScenarioManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
   const [useInfiniteScroll] = useState(true) // 無限スクロールのON/OFF（将来的に切り替え機能を追加予定）
-
-  // サイドバーのメニュー項目定義
-  const scenarioListMenuItems: SidebarMenuItem[] = [
-    { id: 'scenario-list', label: 'シナリオ一覧', icon: BookOpen, description: 'すべてのシナリオを表示' },
-    { id: 'new-scenario', label: '新規作成', icon: FileText, description: '新しいシナリオを作成' },
-    { id: 'search-filter', label: '検索・フィルタ', icon: Search, description: 'シナリオを検索・フィルタ' },
-    { id: 'import-export', label: 'インポート・エクスポート', icon: Upload, description: 'シナリオの一括操作' }
-  ]
   
   // スクロール監視用
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
@@ -319,7 +319,7 @@ export function ScenarioManagement() {
         <UnifiedSidebar
           title="シナリオ管理"
           mode="list"
-          menuItems={scenarioListMenuItems}
+          menuItems={SCENARIO_LIST_MENU_ITEMS}
           activeTab={activeTab}
           onTabChange={setActiveTab}
         />
