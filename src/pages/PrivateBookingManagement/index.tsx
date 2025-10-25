@@ -4,7 +4,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AppLayout } from '@/components/layout/AppLayout'
-import PrivateBookingSidebar from '@/components/layout/PrivateBookingSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
+import { Calendar, CheckCircle, Clock, Settings } from 'lucide-react'
+
+// サイドバーのメニュー項目定義
+const PRIVATE_BOOKING_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'booking-list', label: '貸切確認一覧', icon: Calendar, description: 'すべての貸切予約を表示' },
+  { id: 'pending', label: '承認待ち', icon: Clock, description: '承認待ち予約' },
+  { id: 'approved', label: '承認済み', icon: CheckCircle, description: '承認済み予約' },
+  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+]
 import { MapPin } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -181,7 +190,15 @@ export function PrivateBookingManagement() {
     return (
       <AppLayout
         currentPage="private-booking"
-        sidebar={<PrivateBookingSidebar activeTab={sidebarActiveTab} onTabChange={setSidebarActiveTab} />}
+        sidebar={
+          <UnifiedSidebar
+            title="貸切確認"
+            mode="list"
+            menuItems={PRIVATE_BOOKING_MENU_ITEMS}
+            activeTab={sidebarActiveTab}
+            onTabChange={setSidebarActiveTab}
+          />
+        }
         stickyLayout={true}
       >
         <div className="flex items-center justify-center py-20">
@@ -194,7 +211,15 @@ export function PrivateBookingManagement() {
   return (
     <AppLayout
       currentPage="private-booking"
-      sidebar={<PrivateBookingSidebar activeTab={sidebarActiveTab} onTabChange={setSidebarActiveTab} />}
+      sidebar={
+        <UnifiedSidebar
+          title="貸切確認"
+          mode="list"
+          menuItems={PRIVATE_BOOKING_MENU_ITEMS}
+          activeTab={sidebarActiveTab}
+          onTabChange={setSidebarActiveTab}
+        />
+      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-6 py-6"
       stickyLayout={true}
