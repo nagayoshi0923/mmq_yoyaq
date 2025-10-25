@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
-import ScenarioSidebar from '@/components/layout/ScenarioSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { useSessionState } from '@/hooks/useSessionState'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Save, BookOpen, FileText, DollarSign, Users, Package, Calendar } from 'lucide-react'
 import type { Scenario, Staff } from '@/types'
 import { useScenariosQuery, useScenarioMutation } from '../ScenarioManagement/hooks/useScenarioQuery'
 import { staffApi } from '@/lib/api'
@@ -25,6 +25,15 @@ import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/typ
 export function ScenarioEdit() {
   const [activeTab, setActiveTab] = useSessionState('scenarioEditActiveTab', 'basic')
   const [scenarioId, setScenarioId] = useState<string | null>(null)
+
+  // サイドバーのメニュー項目定義
+  const scenarioEditMenuItems: SidebarMenuItem[] = [
+    { id: 'basic', label: '基本情報', icon: BookOpen, description: 'タイトル、作者、説明文' },
+    { id: 'pricing', label: '料金設定', icon: DollarSign, description: '参加費、ライセンス料' },
+    { id: 'gm-settings', label: 'GM・スタッフ設定', icon: Users, description: 'GM数、報酬、担当GM設定' },
+    { id: 'costs-props', label: '制作費・小道具', icon: Package, description: '制作費、必要小道具' },
+    { id: 'performance-schedule', label: '公演・スケジュール', icon: Calendar, description: '実施店舗、予約枠' }
+  ]
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
@@ -310,7 +319,17 @@ export function ScenarioEdit() {
   return (
     <AppLayout
       currentPage="scenarios"
-      sidebar={<ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} onBackToList={handleBack} mode="edit" />}
+      sidebar={
+        <UnifiedSidebar
+          title="シナリオ管理"
+          mode="edit"
+          menuItems={scenarioEditMenuItems}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onBackToList={handleBack}
+          editModeSubtitle={formData.title || '新規シナリオ'}
+        />
+      }
       maxWidth="max-w-7xl"
       containerPadding="px-8 py-6"
       stickyLayout={true}
