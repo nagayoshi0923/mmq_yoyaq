@@ -11,7 +11,7 @@ import { useMonthNavigation } from './hooks/useMonthNavigation'
 
 // Layout Components
 import { AppLayout } from '@/components/layout/AppLayout'
-import ScheduleSidebar from '@/components/layout/ScheduleSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 
 // Schedule Components
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
@@ -25,7 +25,15 @@ import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2 } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Calendar, Upload, Filter, Settings } from 'lucide-react'
+
+// サイドバーのメニュー項目定義
+const SCHEDULE_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'schedule-view', label: 'スケジュール表示', icon: Calendar, description: 'カレンダー形式で表示' },
+  { id: 'import', label: 'インポート', icon: Upload, description: 'スケジュールをインポート' },
+  { id: 'filter', label: 'フィルタ', icon: Filter, description: '表示フィルタ設定' },
+  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+]
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -90,7 +98,15 @@ export function ScheduleManager() {
   return (
     <AppLayout
       currentPage="schedule" 
-      sidebar={<ScheduleSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      sidebar={
+        <UnifiedSidebar
+          title="スケジュール管理"
+          mode="list"
+          menuItems={SCHEDULE_MENU_ITEMS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-4 py-4"
       stickyLayout={true}
