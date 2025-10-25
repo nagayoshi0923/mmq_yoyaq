@@ -2,11 +2,15 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
-import ScenarioSidebar from '@/components/layout/ScenarioSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import type { Scenario } from '@/types'
 import { 
   Plus, 
-  AlertTriangle
+  AlertTriangle,
+  BookOpen,
+  FileText,
+  Search,
+  Upload
 } from 'lucide-react'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
@@ -41,6 +45,14 @@ export function ScenarioManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
   const [useInfiniteScroll] = useState(true) // 無限スクロールのON/OFF（将来的に切り替え機能を追加予定）
+
+  // サイドバーのメニュー項目定義
+  const scenarioListMenuItems: SidebarMenuItem[] = [
+    { id: 'scenario-list', label: 'シナリオ一覧', icon: BookOpen, description: 'すべてのシナリオを表示' },
+    { id: 'new-scenario', label: '新規作成', icon: FileText, description: '新しいシナリオを作成' },
+    { id: 'search-filter', label: '検索・フィルタ', icon: Search, description: 'シナリオを検索・フィルタ' },
+    { id: 'import-export', label: 'インポート・エクスポート', icon: Upload, description: 'シナリオの一括操作' }
+  ]
   
   // スクロール監視用
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
@@ -303,7 +315,15 @@ export function ScenarioManagement() {
   return (
     <AppLayout
       currentPage="scenarios"
-      sidebar={<ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} mode="list" />}
+      sidebar={
+        <UnifiedSidebar
+          title="シナリオ管理"
+          mode="list"
+          menuItems={scenarioListMenuItems}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-4 py-8"
       stickyLayout={true}

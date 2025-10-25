@@ -321,11 +321,14 @@ export function StaffManagement() {
       <AppLayout 
         currentPage="staff" 
         sidebar={
-          <StaffSidebar 
-            activeTab={activeTab} 
-            onTabChange={setActiveTab} 
+          <UnifiedSidebar
+            title="スタッフ管理"
             mode={sidebarMode}
+            menuItems={sidebarMode === 'list' ? staffListMenuItems : staffEditMenuItems}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
             onBackToList={sidebarMode === 'edit' ? handleBackToList : undefined}
+            editModeSubtitle={sidebarMode === 'edit' && editingStaff ? editingStaff.name : undefined}
           />
         }
         maxWidth="max-w-[1600px]"
