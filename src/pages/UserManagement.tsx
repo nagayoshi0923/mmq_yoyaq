@@ -3,7 +3,16 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppLayout } from '@/components/layout/AppLayout'
-import UserSidebar from '@/components/layout/UserSidebar'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
+import { Users, UserPlus, Shield, Settings } from 'lucide-react'
+
+// サイドバーのメニュー項目定義
+const USER_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'user-list', label: 'ユーザー一覧', icon: Users, description: 'すべてのユーザーを表示' },
+  { id: 'new-user', label: '新規登録', icon: UserPlus, description: '新しいユーザーを追加' },
+  { id: 'roles', label: 'ロール管理', icon: Shield, description: 'ユーザーロール設定' },
+  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+]
 import { searchUserByEmail, getAllUsers, updateUserRole, type User } from '@/lib/userApi'
 import { AlertCircle, Search, Users, Shield, UserCog, User as UserIcon } from 'lucide-react'
 import { logger } from '@/utils/logger'
@@ -24,7 +33,15 @@ export function UserManagement() {
     return (
       <AppLayout
         currentPage="user-management"
-        sidebar={<UserSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+        sidebar={
+          <UnifiedSidebar
+            title="ユーザー管理"
+            mode="list"
+            menuItems={USER_MENU_ITEMS}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        }
         stickyLayout={true}
       >
         <Card className="border-red-200 bg-red-50">
@@ -222,7 +239,15 @@ export function UserManagement() {
   return (
     <AppLayout
       currentPage="user-management"
-      sidebar={<UserSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
+      sidebar={
+        <UnifiedSidebar
+          title="ユーザー管理"
+          mode="list"
+          menuItems={USER_MENU_ITEMS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      }
       maxWidth="max-w-[1600px]"
       containerPadding="p-6"
       stickyLayout={true}
