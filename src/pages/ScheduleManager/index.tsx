@@ -31,10 +31,10 @@ import { Ban, Edit, RotateCcw, Trash2, Calendar, Upload, Filter, Settings } from
 
 // サイドバーのメニュー項目定義
 const SCHEDULE_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'schedule-view', label: 'スケジュール表示', icon: Calendar, description: 'カレンダー形式で表示' },
-  { id: 'import', label: 'インポート', icon: Upload, description: 'スケジュールをインポート' },
-  { id: 'filter', label: 'フィルタ', icon: Filter, description: '表示フィルタ設定' },
-  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+  { id: 'schedule-view', label: 'スケジュール表示', icon: Calendar },
+  { id: 'import', label: 'インポート', icon: Upload },
+  { id: 'filter', label: 'フィルタ', icon: Filter },
+  { id: 'add-demo', label: 'デモ参加者追加', icon: Settings },
 ]
 
 // Types
@@ -83,6 +83,42 @@ export function ScheduleManager() {
       getEventsForSlot: filteredGetEventsForSlot
     }
   }), [scheduleTableProps, filteredGetEventsForSlot])
+
+  // デモ参加者追加処理
+  const handleAddDemoParticipants = async () => {
+    setIsAddingDemo(true)
+    toast({
+      title: '処理中',
+      description: '過去の定員未満公演にデモ参加者を追加しています...',
+    })
+    
+    try {
+      const result = await addDemoParticipantsToPastUnderfullEvents()
+      
+      toast({
+        title: '完了',
+        description: `成功: ${result.success}件、スキップ: ${result.skipped}件、失敗: ${result.failed}件`,
+      })
+      
+      // スケジュールを再読み込み
+      scheduleTableProps.fetchSchedule()
+    } catch (error) {
+      toast({
+        title: 'エラー',
+        description: 'デモ参加者の追加に失敗しました',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsAddingDemo(false)
+    }
+  }
+
+  // activeTabの変更を監視してデモ参加者追加を実行
+  useEffect(() => {
+    if (activeTab === 'add-demo' && !isAddingDemo) {
+      handleAddDemoParticipants()
+    }
+  }, [activeTab])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
