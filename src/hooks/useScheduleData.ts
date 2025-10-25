@@ -11,14 +11,14 @@ import type { Staff } from '@/types'
 // 過去の定員未満の公演にデモ参加者を追加する関数
 export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ success: number; failed: number; skipped: number }> {
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  today.setHours(23, 59, 59, 999) // 今日を含める
   
   let successCount = 0
   let failedCount = 0
   let skippedCount = 0
   
   try {
-    // 過去の公演を取得（中止されていない、カテゴリーがopenまたはgmtest）
+    // 今日以前の公演を取得（中止されていない、カテゴリーがopenまたはgmtest）
     const { data: pastEvents, error: eventsError } = await supabase
       .from('schedule_events')
       .select(`
@@ -34,7 +34,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         current_participants,
         capacity
       `)
-      .lt('date', today.toISOString().split('T')[0])
+      .lte('date', today.toISOString().split('T')[0])
       .eq('is_cancelled', false)
       .in('category', ['open', 'gmtest'])
       .order('date', { ascending: false })
@@ -49,6 +49,8 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       return { success: 0, failed: 0, skipped: 0 }
     }
     
+    console.log(`対象公演: ${pastEvents.length}件`)
+    
     for (const event of pastEvents) {
       const currentParticipants = event.current_participants || 0
       const maxParticipants = event.capacity || 8
@@ -62,7 +64,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       // 既存のデモ参加者がいるかチェック
       const { data: existingReservations, error: reservationCheckError } = await supabase
         .from('reservations')
-        .select('id, participant_names')
+        .select('id, participant_names, reservation_source')
         .eq('schedule_event_id', event.id)
         .in('status', ['confirmed', 'pending'])
       
@@ -72,7 +74,11 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         continue
       }
       
+      // 既にdemo_autoで追加された予約があるか、または無記名（空配列）の予約があるかチェック
       const hasDemoParticipant = existingReservations?.some(r => 
+        r.reservation_source === 'demo_auto' ||
+        !r.participant_names || 
+        r.participant_names.length === 0 ||
         r.participant_names?.includes('デモ参加者') || 
         r.participant_names?.some((name: string) => name.includes('デモ'))
       )
@@ -139,17 +145,18 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       }
 
       // デモ参加者の予約を作成（不足人数分）
+      // participant_namesを空配列にすることで「無記名 = デモ参加者」として扱われる
       const demoReservation = {
         schedule_event_id: event.id,
         title: event.scenario || '',
         scenario_id: scenario?.id || null,
         store_id: store?.id || null,
         customer_id: null,
-        customer_notes: `デモ参加者（自動追加） - 不足人数: ${shortfall}名`,
+        customer_notes: `デモ参加者（自動追加） - ${shortfall}名`,
         requested_datetime: `${event.date}T${event.start_time}+09:00`,
         duration: durationMinutes,
         participant_count: shortfall,
-        participant_names: Array(shortfall).fill('デモ参加者'),
+        participant_names: [], // 空配列 = 無記名 = デモ参加者
         assigned_staff: event.gms || [],
         base_price: participationFee * shortfall,
         options_price: 0,
@@ -167,14 +174,15 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         .insert(demoReservation)
       
       if (insertError) {
-        console.error('デモ参加者追加エラー:', insertError)
+        console.error(`デモ参加者追加エラー [${event.date} ${event.scenario}]:`, insertError)
         failedCount++
       } else {
-        console.log(`デモ参加者追加成功: ${event.date} ${event.scenario} (${shortfall}名)`)
+        console.log(`✅ デモ参加者追加成功: ${event.date} ${event.scenario} (${shortfall}名追加)`)
         successCount++
       }
     }
     
+    console.log(`処理完了 - 成功: ${successCount}, スキップ: ${skippedCount}, 失敗: ${failedCount}`)
     return { success: successCount, failed: failedCount, skipped: skippedCount }
   } catch (error) {
     console.error('処理エラー:', error)
