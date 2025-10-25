@@ -43,38 +43,30 @@ const STAFF_EDIT_MENU_ITEMS: SidebarMenuItem[] = [
 ]
 
 export function StaffManagement() {
-  console.log('🔍 StaffManagement rendering...')
-  
-  // サイドバー状態 (updated)
+  // サイドバー状態
   const [activeTab, setActiveTab] = useState('staff-list')
   const [sidebarMode, setSidebarMode] = useState<'list' | 'edit'>('list')
   const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
   
-  console.log('🔍 usePageState calling...')
   // ページ状態管理
   const { restoreState, saveState } = usePageState({
     pageKey: 'staff',
     scrollRestoration: true
   })
-  console.log('🔍 usePageState success')
   
   // URLハッシュからスタッフIDとタブを復元
   useEffect(() => {
-    try {
-      const hash = window.location.hash.slice(1)
-      if (hash.startsWith('staff/edit/')) {
-        const parts = hash.split('/')
-        const staffId = parts[2]
-        setCurrentStaffId(staffId)
-        setSidebarMode('edit')
-        setActiveTab('basic') // デフォルトタブ
-      } else {
-        setCurrentStaffId(null)
-        setSidebarMode('list')
-        setActiveTab('staff-list')
-      }
-    } catch (error) {
-      console.error('❌ StaffManagement useEffect error:', error)
+    const hash = window.location.hash.slice(1)
+    if (hash.startsWith('staff/edit/')) {
+      const parts = hash.split('/')
+      const staffId = parts[2]
+      setCurrentStaffId(staffId)
+      setSidebarMode('edit')
+      setActiveTab('basic') // デフォルトタブ
+    } else {
+      setCurrentStaffId(null)
+      setSidebarMode('list')
+      setActiveTab('staff-list')
     }
   }, [])
 
