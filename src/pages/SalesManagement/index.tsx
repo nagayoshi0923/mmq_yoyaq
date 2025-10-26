@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useSessionState } from '@/hooks/useSessionState'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { TrendingUp, BarChart, FileText, Settings } from 'lucide-react'
+import { TrendingUp, BarChart, FileText, Store } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const SALES_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'sales-overview', label: '売上概要', icon: TrendingUp, description: '売上サマリーを表示' },
   { id: 'scenario-performance', label: 'シナリオ別', icon: BarChart, description: 'シナリオ別売上' },
+  { id: 'franchise-sales', label: 'フランチャイズ', icon: Store, description: 'FC店舗の売上' },
   { id: 'author-report', label: '作者別レポート', icon: FileText, description: '作者別売上レポート' }
 ]
 import AuthorReport from '../AuthorReport/index'
@@ -113,6 +114,28 @@ const SalesManagement: React.FC = () => {
               setSelectedStore(store)
               loadSalesData(selectedPeriod, store)
             }}
+          />
+        )
+      case 'franchise-sales':
+                return (
+          <SalesOverview
+            salesData={salesData}
+            loading={loading}
+            stores={stores.filter(s => s.ownership_type === 'franchise')}
+            selectedPeriod={selectedPeriod}
+            selectedStore={selectedStore}
+            dateRange={dateRange}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            onCustomStartDateChange={setCustomStartDate}
+            onCustomEndDateChange={setCustomEndDate}
+            onPeriodChange={(period) => loadSalesData(period, selectedStore)}
+            onStoreChange={(store) => {
+              setSelectedStore(store)
+              loadSalesData(selectedPeriod, store)
+            }}
+            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStore)}
+            isFranchiseOnly={true}
           />
         )
       case 'author-report':

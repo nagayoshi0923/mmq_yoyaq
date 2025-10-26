@@ -17,6 +17,7 @@ interface StoreInfo {
   id: string
   name: string
   short_name: string
+  ownership_type?: 'corporate' | 'franchise'
 }
 
 interface SalesOverviewProps {
@@ -33,6 +34,7 @@ interface SalesOverviewProps {
   onPeriodChange: (period: string) => void
   onStoreChange: (store: string) => void
   onDataRefresh?: () => void
+  isFranchiseOnly?: boolean
 }
 
 /**
@@ -51,7 +53,8 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   onCustomEndDateChange,
   onPeriodChange,
   onStoreChange,
-  onDataRefresh
+  onDataRefresh,
+  isFranchiseOnly = false
 }) => {
   // 編集モーダルの状態管理
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -174,7 +177,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">売上管理</h1>
+          <h1 className="text-3xl font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
         </div>
         <Card>
           <CardContent className="p-8">
@@ -189,7 +192,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     <div>
       {/* ヘッダー：タイトルとエクスポートボタン */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">売上管理</h1>
+        <h1 className="text-3xl font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
         <ExportButtons salesData={salesData} />
       </div>
 

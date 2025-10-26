@@ -1241,7 +1241,7 @@ export const salesApi = {
   async getStores() {
     const { data, error } = await supabase
       .from('stores')
-      .select('id, name, short_name, fixed_costs')
+      .select('id, name, short_name, fixed_costs, ownership_type')
       .order('name', { ascending: true })
     
     if (error) throw error
