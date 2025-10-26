@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
 import { Save } from 'lucide-react'
 import type { Store, StoreFixedCost } from '@/types'
@@ -125,11 +127,10 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                         <label className="block text-sm font-medium mb-1">
                           店舗名 <span className="text-red-500">*</span>
                         </label>
-                        <input
+                        <Input
                           type="text"
                           value={formData.name || ''}
                           onChange={(e) => handleInputChange('name', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                           required
                         />
                       </div>
@@ -137,11 +138,10 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                         <label className="block text-sm font-medium mb-1">
                           略称 <span className="text-red-500">*</span>
                         </label>
-                        <input
+                        <Input
                           type="text"
                           value={formData.short_name || ''}
                           onChange={(e) => handleInputChange('short_name', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                           required
                         />
                       </div>
@@ -191,11 +191,10 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                     {/* 住所 */}
                     <div>
                       <label className="block text-sm font-medium mb-1">住所</label>
-                      <input
+                      <Input
                         type="text"
                         value={formData.address || ''}
                         onChange={(e) => handleInputChange('address', e.target.value)}
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                       />
                     </div>
 
@@ -203,20 +202,18 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium mb-1">電話番号</label>
-                        <input
+                        <Input
                           type="tel"
                           value={formData.phone_number || ''}
                           onChange={(e) => handleInputChange('phone_number', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium mb-1">メールアドレス</label>
-                        <input
+                        <Input
                           type="email"
                           value={formData.email || ''}
                           onChange={(e) => handleInputChange('email', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                         />
                       </div>
                     </div>
@@ -231,20 +228,18 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium mb-1">開店日</label>
-                        <input
+                        <Input
                           type="date"
                           value={formData.opening_date || ''}
                           onChange={(e) => handleInputChange('opening_date', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium mb-1">店長名</label>
-                        <input
+                        <Input
                           type="text"
                           value={formData.manager_name || ''}
                           onChange={(e) => handleInputChange('manager_name', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                         />
                       </div>
                     </div>
@@ -255,12 +250,11 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                         <label className="block text-sm font-medium mb-1">
                           収容人数 <span className="text-red-500">*</span>
                         </label>
-                        <input
+                        <Input
                           type="number"
                           min="1"
                           value={formData.capacity || ''}
                           onChange={(e) => handleInputChange('capacity', parseInt(e.target.value) || 0)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                           required
                         />
                       </div>
@@ -268,12 +262,11 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                         <label className="block text-sm font-medium mb-1">
                           部屋数 <span className="text-red-500">*</span>
                         </label>
-                        <input
+                        <Input
                           type="number"
                           min="1"
                           value={formData.rooms || ''}
                           onChange={(e) => handleInputChange('rooms', parseInt(e.target.value) || 0)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                           required
                         />
                       </div>
@@ -282,11 +275,10 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                     {/* メモ */}
                     <div>
                       <label className="block text-sm font-medium mb-1">メモ</label>
-                      <textarea
+                      <Textarea
                         value={formData.notes || ''}
                         onChange={(e) => handleInputChange('notes', e.target.value)}
                         rows={3}
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                         placeholder="店舗に関するメモや特記事項"
                       />
                     </div>
