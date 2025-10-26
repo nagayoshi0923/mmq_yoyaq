@@ -267,7 +267,7 @@ export function ScenarioMatcher() {
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[400px] p-0">
+                            <PopoverContent className="w-[400px] p-0" align="start">
                               <Command>
                                 <CommandInput placeholder="シナリオを検索..." />
                                 <CommandEmpty>シナリオが見つかりません</CommandEmpty>
@@ -276,10 +276,17 @@ export function ScenarioMatcher() {
                                     <CommandItem
                                       key={scenario.id}
                                       value={scenario.title}
-                                      onSelect={() => {
+                                      onSelect={(currentValue) => {
+                                        console.log('Selected:', scenario.title, scenario.id)
                                         handleSelectMatch(event.scenario, scenario.id)
                                         setOpenPopovers(prev => ({ ...prev, [event.scenario]: false }))
                                       }}
+                                      onClick={() => {
+                                        console.log('Clicked:', scenario.title, scenario.id)
+                                        handleSelectMatch(event.scenario, scenario.id)
+                                        setOpenPopovers(prev => ({ ...prev, [event.scenario]: false }))
+                                      }}
+                                      className="cursor-pointer"
                                     >
                                       <Check
                                         className={cn(
