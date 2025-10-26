@@ -1138,67 +1138,8 @@ export const salesApi = {
         }
       })
       
-      // 満席の場合、デモ参加者を追加
-      if (totalParticipants >= (event.max_participants || event.capacity || 0)) {
-        // デモ参加者の予約が既に存在するかチェック
-        const hasDemoParticipant = reservations?.some(r => 
-          r.participant_names?.includes('デモ参加者') || 
-          r.participant_names?.some(name => name.includes('デモ'))
-        )
-        
-        if (!hasDemoParticipant) {
-          // デモ参加者の予約を自動作成
-          try {
-            // デモ参加者の参加費を計算
-            const isGmTest = event.category === 'gmtest'
-            const participationFee = isGmTest 
-              ? (scenarioInfo?.gm_test_participation_fee || scenarioInfo?.participation_fee || 0)
-              : (scenarioInfo?.participation_fee || 0)
-            
-            const demoReservation = {
-              schedule_event_id: event.id,
-              title: event.scenario || '',
-              scenario_id: event.scenario_id || null,
-              store_id: event.store_id || null,
-              customer_id: null,
-              customer_notes: 'デモ参加者',
-              requested_datetime: `${event.date}T${event.start_time}+09:00`,
-              duration: scenarioInfo?.duration || 120,
-              participant_count: 1,
-              participant_names: ['デモ参加者'],
-              assigned_staff: event.gms || [],
-              base_price: participationFee,
-              options_price: 0,
-              total_price: participationFee,
-              discount_amount: 0,
-              final_price: participationFee,
-              payment_method: 'onsite',
-              payment_status: 'paid',
-              status: 'confirmed',
-              reservation_source: 'demo'
-            }
-            
-            // デモ参加者の予約を作成
-            await supabase
-              .from('reservations')
-              .insert(demoReservation)
-            
-            console.log('デモ参加者の予約を作成しました:', event.id)
-          } catch (error) {
-            console.error('デモ参加者の予約作成に失敗:', error)
-          }
-        }
-        
-        // デモ参加者の参加費を計算
-        const isGmTest = event.category === 'gmtest'
-        const participationFee = isGmTest 
-          ? (scenarioInfo?.gm_test_participation_fee || scenarioInfo?.participation_fee || 0)
-          : (scenarioInfo?.participation_fee || 0)
-        
-        // デモ参加者も参加費を払う
-        totalRevenue += participationFee
-        totalParticipants += 1 // デモ参加者1人を追加
-      }
+      // デモ参加者は既にreservationsに含まれているのでカウント不要
+      // デモ参加者の追加は別のツール（AddDemoParticipants）で行う
       
       return {
         ...event,
