@@ -149,16 +149,28 @@ export function AddDemoParticipants() {
           continue
         }
 
-        const { data: scenario } = await supabase
+        let { data: scenario } = await supabase
           .from('scenarios')
           .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
           .eq('title', normalizedScenario)
           .maybeSingle()
         
         if (!scenario) {
-          log(`⏭️  シナリオ未登録 [${event.scenario}]`, 'skip')
-          skippedCount++
-          continue
+          // 部分一致で再検索
+          const { data: partialMatch } = await supabase
+            .from('scenarios')
+            .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
+            .ilike('title', `%${normalizedScenario}%`)
+            .maybeSingle()
+          
+          if (partialMatch) {
+            log(`🔍 部分一致: ${event.scenario} → ${partialMatch.title}`, 'info')
+            scenario = partialMatch
+          } else {
+            log(`⏭️  シナリオ未登録 [${event.scenario}]`, 'skip')
+            skippedCount++
+            continue
+          }
         }
 
         // シナリオの最大参加人数を使用
