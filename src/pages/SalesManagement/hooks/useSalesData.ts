@@ -155,9 +155,14 @@ export function useSalesData() {
         events = events.filter(e => e.store_id === storeId)
       }
       
+      // 店舗フィルタリング（固定費計算用）
+      const filteredStores = storeId !== 'all' 
+        ? stores.filter(s => s.id === storeId)
+        : stores
+      
       // 売上データを計算
-      logger.log('📊 イベントデータ取得完了:', { eventsCount: events.length })
-      const data = calculateSalesData(events, stores, startDate, endDate)
+      logger.log('📊 イベントデータ取得完了:', { eventsCount: events.length, filteredStoresCount: filteredStores.length })
+      const data = calculateSalesData(events, filteredStores, startDate, endDate)
       logger.log('📊 売上データ計算完了:', { totalRevenue: data.totalRevenue })
       setSalesData(data)
     } catch (error) {
@@ -573,6 +578,12 @@ function calculateSalesData(
   // 期間の日数を計算
   const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
   const monthsDiff = daysDiff / 30 // 概算月数
+  
+  console.log('💰 固定費計算開始:', { 
+    storesCount: stores.length, 
+    storeNames: stores.map(s => s.name),
+    monthsDiff 
+  })
   
   stores.forEach(store => {
     if (store.fixed_costs && Array.isArray(store.fixed_costs)) {
