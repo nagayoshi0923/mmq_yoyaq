@@ -129,7 +129,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                           type="text"
                           value={formData.name || ''}
                           onChange={(e) => handleInputChange('name', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                           required
                         />
                       </div>
@@ -141,7 +141,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                           type="text"
                           value={formData.short_name || ''}
                           onChange={(e) => handleInputChange('short_name', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                           required
                         />
                       </div>
@@ -207,7 +207,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                           type="tel"
                           value={formData.phone_number || ''}
                           onChange={(e) => handleInputChange('phone_number', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                         />
                       </div>
                       <div>
@@ -216,7 +216,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                           type="email"
                           value={formData.email || ''}
                           onChange={(e) => handleInputChange('email', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                         />
                       </div>
                     </div>
@@ -235,7 +235,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                           type="date"
                           value={formData.opening_date || ''}
                           onChange={(e) => handleInputChange('opening_date', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                         />
                       </div>
                       <div>
@@ -244,7 +244,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                           type="text"
                           value={formData.manager_name || ''}
                           onChange={(e) => handleInputChange('manager_name', e.target.value)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                         />
                       </div>
                     </div>
@@ -260,7 +260,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                           min="1"
                           value={formData.capacity || ''}
                           onChange={(e) => handleInputChange('capacity', parseInt(e.target.value) || 0)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                           required
                         />
                       </div>
@@ -273,7 +273,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                           min="1"
                           value={formData.rooms || ''}
                           onChange={(e) => handleInputChange('rooms', parseInt(e.target.value) || 0)}
-                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none"
                           required
                         />
                       </div>
