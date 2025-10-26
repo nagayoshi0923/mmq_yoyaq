@@ -174,6 +174,29 @@ export function useSalesData() {
   }
 }
 
+/**
+ * 時給ベースのGM給与を計算
+ * - 5時間まで: 時給1750円
+ * - 5時間超: 1時間あたり1000円
+ */
+function calculateHourlyWage(durationMinutes: number): number {
+  const hours = durationMinutes / 60
+  const HOURLY_RATE_FIRST_5H = 1750  // 最初の5時間の時給
+  const HOURLY_RATE_AFTER_5H = 1000  // 5時間超の時給
+  const THRESHOLD_HOURS = 5           // 閾値（5時間）
+  
+  if (hours <= THRESHOLD_HOURS) {
+    // 5時間以内
+    return Math.round(HOURLY_RATE_FIRST_5H * hours)
+  } else {
+    // 5時間超
+    const first5Hours = HOURLY_RATE_FIRST_5H * THRESHOLD_HOURS
+    const additionalHours = hours - THRESHOLD_HOURS
+    const additionalPay = HOURLY_RATE_AFTER_5H * additionalHours
+    return Math.round(first5Hours + additionalPay)
+  }
+}
+
 // 売上データ計算関数
 function calculateSalesData(
   events: Array<{ 
@@ -186,6 +209,7 @@ function calculateSalesData(
     current_participants?: number;
     gms?: string[];
     scenarios?: {
+      duration?: number;
       license_amount?: number;
       gm_test_license_amount?: number;
       gm_costs?: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }>;
@@ -216,12 +240,13 @@ function calculateSalesData(
         : (scenario.license_amount || 0)
       totalLicenseCost += licenseAmount
 
-      // GM給与の計算（シナリオに設定されたGM報酬を計上）
+      // GM給与の計算（時給ベース）
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
         console.log('💵 GM報酬データ発見:', { 
           scenario: event.scenario, 
           gm_costs: scenario.gm_costs,
-          category: event.category 
+          category: event.category,
+          duration: scenario.duration
         })
         
         // カテゴリに応じてフィルタリングし、役割でソート
@@ -240,9 +265,27 @@ function calculateSalesData(
         
         console.log('💵 適用可能なGM報酬:', { applicableGmCosts })
         
-        // 設定されているGM報酬を全て合計（配置の有無に関わらず）
-        const gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
-        console.log('💵 GM報酬合計:', { gmCost, scenario: event.scenario })
+        // GM数を取得（gm_costsの数 = 必要なGM数）
+        const gmCount = applicableGmCosts.length
+        
+        // 所要時間を取得（分単位）
+        const durationMinutes = scenario.duration || 180 // デフォルト3時間
+        
+        // 時給ベースで1人あたりの給与を計算
+        const wagePerGm = calculateHourlyWage(durationMinutes)
+        
+        // GM数分の給与を計上
+        const gmCost = wagePerGm * gmCount
+        
+        console.log('💵 GM給与計算:', { 
+          scenario: event.scenario,
+          duration: durationMinutes,
+          hours: (durationMinutes / 60).toFixed(2),
+          wagePerGm,
+          gmCount,
+          totalGmCost: gmCost
+        })
+        
         totalGmCost += gmCost
       } else {
         console.log('⚠️ GM報酬データなし:', { 
