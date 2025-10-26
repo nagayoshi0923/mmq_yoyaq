@@ -99,6 +99,24 @@ export function AddDemoParticipants() {
       
       log(`対象公演: ${pastEvents.length}件`, 'info')
       
+      // 全シナリオを事前に取得（ループ外で1回のみ）
+      log('シナリオマスタを取得中...', 'info')
+      const { data: allScenarios, error: scenariosError } = await supabase
+        .from('scenarios')
+        .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
+      
+      if (scenariosError) {
+        log(`❌ シナリオ取得エラー: ${scenariosError.message}`, 'error')
+        return { success: 0, failed: 0, skipped: 0 }
+      }
+      
+      if (!allScenarios || allScenarios.length === 0) {
+        log(`❌ シナリオマスタが空です`, 'error')
+        return { success: 0, failed: 0, skipped: 0 }
+      }
+      
+      log(`📚 シナリオマスタ: ${allScenarios.length}件読み込み完了`, 'success')
+      
       for (const event of pastEvents) {
         const currentParticipants = event.current_participants || 0
         
@@ -174,15 +192,12 @@ export function AddDemoParticipants() {
             continue
           }
 
-          // 全シナリオを取得して、正規化後のタイトルで比較
-          const { data: allScenarios } = await supabase
-            .from('scenarios')
-            .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
-          
           // 正規化パターン（全角スペース、ハイフン、スペースを除去）
           const searchPattern = normalizedScenario
             .replace(/[-ー]/g, '')
             .replace(/\s+/g, '')
+          
+          log(`🔍 正規化後: [${searchPattern}] (元: ${event.scenario})`, 'info')
           
           // クライアント側で正規化して比較
           const matchedScenario = allScenarios?.find(s => {
@@ -190,6 +205,12 @@ export function AddDemoParticipants() {
               .replace(/　/g, '') // 全角スペース除去
               .replace(/[-ー]/g, '') // ハイフン・長音除去
               .replace(/\s+/g, '') // 半角スペース除去
+            
+            // デバッグ: 最初の3件だけログ出力
+            if (allScenarios.indexOf(s) < 3) {
+              log(`  比較: [${normalizedTitle}] vs [${searchPattern}] → ${normalizedTitle === searchPattern}`, 'info')
+            }
+            
             return normalizedTitle === searchPattern
           })
           
