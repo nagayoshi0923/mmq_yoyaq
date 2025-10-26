@@ -1227,7 +1227,12 @@ export const salesApi = {
           id,
           title,
           author,
-          participation_fee
+          participation_fee,
+          gm_test_participation_fee,
+          participation_costs,
+          license_amount,
+          gm_test_license_amount,
+          gm_costs
         )
       `)
       .gte('date', startDate)
@@ -1253,7 +1258,12 @@ export const salesApi = {
           id,
           title,
           author,
-          participation_fee
+          participation_fee,
+          gm_test_participation_fee,
+          participation_costs,
+          license_amount,
+          gm_test_license_amount,
+          gm_costs
         )
       `)
       .gte('date', startDate)
