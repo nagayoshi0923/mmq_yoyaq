@@ -53,8 +53,8 @@ export function useSalesData() {
   }, [])
 
   // 売上データを取得（期間とストアを引数で受け取る）
-  const loadSalesData = useCallback(async (period: string, storeId: string) => {
-    logger.log('📊 売上データ取得開始:', { period, storeId, storesCount: stores.length })
+  const loadSalesData = useCallback(async (period: string, storeId: string, ownershipFilter?: 'corporate' | 'franchise') => {
+    logger.log('📊 売上データ取得開始:', { period, storeId, ownershipFilter, storesCount: stores.length })
     setLoading(true)
     setSelectedPeriod(period)
 
@@ -151,15 +151,29 @@ export function useSalesData() {
         formatDateJST(chartEndDate)
       )
       
-      // 店舗フィルタリング
+      // 店舗フィルタリング（ownership_type による絞り込み）
+      let filteredStores = stores
+      if (ownershipFilter) {
+        filteredStores = filteredStores.filter(s => s.ownership_type === ownershipFilter)
+        logger.log('📊 店舗タイプでフィルター:', { ownershipFilter, filteredCount: filteredStores.length })
+      }
+      
+      // FC店舗の場合は、そのstore_idリストを取得
+      const franchiseStoreIds = ownershipFilter ? filteredStores.map(s => s.id) : []
+      
+      // イベントフィルタリング
       if (storeId !== 'all') {
         events = events.filter(e => e.store_id === storeId)
+      } else if (ownershipFilter && franchiseStoreIds.length > 0) {
+        // FC店舗のみの場合、そのFC店舗のイベントのみに絞り込む
+        events = events.filter(e => franchiseStoreIds.includes(e.store_id))
+        logger.log('📊 FC店舗のイベントに絞り込み:', { eventsCount: events.length, franchiseStoreIds })
       }
       
       // 店舗フィルタリング（固定費計算用）
-      const filteredStores = storeId !== 'all' 
-        ? stores.filter(s => s.id === storeId)
-        : stores
+      if (storeId !== 'all') {
+        filteredStores = filteredStores.filter(s => s.id === storeId)
+      }
       
       // 売上データを計算
       logger.log('📊 イベントデータ取得完了:', { eventsCount: events.length, filteredStoresCount: filteredStores.length })

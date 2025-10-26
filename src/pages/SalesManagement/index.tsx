@@ -61,10 +61,12 @@ const SalesManagement: React.FC = () => {
   // 店舗データ取得後にデータをロード
   useEffect(() => {
     if (stores.length > 0) {
-      loadSalesData('thisMonth', selectedStore)
+      // フランチャイズタブの場合はFC店舗のみでデータ取得
+      const ownershipFilter = activeTab === 'franchise-sales' ? 'franchise' : undefined
+      loadSalesData('thisMonth', selectedStore, ownershipFilter)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stores.length])
+  }, [stores.length, activeTab])
 
   // タブ切り替え時のスクロール復元
   useEffect(() => {
@@ -129,12 +131,12 @@ const SalesManagement: React.FC = () => {
             customEndDate={customEndDate}
             onCustomStartDateChange={setCustomStartDate}
             onCustomEndDateChange={setCustomEndDate}
-            onPeriodChange={(period) => loadSalesData(period, selectedStore)}
+            onPeriodChange={(period) => loadSalesData(period, selectedStore, 'franchise')}
             onStoreChange={(store) => {
               setSelectedStore(store)
-              loadSalesData(selectedPeriod, store)
+              loadSalesData(selectedPeriod, store, 'franchise')
             }}
-            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStore)}
+            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStore, 'franchise')}
             isFranchiseOnly={true}
           />
         )
