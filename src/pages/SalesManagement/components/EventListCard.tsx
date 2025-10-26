@@ -95,13 +95,55 @@ const EventListCardBase: React.FC<EventListCardProps> = ({
                     <Badge variant="outline" className="text-xs">
                       {formatDate(event.date)}
                     </Badge>
+                    {/* カテゴリバッジ */}
                     {event.category === 'gmtest' && (
                       <Badge variant="secondary" className="text-xs">
                         GMテスト
                       </Badge>
                     )}
+                    {event.category === 'private' && (
+                      <Badge variant="default" className="text-xs bg-purple-100 text-purple-700 border-purple-200">
+                        貸切
+                      </Badge>
+                    )}
+                    {event.category === 'open' && (
+                      <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">
+                        公開
+                      </Badge>
+                    )}
+                    {event.category === 'enterprise' && (
+                      <Badge variant="default" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                        企業
+                      </Badge>
+                    )}
+                    {event.category === 'testplay' && (
+                      <Badge variant="default" className="text-xs bg-orange-100 text-orange-700 border-orange-200">
+                        テストプレイ
+                      </Badge>
+                    )}
+                    {event.category === 'offsite' && (
+                      <Badge variant="default" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">
+                        出張
+                      </Badge>
+                    )}
+                    {event.category === 'venue_rental' && (
+                      <Badge variant="default" className="text-xs bg-gray-100 text-gray-700 border-gray-200">
+                        会場貸切
+                      </Badge>
+                    )}
+                    {event.category === 'venue_rental_free' && (
+                      <Badge variant="default" className="text-xs bg-gray-100 text-gray-700 border-gray-200">
+                        会場貸切（無料）
+                      </Badge>
+                    )}
+                    {event.category === 'package' && (
+                      <Badge variant="default" className="text-xs bg-pink-100 text-pink-700 border-pink-200">
+                        パッケージ
+                      </Badge>
+                    )}
+                    {/* デモ参加者バッジ */}
                     {event.has_demo_participant && (
-                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">
                         デモ参加者
                       </Badge>
                     )}
