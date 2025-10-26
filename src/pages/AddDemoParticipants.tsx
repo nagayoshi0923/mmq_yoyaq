@@ -78,14 +78,13 @@ export function AddDemoParticipants() {
       
       log(`デモ顧客: ${demoCustomer.name} (ID: ${demoCustomer.id})`, 'success')
       
-      // 今日以前の公演を取得
-      log('公演を取得中...', 'info')
+      // 今日以前の公演を取得（全カテゴリ対象）
+      log('公演を取得中（全カテゴリ）...', 'info')
       const { data: pastEvents, error: eventsError } = await supabase
         .from('schedule_events')
         .select('id, date, venue, scenario, gms, start_time, end_time, category, is_cancelled, current_participants, capacity')
         .lte('date', today.toISOString().split('T')[0])
         .eq('is_cancelled', false)
-        .in('category', ['open', 'gmtest'])
         .order('date', { ascending: false })
       
       if (eventsError) {
@@ -174,10 +173,18 @@ export function AddDemoParticipants() {
           continue
         }
         
-        const isGmTest = event.category === 'gmtest'
-        const participationFee = isGmTest 
-          ? (scenario.gm_test_participation_fee || scenario.participation_fee || 0)
-          : (scenario.participation_fee || 0)
+        // カテゴリに応じて参加費を計算
+        let participationFee = 0
+        if (event.category === 'gmtest') {
+          // GMテスト：GM用参加費または通常参加費
+          participationFee = scenario.gm_test_participation_fee || scenario.participation_fee || 0
+        } else if (event.category === 'private') {
+          // 貸切：通常参加費（貸切料金は別計算）
+          participationFee = scenario.participation_fee || 0
+        } else {
+          // open, enterprise, その他：通常参加費
+          participationFee = scenario.participation_fee || 0
+        }
         
         const { data: store } = await supabase
           .from('stores')
