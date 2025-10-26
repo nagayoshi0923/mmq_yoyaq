@@ -36,6 +36,7 @@ const CustomerManagement = lazy(() => import('./CustomerManagement'))
 const MyPage = lazy(() => import('./MyPage'))
 const SettingsPage = lazy(() => import('./Settings'))
 const AddDemoParticipants = lazy(() => import('./AddDemoParticipants').then(m => ({ default: m.AddDemoParticipants })))
+const ScenarioMatcher = lazy(() => import('./ScenarioMatcher').then(m => ({ default: m.ScenarioMatcher })))
 
 export function AdminDashboard() {
   const { user } = useAuth()
@@ -70,6 +71,9 @@ export function AdminDashboard() {
     }
     if (hash.startsWith('add-demo-participants')) {
       return { page: 'add-demo-participants', scenarioId: null }
+    }
+    if (hash.startsWith('scenario-matcher')) {
+      return { page: 'scenario-matcher', scenarioId: null }
     }
     if (!hash && userRole === 'customer') {
       return { page: 'customer-booking', scenarioId: null }
@@ -326,6 +330,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="ツールを読み込み中..." />}>
         <AddDemoParticipants />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'scenario-matcher') {
+    return (
+      <Suspense fallback={<LoadingScreen message="ツールを読み込み中..." />}>
+        <ScenarioMatcher />
       </Suspense>
     )
   }
