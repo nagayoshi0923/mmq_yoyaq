@@ -8,7 +8,8 @@ import {
   Clock,
   Settings,
   ClipboardCheck,
-  UserCog
+  UserCog,
+  Store
 } from 'lucide-react'
 
 interface NavigationBarProps {
@@ -21,6 +22,7 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
   
   // 全タブ定義（定数なのでメモ化）
   const allTabs = useMemo(() => [
+    { id: 'stores', label: '店舗', icon: Store, roles: ['admin'] },
     { id: 'schedule', label: 'スケジュール', icon: Calendar, roles: ['admin', 'staff'] },
     { id: 'staff', label: 'スタッフ', icon: Users, roles: ['admin', 'staff'] },
     { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin', 'staff'] },
