@@ -174,37 +174,40 @@ export function AddDemoParticipants() {
             continue
           }
 
-          // 完全一致で検索
-          const { data } = await supabase
+          // 全シナリオを取得して、正規化後のタイトルで比較
+          const { data: allScenarios } = await supabase
             .from('scenarios')
             .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
-            .eq('title', normalizedScenario)
-            .maybeSingle()
           
-          scenario = data
+          // 正規化パターン（全角スペース、ハイフン、スペースを除去）
+          const searchPattern = normalizedScenario
+            .replace(/[-ー]/g, '')
+            .replace(/\s+/g, '')
           
-          if (!scenario) {
-            // 全角スペースとハイフンを除去したパターンで部分一致検索
-            const searchPattern = normalizedScenario
-              .replace(/[-ー]/g, '') // ハイフンと長音も除去
-              .replace(/\s+/g, '') // 半角スペースも除去
-            
-            // 全シナリオを取得して、正規化後のタイトルで比較
-            const { data: allScenarios } = await supabase
-              .from('scenarios')
-              .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
-            
-            // クライアント側で正規化して比較
+          // クライアント側で正規化して比較
+          const matchedScenario = allScenarios?.find(s => {
+            const normalizedTitle = s.title
+              .replace(/　/g, '') // 全角スペース除去
+              .replace(/[-ー]/g, '') // ハイフン・長音除去
+              .replace(/\s+/g, '') // 半角スペース除去
+            return normalizedTitle === searchPattern
+          })
+          
+          if (matchedScenario) {
+            log(`✅ マッチ成功: ${event.scenario} → ${matchedScenario.title}`, 'success')
+            scenario = matchedScenario
+          } else {
+            // 完全一致しない場合は部分一致を試す
             const partialMatch = allScenarios?.find(s => {
               const normalizedTitle = s.title
-                .replace(/　/g, '') // 全角スペース除去
-                .replace(/[-ー]/g, '') // ハイフン・長音除去
-                .replace(/\s+/g, '') // 半角スペース除去
+                .replace(/　/g, '')
+                .replace(/[-ー]/g, '')
+                .replace(/\s+/g, '')
               return normalizedTitle.includes(searchPattern) || searchPattern.includes(normalizedTitle)
             })
             
             if (partialMatch) {
-              log(`🔍 正規化一致: ${event.scenario} → ${partialMatch.title}`, 'info')
+              log(`🔍 部分一致: ${event.scenario} → ${partialMatch.title}`, 'info')
               scenario = partialMatch
             } else {
               // 類似シナリオを検索してデバッグ情報を表示
