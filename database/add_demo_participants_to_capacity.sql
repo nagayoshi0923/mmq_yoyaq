@@ -143,15 +143,16 @@ BEGIN
     END IF;
     
     -- 予約番号を生成（ユニークになるまでループ）
+    <<reservation_number_loop>>
     LOOP
       new_reservation_number := TO_CHAR(CURRENT_DATE, 'YYYYMMDD') || '-' || 
                                 UPPER(SUBSTRING(MD5(RANDOM()::TEXT || CLOCK_TIMESTAMP()::TEXT) FROM 1 FOR 4));
       
       -- 既存の予約番号と重複していないか確認
-      IF NOT EXISTS (SELECT 1 FROM reservations WHERE reservation_number = new_reservation_number) THEN
-        EXIT;
-      END IF;
-    END LOOP;
+      EXIT reservation_number_loop WHEN NOT EXISTS (
+        SELECT 1 FROM reservations WHERE reservation_number = new_reservation_number
+      );
+    END LOOP reservation_number_loop;
     
     -- デモ参加者予約を挿入
     INSERT INTO reservations (
