@@ -2,12 +2,7 @@
 
 -- 1. scenariosテーブルに時給設定カラムを追加
 ALTER TABLE scenarios
-ADD COLUMN IF NOT EXISTS gm_hourly_wage_settings JSONB DEFAULT jsonb_build_object(
-  'wage_type', 'hourly',
-  'first_rate_per_30min', 875,
-  'first_threshold_minutes', 300,
-  'after_rate_per_30min', 500
-);
+ADD COLUMN IF NOT EXISTS gm_hourly_wage_settings JSONB;
 
 -- カラムの説明:
 -- gm_hourly_wage_settings: GM時給設定（JSONB形式）
