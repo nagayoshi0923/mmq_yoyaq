@@ -175,25 +175,28 @@ export function useSalesData() {
 }
 
 /**
- * 時給ベースのGM給与を計算
- * - 5時間まで: 時給1750円
- * - 5時間超: 1時間あたり1000円
+ * 時給ベースのGM給与を計算（30分単位）
+ * - 5時間まで: 時給1750円（30分あたり875円）
+ * - 5時間超: 30分あたり500円
  */
 function calculateHourlyWage(durationMinutes: number): number {
-  const hours = durationMinutes / 60
-  const HOURLY_RATE_FIRST_5H = 1750  // 最初の5時間の時給
-  const HOURLY_RATE_AFTER_5H = 1000  // 5時間超の時給
-  const THRESHOLD_HOURS = 5           // 閾値（5時間）
+  // 30分単位に切り上げ
+  const roundedMinutes = Math.ceil(durationMinutes / 30) * 30
+  const halfHourUnits = roundedMinutes / 30
   
-  if (hours <= THRESHOLD_HOURS) {
-    // 5時間以内
-    return Math.round(HOURLY_RATE_FIRST_5H * hours)
+  const RATE_PER_30MIN_FIRST_5H = 875   // 最初の5時間の30分あたり料金（1750円 / 2）
+  const RATE_PER_30MIN_AFTER_5H = 500   // 5時間超の30分あたり料金（1000円 / 2）
+  const THRESHOLD_UNITS = 10            // 閾値（5時間 = 10単位）
+  
+  if (halfHourUnits <= THRESHOLD_UNITS) {
+    // 5時間以内（10単位以内）
+    return RATE_PER_30MIN_FIRST_5H * halfHourUnits
   } else {
     // 5時間超
-    const first5Hours = HOURLY_RATE_FIRST_5H * THRESHOLD_HOURS
-    const additionalHours = hours - THRESHOLD_HOURS
-    const additionalPay = HOURLY_RATE_AFTER_5H * additionalHours
-    return Math.round(first5Hours + additionalPay)
+    const first5Hours = RATE_PER_30MIN_FIRST_5H * THRESHOLD_UNITS  // 8,750円
+    const additionalUnits = halfHourUnits - THRESHOLD_UNITS
+    const additionalPay = RATE_PER_30MIN_AFTER_5H * additionalUnits
+    return first5Hours + additionalPay
   }
 }
 
