@@ -428,6 +428,13 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
 
                                       {/* 期間設定ボタン */}
                                       <div>
+                                        {(cost.startDate || cost.endDate) && (
+                                          <div className="text-xs text-muted-foreground mb-1">
+                                            {cost.startDate && !cost.endDate && `${cost.startDate}〜`}
+                                            {!cost.startDate && cost.endDate && `〜${cost.endDate}`}
+                                            {cost.startDate && cost.endDate && `${cost.startDate}〜${cost.endDate}`}
+                                          </div>
+                                        )}
                                         <Button
                                           type="button"
                                           variant="outline"
@@ -453,16 +460,6 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                                         </Button>
                                       </div>
                                     </div>
-
-                                    {/* 期間表示（期間が設定されている場合のみ） */}
-                                    {(cost.startDate || cost.endDate) && (
-                                      <div className="mt-2 text-xs text-muted-foreground">
-                                        <span className="font-medium">適用期間: </span>
-                                        {cost.startDate && !cost.endDate && `${cost.startDate}から`}
-                                        {!cost.startDate && cost.endDate && `${cost.endDate}まで`}
-                                        {cost.startDate && cost.endDate && `${cost.startDate} 〜 ${cost.endDate}`}
-                                      </div>
-                                    )}
                                   </div>
                                 </div>
                               </CardContent>
