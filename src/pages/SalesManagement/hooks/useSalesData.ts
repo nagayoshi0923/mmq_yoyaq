@@ -495,7 +495,7 @@ function calculateSalesData(
       category: event.category,
       has_demo_participant: (event as any).has_demo_participant || false
     }
-  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // 新しい日付順でソート
+  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) // 古い日付順でソート
 
   return {
     totalRevenue,
