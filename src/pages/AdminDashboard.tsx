@@ -35,6 +35,7 @@ const UserManagement = lazy(() => import('./UserManagement').then(m => ({ defaul
 const CustomerManagement = lazy(() => import('./CustomerManagement'))
 const MyPage = lazy(() => import('./MyPage'))
 const SettingsPage = lazy(() => import('./Settings'))
+const AddDemoParticipants = lazy(() => import('./AddDemoParticipants').then(m => ({ default: m.AddDemoParticipants })))
 
 export function AdminDashboard() {
   const { user } = useAuth()
@@ -66,6 +67,9 @@ export function AdminDashboard() {
     }
     if (hash.startsWith('user-management')) {
       return { page: 'user-management', scenarioId: null }
+    }
+    if (hash.startsWith('add-demo-participants')) {
+      return { page: 'add-demo-participants', scenarioId: null }
     }
     if (!hash && userRole === 'customer') {
       return { page: 'customer-booking', scenarioId: null }
@@ -315,6 +319,14 @@ export function AdminDashboard() {
           <MyPage />
         </Suspense>
       </div>
+    )
+  }
+
+  if (currentPage === 'add-demo-participants') {
+    return (
+      <Suspense fallback={<LoadingScreen message="ツールを読み込み中..." />}>
+        <AddDemoParticipants />
+      </Suspense>
     )
   }
 
