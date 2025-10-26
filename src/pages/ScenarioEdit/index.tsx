@@ -25,6 +25,7 @@ import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/typ
 // サイドバーのメニュー項目定義（定数として外に出す）
 const SCENARIO_EDIT_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'basic', label: '基本情報', icon: BookOpen, description: 'タイトル、作者、説明文' },
+  { id: 'game-info', label: 'ゲーム情報', icon: FileText, description: '所要時間、人数、難易度' },
   { id: 'pricing', label: '料金設定', icon: DollarSign, description: '参加費、ライセンス料' },
   { id: 'gm-settings', label: 'GM・スタッフ設定', icon: Users, description: 'GM数、報酬、担当GM設定' },
   { id: 'costs-props', label: '制作費・小道具', icon: Package, description: '制作費、必要小道具' },
