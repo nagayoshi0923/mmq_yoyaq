@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Save, Plus, Trash2 } from 'lucide-react'
+import { DateRangeModal } from '@/components/modals/DateRangeModal'
+import { Save, Plus, Trash2, Calendar } from 'lucide-react'
 import type { Store, StoreFixedCost } from '@/types'
 import { logger } from '@/utils/logger'
 
@@ -21,6 +22,8 @@ interface StoreEditModalProps {
 export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModalProps) {
   const [formData, setFormData] = useState<Partial<Store>>({})
   const [loading, setLoading] = useState(false)
+  const [dateRangeModalOpen, setDateRangeModalOpen] = useState(false)
+  const [editingCostIndex, setEditingCostIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (store) {
@@ -131,6 +134,24 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
         i === index ? { ...item, [field]: value } : item
       ) || []
     }))
+  }
+
+  // 期間設定モーダルを開く
+  const handleOpenDateRangeModal = (index: number) => {
+    setEditingCostIndex(index)
+    setDateRangeModalOpen(true)
+  }
+
+  // 期間設定を保存
+  const handleSaveDateRange = (startDate?: string, endDate?: string) => {
+    if (editingCostIndex !== null) {
+      setFormData(prev => ({
+        ...prev,
+        fixed_costs: prev.fixed_costs?.map((item, i) => 
+          i === editingCostIndex ? { ...item, startDate, endDate } : item
+        ) || []
+      }))
+    }
   }
 
   if (!store) return null
@@ -360,7 +381,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
 
                                   {/* フォームフィールド */}
                                   <div className="flex-1">
-                                    <div className="grid grid-cols-[2fr_1fr_1.2fr_0.9fr_0.9fr_auto] gap-3 items-end">
+                                    <div className="grid grid-cols-[2fr_1fr_1.2fr_auto_auto] gap-3 items-end">
                                       {/* 項目名（自由入力） */}
                                       <div>
                                         <Label className="text-xs">項目名</Label>
@@ -405,26 +426,18 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                                         />
                                       </div>
 
-                                      {/* 開始日 */}
+                                      {/* 期間設定ボタン */}
                                       <div>
-                                        <Label className="text-xs">開始日（任意）</Label>
-                                        <Input
-                                          type="date"
-                                          value={cost.startDate || ''}
-                                          onChange={(e) => handleUpdateFixedCost(index, 'startDate', e.target.value || undefined)}
-                                          placeholder="未指定=現行"
-                                        />
-                                      </div>
-
-                                      {/* 終了日 */}
-                                      <div>
-                                        <Label className="text-xs">終了日（任意）</Label>
-                                        <Input
-                                          type="date"
-                                          value={cost.endDate || ''}
-                                          onChange={(e) => handleUpdateFixedCost(index, 'endDate', e.target.value || undefined)}
-                                          placeholder="未指定=無期限"
-                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleOpenDateRangeModal(index)}
+                                          className="gap-2"
+                                        >
+                                          <Calendar className="h-4 w-4" />
+                                          期間設定
+                                        </Button>
                                       </div>
 
                                       {/* 削除ボタン */}
@@ -496,6 +509,22 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
           </div>
         </form>
       </DialogContent>
+
+      {/* 期間設定モーダル */}
+      {editingCostIndex !== null && formData.fixed_costs && (
+        <DateRangeModal
+          isOpen={dateRangeModalOpen}
+          onClose={() => {
+            setDateRangeModalOpen(false)
+            setEditingCostIndex(null)
+          }}
+          onSave={handleSaveDateRange}
+          initialStartDate={formData.fixed_costs[editingCostIndex]?.startDate}
+          initialEndDate={formData.fixed_costs[editingCostIndex]?.endDate}
+          title="固定費の適用期間設定"
+          description="開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。"
+        />
+      )}
     </Dialog>
   )
 }
