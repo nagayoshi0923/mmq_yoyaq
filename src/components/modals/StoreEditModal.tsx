@@ -37,6 +37,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
         opening_date: store.opening_date,
         manager_name: store.manager_name,
         status: store.status,
+        ownership_type: store.ownership_type || 'corporate',
         capacity: store.capacity,
         rooms: store.rooms,
         notes: store.notes,
@@ -202,21 +203,43 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
                       </div>
                     </div>
 
-                    {/* ステータス */}
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        ステータス <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={formData.status || 'active'}
-                        onChange={(e) => handleInputChange('status', e.target.value as Store['status'])}
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                        required
-                      >
-                        <option value="active">営業中</option>
-                        <option value="temporarily_closed">一時休業</option>
-                        <option value="closed">閉鎖</option>
-                      </select>
+                    {/* ステータス・店舗タイプ */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          ステータス <span className="text-red-500">*</span>
+                        </label>
+                        <Select
+                          value={formData.status || 'active'}
+                          onValueChange={(value) => handleInputChange('status', value as Store['status'])}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">営業中</SelectItem>
+                            <SelectItem value="temporarily_closed">一時休業</SelectItem>
+                            <SelectItem value="closed">閉鎖</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          店舗タイプ
+                        </label>
+                        <Select
+                          value={formData.ownership_type || 'corporate'}
+                          onValueChange={(value) => handleInputChange('ownership_type', value as Store['ownership_type'])}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="corporate">直営店</SelectItem>
+                            <SelectItem value="franchise">フランチャイズ</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
                     {/* 識別色 */}

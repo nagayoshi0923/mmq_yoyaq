@@ -299,7 +299,14 @@ export function StoreManagement() {
                           {store.short_name}
                         </CardDescription>
                       </div>
-                      {getStatusBadge(store.status)}
+                      <div className="flex flex-col gap-2">
+                        {getStatusBadge(store.status)}
+                        {store.ownership_type && (
+                          <Badge className={store.ownership_type === 'corporate' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}>
+                            {store.ownership_type === 'corporate' ? '直営店' : 'FC'}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   
