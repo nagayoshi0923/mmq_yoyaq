@@ -3,8 +3,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { ItemizedSettings } from '@/components/ui/itemized-settings'
-import { Save } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Save, Plus, Trash2 } from 'lucide-react'
 import type { Store, StoreFixedCost } from '@/types'
 import { logger } from '@/utils/logger'
 
@@ -59,15 +62,6 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleFixedCostsChange = (costs: StoreFixedCost[]) => {
-    setFormData(prev => ({ ...prev, fixed_costs: costs }))
-  }
-
-  const getItemStatus = (amount: number, usageCount?: number): 'active' | 'legacy' | 'unused' | 'ready' => {
-    if (!usageCount || usageCount === 0) return 'unused'
-    return 'active'
-  }
-
   // 固定費の頻度オプション
   const frequencyOptions = [
     { value: 'monthly', label: '毎月' },
@@ -75,29 +69,68 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
     { value: 'one-time', label: '一過性' }
   ]
 
-  // StoreFixedCostをItemizedSettingに変換
-  const fixedCostsAsItems = (formData.fixed_costs || []).map(cost => ({
-    item: cost.item,
-    amount: cost.amount,
-    status: cost.status || 'active' as const,
-    usageCount: cost.usageCount || 0,
-    startDate: cost.startDate,
-    endDate: cost.endDate,
-    originalRole: cost.frequency || 'monthly' // frequencyを保持
-  }))
+  // ステータス判定（GM報酬と同じロジック）
+  const getFixedCostStatus = (cost: StoreFixedCost): 'active' | 'ready' | 'legacy' => {
+    if (!cost.startDate && !cost.endDate) {
+      return 'active'
+    }
+    
+    const now = new Date()
+    const start = cost.startDate ? new Date(cost.startDate) : null
+    const end = cost.endDate ? new Date(cost.endDate) : null
+    
+    if (start && now < start) {
+      return 'ready'
+    }
+    
+    if (end && now > end) {
+      return 'legacy'
+    }
+    
+    return 'active'
+  }
 
-  // ItemizedSettingをStoreFixedCostに変換
-  const handleItemizedSettingsChange = (items: { item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string; originalRole?: string }[]) => {
-    const costs: StoreFixedCost[] = items.map(item => ({
-      item: item.item,
-      amount: item.amount,
-      frequency: (item.originalRole || 'monthly') as 'monthly' | 'yearly' | 'one-time',
-      status: item.status,
-      usageCount: item.usageCount,
-      startDate: item.startDate,
-      endDate: item.endDate
+  // ステータスラベル
+  const getStatusLabel = (status: string): string => {
+    switch (status) {
+      case 'active': return '使用中'
+      case 'ready': return '待機中'
+      case 'legacy': return '過去の設定'
+      default: return status
+    }
+  }
+
+  // 固定費の追加
+  const handleAddFixedCost = () => {
+    const newCost: StoreFixedCost = {
+      item: '',
+      amount: 0,
+      frequency: 'monthly',
+      status: 'active',
+      usageCount: 0
+    }
+    setFormData(prev => ({
+      ...prev,
+      fixed_costs: [...(prev.fixed_costs || []), newCost]
     }))
-    handleFixedCostsChange(costs)
+  }
+
+  // 固定費の削除
+  const handleRemoveFixedCost = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      fixed_costs: prev.fixed_costs?.filter((_, i) => i !== index) || []
+    }))
+  }
+
+  // 固定費の更新
+  const handleUpdateFixedCost = (index: number, field: keyof StoreFixedCost, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      fixed_costs: prev.fixed_costs?.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      ) || []
+    }))
   }
 
   if (!store) return null
@@ -288,27 +321,151 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
 
               {/* 右カラム: 固定費 */}
               <div>
-                <h3 className="text-lg font-semibold mb-4 pb-2 border-b">固定費</h3>
-                <ItemizedSettings
-                  title=""
-                  subtitle="家賃、光熱費など店舗運営に必要な固定費を設定できます。毎月・毎年の場合は開始時期、一過性の場合は発生月を指定してください。"
-                  items={fixedCostsAsItems}
-                  conditionOptions={frequencyOptions}
-                  showTypeSelector={false}
-                  showHideLegacyToggle={true}
-                  itemType="固定費"
-                  scenarioName={store?.name}
-                  getItemStatus={getItemStatus}
-                  onItemsChange={handleItemizedSettingsChange}
-                  allowFreeTextItem={true}
-                />
-                
-                {/* 月額合計表示 */}
-                {formData.fixed_costs && formData.fixed_costs.length > 0 && (
-                  <div className="text-sm font-medium text-right pt-4 mt-4 border-t">
-                    月額合計: ¥{(formData.fixed_costs.filter(c => c.frequency === 'monthly').reduce((sum, cost) => sum + cost.amount, 0)).toLocaleString()}
-                  </div>
-                )}
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                    <div>
+                      <CardTitle>固定費</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        家賃、光熱費など店舗運営に必要な固定費を設定できます。<br />
+                        開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleAddFixedCost}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      固定費を追加
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {(!formData.fixed_costs || formData.fixed_costs.length === 0) ? (
+                      <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                        <p>固定費設定がありません</p>
+                        <p className="text-sm mt-2">「固定費を追加」ボタンから追加してください</p>
+                      </div>
+                    ) : (
+                      <>
+                        {formData.fixed_costs.map((cost, index) => {
+                          const status = getFixedCostStatus(cost)
+                          return (
+                            <Card key={index} className="border-2">
+                              <CardContent className="p-4">
+                                <div className="flex items-start gap-3">
+                                  {/* ステータスバッジ */}
+                                  <div className="pt-6">
+                                    <StatusBadge status={status} label={getStatusLabel(status)} />
+                                  </div>
+
+                                  {/* フォームフィールド */}
+                                  <div className="flex-1">
+                                    <div className="grid grid-cols-[2fr_1fr_1fr_0.8fr_0.8fr_auto] gap-3 items-end">
+                                      {/* 項目名（自由入力） */}
+                                      <div>
+                                        <Label className="text-xs">項目名</Label>
+                                        <Input
+                                          type="text"
+                                          value={cost.item}
+                                          onChange={(e) => handleUpdateFixedCost(index, 'item', e.target.value)}
+                                          placeholder="家賃、光熱費など"
+                                        />
+                                      </div>
+
+                                      {/* 頻度（公演カテゴリ→頻度） */}
+                                      <div>
+                                        <Label className="text-xs">頻度</Label>
+                                        <Select
+                                          value={cost.frequency || 'monthly'}
+                                          onValueChange={(value) => handleUpdateFixedCost(index, 'frequency', value)}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {frequencyOptions.map(opt => (
+                                              <SelectItem key={opt.value} value={opt.value}>
+                                                {opt.label}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+
+                                      {/* 金額 */}
+                                      <div>
+                                        <Label className="text-xs">金額（円）</Label>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          step="100"
+                                          value={cost.amount}
+                                          onChange={(e) => handleUpdateFixedCost(index, 'amount', parseInt(e.target.value) || 0)}
+                                          className="text-right"
+                                        />
+                                      </div>
+
+                                      {/* 開始日 */}
+                                      <div>
+                                        <Label className="text-xs">開始日（任意）</Label>
+                                        <Input
+                                          type="date"
+                                          value={cost.startDate || ''}
+                                          onChange={(e) => handleUpdateFixedCost(index, 'startDate', e.target.value || undefined)}
+                                          placeholder="未指定=現行"
+                                        />
+                                      </div>
+
+                                      {/* 終了日 */}
+                                      <div>
+                                        <Label className="text-xs">終了日（任意）</Label>
+                                        <Input
+                                          type="date"
+                                          value={cost.endDate || ''}
+                                          onChange={(e) => handleUpdateFixedCost(index, 'endDate', e.target.value || undefined)}
+                                          placeholder="未指定=無期限"
+                                        />
+                                      </div>
+
+                                      {/* 削除ボタン */}
+                                      <div>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleRemoveFixedCost(index)}
+                                          className="text-destructive hover:text-destructive"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+
+                                    {/* 期間表示（期間が設定されている場合のみ） */}
+                                    {(cost.startDate || cost.endDate) && (
+                                      <div className="mt-2 text-xs text-muted-foreground">
+                                        <span className="font-medium">適用期間: </span>
+                                        {cost.startDate && !cost.endDate && `${cost.startDate}から`}
+                                        {!cost.startDate && cost.endDate && `${cost.endDate}まで`}
+                                        {cost.startDate && cost.endDate && `${cost.startDate} 〜 ${cost.endDate}`}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )
+                        })}
+                        
+                        {/* 月額合計表示 */}
+                        <div className="text-sm font-medium text-right pt-2 border-t">
+                          月額合計: ¥{(formData.fixed_costs.filter(c => c.frequency === 'monthly').reduce((sum, cost) => sum + cost.amount, 0)).toLocaleString()}
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </div>
