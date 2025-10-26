@@ -17,9 +17,10 @@ interface StoreEditModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (updatedStore: Store) => void
+  onDelete?: (store: Store) => void
 }
 
-export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModalProps) {
+export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: StoreEditModalProps) {
   const [formData, setFormData] = useState<Partial<Store>>({})
   const [loading, setLoading] = useState(false)
   const [dateRangeModalOpen, setDateRangeModalOpen] = useState(false)
@@ -479,30 +480,51 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
           </div>
 
           {/* アクションボタン */}
-          <div className="flex gap-2 px-6 py-4 border-t bg-background shrink-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="flex-1"
-              disabled={loading}
-            >
-              キャンセル
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1"
-              disabled={loading}
-            >
-              {loading ? (
-                '保存中...'
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  保存
-                </>
-              )}
-            </Button>
+          <div className="px-6 py-4 border-t bg-background shrink-0 space-y-3">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className="flex-1"
+                disabled={loading}
+              >
+                キャンセル
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={loading}
+              >
+                {loading ? (
+                  '保存中...'
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    保存
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            {/* 削除ボタン（最下部に分離） */}
+            {onDelete && store && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  if (confirm(`店舗「${store.name}」を削除してもよろしいですか？この操作は取り消せません。`)) {
+                    onDelete(store)
+                    onClose()
+                  }
+                }}
+                className="w-full"
+                disabled={loading}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                この店舗を削除
+              </Button>
+            )}
           </div>
         </form>
       </DialogContent>
