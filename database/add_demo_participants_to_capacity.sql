@@ -13,6 +13,7 @@ DECLARE
   needed_demo_count INT;
   new_reservation_number TEXT;
   participation_fee_amount INT;
+  inserted_count INT;
 BEGIN
   -- デモ顧客を取得
   SELECT id INTO demo_customer_id
@@ -194,7 +195,9 @@ BEGIN
     )
     ON CONFLICT (reservation_number) DO NOTHING;
     
-    IF FOUND THEN
+    GET DIAGNOSTICS inserted_count = ROW_COUNT;
+    
+    IF inserted_count > 0 THEN
       RAISE NOTICE '追加: [% %] (%名追加)', event_record.date, event_record.scenario, needed_demo_count;
     ELSE
       RAISE NOTICE 'スキップ: 予約番号重複 [% %]', event_record.date, event_record.scenario;
