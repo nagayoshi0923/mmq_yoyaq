@@ -1,3 +1,11 @@
+// 店舗固定費の型定義
+export interface StoreFixedCost {
+  item: string
+  amount: number
+  frequency?: 'monthly' | 'yearly' | 'one-time'
+  notes?: string
+}
+
 // 店舗関連の型定義
 export interface Store {
   id: string
@@ -13,6 +21,7 @@ export interface Store {
   rooms: number
   notes?: string
   color: string
+  fixed_costs?: StoreFixedCost[]
   created_at: string
   updated_at: string
 }

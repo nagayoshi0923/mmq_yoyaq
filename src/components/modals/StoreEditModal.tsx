@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { X, Save } from 'lucide-react'
-import type { Store } from '@/types'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { X, Save, Plus, Trash2 } from 'lucide-react'
+import type { Store, StoreFixedCost } from '@/types'
 import { logger } from '@/utils/logger'
 
 interface StoreEditModalProps {
@@ -16,6 +18,8 @@ interface StoreEditModalProps {
 export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModalProps) {
   const [formData, setFormData] = useState<Partial<Store>>({})
   const [loading, setLoading] = useState(false)
+  const [newFixedCostItem, setNewFixedCostItem] = useState('')
+  const [newFixedCostAmount, setNewFixedCostAmount] = useState(0)
 
   useEffect(() => {
     if (store) {
@@ -31,7 +35,8 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
         capacity: store.capacity,
         rooms: store.rooms,
         notes: store.notes,
-        color: store.color
+        color: store.color,
+        fixed_costs: store.fixed_costs || []
       })
     }
   }, [store])
@@ -54,6 +59,34 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
 
   const handleInputChange = (field: keyof Store, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleAddFixedCost = () => {
+    if (!newFixedCostItem.trim() || newFixedCostAmount <= 0) {
+      alert('項目名と金額を入力してください')
+      return
+    }
+
+    const newCost: StoreFixedCost = {
+      item: newFixedCostItem,
+      amount: newFixedCostAmount,
+      frequency: 'monthly'
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      fixed_costs: [...(prev.fixed_costs || []), newCost]
+    }))
+
+    setNewFixedCostItem('')
+    setNewFixedCostAmount(0)
+  }
+
+  const handleRemoveFixedCost = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      fixed_costs: (prev.fixed_costs || []).filter((_, i) => i !== index)
+    }))
   }
 
   if (!isOpen || !store) return null
@@ -236,6 +269,76 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                 className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 placeholder="店舗に関するメモや特記事項"
               />
+            </div>
+
+            {/* 固定費 */}
+            <div className="border-t pt-4">
+              <div className="mb-3">
+                <h3 className="text-lg font-semibold">固定費</h3>
+                <p className="text-sm text-muted-foreground">家賃、光熱費など月額の固定費を設定できます</p>
+              </div>
+
+              {/* 既存の固定費リスト */}
+              {formData.fixed_costs && formData.fixed_costs.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  {formData.fixed_costs.map((cost, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1">
+                        <div className="font-medium">{cost.item}</div>
+                        <div className="text-sm text-muted-foreground">
+                          ¥{cost.amount.toLocaleString()} / 月
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveFixedCost(index)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="text-sm font-medium text-right pt-2 border-t">
+                    合計: ¥{(formData.fixed_costs.reduce((sum, cost) => sum + cost.amount, 0)).toLocaleString()} / 月
+                  </div>
+                </div>
+              )}
+
+              {/* 新規固定費追加フォーム */}
+              <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+                <Label className="text-sm font-medium">新しい固定費を追加</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Input
+                      type="text"
+                      placeholder="項目名（例：家賃、光熱費）"
+                      value={newFixedCostItem}
+                      onChange={(e) => setNewFixedCostItem(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      type="number"
+                      placeholder="金額"
+                      value={newFixedCostAmount || ''}
+                      onChange={(e) => setNewFixedCostAmount(parseInt(e.target.value) || 0)}
+                      min="0"
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleAddFixedCost}
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  固定費を追加
+                </Button>
+              </div>
             </div>
 
             {/* アクションボタン */}
