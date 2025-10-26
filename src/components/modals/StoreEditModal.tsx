@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
-import { X, Save } from 'lucide-react'
+import { Save } from 'lucide-react'
 import type { Store, StoreFixedCost } from '@/types'
 import { logger } from '@/utils/logger'
 
@@ -101,31 +98,20 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
     handleFixedCostsChange(costs)
   }
 
-  if (!isOpen || !store) return null
+  if (!store) return null
 
   return (
-    <div 
-      className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
-      <Card 
-        className="w-full max-w-7xl max-h-[85vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <CardHeader className="flex flex-row items-center justify-between bg-background border-b shrink-0">
-          <div>
-            <CardTitle>店舗情報編集</CardTitle>
-            <CardDescription>
-              {store.name}の情報を編集します
-            </CardDescription>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </CardHeader>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-7xl max-h-[85vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+          <DialogTitle>店舗情報編集</DialogTitle>
+          <DialogDescription>
+            {store.name}の情報を編集します
+          </DialogDescription>
+        </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-          <CardContent className="flex-1 overflow-y-auto pt-6">
+          <div className="flex-1 overflow-y-auto px-6 pt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* 左カラム: 基本情報 */}
               <div className="space-y-6">
@@ -333,10 +319,10 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                 )}
               </div>
             </div>
-          </CardContent>
+          </div>
 
           {/* アクションボタン */}
-          <div className="flex gap-2 p-6 border-t bg-background shrink-0">
+          <div className="flex gap-2 px-6 py-4 border-t bg-background shrink-0">
             <Button
               type="button"
               variant="outline"
@@ -362,7 +348,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
             </Button>
           </div>
         </form>
-      </Card>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
