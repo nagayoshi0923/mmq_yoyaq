@@ -271,11 +271,17 @@ export function AddDemoParticipants() {
         if (demoReservations.length > 0) {
           if (demoParticipantCount === neededDemoCount) {
             // 既に正しい人数のデモ参加者がいる
+            log(`✅ デモ参加者適正 [${event.date} ${event.scenario}] (${demoParticipantCount}名)`, 'success')
             skippedCount++
             continue
           } else if (demoParticipantCount > neededDemoCount) {
-            // デモ参加者が多すぎる場合は削除
+            // デモ参加者が多すぎる場合、過剰分のみ削除
+            const excessCount = demoParticipantCount - neededDemoCount
+            let deletedCount = 0
+            
             for (const demoRes of demoReservations) {
+              if (deletedCount >= excessCount) break
+              
               const { error: deleteError } = await supabase
                 .from('reservations')
                 .delete()
@@ -283,30 +289,21 @@ export function AddDemoParticipants() {
               
               if (deleteError) {
                 log(`❌ デモ予約削除エラー [${event.date} ${event.scenario}]`, 'error')
+                failedCount++
               } else {
+                deletedCount += demoRes.participant_count || 0
                 log(`🗑️  過剰デモ削除: ${event.date} ${event.scenario} (${demoRes.participant_count}名削除)`, 'success')
               }
             }
             
-            // 削除後、必要な人数を再追加する処理に進む
-            if (neededDemoCount === 0) {
-              successCount++
-              continue
-            }
-          } else {
-            // デモ参加者が不足している場合、既存を削除して新しく追加
-            for (const demoRes of demoReservations) {
-              await supabase
-                .from('reservations')
-                .delete()
-                .eq('id', demoRes.id)
-            }
-            log(`🔄 デモ予約更新: ${event.date} ${event.scenario} (${demoParticipantCount}名→${neededDemoCount}名)`, 'info')
+            successCount++
+            continue
           }
+          // demoParticipantCount < neededDemoCount の場合は下のロジックで不足分を追加
         }
         
-        // 追加するデモ参加者数
-        const shortfall = neededDemoCount
+        // 追加するデモ参加者数（既存のデモ参加者を考慮）
+        const shortfall = neededDemoCount - demoParticipantCount
         
         // デモ参加者が不要な場合はスキップ
         if (shortfall <= 0) {
@@ -347,8 +344,15 @@ export function AddDemoParticipants() {
           }
         }
 
+        // 予約番号を自動生成（YYYYMMDD-XXXX形式）
+        const date = new Date()
+        const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
+        const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+        const reservationNumber = `${dateStr}-${randomStr}`
+        
         const demoReservation = {
           schedule_event_id: event.id,
+          reservation_number: reservationNumber,  // 予約番号を明示的に指定
           title: event.scenario || '',
           scenario_id: scenario.id || null,
           store_id: store.id || null,
