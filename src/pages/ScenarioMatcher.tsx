@@ -156,7 +156,10 @@ export function ScenarioMatcher() {
         // このイベントシナリオ名を持つすべてのイベントを更新
         const { error } = await supabase
           .from('schedule_events')
-          .update({ scenario: scenario.title })
+          .update({ 
+            scenario: scenario.title,
+            scenario_id: scenario.id  // IDも同時に設定
+          })
           .eq('scenario', eventScenario)
         
         if (error) {
