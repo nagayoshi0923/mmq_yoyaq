@@ -204,6 +204,8 @@ function calculateSalesData(
   let totalLicenseCost = 0
   let totalGmCost = 0
 
+  console.log('💰 売上計算開始:', { eventsCount: events.length })
+
   events.forEach(event => {
     const scenario = event.scenarios
     if (scenario) {
@@ -216,6 +218,12 @@ function calculateSalesData(
 
       // GM給与の計算（シナリオに設定されたGM報酬を計上）
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
+        console.log('💵 GM報酬データ発見:', { 
+          scenario: event.scenario, 
+          gm_costs: scenario.gm_costs,
+          category: event.category 
+        })
+        
         // カテゴリに応じてフィルタリングし、役割でソート
         const applicableGmCosts = scenario.gm_costs
           .filter(gm => {
@@ -230,11 +238,28 @@ function calculateSalesData(
             return aOrder - bOrder
           })
         
+        console.log('💵 適用可能なGM報酬:', { applicableGmCosts })
+        
         // 設定されているGM報酬を全て合計（配置の有無に関わらず）
         const gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
+        console.log('💵 GM報酬合計:', { gmCost, scenario: event.scenario })
         totalGmCost += gmCost
+      } else {
+        console.log('⚠️ GM報酬データなし:', { 
+          scenario: event.scenario, 
+          gm_costs: scenario.gm_costs 
+        })
       }
+    } else {
+      console.log('⚠️ シナリオ情報なし:', { event })
     }
+  })
+
+  console.log('💰 売上計算完了:', { 
+    totalRevenue, 
+    totalLicenseCost, 
+    totalGmCost,
+    netProfit: totalRevenue - totalLicenseCost - totalGmCost
   })
 
   const netProfit = totalRevenue - totalLicenseCost - totalGmCost
