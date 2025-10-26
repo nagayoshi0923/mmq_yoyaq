@@ -121,15 +121,31 @@
       
       // デモ顧客を取得
       log('デモ顧客を検索中...', 'info')
+      
+      // まず全顧客を取得してデバッグ
+      const { data: allCustomers, error: allError } = await supabase
+        .from('customers')
+        .select('id, name, email')
+        .limit(10)
+      
+      if (allError) {
+        log(`顧客取得エラー: ${allError.message}`, 'error')
+      } else {
+        log(`顧客リスト (最初の10件):`, 'info')
+        allCustomers?.forEach(c => {
+          log(`  - ${c.name} (${c.email || 'メールなし'})`, 'info')
+        })
+      }
+      
       const { data: demoCustomer, error: customerError } = await supabase
         .from('customers')
-        .select('id, name')
-        .or('name.ilike.%デモ%,email.ilike.%demo%')
+        .select('id, name, email')
+        .or('name.ilike.%デモ%,email.ilike.%demo%,name.ilike.%test%')
         .limit(1)
         .single()
       
       if (customerError || !demoCustomer) {
-        log('デモ顧客が見つかりません', 'error')
+        log('デモ顧客が見つかりません。上記の顧客リストから選択してください。', 'error')
         throw new Error('デモ顧客が見つかりません')
       }
       
