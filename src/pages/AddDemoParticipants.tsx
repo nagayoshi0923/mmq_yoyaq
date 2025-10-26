@@ -135,10 +135,37 @@ export function AddDemoParticipants() {
           continue
         }
 
+        // シナリオ名を正規化（記号や接頭辞を除去）
+        let normalizedScenario = event.scenario.trim()
+        // 引用符を削除
+        normalizedScenario = normalizedScenario.replace(/^["「『]/, '').replace(/["」』]$/, '')
+        // 絵文字を削除
+        normalizedScenario = normalizedScenario.replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+        // 募・貸・貸切・GMテストなどの接頭辞を削除
+        normalizedScenario = normalizedScenario.replace(/^(募・|貸・|📕貸・|📗貸・|"募・|"貸・|GMテスト・|"GMテスト・)/g, '')
+        // 先頭の引用符を再度削除
+        normalizedScenario = normalizedScenario.replace(/^["「『]/, '')
+        normalizedScenario = normalizedScenario.trim()
+
+        // テストやミーティングなどはスキップ
+        const skipKeywords = ['MTG', 'マネージャーミーティング', '打ち合わせ', '面接', '歯医者', '清掃', 'TOOLS', '箱開け会', 'パッケージ会', '打診', '風呂清掃', '練習', 'スタート', 'キット', '可能日']
+        if (skipKeywords.some(keyword => normalizedScenario.includes(keyword))) {
+          log(`⏭️  対象外 [${event.scenario}]`, 'skip')
+          skippedCount++
+          continue
+        }
+
+        // 正規化後も空の場合はスキップ
+        if (!normalizedScenario) {
+          log(`⏭️  シナリオ名が空 [${event.date}]`, 'skip')
+          skippedCount++
+          continue
+        }
+
         const { data: scenario } = await supabase
           .from('scenarios')
           .select('id, title, duration, participation_fee, gm_test_participation_fee')
-          .eq('title', event.scenario.trim())
+          .eq('title', normalizedScenario)
           .maybeSingle()
         
         if (!scenario) {
