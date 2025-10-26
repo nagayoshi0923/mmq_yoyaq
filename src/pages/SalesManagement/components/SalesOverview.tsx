@@ -274,6 +274,10 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           storeCount={salesData.storeRanking.length}
           totalLicenseCost={salesData.totalLicenseCost}
           totalGmCost={salesData.totalGmCost}
+          totalFixedCost={salesData.totalFixedCost}
+          fixedCostBreakdown={salesData.fixedCostBreakdown}
+          totalVariableCost={salesData.totalVariableCost}
+          variableCostBreakdown={salesData.variableCostBreakdown}
           netProfit={salesData.netProfit}
         />
           </div>

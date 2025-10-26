@@ -14,6 +14,17 @@ interface SummaryCardsProps {
   storeCount: number
   totalLicenseCost: number
   totalGmCost: number
+  totalFixedCost: number
+  fixedCostBreakdown: Array<{
+    item: string
+    amount: number
+    store: string
+  }>
+  totalVariableCost: number
+  variableCostBreakdown: Array<{
+    category: string
+    amount: number
+  }>
   netProfit: number
 }
 
@@ -32,10 +43,14 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
   storeCount,
   totalLicenseCost,
   totalGmCost,
+  totalFixedCost,
+  fixedCostBreakdown,
+  totalVariableCost,
+  variableCostBreakdown,
   netProfit
 }) => {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-9">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">総売上</CardTitle>
@@ -128,6 +143,50 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">変動費</CardTitle>
+          <CreditCard className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-orange-600">
+            {formatCurrency(totalVariableCost)}
+          </div>
+          <div className="text-xs text-muted-foreground space-y-1 mt-2">
+            {variableCostBreakdown.map((item, index) => (
+              <div key={index} className="flex justify-between">
+                <span>{item.category}:</span>
+                <span>{formatCurrency(item.amount)}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">固定費</CardTitle>
+          <Store className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-purple-600">
+            {formatCurrency(totalFixedCost)}
+          </div>
+          <div className="text-xs text-muted-foreground space-y-1 mt-2 max-h-20 overflow-y-auto">
+            {fixedCostBreakdown.length > 0 ? (
+              fixedCostBreakdown.map((item, index) => (
+                <div key={index} className="flex justify-between gap-2">
+                  <span className="truncate">{item.store} {item.item}:</span>
+                  <span className="whitespace-nowrap">{formatCurrency(item.amount)}</span>
+                </div>
+              ))
+            ) : (
+              <span>固定費なし</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">純利益</CardTitle>
           <DollarSign className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
@@ -136,7 +195,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             {formatCurrency(netProfit)}
           </div>
           <p className="text-xs text-muted-foreground">
-            売上 - 費用
+            売上 - 変動費 - 固定費
           </p>
         </CardContent>
       </Card>

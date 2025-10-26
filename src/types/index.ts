@@ -289,6 +289,17 @@ export interface SalesData {
   averageRevenuePerEvent: number
   totalLicenseCost: number
   totalGmCost: number
+  totalFixedCost: number
+  fixedCostBreakdown: Array<{
+    item: string
+    amount: number
+    store: string
+  }>
+  totalVariableCost: number
+  variableCostBreakdown: Array<{
+    category: string
+    amount: number
+  }>
   netProfit: number
   storeRanking: Array<{
     id: string

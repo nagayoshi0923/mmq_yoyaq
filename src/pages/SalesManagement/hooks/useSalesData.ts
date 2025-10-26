@@ -18,6 +18,13 @@ interface Store {
   id: string
   name: string
   short_name: string
+  fixed_costs?: Array<{
+    item: string
+    amount: number
+    frequency?: 'monthly' | 'yearly' | 'one-time'
+    startDate?: string
+    endDate?: string
+  }>
 }
 
 export function useSalesData() {
@@ -308,8 +315,6 @@ function calculateSalesData(
     netProfit: totalRevenue - totalLicenseCost - totalGmCost
   })
 
-  const netProfit = totalRevenue - totalLicenseCost - totalGmCost
-
   // 店舗別売上ランキング
   const storeRevenues = new Map<string, { 
     revenue: number; 
@@ -561,16 +566,98 @@ function calculateSalesData(
     }
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) // 古い日付順でソート
 
+  // 固定費の計算（期間内の各店舗の固定費を計算）
+  let totalFixedCost = 0
+  const fixedCostBreakdown: Array<{ item: string; amount: number; store: string }> = []
+  
+  // 期間の日数を計算
+  const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+  const monthsDiff = daysDiff / 30 // 概算月数
+  
+  stores.forEach(store => {
+    if (store.fixed_costs && Array.isArray(store.fixed_costs)) {
+      store.fixed_costs.forEach((cost: any) => {
+        // アクティブな固定費のみ計算
+        const status = getFixedCostStatus(cost, startDate, endDate)
+        if (status === 'active' || status === 'partial') {
+          let amount = 0
+          
+          if (cost.frequency === 'monthly') {
+            amount = cost.amount * monthsDiff
+          } else if (cost.frequency === 'yearly') {
+            amount = cost.amount * (monthsDiff / 12)
+          } else if (cost.frequency === 'one-time') {
+            // 一過性の費用が期間内に含まれるかチェック
+            if (cost.startDate) {
+              const costDate = new Date(cost.startDate)
+              if (costDate >= startDate && costDate <= endDate) {
+                amount = cost.amount
+              }
+            }
+          }
+          
+          if (amount > 0) {
+            totalFixedCost += amount
+            fixedCostBreakdown.push({
+              item: cost.item,
+              amount,
+              store: store.short_name || store.name
+            })
+          }
+        }
+      })
+    }
+  })
+
+  // 変動費の計算（ライセンス費用 + GM給与）
+  const totalVariableCost = totalLicenseCost + totalGmCost
+  const variableCostBreakdown = [
+    { category: 'ライセンス費用', amount: totalLicenseCost },
+    { category: 'GM給与', amount: totalGmCost }
+  ]
+
+  // 純利益の再計算（固定費も含める）
+  const netProfitWithFixedCost = totalRevenue - totalVariableCost - totalFixedCost
+
   return {
     totalRevenue,
     totalEvents,
     averageRevenuePerEvent,
     totalLicenseCost,
     totalGmCost,
-    netProfit,
+    totalFixedCost,
+    fixedCostBreakdown,
+    totalVariableCost,
+    variableCostBreakdown,
+    netProfit: netProfitWithFixedCost,
     storeRanking,
     scenarioRanking,
     chartData,
     eventList
   }
+}
+
+/**
+ * 固定費のステータスを判定（期間内で有効かどうか）
+ */
+function getFixedCostStatus(
+  cost: any,
+  periodStart: Date,
+  periodEnd: Date
+): 'active' | 'partial' | 'inactive' {
+  // 日付指定がない場合は常にアクティブ
+  if (!cost.startDate && !cost.endDate) {
+    return 'active'
+  }
+  
+  const start = cost.startDate ? new Date(cost.startDate) : null
+  const end = cost.endDate ? new Date(cost.endDate) : null
+  
+  // 終了日が期間開始前、または開始日が期間終了後なら inactive
+  if ((end && end < periodStart) || (start && start > periodEnd)) {
+    return 'inactive'
+  }
+  
+  // 期間と重複している場合は active または partial
+  return 'active'
 }
