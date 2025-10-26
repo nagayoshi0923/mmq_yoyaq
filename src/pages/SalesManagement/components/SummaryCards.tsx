@@ -160,14 +160,36 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
           <div className="text-2xl font-bold text-purple-600">
             {formatCurrency(totalFixedCost)}
           </div>
-          <div className="text-xs text-muted-foreground space-y-1 mt-2 max-h-20 overflow-y-auto">
+          <div className="text-xs text-muted-foreground space-y-1 mt-2">
             {fixedCostBreakdown.length > 0 ? (
-              fixedCostBreakdown.map((item, index) => (
-                <div key={index} className="flex justify-between gap-2">
-                  <span className="truncate">{item.store} {item.item}:</span>
-                  <span className="whitespace-nowrap">{formatCurrency(item.amount)}</span>
+              <>
+                {/* 家賃の合計を計算して表示 */}
+                {(() => {
+                  const rentTotal = fixedCostBreakdown
+                    .filter(item => item.item === '家賃')
+                    .reduce((sum, item) => sum + item.amount, 0)
+                  
+                  if (rentTotal > 0) {
+                    return (
+                      <div className="flex justify-between gap-2 font-medium text-purple-700">
+                        <span>家賃合計:</span>
+                        <span>{formatCurrency(rentTotal)}</span>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
+                
+                {/* その他の項目（スクロール可能） */}
+                <div className="max-h-16 overflow-y-auto space-y-1 border-t pt-1">
+                  {fixedCostBreakdown.map((item, index) => (
+                    <div key={index} className="flex justify-between gap-2">
+                      <span className="truncate">{item.store} {item.item}:</span>
+                      <span className="whitespace-nowrap">{formatCurrency(item.amount)}</span>
+                    </div>
+                  ))}
                 </div>
-              ))
+              </>
             ) : (
               <span>固定費なし</span>
             )}
