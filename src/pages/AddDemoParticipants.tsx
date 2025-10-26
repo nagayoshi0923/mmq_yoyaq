@@ -167,7 +167,19 @@ export function AddDemoParticipants() {
             log(`🔍 部分一致: ${event.scenario} → ${partialMatch.title}`, 'info')
             scenario = partialMatch
           } else {
-            log(`⏭️  シナリオ未登録 [${event.scenario}]`, 'skip')
+            // 類似シナリオを検索してデバッグ情報を表示
+            const { data: similarScenarios } = await supabase
+              .from('scenarios')
+              .select('title')
+              .ilike('title', `%${normalizedScenario.substring(0, 3)}%`)
+              .limit(3)
+            
+            if (similarScenarios && similarScenarios.length > 0) {
+              const suggestions = similarScenarios.map(s => s.title).join(', ')
+              log(`⏭️  シナリオ未登録 [${event.scenario}] (類似: ${suggestions})`, 'skip')
+            } else {
+              log(`⏭️  シナリオ未登録 [${event.scenario}]`, 'skip')
+            }
             skippedCount++
             continue
           }
