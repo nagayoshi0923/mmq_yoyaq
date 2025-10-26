@@ -50,7 +50,9 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
   netProfit
 }) => {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-9">
+    <div className="space-y-4">
+      {/* 第1行: 主要指標（大きく表示） */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">総売上</CardTitle>
@@ -98,6 +100,21 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">純利益</CardTitle>
+          <DollarSign className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {formatCurrency(netProfit)}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            売上 - 変動費 - 固定費
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">店舗数</CardTitle>
           <Store className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
@@ -110,37 +127,10 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
           </p>
         </CardContent>
       </Card>
+      </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">ライセンス費用</CardTitle>
-          <CreditCard className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-red-600">
-            {formatCurrency(totalLicenseCost)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            作者への支払い
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">GM給与</CardTitle>
-          <Users className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-red-600">
-            {formatCurrency(totalGmCost)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            GMスタッフへの支払い
-          </p>
-        </CardContent>
-      </Card>
-
+      {/* 第2行: 費用内訳（変動費・固定費） */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">変動費</CardTitle>
@@ -187,18 +177,34 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">純利益</CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">ライセンス費用</CardTitle>
+          <CreditCard className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {formatCurrency(netProfit)}
+          <div className="text-2xl font-bold text-red-600">
+            {formatCurrency(totalLicenseCost)}
           </div>
           <p className="text-xs text-muted-foreground">
-            売上 - 変動費 - 固定費
+            作者への支払い
           </p>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">GM給与</CardTitle>
+          <Users className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-red-600">
+            {formatCurrency(totalGmCost)}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            GMスタッフへの支払い
+          </p>
+        </CardContent>
+      </Card>
+      </div>
     </div>
   )
 }
