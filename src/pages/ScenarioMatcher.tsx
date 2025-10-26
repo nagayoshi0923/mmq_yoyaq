@@ -5,13 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from '@/components/ui/command'
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -40,6 +33,7 @@ export function ScenarioMatcher() {
   const [selectedMatches, setSelectedMatches] = useState<Record<string, string>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({})
+  const [popoverSearchTerms, setPopoverSearchTerms] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!user) {
@@ -268,37 +262,59 @@ export function ScenarioMatcher() {
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-[400px] p-0" align="start">
-                              <Command>
-                                <CommandInput placeholder="シナリオを検索..." />
-                                <CommandEmpty>シナリオが見つかりません</CommandEmpty>
-                                <CommandGroup className="max-h-[300px] overflow-auto">
-                                  {allScenarios.map((scenario) => (
-                                    <CommandItem
-                                      key={scenario.id}
-                                      value={scenario.title}
-                                      onSelect={(currentValue) => {
-                                        console.log('Selected:', scenario.title, scenario.id)
-                                        handleSelectMatch(event.scenario, scenario.id)
-                                        setOpenPopovers(prev => ({ ...prev, [event.scenario]: false }))
-                                      }}
-                                      onClick={() => {
-                                        console.log('Clicked:', scenario.title, scenario.id)
-                                        handleSelectMatch(event.scenario, scenario.id)
-                                        setOpenPopovers(prev => ({ ...prev, [event.scenario]: false }))
-                                      }}
-                                      className="cursor-pointer"
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          selectedMatches[event.scenario] === scenario.id ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {scenario.title}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </Command>
+                              <div className="flex flex-col">
+                                <div className="border-b p-2">
+                                  <Input
+                                    placeholder="シナリオを検索..."
+                                    value={popoverSearchTerms[event.scenario] || ''}
+                                    onChange={(e) => setPopoverSearchTerms(prev => ({ ...prev, [event.scenario]: e.target.value }))}
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div className="max-h-[300px] overflow-auto p-1">
+                                  {allScenarios
+                                    .filter(s => {
+                                      const searchTerm = popoverSearchTerms[event.scenario] || ''
+                                      return s.title.toLowerCase().includes(searchTerm.toLowerCase())
+                                    })
+                                    .map((scenario) => {
+                                      const isSelected = selectedMatches[event.scenario] === scenario.id
+                                      return (
+                                        <div
+                                          key={scenario.id}
+                                          onClick={(e) => {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            console.log('Clicked:', scenario.title, scenario.id)
+                                            handleSelectMatch(event.scenario, scenario.id)
+                                            setOpenPopovers(prev => ({ ...prev, [event.scenario]: false }))
+                                            setPopoverSearchTerms(prev => ({ ...prev, [event.scenario]: '' }))
+                                          }}
+                                          className={cn(
+                                            "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                                            isSelected && "bg-accent"
+                                          )}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              isSelected ? "opacity-100" : "opacity-0"
+                                            )}
+                                          />
+                                          {scenario.title}
+                                        </div>
+                                      )
+                                    })}
+                                  {allScenarios.filter(s => {
+                                    const searchTerm = popoverSearchTerms[event.scenario] || ''
+                                    return s.title.toLowerCase().includes(searchTerm.toLowerCase())
+                                  }).length === 0 && (
+                                    <div className="py-6 text-center text-sm text-gray-500">
+                                      シナリオが見つかりません
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </PopoverContent>
                           </Popover>
                         </div>
