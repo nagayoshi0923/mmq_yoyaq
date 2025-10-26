@@ -103,7 +103,7 @@ export function AddDemoParticipants() {
       log('シナリオマスタを取得中...', 'info')
       const { data: allScenarios, error: scenariosError } = await supabase
         .from('scenarios')
-        .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
+        .select('id, title, duration, participation_fee, gm_test_participation_fee, player_count_max, player_count_min')
       
       if (scenariosError) {
         log(`❌ シナリオ取得エラー: ${scenariosError.message}`, 'error')
@@ -176,7 +176,7 @@ export function AddDemoParticipants() {
           // ID がある場合は ID で検索（最優先）
           const { data } = await supabase
             .from('scenarios')
-            .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
+            .select('id, title, duration, participation_fee, gm_test_participation_fee, player_count_max, player_count_min')
             .eq('id', event.scenario_id)
             .maybeSingle()
           
@@ -251,7 +251,7 @@ export function AddDemoParticipants() {
         }
 
         // シナリオの最大参加人数を使用
-        const scenarioMaxParticipants = scenario.max_participants || 8
+        const scenarioMaxParticipants = scenario.player_count_max || 8
         
         // デモ参加者を除いた実際の参加者数を計算
         const demoParticipantCount = demoReservations.reduce((sum, r) => sum + (r.participant_count || 0), 0)
