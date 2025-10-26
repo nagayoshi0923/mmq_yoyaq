@@ -473,7 +473,12 @@ export function PerformanceModal({
   useEffect(() => {
     if (mode === 'edit' && event) {
       // 編集モード：既存データで初期化
-      setFormData(event)
+      // シナリオIDがない場合は、タイトルから逆引き
+      const selectedScenario = scenarios.find(s => s.title === event.scenario)
+      setFormData({
+        ...event,
+        scenario_id: selectedScenario?.id  // IDを設定
+      })
       // 既存の開始時間から時間帯を判定
       const startHour = parseInt(event.start_time.split(':')[0])
       if (startHour < 12) {
@@ -559,7 +564,11 @@ export function PerformanceModal({
         await onScenariosUpdate()
       }
       // 新しく作成したシナリオを選択
-      setFormData((prev: EventFormData) => ({ ...prev, scenario: newScenario.title }))
+      setFormData((prev: EventFormData) => ({ 
+        ...prev, 
+        scenario: newScenario.title,
+        scenario_id: newScenario.id  // IDも設定
+      }))
     } catch (error: unknown) {
       logger.error('シナリオ作成エラー:', error)
       const message = error instanceof Error ? error.message : '不明なエラー'
@@ -843,6 +852,7 @@ export function PerformanceModal({
                   setFormData((prev: EventFormData) => ({
                     ...prev,
                     scenario: scenarioTitle,
+                    scenario_id: selectedScenario.id,  // IDも同時に設定
                     end_time: endTime,
                     max_participants: selectedScenario.player_count_max
                   }))
