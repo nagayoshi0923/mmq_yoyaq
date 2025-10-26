@@ -177,7 +177,7 @@ BEGIN
       event_record.store_id,
       demo_customer_id,
       'デモ参加者（自動追加） - ' || needed_demo_count || '名',
-      event_record.date || 'T' || event_record.start_time || '+09:00',
+      (event_record.date || 'T' || event_record.start_time || '+09:00')::TIMESTAMPTZ,
       COALESCE(scenario_record.duration, 120),
       needed_demo_count,
       '{}',
