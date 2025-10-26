@@ -320,27 +320,26 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
               </div>
 
               {/* 右カラム: 固定費 */}
-              <div>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                    <div>
-                      <CardTitle>固定費</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        家賃、光熱費など店舗運営に必要な固定費を設定できます。<br />
-                        開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      onClick={handleAddFixedCost}
-                      size="sm"
-                      className="gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      固定費を追加
-                    </Button>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">固定費</h3>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      家賃、光熱費など店舗運営に必要な固定費を設定できます。<br />
+                      開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleAddFixedCost}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    固定費を追加
+                  </Button>
+                </div>
+                <div className="space-y-3">
                     {(!formData.fixed_costs || formData.fixed_costs.length === 0) ? (
                       <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
                         <p>固定費設定がありません</p>
@@ -464,8 +463,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                         </div>
                       </>
                     )}
-                  </CardContent>
-                </Card>
+                </div>
               </div>
             </div>
           </div>
