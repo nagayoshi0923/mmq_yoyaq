@@ -101,32 +101,20 @@ export function AddDemoParticipants() {
       
       for (const event of pastEvents) {
         const currentParticipants = event.current_participants || 0
-        const maxParticipants = event.capacity || 8
-        
-        if (currentParticipants >= maxParticipants) {
-          skippedCount++
-          continue
-        }
         
         // 既存のデモ予約チェック
         const { data: existingReservations } = await supabase
           .from('reservations')
-          .select('id, participant_names, reservation_source')
+          .select('id, participant_names, reservation_source, participant_count')
           .eq('schedule_event_id', event.id)
           .in('status', ['confirmed', 'pending'])
         
-        const hasDemoParticipant = existingReservations?.some(r => 
+        // デモ参加者の予約を抽出
+        const demoReservations = existingReservations?.filter(r => 
           r.reservation_source === 'demo_auto' ||
           !r.participant_names || 
           r.participant_names.length === 0
-        )
-        
-        if (hasDemoParticipant) {
-          skippedCount++
-          continue
-        }
-        
-        const shortfall = maxParticipants - currentParticipants
+        ) || []
         
         if (!event.scenario || event.scenario.trim() === '') {
           log(`⏭️  シナリオ名が空 [${event.date}]`, 'skip')
@@ -163,12 +151,76 @@ export function AddDemoParticipants() {
 
         const { data: scenario } = await supabase
           .from('scenarios')
-          .select('id, title, duration, participation_fee, gm_test_participation_fee')
+          .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
           .eq('title', normalizedScenario)
           .maybeSingle()
         
         if (!scenario) {
           log(`⏭️  シナリオ未登録 [${event.scenario}]`, 'skip')
+          skippedCount++
+          continue
+        }
+
+        // シナリオの最大参加人数を使用
+        const scenarioMaxParticipants = scenario.max_participants || 8
+        
+        // デモ参加者を除いた実際の参加者数を計算
+        const demoParticipantCount = demoReservations.reduce((sum, r) => sum + (r.participant_count || 0), 0)
+        const realParticipants = currentParticipants - demoParticipantCount
+        
+        // 現在の参加者数（デモ除く）がシナリオの最大参加人数を超えている場合
+        if (realParticipants > scenarioMaxParticipants) {
+          log(`⚠️  実参加者が最大人数超過 [${event.date} ${event.scenario}] (実${realParticipants}名 > 最大${scenarioMaxParticipants}名)`, 'skip')
+          skippedCount++
+          continue
+        }
+        
+        // 必要なデモ参加者数を計算
+        const neededDemoCount = scenarioMaxParticipants - realParticipants
+        
+        // 既にデモ参加者がいる場合
+        if (demoReservations.length > 0) {
+          if (demoParticipantCount === neededDemoCount) {
+            // 既に正しい人数のデモ参加者がいる
+            skippedCount++
+            continue
+          } else if (demoParticipantCount > neededDemoCount) {
+            // デモ参加者が多すぎる場合は削除
+            for (const demoRes of demoReservations) {
+              const { error: deleteError } = await supabase
+                .from('reservations')
+                .delete()
+                .eq('id', demoRes.id)
+              
+              if (deleteError) {
+                log(`❌ デモ予約削除エラー [${event.date} ${event.scenario}]`, 'error')
+              } else {
+                log(`🗑️  過剰デモ削除: ${event.date} ${event.scenario} (${demoRes.participant_count}名削除)`, 'success')
+              }
+            }
+            
+            // 削除後、必要な人数を再追加する処理に進む
+            if (neededDemoCount === 0) {
+              successCount++
+              continue
+            }
+          } else {
+            // デモ参加者が不足している場合、既存を削除して新しく追加
+            for (const demoRes of demoReservations) {
+              await supabase
+                .from('reservations')
+                .delete()
+                .eq('id', demoRes.id)
+            }
+            log(`🔄 デモ予約更新: ${event.date} ${event.scenario} (${demoParticipantCount}名→${neededDemoCount}名)`, 'info')
+          }
+        }
+        
+        // 追加するデモ参加者数
+        const shortfall = neededDemoCount
+        
+        // デモ参加者が不要な場合はスキップ
+        if (shortfall <= 0) {
           skippedCount++
           continue
         }
