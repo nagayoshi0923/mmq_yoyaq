@@ -124,14 +124,18 @@ export function AddDemoParticipants() {
 
         // シナリオ名を正規化（記号や接頭辞を除去）
         let normalizedScenario = event.scenario.trim()
-        // 引用符を削除
-        normalizedScenario = normalizedScenario.replace(/^["「『]/, '').replace(/["」』]$/, '')
+        // 先頭の引用符を削除（複数連続も対応）
+        normalizedScenario = normalizedScenario.replace(/^["「『]+/g, '')
         // 絵文字を削除
         normalizedScenario = normalizedScenario.replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
-        // 募・貸・貸切・GMテストなどの接頭辞を削除
-        normalizedScenario = normalizedScenario.replace(/^(募・|貸・|📕貸・|📗貸・|"募・|"貸・|GMテスト・|"GMテスト・)/g, '')
-        // 先頭の引用符を再度削除
-        normalizedScenario = normalizedScenario.replace(/^["「『]/, '')
+        // 募・貸・貸切・GMテスト・出張などの接頭辞を削除（引用符込みのパターンも対応）
+        normalizedScenario = normalizedScenario.replace(/^["「『]*(募・|貸・|📕貸・|📗貸・|出張・|GMテスト・)+/g, '')
+        // 再度先頭の引用符を削除
+        normalizedScenario = normalizedScenario.replace(/^["「『]+/g, '')
+        // 末尾の引用符も削除
+        normalizedScenario = normalizedScenario.replace(/["」』]+$/g, '')
+        // 全角スペースを削除（ナナイロの迷宮などの表記揺れ対応）
+        normalizedScenario = normalizedScenario.replace(/　/g, '')
         normalizedScenario = normalizedScenario.trim()
 
         // テストやミーティングなどはスキップ
@@ -180,15 +184,27 @@ export function AddDemoParticipants() {
           scenario = data
           
           if (!scenario) {
-            // 部分一致で再検索
-            const { data: partialMatch } = await supabase
+            // 全角スペースとハイフンを除去したパターンで部分一致検索
+            const searchPattern = normalizedScenario
+              .replace(/[-ー]/g, '') // ハイフンと長音も除去
+              .replace(/\s+/g, '') // 半角スペースも除去
+            
+            // 全シナリオを取得して、正規化後のタイトルで比較
+            const { data: allScenarios } = await supabase
               .from('scenarios')
               .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
-              .ilike('title', `%${normalizedScenario}%`)
-              .maybeSingle()
+            
+            // クライアント側で正規化して比較
+            const partialMatch = allScenarios?.find(s => {
+              const normalizedTitle = s.title
+                .replace(/　/g, '') // 全角スペース除去
+                .replace(/[-ー]/g, '') // ハイフン・長音除去
+                .replace(/\s+/g, '') // 半角スペース除去
+              return normalizedTitle.includes(searchPattern) || searchPattern.includes(normalizedTitle)
+            })
             
             if (partialMatch) {
-              log(`🔍 部分一致: ${event.scenario} → ${partialMatch.title}`, 'info')
+              log(`🔍 正規化一致: ${event.scenario} → ${partialMatch.title}`, 'info')
               scenario = partialMatch
             } else {
               // 類似シナリオを検索してデバッグ情報を表示
