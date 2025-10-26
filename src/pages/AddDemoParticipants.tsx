@@ -1,11 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
 export function AddDemoParticipants() {
+  const { user } = useAuth()
   const [logs, setLogs] = useState<Array<{ message: string; type: 'info' | 'success' | 'error' | 'skip' }>>([])
   const [isRunning, setIsRunning] = useState(false)
+
+  useEffect(() => {
+    if (!user) {
+      setLogs([{ message: '⚠️ ログインが必要です。ログインページにリダイレクトします...', type: 'error' }])
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 2000)
+    }
+  }, [user])
 
   const log = (message: string, type: 'info' | 'success' | 'error' | 'skip' = 'info') => {
     setLogs(prev => [...prev, { message, type }])
@@ -205,6 +216,11 @@ export function AddDemoParticipants() {
   }
 
   const handleStart = async () => {
+    if (!user) {
+      log('ログインが必要です', 'error')
+      return
+    }
+
     setIsRunning(true)
     setLogs([])
     log('処理を開始します...', 'info')
@@ -219,6 +235,30 @@ export function AddDemoParticipants() {
     } finally {
       setIsRunning(false)
     }
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-4xl mx-auto">
+          <Card className="p-8">
+            <h1 className="text-2xl font-bold mb-4">📋 デモ参加者追加ツール</h1>
+            <p className="text-red-600 mb-6">
+              ⚠️ このツールを使用するにはログインが必要です。
+            </p>
+            {logs.length > 0 && (
+              <div className="bg-gray-50 border border-gray-200 rounded-md p-4 font-mono text-sm">
+                {logs.map((log, index) => (
+                  <div key={index} className="text-red-600">
+                    {log.message}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   return (
