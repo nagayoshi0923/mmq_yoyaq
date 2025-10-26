@@ -1,21 +1,16 @@
 -- シナリオごとにGM時給設定を追加
 
--- 1. scenariosテーブルに時給設定カラムを追加
+-- ========================================
+-- STEP 1: カラムを追加
+-- ========================================
 ALTER TABLE scenarios
 ADD COLUMN IF NOT EXISTS gm_hourly_wage_settings JSONB;
 
--- カラムの説明:
--- gm_hourly_wage_settings: GM時給設定（JSONB形式）
---   {
---     "wage_type": "hourly" | "fixed",  // 計算方式（時給制 or 固定報酬）
---     "first_rate_per_30min": 875,      // 最初の時間帯の30分あたり料金
---     "first_threshold_minutes": 300,    // 最初の時間帯の閾値（分単位、デフォルト5時間=300分）
---     "after_rate_per_30min": 500       // 閾値超過後の30分あたり料金
---   }
-
 COMMENT ON COLUMN scenarios.gm_hourly_wage_settings IS 'GM時給設定（時給制の場合の計算パラメータ）';
 
--- 2. 既存のシナリオにデフォルト設定を適用
+-- ========================================
+-- STEP 2: デフォルト設定を適用
+-- ========================================
 UPDATE scenarios
 SET gm_hourly_wage_settings = jsonb_build_object(
   'wage_type', 'hourly',
@@ -25,48 +20,9 @@ SET gm_hourly_wage_settings = jsonb_build_object(
 )
 WHERE gm_hourly_wage_settings IS NULL;
 
--- 3. 設定例：特定のシナリオの時給を変更
--- 例1: 「機巧人形の心臓」の時給を高く設定（30分あたり1000円、5時間超は600円）
-UPDATE scenarios
-SET gm_hourly_wage_settings = jsonb_build_object(
-  'wage_type', 'hourly',
-  'first_rate_per_30min', 1000,
-  'first_threshold_minutes', 300,
-  'after_rate_per_30min', 600
-)
-WHERE title = '機巧人形の心臓';
-
--- 例2: 「百鬼の夜、月光の影」を固定報酬に設定（時給制を使わない）
-UPDATE scenarios
-SET gm_hourly_wage_settings = jsonb_build_object(
-  'wage_type', 'fixed'
-)
-WHERE title = '百鬼の夜、月光の影';
-
--- 例3: 長時間シナリオの閾値を6時間に変更
-UPDATE scenarios
-SET gm_hourly_wage_settings = jsonb_build_object(
-  'wage_type', 'hourly',
-  'first_rate_per_30min', 875,
-  'first_threshold_minutes', 360,
-  'after_rate_per_30min', 500
-)
-WHERE title LIKE '%長時間%';
-
--- 4. 確認クエリ：設定を確認
-SELECT 
-  title,
-  duration,
-  gm_hourly_wage_settings,
-  gm_hourly_wage_settings->>'wage_type' as 計算方式,
-  (gm_hourly_wage_settings->>'first_rate_per_30min')::int as 基本時給_30分単位,
-  (gm_hourly_wage_settings->>'first_threshold_minutes')::int / 60.0 as 閾値_時間,
-  (gm_hourly_wage_settings->>'after_rate_per_30min')::int as 超過時給_30分単位
-FROM scenarios
-ORDER BY title
-LIMIT 10;
-
--- 5. 時給計算のシミュレーション関数
+-- ========================================
+-- STEP 3: 時給計算関数を作成
+-- ========================================
 CREATE OR REPLACE FUNCTION calculate_gm_wage(
   duration_minutes INT,
   wage_settings JSONB
@@ -113,16 +69,32 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
--- 6. 計算例を確認
-SELECT 
-  title,
-  duration,
-  gm_hourly_wage_settings->>'wage_type' as 計算方式,
-  calculate_gm_wage(duration, gm_hourly_wage_settings) as GM給与_1人あたり,
-  jsonb_array_length(COALESCE(gm_costs, '[]'::jsonb)) as GM人数,
-  calculate_gm_wage(duration, gm_hourly_wage_settings) * jsonb_array_length(COALESCE(gm_costs, '[]'::jsonb)) as GM給与_合計
-FROM scenarios
-WHERE gm_hourly_wage_settings->>'wage_type' = 'hourly'
-ORDER BY duration DESC
-LIMIT 10;
+-- ========================================
+-- 完了！以下は任意で実行
+-- ========================================
 
+-- 設定を確認
+-- SELECT 
+--   title,
+--   duration,
+--   gm_hourly_wage_settings,
+--   gm_hourly_wage_settings->>'wage_type' as 計算方式,
+--   (gm_hourly_wage_settings->>'first_rate_per_30min')::int as 基本時給_30分単位,
+--   (gm_hourly_wage_settings->>'first_threshold_minutes')::int / 60.0 as 閾値_時間,
+--   (gm_hourly_wage_settings->>'after_rate_per_30min')::int as 超過時給_30分単位
+-- FROM scenarios
+-- ORDER BY title
+-- LIMIT 10;
+
+-- 計算例を確認
+-- SELECT 
+--   title,
+--   duration,
+--   gm_hourly_wage_settings->>'wage_type' as 計算方式,
+--   calculate_gm_wage(duration, gm_hourly_wage_settings) as GM給与_1人あたり,
+--   jsonb_array_length(COALESCE(gm_costs, '[]'::jsonb)) as GM人数,
+--   calculate_gm_wage(duration, gm_hourly_wage_settings) * jsonb_array_length(COALESCE(gm_costs, '[]'::jsonb)) as GM給与_合計
+-- FROM scenarios
+-- WHERE gm_hourly_wage_settings->>'wage_type' = 'hourly'
+-- ORDER BY duration DESC
+-- LIMIT 10;
