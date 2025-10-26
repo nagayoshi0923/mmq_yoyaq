@@ -254,16 +254,22 @@ function calculateSalesData(
   const totalEvents = events.length
   const averageRevenuePerEvent = totalEvents > 0 ? totalRevenue / totalEvents : 0
 
-  // ライセンス金額とGM給与を計算
+  // ライセンス金額とGM給与を計算（過去の公演のみ）
   let totalLicenseCost = 0
   let totalGmCost = 0
+  
+  const now = new Date()
+  now.setHours(0, 0, 0, 0) // 今日の0時に設定
 
-  console.log('💰 売上計算開始:', { eventsCount: events.length })
+  console.log('💰 売上計算開始:', { eventsCount: events.length, today: now.toISOString() })
 
   events.forEach(event => {
+    const eventDate = new Date(event.date)
+    const isPastEvent = eventDate < now // 今日より前の公演のみ
+    
     const scenario = event.scenarios
-    if (scenario) {
-      // ライセンス金額の計算
+    if (scenario && isPastEvent) {
+      // ライセンス金額の計算（開催済み公演のみ）
       const isGmTest = event.category === 'gmtest'
       const licenseAmount = isGmTest 
         ? (scenario.gm_test_license_amount || 0)
@@ -346,6 +352,9 @@ function calculateSalesData(
   }>()
   
   events.forEach(event => {
+    const eventDate = new Date(event.date)
+    const isPastEvent = eventDate < now // 今日より前の公演のみ
+    
     const storeId = event.store_id
     const store = stores.find(s => s.id === storeId)
     const storeName = store?.name || '不明'
@@ -365,9 +374,9 @@ function calculateSalesData(
     storeData.revenue += event.revenue || 0
     storeData.events += 1
 
-    // 店舗別のライセンス金額とGM給与を計算
+    // 店舗別のライセンス金額とGM給与を計算（開催済み公演のみ）
     const scenario = event.scenarios
-    if (scenario) {
+    if (scenario && isPastEvent) {
       const isGmTest = event.category === 'gmtest'
       const licenseAmount = isGmTest 
         ? (scenario.gm_test_license_amount || 0)
@@ -418,6 +427,9 @@ function calculateSalesData(
   }>()
   
   events.forEach(event => {
+    const eventDate = new Date(event.date)
+    const isPastEvent = eventDate < now // 今日より前の公演のみ
+    
     const scenarioId = event.scenario_id || event.scenario || '不明'
     const scenarioTitle = event.scenario || '不明'
     
@@ -436,9 +448,9 @@ function calculateSalesData(
     scenarioData.revenue += event.revenue || 0
     scenarioData.events += 1
 
-    // シナリオ別のライセンス金額とGM給与を計算
+    // シナリオ別のライセンス金額とGM給与を計算（開催済み公演のみ）
     const scenario = event.scenarios
-    if (scenario) {
+    if (scenario && isPastEvent) {
       const isGmTest = event.category === 'gmtest'
       const licenseAmount = isGmTest 
         ? (scenario.gm_test_license_amount || 0)
@@ -535,11 +547,14 @@ function calculateSalesData(
 
   // 実施公演リスト用のデータを作成
   const eventList = events.map(event => {
+    const eventDate = new Date(event.date)
+    const isPastEvent = eventDate < now // 今日より前の公演のみ
+    
     const scenario = event.scenarios
     let licenseCost = 0
     let gmCost = 0
 
-    if (scenario) {
+    if (scenario && isPastEvent) {
       const isGmTest = event.category === 'gmtest'
       licenseCost = isGmTest 
         ? (scenario.gm_test_license_amount || 0)
