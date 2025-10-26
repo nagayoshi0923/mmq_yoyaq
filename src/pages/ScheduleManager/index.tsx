@@ -1,6 +1,5 @@
 // React
 import { useState, useEffect, useMemo } from 'react'
-import { addDemoParticipantsToPastUnderfullEvents } from '@/hooks/useScheduleData'
 
 // Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -33,7 +32,7 @@ const SCHEDULE_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'schedule-view', label: 'スケジュール表示', icon: Calendar },
   { id: 'import', label: 'インポート', icon: Upload },
   { id: 'filter', label: 'フィルタ', icon: Filter },
-  { id: 'add-demo', label: 'デモ参加者追加', icon: Settings },
+  { id: 'settings', label: '設定', icon: Settings },
 ]
 
 // Types
@@ -47,7 +46,6 @@ export function ScheduleManager() {
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('schedule-view')
-  const [isAddingDemo, setIsAddingDemo] = useState(false)
 
   // スケジュールテーブルの共通フック
   const scheduleTableProps = useScheduleTable({ currentDate })
@@ -82,35 +80,7 @@ export function ScheduleManager() {
     }
   }), [scheduleTableProps, filteredGetEventsForSlot])
 
-  // デモ参加者追加処理
-  const handleAddDemoParticipants = async () => {
-    if (!confirm('過去の定員未満公演にデモ参加者を追加します。よろしいですか？')) {
-      return
-    }
-    
-    setIsAddingDemo(true)
-    
-    try {
-      const result = await addDemoParticipantsToPastUnderfullEvents()
-      
-      alert(`完了しました。\n成功: ${result.success}件\nスキップ: ${result.skipped}件\n失敗: ${result.failed}件`)
-      
-      // スケジュールを再読み込み
-      scheduleTableProps.fetchSchedule()
-    } catch (error) {
-      alert('エラー: デモ参加者の追加に失敗しました')
-      console.error(error)
-    } finally {
-      setIsAddingDemo(false)
-    }
-  }
-
-  // activeTabの変更を監視してデモ参加者追加を実行
-  useEffect(() => {
-    if (activeTab === 'add-demo' && !isAddingDemo) {
-      handleAddDemoParticipants()
-    }
-  }, [activeTab])
+  // デモ参加者追加処理（削除済み - 別途スクリプトで実行）
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {

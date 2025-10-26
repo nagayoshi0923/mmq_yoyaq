@@ -18,6 +18,21 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
   let skippedCount = 0
   
   try {
+    // デモ顧客を取得
+    const { data: demoCustomer, error: customerError } = await supabase
+      .from('customers')
+      .select('id, name')
+      .or('name.ilike.%デモ%,email.ilike.%demo%')
+      .limit(1)
+      .single()
+    
+    if (customerError || !demoCustomer) {
+      console.error('デモ顧客が見つかりません:', customerError)
+      return { success: 0, failed: 0, skipped: 0 }
+    }
+    
+    console.log(`デモ顧客: ${demoCustomer.name} (ID: ${demoCustomer.id})`)
+    
     // 今日以前の公演を取得（中止されていない、カテゴリーがopenまたはgmtest）
     const { data: pastEvents, error: eventsError } = await supabase
       .from('schedule_events')
@@ -146,12 +161,13 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
 
       // デモ参加者の予約を作成（不足人数分）
       // participant_namesを空配列にすることで「無記名 = デモ参加者」として扱われる
+      // customer_idにデモ顧客を設定
       const demoReservation = {
         schedule_event_id: event.id,
         title: event.scenario || '',
         scenario_id: scenario?.id || null,
         store_id: store?.id || null,
-        customer_id: null,
+        customer_id: demoCustomer.id, // デモ顧客を設定
         customer_notes: `デモ参加者（自動追加） - ${shortfall}名`,
         requested_datetime: `${event.date}T${event.start_time}+09:00`,
         duration: durationMinutes,
