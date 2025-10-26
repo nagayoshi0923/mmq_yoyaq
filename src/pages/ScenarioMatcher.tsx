@@ -4,13 +4,20 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Check, ChevronsUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type UnmatchedEvent = {
   id: string
@@ -32,6 +39,7 @@ export function ScenarioMatcher() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedMatches, setSelectedMatches] = useState<Record<string, string>>({})
   const [searchTerm, setSearchTerm] = useState('')
+  const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (!user) {
@@ -242,26 +250,50 @@ export function ScenarioMatcher() {
                         </div>
                         
                         <div>
-                          <Select
-                            value={selectedMatches[event.scenario] || ''}
-                            onValueChange={(value) => handleSelectMatch(event.scenario, value)}
+                          <Popover 
+                            open={openPopovers[event.scenario] || false} 
+                            onOpenChange={(open) => setOpenPopovers(prev => ({ ...prev, [event.scenario]: open }))}
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="マッチするシナリオを選択..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {allScenarios
-                                .filter(s => 
-                                  s.title.toLowerCase().includes(normalized.toLowerCase()) ||
-                                  normalized.toLowerCase().includes(s.title.toLowerCase())
-                                )
-                                .map(scenario => (
-                                  <SelectItem key={scenario.id} value={scenario.id}>
-                                    {scenario.title}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={openPopovers[event.scenario] || false}
+                                className="w-full justify-between"
+                              >
+                                {selectedMatches[event.scenario]
+                                  ? allScenarios.find(s => s.id === selectedMatches[event.scenario])?.title
+                                  : "マッチするシナリオを選択..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[400px] p-0">
+                              <Command>
+                                <CommandInput placeholder="シナリオを検索..." />
+                                <CommandEmpty>シナリオが見つかりません</CommandEmpty>
+                                <CommandGroup className="max-h-[300px] overflow-auto">
+                                  {allScenarios.map((scenario) => (
+                                    <CommandItem
+                                      key={scenario.id}
+                                      value={scenario.title}
+                                      onSelect={() => {
+                                        handleSelectMatch(event.scenario, scenario.id)
+                                        setOpenPopovers(prev => ({ ...prev, [event.scenario]: false }))
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          selectedMatches[event.scenario] === scenario.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {scenario.title}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       </div>
                     </Card>
