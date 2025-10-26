@@ -20,6 +20,21 @@ export function AddDemoParticipants() {
     let skippedCount = 0
     
     try {
+      // Supabase接続確認
+      log('Supabase接続確認中...', 'info')
+      const { data: testData, error: testError } = await supabase
+        .from('customers')
+        .select('count')
+        .limit(1)
+      
+      if (testError) {
+        log(`接続エラー: ${testError.message}`, 'error')
+        log(`エラー詳細: ${JSON.stringify(testError)}`, 'error')
+        return { success: 0, failed: 0, skipped: 0 }
+      }
+      
+      log('✅ Supabase接続成功', 'success')
+      
       // デモ顧客を取得
       log('デモ顧客を検索中...', 'info')
       
