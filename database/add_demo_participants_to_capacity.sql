@@ -142,9 +142,16 @@ BEGIN
       participation_fee_amount := COALESCE(scenario_record.participation_fee, 0);
     END IF;
     
-    -- 予約番号を生成
-    new_reservation_number := TO_CHAR(CURRENT_DATE, 'YYYYMMDD') || '-' || 
-                              UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 4));
+    -- 予約番号を生成（ユニークになるまでループ）
+    LOOP
+      new_reservation_number := TO_CHAR(CURRENT_DATE, 'YYYYMMDD') || '-' || 
+                                UPPER(SUBSTRING(MD5(RANDOM()::TEXT || CLOCK_TIMESTAMP()::TEXT) FROM 1 FOR 4));
+      
+      -- 既存の予約番号と重複していないか確認
+      IF NOT EXISTS (SELECT 1 FROM reservations WHERE reservation_number = new_reservation_number) THEN
+        EXIT;
+      END IF;
+    END LOOP;
     
     -- デモ参加者予約を挿入
     INSERT INTO reservations (
