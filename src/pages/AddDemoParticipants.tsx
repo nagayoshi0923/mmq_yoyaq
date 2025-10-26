@@ -135,7 +135,12 @@ export function AddDemoParticipants() {
         normalizedScenario = normalizedScenario.trim()
 
         // テストやミーティングなどはスキップ
-        const skipKeywords = ['MTG', 'マネージャーミーティング', '打ち合わせ', '面接', '歯医者', '清掃', 'TOOLS', '箱開け会', 'パッケージ会', '打診', '風呂清掃', '練習', 'スタート', 'キット', '可能日']
+        const skipKeywords = [
+          'MTG', 'マネージャーミーティング', '打ち合わせ', '面接', '歯医者', '清掃', 
+          'TOOLS', '箱開け', 'パッケージ会', '打診', '風呂清掃', '練習', 'スタート', 
+          'キット', '可能日', '作品未定', '工事予定', '出張', 'GMテスト', 'テストプレイ',
+          'テスプ', '体験会', 'ポーカー', '講座', 'インプロ', '未定'
+        ]
         if (skipKeywords.some(keyword => normalizedScenario.includes(keyword))) {
           log(`⏭️  対象外 [${event.scenario}]`, 'skip')
           skippedCount++
