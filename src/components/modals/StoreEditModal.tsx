@@ -477,10 +477,31 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
                 </div>
               </div>
             </div>
+            
+            {/* 削除ボタン（スクロールコンテンツの最下部） */}
+            {onDelete && store && (
+              <div className="pt-8 pb-4 px-6 border-t mt-8">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    if (confirm(`店舗「${store.name}」を削除してもよろしいですか？この操作は取り消せません。`)) {
+                      onDelete(store)
+                      onClose()
+                    }
+                  }}
+                  className="w-full text-muted-foreground hover:text-destructive"
+                  disabled={loading}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  この店舗を削除
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* アクションボタン */}
-          <div className="px-6 py-4 border-t bg-background shrink-0 space-y-3">
+          <div className="px-6 py-4 border-t bg-background shrink-0">
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -506,25 +527,6 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
                 )}
               </Button>
             </div>
-            
-            {/* 削除ボタン（最下部に分離） */}
-            {onDelete && store && (
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => {
-                  if (confirm(`店舗「${store.name}」を削除してもよろしいですか？この操作は取り消せません。`)) {
-                    onDelete(store)
-                    onClose()
-                  }
-                }}
-                className="w-full"
-                disabled={loading}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                この店舗を削除
-              </Button>
-            )}
           </div>
         </form>
       </DialogContent>
