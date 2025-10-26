@@ -361,7 +361,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
 
                                   {/* フォームフィールド */}
                                   <div className="flex-1">
-                                    <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_auto] gap-3 items-end">
+                                    <div className="grid grid-cols-[2fr_1fr_1.2fr_0.9fr_0.9fr_auto] gap-3 items-end">
                                       {/* 項目名（自由入力） */}
                                       <div>
                                         <Label className="text-xs">項目名</Label>
