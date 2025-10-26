@@ -4,6 +4,10 @@ export interface StoreFixedCost {
   amount: number
   frequency?: 'monthly' | 'yearly' | 'one-time'
   notes?: string
+  startDate?: string  // 毎月/毎年の開始時期、または一過性の発生月
+  endDate?: string    // 毎月/毎年の終了時期（オプション）
+  status?: 'active' | 'legacy'  // アクティブまたは過去の設定
+  usageCount?: number  // 使用回数
 }
 
 // 店舗関連の型定義

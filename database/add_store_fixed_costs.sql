@@ -22,26 +22,48 @@ COMMENT ON COLUMN stores.fixed_costs IS '店舗の固定費（家賃、光熱費
 --   }
 -- ]
 
--- 設定例: 本店の固定費を設定
+-- 設定例: 本店の固定費を設定（日付範囲付き）
 UPDATE stores
 SET fixed_costs = jsonb_build_array(
   jsonb_build_object(
     'item', '家賃',
     'amount', 150000,
     'frequency', 'monthly',
+    'startDate', '2024-01-01',
+    'status', 'active',
     'notes', '毎月末払い'
   ),
   jsonb_build_object(
     'item', '光熱費',
     'amount', 30000,
     'frequency', 'monthly',
+    'startDate', '2024-01-01',
+    'status', 'active',
     'notes', '電気・ガス・水道'
   ),
   jsonb_build_object(
     'item', '通信費',
     'amount', 15000,
     'frequency', 'monthly',
+    'startDate', '2024-01-01',
+    'status', 'active',
     'notes', 'インターネット・電話'
+  ),
+  jsonb_build_object(
+    'item', '火災保険',
+    'amount', 50000,
+    'frequency', 'yearly',
+    'startDate', '2024-01-01',
+    'status', 'active',
+    'notes', '年1回更新'
+  ),
+  jsonb_build_object(
+    'item', '初期設備投資',
+    'amount', 500000,
+    'frequency', 'one-time',
+    'startDate', '2024-01-15',
+    'status', 'active',
+    'notes', '開店時の設備費用'
   )
 )
 WHERE name = '本店';

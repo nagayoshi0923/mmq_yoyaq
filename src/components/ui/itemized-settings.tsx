@@ -52,6 +52,7 @@ interface ItemizedSettingsProps {
   validateNormalSetting?: (items: ItemizedSetting[]) => { hasError: boolean; message: string }
   onItemsChange: (items: ItemizedSetting[]) => void
   onExistingActiveFound?: (existingItem: { index: number; item: ItemizedSetting }, newAmount: number, newType: 'fixed' | 'percentage') => void
+  allowFreeTextItem?: boolean  // 項目名を自由入力可能にする
 }
 
 export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
@@ -66,7 +67,8 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
   getItemStatus,
   validateNormalSetting,
   onItemsChange,
-  onExistingActiveFound
+  onExistingActiveFound,
+  allowFreeTextItem = false
 }) => {
   // 新規入力用state
   const [newItem, setNewItem] = useState(conditionOptions[0]?.value || '')
@@ -74,6 +76,7 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
   const [newType, setNewType] = useState<'fixed' | 'percentage'>('fixed')
   const [newStartDate, setNewStartDate] = useState('')
   const [newEndDate, setNewEndDate] = useState('')
+  const [newFrequency, setNewFrequency] = useState(conditionOptions[0]?.value || '') // allowFreeTextItem用の頻度
   
   // ダイアログ用state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -98,13 +101,14 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
       
       
       // 同じ項目で使用中または待機設定の項目があるかチェック
+      const checkItem = allowFreeTextItem ? newItem : newItem
       const existingActiveIndex = items.findIndex(item => 
-        (item.originalRole === newItem || item.originalTimeSlot === newItem || item.item === newItem) && (item.status === 'active' || item.status === 'ready')
+        (item.originalRole === checkItem || item.originalTimeSlot === checkItem || item.item === checkItem) && (item.status === 'active' || item.status === 'ready')
       )
       
       // 同じ項目で複数の待機設定がある場合は古いものを削除
       const existingReadyItems = items.filter((item, index) => 
-        (item.originalRole === newItem || item.originalTimeSlot === newItem || item.item === newItem) && 
+        (item.originalRole === checkItem || item.originalTimeSlot === checkItem || item.item === checkItem) && 
         item.status === 'ready' && 
         index !== existingActiveIndex
       )
@@ -128,20 +132,21 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
         
         const selectedOption = conditionOptions.find(opt => opt.value === newItem)
         const newItemData: ItemizedSetting = {
-          item: selectedOption ? selectedOption.label : newItem, // 日本語表示名を使用
+          item: allowFreeTextItem ? newItem : (selectedOption ? selectedOption.label : newItem), // 自由入力ならそのまま、選択式なら日本語表示名
           amount: amount,
           type: newType,
           status: 'active', // 使用中の設定がない場合は即座に使用中
           usageCount: 0,
-          originalRole: newItem, // 元の英語値を保持
-          originalTimeSlot: newItem // 元の時間帯値を保持
+          originalRole: allowFreeTextItem ? newFrequency : newItem, // 自由入力なら頻度を保持、選択式なら元の英語値を保持
+          originalTimeSlot: allowFreeTextItem ? newFrequency : newItem // 自由入力なら頻度を保持、選択式なら元の時間帯値を保持
         }
         onItemsChange([...filteredItems, newItemData])
         
         // 入力欄をリセット
-        setNewItem(conditionOptions[0]?.value || '')
+        setNewItem(allowFreeTextItem ? '' : (conditionOptions[0]?.value || ''))
         setNewAmountInput('')
         setNewType('fixed')
+        setNewFrequency(conditionOptions[0]?.value || '')
       }
     }
   }
@@ -203,13 +208,13 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
       // 新しい項目を「待機設定」として追加（開始時期指定）
       const selectedOption = conditionOptions.find(opt => opt.value === newItem)
       const newActiveItem: ItemizedSetting = {
-        item: selectedOption ? selectedOption.label : newItem, // 日本語表示名を使用
+        item: allowFreeTextItem ? newItem : (selectedOption ? selectedOption.label : newItem), // 自由入力ならそのまま、選択式なら日本語表示名
         amount: parseCurrency(newAmountInput),
         type: newType,
         status: (startDate || newStartDate) ? 'ready' : 'active', // 開始時期指定がある場合は待機設定
         usageCount: 0,
-        originalRole: newItem, // 元の英語値を保持
-        originalTimeSlot: newItem, // 元の時間帯値を保持
+        originalRole: allowFreeTextItem ? newFrequency : newItem, // 自由入力なら頻度を保持、選択式なら元の英語値を保持
+        originalTimeSlot: allowFreeTextItem ? newFrequency : newItem, // 自由入力なら頻度を保持、選択式なら元の時間帯値を保持
         startDate: startDate || newStartDate || undefined, // 適用開始日を保持
         endDate: newEndDate || undefined // 適用終了日を保持
       }
@@ -217,11 +222,12 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
       onItemsChange([...filteredItems, newActiveItem])
       
       // 入力欄をリセット
-      setNewItem(conditionOptions[0]?.value || '')
+      setNewItem(allowFreeTextItem ? '' : (conditionOptions[0]?.value || ''))
       setNewAmountInput('')
       setNewType('fixed')
       setNewStartDate('')
       setNewEndDate('')
+      setNewFrequency(conditionOptions[0]?.value || '')
       setExistingActiveItem(null)
     }
   }
@@ -269,20 +275,44 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
       {/* 新規入力欄 */}
       <div className="space-y-2">
         <div className="flex gap-2">
-          <Select value={newItem} onValueChange={setNewItem}>
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="項目を選択" />
-            </SelectTrigger>
-            <SelectContent>
-              {conditionOptions.map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {allowFreeTextItem ? (
+            <>
+              <Input
+                type="text"
+                placeholder="項目名（例：家賃、光熱費）"
+                value={newItem}
+                onChange={(e) => setNewItem(e.target.value)}
+                className="flex-1"
+              />
+              <Select value={newFrequency} onValueChange={setNewFrequency}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="頻度" />
+                </SelectTrigger>
+                <SelectContent>
+                  {conditionOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          ) : (
+            <Select value={newItem} onValueChange={setNewItem}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="項目を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {conditionOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           
-  {showTypeSelector && (
+  {showTypeSelector && !allowFreeTextItem && (
             <Select 
               value={newType} 
               onValueChange={(value: 'fixed' | 'percentage') => {

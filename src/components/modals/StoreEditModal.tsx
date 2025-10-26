@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { X, Save, Plus, Trash2 } from 'lucide-react'
+import { ItemizedSettings } from '@/components/ui/itemized-settings'
+import { X, Save } from 'lucide-react'
 import type { Store, StoreFixedCost } from '@/types'
 import { logger } from '@/utils/logger'
 
@@ -18,9 +19,6 @@ interface StoreEditModalProps {
 export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModalProps) {
   const [formData, setFormData] = useState<Partial<Store>>({})
   const [loading, setLoading] = useState(false)
-  const [newFixedCostItem, setNewFixedCostItem] = useState('')
-  const [newFixedCostAmount, setNewFixedCostAmount] = useState(0)
-  const [newFixedCostFrequency, setNewFixedCostFrequency] = useState<'monthly' | 'yearly' | 'one-time'>('monthly')
 
   useEffect(() => {
     if (store) {
@@ -62,33 +60,45 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleAddFixedCost = () => {
-    if (!newFixedCostItem.trim() || newFixedCostAmount <= 0) {
-      alert('項目名と金額を入力してください')
-      return
-    }
-
-    const newCost: StoreFixedCost = {
-      item: newFixedCostItem,
-      amount: newFixedCostAmount,
-      frequency: newFixedCostFrequency
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      fixed_costs: [...(prev.fixed_costs || []), newCost]
-    }))
-
-    setNewFixedCostItem('')
-    setNewFixedCostAmount(0)
-    setNewFixedCostFrequency('monthly')
+  const handleFixedCostsChange = (costs: StoreFixedCost[]) => {
+    setFormData(prev => ({ ...prev, fixed_costs: costs }))
   }
 
-  const handleRemoveFixedCost = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      fixed_costs: (prev.fixed_costs || []).filter((_, i) => i !== index)
+  const getItemStatus = (amount: number, usageCount?: number): 'active' | 'legacy' | 'unused' | 'ready' => {
+    if (!usageCount || usageCount === 0) return 'unused'
+    return 'active'
+  }
+
+  // 固定費の頻度オプション
+  const frequencyOptions = [
+    { value: 'monthly', label: '毎月' },
+    { value: 'yearly', label: '毎年' },
+    { value: 'one-time', label: '一過性' }
+  ]
+
+  // StoreFixedCostをItemizedSettingに変換
+  const fixedCostsAsItems = (formData.fixed_costs || []).map(cost => ({
+    item: cost.item,
+    amount: cost.amount,
+    status: cost.status || 'active' as const,
+    usageCount: cost.usageCount || 0,
+    startDate: cost.startDate,
+    endDate: cost.endDate,
+    originalRole: cost.frequency || 'monthly' // frequencyを保持
+  }))
+
+  // ItemizedSettingをStoreFixedCostに変換
+  const handleItemizedSettingsChange = (items: { item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string; originalRole?: string }[]) => {
+    const costs: StoreFixedCost[] = items.map(item => ({
+      item: item.item,
+      amount: item.amount,
+      frequency: (item.originalRole || 'monthly') as 'monthly' | 'yearly' | 'one-time',
+      status: item.status,
+      usageCount: item.usageCount,
+      startDate: item.startDate,
+      endDate: item.endDate
     }))
+    handleFixedCostsChange(costs)
   }
 
   if (!isOpen || !store) return null
@@ -275,87 +285,26 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
 
             {/* 固定費 */}
             <div className="border-t pt-4">
-              <div className="mb-3">
-                <h3 className="text-lg font-semibold">固定費</h3>
-                <p className="text-sm text-muted-foreground">家賃、光熱費など月額の固定費を設定できます</p>
-              </div>
-
-              {/* 既存の固定費リスト */}
+              <ItemizedSettings
+                title="固定費"
+                subtitle="家賃、光熱費など店舗運営に必要な固定費を設定できます。毎月・毎年の場合は開始時期、一過性の場合は発生月を指定してください。"
+                items={fixedCostsAsItems}
+                conditionOptions={frequencyOptions}
+                showTypeSelector={false}
+                showHideLegacyToggle={true}
+                itemType="固定費"
+                scenarioName={store?.name}
+                getItemStatus={getItemStatus}
+                onItemsChange={handleItemizedSettingsChange}
+                allowFreeTextItem={true}
+              />
+              
+              {/* 月額合計表示 */}
               {formData.fixed_costs && formData.fixed_costs.length > 0 && (
-                <div className="space-y-2 mb-4">
-                  {formData.fixed_costs.map((cost, index) => {
-                    const frequencyLabel = cost.frequency === 'monthly' ? '月' : cost.frequency === 'yearly' ? '年' : '一過性'
-                    const frequencyUnit = cost.frequency === 'one-time' ? '' : ` / ${frequencyLabel}`
-                    return (
-                      <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                        <div className="flex-1">
-                          <div className="font-medium">{cost.item}</div>
-                          <div className="text-sm text-muted-foreground">
-                            ¥{cost.amount.toLocaleString()}{frequencyUnit}
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveFixedCost(index)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )
-                  })}
-                  <div className="text-sm font-medium text-right pt-2 border-t">
-                    月額合計: ¥{(formData.fixed_costs.filter(c => c.frequency === 'monthly').reduce((sum, cost) => sum + cost.amount, 0)).toLocaleString()}
-                  </div>
+                <div className="text-sm font-medium text-right pt-2 border-t mt-4">
+                  月額合計: ¥{(formData.fixed_costs.filter(c => c.frequency === 'monthly').reduce((sum, cost) => sum + cost.amount, 0)).toLocaleString()}
                 </div>
               )}
-
-              {/* 新規固定費追加フォーム */}
-              <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
-                <Label className="text-sm font-medium">新しい固定費を追加</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <Input
-                      type="text"
-                      placeholder="項目名（例：家賃、光熱費）"
-                      value={newFixedCostItem}
-                      onChange={(e) => setNewFixedCostItem(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="number"
-                      placeholder="金額"
-                      value={newFixedCostAmount || ''}
-                      onChange={(e) => setNewFixedCostAmount(parseInt(e.target.value) || 0)}
-                      min="0"
-                    />
-                  </div>
-                  <div>
-                    <select
-                      value={newFixedCostFrequency}
-                      onChange={(e) => setNewFixedCostFrequency(e.target.value as 'monthly' | 'yearly' | 'one-time')}
-                      className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    >
-                      <option value="monthly">毎月</option>
-                      <option value="yearly">毎年</option>
-                      <option value="one-time">一過性</option>
-                    </select>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  onClick={handleAddFixedCost}
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  固定費を追加
-                </Button>
-              </div>
             </div>
 
             {/* アクションボタン */}
