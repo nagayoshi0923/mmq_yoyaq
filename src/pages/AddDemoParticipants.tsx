@@ -82,7 +82,7 @@ export function AddDemoParticipants() {
       log('公演を取得中（全カテゴリ）...', 'info')
       const { data: pastEvents, error: eventsError } = await supabase
         .from('schedule_events')
-        .select('id, date, venue, scenario, gms, start_time, end_time, category, is_cancelled, current_participants, capacity')
+        .select('id, date, venue, scenario, scenario_id, gms, start_time, end_time, category, is_cancelled, current_participants, capacity')
         .lte('date', today.toISOString().split('T')[0])
         .eq('is_cancelled', false)
         .order('date', { ascending: false })
@@ -142,46 +142,66 @@ export function AddDemoParticipants() {
           continue
         }
 
-        // 正規化後も空の場合はスキップ
-        if (!normalizedScenario) {
-          log(`⏭️  シナリオ名が空 [${event.date}]`, 'skip')
-          skippedCount++
-          continue
-        }
-
-        let { data: scenario } = await supabase
-          .from('scenarios')
-          .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
-          .eq('title', normalizedScenario)
-          .maybeSingle()
+        // scenario_id があれば ID で検索、なければタイトルで検索
+        let scenario: any = null
         
-        if (!scenario) {
-          // 部分一致で再検索
-          const { data: partialMatch } = await supabase
+        if (event.scenario_id) {
+          // ID がある場合は ID で検索（最優先）
+          const { data } = await supabase
             .from('scenarios')
             .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
-            .ilike('title', `%${normalizedScenario}%`)
+            .eq('id', event.scenario_id)
             .maybeSingle()
           
-          if (partialMatch) {
-            log(`🔍 部分一致: ${event.scenario} → ${partialMatch.title}`, 'info')
-            scenario = partialMatch
-          } else {
-            // 類似シナリオを検索してデバッグ情報を表示
-            const { data: similarScenarios } = await supabase
-              .from('scenarios')
-              .select('title')
-              .ilike('title', `%${normalizedScenario.substring(0, 3)}%`)
-              .limit(3)
-            
-            if (similarScenarios && similarScenarios.length > 0) {
-              const suggestions = similarScenarios.map(s => s.title).join(', ')
-              log(`⏭️  シナリオ未登録 [${event.scenario}] (類似: ${suggestions})`, 'skip')
-            } else {
-              log(`⏭️  シナリオ未登録 [${event.scenario}]`, 'skip')
-            }
+          scenario = data
+        }
+        
+        // ID がない、または ID で見つからない場合はタイトルで検索
+        if (!scenario) {
+          // 正規化後も空の場合はスキップ
+          if (!normalizedScenario) {
+            log(`⏭️  シナリオ名が空 [${event.date}]`, 'skip')
             skippedCount++
             continue
+          }
+
+          // 完全一致で検索
+          const { data } = await supabase
+            .from('scenarios')
+            .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
+            .eq('title', normalizedScenario)
+            .maybeSingle()
+          
+          scenario = data
+          
+          if (!scenario) {
+            // 部分一致で再検索
+            const { data: partialMatch } = await supabase
+              .from('scenarios')
+              .select('id, title, duration, participation_fee, gm_test_participation_fee, max_participants, min_participants')
+              .ilike('title', `%${normalizedScenario}%`)
+              .maybeSingle()
+            
+            if (partialMatch) {
+              log(`🔍 部分一致: ${event.scenario} → ${partialMatch.title}`, 'info')
+              scenario = partialMatch
+            } else {
+              // 類似シナリオを検索してデバッグ情報を表示
+              const { data: similarScenarios } = await supabase
+                .from('scenarios')
+                .select('title')
+                .ilike('title', `%${normalizedScenario.substring(0, 3)}%`)
+                .limit(3)
+              
+              if (similarScenarios && similarScenarios.length > 0) {
+                const suggestions = similarScenarios.map(s => s.title).join(', ')
+                log(`⏭️  シナリオ未登録 [${event.scenario}] (類似: ${suggestions})`, 'skip')
+              } else {
+                log(`⏭️  シナリオ未登録 [${event.scenario}]`, 'skip')
+              }
+              skippedCount++
+              continue
+            }
           }
         }
 
