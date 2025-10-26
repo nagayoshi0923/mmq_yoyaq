@@ -20,6 +20,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
   const [loading, setLoading] = useState(false)
   const [newFixedCostItem, setNewFixedCostItem] = useState('')
   const [newFixedCostAmount, setNewFixedCostAmount] = useState(0)
+  const [newFixedCostFrequency, setNewFixedCostFrequency] = useState<'monthly' | 'yearly' | 'one-time'>('monthly')
 
   useEffect(() => {
     if (store) {
@@ -70,7 +71,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
     const newCost: StoreFixedCost = {
       item: newFixedCostItem,
       amount: newFixedCostAmount,
-      frequency: 'monthly'
+      frequency: newFixedCostFrequency
     }
 
     setFormData(prev => ({
@@ -80,6 +81,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
 
     setNewFixedCostItem('')
     setNewFixedCostAmount(0)
+    setNewFixedCostFrequency('monthly')
   }
 
   const handleRemoveFixedCost = (index: number) => {
@@ -281,27 +283,31 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
               {/* 既存の固定費リスト */}
               {formData.fixed_costs && formData.fixed_costs.length > 0 && (
                 <div className="space-y-2 mb-4">
-                  {formData.fixed_costs.map((cost, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                      <div className="flex-1">
-                        <div className="font-medium">{cost.item}</div>
-                        <div className="text-sm text-muted-foreground">
-                          ¥{cost.amount.toLocaleString()} / 月
+                  {formData.fixed_costs.map((cost, index) => {
+                    const frequencyLabel = cost.frequency === 'monthly' ? '月' : cost.frequency === 'yearly' ? '年' : '一過性'
+                    const frequencyUnit = cost.frequency === 'one-time' ? '' : ` / ${frequencyLabel}`
+                    return (
+                      <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                        <div className="flex-1">
+                          <div className="font-medium">{cost.item}</div>
+                          <div className="text-sm text-muted-foreground">
+                            ¥{cost.amount.toLocaleString()}{frequencyUnit}
+                          </div>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveFixedCost(index)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveFixedCost(index)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    )
+                  })}
                   <div className="text-sm font-medium text-right pt-2 border-t">
-                    合計: ¥{(formData.fixed_costs.reduce((sum, cost) => sum + cost.amount, 0)).toLocaleString()} / 月
+                    月額合計: ¥{(formData.fixed_costs.filter(c => c.frequency === 'monthly').reduce((sum, cost) => sum + cost.amount, 0)).toLocaleString()}
                   </div>
                 </div>
               )}
@@ -309,7 +315,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
               {/* 新規固定費追加フォーム */}
               <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
                 <Label className="text-sm font-medium">新しい固定費を追加</Label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Input
                       type="text"
@@ -326,6 +332,17 @@ export function StoreEditModal({ store, isOpen, onClose, onSave }: StoreEditModa
                       onChange={(e) => setNewFixedCostAmount(parseInt(e.target.value) || 0)}
                       min="0"
                     />
+                  </div>
+                  <div>
+                    <select
+                      value={newFixedCostFrequency}
+                      onChange={(e) => setNewFixedCostFrequency(e.target.value as 'monthly' | 'yearly' | 'one-time')}
+                      className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      <option value="monthly">毎月</option>
+                      <option value="yearly">毎年</option>
+                      <option value="one-time">一過性</option>
+                    </select>
                   </div>
                 </div>
                 <Button
