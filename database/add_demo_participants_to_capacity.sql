@@ -142,20 +142,13 @@ BEGIN
       participation_fee_amount := COALESCE(scenario_record.participation_fee, 0);
     END IF;
     
-    -- 予約番号を生成（ユニークになるまでループ）
-    <<reservation_number_loop>>
-    LOOP
-      new_reservation_number := TO_CHAR(CURRENT_DATE, 'YYYYMMDD') || '-' || 
-                                UPPER(SUBSTRING(MD5(RANDOM()::TEXT || CLOCK_TIMESTAMP()::TEXT) FROM 1 FOR 4));
-      
-      -- 既存の予約番号と重複していないか確認
-      EXIT reservation_number_loop WHEN NOT EXISTS (
-        SELECT 1 FROM reservations WHERE reservation_number = new_reservation_number
-      );
-    END LOOP reservation_number_loop;
+    -- 予約番号を生成（よりランダム性の高い方法）
+    new_reservation_number := TO_CHAR(CURRENT_DATE, 'YYYYMMDD') || '-' || 
+                              UPPER(SUBSTRING(MD5(RANDOM()::TEXT || event_record.id::TEXT || CLOCK_TIMESTAMP()::TEXT) FROM 1 FOR 4));
     
-    -- デモ参加者予約を挿入
-    INSERT INTO reservations (
+    -- デモ参加者予約を挿入（重複エラーは無視）
+    BEGIN
+      INSERT INTO reservations (
       schedule_event_id,
       reservation_number,
       title,
@@ -201,7 +194,11 @@ BEGIN
       'demo_auto'
     );
     
-    RAISE NOTICE '追加: [% %] (%名追加)', event_record.date, event_record.scenario, needed_demo_count;
+      RAISE NOTICE '追加: [% %] (%名追加)', event_record.date, event_record.scenario, needed_demo_count;
+    EXCEPTION
+      WHEN unique_violation THEN
+        RAISE NOTICE 'スキップ: 予約番号重複 [% %]', event_record.date, event_record.scenario;
+    END;
     
   END LOOP;
   
