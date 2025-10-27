@@ -115,7 +115,8 @@ export function CostsPropsSection({ formData, setFormData }: CostsPropsSectionPr
           onAdd={handleAddProductionCost}
           onRemove={handleRemoveProductionCost}
           onUpdate={handleUpdateProductionCost}
-          showDateRange={false}
+          showDateRange={true}
+          dateRangeLabel="発生月"
         />
 
         {/* 制作費合計表示 */}
@@ -137,7 +138,8 @@ export function CostsPropsSection({ formData, setFormData }: CostsPropsSectionPr
             onAdd={handleAddRequiredProp}
             onRemove={handleRemoveRequiredProp}
             onUpdate={handleUpdateRequiredProp}
-            showDateRange={false}
+            showDateRange={true}
+            dateRangeLabel="発生月"
           />
         </div>
       </div>

@@ -184,7 +184,7 @@ export function ItemizedListWithDates({
                       {/* 期間設定ボタン */}
                       {showDateRange && (
                         <div>
-                          <Label className="text-xs mb-1.5 block opacity-0">期間</Label>
+                          <Label className="text-xs mb-1.5 block opacity-0">{dateRangeLabel}</Label>
                           <Button
                             type="button"
                             variant="outline"
@@ -192,7 +192,7 @@ export function ItemizedListWithDates({
                             onClick={() => handleOpenDateRangeModal(index)}
                             className="text-xs h-10 px-3 w-full"
                           >
-                            期間
+                            {dateRangeLabel}
                           </Button>
                         </div>
                       )}
