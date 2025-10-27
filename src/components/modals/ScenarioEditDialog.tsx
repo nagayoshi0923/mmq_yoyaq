@@ -68,17 +68,16 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
       const scenario = scenarios.find(s => s.id === scenarioId)
       if (scenario) {
         // データをフォームにマッピング
-        const participationCosts = scenario.participation_costs || [
+        // participation_costs は DB に存在しないため、常に participation_fee から生成
+        const participationCosts = [
           { time_slot: 'normal', amount: scenario.participation_fee || 3000, type: 'fixed' as const }
         ]
 
-        // license_rewardsが空の場合、license_amountとgm_test_license_amountから生成
-        const licenseRewards = scenario.license_rewards && scenario.license_rewards.length > 0
-          ? scenario.license_rewards
-          : [
-              { item: 'normal', amount: scenario.license_amount || 1500, type: 'fixed' as const },
-              { item: 'gmtest', amount: scenario.gm_test_license_amount || 0, type: 'fixed' as const }
-            ]
+        // license_rewards は DB に存在しないため、常に license_amount から生成
+        const licenseRewards = [
+          { item: 'normal', amount: scenario.license_amount || 1500, type: 'fixed' as const },
+          { item: 'gmtest', amount: scenario.gm_test_license_amount || 0, type: 'fixed' as const }
+        ]
         
         setFormData({
           title: scenario.title || '',
@@ -170,8 +169,16 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
         ...dbFields 
       } = formData
       
+      // UI専用配列からDB用の単一値に変換
+      const normalParticipationCost = formData.participation_costs?.find(c => c.time_slot === 'normal')
+      const normalLicenseReward = formData.license_rewards?.find(r => r.item === 'normal')
+      const gmtestLicenseReward = formData.license_rewards?.find(r => r.item === 'gmtest')
+      
       const scenarioData: any = {
         ...dbFields,
+        participation_fee: normalParticipationCost?.amount || formData.participation_fee || 3000,
+        license_amount: normalLicenseReward?.amount || formData.license_amount || 1500,
+        gm_test_license_amount: gmtestLicenseReward?.amount || formData.gm_test_license_amount || 0,
         gm_costs: formData.gm_assignments,
         gm_count: formData.gm_count || 1,  // 必要GM数を保存
         updated_at: new Date().toISOString()
