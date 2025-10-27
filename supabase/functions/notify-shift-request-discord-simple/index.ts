@@ -115,27 +115,51 @@ serve(async (req) => {
       return `${deadlineYear}年${deadlineMonth}月${deadlineDay}日 23:59`
     })()
     
-    // チャンネルIDの取得
-    let channelId = targetChannelId
+    // 全スタッフのDiscordチャンネルIDを取得
+    const { data: staffList, error: staffError } = await supabase
+      .from('staff')
+      .select('id, name, discord_channel_id')
+      .eq('is_active', true)
+      .not('discord_channel_id', 'is', null)
     
-    if (!channelId) {
-      channelId = settings?.discord_shift_channel_id
+    if (staffError) {
+      throw new Error(`Failed to fetch staff: ${staffError.message}`)
     }
     
-    if (!channelId) {
-      throw new Error('Discord shift channel ID is not configured')
+    if (!staffList || staffList.length === 0) {
+      throw new Error('No active staff with Discord channel ID found')
     }
     
-    // Discord通知を送信
-    const messageId = await sendDiscordShiftRequest(channelId, year, month, deadlineDate)
+    // 各スタッフのチャンネルに送信
+    const messageIds: string[] = []
+    const failedStaff: string[] = []
+    
+    for (const staff of staffList) {
+      try {
+        console.log(`📤 Sending to ${staff.name} (${staff.discord_channel_id})`)
+        const messageId = await sendDiscordShiftRequest(
+          staff.discord_channel_id,
+          year,
+          month,
+          deadlineDate
+        )
+        messageIds.push(messageId)
+        
+        // レート制限を避けるため少し待つ
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      } catch (error) {
+        console.error(`❌ Failed to send to ${staff.name}:`, error)
+        failedStaff.push(staff.name)
+      }
+    }
     
     // 送信記録を保存
     await supabase.from('shift_notifications').insert({
       year,
       month,
       deadline: deadlineDate,
-      channel_id: channelId,
-      message_ids: [messageId],
+      channel_id: 'multiple', // 複数チャンネル
+      message_ids: messageIds,
       sent_at: new Date().toISOString()
     })
     
@@ -147,7 +171,10 @@ serve(async (req) => {
         month,
         deadline: deadlineDate,
         notification_day: notificationDay,
-        deadline_day: deadlineDay
+        deadline_day: deadlineDay,
+        sent_to: staffList.length,
+        success_count: messageIds.length,
+        failed_staff: failedStaff
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )

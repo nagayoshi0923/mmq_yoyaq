@@ -12,7 +12,6 @@ interface NotificationSettingsData {
   shift_notification_day: number
   shift_deadline_day: number
   shift_reminder_days: number
-  discord_shift_channel_id: string
 }
 
 export function NotificationSettings() {
@@ -20,8 +19,7 @@ export function NotificationSettings() {
     shift_notification_enabled: true,
     shift_notification_day: 25,
     shift_deadline_day: 25,
-    shift_reminder_days: 3,
-    discord_shift_channel_id: ''
+    shift_reminder_days: 3
   })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -46,8 +44,7 @@ export function NotificationSettings() {
           shift_notification_enabled: data.shift_notification_enabled ?? true,
           shift_notification_day: data.shift_notification_day ?? 25,
           shift_deadline_day: data.shift_deadline_day ?? 25,
-          shift_reminder_days: data.shift_reminder_days ?? 3,
-          discord_shift_channel_id: data.discord_shift_channel_id ?? ''
+          shift_reminder_days: data.shift_reminder_days ?? 3
         })
       }
     } catch (error) {
@@ -67,7 +64,6 @@ export function NotificationSettings() {
           shift_notification_day: settings.shift_notification_day,
           shift_deadline_day: settings.shift_deadline_day,
           shift_reminder_days: settings.shift_reminder_days,
-          discord_shift_channel_id: settings.discord_shift_channel_id,
           updated_at: new Date().toISOString()
         })
 
@@ -243,35 +239,21 @@ export function NotificationSettings() {
         </CardContent>
       </Card>
 
-      {/* DiscordチャンネルID */}
+      {/* 通知先の説明 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            DiscordチャンネルID
+            通知先
           </CardTitle>
           <CardDescription>
-            シフト募集通知を送信するDiscordチャンネルのID
+            シフト募集通知の送信先
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Label htmlFor="channel-id" className="min-w-[120px]">
-              チャンネルID
-            </Label>
-            <Input
-              id="channel-id"
-              type="text"
-              value={settings.discord_shift_channel_id}
-              onChange={(e) =>
-                setSettings({ ...settings, discord_shift_channel_id: e.target.value })
-              }
-              placeholder="1234567890123456789"
-              className="flex-1"
-            />
-          </div>
+        <CardContent>
           <p className="text-sm text-muted-foreground">
-            Discordでチャンネルを右クリック → 「IDをコピー」で取得できます
+            シフト募集通知は、各スタッフの個別Discordチャンネルに自動送信されます。<br />
+            スタッフ管理ページで各スタッフのDiscordチャンネルIDを設定してください。
           </p>
         </CardContent>
       </Card>
