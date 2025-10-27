@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
+import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
 
 // 分離されたコンポーネント
 import { ScenarioStats } from './components/ScenarioStats'
@@ -39,6 +40,10 @@ export function ScenarioManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
   const [useInfiniteScroll] = useState(true) // 無限スクロールのON/OFF（将来的に切り替え機能を追加予定）
+  
+  // 編集モーダル状態
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
   
   // スクロール監視用
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
@@ -107,15 +112,20 @@ export function ScenarioManagement() {
     setDisplayCount(20)
   }, [searchTerm, statusFilter, sortState])
 
-  // シナリオ編集ページへ遷移
+  // シナリオ編集ダイアログを開く
   function handleEditScenario(scenario: Scenario) {
-    // シナリオIDをハッシュに設定して遷移
-    window.location.hash = `scenarios/edit/${scenario.id}`
+    setEditingScenarioId(scenario.id)
+    setEditDialogOpen(true)
   }
 
   function handleNewScenario() {
-    // 新規作成ページへ遷移
-    window.location.hash = 'scenarios/edit/new'
+    setEditingScenarioId(null)
+    setEditDialogOpen(true)
+  }
+  
+  function handleCloseEditDialog() {
+    setEditDialogOpen(false)
+    setEditingScenarioId(null)
   }
   
   // 画像アップロードハンドラー
@@ -418,14 +428,22 @@ export function ScenarioManagement() {
 
         {/* 削除確認ダイアログ */}
         <ConfirmModal
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={confirmDelete}
-        title="シナリオを削除"
-        message={scenarioToDelete ? `「${scenarioToDelete.title}」を削除します。この操作は取り消せません。` : ''}
-        variant="danger"
-        confirmLabel="削除"
-      />
-    </AppLayout>
-  )
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          onConfirm={confirmDelete}
+          title="シナリオを削除"
+          message={scenarioToDelete ? `「${scenarioToDelete.title}」を削除します。この操作は取り消せません。` : ''}
+          variant="danger"
+          confirmLabel="削除"
+        />
+
+        {/* シナリオ編集ダイアログ */}
+        <ScenarioEditDialog
+          isOpen={editDialogOpen}
+          onClose={handleCloseEditDialog}
+          scenarioId={editingScenarioId}
+        />
+      </AppLayout>
+    )
+  }
 }

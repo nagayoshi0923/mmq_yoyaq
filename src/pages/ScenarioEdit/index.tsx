@@ -32,9 +32,15 @@ const SCENARIO_EDIT_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'performance-schedule', label: '公演・スケジュール', icon: Calendar, description: '実施店舗、予約枠' }
 ]
 
-export function ScenarioEdit() {
+interface ScenarioEditProps {
+  scenarioId?: string | null
+  onClose?: () => void
+  isDialog?: boolean
+}
+
+export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = false }: ScenarioEditProps = {}) {
   const [activeTab, setActiveTab] = useSessionState('scenarioEditActiveTab', 'basic')
-  const [scenarioId, setScenarioId] = useState<string | null>(null)
+  const [scenarioId, setScenarioId] = useState<string | null>(propScenarioId !== undefined ? propScenarioId : null)
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
@@ -79,15 +85,17 @@ export function ScenarioEdit() {
   const { data: scenarios = [] } = useScenariosQuery()
   const scenarioMutation = useScenarioMutation()
 
-  // URLからシナリオIDを取得
+  // URLからシナリオIDを取得（ダイアログモードでない場合のみ）
   useEffect(() => {
-    const hash = window.location.hash
-    const match = hash.match(/scenarios\/edit\/(.+)/)
-    if (match) {
-      const id = match[1]
-      setScenarioId(id === 'new' ? null : id)
+    if (!isDialog && propScenarioId === undefined) {
+      const hash = window.location.hash
+      const match = hash.match(/scenarios\/edit\/(.+)/)
+      if (match) {
+        const id = match[1]
+        setScenarioId(id === 'new' ? null : id)
+      }
     }
-  }, [])
+  }, [isDialog, propScenarioId])
 
   // シナリオデータをロード
   useEffect(() => {
@@ -216,7 +224,11 @@ export function ScenarioEdit() {
   }
 
   const handleBack = () => {
-    window.location.hash = 'scenarios'
+    if (isDialog && onClose) {
+      onClose()
+    } else {
+      window.location.hash = 'scenarios'
+    }
   }
 
   const handleSave = async () => {
@@ -315,6 +327,56 @@ export function ScenarioEdit() {
       default:
         return <BasicInfoSection formData={formData} setFormData={setFormData} />
     }
+  }
+
+  if (isDialog) {
+    return (
+      <div className="flex h-full">
+        {/* サイドバー */}
+        <UnifiedSidebar
+          title="シナリオ管理"
+          mode="edit"
+          menuItems={SCENARIO_EDIT_MENU_ITEMS}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onBackToList={handleBack}
+          editModeSubtitle={formData.title || '新規シナリオ'}
+        />
+        
+        {/* メインコンテンツ */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* ヘッダー */}
+          <div className="flex items-center justify-between px-8 py-6 border-b shrink-0">
+            <div>
+              <h2 className="text-2xl font-bold">
+                {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
+              </h2>
+              {formData.title && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {formData.title}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              {showSaveSuccess && (
+                <div className="text-sm text-green-600 font-medium animate-in fade-in slide-in-from-right-1">
+                  ✓ 保存しました
+                </div>
+              )}
+              <Button onClick={handleSave} disabled={scenarioMutation.isPending}>
+                <Save className="h-4 w-4 mr-2" />
+                {scenarioMutation.isPending ? '保存中...' : '保存'}
+              </Button>
+            </div>
+          </div>
+
+          {/* コンテンツ */}
+          <div className="flex-1 overflow-y-auto px-8 py-6">
+            {renderContent()}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
