@@ -40,6 +40,7 @@ interface ItemizedListWithDatesProps {
   onUpdate: (index: number, field: string, value: any) => void
   showDateRange?: boolean
   dateRangeLabel?: string
+  enableStatusChange?: boolean
 }
 
 export function ItemizedListWithDates({
@@ -53,7 +54,8 @@ export function ItemizedListWithDates({
   onRemove,
   onUpdate,
   showDateRange = true,
-  dateRangeLabel = '期間設定'
+  dateRangeLabel = '期間設定',
+  enableStatusChange = false
 }: ItemizedListWithDatesProps) {
   const [dateRangeModalOpen, setDateRangeModalOpen] = useState(false)
   const [editingIndex, setEditingIndex] = useState<number>(0)
@@ -203,6 +205,27 @@ export function ItemizedListWithDates({
                           onValueChange={(value) => {
                             if (value === 'delete') {
                               setDeleteConfirmIndex(index)
+                            } else if (enableStatusChange && (value === 'active' || value === 'ready' || value === 'legacy')) {
+                              // ステータス変更: startDate/endDateを更新
+                              const now = new Date()
+                              const today = now.toISOString().split('T')[0]
+                              
+                              if (value === 'active') {
+                                // 使用中: 日付をクリア
+                                onUpdate(index, 'startDate', undefined)
+                                onUpdate(index, 'endDate', undefined)
+                              } else if (value === 'ready') {
+                                // 待機中: 未来の開始日を設定
+                                const futureDate = new Date(now)
+                                futureDate.setDate(futureDate.getDate() + 7)
+                                onUpdate(index, 'startDate', futureDate.toISOString().split('T')[0])
+                                onUpdate(index, 'endDate', undefined)
+                              } else if (value === 'legacy') {
+                                // 過去の設定: 昨日を終了日に設定
+                                const yesterday = new Date(now)
+                                yesterday.setDate(yesterday.getDate() - 1)
+                                onUpdate(index, 'endDate', yesterday.toISOString().split('T')[0])
+                              }
                             }
                           }}
                         >
@@ -212,18 +235,26 @@ export function ItemizedListWithDates({
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="active">
-                              <StatusBadge status="active" label="使用中" />
-                            </SelectItem>
-                            <SelectItem value="ready">
-                              <StatusBadge status="ready" label="待機中" />
-                            </SelectItem>
-                            <SelectItem value="legacy">
-                              <StatusBadge status="legacy" label="過去の設定" />
-                            </SelectItem>
-                            <SelectItem value="delete" className="text-destructive border-t mt-1 pt-1">
-                              削除
-                            </SelectItem>
+                            {enableStatusChange ? (
+                              <>
+                                <SelectItem value="active">
+                                  <StatusBadge status="active" label="使用中" />
+                                </SelectItem>
+                                <SelectItem value="ready">
+                                  <StatusBadge status="ready" label="待機中" />
+                                </SelectItem>
+                                <SelectItem value="legacy">
+                                  <StatusBadge status="legacy" label="過去の設定" />
+                                </SelectItem>
+                                <SelectItem value="delete" className="text-destructive border-t mt-1 pt-1">
+                                  削除
+                                </SelectItem>
+                              </>
+                            ) : (
+                              <SelectItem value="delete" className="text-destructive">
+                                削除
+                              </SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                       </div>

@@ -354,6 +354,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
                   onUpdate={handleUpdateFixedCost}
                   showDateRange={true}
                   dateRangeLabel="期間設定"
+                  enableStatusChange={true}
                 />
 
                 {/* 月額合計表示 */}

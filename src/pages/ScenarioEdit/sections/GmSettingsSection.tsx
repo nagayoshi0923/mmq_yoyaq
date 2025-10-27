@@ -118,6 +118,7 @@ export function GmSettingsSection({
             onUpdate={handleUpdateGmReward}
             showDateRange={true}
             dateRangeLabel="期間設定"
+            enableStatusChange={true}
           />
         </div>
       </div>

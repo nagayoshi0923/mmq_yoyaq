@@ -138,6 +138,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
           onUpdate={handleUpdateParticipationCost}
           showDateRange={true}
           dateRangeLabel="期間設定"
+          enableStatusChange={true}
         />
 
         {/* ライセンス料設定 */}
@@ -158,6 +159,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
             onUpdate={handleUpdateLicenseReward}
             showDateRange={true}
             dateRangeLabel="期間設定"
+            enableStatusChange={true}
           />
         </div>
       </div>
