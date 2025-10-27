@@ -37,11 +37,14 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
     required_props: [],
     license_amount: 1500,
     gm_test_license_amount: 0,
-    license_rewards: [],
+    license_rewards: [
+      { item: 'normal', amount: 1500, type: 'fixed' },
+      { item: 'gmtest', amount: 0, type: 'fixed' }
+    ],
     has_pre_reading: false,
     gm_count: 1,
     gm_assignments: [{ role: 'main', category: 'normal', reward: 2000 }],
-    participation_costs: [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
+    participation_costs: [{ time_slot: 'normal', amount: 3000, type: 'fixed' }],
     use_flexible_pricing: false,
     flexible_pricing: {
       base_pricing: { participation_fee: 3000 },
@@ -66,8 +69,16 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
       if (scenario) {
         // データをフォームにマッピング
         const participationCosts = scenario.participation_costs || [
-          { time_slot: '通常', amount: scenario.participation_fee || 3000, type: 'fixed' as const }
+          { time_slot: 'normal', amount: scenario.participation_fee || 3000, type: 'fixed' as const }
         ]
+
+        // license_rewardsが空の場合、license_amountとgm_test_license_amountから生成
+        const licenseRewards = scenario.license_rewards && scenario.license_rewards.length > 0
+          ? scenario.license_rewards
+          : [
+              { item: 'normal', amount: scenario.license_amount || 1500, type: 'fixed' as const },
+              { item: 'gmtest', amount: scenario.gm_test_license_amount || 0, type: 'fixed' as const }
+            ]
         
         setFormData({
           title: scenario.title || '',
@@ -85,7 +96,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
           required_props: scenario.required_props || [],
           license_amount: scenario.license_amount || 1500,
           gm_test_license_amount: scenario.gm_test_license_amount || 0,
-          license_rewards: scenario.license_rewards || [],
+          license_rewards: licenseRewards,
           has_pre_reading: scenario.has_pre_reading || false,
           gm_count: scenario.gm_count || 1,
           gm_assignments: (scenario.gm_costs && scenario.gm_costs.length > 0) 
@@ -118,11 +129,14 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
         required_props: [],
         license_amount: 1500,
         gm_test_license_amount: 0,
-        license_rewards: [],
+        license_rewards: [
+          { item: 'normal', amount: 1500, type: 'fixed' },
+          { item: 'gmtest', amount: 0, type: 'fixed' }
+        ],
         has_pre_reading: false,
         gm_count: 1,
         gm_assignments: [{ role: 'main', category: 'normal', reward: 2000 }],
-        participation_costs: [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
+        participation_costs: [{ time_slot: 'normal', amount: 3000, type: 'fixed' }],
         use_flexible_pricing: false,
         flexible_pricing: {
           base_pricing: { participation_fee: 3000 },
