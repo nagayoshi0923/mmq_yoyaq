@@ -445,5 +445,4 @@ export function ScenarioManagement() {
         />
       </AppLayout>
     )
-  }
 }
