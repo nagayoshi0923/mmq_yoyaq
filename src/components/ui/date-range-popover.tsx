@@ -59,16 +59,22 @@ export function DateRangePopover({
     }
   }
 
-  // 表示用の文字列
+  // 表示用の文字列（短縮形式）
+  const formatDateShort = (date: string) => {
+    // YYYY-MM-DD → MM/DD
+    const [year, month, day] = date.split('-')
+    return `${month}/${day}`
+  }
+
   const displayValue = (() => {
     if (startDate && endDate) {
-      return `${startDate} 〜 ${endDate}`
+      return `${formatDateShort(startDate)}〜${formatDateShort(endDate)}`
     }
     if (startDate && !endDate) {
-      return `${startDate}から`
+      return `${formatDateShort(startDate)}から`
     }
     if (!startDate && endDate) {
-      return `${endDate}まで`
+      return `${formatDateShort(endDate)}まで`
     }
     return label
   })()
