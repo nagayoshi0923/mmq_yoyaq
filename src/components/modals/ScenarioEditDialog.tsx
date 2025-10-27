@@ -170,6 +170,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
         scenarioData.id = scenarioId
       }
 
+      console.log('保存するデータ:', JSON.stringify(scenarioData, null, 2))
+      
       await scenarioMutation.mutateAsync({
         scenario: scenarioData,
         isEdit: !!scenarioId
@@ -177,7 +179,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
 
       onClose()
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '不明なエラー'
+      console.error('詳細エラー:', err)
+      const message = err instanceof Error ? err.message : JSON.stringify(err)
       alert(`保存に失敗しました: ${message}`)
       logger.error('シナリオ保存エラー:', err)
     }
