@@ -143,7 +143,6 @@ serve(async (req) => {
     const { data: staffList, error: staffError } = await supabase
       .from('staff')
       .select('id, name, discord_channel_id')
-      .eq('is_active', true)
       .not('discord_channel_id', 'is', null)
     
     if (staffError) {
