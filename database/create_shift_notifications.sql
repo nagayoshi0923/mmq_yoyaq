@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS shift_notifications (
   month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
   deadline TIMESTAMP WITH TIME ZONE NOT NULL,
   channel_id TEXT NOT NULL,
+  message_ids TEXT[] DEFAULT '{}',
   sent_at TIMESTAMP WITH TIME ZONE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
