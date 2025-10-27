@@ -8,6 +8,7 @@ import { TrendingUp, BarChart, FileText, Store } from 'lucide-react'
 const SALES_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'sales-overview', label: '売上概要', icon: TrendingUp, description: '売上サマリーを表示' },
   { id: 'scenario-performance', label: 'シナリオ別', icon: BarChart, description: 'シナリオ別売上' },
+  { id: 'misc-transactions', label: '雑収支管理', icon: FileText, description: '公演外の収支を管理' },
   { id: 'franchise-sales', label: 'フランチャイズ', icon: Store, description: 'FC店舗の売上' },
   { id: 'author-report', label: '作者別レポート', icon: FileText, description: '作者別売上レポート' }
 ]
@@ -15,6 +16,7 @@ import AuthorReport from '../AuthorReport/index'
 import { useSalesData } from './hooks/useSalesData'
 import { SalesOverview } from './components/SalesOverview'
 import { ScenarioPerformance } from './components/ScenarioPerformance'
+import { MiscellaneousTransactions } from './components/MiscellaneousTransactions'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -121,6 +123,12 @@ const SalesManagement: React.FC = () => {
               setSelectedStore(store)
               loadSalesData(selectedPeriod, store)
             }}
+          />
+        )
+      case 'misc-transactions':
+        return (
+          <MiscellaneousTransactions
+            stores={stores}
           />
         )
       case 'franchise-sales':
