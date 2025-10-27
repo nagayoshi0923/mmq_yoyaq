@@ -86,45 +86,64 @@ export const MonthSwitcher = memo(function MonthSwitcher({
   /**
    * 前月へ移動
    * 境界ケース: 1月 → 前年12月
+   * タイムゾーン安全な実装
    */
   const handlePrevMonth = useCallback(() => {
-    const newDate = new Date(value)
-    newDate.setMonth(value.getMonth() - 1)
+    const year = value.getFullYear()
+    const month = value.getMonth()
+    
+    // 前月の1日を作成（タイムゾーンに依存しない）
+    const newYear = month === 0 ? year - 1 : year
+    const newMonth = month === 0 ? 11 : month - 1
+    const newDate = new Date(newYear, newMonth, 1, 12, 0, 0, 0)
+    
     onChange(newDate)
   }, [value, onChange])
 
   /**
    * 次月へ移動
    * 境界ケース: 12月 → 翌年1月
+   * タイムゾーン安全な実装
    */
   const handleNextMonth = useCallback(() => {
-    const newDate = new Date(value)
-    newDate.setMonth(value.getMonth() + 1)
+    const year = value.getFullYear()
+    const month = value.getMonth()
+    
+    // 次月の1日を作成（タイムゾーンに依存しない）
+    const newYear = month === 11 ? year + 1 : year
+    const newMonth = month === 11 ? 0 : month + 1
+    const newDate = new Date(newYear, newMonth, 1, 12, 0, 0, 0)
+    
     onChange(newDate)
   }, [value, onChange])
 
   /**
    * 今月へ移動
+   * タイムゾーン安全な実装
    */
   const handleToday = useCallback(() => {
-    onChange(new Date())
+    const now = new Date()
+    const newDate = new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0, 0)
+    onChange(newDate)
   }, [onChange])
 
   /**
    * 年を変更
+   * タイムゾーン安全な実装
    */
   const handleYearChange = useCallback((newYear: string) => {
-    const newDate = new Date(value)
-    newDate.setFullYear(parseInt(newYear, 10))
+    const month = value.getMonth()
+    const newDate = new Date(parseInt(newYear, 10), month, 1, 12, 0, 0, 0)
     onChange(newDate)
   }, [value, onChange])
 
   /**
    * 月を変更
+   * タイムゾーン安全な実装
    */
   const handleMonthChange = useCallback((newMonth: string) => {
-    const newDate = new Date(value)
-    newDate.setMonth(parseInt(newMonth, 10) - 1)
+    const year = value.getFullYear()
+    const newDate = new Date(year, parseInt(newMonth, 10) - 1, 1, 12, 0, 0, 0)
     onChange(newDate)
   }, [value, onChange])
 

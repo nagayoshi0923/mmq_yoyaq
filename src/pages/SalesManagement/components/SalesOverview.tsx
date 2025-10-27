@@ -69,20 +69,34 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   } | null>(null)
   
   // 月切り替えの状態管理
-  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0, 0)
+  })
   const [showPeriodSettings, setShowPeriodSettings] = useState(false)
   
-  // 月が変更されたら自動的に期間を更新
+  // 月が変更されたら自動的に期間を更新（タイムゾーン安全）
   useEffect(() => {
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
-    const startDate = new Date(year, month, 1)
-    const endDate = new Date(year, month + 1, 0)
     
-    onCustomStartDateChange(startDate.toISOString().split('T')[0])
-    onCustomEndDateChange(endDate.toISOString().split('T')[0])
+    // 月初と月末を計算（必ず正午で作成してタイムゾーン問題を回避）
+    const startDate = new Date(year, month, 1, 12, 0, 0, 0)
+    const endDate = new Date(year, month + 1, 0, 12, 0, 0, 0)
+    
+    // YYYY-MM-DD形式に変換
+    const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`
+    const endYear = endDate.getFullYear()
+    const endMonth = endDate.getMonth() + 1
+    const endDay = endDate.getDate()
+    const endStr = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`
+    
+    console.log('📅 月切り替え:', { year, month: month + 1, startStr, endStr })
+    
+    onCustomStartDateChange(startStr)
+    onCustomEndDateChange(endStr)
     onPeriodChange('custom')
-  }, [currentMonth])
+  }, [currentMonth, onCustomStartDateChange, onCustomEndDateChange, onPeriodChange])
 
   // モーダル用データの取得
   useEffect(() => {
