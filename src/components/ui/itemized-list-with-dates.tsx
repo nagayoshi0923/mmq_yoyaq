@@ -182,13 +182,13 @@ export function ItemizedListWithDates({
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenDateRangeModal(index)}
-                            className="w-full text-xs h-8"
+                            className="text-xs h-8 px-2"
                           >
-                            {dateRangeLabel}
+                            期間
                           </Button>
                           {/* 適用期間の表示 */}
                           {(item.startDate || item.endDate) && (
-                            <div className="text-xs text-muted-foreground mt-1">
+                            <div className="text-xs text-muted-foreground mt-1 whitespace-nowrap">
                               {item.startDate && !item.endDate && `${item.startDate}から`}
                               {!item.startDate && item.endDate && `${item.endDate}まで`}
                               {item.startDate && item.endDate && `${item.startDate} 〜 ${item.endDate}`}
