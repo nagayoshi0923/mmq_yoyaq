@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Calendar } from 'lucide-react'
+import { CustomDatePicker } from './CustomDatePicker'
 
 interface DateRangeModalProps {
   isOpen: boolean
@@ -49,7 +48,7 @@ export function DateRangeModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
@@ -60,54 +59,26 @@ export function DateRangeModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {monthOnly ? (
-            // 月選択モード
-            <div>
-              <Label htmlFor="start-date" className="text-sm font-medium">発生月（任意）</Label>
-              <div className="mt-2">
-                <Input
-                  id="start-date"
-                  type="month"
-                  value={startDate ? startDate.substring(0, 7) : ''}
-                  onChange={(e) => setStartDate(e.target.value ? `${e.target.value}-01` : '')}
-                  className="rounded-md"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                発生月を設定すると、その月の売上として計上されます
-              </p>
-            </div>
-          ) : (
-            // 期間選択モード
+        <div className="space-y-6">
+          {!monthOnly && (
             <>
-              <div>
-                <Label htmlFor="start-date" className="text-sm font-medium">開始日（任意）</Label>
-                <div className="mt-2">
-                  <Input
-                    id="start-date"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="rounded-md [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  未指定の場合、現行設定として扱われます
-                </p>
-              </div>
+              {/* 開始日カレンダー */}
+              <CustomDatePicker
+                value={startDate}
+                onChange={setStartDate}
+                label="開始日（任意）"
+              />
+              <p className="text-xs text-muted-foreground -mt-2">
+                未指定の場合、現行設定として扱われます
+              </p>
 
-              <div>
-                <Label htmlFor="end-date" className="text-sm font-medium">終了日（任意）</Label>
-                <div className="mt-2">
-                  <Input
-                    id="end-date"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="rounded-md [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
-                  />
-                </div>
+              <div className="border-t pt-6">
+                {/* 終了日カレンダー */}
+                <CustomDatePicker
+                  value={endDate}
+                  onChange={setEndDate}
+                  label="終了日（任意）"
+                />
                 <p className="text-xs text-muted-foreground mt-2">
                   未指定の場合、無期限となります
                 </p>
