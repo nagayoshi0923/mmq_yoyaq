@@ -2,8 +2,6 @@ import React, { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react'
-import { format } from 'date-fns'
-import { ja } from 'date-fns/locale'
 
 interface MonthPickerPopoverProps {
   value?: string  // YYYY-MM-DD 形式
@@ -23,8 +21,9 @@ export function MonthPickerPopover({
   const [viewYear, setViewYear] = useState(currentDate.getFullYear())
 
   const handleMonthSelect = (month: number) => {
-    const selectedDate = new Date(viewYear, month, 1)
-    const formattedDate = format(selectedDate, 'yyyy-MM-dd')
+    const year = viewYear
+    const monthStr = String(month + 1).padStart(2, '0')
+    const formattedDate = `${year}-${monthStr}-01`
     onSelect(formattedDate)
     setOpen(false)
   }
@@ -36,7 +35,12 @@ export function MonthPickerPopover({
 
   // YYYY-MM-DD から YYYY年MM月 に変換
   const displayValue = value 
-    ? format(new Date(value), 'yyyy年M月', { locale: ja })
+    ? (() => {
+        const date = new Date(value)
+        const year = date.getFullYear()
+        const month = date.getMonth() + 1
+        return `${year}年${month}月`
+      })()
     : label
 
   const months = [
