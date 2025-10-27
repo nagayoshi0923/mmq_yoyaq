@@ -67,7 +67,7 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
                   <OptimizedImage
                     src={formData.key_visual_url}
                     alt="Key Visual"
-                    className="w-full aspect-square object-cover rounded"
+                    className="w-full aspect-square object-contain rounded bg-muted/30"
                   />
                   <Button
                     type="button"
