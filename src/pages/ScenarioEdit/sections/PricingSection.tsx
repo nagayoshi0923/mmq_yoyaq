@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { Plus, Trash2 } from 'lucide-react'
+import { DateRangeModal } from '@/components/modals/DateRangeModal'
+import { Plus, Trash2, Calendar } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 
 interface PricingSectionProps {
@@ -13,6 +14,10 @@ interface PricingSectionProps {
 }
 
 export function PricingSection({ formData, setFormData }: PricingSectionProps) {
+  const [dateRangeModalOpen, setDateRangeModalOpen] = useState(false)
+  const [editingCostType, setEditingCostType] = useState<'participation' | 'license'>('participation')
+  const [editingCostIndex, setEditingCostIndex] = useState<number>(0)
+
   // 時間帯オプション
   const timeSlotOptions = [
     { value: 'normal', label: '通常公演' },
@@ -114,6 +119,32 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
     }))
   }
 
+  // 期間設定モーダルを開く
+  const handleOpenDateRangeModal = (type: 'participation' | 'license', index: number) => {
+    setEditingCostType(type)
+    setEditingCostIndex(index)
+    setDateRangeModalOpen(true)
+  }
+
+  // 期間設定を保存
+  const handleSaveDateRange = (startDate?: string, endDate?: string) => {
+    if (editingCostType === 'participation') {
+      setFormData(prev => ({
+        ...prev,
+        participation_costs: prev.participation_costs?.map((item, i) => 
+          i === editingCostIndex ? { ...item, startDate, endDate } : item
+        ) || []
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        license_rewards: prev.license_rewards?.map((item, i) => 
+          i === editingCostIndex ? { ...item, startDate, endDate } : item
+        ) || []
+      }))
+    }
+  }
+
   return (
     <div>
       <div className="flex items-start justify-between mb-4 pb-2 border-b">
@@ -158,7 +189,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
                       </div>
 
                       <div className="flex-1">
-                        <div className="grid grid-cols-[1fr_1fr_0.8fr_0.8fr_auto] gap-3 items-end">
+                        <div className="grid grid-cols-[1.5fr_1fr_auto_auto] gap-3 items-end">
                           {/* 時間帯 */}
                           <div>
                             <Label className="text-xs">時間帯</Label>
@@ -192,28 +223,24 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
                             />
                           </div>
 
-                          {/* 開始日 */}
+                          {/* 期間設定ボタン */}
                           <div>
-                            <Label className="text-xs">開始日（任意）</Label>
-                            <Input
-                              type="date"
-                              value={cost.startDate || ''}
-                              onChange={(e) => handleUpdateParticipationCost(index, 'startDate', e.target.value || undefined)}
-                            />
-                          </div>
-
-                          {/* 終了日 */}
-                          <div>
-                            <Label className="text-xs">終了日（任意）</Label>
-                            <Input
-                              type="date"
-                              value={cost.endDate || ''}
-                              onChange={(e) => handleUpdateParticipationCost(index, 'endDate', e.target.value || undefined)}
-                            />
+                            <Label className="text-xs">&nbsp;</Label>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenDateRangeModal('participation', index)}
+                              className="gap-2"
+                            >
+                              <Calendar className="h-4 w-4" />
+                              期間設定
+                            </Button>
                           </div>
 
                           {/* 削除ボタン */}
                           <div>
+                            <Label className="text-xs">&nbsp;</Label>
                             <Button
                               type="button"
                               variant="ghost"
@@ -276,7 +303,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
                       </div>
 
                       <div className="flex-1">
-                        <div className="grid grid-cols-[1fr_1fr_0.8fr_0.8fr_auto] gap-3 items-end">
+                        <div className="grid grid-cols-[1.5fr_1fr_auto_auto] gap-3 items-end">
                           {/* カテゴリ */}
                           <div>
                             <Label className="text-xs">公演カテゴリ</Label>
@@ -310,28 +337,24 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
                             />
                           </div>
 
-                          {/* 開始日 */}
+                          {/* 期間設定ボタン */}
                           <div>
-                            <Label className="text-xs">開始日（任意）</Label>
-                            <Input
-                              type="date"
-                              value={reward.startDate || ''}
-                              onChange={(e) => handleUpdateLicenseReward(index, 'startDate', e.target.value || undefined)}
-                            />
-                          </div>
-
-                          {/* 終了日 */}
-                          <div>
-                            <Label className="text-xs">終了日（任意）</Label>
-                            <Input
-                              type="date"
-                              value={reward.endDate || ''}
-                              onChange={(e) => handleUpdateLicenseReward(index, 'endDate', e.target.value || undefined)}
-                            />
+                            <Label className="text-xs">&nbsp;</Label>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenDateRangeModal('license', index)}
+                              className="gap-2"
+                            >
+                              <Calendar className="h-4 w-4" />
+                              期間設定
+                            </Button>
                           </div>
 
                           {/* 削除ボタン */}
                           <div>
+                            <Label className="text-xs">&nbsp;</Label>
                             <Button
                               type="button"
                               variant="ghost"
@@ -362,6 +385,25 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
           </div>
         </div>
       </div>
+
+      {/* 期間設定モーダル */}
+      <DateRangeModal
+        isOpen={dateRangeModalOpen}
+        onClose={() => setDateRangeModalOpen(false)}
+        onSave={handleSaveDateRange}
+        initialStartDate={
+          editingCostType === 'participation'
+            ? formData.participation_costs?.[editingCostIndex]?.startDate
+            : formData.license_rewards?.[editingCostIndex]?.startDate
+        }
+        initialEndDate={
+          editingCostType === 'participation'
+            ? formData.participation_costs?.[editingCostIndex]?.endDate
+            : formData.license_rewards?.[editingCostIndex]?.endDate
+        }
+        title="期間設定"
+        description="この設定の適用期間を設定します。未指定の場合は無期限となります。"
+      />
     </div>
   )
 }

@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { Plus, Trash2 } from 'lucide-react'
+import { DateRangeModal } from '@/components/modals/DateRangeModal'
+import { Plus, Trash2, Calendar } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 
 interface GmSettingsSectionProps {
@@ -16,6 +17,8 @@ export function GmSettingsSection({
   formData, 
   setFormData
 }: GmSettingsSectionProps) {
+  const [dateRangeModalOpen, setDateRangeModalOpen] = useState(false)
+  const [editingRewardIndex, setEditingRewardIndex] = useState<number>(0)
   
   // 役割オプション
   const roleOptions = [
@@ -112,6 +115,22 @@ export function GmSettingsSection({
     }))
   }
 
+  // 期間設定モーダルを開く
+  const handleOpenDateRangeModal = (index: number) => {
+    setEditingRewardIndex(index)
+    setDateRangeModalOpen(true)
+  }
+
+  // 期間設定を保存
+  const handleSaveDateRange = (startDate?: string, endDate?: string) => {
+    setFormData(prev => ({
+      ...prev,
+      gm_assignments: prev.gm_assignments?.map((item, i) => 
+        i === editingRewardIndex ? { ...item, startDate, endDate } : item
+      ) || []
+    }))
+  }
+
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4 pb-2 border-b">GM設定</h3>
@@ -167,7 +186,7 @@ export function GmSettingsSection({
 
                       {/* フォームフィールド */}
                       <div className="flex-1">
-                        <div className="grid grid-cols-[1fr_1fr_1fr_0.8fr_0.8fr_auto] gap-3 items-end">
+                        <div className="grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-3 items-end">
                           {/* 役割 */}
                           <div>
                             <Label className="text-xs">役割</Label>
@@ -221,30 +240,24 @@ export function GmSettingsSection({
                             />
                           </div>
 
-                          {/* 開始日 */}
+                          {/* 期間設定ボタン */}
                           <div>
-                            <Label className="text-xs">開始日（任意）</Label>
-                            <Input
-                              type="date"
-                              value={assignment.startDate || ''}
-                              onChange={(e) => handleUpdateGmReward(index, 'startDate', e.target.value || undefined)}
-                              placeholder="未指定=現行"
-                            />
-                          </div>
-
-                          {/* 終了日 */}
-                          <div>
-                            <Label className="text-xs">終了日（任意）</Label>
-                            <Input
-                              type="date"
-                              value={assignment.endDate || ''}
-                              onChange={(e) => handleUpdateGmReward(index, 'endDate', e.target.value || undefined)}
-                              placeholder="未指定=無期限"
-                            />
+                            <Label className="text-xs">&nbsp;</Label>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenDateRangeModal(index)}
+                              className="gap-2"
+                            >
+                              <Calendar className="h-4 w-4" />
+                              期間設定
+                            </Button>
                           </div>
 
                           {/* 削除ボタン */}
                           <div>
+                            <Label className="text-xs">&nbsp;</Label>
                             <Button
                               type="button"
                               variant="ghost"
@@ -257,7 +270,7 @@ export function GmSettingsSection({
                           </div>
                         </div>
 
-                        {/* 期間表示（期間が設定されている場合のみ） */}
+                        {/* 期間表示 */}
                         {(assignment.startDate || assignment.endDate) && (
                           <div className="mt-2 text-xs text-muted-foreground">
                             <span className="font-medium">適用期間: </span>
@@ -275,6 +288,17 @@ export function GmSettingsSection({
           </div>
         </div>
       </div>
+
+      {/* 期間設定モーダル */}
+      <DateRangeModal
+        isOpen={dateRangeModalOpen}
+        onClose={() => setDateRangeModalOpen(false)}
+        onSave={handleSaveDateRange}
+        initialStartDate={formData.gm_assignments?.[editingRewardIndex]?.startDate}
+        initialEndDate={formData.gm_assignments?.[editingRewardIndex]?.endDate}
+        title="期間設定"
+        description="この設定の適用期間を設定します。未指定の場合は無期限となります。"
+      />
     </div>
   )
 }
