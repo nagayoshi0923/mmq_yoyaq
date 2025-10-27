@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DateRangeModal } from '@/components/modals/DateRangeModal'
+import { MonthPickerPopover } from '@/components/ui/month-picker-popover'
 import { Plus, Trash2 } from 'lucide-react'
 
 export interface ItemizedListItem {
@@ -187,15 +188,26 @@ export function ItemizedListWithDates({
                       {showDateRange && (
                         <div>
                           <Label className="text-xs mb-1.5 block opacity-0">{dateRangeLabel}</Label>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenDateRangeModal(index)}
-                            className="text-xs h-10 px-3 w-full"
-                          >
-                            {dateRangeLabel}
-                          </Button>
+                          {monthOnly ? (
+                            <MonthPickerPopover
+                              value={item.startDate}
+                              onSelect={(date) => {
+                                onUpdate(index, 'startDate', date)
+                                onUpdate(index, 'endDate', undefined)
+                              }}
+                              label={dateRangeLabel}
+                            />
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenDateRangeModal(index)}
+                              className="text-xs h-10 px-3 w-full"
+                            >
+                              {dateRangeLabel}
+                            </Button>
+                          )}
                         </div>
                       )}
 
