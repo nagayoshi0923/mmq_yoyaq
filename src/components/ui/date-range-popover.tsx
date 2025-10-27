@@ -59,22 +59,27 @@ export function DateRangePopover({
     }
   }
 
-  // 表示用の文字列（短縮形式）
-  const formatDateShort = (date: string) => {
-    // YYYY-MM-DD → MM/DD
-    const [year, month, day] = date.split('-')
-    return `${month}/${day}`
+  // 表示用の文字列（2行表示用）
+  const formatDate = (date: string) => {
+    // YYYY-MM-DD をそのまま返す（スラッシュ区切りに変換）
+    return date.replace(/-/g, '/')
   }
 
   const displayValue = (() => {
     if (startDate && endDate) {
-      return `${formatDateShort(startDate)}/${formatDateShort(endDate)}`
+      // 2行表示: 開始日~\n終了日
+      return (
+        <div className="flex flex-col items-start leading-tight">
+          <span>{formatDate(startDate)}~</span>
+          <span>{formatDate(endDate)}</span>
+        </div>
+      )
     }
     if (startDate && !endDate) {
-      return `${formatDateShort(startDate)}~`
+      return `${formatDate(startDate)}~`
     }
     if (!startDate && endDate) {
-      return `~${formatDateShort(endDate)}`
+      return `~${formatDate(endDate)}`
     }
     return label
   })()
