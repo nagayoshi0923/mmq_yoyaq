@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -76,13 +75,15 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
   }))
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* 基本情報 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>基本情報</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex-1 overflow-y-auto px-6 pt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 左カラム: 基本情報・連絡先 */}
+          <div className="space-y-6">
+            {/* 基本情報 */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 pb-2 border-b">基本情報</h3>
+              <div className="space-y-4">
             <div>
               <Label htmlFor="name">名前 *</Label>
               <Input
@@ -111,15 +112,13 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
                 </SelectContent>
               </Select>
             </div>
-          </CardContent>
-        </Card>
+              </div>
+            </div>
 
-      {/* 連絡先情報 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>連絡先情報</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+            {/* 連絡先情報 */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 pb-2 border-b">連絡先情報</h3>
+              <div className="space-y-4">
             <div>
               <Label htmlFor="email">メールアドレス</Label>
               <Input
@@ -165,15 +164,16 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
                 onChange={(e) => setFormData({ ...formData, discord_id: e.target.value })}
               />
             </div>
-          </CardContent>
-        </Card>
+              </div>
+            </div>
+          </div>
 
-      {/* 役割・担当店舗 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>役割・担当店舗</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          {/* 右カラム: 役割・担当店舗・備考 */}
+          <div className="space-y-6">
+            {/* 役割・担当店舗 */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 pb-2 border-b">役割・担当店舗</h3>
+              <div className="space-y-4">
             <div>
               <Label>役割</Label>
               <MultiSelect
@@ -203,26 +203,27 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
                 placeholder="シナリオを選択"
               />
             </div>
-          </CardContent>
-        </Card>
+              </div>
+            </div>
 
-      {/* 備考 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>備考</CardTitle>
-        </CardHeader>
-        <CardContent>
+            {/* 備考 */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 pb-2 border-b">備考</h3>
+              <div>
             <Textarea
               value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={10}
               placeholder="メモ・特記事項"
             />
-          </CardContent>
-        </Card>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      {/* フッターボタン */}
-      <div className="flex justify-end gap-2">
+      {/* フッターボタン（固定） */}
+      <div className="flex justify-end gap-3 px-6 py-4 border-t bg-muted/30 shrink-0">
         <Button type="button" variant="outline" onClick={onCancel}>
           キャンセル
         </Button>

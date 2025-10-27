@@ -337,11 +337,11 @@ export function StaffManagement() {
 
         {/* スタッフ編集モーダル */}
         <Dialog open={!!editingStaff} onOpenChange={(open) => !open && closeEditModal()}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-7xl max-h-[85vh] p-0 flex flex-col overflow-hidden">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
               <DialogTitle>{editingStaff?.id ? 'スタッフ編集' : '新規スタッフ作成'}</DialogTitle>
               <DialogDescription>
-                スタッフの情報を入力してください。
+                {editingStaff?.name ? `${editingStaff.name}の情報を編集します` : 'スタッフの情報を入力してください'}
               </DialogDescription>
             </DialogHeader>
             {editingStaff && (
