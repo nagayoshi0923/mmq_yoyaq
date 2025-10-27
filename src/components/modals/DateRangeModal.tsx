@@ -64,15 +64,17 @@ export function DateRangeModal({
           {monthOnly ? (
             // 月選択モード
             <div>
-              <Label htmlFor="start-date">発生月（任意）</Label>
-              <Input
-                id="start-date"
-                type="month"
-                value={startDate ? startDate.substring(0, 7) : ''}
-                onChange={(e) => setStartDate(e.target.value ? `${e.target.value}-01` : '')}
-                placeholder="未指定の場合は常時計上"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
+              <Label htmlFor="start-date" className="text-sm font-medium">発生月（任意）</Label>
+              <div className="mt-2">
+                <Input
+                  id="start-date"
+                  type="month"
+                  value={startDate ? startDate.substring(0, 7) : ''}
+                  onChange={(e) => setStartDate(e.target.value ? `${e.target.value}-01` : '')}
+                  className="rounded-md"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
                 発生月を設定すると、その月の売上として計上されます
               </p>
             </div>
@@ -80,29 +82,33 @@ export function DateRangeModal({
             // 期間選択モード
             <>
               <div>
-                <Label htmlFor="start-date">開始日（任意）</Label>
-                <Input
-                  id="start-date"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  placeholder="未指定の場合は現行設定"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
+                <Label htmlFor="start-date" className="text-sm font-medium">開始日（任意）</Label>
+                <div className="mt-2">
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="rounded-md [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
                   未指定の場合、現行設定として扱われます
                 </p>
               </div>
 
               <div>
-                <Label htmlFor="end-date">終了日（任意）</Label>
-                <Input
-                  id="end-date"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  placeholder="未指定の場合は無期限"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
+                <Label htmlFor="end-date" className="text-sm font-medium">終了日（任意）</Label>
+                <div className="mt-2">
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="rounded-md [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
                   未指定の場合、無期限となります
                 </p>
               </div>
@@ -111,25 +117,32 @@ export function DateRangeModal({
 
           {/* プレビュー */}
           {(startDate || endDate) && (
-            <div className="p-3 bg-muted rounded-md text-sm">
-              <span className="font-medium">{monthOnly ? '発生月: ' : '適用期間: '}</span>
-              {monthOnly ? (
-                startDate && `${startDate.substring(0, 7)}`
-              ) : (
-                <>
-                  {startDate && !endDate && `${startDate}から`}
-                  {!startDate && endDate && `${endDate}まで`}
-                  {startDate && endDate && `${startDate} 〜 ${endDate}`}
-                </>
-              )}
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">
+                  {monthOnly ? '発生月: ' : '適用期間: '}
+                </span>
+                <span className="text-sm text-foreground">
+                  {monthOnly ? (
+                    startDate && startDate.substring(0, 7)
+                  ) : (
+                    <>
+                      {startDate && !endDate && `${startDate}から`}
+                      {!startDate && endDate && `${endDate}まで`}
+                      {startDate && endDate && `${startDate} 〜 ${endDate}`}
+                    </>
+                  )}
+                </span>
+              </div>
             </div>
           )}
         </div>
 
-        <div className="flex gap-2 pt-4">
+        <div className="flex gap-3 pt-6 border-t">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             onClick={handleClear}
             className="flex-1"
           >
