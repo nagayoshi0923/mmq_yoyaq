@@ -153,7 +153,7 @@ export function ItemizedListWithDates({
                               value={item[column.key] || ''}
                               onValueChange={(value) => onUpdate(index, column.key, value)}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className="h-10">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -175,6 +175,7 @@ export function ItemizedListWithDates({
                                 onUpdate(index, column.key, value)
                               }}
                               placeholder={column.placeholder}
+                              className="h-10"
                             />
                           )}
                         </div>
@@ -188,7 +189,7 @@ export function ItemizedListWithDates({
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenDateRangeModal(index)}
-                            className="text-xs h-8 px-3"
+                            className="text-xs h-10 px-3"
                           >
                             期間
                           </Button>
@@ -234,7 +235,7 @@ export function ItemizedListWithDates({
                             }
                           }}
                         >
-                          <SelectTrigger className="h-8 min-w-[100px] border-none shadow-none hover:bg-muted/50">
+                          <SelectTrigger className="h-10 min-w-[100px] border-none shadow-none hover:bg-muted/50">
                             <SelectValue>
                               <span className={`text-xs font-medium ${getStatusColor(status)}`}>
                                 {getStatusLabel(status)}
