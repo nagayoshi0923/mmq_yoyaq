@@ -91,13 +91,11 @@ export function useScenarioMutation() {
 
   return useMutation({
     mutationFn: async ({ scenario, isEdit }: { scenario: Scenario; isEdit: boolean }) => {
-      // production_costs フィールドを除外
-      const { production_costs, ...scenarioForDB } = scenario as any
-      
+      // そのまま保存（production_costs と required_props を含む）
       if (isEdit) {
-        return await scenarioApi.update(scenarioForDB.id, scenarioForDB)
+        return await scenarioApi.update(scenario.id, scenario)
       } else {
-        return await scenarioApi.create(scenarioForDB)
+        return await scenarioApi.create(scenario)
       }
     },
     onMutate: async ({ scenario, isEdit }) => {

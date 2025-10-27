@@ -187,11 +187,6 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
       if (scenarioId) {
         scenarioData.id = scenarioId
       }
-
-      console.log('=== 保存データ詳細 ===')
-      console.log('formData.production_costs:', formData.production_costs)
-      console.log('formData.required_props:', formData.required_props)
-      console.log('保存するデータ:', JSON.stringify(scenarioData, null, 2))
       
       await scenarioMutation.mutateAsync({
         scenario: scenarioData,
