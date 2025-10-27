@@ -102,13 +102,17 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
         logger.error('Discord通知エラー（処理は継続）:', notifyError)
       }
       
-      // チェックボックスの総数を計算
+      // チェックボックスの総数を計算（終日は3枠としてカウント）
       const totalCheckedSlots = shiftsToSave.reduce((count, shift) => {
+        // 終日の場合は3枠（朝・昼・夜）としてカウント
+        if (shift.all_day) {
+          return count + 3
+        }
+        
         let slotCount = 0
         if (shift.morning) slotCount++
         if (shift.afternoon) slotCount++
         if (shift.evening) slotCount++
-        if (shift.all_day) slotCount++
         return count + slotCount
       }, 0)
       
