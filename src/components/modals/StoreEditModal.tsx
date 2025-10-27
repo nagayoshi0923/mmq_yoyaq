@@ -223,6 +223,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
                           <SelectContent>
                             <SelectItem value="corporate">直営店</SelectItem>
                             <SelectItem value="franchise">フランチャイズ</SelectItem>
+                            <SelectItem value="office">オフィス</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

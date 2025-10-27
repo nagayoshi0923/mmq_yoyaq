@@ -17,7 +17,7 @@ interface StoreInfo {
   id: string
   name: string
   short_name: string
-  ownership_type?: 'corporate' | 'franchise'
+  ownership_type?: 'corporate' | 'franchise' | 'office'
 }
 
 interface SalesOverviewProps {

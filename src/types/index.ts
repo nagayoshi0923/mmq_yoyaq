@@ -21,7 +21,7 @@ export interface Store {
   opening_date: string
   manager_name: string
   status: 'active' | 'temporarily_closed' | 'closed'
-  ownership_type?: 'corporate' | 'franchise'  // 直営店 or フランチャイズ
+  ownership_type?: 'corporate' | 'franchise' | 'office'  // 直営店 or フランチャイズ or オフィス
   capacity: number
   rooms: number
   notes?: string

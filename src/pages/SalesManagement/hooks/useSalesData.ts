@@ -18,7 +18,7 @@ interface Store {
   id: string
   name: string
   short_name: string
-  ownership_type?: 'corporate' | 'franchise'
+  ownership_type?: 'corporate' | 'franchise' | 'office'
   fixed_costs?: Array<{
     item: string
     amount: number

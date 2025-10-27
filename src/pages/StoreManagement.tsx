@@ -316,8 +316,13 @@ export function StoreManagement() {
                       <div className="flex flex-col gap-2">
                         {getStatusBadge(store.status)}
                         {store.ownership_type && (
-                          <Badge className={store.ownership_type === 'corporate' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}>
-                            {store.ownership_type === 'corporate' ? '直営店' : 'FC'}
+                          <Badge className={
+                            store.ownership_type === 'corporate' ? 'bg-blue-100 text-blue-800' : 
+                            store.ownership_type === 'office' ? 'bg-purple-100 text-purple-800' :
+                            'bg-amber-100 text-amber-800'
+                          }>
+                            {store.ownership_type === 'corporate' ? '直営店' : 
+                             store.ownership_type === 'office' ? 'オフィス' : 'FC'}
                           </Badge>
                         )}
                       </div>
