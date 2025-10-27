@@ -224,7 +224,7 @@ export function StoreManagement() {
                 </p>
               </div>
             </div>
-            <Button>
+            <Button onClick={() => openEditModal(null)}>
               <Plus className="h-4 w-4 mr-2" />
               新規店舗
             </Button>
