@@ -187,13 +187,13 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     }
   }
   
-  // 合計を計算
+  // 合計を計算（シナリオ連携なしのみ）
   const totalIncome = transactions
-    .filter(t => t.type === 'income')
+    .filter(t => t.type === 'income' && !t.scenario_id)
     .reduce((sum, t) => sum + t.amount, 0)
   
   const totalExpense = transactions
-    .filter(t => t.type === 'expense')
+    .filter(t => t.type === 'expense' && !t.scenario_id)
     .reduce((sum, t) => sum + t.amount, 0)
   
   const netAmount = totalIncome - totalExpense

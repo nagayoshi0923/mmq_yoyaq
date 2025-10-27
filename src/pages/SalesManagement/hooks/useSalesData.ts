@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { salesApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { SalesData } from '@/types'
 import { logger } from '@/utils/logger'
 import {
@@ -151,6 +152,16 @@ export function useSalesData() {
         formatDateJST(chartEndDate)
       )
       
+      // 雑収支データを取得（シナリオ連携ありのもののみ）
+      const { data: miscTransactions } = await supabase
+        .from('miscellaneous_transactions')
+        .select('*')
+        .gte('date', formatDateJST(chartStartDate))
+        .lte('date', formatDateJST(chartEndDate))
+        .not('scenario_id', 'is', null)
+      
+      logger.log('📊 雑収支データ取得:', { count: miscTransactions?.length || 0 })
+      
       // 店舗フィルタリング（ownership_type による絞り込み）
       let filteredStores = stores
       if (ownershipFilter) {
@@ -187,7 +198,7 @@ export function useSalesData() {
       
       // 売上データを計算
       logger.log('📊 イベントデータ取得完了:', { eventsCount: events.length, filteredStoresCount: filteredStores.length })
-      const data = calculateSalesData(events, filteredStores, startDate, endDate)
+      const data = calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions || [])
       logger.log('📊 売上データ計算完了:', { totalRevenue: data.totalRevenue })
       setSalesData(data)
     } catch (error) {
@@ -260,7 +271,15 @@ function calculateSalesData(
   }>,
   stores: Store[],
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  miscTransactions: Array<{
+    id: string;
+    date: string;
+    type: 'income' | 'expense';
+    category: string;
+    amount: number;
+    scenario_id?: string;
+  }>
 ): SalesData {
   const totalRevenue = events.reduce((sum, event) => sum + (event.revenue || 0), 0)
   const totalEvents = events.length
@@ -297,20 +316,20 @@ function calculateSalesData(
           duration: scenario.duration
         })
         
-        // カテゴリに応じてフィルタリングし、役割でソート
-        const applicableGmCosts = scenario.gm_costs
-          .filter(gm => {
-            const gmCategory = gm.category || 'normal'
-            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-          })
-          .sort((a, b) => {
-            // main, sub, gm3... の順にソート
-            const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
-            const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
-            const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
-            return aOrder - bOrder
-          })
-        
+          // カテゴリに応じてフィルタリングし、役割でソート
+          const applicableGmCosts = scenario.gm_costs
+            .filter(gm => {
+              const gmCategory = gm.category || 'normal'
+              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+            })
+            .sort((a, b) => {
+              // main, sub, gm3... の順にソート
+              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+              return aOrder - bOrder
+            })
+          
         console.log('💵 適用可能なGM報酬:', { applicableGmCosts })
         
         // GM数を取得（gm_costsの数 = 必要なGM数）
@@ -334,7 +353,7 @@ function calculateSalesData(
           totalGmCost: gmCost
         })
         
-        totalGmCost += gmCost
+          totalGmCost += gmCost
       } else {
         console.log('⚠️ GM報酬データなし:', { 
           scenario: event.scenario, 
@@ -748,11 +767,44 @@ function calculateSalesData(
     }
   })
 
+  // 雑収支データから制作費・道具費用を追加
+  miscTransactions.forEach(transaction => {
+    if (transaction.type === 'expense' && transaction.scenario_id) {
+      const transactionDate = new Date(transaction.date)
+      const transYear = transactionDate.getFullYear()
+      const transMonth = transactionDate.getMonth()
+      
+      // 発生月が期間内に含まれるかチェック
+      const isInPeriod = 
+        (transYear > startYear || (transYear === startYear && transMonth >= startMonth)) &&
+        (transYear < endYear || (transYear === endYear && transMonth <= endMonth))
+      
+      if (isInPeriod) {
+        // シナリオ名を取得
+        const relatedEvent = events.find(e => e.scenario_id === transaction.scenario_id)
+        const scenarioName = relatedEvent?.scenario || '不明'
+        
+        // カテゴリに応じて制作費または道具費用に分類
+        const key = `misc-${transaction.id}`
+        if (!processedProductionCosts.has(key)) {
+          processedProductionCosts.add(key)
+          totalProductionCost += transaction.amount
+          productionCostBreakdown.push({
+            item: transaction.category,
+            amount: transaction.amount,
+            scenario: scenarioName
+          })
+        }
+      }
+    }
+  })
+
   console.log('💰 制作費・道具費用計算完了:', { 
     totalProductionCost,
     totalPropsCost,
     productionCostBreakdown,
-    propsCostBreakdown
+    propsCostBreakdown,
+    miscTransactionsCount: miscTransactions.length
   })
 
   // 変動費の計算（ライセンス費用 + GM給与 + 制作費 + 道具費用）
