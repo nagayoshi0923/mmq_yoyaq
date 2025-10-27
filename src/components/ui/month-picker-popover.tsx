@@ -33,15 +33,8 @@ export function MonthPickerPopover({
     setOpen(false)
   }
 
-  // YYYY-MM-DD から YYYY年MM月 に変換
-  const displayValue = value 
-    ? (() => {
-        const date = new Date(value)
-        const year = date.getFullYear()
-        const month = date.getMonth() + 1
-        return `${year}年${month}月`
-      })()
-    : label
+  // ボタンには常にラベルのみ表示
+  const displayValue = label
 
   const months = [
     '1月', '2月', '3月', '4月', '5月', '6月',

@@ -59,30 +59,8 @@ export function DateRangePopover({
     }
   }
 
-  // 表示用の文字列（2行表示用）
-  const formatDate = (date: string) => {
-    // YYYY-MM-DD をそのまま返す（スラッシュ区切りに変換）
-    return date.replace(/-/g, '/')
-  }
-
-  const displayValue = (() => {
-    if (startDate && endDate) {
-      // 2行表示: 開始日~\n終了日
-      return (
-        <div className="flex flex-col items-start leading-tight">
-          <span>{formatDate(startDate)}~</span>
-          <span>{formatDate(endDate)}</span>
-        </div>
-      )
-    }
-    if (startDate && !endDate) {
-      return `${formatDate(startDate)}~`
-    }
-    if (!startDate && endDate) {
-      return `~${formatDate(endDate)}`
-    }
-    return label
-  })()
+  // ボタンには常にラベルのみ表示
+  const displayValue = label
 
   // カレンダーUI
   const currentDate = tempStartDate ? new Date(tempStartDate) : new Date()

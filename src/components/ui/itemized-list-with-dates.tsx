@@ -173,7 +173,17 @@ export function ItemizedListWithDates({
                       {/* 期間設定ボタン */}
                       {showDateRange && (
                         <div>
-                          <Label className="text-xs mb-1.5 block opacity-0">{dateRangeLabel}</Label>
+                          <Label className="text-[10px] mb-1.5 block leading-tight">
+                            {(item.startDate || item.endDate) ? (
+                              <>
+                                {item.startDate && !item.endDate && `${item.startDate.replace(/-/g, '/')}~`}
+                                {!item.startDate && item.endDate && `~${item.endDate.replace(/-/g, '/')}`}
+                                {item.startDate && item.endDate && `${item.startDate.replace(/-/g, '/')}/${item.endDate.replace(/-/g, '/')}`}
+                              </>
+                            ) : (
+                              <span className="opacity-0">期間</span>
+                            )}
+                          </Label>
                           {monthOnly ? (
                             <MonthPickerPopover
                               value={item.startDate}
