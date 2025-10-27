@@ -3,7 +3,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { StatusBadge } from '@/components/ui/status-badge'
 import { DateRangeModal } from '@/components/modals/DateRangeModal'
 import { Plus, Trash2 } from 'lucide-react'
 
@@ -81,6 +80,15 @@ export function ItemizedListWithDates({
     }
   }
 
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case 'active': return 'text-green-600'
+      case 'ready': return 'text-blue-600'
+      case 'legacy': return 'text-gray-400'
+      default: return 'text-gray-600'
+    }
+  }
+
   // 期間設定モーダルを開く
   const handleOpenDateRangeModal = (index: number) => {
     setEditingIndex(index)
@@ -102,8 +110,8 @@ export function ItemizedListWithDates({
   // グリッドカラムの計算
   const gridColumns = columns.map(col => col.width || '1fr').join(' ')
   const gridTemplateColumns = showDateRange 
-    ? `${gridColumns} auto auto`
-    : `${gridColumns} auto`
+    ? `${gridColumns} 80px 120px`
+    : `${gridColumns} 120px`
 
   return (
     <div>
@@ -131,10 +139,9 @@ export function ItemizedListWithDates({
           items.map((item, index) => {
             const status = getItemStatus(item)
             return (
-              <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-muted/30">
-                <div className="flex-1">
+              <div key={index} className="border rounded-lg p-3 bg-card hover:shadow-sm transition-shadow">
                   <div 
-                    className="grid gap-3 items-end"
+                    className="grid gap-3 items-center"
                     style={{ gridTemplateColumns }}
                   >
                       {/* 動的カラム */}
@@ -175,31 +182,30 @@ export function ItemizedListWithDates({
 
                       {/* 期間設定ボタン */}
                       {showDateRange && (
-                        <div>
-                          <Label className="text-xs opacity-0">期間</Label>
+                        <div className="flex items-center justify-center">
                           <Button
                             type="button"
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleOpenDateRangeModal(index)}
-                            className="text-xs h-8 px-2"
+                            className="text-xs h-8 px-3 text-muted-foreground hover:text-foreground"
                           >
                             期間
                           </Button>
-                          {/* 適用期間の表示 */}
-                          {(item.startDate || item.endDate) && (
-                            <div className="text-xs text-muted-foreground mt-1 whitespace-nowrap">
-                              {item.startDate && !item.endDate && `${item.startDate}から`}
-                              {!item.startDate && item.endDate && `${item.endDate}まで`}
-                              {item.startDate && item.endDate && `${item.startDate} 〜 ${item.endDate}`}
-                            </div>
-                          )}
                         </div>
                       )}
 
                       {/* ステータス・アクションメニュー */}
-                      <div>
-                        <Label className="text-xs opacity-0">ステータス</Label>
+                      <div className="flex items-center justify-between gap-2">
+                        {/* 期間表示 */}
+                        {showDateRange && (item.startDate || item.endDate) && (
+                          <div className="text-xs text-muted-foreground">
+                            {item.startDate && !item.endDate && `${item.startDate}〜`}
+                            {!item.startDate && item.endDate && `〜${item.endDate}`}
+                            {item.startDate && item.endDate && `${item.startDate}〜${item.endDate}`}
+                          </div>
+                        )}
+                        
                         <Select
                           value={status}
                           onValueChange={(value) => {
@@ -208,7 +214,6 @@ export function ItemizedListWithDates({
                             } else if (enableStatusChange && (value === 'active' || value === 'ready' || value === 'legacy')) {
                               // ステータス変更: startDate/endDateを更新
                               const now = new Date()
-                              const today = now.toISOString().split('T')[0]
                               
                               if (value === 'active') {
                                 // 使用中: 日付をクリア
@@ -229,22 +234,24 @@ export function ItemizedListWithDates({
                             }
                           }}
                         >
-                          <SelectTrigger className="h-8 w-28">
+                          <SelectTrigger className="h-8 min-w-[100px] border-none shadow-none hover:bg-muted/50">
                             <SelectValue>
-                              <StatusBadge status={status} label={getStatusLabel(status)} />
+                              <span className={`text-xs font-medium ${getStatusColor(status)}`}>
+                                {getStatusLabel(status)}
+                              </span>
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {enableStatusChange ? (
                               <>
                                 <SelectItem value="active">
-                                  <StatusBadge status="active" label="使用中" />
+                                  <span className="text-green-600">使用中</span>
                                 </SelectItem>
                                 <SelectItem value="ready">
-                                  <StatusBadge status="ready" label="待機中" />
+                                  <span className="text-blue-600">待機中</span>
                                 </SelectItem>
                                 <SelectItem value="legacy">
-                                  <StatusBadge status="legacy" label="過去の設定" />
+                                  <span className="text-gray-400">過去の設定</span>
                                 </SelectItem>
                                 <SelectItem value="delete" className="text-destructive border-t mt-1 pt-1">
                                   削除
@@ -259,7 +266,6 @@ export function ItemizedListWithDates({
                         </Select>
                       </div>
                     </div>
-                </div>
               </div>
             )
           })
