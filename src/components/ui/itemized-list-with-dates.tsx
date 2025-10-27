@@ -122,17 +122,16 @@ export function ItemizedListWithDates({
           items.map((item, index) => {
             const status = getItemStatus(item)
             return (
-              <div key={index} className="border-2 rounded-lg p-4 bg-card">
-                <div className="flex items-start gap-3">
-                  <div className="pt-6">
-                    <StatusBadge status={status} label={getStatusLabel(status)} />
-                  </div>
+              <div key={index} className="flex items-start gap-3 p-4 rounded-lg border bg-card/50">
+                <div className="pt-6">
+                  <StatusBadge status={status} label={getStatusLabel(status)} />
+                </div>
 
-                  <div className="flex-1">
-                    <div 
-                      className="grid gap-3 items-end"
-                      style={{ gridTemplateColumns }}
-                    >
+                <div className="flex-1">
+                  <div 
+                    className="grid gap-3 items-end"
+                    style={{ gridTemplateColumns }}
+                  >
                       {/* 動的カラム */}
                       {columns.map((column) => (
                         <div key={column.key}>
@@ -207,7 +206,6 @@ export function ItemizedListWithDates({
                         </Button>
                       </div>
                     </div>
-                  </div>
                 </div>
               </div>
             )
