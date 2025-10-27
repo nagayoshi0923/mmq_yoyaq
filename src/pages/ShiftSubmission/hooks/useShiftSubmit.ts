@@ -102,8 +102,18 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
         logger.error('Discord通知エラー（処理は継続）:', notifyError)
       }
       
-      const totalUpdated = shiftsToUpsert.length + shiftsToRemove.length
-      alert(`シフトを更新しました。\n\n${totalUpdated}日分のシフトを更新しました。\n\nスケジュール管理ページで確認できます。`)
+      // チェックボックスの総数を計算
+      const totalCheckedSlots = shiftsToSave.reduce((count, shift) => {
+        let slotCount = 0
+        if (shift.morning) slotCount++
+        if (shift.afternoon) slotCount++
+        if (shift.evening) slotCount++
+        if (shift.all_day) slotCount++
+        return count + slotCount
+      }, 0)
+      
+      const totalDays = shiftsToUpsert.length + shiftsToRemove.length
+      alert(`シフトを更新しました。\n\n${totalDays}日分のシフトを更新しました。\n（出勤可能: ${totalCheckedSlots}枠）\n\nスケジュール管理ページで確認できます。`)
       
     } catch (error) {
       logger.error('シフト提出エラー:', error)
