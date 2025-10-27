@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DateRangeModal } from '@/components/modals/DateRangeModal'
-import { Plus, Trash2, Calendar } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 
 interface GmSettingsSectionProps {
@@ -248,9 +248,8 @@ export function GmSettingsSection({
                               variant="outline"
                               size="sm"
                               onClick={() => handleOpenDateRangeModal(index)}
-                              className="gap-2"
+                              className="text-xs h-8"
                             >
-                              <Calendar className="h-4 w-4" />
                               期間設定
                             </Button>
                           </div>
