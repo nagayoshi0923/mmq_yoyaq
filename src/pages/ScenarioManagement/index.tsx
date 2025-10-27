@@ -299,8 +299,9 @@ export function ScenarioManagement() {
   return (
     <AppLayout
       currentPage="scenarios"
-      maxWidth="max-w-[1600px]"
+      maxWidth="max-w-[1440px]"
       containerPadding="px-4 py-8"
+      className="mx-auto"
     >
         <div className="space-y-6">
           {/* ヘッダー */}

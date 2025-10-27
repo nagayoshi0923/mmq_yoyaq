@@ -9,6 +9,7 @@ interface AppLayoutProps {
   maxWidth?: string
   containerPadding?: string
   stickyLayout?: boolean // ヘッダー・ナビ・サイドバーを固定するか
+  className?: string // 追加のクラス名
 }
 
 /**
@@ -29,7 +30,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   children, 
   maxWidth = 'max-w-[1600px]',
   containerPadding = 'px-4 py-8',
-  stickyLayout = false
+  stickyLayout = false,
+  className = ''
 }) => {
   if (stickyLayout) {
     // 固定レイアウト: ヘッダー・ナビ・サイドバーを固定、コンテンツのみスクロール
@@ -76,7 +78,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         )}
         
         {/* メインコンテンツ */}
-        <div className={`flex-1 min-w-0 ${maxWidth}`}>
+        <div className={`flex-1 min-w-0 ${maxWidth} ${className}`}>
           <div className={containerPadding}>
             {children}
           </div>

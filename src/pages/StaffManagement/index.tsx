@@ -269,8 +269,9 @@ export function StaffManagement() {
     <TooltipProvider>
       <AppLayout 
         currentPage="staff" 
-        maxWidth="max-w-[1600px]"
+        maxWidth="max-w-[1440px]"
         containerPadding="px-6 py-6"
+        className="mx-auto"
       >
         <div className="space-y-6">
             {/* 編集モード時: スタッフ編集フォーム表示 */}
