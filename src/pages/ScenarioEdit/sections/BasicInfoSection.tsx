@@ -1,5 +1,4 @@
 import { useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -56,12 +55,9 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>基本情報</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div>
+      <h3 className="text-lg font-semibold mb-4 pb-2 border-b">基本情報</h3>
+      <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="title">タイトル *</Label>
@@ -93,14 +89,10 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
               placeholder="シナリオの詳細な説明を入力してください"
             />
           </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>キービジュアル</CardTitle>
-        </CardHeader>
-        <CardContent>
+          {/* キービジュアル */}
+          <div className="pt-4 mt-4 border-t">
+            <h4 className="text-sm font-medium mb-3">キービジュアル</h4>
           {formData.key_visual_url ? (
             <div className="relative inline-block">
               <OptimizedImage
@@ -141,8 +133,8 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
               </p>
             </div>
           )}
-        </CardContent>
-      </Card>
+          </div>
+      </div>
     </div>
   )
 }
