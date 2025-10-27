@@ -253,6 +253,8 @@ function calculateSalesData(
       license_amount?: number;
       gm_test_license_amount?: number;
       gm_costs?: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest' }>;
+      production_costs?: Array<{ item: string; amount: number; startDate?: string; endDate?: string; status?: string }>;
+      required_props?: Array<{ item: string; amount: number; startDate?: string; endDate?: string; status?: string }>;
     };
     category?: string;
   }>,
@@ -665,11 +667,101 @@ function calculateSalesData(
     }
   })
 
-  // 変動費の計算（ライセンス費用 + GM給与）
-  const totalVariableCost = totalLicenseCost + totalGmCost
+  // 制作費と必要道具の計算（発生月ベース）
+  let totalProductionCost = 0
+  let totalPropsCost = 0
+  const productionCostBreakdown: Array<{ item: string; amount: number; scenario: string }> = []
+  const propsCostBreakdown: Array<{ item: string; amount: number; scenario: string }> = []
+
+  console.log('💰 制作費・道具費用計算開始:', { 
+    eventsCount: events.length,
+    startMonth: `${startYear}/${startMonth + 1}`,
+    endMonth: `${endYear}/${endMonth + 1}`
+  })
+
+  // 重複チェック用のSet（同じシナリオ・同じ項目の重複計上を防ぐ）
+  const processedProductionCosts = new Set<string>()
+  const processedPropsCosts = new Set<string>()
+
+  events.forEach(event => {
+    const scenario = event.scenarios
+    if (!scenario) return
+
+    // 制作費の計算
+    if (scenario.production_costs && Array.isArray(scenario.production_costs)) {
+      scenario.production_costs.forEach((cost: any) => {
+        // アクティブな制作費のみ計算
+        if (cost.status === 'active' && cost.startDate) {
+          const costDate = new Date(cost.startDate)
+          const costYear = costDate.getFullYear()
+          const costMonth = costDate.getMonth()
+          
+          // 発生月が期間内に含まれるかチェック
+          const isInPeriod = 
+            (costYear > startYear || (costYear === startYear && costMonth >= startMonth)) &&
+            (costYear < endYear || (costYear === endYear && costMonth <= endMonth))
+          
+          if (isInPeriod) {
+            const key = `${event.scenario_id}-${cost.item}-${cost.startDate}`
+            if (!processedProductionCosts.has(key)) {
+              processedProductionCosts.add(key)
+              totalProductionCost += cost.amount
+              productionCostBreakdown.push({
+                item: cost.item,
+                amount: cost.amount,
+                scenario: event.scenario || '不明'
+              })
+            }
+          }
+        }
+      })
+    }
+
+    // 必要道具の計算
+    if (scenario.required_props && Array.isArray(scenario.required_props)) {
+      scenario.required_props.forEach((prop: any) => {
+        // アクティブな道具費用のみ計算
+        if (prop.status === 'active' && prop.startDate) {
+          const propDate = new Date(prop.startDate)
+          const propYear = propDate.getFullYear()
+          const propMonth = propDate.getMonth()
+          
+          // 発生月が期間内に含まれるかチェック
+          const isInPeriod = 
+            (propYear > startYear || (propYear === startYear && propMonth >= startMonth)) &&
+            (propYear < endYear || (propYear === endYear && propMonth <= endMonth))
+          
+          if (isInPeriod) {
+            const key = `${event.scenario_id}-${prop.item}-${prop.startDate}`
+            if (!processedPropsCosts.has(key)) {
+              processedPropsCosts.add(key)
+              totalPropsCost += prop.amount
+              propsCostBreakdown.push({
+                item: prop.item,
+                amount: prop.amount,
+                scenario: event.scenario || '不明'
+              })
+            }
+          }
+        }
+      })
+    }
+  })
+
+  console.log('💰 制作費・道具費用計算完了:', { 
+    totalProductionCost,
+    totalPropsCost,
+    productionCostBreakdown,
+    propsCostBreakdown
+  })
+
+  // 変動費の計算（ライセンス費用 + GM給与 + 制作費 + 道具費用）
+  const totalVariableCost = totalLicenseCost + totalGmCost + totalProductionCost + totalPropsCost
   const variableCostBreakdown = [
     { category: 'ライセンス費用', amount: totalLicenseCost },
-    { category: 'GM給与', amount: totalGmCost }
+    { category: 'GM給与', amount: totalGmCost },
+    { category: '制作費', amount: totalProductionCost },
+    { category: '必要道具', amount: totalPropsCost }
   ]
 
   // 純利益の再計算（固定費も含める）
@@ -681,8 +773,12 @@ function calculateSalesData(
     averageRevenuePerEvent,
     totalLicenseCost,
     totalGmCost,
+    totalProductionCost,
+    totalPropsCost,
     totalFixedCost,
     fixedCostBreakdown,
+    productionCostBreakdown,
+    propsCostBreakdown,
     totalVariableCost,
     variableCostBreakdown,
     netProfit: netProfitWithFixedCost,
