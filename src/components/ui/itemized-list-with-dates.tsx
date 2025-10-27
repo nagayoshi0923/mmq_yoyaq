@@ -130,10 +130,6 @@ export function ItemizedListWithDates({
             const status = getItemStatus(item)
             return (
               <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-muted/30">
-                <div className="pt-6">
-                  <StatusBadge status={status} label={getStatusLabel(status)} />
-                </div>
-
                 <div className="flex-1">
                   <div 
                     className="grid gap-3 items-end"
@@ -199,22 +195,33 @@ export function ItemizedListWithDates({
                         </div>
                       )}
 
-                      {/* アクションメニュー */}
+                      {/* ステータス・アクションメニュー */}
                       <div>
-                        <Label className="text-xs opacity-0">操作</Label>
+                        <Label className="text-xs opacity-0">ステータス</Label>
                         <Select
-                          value=""
+                          value={status}
                           onValueChange={(value) => {
                             if (value === 'delete') {
                               setDeleteConfirmIndex(index)
                             }
                           }}
                         >
-                          <SelectTrigger className="h-8 w-20">
-                            <SelectValue placeholder="操作" />
+                          <SelectTrigger className="h-8 w-28">
+                            <SelectValue>
+                              <StatusBadge status={status} label={getStatusLabel(status)} />
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="delete" className="text-destructive">
+                            <SelectItem value="active">
+                              <StatusBadge status="active" label="使用中" />
+                            </SelectItem>
+                            <SelectItem value="ready">
+                              <StatusBadge status="ready" label="待機中" />
+                            </SelectItem>
+                            <SelectItem value="legacy">
+                              <StatusBadge status="legacy" label="過去の設定" />
+                            </SelectItem>
+                            <SelectItem value="delete" className="text-destructive border-t mt-1 pt-1">
                               削除
                             </SelectItem>
                           </SelectContent>
