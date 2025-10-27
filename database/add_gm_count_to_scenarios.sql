@@ -6,25 +6,25 @@ ADD COLUMN IF NOT EXISTS gm_count INTEGER DEFAULT 1;
 
 COMMENT ON COLUMN scenarios.gm_count IS '必要GM数（公演に必要なGMの人数）';
 
--- 既存のシナリオに対して、gm_costsの配列長からgm_countを設定
+-- 注意: gm_costs配列には「通常公演」と「GMテスト」の2エントリが含まれる
+-- 実際の必要GM数は gm_count で管理し、gm_costs の長さとは無関係
+
+-- gm_countが未設定(NULL)の場合のみデフォルト値1を設定
 UPDATE scenarios
-SET gm_count = CASE 
-  WHEN gm_costs IS NOT NULL AND jsonb_array_length(gm_costs) > 0 
-  THEN jsonb_array_length(gm_costs)
-  ELSE 1
-END
-WHERE gm_count IS NULL OR gm_count = 0;
+SET gm_count = 1
+WHERE gm_count IS NULL;
 
 -- 確認クエリ
 SELECT 
   title,
-  gm_count,
-  jsonb_array_length(gm_costs) as gm_costs_count,
+  gm_count as '必要GM数',
+  jsonb_array_length(gm_costs) as 'gm_costs配列長',
   CASE 
-    WHEN gm_count = jsonb_array_length(gm_costs) THEN '✅ 一致'
-    ELSE '❌ 不一致'
-  END as status
+    WHEN jsonb_array_length(gm_costs) = 2 THEN '✅ 通常+GMテスト'
+    ELSE '⚠️ 要確認'
+  END as 'gm_costs状態',
+  jsonb_pretty(gm_costs) as gm_costs_detail
 FROM scenarios
 ORDER BY title
-LIMIT 20;
+LIMIT 10;
 
