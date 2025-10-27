@@ -10,13 +10,14 @@ const SHIFT_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'shift-submission', label: 'シフト提出', icon: Calendar, description: 'シフトを提出' },
   { id: 'my-shifts', label: '提出済みシフト', icon: CheckCircle, description: '提出済みシフト確認' },
   { id: 'schedule', label: 'スケジュール', icon: Clock, description: 'スケジュール確認' },
-  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+  { id: 'notification-settings', label: '通知設定', icon: Settings, description: 'シフト募集通知の設定' }
 ]
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { useShiftData } from './hooks/useShiftData'
 import { useShiftSubmit } from './hooks/useShiftSubmit'
 import { createShiftColumns, type ShiftTableRow } from './utils/tableColumns'
+import { NotificationSettings } from './components/NotificationSettings'
 import type { DayInfo } from './types'
 
 /**
@@ -96,6 +97,60 @@ export function ShiftSubmission() {
     [handleShiftChange, handleSelectAll, handleDeselectAll]
   )
 
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'notification-settings':
+        return <NotificationSettings />
+      
+      case 'shift-submission':
+      default:
+        return (
+          <div className="space-y-6">
+            {/* 月選択 */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-muted-foreground">
+                  出勤可能な日時を選択してください
+                </p>
+              </div>
+              <MonthSwitcher
+                value={currentDate}
+                onChange={setCurrentDate}
+                showToday
+                quickJump
+              />
+            </div>
+
+            {/* メインカード・テーブル */}
+            <Card>
+              <CardHeader className="bg-muted/30 border-b border-border">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>シフト提出 - {formatMonthYear()}</CardTitle>
+                    <CardDescription className="text-muted-foreground">
+                      出勤可能な時間帯にチェックを入れてください
+                    </CardDescription>
+                  </div>
+                  <Button onClick={handleSubmitShift} disabled={loading}>
+                    {loading ? '送信中...' : 'シフトを提出'}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4">
+                <TanStackDataTable
+                  data={tableData}
+                  columns={tableColumns}
+                  getRowKey={(row) => row.dayInfo.date}
+                  emptyMessage="シフトデータがありません"
+                  loading={loading}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )
+    }
+  }
+
   return (
     <AppLayout
       currentPage="shift-submission"
@@ -112,48 +167,7 @@ export function ShiftSubmission() {
       containerPadding="px-8 py-6"
       stickyLayout={true}
     >
-      <div className="space-y-6">
-          {/* 月選択 */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-muted-foreground">
-                出勤可能な日時を選択してください
-              </p>
-            </div>
-            <MonthSwitcher
-              value={currentDate}
-              onChange={setCurrentDate}
-              showToday
-              quickJump
-            />
-          </div>
-
-          {/* メインカード・テーブル */}
-          <Card>
-            <CardHeader className="bg-muted/30 border-b border-border">
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>シフト提出 - {formatMonthYear()}</CardTitle>
-                  <CardDescription className="text-muted-foreground">
-                    出勤可能な時間帯にチェックを入れてください
-                  </CardDescription>
-                </div>
-                <Button onClick={handleSubmitShift} disabled={loading}>
-                  {loading ? '送信中...' : 'シフトを提出'}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4">
-              <TanStackDataTable
-                data={tableData}
-                columns={tableColumns}
-                getRowKey={(row) => row.dayInfo.date}
-                emptyMessage="シフトデータがありません"
-                loading={loading}
-              />
-            </CardContent>
-          </Card>
-        </div>
+      {renderContent()}
     </AppLayout>
   )
 }
