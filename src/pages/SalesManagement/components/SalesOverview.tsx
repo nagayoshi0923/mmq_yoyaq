@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
+import { MonthSwitcher } from '@/components/patterns/calendar/MonthSwitcher'
+import { Settings } from 'lucide-react'
 import { scenarioApi, staffApi, storeApi, scheduleApi } from '@/lib/api'
 import type { Staff, Scenario, Store } from '@/types'
 
@@ -65,6 +67,22 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     staff: Staff[]
     availableStaffByScenario: Record<string, Staff[]>
   } | null>(null)
+  
+  // 月切り替えの状態管理
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [showPeriodSettings, setShowPeriodSettings] = useState(false)
+  
+  // 月が変更されたら自動的に期間を更新
+  useEffect(() => {
+    const year = currentMonth.getFullYear()
+    const month = currentMonth.getMonth()
+    const startDate = new Date(year, month, 1)
+    const endDate = new Date(year, month + 1, 0)
+    
+    onCustomStartDateChange(startDate.toISOString().split('T')[0])
+    onCustomEndDateChange(endDate.toISOString().split('T')[0])
+    onPeriodChange('custom')
+  }, [currentMonth])
 
   // モーダル用データの取得
   useEffect(() => {
@@ -196,70 +214,98 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
         <ExportButtons salesData={salesData} />
       </div>
 
-      {/* フィルター */}
-      <div className="space-y-4 mb-6">
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <Label>期間</Label>
-            <Select value={selectedPeriod} onValueChange={onPeriodChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="thisMonth">今月</SelectItem>
-                <SelectItem value="lastMonth">先月</SelectItem>
-                <SelectItem value="thisWeek">今週</SelectItem>
-                <SelectItem value="lastWeek">先週</SelectItem>
-                <SelectItem value="last7days">直近7日</SelectItem>
-                <SelectItem value="last30days">直近30日</SelectItem>
-                <SelectItem value="thisYear">今年</SelectItem>
-                <SelectItem value="lastYear">去年</SelectItem>
-                <SelectItem value="custom">カスタム期間</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex-1">
-            <Label>店舗</Label>
-            <Select value={selectedStore} onValueChange={onStoreChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全店舗</SelectItem>
-                {stores.map(store => (
-                  <SelectItem key={store.id} value={store.id}>
-                    {store.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      {/* 月切り替えと期間設定 */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          {/* 月切り替え */}
+          <MonthSwitcher
+            value={currentMonth}
+            onChange={setCurrentMonth}
+            showToday={true}
+            quickJump={true}
+            enableKeyboard={true}
+          />
+          
+          {/* 期間設定ボタン */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPeriodSettings(!showPeriodSettings)}
+            className="h-9"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            期間設定
+          </Button>
         </div>
 
-        {/* カスタム期間選択UI */}
-        {selectedPeriod === 'custom' && (
-          <div className="flex gap-4 items-center">
-            <Label className="text-sm text-muted-foreground min-w-[60px]">期間指定</Label>
-            <DateRangePopover
-              label="期間を選択"
-              startDate={customStartDate}
-              endDate={customEndDate}
-              onDateChange={(start, end) => {
-                if (start) onCustomStartDateChange(start)
-                if (end) onCustomEndDateChange(end)
-              }}
-            />
-            <Button
-              onClick={() => onPeriodChange('custom')}
-              disabled={!customStartDate || !customEndDate}
-              size="sm"
-            >
-              適用
-            </Button>
-          </div>
-        )}
+        {/* 店舗選択 */}
+        <div className="w-[200px]">
+          <Select value={selectedStore} onValueChange={onStoreChange}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全店舗</SelectItem>
+              {stores.map(store => (
+                <SelectItem key={store.id} value={store.id}>
+                  {store.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {/* 期間設定パネル（トグル表示） */}
+      {showPeriodSettings && (
+        <Card className="mb-6">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-4">
+              <Label className="min-w-[80px]">期間プリセット</Label>
+              <Select value={selectedPeriod} onValueChange={onPeriodChange}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="thisMonth">今月</SelectItem>
+                  <SelectItem value="lastMonth">先月</SelectItem>
+                  <SelectItem value="thisWeek">今週</SelectItem>
+                  <SelectItem value="lastWeek">先週</SelectItem>
+                  <SelectItem value="last7days">直近7日</SelectItem>
+                  <SelectItem value="last30days">直近30日</SelectItem>
+                  <SelectItem value="thisYear">今年</SelectItem>
+                  <SelectItem value="lastYear">去年</SelectItem>
+                  <SelectItem value="custom">カスタム期間</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* カスタム期間選択UI */}
+            {selectedPeriod === 'custom' && (
+              <div className="flex gap-4 items-center">
+                <Label className="min-w-[80px]">カスタム期間</Label>
+                <DateRangePopover
+                  label="期間を選択"
+                  startDate={customStartDate}
+                  endDate={customEndDate}
+                  onDateChange={(start, end) => {
+                    if (start) onCustomStartDateChange(start)
+                    if (end) onCustomEndDateChange(end)
+                  }}
+                />
+                <Button
+                  onClick={() => onPeriodChange('custom')}
+                  disabled={!customStartDate || !customEndDate}
+                  size="sm"
+                >
+                  適用
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* サマリーカード */}
       {salesData ? (
