@@ -112,8 +112,17 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
         return count + slotCount
       }, 0)
       
+      // 提出月を取得
+      const firstShift = shiftsToSave[0] || shiftsToDelete[0]
+      let monthDisplay = ''
+      if (firstShift) {
+        const date = new Date(firstShift.date)
+        const month = date.getMonth() + 1
+        monthDisplay = `${month}月分の`
+      }
+      
       const totalDays = shiftsToUpsert.length + shiftsToRemove.length
-      alert(`シフトを更新しました。\n\n${totalDays}日分のシフトを更新しました。\n（出勤可能: ${totalCheckedSlots}枠）\n\nスケジュール管理ページで確認できます。`)
+      alert(`シフトを更新しました。\n\n${monthDisplay}シフトを更新しました。\n（出勤可能: ${totalCheckedSlots}枠）\n\nスケジュール管理ページで確認できます。`)
       
     } catch (error) {
       logger.error('シフト提出エラー:', error)
