@@ -1,5 +1,6 @@
 import { logger } from '@/utils/logger'
 import { shiftApi } from '@/lib/shiftApi'
+import { supabase } from '@/lib/supabase'
 import type { ShiftSubmission } from '../types'
 
 interface UseShiftSubmitProps {
@@ -69,6 +70,38 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
       }
       
       logger.log('シフト提出成功:', { 保存: shiftsToUpsert.length, 削除: shiftsToRemove.length })
+      
+      // Discord通知を送信
+      try {
+        // 年月を取得（最初のシフトから）
+        const firstShift = shiftsToSave[0] || shiftsToDelete[0]
+        if (firstShift) {
+          const date = new Date(firstShift.date)
+          const year = date.getFullYear()
+          const month = date.getMonth() + 1
+          
+          await supabase.functions.invoke('notify-shift-submitted-discord', {
+            body: {
+              staff_id: currentStaffId,
+              year,
+              month,
+              shifts: shiftsToSave.map(shift => ({
+                date: shift.date,
+                morning: shift.morning,
+                afternoon: shift.afternoon,
+                evening: shift.evening,
+                all_day: shift.all_day
+              }))
+            }
+          })
+          
+          logger.log('Discord通知送信成功')
+        }
+      } catch (notifyError) {
+        // 通知エラーは無視（本体処理は成功）
+        logger.error('Discord通知エラー（処理は継続）:', notifyError)
+      }
+      
       alert(`シフトを更新しました。\n\n保存: ${shiftsToUpsert.length}件\n削除: ${shiftsToRemove.length}件\n\nスケジュール管理ページで確認できます。`)
       
     } catch (error) {
