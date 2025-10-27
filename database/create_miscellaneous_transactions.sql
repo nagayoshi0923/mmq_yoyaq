@@ -15,48 +15,38 @@ CREATE TABLE IF NOT EXISTS miscellaneous_transactions (
 );
 
 -- インデックスを作成
-CREATE INDEX IF NOT EXISTS idx_miscellaneous_transactions_date ON miscellaneous_transactions(date);
-CREATE INDEX IF NOT EXISTS idx_miscellaneous_transactions_type ON miscellaneous_transactions(type);
-CREATE INDEX IF NOT EXISTS idx_miscellaneous_transactions_store_id ON miscellaneous_transactions(store_id);
-CREATE INDEX IF NOT EXISTS idx_miscellaneous_transactions_scenario_id ON miscellaneous_transactions(scenario_id);
+CREATE INDEX IF NOT EXISTS idx_miscellaneous_transactions_date 
+  ON miscellaneous_transactions(date);
 
--- コメントを追加
-COMMENT ON TABLE miscellaneous_transactions IS '雑収支管理テーブル';
-COMMENT ON COLUMN miscellaneous_transactions.id IS 'トランザクションID';
-COMMENT ON COLUMN miscellaneous_transactions.date IS '日付';
-COMMENT ON COLUMN miscellaneous_transactions.type IS '種別: income=収入, expense=支出';
-COMMENT ON COLUMN miscellaneous_transactions.category IS 'カテゴリ名';
-COMMENT ON COLUMN miscellaneous_transactions.amount IS '金額';
-COMMENT ON COLUMN miscellaneous_transactions.description IS '説明メモ';
-COMMENT ON COLUMN miscellaneous_transactions.store_id IS '関連店舗ID';
-COMMENT ON COLUMN miscellaneous_transactions.scenario_id IS '関連シナリオID';
-COMMENT ON COLUMN miscellaneous_transactions.created_at IS '作成日時';
-COMMENT ON COLUMN miscellaneous_transactions.updated_at IS '更新日時';
+CREATE INDEX IF NOT EXISTS idx_miscellaneous_transactions_type 
+  ON miscellaneous_transactions(type);
 
--- RLS（Row Level Security）を有効化
+CREATE INDEX IF NOT EXISTS idx_miscellaneous_transactions_store_id 
+  ON miscellaneous_transactions(store_id);
+
+CREATE INDEX IF NOT EXISTS idx_miscellaneous_transactions_scenario_id 
+  ON miscellaneous_transactions(scenario_id);
+
+-- RLSを有効化
 ALTER TABLE miscellaneous_transactions ENABLE ROW LEVEL SECURITY;
 
--- ポリシーを作成（認証済みユーザーのみアクセス可能）
-CREATE POLICY "Enable read access for authenticated users" ON miscellaneous_transactions
-  FOR SELECT USING (auth.role() = 'authenticated');
+-- ポリシーを作成
+CREATE POLICY "Enable read access for authenticated users" 
+  ON miscellaneous_transactions
+  FOR SELECT 
+  USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Enable insert for authenticated users" ON miscellaneous_transactions
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Enable insert for authenticated users" 
+  ON miscellaneous_transactions
+  FOR INSERT 
+  WITH CHECK (auth.role() = 'authenticated');
 
-CREATE POLICY "Enable update for authenticated users" ON miscellaneous_transactions
-  FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Enable update for authenticated users" 
+  ON miscellaneous_transactions
+  FOR UPDATE 
+  USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Enable delete for authenticated users" ON miscellaneous_transactions
-  FOR DELETE USING (auth.role() = 'authenticated');
-
--- 確認クエリ
-SELECT 
-  table_name,
-  column_name,
-  data_type,
-  is_nullable,
-  column_default
-FROM information_schema.columns
-WHERE table_name = 'miscellaneous_transactions'
-ORDER BY ordinal_position;
-
+CREATE POLICY "Enable delete for authenticated users" 
+  ON miscellaneous_transactions
+  FOR DELETE 
+  USING (auth.role() = 'authenticated');
