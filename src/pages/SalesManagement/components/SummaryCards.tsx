@@ -49,183 +49,148 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
   variableCostBreakdown,
   netProfit
 }) => {
+  // 支出合計を計算
+  const totalExpenses = totalVariableCost + totalFixedCost
+
   return (
-    <div className="space-y-4">
-      {/* 第1行: 主要指標（大きく表示） */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">総売上</CardTitle>
-          <BookOpen className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {formatCurrency(totalRevenue)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            期間内の総売上
-          </p>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      {/* 第1行: 最重要指標（特大表示） */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold text-blue-900">総売上</CardTitle>
+            <TrendingUp className="h-5 w-5 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-900">
+              {formatCurrency(totalRevenue)}
+            </div>
+            <p className="text-sm text-blue-700 mt-1">
+              {totalEvents}公演 • 平均 {formatCurrency(averageRevenue)}
+            </p>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">平均売上</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {formatCurrency(averageRevenue)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            1公演あたり
-          </p>
-        </CardContent>
-      </Card>
+        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold text-red-900">支出合計</CardTitle>
+            <CreditCard className="h-5 w-5 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-900">
+              {formatCurrency(totalExpenses)}
+            </div>
+            <p className="text-sm text-red-700 mt-1">
+              変動費 {formatCurrency(totalVariableCost)} + 固定費 {formatCurrency(totalFixedCost)}
+            </p>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">総公演数</CardTitle>
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {totalEvents}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            期間内の公演数
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">純利益</CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {formatCurrency(netProfit)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            売上 - 変動費 - 固定費
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">店舗数</CardTitle>
-          <Store className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {storeCount}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            登録店舗数
-          </p>
-        </CardContent>
-      </Card>
+        <Card className={`bg-gradient-to-br border-2 ${netProfit >= 0 ? 'from-green-50 to-green-100 border-green-300' : 'from-gray-50 to-gray-100 border-gray-300'}`}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className={`text-base font-semibold ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'}`}>純利益</CardTitle>
+            <DollarSign className={`h-5 w-5 ${netProfit >= 0 ? 'text-green-600' : 'text-gray-600'}`} />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-3xl font-bold ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'}`}>
+              {formatCurrency(netProfit)}
+            </div>
+            <p className={`text-sm mt-1 ${netProfit >= 0 ? 'text-green-700' : 'text-gray-700'}`}>
+              利益率 {totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}%
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* 第2行: 費用内訳（変動費・固定費） */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">変動費</CardTitle>
-          <CreditCard className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-orange-600">
-            {formatCurrency(totalVariableCost)}
-          </div>
-          <div className="text-xs text-muted-foreground space-y-1 mt-2">
-            {variableCostBreakdown.map((item, index) => (
-              <div key={index} className="flex justify-between">
-                <span>{item.category}:</span>
-                <span>{formatCurrency(item.amount)}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">固定費</CardTitle>
-          <Store className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-purple-600">
-            {formatCurrency(totalFixedCost)}
-          </div>
-          <div className="text-xs text-muted-foreground space-y-1 mt-2">
-            {fixedCostBreakdown.length > 0 ? (
-              <>
-                {/* 家賃の合計を計算して表示 */}
-                {(() => {
-                  const rentTotal = fixedCostBreakdown
-                    .filter(item => item.item === '家賃')
-                    .reduce((sum, item) => sum + item.amount, 0)
-                  
-                  if (rentTotal > 0) {
-                    return (
-                      <div className="flex justify-between gap-2 font-medium text-purple-700">
-                        <span>家賃合計:</span>
-                        <span>{formatCurrency(rentTotal)}</span>
-                      </div>
-                    )
-                  }
-                  return null
-                })()}
-                
-                {/* その他の項目（スクロール可能） */}
-                <div className="max-h-16 overflow-y-auto space-y-1 border-t pt-1">
-                  {fixedCostBreakdown.map((item, index) => (
-                    <div key={index} className="flex justify-between gap-2">
-                      <span className="truncate">{item.store} {item.item}:</span>
-                      <span className="whitespace-nowrap">{formatCurrency(item.amount)}</span>
-                    </div>
-                  ))}
+      {/* 第2行: 変動費内訳 */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-orange-600" />
+              変動費
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-orange-600 mb-3">
+              {formatCurrency(totalVariableCost)}
+            </div>
+            <div className="text-xs space-y-1.5">
+              {variableCostBreakdown.map((item, index) => (
+                <div key={index} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
+                  <span className="text-muted-foreground">{item.category}</span>
+                  <span className="font-medium">{formatCurrency(item.amount)}</span>
                 </div>
-              </>
-            ) : (
-              <span>固定費なし</span>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-red-600" />
+              ライセンス費用
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-red-600">
+              {formatCurrency(totalLicenseCost)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              作者への支払い
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Users className="h-4 w-4 text-red-600" />
+              GM給与
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-red-600">
+              {formatCurrency(totalGmCost)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              GMスタッフへの支払い
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Store className="h-4 w-4 text-purple-600" />
+              固定費
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold text-purple-600">
+              {formatCurrency(totalFixedCost)}
+            </div>
+            {fixedCostBreakdown.length > 0 && (
+              <div className="text-xs text-muted-foreground mt-2 space-y-0.5 max-h-12 overflow-y-auto">
+                {(() => {
+                  // 項目ごとに合計を計算
+                  const itemTotals = fixedCostBreakdown.reduce((acc, item) => {
+                    acc[item.item] = (acc[item.item] || 0) + item.amount
+                    return acc
+                  }, {} as Record<string, number>)
+                  
+                  return Object.entries(itemTotals).map(([item, total], index) => (
+                    <div key={index} className="flex justify-between">
+                      <span>{item}:</span>
+                      <span>{formatCurrency(total)}</span>
+                    </div>
+                  ))
+                })()}
+              </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">ライセンス費用</CardTitle>
-          <CreditCard className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-red-600">
-            {formatCurrency(totalLicenseCost)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            作者への支払い
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">GM給与</CardTitle>
-          <Users className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-red-600">
-            {formatCurrency(totalGmCost)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            GMスタッフへの支払い
-          </p>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
