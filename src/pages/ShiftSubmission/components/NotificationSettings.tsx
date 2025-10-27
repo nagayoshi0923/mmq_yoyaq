@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { supabase } from '@/lib/supabase'
-import { Bell, Calendar, Clock, Save } from 'lucide-react'
+import { Bell, Calendar, Clock, Save, Send } from 'lucide-react'
 
 interface NotificationSettingsData {
   shift_notification_enabled: boolean
@@ -23,6 +23,7 @@ export function NotificationSettings() {
   })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
 
   // 設定を読み込み
   useEffect(() => {
@@ -75,6 +76,53 @@ export function NotificationSettings() {
       alert('設定の保存に失敗しました')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleTestNotification = async () => {
+    if (!confirm('テスト通知を送信します。各スタッフのDiscordチャンネルに通知が送られます。よろしいですか？')) {
+      return
+    }
+
+    setTesting(true)
+    try {
+      // 翌月の情報を取得
+      const now = new Date()
+      const nextMonth = now.getMonth() + 2 // 0-indexed なので +2
+      const nextYear = nextMonth > 12 ? now.getFullYear() + 1 : now.getFullYear()
+      const adjustedMonth = nextMonth > 12 ? 1 : nextMonth
+
+      const { data, error } = await supabase.functions.invoke('notify-shift-request-discord-simple', {
+        body: {
+          year: nextYear,
+          month: adjustedMonth
+        }
+      })
+
+      if (error) throw error
+
+      const result = data as {
+        success: boolean
+        sent_to: number
+        success_count: number
+        failed_staff: string[]
+      }
+
+      let message = `テスト通知を送信しました\n\n`
+      message += `送信先: ${result.sent_to}名\n`
+      message += `成功: ${result.success_count}名\n`
+      
+      if (result.failed_staff && result.failed_staff.length > 0) {
+        message += `失敗: ${result.failed_staff.length}名\n`
+        message += `（${result.failed_staff.join(', ')}）`
+      }
+
+      alert(message)
+    } catch (error) {
+      console.error('テスト通知エラー:', error)
+      alert('テスト通知の送信に失敗しました\n\n' + (error instanceof Error ? error.message : '不明なエラー'))
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -258,8 +306,36 @@ export function NotificationSettings() {
         </CardContent>
       </Card>
 
+      {/* テスト通知 */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-900">
+            <Send className="h-5 w-5" />
+            テスト通知
+          </CardTitle>
+          <CardDescription>
+            設定した内容でテスト通知を送信します
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            各スタッフのDiscordチャンネルに翌月のシフト募集通知を送信します。<br />
+            実際の通知内容を確認できます。
+          </p>
+          <Button 
+            onClick={handleTestNotification} 
+            disabled={testing}
+            variant="outline"
+            className="border-blue-300 text-blue-700 hover:bg-blue-100"
+          >
+            <Send className="h-4 w-4 mr-2" />
+            {testing ? 'テスト送信中...' : 'テスト通知を送信'}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* 保存ボタン */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-4">
         <Button onClick={handleSave} disabled={saving} size="lg">
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '設定を保存'}
