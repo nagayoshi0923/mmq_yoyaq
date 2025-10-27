@@ -17,12 +17,12 @@ WHERE gm_count IS NULL;
 -- 確認クエリ
 SELECT 
   title,
-  gm_count as '必要GM数',
-  jsonb_array_length(gm_costs) as 'gm_costs配列長',
+  gm_count as "必要GM数",
+  jsonb_array_length(gm_costs) as "gm_costs配列長",
   CASE 
     WHEN jsonb_array_length(gm_costs) = 2 THEN '✅ 通常+GMテスト'
     ELSE '⚠️ 要確認'
-  END as 'gm_costs状態',
+  END as "gm_costs状態",
   jsonb_pretty(gm_costs) as gm_costs_detail
 FROM scenarios
 ORDER BY title
