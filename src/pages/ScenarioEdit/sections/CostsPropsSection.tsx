@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -64,12 +63,13 @@ export function CostsPropsSection({ formData, setFormData }: CostsPropsSectionPr
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>制作費</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div>
+      <h3 className="text-lg font-semibold mb-4 pb-2 border-b">制作費・道具</h3>
+      <div className="space-y-6">
+        {/* 制作費 */}
+        <div>
+          <h4 className="text-sm font-medium mb-3">制作費</h4>
+          <div className="space-y-3">
           {/* 既存の制作費 */}
           {formData.production_costs.map((cost, index) => (
             <div key={index} className="flex items-center gap-2 border rounded p-3">
@@ -118,14 +118,13 @@ export function CostsPropsSection({ formData, setFormData }: CostsPropsSectionPr
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>必要小道具</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        {/* 必要小道具 */}
+        <div className="pt-4 border-t">
+          <h4 className="text-sm font-medium mb-3">必要小道具</h4>
+          <div className="space-y-3">
           {/* 既存の小道具 */}
           {formData.required_props.filter(prop => prop != null).map((prop, index) => (
             <div key={index} className="flex items-center gap-2 border rounded p-3">
@@ -186,8 +185,9 @@ export function CostsPropsSection({ formData, setFormData }: CostsPropsSectionPr
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
