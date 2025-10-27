@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
@@ -13,12 +12,9 @@ interface GameInfoSectionProps {
 
 export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps) {
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>プレイ情報</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div>
+      <h3 className="text-lg font-semibold mb-4 pb-2 border-b">ゲーム情報</h3>
+      <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Label htmlFor="duration">所要時間（分）</Label>
@@ -84,14 +80,9 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
               />
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>カテゴリ・ステータス</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          {/* カテゴリ・ステータス */}
+          <div className="pt-4 mt-4 border-t space-y-4">
           <div>
             <Label htmlFor="genre">ジャンル</Label>
             <MultiSelect
@@ -120,8 +111,8 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
+          </div>
+      </div>
     </div>
   )
 }

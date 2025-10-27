@@ -58,24 +58,70 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
     <div>
       <h3 className="text-lg font-semibold mb-4 pb-2 border-b">基本情報</h3>
       <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="title">タイトル *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                required
-              />
+          {/* キービジュアル + タイトル・作者 */}
+          <div className="flex gap-4">
+            {/* キービジュアル */}
+            <div className="w-[100px] shrink-0">
+              {formData.key_visual_url ? (
+                <div className="relative group">
+                  <OptimizedImage
+                    src={formData.key_visual_url}
+                    alt="Key Visual"
+                    className="w-full aspect-[16/9] object-cover rounded"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={handleImageRemove}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="w-full aspect-[16/9] border-2 border-dashed rounded flex items-center justify-center bg-muted/30">
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={uploading}
+                    className="h-full w-full"
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
-            <div>
-              <Label htmlFor="author">作者 *</Label>
-              <Input
-                id="author"
-                value={formData.author}
-                onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
-                required
-              />
+
+            {/* タイトル・作者 */}
+            <div className="flex-1 space-y-3">
+              <div>
+                <Label htmlFor="title">タイトル *</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="author">作者 *</Label>
+                <Input
+                  id="author"
+                  value={formData.author}
+                  onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
+                  required
+                />
+              </div>
             </div>
           </div>
 
@@ -88,51 +134,6 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
               rows={6}
               placeholder="シナリオの詳細な説明を入力してください"
             />
-          </div>
-
-          {/* キービジュアル */}
-          <div className="pt-4 mt-4 border-t">
-            <h4 className="text-sm font-medium mb-3">キービジュアル</h4>
-          {formData.key_visual_url ? (
-            <div className="relative inline-block">
-              <OptimizedImage
-                src={formData.key_visual_url}
-                alt="Key Visual"
-                className="max-w-md rounded"
-              />
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="absolute top-2 right-2"
-                onClick={handleImageRemove}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => imageInputRef.current?.click()}
-                disabled={uploading}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                {uploading ? 'アップロード中...' : '画像をアップロード'}
-              </Button>
-              <p className="text-sm text-muted-foreground mt-2">
-                推奨サイズ: 1200x630px、最大5MB
-              </p>
-            </div>
-          )}
           </div>
       </div>
     </div>
