@@ -96,6 +96,17 @@ serve(async (req) => {
   }
 
   try {
+    // 環境変数チェック
+    if (!DISCORD_BOT_TOKEN) {
+      throw new Error('DISCORD_BOT_TOKEN is not set')
+    }
+    if (!SUPABASE_URL) {
+      throw new Error('SUPABASE_URL is not set')
+    }
+    if (!SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set')
+    }
+    
     const payload: ShiftRequestPayload = await req.json()
     console.log('📨 Shift request payload:', payload)
     
@@ -110,10 +121,13 @@ serve(async (req) => {
     }
     
     // 設定から通知日・締切日を取得
-    const { data: settings } = await supabase
+    const { data: settingsData } = await supabase
       .from('notification_settings')
       .select('*')
-      .single()
+      .order('created_at', { ascending: false })
+      .limit(1)
+    
+    const settings = settingsData && settingsData.length > 0 ? settingsData[0] : null
     
     const notificationDay = settings?.shift_notification_day || 25
     const deadlineDay = settings?.shift_deadline_day || 25
@@ -133,8 +147,11 @@ serve(async (req) => {
       .not('discord_channel_id', 'is', null)
     
     if (staffError) {
+      console.error('❌ Staff fetch error:', staffError)
       throw new Error(`Failed to fetch staff: ${staffError.message}`)
     }
+    
+    console.log(`📋 Found ${staffList?.length || 0} active staff with Discord channel ID`)
     
     if (!staffList || staffList.length === 0) {
       throw new Error('No active staff with Discord channel ID found')
