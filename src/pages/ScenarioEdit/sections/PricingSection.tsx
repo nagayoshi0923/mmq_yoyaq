@@ -1,11 +1,5 @@
-import React, { useState } from 'react'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { StatusBadge } from '@/components/ui/status-badge'
-import { DateRangeModal } from '@/components/modals/DateRangeModal'
-import { Plus, Trash2 } from 'lucide-react'
+import React from 'react'
+import { ItemizedListWithDates, type ItemizedListColumn } from '@/components/ui/itemized-list-with-dates'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 
 interface PricingSectionProps {
@@ -14,61 +8,63 @@ interface PricingSectionProps {
 }
 
 export function PricingSection({ formData, setFormData }: PricingSectionProps) {
-  const [dateRangeModalOpen, setDateRangeModalOpen] = useState(false)
-  const [editingCostType, setEditingCostType] = useState<'participation' | 'license'>('participation')
-  const [editingCostIndex, setEditingCostIndex] = useState<number>(0)
-
-  // 時間帯オプション
-  const timeSlotOptions = [
-    { value: 'normal', label: '通常公演' },
-    { value: 'gmtest', label: 'GMテスト' },
-    { value: 'weekend', label: '週末' },
-    { value: 'holiday', label: '祝日' },
-    { value: 'late_night', label: '深夜' },
-  ]
-
-  // カテゴリオプション（ライセンス用）
-  const categoryOptions = [
-    { value: 'normal', label: '通常公演' },
-    { value: 'gmtest', label: 'GMテスト' },
-  ]
-
-  // ステータス判定
-  const getItemStatus = (item: any): 'active' | 'ready' | 'legacy' => {
-    if (!item.startDate && !item.endDate) return 'active'
-    const now = new Date()
-    const start = item.startDate ? new Date(item.startDate) : null
-    const end = item.endDate ? new Date(item.endDate) : null
-    if (start && now < start) return 'ready'
-    if (end && now > end) return 'legacy'
-    return 'active'
-  }
-
-  const getStatusLabel = (status: string): string => {
-    switch (status) {
-      case 'active': return '使用中'
-      case 'ready': return '待機中'
-      case 'legacy': return '過去の設定'
-      default: return status
+  // 参加費のカラム定義
+  const participationCostColumns: ItemizedListColumn[] = [
+    {
+      key: 'time_slot',
+      label: '時間帯',
+      type: 'select',
+      width: '1.5fr',
+      options: [
+        { value: 'normal', label: '通常公演' },
+        { value: 'gmtest', label: 'GMテスト' },
+        { value: 'weekend', label: '週末' },
+        { value: 'holiday', label: '祝日' },
+        { value: 'late_night', label: '深夜' },
+      ]
+    },
+    {
+      key: 'amount',
+      label: '金額（円）',
+      type: 'number',
+      width: '1fr',
+      placeholder: '3000'
     }
-  }
+  ]
 
-  // 参加費の追加
+  // ライセンス料のカラム定義
+  const licenseRewardColumns: ItemizedListColumn[] = [
+    {
+      key: 'item',
+      label: 'カテゴリ',
+      type: 'select',
+      width: '1.5fr',
+      options: [
+        { value: 'normal', label: '通常公演' },
+        { value: 'gmtest', label: 'GMテスト' },
+      ]
+    },
+    {
+      key: 'amount',
+      label: '金額（円）',
+      type: 'number',
+      width: '1fr',
+      placeholder: '1500'
+    }
+  ]
+
+  // 参加費の操作
   const handleAddParticipationCost = () => {
-    const newCost = {
-      time_slot: 'normal',
-      amount: 3000,
-      type: 'fixed' as const,
-      status: 'active' as const,
-      usageCount: 0
-    }
     setFormData(prev => ({
       ...prev,
-      participation_costs: [...(prev.participation_costs || []), newCost]
+      participation_costs: [...(prev.participation_costs || []), {
+        time_slot: 'normal',
+        amount: 3000,
+        type: 'fixed' as const
+      }]
     }))
   }
 
-  // 参加費の削除
   const handleRemoveParticipationCost = (index: number) => {
     setFormData(prev => ({
       ...prev,
@@ -76,7 +72,6 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
     }))
   }
 
-  // 参加費の更新
   const handleUpdateParticipationCost = (index: number, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -86,22 +81,18 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
     }))
   }
 
-  // ライセンス料の追加
+  // ライセンス料の操作
   const handleAddLicenseReward = () => {
-    const newReward = {
-      item: 'normal',
-      amount: 1500,
-      type: 'fixed' as const,
-      status: 'active' as const,
-      usageCount: 0
-    }
     setFormData(prev => ({
       ...prev,
-      license_rewards: [...(prev.license_rewards || []), newReward]
+      license_rewards: [...(prev.license_rewards || []), {
+        item: 'normal',
+        amount: 1500,
+        type: 'fixed' as const
+      }]
     }))
   }
 
-  // ライセンス料の削除
   const handleRemoveLicenseReward = (index: number) => {
     setFormData(prev => ({
       ...prev,
@@ -109,7 +100,6 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
     }))
   }
 
-  // ライセンス料の更新
   const handleUpdateLicenseReward = (index: number, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -117,32 +107,6 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
         i === index ? { ...item, [field]: value } : item
       ) || []
     }))
-  }
-
-  // 期間設定モーダルを開く
-  const handleOpenDateRangeModal = (type: 'participation' | 'license', index: number) => {
-    setEditingCostType(type)
-    setEditingCostIndex(index)
-    setDateRangeModalOpen(true)
-  }
-
-  // 期間設定を保存
-  const handleSaveDateRange = (startDate?: string, endDate?: string) => {
-    if (editingCostType === 'participation') {
-      setFormData(prev => ({
-        ...prev,
-        participation_costs: prev.participation_costs?.map((item, i) => 
-          i === editingCostIndex ? { ...item, startDate, endDate } : item
-        ) || []
-      }))
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        license_rewards: prev.license_rewards?.map((item, i) => 
-          i === editingCostIndex ? { ...item, startDate, endDate } : item
-        ) || []
-      }))
-    }
   }
 
   return (
@@ -158,251 +122,45 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
 
       <div className="space-y-6">
         {/* 参加費設定 */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-medium">参加費設定</h4>
-            <Button
-              type="button"
-              onClick={handleAddParticipationCost}
-              size="sm"
-              variant="outline"
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              参加費を追加
-            </Button>
-          </div>
-          <div className="space-y-3">
-          {(!formData.participation_costs || formData.participation_costs.length === 0) ? (
-            <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p>参加費設定がありません</p>
-              <p className="text-sm mt-2">「参加費を追加」ボタンから追加してください</p>
-            </div>
-          ) : (
-            formData.participation_costs.map((cost, index) => {
-              const status = getItemStatus(cost)
-              return (
-                <div key={index} className="border-2 rounded-lg p-4 bg-card">
-                    <div className="flex items-start gap-3">
-                      <div className="pt-6">
-                        <StatusBadge status={status} label={getStatusLabel(status)} />
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="grid grid-cols-[1.5fr_1fr_auto_auto] gap-3 items-end">
-                          {/* 時間帯 */}
-                          <div>
-                            <Label className="text-xs">時間帯</Label>
-                            <Select
-                              value={cost.time_slot}
-                              onValueChange={(value) => handleUpdateParticipationCost(index, 'time_slot', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {timeSlotOptions.map(opt => (
-                                  <SelectItem key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* 金額 */}
-                          <div>
-                            <Label className="text-xs">参加費（円）</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="100"
-                              value={cost.amount}
-                              onChange={(e) => handleUpdateParticipationCost(index, 'amount', parseInt(e.target.value) || 0)}
-                              className="text-right"
-                            />
-                          </div>
-
-                          {/* 期間設定ボタン */}
-                          <div>
-                            <Label className="text-xs">&nbsp;</Label>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenDateRangeModal('participation', index)}
-                              className="text-xs h-8"
-                            >
-                              期間設定
-                            </Button>
-                          </div>
-
-                          {/* 削除ボタン */}
-                          <div>
-                            <Label className="text-xs">&nbsp;</Label>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveParticipationCost(index)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* 期間表示 */}
-                        {(cost.startDate || cost.endDate) && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            <span className="font-medium">適用期間: </span>
-                            {cost.startDate && !cost.endDate && `${cost.startDate}から`}
-                            {!cost.startDate && cost.endDate && `${cost.endDate}まで`}
-                            {cost.startDate && cost.endDate && `${cost.startDate} 〜 ${cost.endDate}`}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                </div>
-              )
-            })
-          )}
-          </div>
-        </div>
+        <ItemizedListWithDates
+          title="参加費設定"
+          addButtonLabel="参加費を追加"
+          emptyMessage="参加費設定がありません"
+          items={formData.participation_costs || []}
+          columns={participationCostColumns}
+          defaultNewItem={() => ({
+            time_slot: 'normal',
+            amount: 3000,
+            type: 'fixed' as const
+          })}
+          onAdd={handleAddParticipationCost}
+          onRemove={handleRemoveParticipationCost}
+          onUpdate={handleUpdateParticipationCost}
+          showDateRange={true}
+          dateRangeLabel="期間設定"
+        />
 
         {/* ライセンス料設定 */}
         <div className="pt-6 border-t">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-medium">ライセンス料設定</h4>
-            <Button
-              type="button"
-              onClick={handleAddLicenseReward}
-              size="sm"
-              variant="outline"
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              ライセンス料を追加
-            </Button>
-          </div>
-          <div className="space-y-3">
-          {(!formData.license_rewards || formData.license_rewards.length === 0) ? (
-            <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p>ライセンス料設定がありません</p>
-              <p className="text-sm mt-2">「ライセンス料を追加」ボタンから追加してください</p>
-            </div>
-          ) : (
-            formData.license_rewards.map((reward, index) => {
-              const status = getItemStatus(reward)
-              return (
-                <div key={index} className="border-2 rounded-lg p-4 bg-card">
-                    <div className="flex items-start gap-3">
-                      <div className="pt-6">
-                        <StatusBadge status={status} label={getStatusLabel(status)} />
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="grid grid-cols-[1.5fr_1fr_auto_auto] gap-3 items-end">
-                          {/* カテゴリ */}
-                          <div>
-                            <Label className="text-xs">公演カテゴリ</Label>
-                            <Select
-                              value={reward.item}
-                              onValueChange={(value) => handleUpdateLicenseReward(index, 'item', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {categoryOptions.map(opt => (
-                                  <SelectItem key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* 金額 */}
-                          <div>
-                            <Label className="text-xs">ライセンス料（円）</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="100"
-                              value={reward.amount}
-                              onChange={(e) => handleUpdateLicenseReward(index, 'amount', parseInt(e.target.value) || 0)}
-                              className="text-right"
-                            />
-                          </div>
-
-                          {/* 期間設定ボタン */}
-                          <div>
-                            <Label className="text-xs">&nbsp;</Label>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenDateRangeModal('license', index)}
-                              className="text-xs h-8"
-                            >
-                              期間設定
-                            </Button>
-                          </div>
-
-                          {/* 削除ボタン */}
-                          <div>
-                            <Label className="text-xs">&nbsp;</Label>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveLicenseReward(index)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* 期間表示 */}
-                        {(reward.startDate || reward.endDate) && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            <span className="font-medium">適用期間: </span>
-                            {reward.startDate && !reward.endDate && `${reward.startDate}から`}
-                            {!reward.startDate && reward.endDate && `${reward.endDate}まで`}
-                            {reward.startDate && reward.endDate && `${reward.startDate} 〜 ${reward.endDate}`}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                </div>
-              )
-            })
-          )}
-          </div>
+          <ItemizedListWithDates
+            title="ライセンス料設定"
+            addButtonLabel="ライセンス料を追加"
+            emptyMessage="ライセンス料設定がありません"
+            items={formData.license_rewards || []}
+            columns={licenseRewardColumns}
+            defaultNewItem={() => ({
+              item: 'normal',
+              amount: 1500,
+              type: 'fixed' as const
+            })}
+            onAdd={handleAddLicenseReward}
+            onRemove={handleRemoveLicenseReward}
+            onUpdate={handleUpdateLicenseReward}
+            showDateRange={true}
+            dateRangeLabel="期間設定"
+          />
         </div>
       </div>
-
-      {/* 期間設定モーダル */}
-      <DateRangeModal
-        isOpen={dateRangeModalOpen}
-        onClose={() => setDateRangeModalOpen(false)}
-        onSave={handleSaveDateRange}
-        initialStartDate={
-          editingCostType === 'participation'
-            ? formData.participation_costs?.[editingCostIndex]?.startDate
-            : formData.license_rewards?.[editingCostIndex]?.startDate
-        }
-        initialEndDate={
-          editingCostType === 'participation'
-            ? formData.participation_costs?.[editingCostIndex]?.endDate
-            : formData.license_rewards?.[editingCostIndex]?.endDate
-        }
-        title="期間設定"
-        description="この設定の適用期間を設定します。未指定の場合は無期限となります。"
-      />
     </div>
   )
 }
-
