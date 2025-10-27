@@ -51,7 +51,7 @@ async function sendDiscordShiftRequest(
           type: 2,
           style: 5, // リンクボタン（青色）
           label: "シフト提出ページを開く",
-          url: `${SITE_URL}/#/shift-submission`
+          url: `${SITE_URL}/shift-submission`
         }
       ]
     }
