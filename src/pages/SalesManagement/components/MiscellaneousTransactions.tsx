@@ -17,6 +17,7 @@ interface Transaction {
   amount: number
   description: string
   store_id?: string
+  scenario_id?: string
   created_at?: string
 }
 
@@ -25,6 +26,12 @@ interface Store {
   name: string
   short_name: string
   ownership_type?: 'corporate' | 'franchise' | 'office'
+}
+
+interface Scenario {
+  id: string
+  title: string
+  author: string
 }
 
 interface MiscellaneousTransactionsProps {
@@ -42,6 +49,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
   })
   
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [loading, setLoading] = useState(false)
   
   // 新規追加フォームの状態
@@ -51,11 +59,31 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     category: '',
     amount: 0,
     description: '',
-    store_id: undefined
+    store_id: undefined,
+    scenario_id: undefined
   })
   
   // 直営店とオフィスのみを表示
   const corporateStores = stores.filter(s => s.ownership_type !== 'franchise')
+  
+  // シナリオを読み込み
+  useEffect(() => {
+    const loadScenarios = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('scenarios')
+          .select('id, title, author')
+          .order('title', { ascending: true })
+        
+        if (error) throw error
+        setScenarios(data || [])
+      } catch (error) {
+        console.error('シナリオ読み込みエラー:', error)
+      }
+    }
+    
+    loadScenarios()
+  }, [])
   
   // 月の範囲を計算
   const getMonthRange = (date: Date) => {
@@ -116,7 +144,8 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
           category: newTransaction.category,
           amount: newTransaction.amount,
           description: newTransaction.description,
-          store_id: newTransaction.store_id || null
+          store_id: newTransaction.store_id || null,
+          scenario_id: newTransaction.scenario_id || null
         }])
       
       if (error) throw error
@@ -128,7 +157,8 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
         category: '',
         amount: 0,
         description: '',
-        store_id: undefined
+        store_id: undefined,
+        scenario_id: undefined
       })
       
       // リロード
@@ -247,78 +277,102 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-6">
-            <div>
-              <Label>日付</Label>
-              <Input
-                type="date"
-                value={newTransaction.date}
-                onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
-              />
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <Label>日付</Label>
+                <Input
+                  type="date"
+                  value={newTransaction.date}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                />
+              </div>
+              
+              <div>
+                <Label>種別</Label>
+                <Select 
+                  value={newTransaction.type} 
+                  onValueChange={(value: 'income' | 'expense') => setNewTransaction({ ...newTransaction, type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="income">収入</SelectItem>
+                    <SelectItem value="expense">支出</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>カテゴリ</Label>
+                <Input
+                  placeholder="例: 広告費、印刷費"
+                  value={newTransaction.category}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
+                />
+              </div>
+              
+              <div>
+                <Label>金額</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={newTransaction.amount || ''}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, amount: parseInt(e.target.value) || 0 })}
+                />
+              </div>
             </div>
             
-            <div>
-              <Label>種別</Label>
-              <Select 
-                value={newTransaction.type} 
-                onValueChange={(value: 'income' | 'expense') => setNewTransaction({ ...newTransaction, type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="income">収入</SelectItem>
-                  <SelectItem value="expense">支出</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label>カテゴリ</Label>
-              <Input
-                placeholder="例: 広告費"
-                value={newTransaction.category}
-                onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
-              />
-            </div>
-            
-            <div>
-              <Label>金額</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={newTransaction.amount || ''}
-                onChange={(e) => setNewTransaction({ ...newTransaction, amount: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-            
-            <div>
-              <Label>店舗（任意）</Label>
-              <Select 
-                value={newTransaction.store_id || 'none'} 
-                onValueChange={(value) => setNewTransaction({ ...newTransaction, store_id: value === 'none' ? undefined : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="全社" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">全社</SelectItem>
-                  {corporateStores.map(store => (
-                    <SelectItem key={store.id} value={store.id}>
-                      {store.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label>説明（任意）</Label>
-              <Input
-                placeholder="メモ"
-                value={newTransaction.description}
-                onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
-              />
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <Label>シナリオ（任意）</Label>
+                <Select 
+                  value={newTransaction.scenario_id || 'none'} 
+                  onValueChange={(value) => setNewTransaction({ ...newTransaction, scenario_id: value === 'none' ? undefined : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="シナリオなし" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">シナリオなし</SelectItem>
+                    {scenarios.map(scenario => (
+                      <SelectItem key={scenario.id} value={scenario.id}>
+                        {scenario.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>店舗（任意）</Label>
+                <Select 
+                  value={newTransaction.store_id || 'none'} 
+                  onValueChange={(value) => setNewTransaction({ ...newTransaction, store_id: value === 'none' ? undefined : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="全社" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">全社</SelectItem>
+                    {corporateStores.map(store => (
+                      <SelectItem key={store.id} value={store.id}>
+                        {store.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>説明（任意）</Label>
+                <Input
+                  placeholder="メモ"
+                  value={newTransaction.description}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                />
+              </div>
             </div>
           </div>
           
@@ -347,9 +401,10 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
             <div className="space-y-2">
               {transactions.map(transaction => {
                 const store = corporateStores.find(s => s.id === transaction.store_id)
+                const scenario = scenarios.find(s => s.id === transaction.scenario_id)
                 return (
                   <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                    <div className="flex-1 grid grid-cols-6 gap-4 items-center">
+                    <div className="flex-1 grid grid-cols-7 gap-4 items-center">
                       <div className="text-sm text-muted-foreground">
                         {transaction.date}
                       </div>
@@ -370,11 +425,14 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                       }`}>
                         {formatCurrency(transaction.amount)}
                       </div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {scenario ? scenario.title : '-'}
+                      </div>
                       <div className="text-sm text-muted-foreground">
                         {store ? store.short_name : '全社'}
                       </div>
                       <div className="text-sm text-muted-foreground truncate">
-                        {transaction.description}
+                        {transaction.description || '-'}
                       </div>
                     </div>
                     <Button
