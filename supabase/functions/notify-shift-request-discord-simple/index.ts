@@ -84,7 +84,17 @@ async function sendDiscordShiftRequest(
   return result.id
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req) => {
+  // CORS preflight request
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     const payload: ShiftRequestPayload = await req.json()
     console.log('📨 Shift request payload:', payload)
@@ -95,7 +105,7 @@ serve(async (req) => {
     if (!year || !month || month < 1 || month > 12) {
       return new Response(
         JSON.stringify({ error: 'Invalid year or month' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
@@ -176,7 +186,7 @@ serve(async (req) => {
         success_count: messageIds.length,
         failed_staff: failedStaff
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
     
   } catch (error) {
@@ -185,7 +195,7 @@ serve(async (req) => {
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Unknown error' 
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })

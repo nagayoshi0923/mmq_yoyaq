@@ -36,16 +36,18 @@ export function NotificationSettings() {
       const { data, error } = await supabase
         .from('notification_settings')
         .select('*')
-        .single()
+        .order('created_at', { ascending: false })
+        .limit(1)
 
       if (error) throw error
 
-      if (data) {
+      if (data && data.length > 0) {
+        const settings = data[0]
         setSettings({
-          shift_notification_enabled: data.shift_notification_enabled ?? true,
-          shift_notification_day: data.shift_notification_day ?? 25,
-          shift_deadline_day: data.shift_deadline_day ?? 25,
-          shift_reminder_days: data.shift_reminder_days ?? 3
+          shift_notification_enabled: settings.shift_notification_enabled ?? true,
+          shift_notification_day: settings.shift_notification_day ?? 25,
+          shift_deadline_day: settings.shift_deadline_day ?? 25,
+          shift_reminder_days: settings.shift_reminder_days ?? 3
         })
       }
     } catch (error) {
