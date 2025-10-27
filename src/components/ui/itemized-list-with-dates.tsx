@@ -114,7 +114,7 @@ export function ItemizedListWithDates({
 
       <div className="space-y-3">
         {items.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+          <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
             <p>{emptyMessage}</p>
             <p className="text-sm mt-2">「{addButtonLabel}」ボタンから追加してください</p>
           </div>
