@@ -185,10 +185,10 @@ export function ItemizedListWithDates({
                         <div className="flex items-center justify-center">
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => handleOpenDateRangeModal(index)}
-                            className="text-xs h-8 px-3 text-muted-foreground hover:text-foreground"
+                            className="text-xs h-8 px-3"
                           >
                             期間
                           </Button>
