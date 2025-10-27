@@ -615,14 +615,19 @@ function calculateSalesData(
   let totalFixedCost = 0
   const fixedCostBreakdown: Array<{ item: string; amount: number; store: string }> = []
   
-  // 期間の日数を計算
-  const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
-  const monthsDiff = daysDiff / 30 // 概算月数
+  // 期間内に含まれるカレンダー月数を計算
+  const startMonth = startDate.getMonth()
+  const endMonth = endDate.getMonth()
+  const startYear = startDate.getFullYear()
+  const endYear = endDate.getFullYear()
+  const monthCount = (endYear - startYear) * 12 + (endMonth - startMonth) + 1
   
   console.log('💰 固定費計算開始:', { 
     storesCount: stores.length, 
     storeNames: stores.map(s => s.name),
-    monthsDiff 
+    startDate: `${startYear}/${startMonth + 1}`,
+    endDate: `${endYear}/${endMonth + 1}`,
+    monthCount 
   })
   
   stores.forEach(store => {
@@ -634,9 +639,9 @@ function calculateSalesData(
           let amount = 0
           
           if (cost.frequency === 'monthly') {
-            amount = cost.amount * monthsDiff
+            amount = cost.amount * monthCount
           } else if (cost.frequency === 'yearly') {
-            amount = cost.amount * (monthsDiff / 12)
+            amount = cost.amount * (monthCount / 12)
           } else if (cost.frequency === 'one-time') {
             // 一過性の費用が期間内に含まれるかチェック
             if (cost.startDate) {
