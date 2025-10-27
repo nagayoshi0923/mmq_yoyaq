@@ -102,7 +102,7 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
         logger.error('Discord通知エラー（処理は継続）:', notifyError)
       }
       
-      alert(`シフトを更新しました。\n\n保存: ${shiftsToUpsert.length}件\n削除: ${shiftsToRemove.length}件\n\nスケジュール管理ページで確認できます。`)
+      alert(`シフトを更新しました。\n\n出勤可能: ${shiftsToUpsert.length}件\n出勤不可: ${shiftsToRemove.length}件\n\nスケジュール管理ページで確認できます。`)
       
     } catch (error) {
       logger.error('シフト提出エラー:', error)
