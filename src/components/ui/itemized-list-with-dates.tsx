@@ -141,13 +141,13 @@ export function ItemizedListWithDates({
             return (
               <div key={index} className="border rounded-lg p-3 bg-card hover:shadow-sm transition-shadow">
                   <div 
-                    className="grid gap-3 items-center"
+                    className="grid gap-2 items-end"
                     style={{ gridTemplateColumns }}
                   >
                       {/* 動的カラム */}
                       {columns.map((column) => (
                         <div key={column.key}>
-                          <Label className="text-xs">{column.label}</Label>
+                          <Label className="text-xs mb-1.5 block">{column.label}</Label>
                           {column.type === 'select' ? (
                             <Select
                               value={item[column.key] || ''}
@@ -183,13 +183,14 @@ export function ItemizedListWithDates({
 
                       {/* 期間設定ボタン */}
                       {showDateRange && (
-                        <div className="flex items-center justify-center">
+                        <div>
+                          <Label className="text-xs mb-1.5 block opacity-0">期間</Label>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenDateRangeModal(index)}
-                            className="text-xs h-10 px-3"
+                            className="text-xs h-10 px-3 w-full"
                           >
                             期間
                           </Button>
@@ -197,15 +198,18 @@ export function ItemizedListWithDates({
                       )}
 
                       {/* ステータス・アクションメニュー */}
-                      <div className="flex items-center justify-between gap-2">
-                        {/* 期間表示 */}
-                        {showDateRange && (item.startDate || item.endDate) && (
-                          <div className="text-xs text-muted-foreground">
-                            {item.startDate && !item.endDate && `${item.startDate}〜`}
-                            {!item.startDate && item.endDate && `〜${item.endDate}`}
-                            {item.startDate && item.endDate && `${item.startDate}〜${item.endDate}`}
-                          </div>
-                        )}
+                      <div>
+                        <Label className="text-xs mb-1.5 block">
+                          {showDateRange && (item.startDate || item.endDate) ? (
+                            <>
+                              {item.startDate && !item.endDate && `${item.startDate}〜`}
+                              {!item.startDate && item.endDate && `〜${item.endDate}`}
+                              {item.startDate && item.endDate && `${item.startDate}〜${item.endDate}`}
+                            </>
+                          ) : (
+                            <span className="opacity-0">ステータス</span>
+                          )}
+                        </Label>
                         
                         <Select
                           value={status}

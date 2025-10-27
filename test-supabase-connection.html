@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Supabase接続テスト</title>
+</head>
+<body>
+  <h1>Supabase接続テスト</h1>
+  <button onclick="testConnection()">接続テスト</button>
+  <pre id="result"></pre>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+
+    // .envファイルの値を使用
+    const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'YOUR_SUPABASE_URL'
+    const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY'
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    window.testConnection = async function() {
+      const result = document.getElementById('result')
+      result.textContent = '接続中...\n'
+
+      try {
+        // scenariosテーブルから1件取得
+        const { data, error } = await supabase
+          .from('scenarios')
+          .select('id, title, production_costs, required_props')
+          .limit(1)
+
+        if (error) {
+          result.textContent += `❌ エラー: ${error.message}\n`
+          result.textContent += `詳細: ${JSON.stringify(error, null, 2)}\n`
+        } else {
+          result.textContent += `✅ 接続成功！\n`
+          result.textContent += `データ: ${JSON.stringify(data, null, 2)}\n`
+        }
+      } catch (e) {
+        result.textContent += `❌ 例外: ${e.message}\n`
+      }
+    }
+  </script>
+</body>
+</html>
+
