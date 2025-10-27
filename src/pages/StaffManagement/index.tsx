@@ -26,26 +26,11 @@ import { StaffFilters } from './components/StaffFilters'
 import { createStaffColumns } from './utils/tableColumns'
 
 export function StaffManagement() {
-  // 編集モード状態
-  const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
-  
   // ページ状態管理
   const { restoreState, saveState } = usePageState({
     pageKey: 'staff',
     scrollRestoration: true
   })
-  
-  // URLハッシュからスタッフIDを復元
-  useEffect(() => {
-    const hash = window.location.hash.slice(1)
-    if (hash.startsWith('staff/edit/')) {
-      const parts = hash.split('/')
-      const staffId = parts[2]
-      setCurrentStaffId(staffId)
-    } else {
-      setCurrentStaffId(null)
-    }
-  }, [])
 
   // React Query でCRUD操作
   const { data: staff = [], isLoading: loading, error: queryError } = useStaffQuery()
@@ -187,16 +172,7 @@ export function StaffManagement() {
 
   // スタッフ編集ハンドラ
   function handleEditStaff(staff: any) {
-    setCurrentStaffId(staff.id)
     openEditModal(staff)
-    window.location.hash = `staff/edit/${staff.id}`
-  }
-
-  // 一覧に戻るハンドラ
-  function handleBackToList() {
-    setCurrentStaffId(null)
-    closeEditModal()
-    window.location.hash = 'staff'
   }
 
   // テーブル列定義（メモ化）
@@ -274,17 +250,6 @@ export function StaffManagement() {
         className="mx-auto"
       >
         <div className="space-y-6">
-            {/* 編集モード時: スタッフ編集フォーム表示 */}
-            {currentStaffId && editingStaff ? (
-              <StaffEditForm
-                staff={editingStaff}
-                stores={stores}
-                scenarios={scenarios}
-                onSave={handleSaveStaff}
-                onCancel={handleBackToList}
-              />
-            ) : (
-              <>
             {/* 統計情報 */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
@@ -368,9 +333,28 @@ export function StaffManagement() {
               }
               loading={loading}
             />
-              </>
-            )}
           </div>
+
+        {/* スタッフ編集モーダル */}
+        <Dialog open={!!editingStaff} onOpenChange={(open) => !open && closeEditModal()}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editingStaff?.id ? 'スタッフ編集' : '新規スタッフ作成'}</DialogTitle>
+              <DialogDescription>
+                スタッフの情報を入力してください。
+              </DialogDescription>
+            </DialogHeader>
+            {editingStaff && (
+              <StaffEditForm
+                staff={editingStaff}
+                stores={stores}
+                scenarios={scenarios as any}
+                onSave={handleSaveStaff}
+                onCancel={closeEditModal}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* 削除確認ダイアログ */}
         <ConfirmModal

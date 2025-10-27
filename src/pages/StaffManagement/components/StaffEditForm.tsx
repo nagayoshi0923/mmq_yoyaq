@@ -78,12 +78,11 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* 基本情報 */}
-      {activeTab === 'basic' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>基本情報</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>基本情報</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
             <div>
               <Label htmlFor="name">名前 *</Label>
               <Input
@@ -114,15 +113,13 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
             </div>
           </CardContent>
         </Card>
-      )}
 
       {/* 連絡先情報 */}
-      {activeTab === 'contact' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>連絡先情報</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>連絡先情報</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
             <div>
               <Label htmlFor="email">メールアドレス</Label>
               <Input
@@ -170,15 +167,13 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
             </div>
           </CardContent>
         </Card>
-      )}
 
       {/* 役割・担当店舗 */}
-      {activeTab === 'role-store' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>役割・担当店舗</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>役割・担当店舗</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
             <div>
               <Label>役割</Label>
               <MultiSelect
@@ -210,15 +205,13 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
             </div>
           </CardContent>
         </Card>
-      )}
 
       {/* 備考 */}
-      {activeTab === 'notes' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>備考</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>備考</CardTitle>
+        </CardHeader>
+        <CardContent>
             <Textarea
               value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -227,7 +220,6 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
             />
           </CardContent>
         </Card>
-      )}
 
       {/* フッターボタン */}
       <div className="flex justify-end gap-2">
