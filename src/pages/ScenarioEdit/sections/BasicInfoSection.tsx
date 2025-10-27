@@ -59,9 +59,9 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
       <h3 className="text-lg font-semibold mb-4 pb-2 border-b">基本情報</h3>
       <div className="space-y-4">
           {/* キービジュアル + タイトル・作者 */}
-          <div className="flex gap-4">
+          <div className="flex gap-6">
             {/* キービジュアル */}
-            <div className="w-[100px] shrink-0">
+            <div className="w-[150px] shrink-0">
               {formData.key_visual_url ? (
                 <div className="relative group">
                   <OptimizedImage
@@ -103,23 +103,25 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
             </div>
 
             {/* タイトル・作者 */}
-            <div className="flex-1 space-y-3">
+            <div className="flex-1 flex flex-col justify-center space-y-4">
               <div>
-                <Label htmlFor="title">タイトル *</Label>
+                <Label htmlFor="title" className="text-sm font-medium">タイトル *</Label>
                 <Input
                   id="title"
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                   required
+                  className="mt-1.5"
                 />
               </div>
               <div>
-                <Label htmlFor="author">作者 *</Label>
+                <Label htmlFor="author" className="text-sm font-medium">作者 *</Label>
                 <Input
                   id="author"
                   value={formData.author}
                   onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
                   required
+                  className="mt-1.5"
                 />
               </div>
             </div>
