@@ -96,7 +96,8 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     onCustomStartDateChange(startStr)
     onCustomEndDateChange(endStr)
     onPeriodChange('custom')
-  }, [currentMonth, onCustomStartDateChange, onCustomEndDateChange, onPeriodChange])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMonth])
 
   // モーダル用データの取得
   useEffect(() => {
