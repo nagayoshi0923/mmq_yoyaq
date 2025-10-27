@@ -7,9 +7,9 @@ import { ExportButtons } from './ExportButtons'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { DateRangePopover } from '@/components/ui/date-range-popover'
 import { scenarioApi, staffApi, storeApi, scheduleApi } from '@/lib/api'
 import type { Staff, Scenario, Store } from '@/types'
 
@@ -239,26 +239,21 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
 
         {/* カスタム期間選択UI */}
         {selectedPeriod === 'custom' && (
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <Label>開始日</Label>
-              <Input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => onCustomStartDateChange(e.target.value)}
-              />
-            </div>
-            <div className="flex-1">
-              <Label>終了日</Label>
-              <Input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => onCustomEndDateChange(e.target.value)}
-              />
-            </div>
+          <div className="flex gap-4 items-center">
+            <Label className="text-sm text-muted-foreground min-w-[60px]">期間指定</Label>
+            <DateRangePopover
+              label="期間を選択"
+              startDate={customStartDate}
+              endDate={customEndDate}
+              onDateChange={(start, end) => {
+                if (start) onCustomStartDateChange(start)
+                if (end) onCustomEndDateChange(end)
+              }}
+            />
             <Button
               onClick={() => onPeriodChange('custom')}
               disabled={!customStartDate || !customEndDate}
+              size="sm"
             >
               適用
             </Button>
