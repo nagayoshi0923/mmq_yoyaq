@@ -14,7 +14,6 @@ interface StaffEditFormProps {
   scenarios: Scenario[]
   onSave: (staff: Staff) => void
   onCancel: () => void
-  activeTab: string
 }
 
 const roleOptions: MultiSelectOption[] = [
@@ -32,7 +31,7 @@ const statusOptions = [
   { value: 'resigned', label: '退職' }
 ]
 
-export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, activeTab }: StaffEditFormProps) {
+export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: StaffEditFormProps) {
   const [formData, setFormData] = useState<Partial<Staff>>({
     name: '',
     x_account: '',

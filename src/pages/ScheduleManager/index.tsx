@@ -11,7 +11,6 @@ import { useMonthNavigation } from './hooks/useMonthNavigation'
 
 // Layout Components
 import { AppLayout } from '@/components/layout/AppLayout'
-import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 
 // Schedule Components
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
@@ -25,15 +24,7 @@ import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Calendar, Upload, Filter, Settings } from 'lucide-react'
-
-// サイドバーのメニュー項目定義
-const SCHEDULE_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'schedule-view', label: 'スケジュール表示', icon: Calendar },
-  { id: 'import', label: 'インポート', icon: Upload },
-  { id: 'filter', label: 'フィルタ', icon: Filter },
-  { id: 'settings', label: '設定', icon: Settings },
-]
+import { Ban, Edit, RotateCcw, Trash2 } from 'lucide-react'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -45,7 +36,6 @@ export function ScheduleManager() {
 
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState('schedule-view')
 
   // スケジュールテーブルの共通フック
   const scheduleTableProps = useScheduleTable({ currentDate })
@@ -100,18 +90,8 @@ export function ScheduleManager() {
   return (
     <AppLayout
       currentPage="schedule" 
-      sidebar={
-        <UnifiedSidebar
-          title="スケジュール管理"
-          mode="list"
-          menuItems={SCHEDULE_MENU_ITEMS}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-4 py-4"
-      stickyLayout={true}
     >
       <div>
         {/* ヘッダー */}

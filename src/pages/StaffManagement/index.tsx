@@ -8,12 +8,10 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { StaffEditForm } from './components/StaffEditForm'
 import { usePageState } from '@/hooks/usePageState'
 import { 
-  Users, UserCheck, UserX, Clock, Shield,
-  List, UserPlus, Search, Mail, StickyNote, MapPin
+  Users, Clock, Shield
 } from 'lucide-react'
 
 // 分離されたフック
@@ -27,25 +25,8 @@ import { useStaffQuery, useStaffMutation, useDeleteStaffMutation } from './hooks
 import { StaffFilters } from './components/StaffFilters'
 import { createStaffColumns } from './utils/tableColumns'
 
-// サイドバーのメニュー項目定義（定数として外に出す）
-const STAFF_LIST_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'staff-list', label: 'スタッフ一覧', icon: List, description: 'すべてのスタッフを表示' },
-  { id: 'new-staff', label: '新規作成', icon: UserPlus, description: '新しいスタッフを追加' },
-  { id: 'search-filter', label: '検索・フィルタ', icon: Search, description: 'スタッフを検索・フィルタ' },
-  { id: 'invite-staff', label: 'スタッフ招待', icon: Mail, description: 'メールで招待を送信' }
-]
-
-const STAFF_EDIT_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'basic', label: '基本情報', icon: Users, description: '名前、ステータス、連絡先' },
-  { id: 'contact', label: '連絡先情報', icon: Mail, description: 'メール、電話、SNS' },
-  { id: 'role-store', label: '役割・担当店舗', icon: Shield, description: 'ロール、店舗、特別シナリオ' },
-  { id: 'notes', label: '備考', icon: StickyNote, description: 'メモ・特記事項' }
-]
-
 export function StaffManagement() {
-  // サイドバー状態
-  const [activeTab, setActiveTab] = useState('staff-list')
-  const [sidebarMode, setSidebarMode] = useState<'list' | 'edit'>('list')
+  // 編集モード状態
   const [currentStaffId, setCurrentStaffId] = useState<string | null>(null)
   
   // ページ状態管理
@@ -54,19 +35,15 @@ export function StaffManagement() {
     scrollRestoration: true
   })
   
-  // URLハッシュからスタッフIDとタブを復元
+  // URLハッシュからスタッフIDを復元
   useEffect(() => {
     const hash = window.location.hash.slice(1)
     if (hash.startsWith('staff/edit/')) {
       const parts = hash.split('/')
       const staffId = parts[2]
       setCurrentStaffId(staffId)
-      setSidebarMode('edit')
-      setActiveTab('basic') // デフォルトタブ
     } else {
       setCurrentStaffId(null)
-      setSidebarMode('list')
-      setActiveTab('staff-list')
     }
   }, [])
 
@@ -144,7 +121,6 @@ export function StaffManagement() {
 
   // モーダル管理
   const {
-    isEditModalOpen,
     editingStaff,
     openEditModal,
     closeEditModal,
@@ -176,7 +152,7 @@ export function StaffManagement() {
     onSuccess: async () => {
       closeInviteModal()
       closeLinkModal()
-      await loadStaff()
+      // React Queryが自動でリロード
     }
   })
 
@@ -209,22 +185,17 @@ export function StaffManagement() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  // スタッフ編集ハンドラ（シナリオと同じパターン）
+  // スタッフ編集ハンドラ
   function handleEditStaff(staff: any) {
     setCurrentStaffId(staff.id)
-    setSidebarMode('edit')
-    setActiveTab('basic')
-    // モーダルは使わない（editingStaffをセットするだけ）
     openEditModal(staff)
-    // スタッフIDをハッシュに設定して遷移
     window.location.hash = `staff/edit/${staff.id}`
   }
 
   // 一覧に戻るハンドラ
   function handleBackToList() {
     setCurrentStaffId(null)
-    setSidebarMode('list')
-    setActiveTab('staff-list')
+    closeEditModal()
     window.location.hash = 'staff'
   }
 
@@ -261,21 +232,7 @@ export function StaffManagement() {
   // ローディング表示
   if (loading) {
     return (
-      <AppLayout 
-        currentPage="staff" 
-        sidebar={
-          <UnifiedSidebar
-            title="スタッフ管理"
-            mode={sidebarMode}
-            menuItems={sidebarMode === 'list' ? STAFF_LIST_MENU_ITEMS : STAFF_EDIT_MENU_ITEMS}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            onBackToList={sidebarMode === 'edit' ? handleBackToList : undefined}
-            editModeSubtitle={sidebarMode === 'edit' && editingStaff ? editingStaff.name : undefined}
-          />
-        } 
-        stickyLayout={true}
-      >
+      <AppLayout currentPage="staff">
         <div className="space-y-6">
           <div className="h-16 bg-gray-200 rounded animate-pulse"></div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -295,21 +252,7 @@ export function StaffManagement() {
   // エラー表示
   if (error) {
     return (
-      <AppLayout 
-        currentPage="staff" 
-        sidebar={
-          <UnifiedSidebar
-            title="スタッフ管理"
-            mode={sidebarMode}
-            menuItems={sidebarMode === 'list' ? STAFF_LIST_MENU_ITEMS : STAFF_EDIT_MENU_ITEMS}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            onBackToList={sidebarMode === 'edit' ? handleBackToList : undefined}
-            editModeSubtitle={sidebarMode === 'edit' && editingStaff ? editingStaff.name : undefined}
-          />
-        } 
-        stickyLayout={true}
-      >
+      <AppLayout currentPage="staff">
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <p className="text-red-800">{error}</p>
@@ -326,31 +269,18 @@ export function StaffManagement() {
     <TooltipProvider>
       <AppLayout 
         currentPage="staff" 
-        sidebar={
-          <UnifiedSidebar
-            title="スタッフ管理"
-            mode={sidebarMode}
-            menuItems={sidebarMode === 'list' ? STAFF_LIST_MENU_ITEMS : STAFF_EDIT_MENU_ITEMS}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            onBackToList={sidebarMode === 'edit' ? handleBackToList : undefined}
-            editModeSubtitle={sidebarMode === 'edit' && editingStaff ? editingStaff.name : undefined}
-          />
-        }
         maxWidth="max-w-[1600px]"
         containerPadding="px-6 py-6"
-        stickyLayout={true}
       >
         <div className="space-y-6">
             {/* 編集モード時: スタッフ編集フォーム表示 */}
-            {sidebarMode === 'edit' && currentStaffId && editingStaff ? (
+            {currentStaffId && editingStaff ? (
               <StaffEditForm
                 staff={editingStaff}
                 stores={stores}
                 scenarios={scenarios}
                 onSave={handleSaveStaff}
                 onCancel={handleBackToList}
-                activeTab={activeTab}
               />
             ) : (
               <>

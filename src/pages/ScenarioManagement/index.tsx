@@ -2,15 +2,10 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import type { Scenario } from '@/types'
 import { 
   Plus, 
-  AlertTriangle,
-  BookOpen,
-  FileText,
-  Search,
-  Upload
+  AlertTriangle
 } from 'lucide-react'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
@@ -37,17 +32,8 @@ import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 
-// サイドバーのメニュー項目定義（定数として外に出す）
-const SCENARIO_LIST_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'scenario-list', label: 'シナリオ一覧', icon: BookOpen, description: 'すべてのシナリオを表示' },
-  { id: 'new-scenario', label: '新規作成', icon: FileText, description: '新しいシナリオを作成' },
-  { id: 'search-filter', label: '検索・フィルタ', icon: Search, description: 'シナリオを検索・フィルタ' },
-  { id: 'import-export', label: 'インポート・エクスポート', icon: Upload, description: 'シナリオの一括操作' }
-]
-
 export function ScenarioManagement() {
   // UI状態
-  const [activeTab, setActiveTab] = useState('scenario-list')
   const [displayMode, setDisplayMode] = useState<'compact' | 'detailed'>('compact')
   const [isImporting, setIsImporting] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -123,13 +109,11 @@ export function ScenarioManagement() {
 
   // シナリオ編集ページへ遷移
   function handleEditScenario(scenario: Scenario) {
-    setActiveTab('scenario-edit')
     // シナリオIDをハッシュに設定して遷移
     window.location.hash = `scenarios/edit/${scenario.id}`
   }
 
   function handleNewScenario() {
-    setActiveTab('new-scenario')
     // 新規作成ページへ遷移
     window.location.hash = 'scenarios/edit/new'
   }
@@ -315,18 +299,8 @@ export function ScenarioManagement() {
   return (
     <AppLayout
       currentPage="scenarios"
-      sidebar={
-        <UnifiedSidebar
-          title="シナリオ管理"
-          mode="list"
-          menuItems={SCENARIO_LIST_MENU_ITEMS}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-      }
       maxWidth="max-w-[1600px]"
       containerPadding="px-4 py-8"
-      stickyLayout={true}
     >
         <div className="space-y-6">
           {/* ヘッダー */}
