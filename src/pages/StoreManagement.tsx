@@ -78,6 +78,11 @@ export function StoreManagement() {
     setIsEditModalOpen(true)
   }
 
+  function openEditModal(store: Store | null) {
+    setEditingStore(store)
+    setIsEditModalOpen(true)
+  }
+
   async function handleSaveStore(updatedStore: Store) {
     try {
       const savedStore = await storeApi.update(updatedStore.id, updatedStore)
