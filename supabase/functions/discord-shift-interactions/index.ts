@@ -206,10 +206,10 @@ async function handleShiftButtonClick(interaction: any): Promise<Response> {
       ...row,
       components: row.components.map((button: any) => {
         if (button.custom_id === customId) {
-          // 緑（選択）⇔灰色（未選択）
+          // 青（選択）⇔緑（未選択）
           return {
             ...button,
-            style: newState ? 3 : 2 // 3=緑, 2=灰色
+            style: newState ? 1 : 3 // 1=青, 3=緑
           }
         }
         return button

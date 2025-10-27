@@ -63,25 +63,25 @@ function generateWeekButtons(year: number, month: number, startDay: number, endD
       components: [
         {
           type: 2,
-          style: 2, // 灰色（未選択）
+          style: 3, // 緑色（未選択）
           label: "朝",
           custom_id: `shift_${dateStr}_morning_${notificationId}`
         },
         {
           type: 2,
-          style: 2,
+          style: 3, // 緑色（未選択）
           label: "昼",
           custom_id: `shift_${dateStr}_afternoon_${notificationId}`
         },
         {
           type: 2,
-          style: 2,
+          style: 3, // 緑色（未選択）
           label: "夜",
           custom_id: `shift_${dateStr}_evening_${notificationId}`
         },
         {
           type: 2,
-          style: 2,
+          style: 3, // 緑色（未選択）
           label: "終日",
           custom_id: `shift_${dateStr}_allday_${notificationId}`
         }
