@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Calendar } from 'lucide-react'
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react'
+import { format } from 'date-fns'
+import { ja } from 'date-fns/locale'
 
 interface MonthPickerPopoverProps {
   value?: string  // YYYY-MM-DD 形式
@@ -19,26 +19,32 @@ export function MonthPickerPopover({
   buttonClassName = ''
 }: MonthPickerPopoverProps) {
   const [open, setOpen] = useState(false)
-  const [tempValue, setTempValue] = useState(value ? value.substring(0, 7) : '')
+  const currentDate = value ? new Date(value) : new Date()
+  const [viewYear, setViewYear] = useState(currentDate.getFullYear())
 
-  const handleSave = () => {
-    onSelect(tempValue ? `${tempValue}-01` : undefined)
+  const handleMonthSelect = (month: number) => {
+    const selectedDate = new Date(viewYear, month, 1)
+    const formattedDate = format(selectedDate, 'yyyy-MM-dd')
+    onSelect(formattedDate)
     setOpen(false)
   }
 
   const handleClear = () => {
-    setTempValue('')
     onSelect(undefined)
     setOpen(false)
   }
 
   // YYYY-MM-DD から YYYY年MM月 に変換
   const displayValue = value 
-    ? (() => {
-        const [year, month] = value.substring(0, 7).split('-')
-        return `${year}年${parseInt(month)}月`
-      })()
+    ? format(new Date(value), 'yyyy年M月', { locale: ja })
     : label
+
+  const months = [
+    '1月', '2月', '3月', '4月', '5月', '6月',
+    '7月', '8月', '9月', '10月', '11月', '12月'
+  ]
+
+  const selectedMonth = value ? new Date(value).getMonth() : -1
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -49,52 +55,70 @@ export function MonthPickerPopover({
           size="sm"
           className={`text-xs h-10 px-3 w-full justify-start ${buttonClassName}`}
         >
-          <Calendar className="h-3 w-3 mr-2" />
+          <CalendarIcon className="h-3 w-3 mr-2" />
           {displayValue}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80" align="start">
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="month-picker" className="text-sm font-medium">
-              発生月を選択
-            </Label>
-            <Input
-              id="month-picker"
-              type="month"
-              value={tempValue}
-              onChange={(e) => setTempValue(e.target.value)}
-              className="mt-2"
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              未指定の場合は常時計上として扱われます
-            </p>
+          {/* 年選択 */}
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setViewYear(viewYear - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-sm font-semibold">
+              {viewYear}年
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setViewYear(viewYear + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
 
-          {tempValue && (
-            <div className="p-3 bg-muted rounded-md text-sm">
-              <span className="font-medium">発生月: </span>
-              {tempValue}
-            </div>
-          )}
+          {/* 月選択グリッド */}
+          <div className="grid grid-cols-3 gap-2">
+            {months.map((month, index) => {
+              const isSelected = viewYear === new Date(value || '').getFullYear() && selectedMonth === index
+              return (
+                <Button
+                  key={index}
+                  type="button"
+                  variant={isSelected ? "default" : "outline"}
+                  className={`h-10 text-sm ${isSelected ? 'bg-primary text-primary-foreground' : ''}`}
+                  onClick={() => handleMonthSelect(index)}
+                >
+                  {month}
+                </Button>
+              )
+            })}
+          </div>
 
-          <div className="flex gap-2 pt-2">
+          {/* クリアボタン */}
+          {value && (
             <Button
               type="button"
               variant="outline"
               onClick={handleClear}
-              className="flex-1"
+              className="w-full"
             >
               クリア
             </Button>
-            <Button
-              type="button"
-              onClick={handleSave}
-              className="flex-1"
-            >
-              保存
-            </Button>
-          </div>
+          )}
+
+          <p className="text-xs text-muted-foreground text-center">
+            未指定の場合は常時計上として扱われます
+          </p>
         </div>
       </PopoverContent>
     </Popover>
