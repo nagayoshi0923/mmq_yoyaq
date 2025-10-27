@@ -121,7 +121,7 @@ export function MonthPickerPopover({
           )}
 
           <p className="text-xs text-muted-foreground text-center">
-            未指定の場合は常時計上として扱われます
+            発生月を設定すると、その月の売上として計上されます
           </p>
         </div>
       </PopoverContent>

@@ -73,7 +73,7 @@ export function DateRangeModal({
                 placeholder="未指定の場合は常時計上"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                未指定の場合、常時計上として扱われます
+                発生月を設定すると、その月の売上として計上されます
               </p>
             </div>
           ) : (

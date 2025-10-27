@@ -301,7 +301,7 @@ export function ItemizedListWithDates({
           initialEndDate={items[editingIndex]?.endDate}
           monthOnly={monthOnly}
           title={monthOnly ? '発生月設定' : '期間設定'}
-          description={monthOnly ? '費用が発生した月を設定します。未指定の場合は常時計上として扱われます。' : '開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。'}
+          description={monthOnly ? '費用が発生した月を設定します。設定するとその月の売上として計上されます。' : '開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。'}
         />
       )}
 
