@@ -91,8 +91,8 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
             <Label htmlFor="genre">ジャンル</Label>
             <MultiSelect
               options={genreOptions.map(g => ({ id: g.value, name: g.label }))}
-              selected={formData.genre}
-              onChange={(values) => setFormData(prev => ({ ...prev, genre: values }))}
+              selectedValues={formData.genre || []}
+              onSelectionChange={(values) => setFormData(prev => ({ ...prev, genre: values }))}
               placeholder="ジャンルを選択"
             />
           </div>
