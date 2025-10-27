@@ -162,8 +162,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
     try {
       // データベースに存在しないUI専用フィールドを除外
       const { 
-        gm_assignments, 
-        gm_count,
+        gm_assignments,
         use_flexible_pricing, 
         flexible_pricing,
         participation_costs,
@@ -174,6 +173,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
       const scenarioData: any = {
         ...dbFields,
         gm_costs: formData.gm_assignments,
+        gm_count: formData.gm_count || 1,  // 必要GM数を保存
         updated_at: new Date().toISOString()
       }
 
