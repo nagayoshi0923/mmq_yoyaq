@@ -40,6 +40,7 @@ interface ItemizedListWithDatesProps {
   showDateRange?: boolean
   dateRangeLabel?: string
   enableStatusChange?: boolean
+  monthOnly?: boolean  // 月選択モード
 }
 
 export function ItemizedListWithDates({
@@ -54,7 +55,8 @@ export function ItemizedListWithDates({
   onUpdate,
   showDateRange = true,
   dateRangeLabel = '期間設定',
-  enableStatusChange = false
+  enableStatusChange = false,
+  monthOnly = false
 }: ItemizedListWithDatesProps) {
   const [dateRangeModalOpen, setDateRangeModalOpen] = useState(false)
   const [editingIndex, setEditingIndex] = useState<number>(0)
@@ -285,6 +287,9 @@ export function ItemizedListWithDates({
           onSave={handleSaveDateRange}
           initialStartDate={items[editingIndex]?.startDate}
           initialEndDate={items[editingIndex]?.endDate}
+          monthOnly={monthOnly}
+          title={monthOnly ? '発生月設定' : '期間設定'}
+          description={monthOnly ? '費用が発生した月を設定します。未指定の場合は常時計上として扱われます。' : '開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。'}
         />
       )}
 

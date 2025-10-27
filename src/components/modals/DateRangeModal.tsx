@@ -13,6 +13,7 @@ interface DateRangeModalProps {
   initialEndDate?: string
   title?: string
   description?: string
+  monthOnly?: boolean  // 月選択モード
 }
 
 export function DateRangeModal({
@@ -22,7 +23,8 @@ export function DateRangeModal({
   initialStartDate = '',
   initialEndDate = '',
   title = '適用期間設定',
-  description = '開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。'
+  description = '開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。',
+  monthOnly = false
 }: DateRangeModalProps) {
   const [startDate, setStartDate] = useState(initialStartDate)
   const [endDate, setEndDate] = useState(initialEndDate)
@@ -59,41 +61,67 @@ export function DateRangeModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="start-date">開始日（任意）</Label>
-            <Input
-              id="start-date"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              placeholder="未指定の場合は現行設定"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              未指定の場合、現行設定として扱われます
-            </p>
-          </div>
+          {monthOnly ? (
+            // 月選択モード
+            <div>
+              <Label htmlFor="start-date">発生月（任意）</Label>
+              <Input
+                id="start-date"
+                type="month"
+                value={startDate ? startDate.substring(0, 7) : ''}
+                onChange={(e) => setStartDate(e.target.value ? `${e.target.value}-01` : '')}
+                placeholder="未指定の場合は常時計上"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                未指定の場合、常時計上として扱われます
+              </p>
+            </div>
+          ) : (
+            // 期間選択モード
+            <>
+              <div>
+                <Label htmlFor="start-date">開始日（任意）</Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  placeholder="未指定の場合は現行設定"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  未指定の場合、現行設定として扱われます
+                </p>
+              </div>
 
-          <div>
-            <Label htmlFor="end-date">終了日（任意）</Label>
-            <Input
-              id="end-date"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              placeholder="未指定の場合は無期限"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              未指定の場合、無期限となります
-            </p>
-          </div>
+              <div>
+                <Label htmlFor="end-date">終了日（任意）</Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  placeholder="未指定の場合は無期限"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  未指定の場合、無期限となります
+                </p>
+              </div>
+            </>
+          )}
 
           {/* プレビュー */}
           {(startDate || endDate) && (
             <div className="p-3 bg-muted rounded-md text-sm">
-              <span className="font-medium">適用期間: </span>
-              {startDate && !endDate && `${startDate}から`}
-              {!startDate && endDate && `${endDate}まで`}
-              {startDate && endDate && `${startDate} 〜 ${endDate}`}
+              <span className="font-medium">{monthOnly ? '発生月: ' : '適用期間: '}</span>
+              {monthOnly ? (
+                startDate && `${startDate.substring(0, 7)}`
+              ) : (
+                <>
+                  {startDate && !endDate && `${startDate}から`}
+                  {!startDate && endDate && `${endDate}まで`}
+                  {startDate && endDate && `${startDate} 〜 ${endDate}`}
+                </>
+              )}
             </div>
           )}
         </div>
