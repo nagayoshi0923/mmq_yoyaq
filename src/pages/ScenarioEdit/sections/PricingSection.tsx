@@ -1,5 +1,4 @@
 import React from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -116,27 +115,33 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle>参加費設定</CardTitle>
-            <p className="text-sm text-muted-foreground mt-2">
-              時間帯ごとに異なる参加費を設定できます。<br />
-              開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。
-            </p>
+    <div>
+      <div className="flex items-start justify-between mb-4 pb-2 border-b">
+        <div>
+          <h3 className="text-lg font-semibold">料金設定</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            参加費とライセンス料を設定できます
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {/* 参加費設定 */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium">参加費設定</h4>
+            <Button
+              type="button"
+              onClick={handleAddParticipationCost}
+              size="sm"
+              variant="outline"
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              参加費を追加
+            </Button>
           </div>
-          <Button
-            type="button"
-            onClick={handleAddParticipationCost}
-            size="sm"
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            参加費を追加
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-3">
+          <div className="space-y-3">
           {(!formData.participation_costs || formData.participation_costs.length === 0) ? (
             <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
               <p>参加費設定がありません</p>
@@ -146,8 +151,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
             formData.participation_costs.map((cost, index) => {
               const status = getItemStatus(cost)
               return (
-                <Card key={index} className="border-2">
-                  <CardContent className="p-4">
+                <div key={index} className="border-2 rounded-lg p-4 bg-card">
                     <div className="flex items-start gap-3">
                       <div className="pt-6">
                         <StatusBadge status={status} label={getStatusLabel(status)} />
@@ -233,34 +237,29 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                </div>
               )
             })
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle>ライセンス料設定</CardTitle>
-            <p className="text-sm text-muted-foreground mt-2">
-              公演カテゴリごとに異なるライセンス料を設定できます。<br />
-              開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。
-            </p>
           </div>
-          <Button
-            type="button"
-            onClick={handleAddLicenseReward}
-            size="sm"
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            ライセンス料を追加
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-3">
+        </div>
+
+        {/* ライセンス料設定 */}
+        <div className="pt-6 border-t">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium">ライセンス料設定</h4>
+            <Button
+              type="button"
+              onClick={handleAddLicenseReward}
+              size="sm"
+              variant="outline"
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              ライセンス料を追加
+            </Button>
+          </div>
+          <div className="space-y-3">
           {(!formData.license_rewards || formData.license_rewards.length === 0) ? (
             <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
               <p>ライセンス料設定がありません</p>
@@ -270,8 +269,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
             formData.license_rewards.map((reward, index) => {
               const status = getItemStatus(reward)
               return (
-                <Card key={index} className="border-2">
-                  <CardContent className="p-4">
+                <div key={index} className="border-2 rounded-lg p-4 bg-card">
                     <div className="flex items-start gap-3">
                       <div className="pt-6">
                         <StatusBadge status={status} label={getStatusLabel(status)} />
@@ -357,13 +355,13 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                </div>
               )
             })
           )}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
