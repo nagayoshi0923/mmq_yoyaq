@@ -147,20 +147,27 @@ export function useSalesData() {
         end: formatDateJST(chartEndDate) 
       })
       
-      let events = await salesApi.getSalesByPeriod(
+      // イベントデータと雑収支データを並列取得
+      const [eventsData, miscResult] = await Promise.all([
+        salesApi.getSalesByPeriod(
         formatDateJST(chartStartDate),
         formatDateJST(chartEndDate)
-      )
+        ),
+        supabase
+          .from('miscellaneous_transactions')
+          .select('id, date, type, category, amount, scenario_id')
+          .gte('date', formatDateJST(chartStartDate))
+          .lte('date', formatDateJST(chartEndDate))
+          .not('scenario_id', 'is', null)
+          .eq('type', 'expense')
+      ])
       
-      // 雑収支データを取得（シナリオ連携ありのもののみ）
-      const { data: miscTransactions } = await supabase
-        .from('miscellaneous_transactions')
-        .select('*')
-        .gte('date', formatDateJST(chartStartDate))
-        .lte('date', formatDateJST(chartEndDate))
-        .not('scenario_id', 'is', null)
-      
-      logger.log('📊 雑収支データ取得:', { count: miscTransactions?.length || 0 })
+      let events = eventsData
+      const miscTransactions = miscResult.data || []
+      logger.log('📊 データ取得完了:', { 
+        events: events.length, 
+        miscTransactions: miscTransactions.length 
+      })
       
       // 店舗フィルタリング（ownership_type による絞り込み）
       let filteredStores = stores
@@ -768,36 +775,41 @@ function calculateSalesData(
   })
 
   // 雑収支データから制作費・道具費用を追加
-  miscTransactions.forEach(transaction => {
-    if (transaction.type === 'expense' && transaction.scenario_id) {
-      const transactionDate = new Date(transaction.date)
-      const transYear = transactionDate.getFullYear()
-      const transMonth = transactionDate.getMonth()
-      
-      // 発生月が期間内に含まれるかチェック
-      const isInPeriod = 
-        (transYear > startYear || (transYear === startYear && transMonth >= startMonth)) &&
-        (transYear < endYear || (transYear === endYear && transMonth <= endMonth))
-      
-      if (isInPeriod) {
-        // シナリオ名を取得
-        const relatedEvent = events.find(e => e.scenario_id === transaction.scenario_id)
-        const scenarioName = relatedEvent?.scenario || '不明'
+  if (miscTransactions && miscTransactions.length > 0) {
+    // シナリオIDからシナリオ名へのマップを作成（パフォーマンス最適化）
+    const scenarioMap = new Map<string, string>()
+    events.forEach(event => {
+      if (event.scenario_id && event.scenario) {
+        scenarioMap.set(event.scenario_id, event.scenario)
+      }
+    })
+    
+    miscTransactions.forEach(transaction => {
+      if (transaction.scenario_id) {
+        const transactionDate = new Date(transaction.date)
+        const transYear = transactionDate.getFullYear()
+        const transMonth = transactionDate.getMonth()
         
-        // カテゴリに応じて制作費または道具費用に分類
-        const key = `misc-${transaction.id}`
-        if (!processedProductionCosts.has(key)) {
-          processedProductionCosts.add(key)
-          totalProductionCost += transaction.amount
-          productionCostBreakdown.push({
-            item: transaction.category,
-            amount: transaction.amount,
-            scenario: scenarioName
-          })
+        // 発生月が期間内に含まれるかチェック
+        const isInPeriod = 
+          (transYear > startYear || (transYear === startYear && transMonth >= startMonth)) &&
+          (transYear < endYear || (transYear === endYear && transMonth <= endMonth))
+        
+        if (isInPeriod) {
+          const key = `misc-${transaction.id}`
+          if (!processedProductionCosts.has(key)) {
+            processedProductionCosts.add(key)
+            totalProductionCost += transaction.amount
+            productionCostBreakdown.push({
+              item: transaction.category,
+              amount: transaction.amount,
+              scenario: scenarioMap.get(transaction.scenario_id) || '不明'
+            })
+          }
         }
       }
-    }
-  })
+    })
+  }
 
   console.log('💰 制作費・道具費用計算完了:', { 
     totalProductionCost,
