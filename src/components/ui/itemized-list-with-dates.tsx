@@ -99,9 +99,7 @@ export function ItemizedListWithDates({
   // グリッドカラムの計算
   const gridColumns = columns.map(col => col.width || '1fr').join(' ')
   const gridTemplateColumns = showDateRange 
-    ? monthOnly
-      ? `${gridColumns} 100px 120px` // 月選択: 100px
-      : `${gridColumns} 180px 120px` // 期間選択: 180px
+    ? `${gridColumns} 80px 120px`
     : `${gridColumns} 120px`
 
   return (

@@ -68,13 +68,13 @@ export function DateRangePopover({
 
   const displayValue = (() => {
     if (startDate && endDate) {
-      return `${formatDateShort(startDate)}〜${formatDateShort(endDate)}`
+      return `${formatDateShort(startDate)}/${formatDateShort(endDate)}`
     }
     if (startDate && !endDate) {
-      return `${formatDateShort(startDate)}から`
+      return `${formatDateShort(startDate)}~`
     }
     if (!startDate && endDate) {
-      return `${formatDateShort(endDate)}まで`
+      return `~${formatDateShort(endDate)}`
     }
     return label
   })()
@@ -157,9 +157,9 @@ export function DateRangePopover({
           type="button"
           variant="outline"
           size="sm"
-          className={`text-xs h-10 px-3 w-full justify-start ${buttonClassName}`}
+          className={`text-[10px] h-10 px-2 w-full justify-start ${buttonClassName}`}
         >
-          <CalendarIcon className="h-3 w-3 mr-2" />
+          <CalendarIcon className="h-3 w-3 mr-1" />
           {displayValue}
         </Button>
       </PopoverTrigger>
