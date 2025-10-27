@@ -79,18 +79,27 @@ export function StoreManagement() {
   }
 
   function openEditModal(store: Store | null) {
+    console.log('openEditModal called with:', store)
     setEditingStore(store)
     setIsEditModalOpen(true)
+    console.log('Modal state set to open')
   }
 
   async function handleSaveStore(updatedStore: Store) {
     try {
-      const savedStore = await storeApi.update(updatedStore.id, updatedStore)
-      // 更新成功後、リストを更新
-      setStores(prev => prev.map(s => s.id === savedStore.id ? savedStore : s))
+      // idの有無で新規作成か更新かを判定
+      if (updatedStore.id) {
+        // 更新
+        const savedStore = await storeApi.update(updatedStore.id, updatedStore)
+        setStores(prev => prev.map(s => s.id === savedStore.id ? savedStore : s))
+      } else {
+        // 新規作成
+        const newStore = await storeApi.create(updatedStore)
+        setStores(prev => [...prev, newStore])
+      }
     } catch (err: any) {
-      logger.error('Error updating store:', err)
-      alert('店舗の更新に失敗しました: ' + err.message)
+      logger.error('Error saving store:', err)
+      alert('店舗の保存に失敗しました: ' + err.message)
       throw err // モーダルでエラーハンドリングするため再throw
     }
   }
