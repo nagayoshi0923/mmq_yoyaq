@@ -3,8 +3,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { DateRangeModal } from '@/components/modals/DateRangeModal'
 import { MonthPickerPopover } from '@/components/ui/month-picker-popover'
+import { DateRangePopover } from '@/components/ui/date-range-popover'
 import { Plus, Trash2 } from 'lucide-react'
 
 export interface ItemizedListItem {
@@ -59,8 +59,6 @@ export function ItemizedListWithDates({
   enableStatusChange = false,
   monthOnly = false
 }: ItemizedListWithDatesProps) {
-  const [dateRangeModalOpen, setDateRangeModalOpen] = useState(false)
-  const [editingIndex, setEditingIndex] = useState<number>(0)
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null)
 
   // ステータス判定
@@ -90,18 +88,6 @@ export function ItemizedListWithDates({
       case 'legacy': return 'text-gray-400'
       default: return 'text-gray-600'
     }
-  }
-
-  // 期間設定モーダルを開く
-  const handleOpenDateRangeModal = (index: number) => {
-    setEditingIndex(index)
-    setDateRangeModalOpen(true)
-  }
-
-  // 期間設定を保存
-  const handleSaveDateRange = (startDate?: string, endDate?: string) => {
-    onUpdate(editingIndex, 'startDate', startDate)
-    onUpdate(editingIndex, 'endDate', endDate)
   }
 
   // 削除処理
@@ -198,15 +184,15 @@ export function ItemizedListWithDates({
                               label={dateRangeLabel}
                             />
                           ) : (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenDateRangeModal(index)}
-                              className="text-xs h-10 px-3 w-full"
-                            >
-                              {dateRangeLabel}
-                            </Button>
+                            <DateRangePopover
+                              startDate={item.startDate}
+                              endDate={item.endDate}
+                              onDateChange={(start, end) => {
+                                onUpdate(index, 'startDate', start)
+                                onUpdate(index, 'endDate', end)
+                              }}
+                              label={dateRangeLabel}
+                            />
                           )}
                         </div>
                       )}
@@ -290,20 +276,6 @@ export function ItemizedListWithDates({
           })
         )}
       </div>
-
-      {/* 期間設定モーダル */}
-      {showDateRange && (
-        <DateRangeModal
-          isOpen={dateRangeModalOpen}
-          onClose={() => setDateRangeModalOpen(false)}
-          onSave={handleSaveDateRange}
-          initialStartDate={items[editingIndex]?.startDate}
-          initialEndDate={items[editingIndex]?.endDate}
-          monthOnly={monthOnly}
-          title={monthOnly ? '発生月設定' : '期間設定'}
-          description={monthOnly ? '費用が発生した月を設定します。設定するとその月の売上として計上されます。' : '開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。'}
-        />
-      )}
 
       {/* 削除確認ダイアログ */}
       {deleteConfirmIndex !== null && (
