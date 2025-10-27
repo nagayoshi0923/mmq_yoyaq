@@ -173,12 +173,12 @@ export function ItemizedListWithDates({
                       {/* 期間設定ボタン */}
                       {showDateRange && (
                         <div>
-                          <Label className="text-[10px] mb-1.5 block leading-tight">
+                          <Label className="text-[10px] mb-1.5 block leading-tight text-muted-foreground">
                             {(item.startDate || item.endDate) ? (
                               <>
                                 {item.startDate && !item.endDate && `${item.startDate.replace(/-/g, '/')}~`}
                                 {!item.startDate && item.endDate && `~${item.endDate.replace(/-/g, '/')}`}
-                                {item.startDate && item.endDate && `${item.startDate.replace(/-/g, '/')}/${item.endDate.replace(/-/g, '/')}`}
+                                {item.startDate && item.endDate && `${item.startDate.replace(/-/g, '/')}〜${item.endDate.replace(/-/g, '/')}`}
                               </>
                             ) : (
                               <span className="opacity-0">期間</span>
@@ -209,16 +209,8 @@ export function ItemizedListWithDates({
 
                       {/* ステータス・アクションメニュー */}
                       <div>
-                        <Label className="text-xs mb-1.5 block">
-                          {showDateRange && (item.startDate || item.endDate) ? (
-                            <>
-                              {item.startDate && !item.endDate && `${item.startDate}〜`}
-                              {!item.startDate && item.endDate && `〜${item.endDate}`}
-                              {item.startDate && item.endDate && `${item.startDate}〜${item.endDate}`}
-                            </>
-                          ) : (
-                            <span className="opacity-0">ステータス</span>
-                          )}
+                        <Label className="text-xs mb-1.5 block opacity-0">
+                          ステータス
                         </Label>
                         
                         <Select
