@@ -615,10 +615,10 @@ export function useScheduleData(currentDate: Date) {
           })
         }
         
-        // 満席の公演にデモ参加者を追加
-        const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
+        // 満席の公演にデモ参加者を追加（パフォーマンス改善のため無効化）
+        // const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
         
-        setEvents(eventsWithDemoParticipants)
+        setEvents([...formattedEvents, ...privateEvents])
       } catch (err) {
         logger.error('公演データの読み込みエラー:', err)
         setError('公演データの読み込みに失敗しました')
@@ -814,10 +814,10 @@ export function useScheduleData(currentDate: Date) {
         })
       }
       
-      // 満席の公演にデモ参加者を追加
-      const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
+      // 満席の公演にデモ参加者を追加（パフォーマンス改善のため無効化）
+      // const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
       
-      setEvents(eventsWithDemoParticipants)
+      setEvents([...formattedEvents, ...privateEvents])
     } catch (err) {
       logger.error('スケジュールデータの再取得エラー:', err)
       setError('スケジュールデータの再取得に失敗しました')
