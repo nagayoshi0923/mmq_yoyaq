@@ -21,15 +21,15 @@ CREATE INDEX IF NOT EXISTS idx_miscellaneous_transactions_store_id ON miscellane
 CREATE INDEX IF NOT EXISTS idx_miscellaneous_transactions_scenario_id ON miscellaneous_transactions(scenario_id);
 
 -- コメントを追加
-COMMENT ON TABLE miscellaneous_transactions IS '雑収支管理テーブル（公演以外の収入・支出）';
+COMMENT ON TABLE miscellaneous_transactions IS '雑収支管理テーブル';
 COMMENT ON COLUMN miscellaneous_transactions.id IS 'トランザクションID';
 COMMENT ON COLUMN miscellaneous_transactions.date IS '日付';
-COMMENT ON COLUMN miscellaneous_transactions.type IS '種別（income: 収入, expense: 支出）';
-COMMENT ON COLUMN miscellaneous_transactions.category IS 'カテゴリ（広告費、補助金、印刷費、小道具など）';
-COMMENT ON COLUMN miscellaneous_transactions.amount IS '金額（円）';
-COMMENT ON COLUMN miscellaneous_transactions.description IS '説明・メモ';
-COMMENT ON COLUMN miscellaneous_transactions.store_id IS '関連店舗ID（NULLの場合は全社）';
-COMMENT ON COLUMN miscellaneous_transactions.scenario_id IS '関連シナリオID（NULLの場合はシナリオなし）';
+COMMENT ON COLUMN miscellaneous_transactions.type IS '種別: income=収入, expense=支出';
+COMMENT ON COLUMN miscellaneous_transactions.category IS 'カテゴリ名';
+COMMENT ON COLUMN miscellaneous_transactions.amount IS '金額';
+COMMENT ON COLUMN miscellaneous_transactions.description IS '説明メモ';
+COMMENT ON COLUMN miscellaneous_transactions.store_id IS '関連店舗ID';
+COMMENT ON COLUMN miscellaneous_transactions.scenario_id IS '関連シナリオID';
 COMMENT ON COLUMN miscellaneous_transactions.created_at IS '作成日時';
 COMMENT ON COLUMN miscellaneous_transactions.updated_at IS '更新日時';
 
