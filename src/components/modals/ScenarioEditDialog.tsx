@@ -160,11 +160,14 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
     }
 
     try {
-      // データベースに存在しないフィールドを除外
+      // データベースに存在しないUI専用フィールドを除外
       const { 
         gm_assignments, 
+        gm_count,
         use_flexible_pricing, 
         flexible_pricing,
+        participation_costs,
+        license_rewards,
         ...dbFields 
       } = formData
       
