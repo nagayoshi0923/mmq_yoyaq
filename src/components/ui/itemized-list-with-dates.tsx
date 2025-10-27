@@ -122,7 +122,7 @@ export function ItemizedListWithDates({
           items.map((item, index) => {
             const status = getItemStatus(item)
             return (
-              <div key={index} className="flex items-start gap-3 p-4 rounded-lg border bg-card/50">
+              <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-muted/30">
                 <div className="pt-6">
                   <StatusBadge status={status} label={getStatusLabel(status)} />
                 </div>
