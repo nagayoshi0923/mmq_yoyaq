@@ -173,41 +173,40 @@ export function MultiSelect({
               }
             }}
           >
-            {sortedOptions.length === 0 ? (
+            {sortedOptions.length === 0 && (
               <div className="px-4 py-3 text-center">
                 <p className="text-sm text-muted-foreground">
                   {emptyText || (searchTerm ? 'スタッフが見つかりません' : 'スタッフがいません')}
                 </p>
               </div>
-            ) : (
-              sortedOptions.map(option => {
-                const valueToCompare = useIdAsValue ? option.id : option.name
-                const isSelected = (selectedValues || []).includes(valueToCompare)
-                return (
-                  <div
-                    key={option.id}
-                    className="flex items-center w-full px-2.5 py-2 cursor-pointer hover:bg-muted/50 text-sm"
-                    onClick={() => handleToggleSelection(valueToCompare)}
-                  >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="w-4 flex justify-center">
-                        {isSelected && (
-                          <Check className="w-4 h-4 text-green-600" />
-                        )}
-                      </div>
-                      <span className={`truncate ${isSelected ? 'text-green-600 font-medium' : ''}`}>
-                        {option.name}
-                      </span>
-                    </div>
-                    {option.displayInfo && (
-                      <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
-                        {option.displayInfo}
-                      </span>
-                    )}
-                  </div>
-                )
-              })
             )}
+            {sortedOptions.length > 0 && sortedOptions.map(option => {
+              const valueToCompare = useIdAsValue ? option.id : option.name
+              const isSelected = (selectedValues || []).includes(valueToCompare)
+              return (
+                <div
+                  key={option.id}
+                  className="flex items-center w-full px-2.5 py-2 cursor-pointer hover:bg-muted/50 text-sm"
+                  onClick={() => handleToggleSelection(valueToCompare)}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-4 flex justify-center">
+                      {isSelected && (
+                        <Check className="w-4 h-4 text-green-600" />
+                      )}
+                    </div>
+                    <span className={`truncate ${isSelected ? 'text-green-600 font-medium' : ''}`}>
+                      {option.name}
+                    </span>
+                  </div>
+                  {option.displayInfo && (
+                    <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                      {option.displayInfo}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
           </div>
           {/* 下部に固定表示するアクションボタン */}
           {onEmptyAction && emptyActionLabel && (
