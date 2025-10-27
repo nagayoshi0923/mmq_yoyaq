@@ -24,6 +24,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
 
   useEffect(() => {
     if (store) {
+      // 編集モード：既存データをセット
       setFormData({
         name: store.name,
         short_name: store.short_name,
@@ -40,17 +41,40 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
         color: store.color,
         fixed_costs: store.fixed_costs || []
       })
+    } else if (isOpen) {
+      // 新規作成モード：初期値をセット
+      setFormData({
+        name: '',
+        short_name: '',
+        address: '',
+        phone_number: '',
+        email: '',
+        opening_date: new Date().toISOString().split('T')[0],
+        manager_name: '',
+        status: 'active',
+        ownership_type: 'corporate',
+        capacity: 0,
+        rooms: 0,
+        notes: '',
+        color: '#3B82F6',
+        fixed_costs: []
+      })
     }
-  }, [store])
+  }, [store, isOpen])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!store) return
 
     setLoading(true)
     try {
-      const updatedStore = { ...store, ...formData } as Store
-      await onSave(updatedStore)
+      if (store) {
+        // 編集モード：既存データとマージ
+        const updatedStore = { ...store, ...formData } as Store
+        await onSave(updatedStore)
+      } else {
+        // 新規作成モード：formDataをそのまま渡す
+        await onSave(formData as Store)
+      }
       onClose()
     } catch (error) {
       logger.error('Error saving store:', error)
@@ -120,15 +144,13 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
     }))
   }
 
-  if (!store) return null
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-7xl max-h-[85vh] p-0 flex flex-col overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-          <DialogTitle>店舗情報編集</DialogTitle>
+          <DialogTitle>{store ? '店舗情報編集' : '新規店舗作成'}</DialogTitle>
           <DialogDescription>
-            {store.name}の情報を編集します
+            {store ? `${store.name}の情報を編集します` : '新しい店舗を登録します'}
           </DialogDescription>
         </DialogHeader>
 
