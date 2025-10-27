@@ -105,12 +105,12 @@ async function sendDiscordShiftRequest(
   const daysInMonth = new Date(year, month, 0).getDate()
   const messageIds: string[] = []
   
-  // 週ごとに分割（7日ずつ）
+  // 4日ずつに分割（Discordのボタン制限対応）
   const weeks: Array<{ start: number, end: number }> = []
-  for (let day = 1; day <= daysInMonth; day += 7) {
+  for (let day = 1; day <= daysInMonth; day += 4) {
     weeks.push({
       start: day,
-      end: Math.min(day + 6, daysInMonth)
+      end: Math.min(day + 3, daysInMonth)
     })
   }
   
