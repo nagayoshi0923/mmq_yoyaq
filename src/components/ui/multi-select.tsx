@@ -180,8 +180,7 @@ export function MultiSelect({
                 </p>
               </div>
             ) : (
-              <>
-              {sortedOptions.map(option => {
+              sortedOptions.map(option => {
                 const valueToCompare = useIdAsValue ? option.id : option.name
                 const isSelected = (selectedValues || []).includes(valueToCompare)
                 return (
@@ -207,8 +206,7 @@ export function MultiSelect({
                     )}
                   </div>
                 )
-              })}
-              </>
+              })
             )}
           </div>
           {/* 下部に固定表示するアクションボタン */}
