@@ -154,20 +154,30 @@ export function useSalesData() {
       // 店舗フィルタリング（ownership_type による絞り込み）
       let filteredStores = stores
       if (ownershipFilter) {
-        filteredStores = filteredStores.filter(s => s.ownership_type === ownershipFilter)
+        if (ownershipFilter === 'corporate') {
+          // 直営店の場合、オフィスも含める
+          filteredStores = filteredStores.filter(s => 
+            s.ownership_type === 'corporate' || s.ownership_type === 'office'
+          )
+        } else {
+          // フランチャイズの場合、フランチャイズのみ
+          filteredStores = filteredStores.filter(s => s.ownership_type === ownershipFilter)
+        }
         logger.log('📊 店舗タイプでフィルター:', { ownershipFilter, filteredCount: filteredStores.length })
       }
       
-      // FC店舗の場合は、そのstore_idリストを取得
-      const franchiseStoreIds = ownershipFilter ? filteredStores.map(s => s.id) : []
+      // フィルタリング対象店舗のIDリストを取得
+      const filteredStoreIds = ownershipFilter ? filteredStores.map(s => s.id) : []
       
       // イベントフィルタリング
       if (storeId !== 'all') {
         events = events.filter(e => e.store_id === storeId)
-      } else if (ownershipFilter && franchiseStoreIds.length > 0) {
-        // FC店舗のみの場合、そのFC店舗のイベントのみに絞り込む
-        events = events.filter(e => franchiseStoreIds.includes(e.store_id))
-        logger.log('📊 FC店舗のイベントに絞り込み:', { eventsCount: events.length, franchiseStoreIds })
+      } else if (ownershipFilter && filteredStoreIds.length > 0) {
+        // 店舗タイプでフィルタリングされている場合、そのstore_idのイベントのみに絞り込む
+        // 直営店の場合は、直営店＋オフィスのイベント
+        // フランチャイズの場合は、フランチャイズのイベント
+        events = events.filter(e => filteredStoreIds.includes(e.store_id))
+        logger.log('📊 店舗タイプでイベントに絞り込み:', { eventsCount: events.length, filteredStoreIds })
       }
       
       // 店舗フィルタリング（固定費計算用）
