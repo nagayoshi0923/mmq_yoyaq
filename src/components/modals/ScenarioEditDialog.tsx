@@ -190,7 +190,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
             {/* 右カラム: 料金・GM設定・制作費 */}
             <div className="space-y-6">
               <PricingSection formData={formData} setFormData={setFormData} />
-              <GmSettingsSection formData={formData} setFormData={setFormData} staff={[]} selectedStaffIds={[]} onSelectedStaffChange={() => {}} />
+              <GmSettingsSection formData={formData} setFormData={setFormData} />
               <CostsPropsSection formData={formData} setFormData={setFormData} />
             </div>
           </div>

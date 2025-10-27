@@ -1,5 +1,4 @@
 import React from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -8,24 +7,15 @@ import { MultiSelect } from '@/components/ui/multi-select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Plus, Trash2 } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
-import type { Staff } from '@/types'
 
 interface GmSettingsSectionProps {
   formData: ScenarioFormData
   setFormData: React.Dispatch<React.SetStateAction<ScenarioFormData>>
-  staff: Staff[]
-  selectedStaffIds: string[]
-  setSelectedStaffIds: (ids: string[]) => void
-  isNewScenario: boolean
 }
 
 export function GmSettingsSection({ 
   formData, 
-  setFormData,
-  staff,
-  selectedStaffIds,
-  setSelectedStaffIds,
-  isNewScenario
+  setFormData
 }: GmSettingsSectionProps) {
   
   // 役割オプション
@@ -124,63 +114,42 @@ export function GmSettingsSection({
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>GM基本設定</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="gm_count">必要GM数</Label>
-              <Input
-                id="gm_count"
-                type="number"
-                min="1"
-                max="5"
-                value={formData.gm_count}
-                onChange={(e) => setFormData(prev => ({ ...prev, gm_count: parseInt(e.target.value) || 1 }))}
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                このシナリオに必要なGMの人数
-              </p>
-            </div>
-            <div className="flex items-center gap-2 pt-8">
-              <input
-                type="checkbox"
-                id="has_pre_reading"
-                checked={formData.has_pre_reading}
-                onChange={(e) => setFormData(prev => ({ ...prev, has_pre_reading: e.target.checked }))}
-                className="rounded"
-              />
-              <Label htmlFor="has_pre_reading" className="cursor-pointer">
-                事前読み込みあり
-              </Label>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div>
+      <h3 className="text-lg font-semibold mb-4 pb-2 border-b">GM設定</h3>
+      <div className="space-y-6">
+        {/* GM基本設定 */}
+        <div>
+          <Label htmlFor="gm_count">必要GM数</Label>
+          <Input
+            id="gm_count"
+            type="number"
+            min="1"
+            max="5"
+            value={formData.gm_count}
+            onChange={(e) => setFormData(prev => ({ ...prev, gm_count: parseInt(e.target.value) || 1 }))}
+            className="mt-1.5"
+          />
+          <p className="text-sm text-muted-foreground mt-1">
+            このシナリオに必要なGMの人数
+          </p>
+        </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle>GM報酬設定</CardTitle>
-            <p className="text-sm text-muted-foreground mt-2">
-              役割・公演カテゴリごとに異なる報酬を設定できます。<br />
-              開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。
-            </p>
+        {/* GM報酬設定 */}
+        <div className="pt-4 border-t">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium">GM報酬設定</h4>
+            <Button
+              type="button"
+              onClick={handleAddGmReward}
+              size="sm"
+              variant="outline"
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              報酬設定を追加
+            </Button>
           </div>
-          <Button
-            type="button"
-            onClick={handleAddGmReward}
-            size="sm"
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            報酬設定を追加
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-3">
+          <div className="space-y-3">
           {(!formData.gm_assignments || formData.gm_assignments.length === 0) ? (
             <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
               <p>GM報酬設定がありません</p>
@@ -190,8 +159,7 @@ export function GmSettingsSection({
             formData.gm_assignments.map((assignment, index) => {
               const status = getAssignmentStatus(assignment)
               return (
-                <Card key={index} className="border-2">
-                  <CardContent className="p-4">
+                <div key={index} className="border-2 rounded-lg p-4 bg-card">
                     <div className="flex items-start gap-3">
                       {/* ステータスバッジ */}
                       <div className="pt-6">
