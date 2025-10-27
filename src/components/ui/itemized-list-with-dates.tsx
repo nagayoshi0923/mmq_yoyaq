@@ -5,7 +5,13 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DateRangeModal } from '@/components/modals/DateRangeModal'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, MoreVertical } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export interface ItemizedListItem {
   // 共通フィールド
@@ -57,6 +63,7 @@ export function ItemizedListWithDates({
 }: ItemizedListWithDatesProps) {
   const [dateRangeModalOpen, setDateRangeModalOpen] = useState(false)
   const [editingIndex, setEditingIndex] = useState<number>(0)
+  const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null)
 
   // ステータス判定
   const getItemStatus = (item: ItemizedListItem): 'active' | 'ready' | 'legacy' => {
@@ -88,6 +95,12 @@ export function ItemizedListWithDates({
   const handleSaveDateRange = (startDate?: string, endDate?: string) => {
     onUpdate(editingIndex, 'startDate', startDate)
     onUpdate(editingIndex, 'endDate', endDate)
+  }
+
+  // 削除処理
+  const handleDelete = (index: number) => {
+    onRemove(index)
+    setDeleteConfirmIndex(null)
   }
 
   // グリッドカラムの計算
@@ -192,18 +205,29 @@ export function ItemizedListWithDates({
                         </div>
                       )}
 
-                      {/* 削除ボタン */}
+                      {/* メニューボタン */}
                       <div>
-                        <Label className="text-xs opacity-0">削除</Label>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onRemove(index)}
-                          className="text-destructive hover:text-destructive h-8"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Label className="text-xs opacity-0">メニュー</Label>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setDeleteConfirmIndex(index)}
+                            >
+                              削除
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                 </div>
@@ -222,6 +246,34 @@ export function ItemizedListWithDates({
           initialStartDate={items[editingIndex]?.startDate}
           initialEndDate={items[editingIndex]?.endDate}
         />
+      )}
+
+      {/* 削除確認ダイアログ */}
+      {deleteConfirmIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full mx-4 border">
+            <h3 className="text-lg font-semibold mb-2">削除の確認</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              この項目を削除してもよろしいですか？この操作は取り消せません。
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeleteConfirmIndex(null)}
+              >
+                キャンセル
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => handleDelete(deleteConfirmIndex)}
+              >
+                削除
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
