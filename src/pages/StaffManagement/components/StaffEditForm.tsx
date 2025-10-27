@@ -164,6 +164,16 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
                 onChange={(e) => setFormData({ ...formData, discord_id: e.target.value })}
               />
             </div>
+
+            <div>
+              <Label htmlFor="discord_channel_id">Discord チャンネルID</Label>
+              <Input
+                id="discord_channel_id"
+                value={formData.discord_channel_id || ''}
+                onChange={(e) => setFormData({ ...formData, discord_channel_id: e.target.value })}
+                placeholder="シフト通知用のチャンネルID"
+              />
+            </div>
               </div>
             </div>
           </div>
@@ -178,9 +188,11 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
               <Label>役割</Label>
               <MultiSelect
                 options={roleOptions}
-                selectedIds={formData.role || []}
-                onChange={(ids) => setFormData({ ...formData, role: ids })}
+                selectedValues={formData.role || []}
+                onSelectionChange={(values) => setFormData({ ...formData, role: values })}
                 placeholder="役割を選択"
+                useIdAsValue={true}
+                showBadges={true}
               />
             </div>
 
@@ -188,9 +200,11 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
               <Label>担当店舗</Label>
               <MultiSelect
                 options={storeOptions}
-                selectedIds={formData.stores || []}
-                onChange={(ids) => setFormData({ ...formData, stores: ids })}
+                selectedValues={formData.stores || []}
+                onSelectionChange={(values) => setFormData({ ...formData, stores: values })}
                 placeholder="店舗を選択"
+                useIdAsValue={true}
+                showBadges={true}
               />
             </div>
 
@@ -198,9 +212,11 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
               <Label>特別シナリオ</Label>
               <MultiSelect
                 options={scenarioOptions}
-                selectedIds={formData.special_scenarios || []}
-                onChange={(ids) => setFormData({ ...formData, special_scenarios: ids })}
+                selectedValues={formData.special_scenarios || []}
+                onSelectionChange={(values) => setFormData({ ...formData, special_scenarios: values })}
                 placeholder="シナリオを選択"
+                useIdAsValue={true}
+                showBadges={true}
               />
             </div>
               </div>
