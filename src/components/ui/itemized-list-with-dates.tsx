@@ -172,10 +172,17 @@ export function ItemizedListWithDates({
 
                       {/* 期間設定ボタン */}
                       {showDateRange && (
-                        <div>
-                          <Label className="text-[10px] mb-1.5 block leading-tight opacity-0">
-                            期間
-                          </Label>
+                        <div className="relative">
+                          {/* 期間表示（2カラムにまたがる） */}
+                          <div className="absolute -top-5 left-0 right-0 text-[10px] leading-tight text-muted-foreground whitespace-nowrap">
+                            {(item.startDate || item.endDate) ? (
+                              <>
+                                {item.startDate && !item.endDate && `${item.startDate.replace(/-/g, '/')}~`}
+                                {!item.startDate && item.endDate && `~${item.endDate.replace(/-/g, '/')}`}
+                                {item.startDate && item.endDate && `${item.startDate.replace(/-/g, '/')}〜${item.endDate.replace(/-/g, '/')}`}
+                              </>
+                            ) : null}
+                          </div>
                           {monthOnly ? (
                             <MonthPickerPopover
                               value={item.startDate}
@@ -201,16 +208,8 @@ export function ItemizedListWithDates({
 
                       {/* ステータス・アクションメニュー */}
                       <div>
-                        <Label className="text-[10px] mb-1.5 block leading-tight text-muted-foreground">
-                          {(item.startDate || item.endDate) ? (
-                            <>
-                              {item.startDate && !item.endDate && `${item.startDate.replace(/-/g, '/')}~`}
-                              {!item.startDate && item.endDate && `~${item.endDate.replace(/-/g, '/')}`}
-                              {item.startDate && item.endDate && `${item.startDate.replace(/-/g, '/')}〜${item.endDate.replace(/-/g, '/')}`}
-                            </>
-                          ) : (
-                            <span className="opacity-0">期間</span>
-                          )}
+                        <Label className="text-xs mb-1.5 block opacity-0">
+                          ステータス
                         </Label>
                         
                         <Select
