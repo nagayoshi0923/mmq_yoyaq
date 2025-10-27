@@ -5,13 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DateRangeModal } from '@/components/modals/DateRangeModal'
-import { Plus, MoreVertical } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Plus, Trash2 } from 'lucide-react'
 
 export interface ItemizedListItem {
   // 共通フィールド
@@ -205,29 +199,26 @@ export function ItemizedListWithDates({
                         </div>
                       )}
 
-                      {/* メニューボタン */}
+                      {/* アクションメニュー */}
                       <div>
-                        <Label className="text-xs opacity-0">メニュー</Label>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setDeleteConfirmIndex(index)}
-                            >
+                        <Label className="text-xs opacity-0">操作</Label>
+                        <Select
+                          value=""
+                          onValueChange={(value) => {
+                            if (value === 'delete') {
+                              setDeleteConfirmIndex(index)
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8 w-20">
+                            <SelectValue placeholder="操作" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="delete" className="text-destructive">
                               削除
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                 </div>
