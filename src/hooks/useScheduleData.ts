@@ -471,61 +471,72 @@ export function useScheduleData(currentDate: Date) {
     loadInitialData()
   }, [])
 
-    // スケジュールデータを取得する共通関数
-  const loadScheduleData = async (year: number, month: number) => {
-    const data = await scheduleApi.getByMonth(year, month)
+  // Supabaseからイベントデータを読み込む
+  useEffect(() => {
+    // 店舗データが読み込まれるまで待つ（店舗データが必要）
+    if (storesLoading) return
     
-    // Supabaseのデータを内部形式に変換
-    const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => ({
-      id: event.id,
-      date: event.date,
-      venue: event.store_id, // store_idを直接使用
-      scenario: event.scenarios?.title || event.scenario || '', // JOINされたタイトルを優先
-      gms: event.gms || [],
-      start_time: event.start_time,
-      end_time: event.end_time,
-      category: event.category,
-      is_cancelled: event.is_cancelled || false,
-      participant_count: event.current_participants || 0, // 実際の参加者数を使用
-      max_participants: event.capacity || 8,
-      notes: event.notes || '',
-      is_reservation_enabled: event.is_reservation_enabled || false
-    }))
-    
-    // 貸切リクエストを取得して追加（確定済みのみ）
-    const { data: privateRequests, error: privateError } = await supabase
-      .from('reservations')
-      .select(`
-        id,
-        title,
-        customer_name,
-        status,
-        store_id,
-        gm_staff,
-        candidate_datetimes,
-        participant_count,
-        scenarios:scenario_id (
-          title,
-          player_count_max
-        ),
-        gm_availability_responses (
-          staff_id,
-          response_status,
-          staff:staff_id (name)
-        )
-      `)
-      .eq('reservation_source', 'web_private')
-      .eq('status', 'confirmed') // 確定のみ表示
-    
-    if (privateError) {
-      logger.error('貸切リクエスト取得エラー:', privateError)
-    }
-    
-    // 貸切リクエストをスケジュールイベントに変換
-    const privateEvents: ScheduleEvent[] = []
-    if (privateRequests) {
-      privateRequests.forEach((request: PrivateRequestData) => {
-        if (request.candidate_datetimes?.candidates) {
+    const loadEvents = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        
+        const year = currentDate.getFullYear()
+        const month = currentDate.getMonth() + 1
+        
+        const data = await scheduleApi.getByMonth(year, month)
+        
+        // Supabaseのデータを内部形式に変換
+        const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => ({
+          id: event.id,
+          date: event.date,
+          venue: event.store_id, // store_idを直接使用
+          scenario: event.scenarios?.title || event.scenario || '', // JOINされたタイトルを優先
+          gms: event.gms || [],
+          start_time: event.start_time,
+          end_time: event.end_time,
+          category: event.category,
+          is_cancelled: event.is_cancelled || false,
+          participant_count: event.current_participants || 0, // 実際の参加者数を使用
+          max_participants: event.capacity || 8,
+          notes: event.notes || '',
+          is_reservation_enabled: event.is_reservation_enabled || false
+        }))
+        
+        // 貸切リクエストを取得して追加（確定済みのみ）
+        const { data: privateRequests, error: privateError } = await supabase
+          .from('reservations')
+          .select(`
+            id,
+            title,
+            customer_name,
+            status,
+            store_id,
+            gm_staff,
+            candidate_datetimes,
+            participant_count,
+            scenarios:scenario_id (
+              title,
+              player_count_max
+            ),
+            gm_availability_responses (
+              staff_id,
+              response_status,
+              staff:staff_id (name)
+            )
+          `)
+          .eq('reservation_source', 'web_private')
+          .eq('status', 'confirmed') // 確定のみ表示
+        
+        if (privateError) {
+          logger.error('貸切リクエスト取得エラー:', privateError)
+        }
+        
+        // 貸切リクエストをスケジュールイベントに変換
+        const privateEvents: ScheduleEvent[] = []
+        if (privateRequests) {
+          privateRequests.forEach((request: PrivateRequestData) => {
+            if (request.candidate_datetimes?.candidates) {
               // GMの名前を取得
               let gmNames: string[] = []
               
