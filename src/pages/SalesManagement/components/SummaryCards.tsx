@@ -14,11 +14,23 @@ interface SummaryCardsProps {
   storeCount: number
   totalLicenseCost: number
   totalGmCost: number
+  totalProductionCost: number
+  totalPropsCost: number
   totalFixedCost: number
   fixedCostBreakdown: Array<{
     item: string
     amount: number
     store: string
+  }>
+  productionCostBreakdown: Array<{
+    item: string
+    amount: number
+    scenario: string
+  }>
+  propsCostBreakdown: Array<{
+    item: string
+    amount: number
+    scenario: string
   }>
   totalVariableCost: number
   variableCostBreakdown: Array<{
@@ -43,8 +55,12 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
   storeCount,
   totalLicenseCost,
   totalGmCost,
+  totalProductionCost,
+  totalPropsCost,
   totalFixedCost,
   fixedCostBreakdown,
+  productionCostBreakdown,
+  propsCostBreakdown,
   totalVariableCost,
   variableCostBreakdown,
   netProfit
@@ -146,17 +162,35 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Users className="h-4 w-4 text-red-600" />
-              GM給与
+              <Users className="h-4 w-4 text-orange-600" />
+              制作費・物品購入
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold text-red-600">
-              {formatCurrency(totalGmCost)}
+            <div className="text-xl font-bold text-orange-600 mb-2">
+              {formatCurrency(totalProductionCost + totalPropsCost)}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              GMスタッフへの支払い
-            </p>
+            {(productionCostBreakdown.length > 0 || propsCostBreakdown.length > 0) && (
+              <div className="text-xs text-muted-foreground space-y-0.5 max-h-24 overflow-y-auto">
+                {productionCostBreakdown.map((item, index) => (
+                  <div key={`prod-${index}`} className="flex justify-between gap-2 py-0.5">
+                    <span className="truncate text-[10px]">{item.scenario} / {item.item}</span>
+                    <span className="whitespace-nowrap font-medium">{formatCurrency(item.amount)}</span>
+                  </div>
+                ))}
+                {propsCostBreakdown.map((item, index) => (
+                  <div key={`prop-${index}`} className="flex justify-between gap-2 py-0.5">
+                    <span className="truncate text-[10px]">{item.scenario} / {item.item}</span>
+                    <span className="whitespace-nowrap font-medium">{formatCurrency(item.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {productionCostBreakdown.length === 0 && propsCostBreakdown.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                制作費・物品購入なし
+              </p>
+            )}
           </CardContent>
         </Card>
 
