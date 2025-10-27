@@ -160,8 +160,16 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
     }
 
     try {
+      // データベースに存在しないフィールドを除外
+      const { 
+        gm_assignments, 
+        use_flexible_pricing, 
+        flexible_pricing,
+        ...dbFields 
+      } = formData
+      
       const scenarioData: any = {
-        ...formData,
+        ...dbFields,
         gm_costs: formData.gm_assignments,
         updated_at: new Date().toISOString()
       }
