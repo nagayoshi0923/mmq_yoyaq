@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react'
-import { CustomDatePicker } from '@/components/modals/CustomDatePicker'
 
 interface DateRangePopoverProps {
   startDate?: string  // YYYY-MM-DD 形式
@@ -22,12 +21,14 @@ export function DateRangePopover({
   const [open, setOpen] = useState(false)
   const [tempStartDate, setTempStartDate] = useState(startDate || '')
   const [tempEndDate, setTempEndDate] = useState(endDate || '')
+  const [selectingStart, setSelectingStart] = useState(true) // true: 開始日選択中, false: 終了日選択中
 
   // Popoverが開かれたときに現在の値をリセット
   React.useEffect(() => {
     if (open) {
       setTempStartDate(startDate || '')
       setTempEndDate(endDate || '')
+      setSelectingStart(true) // 常に開始日から
     }
   }, [open, startDate, endDate])
 
@@ -41,6 +42,21 @@ export function DateRangePopover({
     setTempEndDate('')
     onDateChange(undefined, undefined)
     setOpen(false)
+  }
+
+  const handleDateClick = (date: string) => {
+    if (selectingStart) {
+      setTempStartDate(date)
+      setSelectingStart(false) // 次は終了日を選択
+    } else {
+      // 終了日が開始日より前の場合は入れ替え
+      if (tempStartDate && date < tempStartDate) {
+        setTempEndDate(tempStartDate)
+        setTempStartDate(date)
+      } else {
+        setTempEndDate(date)
+      }
+    }
   }
 
   // 表示用の文字列
@@ -57,19 +73,76 @@ export function DateRangePopover({
     return label
   })()
 
-  // ステータス判定
-  const getStatus = (): 'active' | 'ready' | 'legacy' | 'none' => {
-    if (!startDate && !endDate) return 'none'
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
-    const start = startDate ? new Date(startDate) : null
-    const end = endDate ? new Date(endDate) : null
-    if (start && now < start) return 'ready'
-    if (end && now > end) return 'legacy'
-    return 'active'
+  // カレンダーUI
+  const currentDate = tempStartDate ? new Date(tempStartDate) : new Date()
+  const [viewYear, setViewYear] = useState(currentDate.getFullYear())
+  const [viewMonth, setViewMonth] = useState(currentDate.getMonth())
+
+  const getDaysInMonth = (year: number, month: number) => {
+    return new Date(year, month + 1, 0).getDate()
   }
 
-  const status = getStatus()
+  const getFirstDayOfMonth = (year: number, month: number) => {
+    return new Date(year, month, 1).getDay()
+  }
+
+  const handlePrevMonth = () => {
+    if (viewMonth === 0) {
+      setViewMonth(11)
+      setViewYear(viewYear - 1)
+    } else {
+      setViewMonth(viewMonth - 1)
+    }
+  }
+
+  const handleNextMonth = () => {
+    if (viewMonth === 11) {
+      setViewMonth(0)
+      setViewYear(viewYear + 1)
+    } else {
+      setViewMonth(viewMonth + 1)
+    }
+  }
+
+  const daysInMonth = getDaysInMonth(viewYear, viewMonth)
+  const firstDay = getFirstDayOfMonth(viewYear, viewMonth)
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+  const blanks = Array.from({ length: firstDay }, (_, i) => i)
+
+  const isSelectedStart = (day: number) => {
+    if (!tempStartDate) return false
+    const date = new Date(tempStartDate)
+    return (
+      date.getFullYear() === viewYear &&
+      date.getMonth() === viewMonth &&
+      date.getDate() === day
+    )
+  }
+
+  const isSelectedEnd = (day: number) => {
+    if (!tempEndDate) return false
+    const date = new Date(tempEndDate)
+    return (
+      date.getFullYear() === viewYear &&
+      date.getMonth() === viewMonth &&
+      date.getDate() === day
+    )
+  }
+
+  const isInRange = (day: number) => {
+    if (!tempStartDate || !tempEndDate) return false
+    const year = viewYear
+    const month = viewMonth + 1
+    const dayStr = String(day).padStart(2, '0')
+    const monthStr = String(month).padStart(2, '0')
+    const currentDate = `${year}-${monthStr}-${dayStr}`
+    return currentDate > tempStartDate && currentDate < tempEndDate
+  }
+
+  const monthNames = [
+    '1月', '2月', '3月', '4月', '5月', '6月',
+    '7月', '8月', '9月', '10月', '11月', '12月'
+  ]
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -84,59 +157,116 @@ export function DateRangePopover({
           {displayValue}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px]" align="start">
-        <div className="space-y-6">
-          {/* 開始日カレンダー */}
-          <CustomDatePicker
-            value={tempStartDate}
-            onChange={setTempStartDate}
-            label="開始日（任意）"
-          />
-          <p className="text-xs text-muted-foreground -mt-2">
-            未指定の場合、現行設定として扱われます
-          </p>
+      <PopoverContent className="w-[280px] p-3" align="start">
+        <div className="space-y-3">
+          {/* ステータス表示 */}
+          <div className="text-xs text-center">
+            {selectingStart ? (
+              <span className="text-blue-600 font-medium">開始日を選択</span>
+            ) : (
+              <span className="text-green-600 font-medium">終了日を選択（またはスキップ）</span>
+            )}
+          </div>
 
-          <div className="border-t pt-6">
-            {/* 終了日カレンダー */}
-            <CustomDatePicker
-              value={tempEndDate}
-              onChange={setTempEndDate}
-              label="終了日（任意）"
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              未指定の場合、無期限となります
-            </p>
+          {/* 年月選択 */}
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-6 w-6"
+              onClick={handlePrevMonth}
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            <div className="text-xs font-semibold">
+              {viewYear}年 {monthNames[viewMonth]}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-6 w-6"
+              onClick={handleNextMonth}
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+
+          {/* 曜日ヘッダー */}
+          <div className="grid grid-cols-7 gap-1">
+            {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
+              <div
+                key={day}
+                className={`text-center text-[10px] font-medium py-1 ${
+                  index === 0 ? 'text-red-500' : index === 6 ? 'text-blue-500' : 'text-muted-foreground'
+                }`}
+              >
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* 日付グリッド */}
+          <div className="grid grid-cols-7 gap-1">
+            {blanks.map((blank) => (
+              <div key={`blank-${blank}`} className="aspect-square" />
+            ))}
+            {days.map((day) => {
+              const year = viewYear
+              const month = viewMonth + 1
+              const dayStr = String(day).padStart(2, '0')
+              const monthStr = String(month).padStart(2, '0')
+              const dateStr = `${year}-${monthStr}-${dayStr}`
+              const isStart = isSelectedStart(day)
+              const isEnd = isSelectedEnd(day)
+              const inRange = isInRange(day)
+
+              return (
+                <Button
+                  key={day}
+                  type="button"
+                  variant="ghost"
+                  className={`aspect-square p-0 text-[11px] h-7 w-7 ${
+                    isStart || isEnd
+                      ? 'bg-primary text-primary-foreground font-semibold hover:bg-primary/90'
+                      : inRange
+                      ? 'bg-primary/20 hover:bg-primary/30'
+                      : ''
+                  }`}
+                  onClick={() => handleDateClick(dateStr)}
+                >
+                  {day}
+                </Button>
+              )
+            })}
           </div>
 
           {/* プレビュー */}
           {(tempStartDate || tempEndDate) && (
-            <div className="rounded-lg border bg-muted/50 p-4">
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">適用期間: </span>
-                <span className="text-sm text-foreground">
-                  {tempStartDate && !tempEndDate && `${tempStartDate}から`}
-                  {!tempStartDate && tempEndDate && `${tempEndDate}まで`}
-                  {tempStartDate && tempEndDate && `${tempStartDate} 〜 ${tempEndDate}`}
-                </span>
-              </div>
+            <div className="rounded border bg-muted/30 px-2 py-1.5 text-[10px] text-center">
+              {tempStartDate && !tempEndDate && `${tempStartDate}から`}
+              {!tempStartDate && tempEndDate && `${tempEndDate}まで`}
+              {tempStartDate && tempEndDate && `${tempStartDate} 〜 ${tempEndDate}`}
             </div>
           )}
 
           {/* ボタン */}
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-2 pt-2 border-t">
             <Button
               type="button"
               variant="ghost"
               onClick={handleClear}
-              className="flex-1"
+              size="sm"
+              className="flex-1 h-7 text-xs"
             >
               クリア
             </Button>
             <Button
               type="button"
               onClick={handleSave}
-              className="flex-1"
+              size="sm"
+              className="flex-1 h-7 text-xs"
             >
               保存
             </Button>
