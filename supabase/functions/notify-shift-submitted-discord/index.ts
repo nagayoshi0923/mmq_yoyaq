@@ -67,21 +67,21 @@ async function sendDiscordNotification(
 ): Promise<void> {
   const { totalDays, morningCount, afternoonCount, eveningCount, allDayCount } = summary
   
-  let message = `✅ **${staffName}**がシフトを提出しました\n\n`
-  message += `📅 **対象月**: ${year}年${month}月\n`
-  message += `📊 **出勤可能日数**: ${totalDays}日\n\n`
+  let message = `**${staffName}**がシフトを提出しました\n\n`
+  message += `対象月: ${year}年${month}月\n`
+  message += `出勤可能日数: ${totalDays}日\n\n`
   
   if (allDayCount > 0) {
-    message += `🌟 終日: ${allDayCount}日\n`
+    message += `終日: ${allDayCount}日\n`
   }
   if (morningCount > 0) {
-    message += `🌅 朝(10-14時): ${morningCount}日\n`
+    message += `朝(10-14時): ${morningCount}日\n`
   }
   if (afternoonCount > 0) {
-    message += `☀️ 昼(14-18時): ${afternoonCount}日\n`
+    message += `昼(14-18時): ${afternoonCount}日\n`
   }
   if (eveningCount > 0) {
-    message += `🌙 夜(18-22時): ${eveningCount}日\n`
+    message += `夜(18-22時): ${eveningCount}日\n`
   }
   
   const payload = {
