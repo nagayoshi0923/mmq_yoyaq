@@ -2,12 +2,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const GOOGLE_APPS_SCRIPT_URL = Deno.env.get('GOOGLE_APPS_SCRIPT_URL')!
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -34,14 +28,26 @@ serve(async (req) => {
   }
 
   try {
-    if (!GOOGLE_APPS_SCRIPT_URL) {
-      throw new Error('GOOGLE_APPS_SCRIPT_URL is not set')
+    // 環境変数を取得
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const GOOGLE_APPS_SCRIPT_URL = Deno.env.get('GOOGLE_APPS_SCRIPT_URL')
+    
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !GOOGLE_APPS_SCRIPT_URL) {
+      throw new Error('Required environment variables are not set')
     }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
     const payload: SyncShiftsPayload = await req.json()
     const { year, month, staff_id } = payload
 
     console.log('📊 シフト同期開始:', { year, month, staff_id })
+    console.log('📊 環境変数チェック:', {
+      has_supabase_url: !!SUPABASE_URL,
+      has_service_key: !!SUPABASE_SERVICE_ROLE_KEY,
+      has_google_url: !!GOOGLE_APPS_SCRIPT_URL
+    })
 
     if (!year || !month || month < 1 || month > 12) {
       throw new Error('Invalid year or month')
@@ -52,10 +58,12 @@ serve(async (req) => {
 
     const startDateStr = `${year}-${String(month).padStart(2, '0')}-01`
     const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
+    
+    console.log('📅 日付範囲:', { startDateStr, endDateStr })
 
     // シフトデータを取得
     let query = supabase
-      .from('staff_shifts')
+      .from('shift_submissions')
       .select(`
         date,
         morning,
@@ -93,17 +101,26 @@ serve(async (req) => {
 
     // スタッフIDを取得してスタッフ情報を別途取得
     const staffIds = [...new Set(shifts.map(s => s.staff_id))]
-    const { data: staffMembers, error: staffError } = await supabase
-      .from('staff')
-      .select('id, name')
-      .in('id', staffIds)
+    console.log('👥 スタッフID数:', staffIds.length)
+    
+    let staffMembers = []
+    if (staffIds.length > 0) {
+      const { data, error: staffError } = await supabase
+        .from('staff')
+        .select('id, name')
+        .in('id', staffIds)
 
-    if (staffError) {
-      throw new Error(`Failed to fetch staff: ${staffError.message}`)
+      if (staffError) {
+        throw new Error(`Failed to fetch staff: ${staffError.message}`)
+      }
+      
+      staffMembers = data || []
     }
 
     // スタッフIDからnameのマップを作成
     const staffNameMap = new Map(staffMembers?.map(s => [s.id, s.name]) || [])
+    console.log('👥 スタッフ取得:', { staff_count: staffMembers?.length || 0 })
+    console.log('👥 スタッフマップ:', Array.from(staffNameMap.entries()))
 
     // データを変換
     const transformedShifts: ShiftData[] = shifts.map(shift => ({
@@ -114,8 +131,19 @@ serve(async (req) => {
       evening: shift.evening || false,
       all_day: shift.all_day || false
     }))
+    
+    console.log('🔄 変換完了:', { transformed_count: transformedShifts.length })
+    console.log('🔄 変換サンプル:', transformedShifts.slice(0, 2))
 
     // Google Apps Scriptに送信
+    console.log('🚀 Google Apps Script送信開始')
+    console.log('📤 送信データ:', {
+      year,
+      month,
+      shifts_count: transformedShifts.length,
+      sample_shift: transformedShifts[0]
+    })
+    
     const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
       method: 'POST',
       headers: {
@@ -128,8 +156,11 @@ serve(async (req) => {
       })
     })
 
+    console.log('📡 レスポンスステータス:', response.status, response.statusText)
+
     if (!response.ok) {
       const errorText = await response.text()
+      console.error('❌ Google Apps Scriptエラー:', errorText)
       throw new Error(`Google Apps Script error: ${response.status} - ${errorText}`)
     }
 
@@ -147,11 +178,26 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('❌ Error:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    
+    console.error('❌ Error:', errorMessage)
+    console.error('❌ Error stack:', errorStack)
+    console.error('❌ Error details:', {
+      message: errorMessage,
+      name: error instanceof Error ? error.name : 'Unknown',
+      cause: error instanceof Error ? error.cause : undefined
+    })
+    
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error' 
+        error: errorMessage,
+        stack: errorStack,
+        details: {
+          name: error instanceof Error ? error.name : 'Error',
+          cause: error instanceof Error ? error.cause : undefined
+        }
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

@@ -81,7 +81,7 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
           const month = date.getMonth() + 1
           
           // 並列で実行
-          await Promise.allSettled([
+          const results = await Promise.allSettled([
             // Discord通知
             supabase.functions.invoke('notify-shift-submitted-discord', {
               body: {
@@ -106,9 +106,29 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
             })
           ])
           
-          logger.log('Discord通知・スプレッドシート同期成功')
+          // 結果を確認
+          results.forEach(async (result, index) => {
+            if (result.status === 'rejected') {
+              console.error(`❌ タスク ${index === 0 ? 'Discord通知' : 'スプレッドシート同期'} エラー:`, result.reason)
+            } else if (result.value?.error) {
+              const taskName = index === 0 ? 'Discord通知' : 'スプレッドシート同期'
+              console.error(`❌ タスク ${taskName} エラー:`, result.value.error)
+              console.error('❌ エラー詳細:', JSON.stringify(result.value, null, 2))
+              
+              // レスポンスボディを取得してみる
+              if (result.value.response) {
+                const clonedResponse = result.value.response.clone()
+                const responseText = await clonedResponse.text().catch(() => 'Failed to read response')
+                console.error('❌ レスポンステキスト:', responseText)
+              }
+            } else {
+              console.log(`✅ タスク ${index === 0 ? 'Discord通知' : 'スプレッドシート同期'} 成功:`, result.value)
+            }
+          })
+          
+          logger.log('Discord通知・スプレッドシート同期完了')
         }
-      } catch (notifyError) {
+      } catch (notifyError: any) {
         // 通知エラーは無視（本体処理は成功）
         logger.error('通知・同期エラー（処理は継続）:', notifyError)
       }

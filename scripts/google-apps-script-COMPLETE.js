@@ -8,18 +8,44 @@ const SPREADSHEET_ID = '1BmEqfp9gDYk--nY34H2TQHCr6g1YOEVkveP67fGI5S8';
  */
 function doPost(e) {
   try {
-    console.log('リクエスト受信:', e.postData.contents);
+    // eがundefinedまたはnullの場合（手動実行など）
+    if (!e || !e.postData) {
+      console.log('リクエストデータなし（手動実行の可能性）');
+      return ContentService
+        .createTextOutput(JSON.stringify({ 
+          success: false, 
+          error: 'リクエストデータがありません',
+          hint: 'このスクリプトはSupabase Edge Functionから呼び出されることを想定しています'
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    console.log('=== リクエスト開始 ===');
+    console.log('リクエスト全体:', JSON.stringify(e, null, 2));
+    console.log('postData:', e.postData);
+    console.log('postData.contents:', e.postData.contents);
     
     // リクエストボディをパース
     const requestBody = JSON.parse(e.postData.contents);
+    console.log('パースしたリクエスト:', JSON.stringify(requestBody, null, 2));
     
-    const { month, year, shifts } = requestBody;
+    const { year, month, shifts } = requestBody;
+    console.log('データを受信:', { year, month, shiftsCount: shifts?.length });
     
-    console.log('データを受信:', { month, year, shiftsCount: shifts?.length });
+    // データがない場合はエラーを返す
+    if (!shifts || shifts.length === 0) {
+      console.error('シフトデータがありません');
+      return ContentService
+        .createTextOutput(JSON.stringify({ 
+          success: false, 
+          error: 'シフトデータがありません',
+          receivedData: requestBody
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     
     // データを処理
     const result = syncShiftsToSheet(month, year, shifts);
-    
     console.log('処理完了:', result);
     
     // 成功レスポンスを返す
@@ -32,7 +58,9 @@ function doPost(e) {
       .setMimeType(ContentService.MimeType.JSON);
       
   } catch (error) {
+    console.error('=== エラー発生 ===');
     console.error('エラー:', error);
+    console.error('スタック:', error.stack);
     return ContentService
       .createTextOutput(JSON.stringify({ 
         success: false, 
