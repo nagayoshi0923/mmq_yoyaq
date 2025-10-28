@@ -71,7 +71,7 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
       
       logger.log('シフト提出成功:', { 保存: shiftsToUpsert.length, 削除: shiftsToRemove.length })
       
-      // Discord通知を送信
+      // Discord通知とGoogleスプレッドシート同期を並列で実行
       try {
         // 年月を取得（最初のシフトから）
         const firstShift = shiftsToSave[0] || shiftsToDelete[0]
@@ -80,26 +80,37 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
           const year = date.getFullYear()
           const month = date.getMonth() + 1
           
-          await supabase.functions.invoke('notify-shift-submitted-discord', {
-            body: {
-              staff_id: currentStaffId,
-              year,
-              month,
-              shifts: shiftsToSave.map(shift => ({
-                date: shift.date,
-                morning: shift.morning,
-                afternoon: shift.afternoon,
-                evening: shift.evening,
-                all_day: shift.all_day
-              }))
-            }
-          })
+          // 並列で実行
+          await Promise.allSettled([
+            // Discord通知
+            supabase.functions.invoke('notify-shift-submitted-discord', {
+              body: {
+                staff_id: currentStaffId,
+                year,
+                month,
+                shifts: shiftsToSave.map(shift => ({
+                  date: shift.date,
+                  morning: shift.morning,
+                  afternoon: shift.afternoon,
+                  evening: shift.evening,
+                  all_day: shift.all_day
+                }))
+              }
+            }),
+            // Googleスプレッドシート同期
+            supabase.functions.invoke('sync-shifts-to-google-sheet', {
+              body: {
+                year,
+                month
+              }
+            })
+          ])
           
-          logger.log('Discord通知送信成功')
+          logger.log('Discord通知・スプレッドシート同期成功')
         }
       } catch (notifyError) {
         // 通知エラーは無視（本体処理は成功）
-        logger.error('Discord通知エラー（処理は継続）:', notifyError)
+        logger.error('通知・同期エラー（処理は継続）:', notifyError)
       }
       
       // チェックボックスの総数を計算（終日は3枠としてカウント）
