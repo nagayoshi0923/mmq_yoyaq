@@ -71,66 +71,55 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
       
       logger.log('シフト提出成功:', { 保存: shiftsToUpsert.length, 削除: shiftsToRemove.length })
       
-      // Discord通知とGoogleスプレッドシート同期を並列で実行
-      try {
-        // 年月を取得（最初のシフトから）
-        const firstShift = shiftsToSave[0] || shiftsToDelete[0]
-        if (firstShift) {
-          const date = new Date(firstShift.date)
-          const year = date.getFullYear()
-          const month = date.getMonth() + 1
-          
-          // 並列で実行
-          const results = await Promise.allSettled([
-            // Discord通知
-            supabase.functions.invoke('notify-shift-submitted-discord', {
-              body: {
-                staff_id: currentStaffId,
-                year,
-                month,
-                shifts: shiftsToSave.map(shift => ({
-                  date: shift.date,
-                  morning: shift.morning,
-                  afternoon: shift.afternoon,
-                  evening: shift.evening,
-                  all_day: shift.all_day
-                }))
-              }
-            }),
-            // Googleスプレッドシート同期
-            supabase.functions.invoke('sync-shifts-to-google-sheet', {
-              body: {
-                year,
-                month
-              }
-            })
-          ])
-          
-          // 結果を確認
-          results.forEach(async (result, index) => {
-            if (result.status === 'rejected') {
-              console.error(`❌ タスク ${index === 0 ? 'Discord通知' : 'スプレッドシート同期'} エラー:`, result.reason)
-            } else if (result.value?.error) {
-              const taskName = index === 0 ? 'Discord通知' : 'スプレッドシート同期'
-              console.error(`❌ タスク ${taskName} エラー:`, result.value.error)
-              console.error('❌ エラー詳細:', JSON.stringify(result.value, null, 2))
-              
-              // レスポンスボディを取得してみる
-              if (result.value.response) {
-                const clonedResponse = result.value.response.clone()
-                const responseText = await clonedResponse.text().catch(() => 'Failed to read response')
-                console.error('❌ レスポンステキスト:', responseText)
-              }
-            } else {
-              console.log(`✅ タスク ${index === 0 ? 'Discord通知' : 'スプレッドシート同期'} 成功:`, result.value)
+      // Discord通知とGoogleスプレッドシート同期をバックグラウンドで実行（結果を待たない）
+      const firstShift = shiftsToSave[0] || shiftsToDelete[0]
+      if (firstShift) {
+        const date = new Date(firstShift.date)
+        const year = date.getFullYear()
+        const month = date.getMonth() + 1
+        
+        // バックグラウンド実行（awaitしない）
+        Promise.allSettled([
+          // Discord通知
+          supabase.functions.invoke('notify-shift-submitted-discord', {
+            body: {
+              staff_id: currentStaffId,
+              year,
+              month,
+              shifts: shiftsToSave.map(shift => ({
+                date: shift.date,
+                morning: shift.morning,
+                afternoon: shift.afternoon,
+                evening: shift.evening,
+                all_day: shift.all_day
+              }))
+            }
+          }),
+          // Googleスプレッドシート同期（このスタッフのみ）
+          supabase.functions.invoke('sync-shifts-to-google-sheet', {
+            body: {
+              year,
+              month,
+              staff_id: currentStaffId
             }
           })
-          
-          logger.log('Discord通知・スプレッドシート同期完了')
-        }
-      } catch (notifyError: any) {
-        // 通知エラーは無視（本体処理は成功）
-        logger.error('通知・同期エラー（処理は継続）:', notifyError)
+        ]).then(results => {
+          // 結果をログ出力（成功/失敗を記録）
+          results.forEach((result, index) => {
+            const taskName = index === 0 ? 'Discord通知' : 'スプレッドシート同期'
+            if (result.status === 'rejected') {
+              console.error(`❌ ${taskName} エラー:`, result.reason)
+            } else if (result.value?.error) {
+              console.error(`❌ ${taskName} エラー:`, result.value.error)
+            } else {
+              console.log(`✅ ${taskName} 成功`)
+            }
+          })
+          logger.log('バックグラウンド処理完了（通知・同期）')
+        }).catch(error => {
+          // エラーは無視（本体処理は成功しているため）
+          logger.error('バックグラウンド処理エラー（処理は継続）:', error)
+        })
       }
       
       // チェックボックスの総数を計算（終日は3枠としてカウント）
@@ -148,10 +137,10 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
       }, 0)
       
       // 提出月を取得
-      const firstShift = shiftsToSave[0] || shiftsToDelete[0]
+      const displayShift = shiftsToSave[0] || shiftsToDelete[0]
       let monthDisplay = ''
-      if (firstShift) {
-        const date = new Date(firstShift.date)
+      if (displayShift) {
+        const date = new Date(displayShift.date)
         const month = date.getMonth() + 1
         monthDisplay = `${month}月分の`
       }
