@@ -109,7 +109,17 @@ async function sendDiscordNotification(
   console.log('✅ Discord notification sent:', result.id)
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req) => {
+  // CORS preflight request
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     const payload: ShiftSubmittedPayload = await req.json()
     console.log('📨 Shift submitted payload:', payload)
@@ -146,7 +156,7 @@ serve(async (req) => {
           success: true, 
           message: 'Notification skipped (no channel configured)' 
         }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
@@ -169,7 +179,7 @@ serve(async (req) => {
         staff_name: staff.name,
         summary
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
     
   } catch (error) {
@@ -178,7 +188,7 @@ serve(async (req) => {
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Unknown error' 
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })
