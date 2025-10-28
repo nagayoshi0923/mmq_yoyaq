@@ -80,6 +80,14 @@ export interface DataTableProps<T> {
    * ローディング中か
    */
   loading?: boolean
+  /**
+   * ヘッダーをスティッキーにするか
+   */
+  stickyHeader?: boolean
+  /**
+   * スティッキーヘッダーの右側に表示するコンテンツ
+   */
+  stickyHeaderContent?: ReactNode
 }
 
 /**
@@ -116,7 +124,9 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
   sortState,
   onSort,
   emptyMessage = 'データがありません',
-  loading = false
+  loading = false,
+  stickyHeader = false,
+  stickyHeaderContent
 }: DataTableProps<T>) {
   // Column定義をTanStack Table形式に変換
   const tanStackColumns = useMemo<ColumnDef<T>[]>(
@@ -198,40 +208,49 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
   return (
     <div className="space-y-1">
       {/* ヘッダー行 */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex items-stretch min-h-[50px] bg-muted/30">
-            {table.getHeaderGroups().map((headerGroup) =>
-              headerGroup.headers.map((header) => {
-                const meta = header.column.columnDef.meta as any
-                const isSortable = header.column.getCanSort()
-                const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
-                const widthClass = meta?.width ? `flex-shrink-0 ${meta.width}` : 'flex-1 min-w-0'
-                
-                return (
-                  <div
-                    key={header.id}
-                    className={`${widthClass} px-3 py-2 border-r font-medium text-sm ${alignClass} ${
-                      isSortable ? 'cursor-pointer hover:bg-muted/50' : ''
-                    } ${meta?.headerClassName || ''} flex items-center justify-center`}
-                    onClick={
-                      isSortable
-                        ? header.column.getToggleSortingHandler()
-                        : undefined
-                    }
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                    {isSortable && getSortIcon(header.id)}
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <div className={stickyHeader ? 'sticky top-0 z-40' : ''}>
+        <Card>
+          <CardContent className="p-0">
+            <div className="flex items-stretch min-h-[50px] bg-muted/30">
+              <div className="flex items-stretch flex-1">
+                {table.getHeaderGroups().map((headerGroup) =>
+                  headerGroup.headers.map((header) => {
+                    const meta = header.column.columnDef.meta as any
+                    const isSortable = header.column.getCanSort()
+                    const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
+                    const widthClass = meta?.width ? `flex-shrink-0 ${meta.width}` : 'flex-1 min-w-0'
+                    
+                    return (
+                      <div
+                        key={header.id}
+                        className={`${widthClass} px-3 py-2 border-r font-medium text-sm ${alignClass} ${
+                          isSortable ? 'cursor-pointer hover:bg-muted/50' : ''
+                        } ${meta?.headerClassName || ''} flex items-center justify-center`}
+                        onClick={
+                          isSortable
+                            ? header.column.getToggleSortingHandler()
+                            : undefined
+                        }
+                      >
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                        {isSortable && getSortIcon(header.id)}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+              {stickyHeaderContent && (
+                <div className="flex items-center px-4 border-l bg-muted/30">
+                  {stickyHeaderContent}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* データ行 */}
       {table.getRowModel().rows.length > 0 ? (

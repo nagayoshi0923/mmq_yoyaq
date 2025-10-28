@@ -140,26 +140,20 @@ export function ShiftSubmission() {
                   getRowKey={(row) => row.dayInfo.date}
                   emptyMessage="シフトデータがありません"
                   loading={loading}
+                  stickyHeader={true}
+                  stickyHeaderContent={
+                    <Button 
+                      onClick={handleSubmitShift} 
+                      disabled={loading}
+                      size="lg"
+                      className="shadow-lg"
+                    >
+                      {loading ? '送信中...' : 'シフトを提出'}
+                    </Button>
+                  }
                 />
               </CardContent>
             </Card>
-
-            {/* 固定フッター：シフト提出ボタン */}
-            <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-40">
-              <div className="max-w-[1600px] mx-auto px-8 py-4 flex justify-end">
-                <Button 
-                  onClick={handleSubmitShift} 
-                  disabled={loading}
-                  size="lg"
-                  className="min-w-[160px]"
-                >
-                  {loading ? '送信中...' : 'シフトを提出'}
-                </Button>
-              </div>
-            </div>
-
-            {/* 下部余白（固定フッターの高さ分） */}
-            <div className="h-20" />
           </div>
         )
     }
