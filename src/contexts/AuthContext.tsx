@@ -237,8 +237,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // ユーザー情報をクリア
       setUser(null)
       
-      // ログイン画面にリダイレクト
-      window.location.href = '/#login'
+      // 予約サイトにリダイレクト（ログインなしでも閲覧可能）
+      window.location.href = '/#customer-booking'
     } catch (error) {
       setLoading(false)
       throw error
