@@ -10,8 +10,10 @@ import { TanStackDataTable } from '@/components/patterns/table'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { StaffEditForm } from './components/StaffEditForm'
 import { usePageState } from '@/hooks/usePageState'
+import { supabase } from '@/lib/supabase'
+import { staffApi } from '@/lib/api'
 import { 
-  Users, Clock, Shield
+  Users, Clock, Shield, Search, CheckCircle2, XCircle
 } from 'lucide-react'
 
 // 分離されたフック
@@ -122,6 +124,14 @@ export function StaffManagement() {
     setLinkMethod,
     openLinkModal,
     closeLinkModal,
+    searchEmail,
+    setSearchEmail,
+    searchedUser,
+    setSearchedUser,
+    searchError,
+    setSearchError,
+    isSearching,
+    setIsSearching,
     deleteDialogOpen,
     staffToDelete,
     openDeleteDialog,
@@ -130,8 +140,8 @@ export function StaffManagement() {
 
   // 招待・紐付け
   const {
+    searchUserByEmail,
     handleInviteStaff,
-    handleLinkExistingUser,
     handleLinkWithInvite
   } = useStaffInvitation({
     onSuccess: async () => {
@@ -202,6 +212,61 @@ export function StaffManagement() {
       closeDeleteDialog()
     } catch (err: any) {
       alert(err.message)
+    }
+  }
+
+  // ユーザー検索ハンドラ
+  const handleSearchUser = async () => {
+    if (!searchEmail) {
+      setSearchError('メールアドレスを入力してください')
+      return
+    }
+
+    setIsSearching(true)
+    setSearchError('')
+    setSearchedUser(null)
+
+    const result = await searchUserByEmail(searchEmail)
+
+    setIsSearching(false)
+
+    if (result.found && result.user) {
+      setSearchedUser(result.user)
+    } else {
+      setSearchError(result.error || 'ユーザーが見つかりません')
+    }
+  }
+
+  // 検索したユーザーと紐付けハンドラ
+  const handleConfirmLink = async () => {
+    if (!searchedUser || !linkingStaff) return
+
+    setLinkLoading(true)
+    try {
+      // staffテーブルのuser_idを更新
+      await staffApi.update(linkingStaff.id, {
+        ...linkingStaff,
+        user_id: searchedUser.id,
+        email: searchedUser.email
+      })
+
+      // usersテーブルのroleをstaffに更新
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ role: 'staff' })
+        .eq('id', searchedUser.id)
+
+      if (updateError) {
+        console.warn('usersテーブルの更新に失敗しました:', updateError)
+      }
+
+      alert(`✅ ${linkingStaff.name}さんを ${searchedUser.email} と紐付けました！`)
+      closeLinkModal()
+      // React Queryが自動でリロード
+    } catch (err: any) {
+      alert('紐付けに失敗しました: ' + err.message)
+    } finally {
+      setLinkLoading(false)
     }
   }
 
@@ -447,21 +512,89 @@ export function StaffManagement() {
                 </div>
                 
                 {linkMethod === 'existing' ? (
-                  <form onSubmit={(e) => {
-                    setLinkLoading(true)
-                    handleLinkExistingUser(e, linkingStaff).finally(() => setLinkLoading(false))
-                  }}>
-                    <Label htmlFor="link-email">メールアドレス</Label>
-                    <Input id="link-email" name="link-email" type="email" required />
-                    <div className="flex gap-2 justify-end mt-4">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="search-email">メールアドレスで検索</Label>
+                      <div className="flex gap-2 mt-1">
+                        <Input
+                          id="search-email"
+                          type="email"
+                          placeholder="user@example.com"
+                          value={searchEmail}
+                          onChange={(e) => setSearchEmail(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleSearchUser()
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          onClick={handleSearchUser}
+                          disabled={isSearching || !searchEmail}
+                        >
+                          {isSearching ? (
+                            <>
+                              <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                              検索中
+                            </>
+                          ) : (
+                            <>
+                              <Search className="h-4 w-4 mr-2" />
+                              検索
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* 検索エラー */}
+                    {searchError && (
+                      <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                        <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-800">{searchError}</p>
+                      </div>
+                    )}
+
+                    {/* 検索結果 */}
+                    {searchedUser && (
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-2 p-4 bg-green-50 border border-green-200 rounded-md">
+                          <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-green-900">ユーザーが見つかりました</p>
+                            <p className="text-sm text-green-700 mt-1">
+                              <span className="font-medium">メール:</span> {searchedUser.email}
+                            </p>
+                            <p className="text-sm text-green-700">
+                              <span className="font-medium">現在のロール:</span> {searchedUser.role}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                          <p className="text-sm text-blue-800">
+                            <strong>{linkingStaff.name}</strong>さんを <strong>{searchedUser.email}</strong> と紐付けます。
+                            <br />
+                            ユーザーのロールは自動的に <strong>staff</strong> に変更されます。
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 justify-end pt-2">
                       <Button type="button" variant="outline" onClick={closeLinkModal}>
                         キャンセル
                       </Button>
-                      <Button type="submit" disabled={linkLoading}>
+                      <Button
+                        onClick={handleConfirmLink}
+                        disabled={!searchedUser || linkLoading}
+                      >
                         {linkLoading ? '処理中...' : '紐付ける'}
                       </Button>
                     </div>
-                  </form>
+                  </div>
                 ) : (
                   <form onSubmit={(e) => {
                     setLinkLoading(true)

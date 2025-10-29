@@ -15,6 +15,28 @@ interface UseStaffInvitationProps {
  */
 export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationProps = {}) {
   /**
+   * メールアドレスでユーザーを検索
+   */
+  const searchUserByEmail = useCallback(async (email: string) => {
+    try {
+      const { data: user, error: searchError } = await supabase
+        .from('users')
+        .select('id, email, role')
+        .eq('email', email)
+        .single()
+      
+      if (searchError || !user) {
+        return { found: false, error: `メールアドレス ${email} のユーザーが見つかりません` }
+      }
+
+      return { found: true, user }
+    } catch (err: any) {
+      logger.error('Error searching user:', err)
+      return { found: false, error: err.message }
+    }
+  }, [])
+
+  /**
    * スタッフを招待（新規ユーザー作成）
    */
   const handleInviteStaff = useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
@@ -145,6 +167,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
   }, [onSuccess, onError])
 
   return {
+    searchUserByEmail,
     handleInviteStaff,
     handleLinkExistingUser,
     handleLinkWithInvite

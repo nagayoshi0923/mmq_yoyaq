@@ -19,6 +19,12 @@ export function useStaffModals() {
   const [linkLoading, setLinkLoading] = useState(false)
   const [linkMethod, setLinkMethod] = useState<'existing' | 'invite'>('existing')
   
+  // ユーザー検索状態
+  const [searchEmail, setSearchEmail] = useState('')
+  const [searchedUser, setSearchedUser] = useState<{ id: string; email: string; role: string } | null>(null)
+  const [searchError, setSearchError] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  
   // 削除確認ダイアログ
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [staffToDelete, setStaffToDelete] = useState<Staff | null>(null)
@@ -71,6 +77,10 @@ export function useStaffModals() {
     setLinkingStaff(null)
     setLinkLoading(false)
     setLinkMethod('existing')
+    setSearchEmail('')
+    setSearchedUser(null)
+    setSearchError('')
+    setIsSearching(false)
   }, [])
 
   /**
@@ -112,6 +122,16 @@ export function useStaffModals() {
     setLinkMethod,
     openLinkModal,
     closeLinkModal,
+    
+    // ユーザー検索状態
+    searchEmail,
+    setSearchEmail,
+    searchedUser,
+    setSearchedUser,
+    searchError,
+    setSearchError,
+    isSearching,
+    setIsSearching,
     
     // 削除確認ダイアログ
     deleteDialogOpen,
