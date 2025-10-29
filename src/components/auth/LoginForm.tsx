@@ -64,33 +64,6 @@ export function LoginForm() {
     }
   }
 
-  async function createTestAccount(role: 'admin' | 'staff' | 'customer') {
-    // Gmailのエイリアス機能を使用（+記号）
-    const timestamp = Date.now()
-    const testEmail = `test+${role}${timestamp}@gmail.com`
-    const testPassword = 'test123456'
-    
-    try {
-      setError('')
-      setMessage('')
-      
-      // テスト用アカウントを作成
-      const { error } = await supabase.auth.signUp({
-        email: testEmail,
-        password: testPassword,
-      })
-      
-      if (error) throw error
-      
-      setEmail(testEmail)
-      setPassword(testPassword)
-      setMessage(`${role}用テストアカウントを作成しました。\nメール: ${testEmail}\nパスワード: ${testPassword}\n\n※ メールアドレスの確認が必要です。受信トレイを確認してください。`)
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : ''
-      setError('テストアカウント作成に失敗しました。' + message)
-      logger.error('Test account creation error:', error)
-    }
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -189,72 +162,6 @@ export function LoginForm() {
               {isForgotPassword ? 'ログインに戻る' : 'パスワードを忘れた場合'}
             </Button>
           </form>
-
-          {!isForgotPassword && (
-            <div className="mt-6 pt-6 border-t border-border">
-              <div className="space-y-4">
-                <h4 className="font-semibold">テスト用アカウント作成</h4>
-                <div className="bg-yellow-50 border border-yellow-200 p-3 rounded text-sm">
-                  <p className="font-semibold text-yellow-800 mb-2">⚠️ 重要な注意</p>
-                  <p className="text-yellow-700 text-xs">
-                    アカウント作成後、メールアドレスの確認が必要です。<br/>
-                    実際のメールアドレスを使用するか、Supabaseの設定で「Email confirmation」を無効にしてください。
-                  </p>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  ボタンをクリックして新しいテストアカウントを作成できます
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => createTestAccount('admin')}
-                    className="bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100"
-                  >
-                    管理者
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => createTestAccount('staff')}
-                    className="bg-green-50 border-green-200 text-green-800 hover:bg-green-100"
-                  >
-                    スタッフ
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => createTestAccount('customer')}
-                    className="bg-purple-50 border-purple-200 text-purple-800 hover:bg-purple-100"
-                  >
-                    顧客
-                  </Button>
-                </div>
-                <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded">
-                  <p className="font-semibold text-blue-800 mb-2">💡 権限の判定:</p>
-                  <p>• メールに <strong>admin</strong> を含む → 管理者権限</p>
-                  <p>• メールに <strong>staff</strong> を含む → スタッフ権限</p>
-                  <p>• その他 → 顧客権限</p>
-                </div>
-                <div className="text-xs text-muted-foreground bg-gray-50 p-3 rounded">
-                  <p className="font-semibold text-gray-700 mb-2">🔧 開発環境の設定:</p>
-                  <p className="mb-1">Supabaseダッシュボードで以下を無効化すると、メール確認なしでログインできます：</p>
-                  <p className="pl-2">Authentication → Settings → Enable email confirmations → OFF</p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {isForgotPassword && (
-            <div className="mt-6 pt-6 border-t border-border">
-              <div className="space-y-3 text-sm text-muted-foreground bg-yellow-50 p-4 rounded">
-                <p className="font-semibold text-yellow-800">⚠️ 開発環境の注意</p>
-                <p>開発環境ではメール送信が制限されている場合があります。</p>
-                <p className="font-semibold text-gray-700 mt-3">新しいアカウントを作成してください:</p>
-                <p className="text-xs">「ログインに戻る」をクリックして、テスト用アカウント作成ボタンから新しいアカウントを作成できます。</p>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
