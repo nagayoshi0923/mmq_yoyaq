@@ -62,6 +62,19 @@ serve(async (req) => {
     await new Promise(resolve => setTimeout(resolve, 500))
     console.log('✅ Users record created by trigger')
 
+    // 2.5. usersテーブルのroleをstaffに明示的に更新
+    const { error: updateRoleError } = await supabase
+      .from('users')
+      .update({ role: 'staff' })
+      .eq('id', userId)
+
+    if (updateRoleError) {
+      console.error('⚠️ Error updating user role to staff:', updateRoleError)
+      // ロール更新失敗でもスタッフ作成は続行
+    } else {
+      console.log('✅ User role updated to staff')
+    }
+
     // 3. staffテーブルにレコード作成
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
