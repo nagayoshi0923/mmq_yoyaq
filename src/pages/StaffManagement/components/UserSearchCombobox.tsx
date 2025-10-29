@@ -155,7 +155,7 @@ export function UserSearchCombobox({
             {users.map((user) => (
               <CommandItem
                 key={user.id}
-                value={user.id}
+                value={user.email}
                 onSelect={() => handleSelect(user)}
                 className="cursor-pointer"
               >
