@@ -2,13 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Check, ChevronsUpDown, Loader2, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from '@/components/ui/command'
+import { Input } from '@/components/ui/input'
 import {
   Popover,
   PopoverContent,
@@ -90,8 +84,10 @@ export function UserSearchCombobox({
   }, [value, users])
 
   const handleSelect = (user: UserOption) => {
+    console.log('User selected:', user)
     onValueChange(user.id, user)
     setOpen(false)
+    setSearchTerm('')
   }
 
   const getRoleBadgeColor = (role: string) => {
@@ -129,13 +125,19 @@ export function UserSearchCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[400px] p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput 
-            placeholder="メールアドレスを入力..." 
-            value={searchTerm}
-            onValueChange={setSearchTerm}
-          />
-          <CommandEmpty>
+        <div className="flex flex-col">
+          {/* 検索入力 */}
+          <div className="p-3 border-b">
+            <Input
+              placeholder="メールアドレスを入力..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-9"
+            />
+          </div>
+
+          {/* 結果リスト */}
+          <div className="max-h-[300px] overflow-auto">
             {isSearching ? (
               <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -145,46 +147,48 @@ export function UserSearchCombobox({
               <div className="py-6 text-center text-sm text-muted-foreground">
                 2文字以上入力してください
               </div>
-            ) : (
+            ) : users.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 ユーザーが見つかりません
               </div>
+            ) : (
+              <div className="py-2">
+                {users.map((user) => (
+                  <div
+                    key={user.id}
+                    onClick={() => handleSelect(user)}
+                    className={cn(
+                      "flex items-center px-3 py-2 cursor-pointer hover:bg-accent",
+                      value === user.id && "bg-accent"
+                    )}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4 flex-shrink-0",
+                        value === user.id ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className="font-medium truncate">{user.email}</span>
+                      </div>
+                      <div className="mt-1">
+                        <span className={cn(
+                          "inline-block text-xs px-2 py-0.5 rounded-full",
+                          getRoleBadgeColor(user.role)
+                        )}>
+                          {user.role}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-          </CommandEmpty>
-          <CommandGroup className="max-h-[300px] overflow-auto">
-            {users.map((user) => (
-              <CommandItem
-                key={user.id}
-                value={user.email}
-                onSelect={() => handleSelect(user)}
-                className="cursor-pointer"
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4 flex-shrink-0",
-                    value === user.id ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className="font-medium truncate">{user.email}</span>
-                  </div>
-                  <div className="mt-1">
-                    <span className={cn(
-                      "inline-block text-xs px-2 py-0.5 rounded-full",
-                      getRoleBadgeColor(user.role)
-                    )}>
-                      {user.role}
-                    </span>
-                  </div>
-                </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </Command>
+          </div>
+        </div>
       </PopoverContent>
     </Popover>
   )
 }
-
