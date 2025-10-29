@@ -133,9 +133,10 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
     event.preventDefault()
     
     const formData = new FormData(event.currentTarget)
+    const email = formData.get('invite-email') as string
     
     const request: InviteStaffRequest = {
-      email: formData.get('invite-email') as string,
+      email: email,
       name: linkingStaff.name,
       phone: linkingStaff.phone,
       line_name: linkingStaff.line_name,
@@ -147,13 +148,15 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
     }
 
     try {
+      // 1. まず既存のスタッフレコードを削除
+      await staffApi.delete(linkingStaff.id)
+      logger.log('既存スタッフレコード削除完了')
+      
+      // 2. 新規ユーザーとスタッフレコードを作成
       const result = await inviteStaff(request)
       
       if (result.success && result.data) {
-        // 既存のstaffレコードを削除
-        await staffApi.delete(linkingStaff.id)
-        
-        alert(`✅ ${linkingStaff.name}さんを新規ユーザーとして招待しました！\n\n招待メールが${request.email}に送信されました。`)
+        alert(`✅ ${linkingStaff.name}さんを新規ユーザーとして招待しました！\n\n招待メールが${email}に送信されました。`)
         onSuccess?.()
       } else {
         throw new Error(result.error || '招待に失敗しました')
