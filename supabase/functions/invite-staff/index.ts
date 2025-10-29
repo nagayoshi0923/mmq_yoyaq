@@ -56,25 +56,10 @@ serve(async (req) => {
     const userId = authData.user.id
     console.log('✅ Auth user created:', userId)
 
-    // 2. usersテーブルにstaffロールで作成
-    const { error: usersError } = await supabase
-      .from('users')
-      .insert({
-        id: userId,
-        email: email,
-        role: 'staff',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-
-    if (usersError) {
-      console.error('❌ Error creating users record:', usersError)
-      // ユーザー作成をロールバック
-      await supabase.auth.admin.deleteUser(userId)
-      throw new Error(`Failed to create users record: ${usersError.message}`)
-    }
-
-    console.log('✅ Users record created')
+    // 2. usersテーブルは自動的にトリガーで作成される（handle_new_user）
+    // トリガーの処理を待つため、短時間スリープ
+    await new Promise(resolve => setTimeout(resolve, 500))
+    console.log('✅ Users record created by trigger')
 
     // 3. staffテーブルにレコード作成
     const { data: staffData, error: staffError } = await supabase
@@ -103,9 +88,8 @@ serve(async (req) => {
 
     if (staffError) {
       console.error('❌ Error creating staff record:', staffError)
-      // ユーザーとusersレコードをロールバック
+      // ユーザーをロールバック（usersテーブルはカスケード削除される）
       await supabase.auth.admin.deleteUser(userId)
-      await supabase.from('users').delete().eq('id', userId)
       throw new Error(`Failed to create staff record: ${staffError.message}`)
     }
 
