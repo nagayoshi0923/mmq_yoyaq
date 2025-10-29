@@ -411,15 +411,16 @@ export const staffApi = {
 
   // スタッフを削除
   async delete(id: string): Promise<void> {
-    // スタッフ情報を取得（名前が必要）
+    // スタッフ情報を取得（名前とuser_idが必要）
     const { data: staffData, error: fetchError } = await supabase
       .from('staff')
-      .select('name')
+      .select('name, user_id')
       .eq('id', id)
       .single()
     
     if (fetchError) throw fetchError
     const staffName = staffData.name
+    const userId = staffData.user_id
     
     // 関連データの処理
     
@@ -497,6 +498,32 @@ export const staffApi = {
       .eq('id', id)
     
     if (error) throw error
+    
+    // 6. auth.usersとusersテーブルからユーザーを削除（user_idが紐付いている場合）
+    if (userId) {
+      try {
+        // auth.usersから削除（admin権限が必要）
+        const { error: authError } = await supabase.auth.admin.deleteUser(userId)
+        if (authError) {
+          console.warn('auth.usersの削除に失敗しました:', authError)
+          // エラーでも処理を続行（スタッフは既に削除済みのため）
+        }
+        
+        // usersテーブルから削除（カスケード削除されない場合のため）
+        const { error: usersError } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', userId)
+        
+        if (usersError) {
+          console.warn('usersテーブルの削除に失敗しました:', usersError)
+          // エラーでも処理を続行
+        }
+      } catch (deleteError) {
+        console.warn('ユーザー削除でエラーが発生しました:', deleteError)
+        // スタッフは既に削除済みなので、エラーでも処理を続行
+      }
+    }
   },
 
   // スタッフの担当シナリオを更新（シナリオのavailable_gmsも同期更新）
