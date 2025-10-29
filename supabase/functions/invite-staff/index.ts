@@ -95,14 +95,91 @@ serve(async (req) => {
 
     console.log('✅ Staff record created:', staffData.id)
 
-    // 4. パスワード設定用のリンクを生成して招待メールを送信
-    const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email)
+    // 4. パスワード設定用のリンクを生成
+    const { data: inviteLinkData, error: inviteLinkError } = await supabase.auth.admin.generateLink({
+      type: 'invite',
+      email: email,
+    })
 
-    if (inviteError) {
-      console.warn('⚠️ Failed to send invite email:', inviteError)
-      // メール送信失敗はエラーとしない（ユーザーとスタッフレコードは作成済み）
+    if (inviteLinkError) {
+      console.error('❌ Error generating invite link:', inviteLinkError)
+      throw new Error(`Failed to generate invite link: ${inviteLinkError.message}`)
+    }
+
+    const inviteLink = inviteLinkData.properties.action_link
+    console.log('✅ Invite link generated')
+
+    // 5. Resend APIで招待メールを送信
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+    if (!RESEND_API_KEY) {
+      console.warn('⚠️ RESEND_API_KEY not set, skipping email')
     } else {
-      console.log('✅ Invite email sent')
+      try {
+        const emailResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'MMQ <onboarding@resend.dev>',
+            to: [email],
+            subject: '【MMQ】スタッフアカウント招待',
+            html: `
+              <h2>【MMQ】スタッフアカウントへようこそ！</h2>
+              
+              <p>こんにちは、${name}さん</p>
+              
+              <p>謎解きカフェ・バーMMQのスタッフ管理システムにご招待します。</p>
+              
+              <h3>🔐 アカウント設定手順</h3>
+              
+              <ol>
+                <li>下のボタンをクリック</li>
+                <li>パスワードを設定（8文字以上）</li>
+                <li>ログインしてスタッフページにアクセス</li>
+              </ol>
+              
+              <p style="text-align: center; margin: 30px 0;">
+                <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードを設定する</a>
+              </p>
+              
+              <p style="font-size: 12px; color: #666;">
+                または、以下のリンクをコピーしてブラウザに貼り付けてください：<br>
+                <a href="${inviteLink}">${inviteLink}</a>
+              </p>
+              
+              <h3>📋 ログイン後にできること</h3>
+              <ul>
+                <li>シフト提出</li>
+                <li>スケジュール確認</li>
+                <li>予約確認</li>
+              </ul>
+              
+              <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+              
+              <p style="color: #666; font-size: 12px;">
+                <strong>⚠️ 注意事項</strong><br>
+                • このリンクは24時間で有効期限が切れます<br>
+                • 心当たりがない場合は無視してください<br>
+                • パスワードは誰にも教えないでください
+              </p>
+            `,
+          }),
+        })
+
+        if (!emailResponse.ok) {
+          const errorData = await emailResponse.text()
+          console.error('❌ Resend API error:', errorData)
+          throw new Error(`Failed to send email via Resend: ${errorData}`)
+        }
+
+        const emailData = await emailResponse.json()
+        console.log('✅ Invite email sent via Resend:', emailData.id)
+      } catch (emailError) {
+        console.error('❌ Error sending email:', emailError)
+        // メール送信失敗はエラーとしない（ユーザーとスタッフレコードは作成済み）
+      }
     }
 
     return new Response(

@@ -63,28 +63,29 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
     const email = formData.get('link-email') as string
 
     try {
-      // メールアドレスからユーザーを検索
-      const { data: authUsers, error: searchError } = await supabase.auth.admin.listUsers()
+      // メールアドレスからユーザーを検索（usersテーブル経由）
+      const { data: users, error: searchError } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('email', email)
+        .single()
       
-      if (searchError) throw searchError
-      
-      const targetUser = authUsers.users.find(u => u.email === email)
-      
-      if (!targetUser) {
+      if (searchError || !users) {
         throw new Error(`メールアドレス ${email} のユーザーが見つかりません`)
       }
 
       // staffテーブルのuser_idを更新
       await staffApi.update(linkingStaff.id, {
         ...linkingStaff,
-        user_id: targetUser.id
+        user_id: users.id,
+        email: email
       })
 
       // usersテーブルのroleをstaffに更新
       const { error: updateError } = await supabase
         .from('users')
         .update({ role: 'staff' })
-        .eq('id', targetUser.id)
+        .eq('id', users.id)
 
       if (updateError) {
         console.warn('usersテーブルの更新に失敗しました:', updateError)
