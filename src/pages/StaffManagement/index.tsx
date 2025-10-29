@@ -13,7 +13,7 @@ import { usePageState } from '@/hooks/usePageState'
 import { supabase } from '@/lib/supabase'
 import { staffApi } from '@/lib/api'
 import { 
-  Users, Clock, Shield, Search, CheckCircle2, XCircle
+  Users, Clock, Shield, CheckCircle2
 } from 'lucide-react'
 
 // 分離されたフック
@@ -25,6 +25,7 @@ import { useStaffQuery, useStaffMutation, useDeleteStaffMutation } from './hooks
 
 // 分離されたコンポーネントとユーティリティ
 import { StaffFilters } from './components/StaffFilters'
+import { UserSearchCombobox } from './components/UserSearchCombobox'
 import { createStaffColumns } from './utils/tableColumns'
 
 export function StaffManagement() {
@@ -128,10 +129,6 @@ export function StaffManagement() {
     setSearchEmail,
     searchedUser,
     setSearchedUser,
-    searchError,
-    setSearchError,
-    isSearching,
-    setIsSearching,
     deleteDialogOpen,
     staffToDelete,
     openDeleteDialog,
@@ -140,7 +137,6 @@ export function StaffManagement() {
 
   // 招待・紐付け
   const {
-    searchUserByEmail,
     handleInviteStaff,
     handleLinkWithInvite
   } = useStaffInvitation({
@@ -215,29 +211,13 @@ export function StaffManagement() {
     }
   }
 
-  // ユーザー検索ハンドラ
-  const handleSearchUser = async () => {
-    if (!searchEmail) {
-      setSearchError('メールアドレスを入力してください')
-      return
-    }
-
-    setIsSearching(true)
-    setSearchError('')
-    setSearchedUser(null)
-
-    const result = await searchUserByEmail(searchEmail)
-
-    setIsSearching(false)
-
-    if (result.found && result.user) {
-      setSearchedUser(result.user)
-    } else {
-      setSearchError(result.error || 'ユーザーが見つかりません')
-    }
+  // コンボボックスからユーザー選択
+  const handleUserSelect = (userId: string, user: { id: string; email: string; role: string } | null) => {
+    setSearchEmail(userId)
+    setSearchedUser(user)
   }
 
-  // 検索したユーザーと紐付けハンドラ
+  // 選択したユーザーと紐付けハンドラ
   const handleConfirmLink = async () => {
     if (!searchedUser || !linkingStaff) return
 
@@ -514,56 +494,26 @@ export function StaffManagement() {
                 {linkMethod === 'existing' ? (
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="search-email">メールアドレスで検索</Label>
-                      <div className="flex gap-2 mt-1">
-                        <Input
-                          id="search-email"
-                          type="email"
-                          placeholder="user@example.com"
+                      <Label htmlFor="user-search">ユーザーを選択</Label>
+                      <div className="mt-1">
+                        <UserSearchCombobox
                           value={searchEmail}
-                          onChange={(e) => setSearchEmail(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault()
-                              handleSearchUser()
-                            }
-                          }}
+                          onValueChange={handleUserSelect}
+                          placeholder="メールアドレスで検索..."
                         />
-                        <Button
-                          type="button"
-                          onClick={handleSearchUser}
-                          disabled={isSearching || !searchEmail}
-                        >
-                          {isSearching ? (
-                            <>
-                              <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                              検索中
-                            </>
-                          ) : (
-                            <>
-                              <Search className="h-4 w-4 mr-2" />
-                              検索
-                            </>
-                          )}
-                        </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        メールアドレスの一部を入力すると候補が表示されます
+                      </p>
                     </div>
 
-                    {/* 検索エラー */}
-                    {searchError && (
-                      <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                        <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-red-800">{searchError}</p>
-                      </div>
-                    )}
-
-                    {/* 検索結果 */}
+                    {/* 選択結果 */}
                     {searchedUser && (
                       <div className="space-y-3">
                         <div className="flex items-start gap-2 p-4 bg-green-50 border border-green-200 rounded-md">
                           <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-green-900">ユーザーが見つかりました</p>
+                            <p className="text-sm font-medium text-green-900">ユーザーが選択されました</p>
                             <p className="text-sm text-green-700 mt-1">
                               <span className="font-medium">メール:</span> {searchedUser.email}
                             </p>

@@ -22,8 +22,6 @@ export function useStaffModals() {
   // ユーザー検索状態
   const [searchEmail, setSearchEmail] = useState('')
   const [searchedUser, setSearchedUser] = useState<{ id: string; email: string; role: string } | null>(null)
-  const [searchError, setSearchError] = useState('')
-  const [isSearching, setIsSearching] = useState(false)
   
   // 削除確認ダイアログ
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -79,8 +77,6 @@ export function useStaffModals() {
     setLinkMethod('existing')
     setSearchEmail('')
     setSearchedUser(null)
-    setSearchError('')
-    setIsSearching(false)
   }, [])
 
   /**
@@ -128,10 +124,6 @@ export function useStaffModals() {
     setSearchEmail,
     searchedUser,
     setSearchedUser,
-    searchError,
-    setSearchError,
-    isSearching,
-    setIsSearching,
     
     // 削除確認ダイアログ
     deleteDialogOpen,
