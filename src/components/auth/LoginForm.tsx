@@ -48,16 +48,23 @@ export function LoginForm() {
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : ''
+      
       if (isForgotPassword) {
-        setError('パスワードリセットメールの送信に失敗しました。' + message)
+        setError('パスワードリセットメールの送信に失敗しました。メールアドレスを確認してください。')
       } else if (isSignUp) {
-        setError('アカウント作成に失敗しました。' + message)
-      } else {
-        // メール未確認エラーの場合
-        if (message.includes('Email not confirmed')) {
-          setError('メールアドレスが確認されていません。登録時に送信された確認メールのリンクをクリックしてください。')
+        if (message.includes('User already registered')) {
+          setError('このメールアドレスは既に登録されています。ログインしてください。')
         } else {
-          setError('ログインに失敗しました。メールアドレスとパスワードを確認してください。')
+          setError('アカウント作成に失敗しました: ' + message)
+        }
+      } else {
+        // ログイン
+        if (message.includes('Invalid login credentials')) {
+          setError('メールアドレスまたはパスワードが正しくありません')
+        } else if (message.includes('Email not confirmed')) {
+          setError('メールアドレスが確認されていません。受信トレイの確認メールのリンクをクリックしてください。')
+        } else {
+          setError('ログインに失敗しました: ' + message)
         }
       }
       logger.error('Auth error:', error)
@@ -71,7 +78,11 @@ export function LoginForm() {
         <CardHeader className="text-center">
           <CardTitle>Queens Waltz</CardTitle>
           <CardDescription>
-            {isForgotPassword ? 'パスワードリセット' : 'マーダーミステリー店舗管理システム'}
+            {isForgotPassword 
+              ? 'パスワードリセット' 
+              : isSignUp 
+                ? 'アカウント作成' 
+                : 'マーダーミステリー店舗管理システム'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -120,6 +131,15 @@ export function LoginForm() {
             {message && (
               <div className="border-2 border-green-200 bg-green-50 rounded-md p-3">
                 <p className="text-green-800">{message}</p>
+              </div>
+            )}
+
+            {isSignUp && !message && (
+              <div className="border border-blue-200 bg-blue-50 rounded-md p-3 text-sm">
+                <p className="text-blue-800">
+                  <strong>顧客アカウント</strong>として登録されます。<br/>
+                  確認メールが送信されますので、メールのリンクをクリックしてアカウントを有効化してください。
+                </p>
               </div>
             )}
 
