@@ -233,9 +233,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      
+      // ユーザー情報をクリア
+      setUser(null)
+      
+      // ログイン画面にリダイレクト
+      window.location.href = '/#login'
     } catch (error) {
       setLoading(false)
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 
