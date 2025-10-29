@@ -122,7 +122,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'MMQ <onboarding@resend.dev>',
+            from: 'MMQ <noreply@mmq.game>',
             to: [email],
             subject: '【MMQ】スタッフアカウント招待',
             html: `
