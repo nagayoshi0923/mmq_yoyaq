@@ -17,8 +17,9 @@ export function SetPassword() {
 
   useEffect(() => {
     // URLからトークンを取得して検証
-    const hash = window.location.hash
-    if (!hash.includes('type=invite') && !hash.includes('type=recovery')) {
+    const fullUrl = window.location.href
+    if (!fullUrl.includes('access_token=') || 
+        (!fullUrl.includes('type=signup') && !fullUrl.includes('type=invite'))) {
       setError('無効な招待リンクです')
     }
   }, [])

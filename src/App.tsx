@@ -35,11 +35,16 @@ function AppContent() {
   }, [])
 
   // 認証リンク（type=signup, type=recovery, type=invite）を優先的に処理
+  // loadingチェックより先に評価して、リダイレクトを防ぐ
   const fullUrl = window.location.href
-  if (fullUrl.includes('access_token=') && (fullUrl.includes('type=signup') || fullUrl.includes('type=invite'))) {
+  const hasAuthToken = fullUrl.includes('access_token=')
+  const isSignupFlow = hasAuthToken && (fullUrl.includes('type=signup') || fullUrl.includes('type=invite'))
+  const isRecoveryFlow = hasAuthToken && fullUrl.includes('type=recovery')
+  
+  if (isSignupFlow) {
     return <SetPassword />
   }
-  if (fullUrl.includes('access_token=') && fullUrl.includes('type=recovery')) {
+  if (isRecoveryFlow) {
     return <ResetPassword />
   }
 
