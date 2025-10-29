@@ -100,6 +100,9 @@ serve(async (req) => {
     const { data: inviteLinkData, error: inviteLinkError } = await supabase.auth.admin.generateLink({
       type: 'signup',
       email: email,
+      options: {
+        redirectTo: 'https://mmq-yoyaq.vercel.app/#/set-password'
+      }
     })
 
     if (inviteLinkError) {

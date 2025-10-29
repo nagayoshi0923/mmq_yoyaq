@@ -34,6 +34,15 @@ function AppContent() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
+  // 認証リンク（type=signup, type=recovery, type=invite）を優先的に処理
+  const fullUrl = window.location.href
+  if (fullUrl.includes('access_token=') && (fullUrl.includes('type=signup') || fullUrl.includes('type=invite'))) {
+    return <SetPassword />
+  }
+  if (fullUrl.includes('access_token=') && fullUrl.includes('type=recovery')) {
+    return <ResetPassword />
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -48,7 +57,7 @@ function AppContent() {
     )
   }
 
-  // パスワード設定ページ（招待メールから）
+  // パスワード設定ページ（招待メールから）- 念のため残す
   if (currentHash.includes('type=invite') || currentHash.includes('type=signup')) {
     return <SetPassword />
   }
