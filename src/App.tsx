@@ -49,7 +49,7 @@ function AppContent() {
   }
 
   // パスワード設定ページ（招待メールから）
-  if (currentHash.includes('type=invite')) {
+  if (currentHash.includes('type=invite') || currentHash.includes('type=signup')) {
     return <SetPassword />
   }
 

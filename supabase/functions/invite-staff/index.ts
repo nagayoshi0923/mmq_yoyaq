@@ -38,10 +38,11 @@ serve(async (req) => {
 
     console.log('📨 Staff invitation request:', { email, name })
 
-    // 1. ユーザーを作成（パスワードは自動生成、メールで設定リンクを送信）
+    // 1. ユーザーを作成（パスワード未設定、メール未確認状態）
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: email,
-      email_confirm: false, // メール確認を要求
+      email_confirm: false, // メール確認が必要
+      password: crypto.randomUUID(), // 一時パスワード（使用不可）
       user_metadata: {
         full_name: name,
         invited_as: 'staff'
@@ -95,9 +96,9 @@ serve(async (req) => {
 
     console.log('✅ Staff record created:', staffData.id)
 
-    // 4. パスワード設定用のリンクを生成
+    // 4. パスワード設定用のリンクを生成（signup typeを使用）
     const { data: inviteLinkData, error: inviteLinkError } = await supabase.auth.admin.generateLink({
-      type: 'invite',
+      type: 'signup',
       email: email,
     })
 
