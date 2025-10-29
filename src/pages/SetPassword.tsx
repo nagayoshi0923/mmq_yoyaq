@@ -60,7 +60,8 @@ export function SetPassword() {
 
       // 3秒後にログイン画面にリダイレクト
       setTimeout(() => {
-        window.location.hash = '#login'
+        // セッションをクリアしてからログイン画面へ
+        window.location.href = '/#login'
       }, 3000)
 
     } catch (err: any) {
