@@ -23,6 +23,22 @@ const queryClient = new QueryClient({
 })
 
 function AppContent() {
+  // 認証リンク（type=signup, type=recovery, type=invite）を最優先で処理
+  // user状態やloadingに関係なく、URLパラメータを優先
+  const fullUrl = window.location.href
+  const hasAuthToken = fullUrl.includes('access_token=')
+  const isSignupFlow = hasAuthToken && (fullUrl.includes('type=signup') || fullUrl.includes('type=invite'))
+  const isRecoveryFlow = hasAuthToken && fullUrl.includes('type=recovery')
+  
+  // パスワード設定/リセットフローは最優先で表示（user状態に関係なく）
+  if (isSignupFlow) {
+    return <SetPassword />
+  }
+  if (isRecoveryFlow) {
+    return <ResetPassword />
+  }
+
+  // 以下は通常のルーティング
   const { user, loading } = useAuth()
   const [currentHash, setCurrentHash] = React.useState(() => window.location.hash.slice(1))
 
@@ -33,20 +49,6 @@ function AppContent() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
-
-  // 認証リンク（type=signup, type=recovery, type=invite）を優先的に処理
-  // loadingチェックより先に評価して、リダイレクトを防ぐ
-  const fullUrl = window.location.href
-  const hasAuthToken = fullUrl.includes('access_token=')
-  const isSignupFlow = hasAuthToken && (fullUrl.includes('type=signup') || fullUrl.includes('type=invite'))
-  const isRecoveryFlow = hasAuthToken && fullUrl.includes('type=recovery')
-  
-  if (isSignupFlow) {
-    return <SetPassword />
-  }
-  if (isRecoveryFlow) {
-    return <ResetPassword />
-  }
 
   if (loading) {
     return (
