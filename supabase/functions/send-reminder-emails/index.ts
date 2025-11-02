@@ -88,7 +88,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'MMQ予約システム <booking@mmq.example.com>',
+        from: 'MMQ予約システム <noreply@mmq.game>',
         to: [reminderData.customerEmail],
         subject: `【リマインド】${reminderData.scenarioTitle} - ${formatDate(reminderData.eventDate)}`,
         html: emailHtml,

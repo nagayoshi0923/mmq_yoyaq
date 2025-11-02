@@ -184,7 +184,7 @@ Murder Mystery Queue (MMQ)
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'MMQ予約システム <booking@mmq.example.com>',
+        from: 'MMQ予約システム <noreply@mmq.game>',
         to: [bookingData.customerEmail],
         subject: `【予約完了】${bookingData.scenarioTitle} - ${formatDate(bookingData.eventDate)}`,
         html: emailHtml,

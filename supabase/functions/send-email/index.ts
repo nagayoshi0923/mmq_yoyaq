@@ -1,5 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { SESClient, SendEmailCommand } from 'npm:@aws-sdk/client-ses@3.515.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,53 +20,41 @@ serve(async (req) => {
   try {
     const { to, subject, body }: EmailRequest = await req.json()
 
-    // 環境変数の取得
-    const awsAccessKeyId = Deno.env.get('AWS_ACCESS_KEY_ID')
-    const awsSecretAccessKey = Deno.env.get('AWS_SECRET_ACCESS_KEY')
-    const awsRegion = Deno.env.get('AWS_REGION') || 'us-east-1'
-    const fromEmail = Deno.env.get('SES_FROM_EMAIL')
-
-    if (!awsAccessKeyId || !awsSecretAccessKey || !fromEmail) {
-      throw new Error('AWS credentials or FROM email not configured')
+    // Resend APIキーを取得
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY is not set')
+      throw new Error('メール送信サービスが設定されていません')
     }
-
-    // SES クライアントの初期化
-    const sesClient = new SESClient({
-      region: awsRegion,
-      credentials: {
-        accessKeyId: awsAccessKeyId,
-        secretAccessKey: awsSecretAccessKey,
-      },
-    })
 
     // 送信先の配列化
     const recipients = Array.isArray(to) ? to : [to]
 
-    // メール送信コマンドの作成
-    const command = new SendEmailCommand({
-      Source: fromEmail,
-      Destination: {
-        ToAddresses: recipients,
+    // Resend APIを使ってメール送信
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
       },
-      Message: {
-        Subject: {
-          Data: subject,
-          Charset: 'UTF-8',
-        },
-        Body: {
-          Text: {
-            Data: body,
-            Charset: 'UTF-8',
-          },
-        },
-      },
+      body: JSON.stringify({
+        from: 'MMQ予約システム <noreply@mmq.game>',
+        to: recipients,
+        subject: subject,
+        text: body,
+      }),
     })
 
-    // メール送信
-    const response = await sesClient.send(command)
+    if (!resendResponse.ok) {
+      const errorData = await resendResponse.json()
+      console.error('Resend API error:', errorData)
+      throw new Error(`メール送信に失敗しました: ${JSON.stringify(errorData)}`)
+    }
 
-    console.log('Email sent successfully:', {
-      messageId: response.MessageId,
+    const result = await resendResponse.json()
+    console.log('Email sent successfully via Resend:', {
+      messageId: result.id,
       recipients: recipients.length,
     })
 
@@ -75,7 +62,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'メールを送信しました',
-        messageId: response.MessageId,
+        messageId: result.id,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
