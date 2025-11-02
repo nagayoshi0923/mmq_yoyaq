@@ -1320,34 +1320,50 @@ export function PerformanceModal({
 
                   setSendingEmail(true)
                   try {
-                    // TODO: メール送信API実装
+                    // 選択された予約の顧客メールアドレスを取得
                     const selectedEmails = reservations
                       .filter(r => selectedReservations.has(r.id))
-                      .map(r => r.customer_id) // TODO: customer_idからemailを取得する必要がある
-                      .filter(Boolean)
+                      .map(r => {
+                        // customers がオブジェクトの場合と配列の場合の両方に対応
+                        if (r.customers) {
+                          if (Array.isArray(r.customers)) {
+                            return r.customers[0]?.email
+                          }
+                          return (r.customers as any).email
+                        }
+                        return null
+                      })
+                      .filter(Boolean) as string[]
                     
+                    if (selectedEmails.length === 0) {
+                      alert('送信先のメールアドレスが見つかりませんでした')
+                      return
+                    }
+
                     logger.log('メール送信:', {
                       to: selectedEmails,
                       subject: emailSubject,
                       body: emailBody
                     })
                     
-                    // Google Apps Script でメール送信
-                    const result = await sendEmail({
-                      to: selectedEmails,
-                      subject: emailSubject,
-                      body: emailBody,
+                    // Supabase Edge Function でメール送信
+                    const { error } = await supabase.functions.invoke('send-email', {
+                      body: {
+                        recipients: selectedEmails,
+                        subject: emailSubject,
+                        body: emailBody
+                      }
                     })
                     
-                    if (result.success) {
-                      alert('メールを送信しました')
-                      setIsEmailModalOpen(false)
-                      setEmailSubject('')
-                      setEmailBody('')
-                      setSelectedReservations(new Set())
-                    } else {
-                      alert(`メール送信に失敗しました: ${result.error}`)
+                    if (error) {
+                      throw error
                     }
+
+                    alert(`${selectedEmails.length}件のメールを送信しました`)
+                    setIsEmailModalOpen(false)
+                    setEmailSubject('')
+                    setEmailBody('')
+                    setSelectedReservations(new Set())
                   } catch (error) {
                     logger.error('メール送信エラー:', error)
                     alert('メール送信に失敗しました')
@@ -1355,9 +1371,9 @@ export function PerformanceModal({
                     setSendingEmail(false)
                   }
                 }}
-                disabled={sendingEmail}
+                disabled={sendingEmail || selectedReservations.size === 0}
               >
-                {sendingEmail ? '送信中...' : '送信'}
+                {sendingEmail ? '送信中...' : `送信 (${selectedReservations.size}件)`}
               </Button>
             </div>
           </div>
