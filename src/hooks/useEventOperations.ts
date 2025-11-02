@@ -456,6 +456,15 @@ export function useEventOperations({
 
     try {
       if (cancellingEvent.is_private_request && cancellingEvent.reservation_id) {
+        // 予約情報を取得
+        const { data: reservation, error: fetchError } = await supabase
+          .from('reservations')
+          .select('*, customers(*)')
+          .eq('id', cancellingEvent.reservation_id)
+          .single()
+
+        if (fetchError) throw fetchError
+
         const { error } = await supabase
           .from('reservations')
           .update({
@@ -469,11 +478,80 @@ export function useEventOperations({
         setEvents(prev => prev.map(e => 
           e.reservation_id === cancellingEvent.reservation_id ? { ...e, is_cancelled: true } : e
         ))
+
+        // キャンセル確認メールを送信（貸切予約）
+        if (reservation && reservation.customers) {
+          try {
+            await supabase.functions.invoke('send-cancellation-confirmation', {
+              body: {
+                reservationId: reservation.id,
+                customerEmail: reservation.customers.email,
+                customerName: reservation.customers.name,
+                scenarioTitle: reservation.scenario_title || cancellingEvent.scenario,
+                eventDate: cancellingEvent.date,
+                startTime: cancellingEvent.start_time,
+                endTime: cancellingEvent.end_time,
+                storeName: cancellingEvent.venue,
+                participantCount: reservation.participant_count,
+                totalPrice: reservation.total_price || 0,
+                reservationNumber: reservation.reservation_number,
+                cancelledBy: 'store',
+                cancellationReason: '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
+              }
+            })
+            logger.log('キャンセル確認メール送信成功')
+          } catch (emailError) {
+            logger.error('キャンセル確認メール送信エラー:', emailError)
+            // メール送信失敗してもキャンセル処理は続行
+          }
+        }
       } else {
+        // 通常公演の中止処理
         await scheduleApi.toggleCancel(cancellingEvent.id, true)
         setEvents(prev => prev.map(e => 
           e.id === cancellingEvent.id ? { ...e, is_cancelled: true } : e
         ))
+
+        // 通常公演の場合、予約者全員にメール送信
+        try {
+          const { data: reservations, error: resError } = await supabase
+            .from('reservations')
+            .select('*, customers(*)')
+            .eq('schedule_event_id', cancellingEvent.id)
+            .in('status', ['confirmed', 'pending'])
+
+          if (resError) throw resError
+
+          if (reservations && reservations.length > 0) {
+            const emailPromises = reservations.map(reservation => {
+              if (!reservation.customers) return Promise.resolve()
+              
+              return supabase.functions.invoke('send-cancellation-confirmation', {
+                body: {
+                  reservationId: reservation.id,
+                  customerEmail: reservation.customers.email,
+                  customerName: reservation.customers.name,
+                  scenarioTitle: reservation.scenario_title || cancellingEvent.scenario,
+                  eventDate: cancellingEvent.date,
+                  startTime: cancellingEvent.start_time,
+                  endTime: cancellingEvent.end_time,
+                  storeName: cancellingEvent.venue,
+                  participantCount: reservation.participant_count,
+                  totalPrice: reservation.total_price || 0,
+                  reservationNumber: reservation.reservation_number,
+                  cancelledBy: 'store',
+                  cancellationReason: '誠に申し訳ございませんが、やむを得ない事情により公演を中止させていただくこととなりました。'
+                }
+              })
+            })
+            
+            await Promise.all(emailPromises)
+            logger.log(`${reservations.length}件のキャンセル確認メール送信成功`)
+          }
+        } catch (emailError) {
+          logger.error('キャンセル確認メール送信エラー:', emailError)
+          // メール送信失敗してもキャンセル処理は続行
+        }
       }
 
       setIsCancelDialogOpen(false)

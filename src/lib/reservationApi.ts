@@ -110,7 +110,7 @@ export const reservationApi = {
   async getByScheduleEvent(scheduleEventId: string): Promise<Reservation[]> {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*')
+      .select('*, customers(*)')
       .eq('schedule_event_id', scheduleEventId)
       .in('status', ['pending', 'confirmed'])
       .order('created_at', { ascending: true })
@@ -150,20 +150,112 @@ export const reservationApi = {
   },
 
   // 予約を更新
-  async update(id: string, updates: Partial<Reservation>): Promise<Reservation> {
+  async update(id: string, updates: Partial<Reservation>, sendEmail: boolean = false): Promise<Reservation> {
+    // 変更前のデータを取得（メール送信用）
+    let originalReservation: any = null
+    if (sendEmail) {
+      const { data: original, error: fetchError } = await supabase
+        .from('reservations')
+        .select(`
+          *,
+          customers(*),
+          schedule_events(date, start_time, end_time, venue, scenario, stores(name))
+        `)
+        .eq('id', id)
+        .single()
+
+      if (fetchError) throw fetchError
+      originalReservation = original
+    }
+
     const { data, error } = await supabase
       .from('reservations')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select(`
+        *,
+        customers(*),
+        schedule_events(date, start_time, end_time, venue, scenario, stores(name))
+      `)
       .single()
     
     if (error) throw error
+
+    // 変更確認メールを送信（sendEmail=trueの場合のみ）
+    if (sendEmail && originalReservation && data.customers) {
+      try {
+        const changes: Array<{field: string; label: string; oldValue: string; newValue: string}> = []
+
+        // 参加人数の変更
+        if (updates.participant_count && originalReservation.participant_count !== updates.participant_count) {
+          changes.push({
+            field: 'participant_count',
+            label: '参加人数',
+            oldValue: `${originalReservation.participant_count}名`,
+            newValue: `${updates.participant_count}名`
+          })
+        }
+
+        // 料金の変更
+        if (updates.total_price && originalReservation.total_price !== updates.total_price) {
+          changes.push({
+            field: 'total_price',
+            label: '料金',
+            oldValue: `¥${originalReservation.total_price.toLocaleString()}`,
+            newValue: `¥${updates.total_price.toLocaleString()}`
+          })
+        }
+
+        // 変更がある場合のみメール送信
+        if (changes.length > 0) {
+          const scheduleEvent = data.schedule_events?.[0]
+          const priceDifference = updates.total_price 
+            ? updates.total_price - (originalReservation.total_price || 0)
+            : 0
+
+          await supabase.functions.invoke('send-booking-change-confirmation', {
+            body: {
+              reservationId: data.id,
+              customerEmail: data.customers.email,
+              customerName: data.customers.name,
+              scenarioTitle: data.scenario_title || scheduleEvent?.scenario,
+              reservationNumber: data.reservation_number,
+              changes,
+              newEventDate: scheduleEvent?.date,
+              newStartTime: scheduleEvent?.start_time,
+              newEndTime: scheduleEvent?.end_time,
+              newStoreName: scheduleEvent?.stores?.name || scheduleEvent?.venue,
+              newParticipantCount: data.participant_count,
+              newTotalPrice: data.total_price,
+              priceDifference: priceDifference !== 0 ? priceDifference : undefined
+            }
+          })
+          console.log('予約変更確認メール送信成功')
+        }
+      } catch (emailError) {
+        console.error('予約変更確認メール送信エラー:', emailError)
+        // メール送信失敗しても更新処理は続行
+      }
+    }
+
     return data
   },
 
   // 予約をキャンセル
   async cancel(id: string, cancellationReason?: string): Promise<Reservation> {
+    // 予約情報を取得（メール送信用）
+    const { data: reservation, error: fetchError } = await supabase
+      .from('reservations')
+      .select(`
+        *,
+        customers(*),
+        schedule_events(date, start_time, end_time, venue, scenario, stores(name))
+      `)
+      .eq('id', id)
+      .single()
+
+    if (fetchError) throw fetchError
+
     const { data, error } = await supabase
       .from('reservations')
       .update({
@@ -176,6 +268,43 @@ export const reservationApi = {
       .single()
     
     if (error) throw error
+
+    // キャンセル確認メールを送信
+    if (reservation && reservation.customers) {
+      try {
+        const scheduleEvent = reservation.schedule_events?.[0]
+        const storeName = scheduleEvent?.stores?.name || scheduleEvent?.venue || '店舗不明'
+
+        // キャンセル料金を計算（ここでは簡易実装: 24時間前以降は100%）
+        const eventDateTime = new Date(`${scheduleEvent?.date}T${scheduleEvent?.start_time}`)
+        const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+        const cancellationFee = hoursUntilEvent < 24 ? (reservation.total_price || 0) : 0
+
+        await supabase.functions.invoke('send-cancellation-confirmation', {
+          body: {
+            reservationId: reservation.id,
+            customerEmail: reservation.customers.email,
+            customerName: reservation.customers.name,
+            scenarioTitle: reservation.scenario_title || scheduleEvent?.scenario,
+            eventDate: scheduleEvent?.date,
+            startTime: scheduleEvent?.start_time,
+            endTime: scheduleEvent?.end_time,
+            storeName,
+            participantCount: reservation.participant_count,
+            totalPrice: reservation.total_price || 0,
+            reservationNumber: reservation.reservation_number,
+            cancelledBy: 'customer',
+            cancellationReason: cancellationReason || 'お客様のご都合によるキャンセル',
+            cancellationFee
+          }
+        })
+        console.log('キャンセル確認メール送信成功')
+      } catch (emailError) {
+        console.error('キャンセル確認メール送信エラー:', emailError)
+        // メール送信失敗してもキャンセル処理は続行
+      }
+    }
+
     return data
   },
 
