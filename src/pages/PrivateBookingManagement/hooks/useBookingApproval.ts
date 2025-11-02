@@ -103,15 +103,49 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         }
       }
 
-      // メール送信（オプション）
+      // 貸切予約確定メールを送信
       try {
         const customerEmail = selectedRequest?.customer_email
-        if (customerEmail) {
-          logger.log('承認完了メールを送信:', customerEmail)
-          // TODO: 実際のメール送信API呼び出し
+        const customerName = selectedRequest?.customer_name
+        if (customerEmail && customerName) {
+          // GMの名前を取得
+          const { data: gmStaff, error: gmError } = await supabase
+            .from('staff')
+            .select('name')
+            .eq('id', selectedGMId)
+            .single()
+
+          if (gmError) {
+            logger.error('GM情報取得エラー:', gmError)
+          }
+
+          // 店舗の住所を取得
+          const selectedStore = stores.find(s => s.id === selectedStoreId)
+          const storeAddress = selectedStore?.address || undefined
+
+          await supabase.functions.invoke('send-private-booking-confirmation', {
+            body: {
+              reservationId: requestId,
+              customerEmail,
+              customerName,
+              scenarioTitle: selectedRequest?.scenario_title || '',
+              eventDate: selectedCandidate.date,
+              startTime: selectedCandidate.startTime,
+              endTime: selectedCandidate.endTime,
+              storeName: stores.find(s => s.id === selectedStoreId)?.name || '',
+              storeAddress,
+              participantCount: selectedRequest?.participant_count || 0,
+              totalPrice: selectedRequest?.total_price || 0,
+              reservationNumber: selectedRequest?.reservation_number || '',
+              gmName: gmStaff?.name || undefined,
+              notes: selectedRequest?.notes || undefined
+            }
+          })
+          logger.log('貸切予約確定メール送信成功:', customerEmail)
         }
       } catch (emailError) {
         logger.error('メール送信エラー:', emailError)
+        // メール送信失敗しても承認処理は続行
       }
 
       onSuccess()
@@ -137,11 +171,20 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
   }, [])
 
   // 却下確定
-  const handleRejectConfirm = useCallback(async () => {
+  const handleRejectConfirm = useCallback(async (selectedRequest?: PrivateBookingRequest | null) => {
     if (!rejectRequestId || !rejectionReason.trim()) return
 
     try {
       setSubmitting(true)
+
+      // 予約情報を取得（メール送信用）
+      const { data: reservation, error: fetchError } = await supabase
+        .from('reservations')
+        .select('*, customers(*)')
+        .eq('id', rejectRequestId)
+        .single()
+
+      if (fetchError) throw fetchError
 
       const { error } = await supabase
         .from('reservations')
@@ -154,6 +197,33 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
         .eq('id', rejectRequestId)
 
       if (error) throw error
+
+      // 却下メールを送信
+      if (reservation && reservation.customers) {
+        try {
+          // 候補日時を取得
+          const candidateDates = reservation.candidate_datetimes?.candidates?.map((c: any) => ({
+            date: c.date,
+            startTime: c.startTime,
+            endTime: c.endTime
+          })) || []
+
+          await supabase.functions.invoke('send-private-booking-rejection', {
+            body: {
+              reservationId: reservation.id,
+              customerEmail: reservation.customers.email,
+              customerName: reservation.customers.name,
+              scenarioTitle: reservation.scenario_title || '',
+              rejectionReason: rejectionReason,
+              candidateDates: candidateDates.length > 0 ? candidateDates : undefined
+            }
+          })
+          logger.log('貸切リクエスト却下メール送信成功')
+        } catch (emailError) {
+          logger.error('却下メール送信エラー:', emailError)
+          // メール送信失敗しても却下処理は続行
+        }
+      }
 
       setRejectionReason('')
       setShowRejectDialog(false)
