@@ -13,30 +13,33 @@ export function ResetPassword() {
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
+  const [countdown, setCountdown] = useState(5)
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   useEffect(() => {
     // URLのハッシュフラグメントからトークンを取得してセッションを確立
     const setupSession = async () => {
       try {
-        // URLの形式: #reset-password#access_token=...&refresh_token=...
-        const hash = window.location.hash
+        // URLの形式: #access_token=...&refresh_token=...&type=recovery
+        const hash = window.location.hash.substring(1) // '#' を削除
         logger.log('Current hash:', hash)
         
-        // #reset-password# の後の部分を取得
-        const tokenPart = hash.split('#reset-password#')[1]
-        if (!tokenPart) {
-          setError('無効なリセットリンクです。もう一度パスワードリセットを申請してください。')
-          return
-        }
-        
-        const hashParams = new URLSearchParams(tokenPart)
+        const hashParams = new URLSearchParams(hash)
         const accessToken = hashParams.get('access_token')
         const refreshToken = hashParams.get('refresh_token')
+        const type = hashParams.get('type')
         
         logger.log('Access token:', accessToken ? 'Found' : 'Not found')
         logger.log('Refresh token:', refreshToken ? 'Found' : 'Not found')
+        logger.log('Type:', type)
         
         if (!accessToken || !refreshToken) {
+          setError('無効なリセットリンクです。もう一度パスワードリセットを申請してください。')
+          return
+        }
+
+        // type=recovery であることを確認
+        if (type !== 'recovery') {
           setError('無効なリセットリンクです。もう一度パスワードリセットを申請してください。')
           return
         }
@@ -92,11 +95,6 @@ export function ResetPassword() {
       if (error) throw error
       
       setSuccess(true)
-      
-      // 3秒後にログイン画面へリダイレクト
-      setTimeout(() => {
-        window.location.hash = 'login'
-      }, 3000)
     } catch (error: any) {
       setError('パスワードの更新に失敗しました: ' + (error.message || ''))
       logger.error('Password reset error:', error)
@@ -105,17 +103,68 @@ export function ResetPassword() {
     }
   }
 
+  // 成功後のカウントダウン
+  useEffect(() => {
+    if (!success || isRedirecting) return
+
+    logger.log('Countdown effect triggered, countdown:', countdown)
+
+    if (countdown > 0) {
+      const timer = setTimeout(() => {
+        logger.log('Countdown decrementing from:', countdown)
+        setCountdown(countdown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    } else if (countdown === 0 && !isRedirecting) {
+      // countdown が 0 になったらリダイレクト処理を開始
+      logger.log('Countdown reached 0, starting redirect...')
+      setIsRedirecting(true)
+    }
+  }, [success, countdown, isRedirecting])
+
+  // リダイレクト処理を別のuseEffectで実行
+  useEffect(() => {
+    if (isRedirecting) {
+      logger.log('Redirecting: signing out...')
+      supabase.auth.signOut().then(() => {
+        logger.log('Redirecting: signed out, navigating to login...')
+        // /login へリダイレクト
+        window.location.href = window.location.origin + '/login'
+      })
+    }
+  }, [isRedirecting])
+
+  const handleGoToLogin = () => {
+    if (isRedirecting) return // 既にリダイレクト中なら何もしない
+    
+    logger.log('Button clicked, starting redirect...')
+    setIsRedirecting(true)
+  }
+
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center space-y-4">
+          <CardContent className="p-8 text-center space-y-6">
             <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
             <h2 className="text-2xl font-bold text-green-800">パスワードを変更しました</h2>
-            <p className="text-muted-foreground">
-              新しいパスワードでログインできます。<br />
-              ログイン画面に移動します...
-            </p>
+            <div className="space-y-2">
+              <p className="text-muted-foreground">
+                新しいパスワードでログインできます。
+              </p>
+              <p className="text-lg font-semibold text-primary">
+                {countdown}秒後にログイン画面に移動します...
+              </p>
+            </div>
+            <Button 
+              onClick={handleGoToLogin}
+              className="w-full"
+              size="lg"
+              disabled={isRedirecting}
+              type="button"
+            >
+              {isRedirecting ? 'ログイン画面へ移動中...' : '今すぐログイン画面へ'}
+            </Button>
           </CardContent>
         </Card>
       </div>

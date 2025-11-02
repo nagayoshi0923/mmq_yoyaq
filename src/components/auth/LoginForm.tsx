@@ -24,7 +24,7 @@ export function LoginForm() {
       if (isForgotPassword) {
         // パスワードリセット処理
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/#reset-password`,
+          redirectTo: `${window.location.origin}/`,
         })
         
         if (error) throw error
@@ -50,13 +50,14 @@ export function LoginForm() {
       const message = error instanceof Error ? error.message : ''
       
       if (isForgotPassword) {
-        setError('パスワードリセットメールの送信に失敗しました。メールアドレスを確認してください。')
+        // セキュリティ対策: メールアドレスの存在を確認できないよう、エラーでも成功メッセージを表示
+        setMessage('パスワードリセット用のメールを送信しました。登録済みのアドレスの場合、メールが届きます。')
+        setEmail('')
       } else if (isSignUp) {
-        if (message.includes('User already registered')) {
-          setError('このメールアドレスは既に登録されています。ログインしてください。')
-        } else {
-          setError('アカウント作成に失敗しました: ' + message)
-        }
+        // セキュリティ対策: メールアドレスの存在を確認できないよう、常に同じメッセージを表示
+        setMessage('アカウント登録を受け付けました。確認メールを送信しましたので、メールをチェックしてアカウントを有効化してください。')
+        setEmail('')
+        setPassword('')
       } else {
         // ログイン
         if (message.includes('Invalid login credentials')) {
