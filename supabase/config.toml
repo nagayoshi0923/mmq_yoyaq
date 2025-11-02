@@ -1,0 +1,27 @@
+[project]
+# Project configuration
+
+[api]
+enabled = true
+port = 54321
+max_rows = 1000
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+
+[edge_functions]
+# Edge Functions configuration
+
+# Cron Jobs for automated tasks
+[[edge_functions.cron]]
+name = "auto-send-reminder-emails"
+schedule = "0 9 * * *"  # 毎日 9:00 AM (UTC) に実行
+function = "auto-send-reminder-emails"
+

@@ -1,0 +1,164 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  // CORSプリフライトリクエストの処理
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', // Service Role Key を使用
+    )
+
+    // 現在の日時
+    const now = new Date()
+    
+    // リマインダー送信設定を取得（デフォルトは3日前）
+    const reminderDaysBefore = 3
+    const targetDate = new Date(now)
+    targetDate.setDate(targetDate.getDate() + reminderDaysBefore)
+    const targetDateStr = targetDate.toISOString().split('T')[0]
+
+    console.log(`リマインダー送信対象日: ${targetDateStr}`)
+
+    // 対象日の予約を取得
+    const { data: scheduleEvents, error: eventsError } = await supabaseClient
+      .from('schedule_events')
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          address
+        ),
+        scenarios:scenario_id (
+          id,
+          title
+        )
+      `)
+      .eq('date', targetDateStr)
+      .eq('is_cancelled', false)
+      .eq('is_reservation_enabled', true)
+
+    if (eventsError) throw eventsError
+
+    if (!scheduleEvents || scheduleEvents.length === 0) {
+      console.log('対象日に公演がありません')
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: '対象日に公演がありません',
+          count: 0 
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
+
+    console.log(`対象公演数: ${scheduleEvents.length}`)
+
+    let totalSent = 0
+    let totalErrors = 0
+
+    // 各公演の予約者にリマインダーを送信
+    for (const event of scheduleEvents) {
+      try {
+        // 該当公演の予約を取得
+        const { data: reservations, error: resError } = await supabaseClient
+          .from('reservations')
+          .select('*, customers(*)')
+          .eq('schedule_event_id', event.id)
+          .in('status', ['confirmed', 'pending'])
+
+        if (resError) throw resError
+
+        if (!reservations || reservations.length === 0) {
+          console.log(`公演 ${event.id} に予約がありません`)
+          continue
+        }
+
+        console.log(`公演 ${event.id} の予約数: ${reservations.length}`)
+
+        // 各予約者にリマインダーメールを送信
+        for (const reservation of reservations) {
+          if (!reservation.customers || !reservation.customers.email) {
+            console.log(`予約 ${reservation.id} に顧客情報がありません`)
+            continue
+          }
+
+          try {
+            const { error: sendError } = await supabaseClient.functions.invoke('send-reminder-emails', {
+              body: {
+                reservationId: reservation.id,
+                customerEmail: reservation.customers.email,
+                customerName: reservation.customers.name,
+                scenarioTitle: event.scenarios?.title || event.scenario,
+                eventDate: event.date,
+                startTime: event.start_time,
+                endTime: event.end_time,
+                storeName: event.stores?.name || event.venue,
+                storeAddress: event.stores?.address,
+                participantCount: reservation.participant_count,
+                totalPrice: reservation.total_price || 0,
+                reservationNumber: reservation.reservation_number
+              }
+            })
+
+            if (sendError) {
+              console.error(`リマインダーメール送信エラー (予約ID: ${reservation.id}):`, sendError)
+              totalErrors++
+            } else {
+              console.log(`リマインダーメール送信成功 (予約ID: ${reservation.id})`)
+              totalSent++
+            }
+          } catch (emailError) {
+            console.error(`リマインダーメール送信エラー (予約ID: ${reservation.id}):`, emailError)
+            totalErrors++
+          }
+        }
+      } catch (error) {
+        console.error(`公演 ${event.id} の処理中にエラー:`, error)
+        totalErrors++
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: `リマインダーメール送信完了`,
+        targetDate: targetDateStr,
+        eventsCount: scheduleEvents.length,
+        totalSent,
+        totalErrors
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      }
+    )
+
+  } catch (error) {
+    console.error('Error:', error)
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error.message || 'リマインダーメール送信に失敗しました' 
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      }
+    )
+  }
+})
+
