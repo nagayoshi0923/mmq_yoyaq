@@ -565,38 +565,92 @@ CREATE POLICY customers_select_self ON customers FOR SELECT
 
 ## 📧 メール送信機能
 
+このシステムは **Resend API** + **独自ドメイン（mmq.game）** を使用してメール送信を行っています。
+
 ### 実装済み機能
-- ✅ **予約確認メール** - 予約完了時に自動送信
-  - 予約内容の詳細（予約番号、シナリオ、日時、会場、料金）
-  - 重要事項（キャンセルポリシー、来場時刻など）
-  - HTML形式とテキスト形式の両方に対応
+
+| メール種類 | トリガー | 送信方法 | 送信元 | ステータス |
+|---------|---------|---------|---------|----------|
+| 予約確認メール | 予約完了時 | Edge Function → Resend API | `noreply@mmq.game` | ✅ 実装済み |
+| リマインダーメール | スケジュール設定 | Edge Function → Resend API | `noreply@mmq.game` | ✅ 実装済み |
+| スタッフ招待メール | スタッフ招待時 | Edge Function → Resend API | `noreply@mmq.game` | ✅ 実装済み |
+| パスワードリセット | リセット要求時 | Supabase Auth → Resend SMTP | `noreply@mmq.game` | ✅ 実装済み |
+| サインアップ確認 | アカウント作成時 | Supabase Auth → Resend SMTP | `noreply@mmq.game` | ✅ 実装済み |
+| キャンセル確認 | 予約キャンセル時 | - | - | ❌ 未実装 |
+| 貸切確定通知 | 貸切承認時 | - | - | ❌ 未実装 |
+| 貸切却下通知 | 貸切却下時 | - | - | ❌ 未実装 |
+
+**メール機能の特徴:**
+- 📧 独自ドメイン `mmq.game` を使用（SPF/DKIM/DMARC認証済み）
+- 📝 HTMLテンプレートでリッチなメールデザイン
+- 🔒 サーバーサイド処理でセキュア
+- 🆓 月3,000通まで無料（Resend Free プラン）
 
 ### セットアップ
-詳細なセットアップ手順は `EMAIL_SETUP.md` を参照してください。
 
-**必要なもの：**
-1. Resendアカウント（月3,000通まで無料）
-2. Resend APIキー
-3. Supabase Edge Functionsへのデプロイ
+#### 🚀 クイックセットアップ（パスワードリセットメール）
 
-**クイックセットアップ：**
+パスワードリセットメールを有効にするには、Supabase Auth SMTP設定が必要です：
+
+```
+1. Supabase Dashboard にアクセス:
+   https://supabase.com/dashboard/project/cznpcewciwywcqcxktba/settings/auth
+
+2. SMTP Settings セクションで以下を設定:
+   - Enable Custom SMTP: ON
+   - Host: smtp.resend.com
+   - Port: 587
+   - Username: resend
+   - Password: [RESEND_API_KEY]
+   - Sender: noreply@mmq.game
+
+3. Save をクリック
+```
+
+詳細: **RESEND_QUICK_SETUP.md** を参照
+
+#### 📚 詳細セットアップ
+
+完全なセットアップ手順（ドメイン認証、Edge Functions デプロイなど）:
+
 ```bash
 # 1. Resend APIキーをSupabase Secretsに設定
 supabase secrets set RESEND_API_KEY=re_your_api_key
 
-# 2. Edge Functionをデプロイ
-supabase functions deploy send-booking-confirmation
+# 2. すべてのEdge Functionsをデプロイ
+./deploy-functions.sh
+
+# または個別にデプロイ
+./deploy-single-function.sh send-booking-confirmation
+./deploy-single-function.sh send-reminder-emails
+./deploy-single-function.sh invite-staff
 ```
 
+詳細: **EMAIL_SETUP.md** を参照
+
 ### 今後の拡張予定
-- ⏳ リマインダーメール（予約前日・当日）
-- ⏳ キャンセル確認メール
-- ⏳ 予約変更確認メール
+- ⏳ **キャンセル確認メール** - 予約キャンセル時に自動送信
+- ⏳ **貸切確定通知メール** - 貸切予約承認時に自動送信
+- ⏳ **貸切却下通知メール** - 貸切リクエスト却下時に自動送信
+- ⏳ **予約変更確認メール** - 予約内容変更時に自動送信
+- ⏳ **リマインダー自動送信** - 前日・3日前などに自動送信
+- ⏳ **定期レポートメール** - 管理者向け売上・予約レポート
+
+詳細: **`EMAIL_USAGE_SCENARIOS.md`** - 全メール使用シーンと実装状況
 
 ## 🔗 関連ドキュメント
 
+### システム設計
 - `Guidelines.md`: デザインシステム詳細仕様
-- `EMAIL_SETUP.md`: メール送信機能セットアップガイド
+
+### メール設定
+- **`EMAIL_USAGE_SCENARIOS.md`**: 📧 **全メール使用シーンと実装状況の一覧**
+- **`RESEND_QUICK_SETUP.md`**: パスワードリセットメール クイックセットアップ（5分）
+- **`EMAIL_SETUP.md`**: 完全なメール送信機能セットアップガイド
+- **`RESEND_PASSWORD_RESET_SETUP.md`**: パスワードリセット詳細ガイド
+- ~~`AWS_SES_*.md`~~: （非推奨）旧AWS SES設定ドキュメント
+
+### データベース・デプロイ
 - `SUPABASE_SETUP.md`: データベース設定ガイド
 - `DEPLOYMENT_GUIDE.md`: 本番環境デプロイ手順
 - `BRANCH_MANAGEMENT.md`: 開発ブランチ管理規則
