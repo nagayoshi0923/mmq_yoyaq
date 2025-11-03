@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
+import { formatDateJST } from '@/utils/dateUtils'
 
 export interface ScenarioCard {
   scenario_id: string
@@ -113,8 +114,19 @@ export function useBookingData() {
         
         // 公演がある場合
         if (scenarioEvents.length > 0) {
+          // 今日以降の公演のみをフィルタリング（過去の公演は除外）
+          const todayJST = formatDateJST(new Date()) // JSTでの今日の日付文字列（YYYY-MM-DD）
+          
+          const futureEvents = scenarioEvents.filter((event: any) => {
+            // event.dateはYYYY-MM-DD形式の文字列なので、そのまま比較
+            return event.date >= todayJST
+          })
+          
+          // 未来の公演がない場合は、過去の公演も含める（全公演から選択）
+          const targetEvents = futureEvents.length > 0 ? futureEvents : scenarioEvents
+          
           // 最も近い公演を取得
-          const nextEvent = scenarioEvents.sort((a: any, b: any) => {
+          const nextEvent = targetEvents.sort((a: any, b: any) => {
             const dateCompare = a.date.localeCompare(b.date)
             if (dateCompare !== 0) return dateCompare
             return a.start_time.localeCompare(b.start_time)
