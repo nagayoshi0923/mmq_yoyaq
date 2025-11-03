@@ -122,14 +122,15 @@ export function useBookingData() {
           today.setHours(0, 0, 0, 0)
           const todayJST = formatDateJST(today) // JSTでの今日の日付文字列（YYYY-MM-DD）
           
-          // 今日以降の公演のみをフィルタリング（満席も含む、過去の公演は除外、貸切は除外）
+          // 今日以降の公演のみをフィルタリング（満席も含む、過去の公演は除外、貸切・GMテストは除外）
           const futureEvents = scenarioEvents.filter((event: any) => {
             // event.dateはYYYY-MM-DD形式の文字列なので、そのまま比較
             // 今日を含む（>=）で判定
             const isFuture = event.date >= todayJST
-            // 貸切予約は除外
+            // 貸切予約とGMテストは除外
             const isNotPrivate = !(event.is_private_booking === true || event.category === 'private')
-            return isFuture && isNotPrivate
+            const isNotGmTest = event.category !== 'gmtest'
+            return isFuture && isNotPrivate && isNotGmTest
           })
           
           // 未来の公演がない場合は空配列にする（過去の公演は表示しない）
