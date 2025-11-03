@@ -93,7 +93,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             gms: selectedGMId ? [selectedGMId] : [],
             is_reservation_enabled: true,
             status: 'confirmed',
-            category: 'open'
+            category: 'private'
           })
           .select('id')
           .single()
