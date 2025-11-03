@@ -164,10 +164,12 @@ export const ListView = memo(function ListView({
             const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][dateObj.getDay()]
 
             // 時間帯別にイベントを分類
-            // 貸切予約の場合はtimeSlot（朝/昼/夜）を使用、それ以外はstart_timeから判定
+            // 貸切予約（category='private'またはis_private_booking=true）の場合はtimeSlot（朝/昼/夜）を使用
+            // それ以外はstart_timeから判定
             const morningEvents = events.filter(event => {
               // 貸切予約の場合、timeSlotを使用
-              if (event.is_private_booking && event.timeSlot) {
+              const isPrivate = event.category === 'private' || event.is_private_booking === true
+              if (isPrivate && event.timeSlot) {
                 return event.timeSlot === '朝'
               }
               // 通常公演の場合、start_timeから判定
@@ -176,7 +178,8 @@ export const ListView = memo(function ListView({
             })
             const afternoonEvents = events.filter(event => {
               // 貸切予約の場合、timeSlotを使用
-              if (event.is_private_booking && event.timeSlot) {
+              const isPrivate = event.category === 'private' || event.is_private_booking === true
+              if (isPrivate && event.timeSlot) {
                 return event.timeSlot === '昼'
               }
               // 通常公演の場合、start_timeから判定
@@ -185,10 +188,11 @@ export const ListView = memo(function ListView({
             })
             const eveningEvents = events.filter(event => {
               // 貸切予約の場合、timeSlotを使用
-              if (event.is_private_booking && event.timeSlot) {
+              const isPrivate = event.category === 'private' || event.is_private_booking === true
+              if (isPrivate && event.timeSlot) {
                 return event.timeSlot === '夜'
               }
-              // 通常公演の場合、start_timeから判定
+              // 通常公演の場合、start_timeから判定（17:00は夜間カラム）
               const hour = parseInt(event.start_time?.split(':')[0] || '0')
               return hour >= 17
             })

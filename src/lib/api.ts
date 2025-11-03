@@ -625,12 +625,12 @@ export const scheduleApi = {
     
     // 各イベントの実際の参加者数を計算
     const eventsWithActualParticipants = await Promise.all(scheduleEvents.map(async (event) => {
-      // このイベントの予約データを取得
+      // このイベントの予約データを取得（貸切予約の場合はtimeSlotも取得）
       const { data: reservations, error: reservationError } = await supabase
         .from('reservations')
-        .select('participant_count')
+        .select('participant_count, candidate_datetimes, reservation_source')
         .eq('schedule_event_id', event.id)
-        .in('status', ['confirmed', 'pending'])
+        .in('status', ['confirmed', 'pending', 'gm_confirmed'])
       
       if (reservationError) {
         console.error('予約データの取得に失敗:', reservationError)
@@ -640,6 +640,27 @@ export const scheduleApi = {
       // 実際の参加者数を計算
       const actualParticipants = reservations?.reduce((sum, reservation) => 
         sum + (reservation.participant_count || 0), 0) || 0
+      
+      // 貸切予約の場合、timeSlotを取得
+      let timeSlot: string | undefined
+      let isPrivateBooking = false
+      if (event.category === 'private') {
+        isPrivateBooking = true
+        // schedule_event_idが紐付いている貸切予約からtimeSlotを取得
+        const privateReservation = reservations?.find(r => r.reservation_source === 'web_private')
+        if (privateReservation?.candidate_datetimes?.candidates) {
+          // 確定済みの候補を探す
+          const confirmedCandidate = privateReservation.candidate_datetimes.candidates.find(
+            (c: any) => c.status === 'confirmed'
+          )
+          if (confirmedCandidate?.timeSlot) {
+            timeSlot = confirmedCandidate.timeSlot
+          } else if (privateReservation.candidate_datetimes.candidates[0]?.timeSlot) {
+            // フォールバック：最初の候補のtimeSlotを使用
+            timeSlot = privateReservation.candidate_datetimes.candidates[0].timeSlot
+          }
+        }
+      }
       
       // schedule_eventsのcurrent_participantsが実際の値と異なる場合は更新
       if (event.current_participants !== actualParticipants) {
@@ -657,7 +678,9 @@ export const scheduleApi = {
       
       return {
         ...event,
-        current_participants: actualParticipants
+        current_participants: actualParticipants,
+        is_private_booking: isPrivateBooking,
+        ...(timeSlot && { timeSlot })
       }
     }))
     
