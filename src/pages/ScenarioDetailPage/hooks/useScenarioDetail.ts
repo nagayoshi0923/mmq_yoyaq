@@ -81,7 +81,10 @@ export function useScenarioDetail(scenarioId: string) {
             s.id === event.venue || 
             s.short_name === event.venue
           )
-          const available = (event.max_participants || 8) - (event.current_participants || 0)
+          // 最大人数と現在の参加者数を正しく取得（満席も含む）
+          const maxParticipants = event.max_participants || event.capacity || 8
+          const currentParticipants = event.current_participants || 0
+          const available = maxParticipants - currentParticipants
           
           // 店舗カラーを取得（色名から実際の色コードに変換）
           const storeColor = store?.color ? getColorFromName(store.color) : '#6B7280'
@@ -96,11 +99,11 @@ export function useScenarioDetail(scenarioId: string) {
             store_short_name: store?.short_name || event.venue,
             store_color: storeColor,
             store_address: store?.address,
-            max_participants: event.max_participants || 8,
-            current_participants: event.current_participants || 0,
-            available_seats: available,
+            max_participants: maxParticipants,
+            current_participants: currentParticipants,
+            available_seats: available, // 満席の場合は0
             reservation_deadline_hours: event.reservation_deadline_hours || 24,
-            is_available: available > 0
+            is_available: available > 0 // 満席の場合はfalse
           }
         })
         .sort((a: any, b: any) => {
