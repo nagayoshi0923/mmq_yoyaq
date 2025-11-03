@@ -91,7 +91,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             end_at: endTime.toISOString(),
             store_id: selectedStoreId,
             gms: selectedGMId ? [selectedGMId] : [],
-            is_reservation_enabled: true,
+            is_reservation_enabled: false,
             status: 'confirmed',
             category: 'private'
           })
