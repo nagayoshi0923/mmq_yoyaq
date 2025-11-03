@@ -39,6 +39,7 @@ export interface ScenarioFormData {
   gm_assignments: { 
     role: string
     reward: number
+    category?: 'normal' | 'gmtest'
     status?: 'active' | 'legacy' | 'unused' | 'ready'
     usageCount?: number
     startDate?: string

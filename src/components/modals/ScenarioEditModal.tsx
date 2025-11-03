@@ -26,7 +26,7 @@ import type { ScenarioEditModalProps, ScenarioFormData } from './ScenarioEditMod
 import { statusOptions, genreOptions } from './ScenarioEditModal/utils/constants'
 
 // ヘルパー関数
-import { convertFullWidthToHalfWidth, handleNumericInput } from './ScenarioEditModal/utils/helpers'
+// convertFullWidthToHalfWidthはファイル内で再定義されているため、インポートを削除
 
 // 注: formatCurrency と parseCurrency は現在未使用ですが、
 // 将来的な料金表示機能のために残しています

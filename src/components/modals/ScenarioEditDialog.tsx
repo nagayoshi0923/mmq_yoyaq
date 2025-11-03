@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Save } from 'lucide-react'
-import type { Scenario } from '@/types'
 import { useScenariosQuery, useScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 
 // 各セクションのコンポーネント
@@ -43,7 +42,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
     ],
     has_pre_reading: false,
     gm_count: 1,
-    gm_assignments: [{ role: 'main', category: 'normal', reward: 2000 }],
+    gm_assignments: [{ role: 'main', category: 'normal' as const, reward: 2000 }],
     participation_costs: [{ time_slot: 'normal', amount: 3000, type: 'fixed' }],
     use_flexible_pricing: false,
     flexible_pricing: {
@@ -97,15 +96,16 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
           gm_test_license_amount: scenario.gm_test_license_amount || 0,
           license_rewards: licenseRewards,
           has_pre_reading: scenario.has_pre_reading || false,
-          gm_count: scenario.gm_count || 1,
+          gm_count: (scenario as any).gm_count || 1, // フォーム専用フィールド
           gm_assignments: (scenario.gm_costs && scenario.gm_costs.length > 0) 
             ? scenario.gm_costs.map(cost => ({
-                ...cost,
-                category: cost.category || 'normal'
+                role: cost.role,
+                reward: cost.reward,
+                category: cost.category || 'normal' as 'normal' | 'gmtest'
               }))
-            : [{ role: 'main', category: 'normal', reward: 2000 }],
+            : [{ role: 'main', category: 'normal' as const, reward: 2000 }],
           participation_costs: participationCosts,
-          use_flexible_pricing: scenario.use_flexible_pricing || false,
+          use_flexible_pricing: (scenario as any).use_flexible_pricing || false, // フォーム専用フィールド
           flexible_pricing: scenario.flexible_pricing || formData.flexible_pricing,
           key_visual_url: scenario.key_visual_url || ''
         })
@@ -134,7 +134,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
         ],
         has_pre_reading: false,
         gm_count: 1,
-        gm_assignments: [{ role: 'main', category: 'normal', reward: 2000 }],
+        gm_assignments: [{ role: 'main', category: 'normal' as const, reward: 2000 }],
         participation_costs: [{ time_slot: 'normal', amount: 3000, type: 'fixed' }],
         use_flexible_pricing: false,
         flexible_pricing: {
@@ -179,8 +179,13 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
         participation_fee: normalParticipationCost?.amount || formData.participation_fee || 3000,
         license_amount: normalLicenseReward?.amount || formData.license_amount || 1500,
         gm_test_license_amount: gmtestLicenseReward?.amount || formData.gm_test_license_amount || 0,
-        gm_costs: formData.gm_assignments,
-        gm_count: formData.gm_count || 1,  // 必要GM数を保存
+        gm_costs: formData.gm_assignments.map(assignment => ({
+          role: assignment.role,
+          reward: assignment.reward,
+          ...(assignment.category && { category: assignment.category })
+        })),
+        // gm_countはScenario型にないためコメントアウト（フォーム専用フィールド）
+        // gm_count: formData.gm_count || 1,
         updated_at: new Date().toISOString()
       }
 

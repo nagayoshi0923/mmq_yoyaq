@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { UnifiedSidebar, SidebarMenuItem } from './UnifiedSidebar'
 import { Users, List, UserPlus, Search, Mail, Shield, StickyNote } from 'lucide-react'
 

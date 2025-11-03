@@ -66,7 +66,6 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
       <nav className="flex-1 overflow-y-auto p-4">
         <div className="space-y-1">
           {menuItems.map((item) => {
-            const Icon = item.icon
             const isActive = activeTab === item.id
             
             return (
