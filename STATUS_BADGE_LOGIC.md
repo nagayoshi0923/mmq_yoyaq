@@ -2,6 +2,39 @@
 
 ## 現在の実装
 
+### どの公演を拾っているか？
+
+**取得範囲:**
+- 現在の月から3ヶ月先までの公演を取得
+- `scheduleApi.getByMonth()`で月ごとに取得
+
+**フィルタリング:**
+1. キャンセルされていない公演（`is_cancelled !== true`）
+2. 通常公演（`category='open'` かつ `is_reservation_enabled !== false`）または貸切公演（`category='private'` または `is_private_booking=true`）
+
+**シナリオごとの公演選択:**
+```typescript
+// 1. シナリオに紐づく公演を全て取得
+const scenarioEvents = publicEvents.filter(event => 
+  event.scenario_id === scenario.id ||
+  event.scenarios?.id === scenario.id ||
+  event.scenario === scenario.title
+)
+
+// 2. 最も近い公演を1つだけ選択
+const nextEvent = scenarioEvents.sort((a, b) => {
+  const dateCompare = a.date.localeCompare(b.date)  // 日付でソート
+  if (dateCompare !== 0) return dateCompare
+  return a.start_time.localeCompare(b.start_time)    // 同じ日付なら時刻でソート
+})[0]  // ← 最初の1つだけ取得
+```
+
+**問題点:**
+- 複数の公演があっても、**最も近い1つの公演の空席状況だけで判定**
+- 例：今月満席、来月空席があっても「完売」と表示される
+- 例：店舗A満席、店舗B空席があっても「完売」と表示される
+- **過去の公演は除外されていない**（日付ソートなので最も近いものを選ぶが、今日より前の公演も含まれる可能性）
+
 ### ステータスの種類
 - `available`: 「予約受付中」（緑）
 - `few_seats`: 「残りわずか (残りX席)」（オレンジ）
@@ -76,9 +109,46 @@ const status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(...)
 const status = isPrivateBooking ? 'private_booking' : getAvailabilityStatus(...)
 ```
 
-### 2. 最も近い公演のみで判定
+### 2. 最も近い公演のみで判定（**最大の問題点**）
 複数公演がある場合、最も近い1つの公演の空席状況のみで判定しています。
 - 例：来週満席、再来週空席がある場合でも「完売」と表示される
+- 例：店舗A満席、店舗B空席があっても「完売」と表示される
+- 例：今月満席、来月・再来月空席があっても「完売」と表示される
+
+**現在の実装:**
+```typescript
+// 最も近い公演を1つだけ取得
+const nextEvent = scenarioEvents.sort((a, b) => {
+  const dateCompare = a.date.localeCompare(b.date)
+  if (dateCompare !== 0) return dateCompare
+  return a.start_time.localeCompare(b.start_time)
+})[0]  // ← ここで1つだけ取得
+
+// この1つの公演の空席状況で判定
+status = getAvailabilityStatus(nextEvent.max_participants, nextEvent.current_participants)
+```
+
+**改善案:**
+```typescript
+// すべての公演を考慮
+const allAvailable = scenarioEvents.some(e => {
+  const seats = (e.max_participants || 8) - (e.current_participants || 0)
+  return seats > 0
+})
+const allSoldOut = scenarioEvents.every(e => {
+  const seats = (e.max_participants || 8) - (e.current_participants || 0)
+  return seats === 0
+})
+const someFewSeats = scenarioEvents.some(e => {
+  const seats = (e.max_participants || 8) - (e.current_participants || 0)
+  const threshold = Math.max(1, Math.floor((e.max_participants || 8) * 0.2))
+  return seats > 0 && seats <= threshold
+})
+
+if (allSoldOut) return 'sold_out'
+if (someFewSeats && !allAvailable) return 'few_seats'
+return 'available'
+```
 
 ### 3. 最大人数のフォールバック
 ```typescript

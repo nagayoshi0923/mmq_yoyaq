@@ -12,11 +12,13 @@ export interface ScenarioCard {
   player_count_min: number
   player_count_max: number
   genre: string[]
-  next_event_date?: string
-  next_event_time?: string
-  store_name?: string
-  store_color?: string
-  available_seats?: number
+  next_events?: Array<{
+    date: string
+    time?: string
+    store_name?: string
+    available_seats?: number
+  }>
+  total_events_count?: number // 次回公演の総数（表示用）
   status: 'available' | 'few_seats' | 'sold_out' | 'private_booking'
   is_new?: boolean
 }
@@ -125,18 +127,31 @@ export function useBookingData() {
           // 未来の公演がない場合は、過去の公演も含める（全公演から選択）
           const targetEvents = futureEvents.length > 0 ? futureEvents : scenarioEvents
           
-          // 最も近い公演を取得
-          const nextEvent = targetEvents.sort((a: any, b: any) => {
+          // 最も近い公演を最大3つまで取得
+          const sortedEvents = targetEvents.sort((a: any, b: any) => {
             const dateCompare = a.date.localeCompare(b.date)
             if (dateCompare !== 0) return dateCompare
             return a.start_time.localeCompare(b.start_time)
-          })[0]
+          })
           
-          const store = storesData.find((s: any) => s.id === nextEvent.venue || s.short_name === nextEvent.venue)
+          // 最大3つまで選択
+          const nextEvents = sortedEvents.slice(0, 3).map((event: any) => {
+            const store = storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue)
+            const availableSeats = event.is_private_booking === true 
+              ? 0 
+              : (event.max_participants || 8) - (event.current_participants || 0)
+            
+            return {
+              date: event.date,
+              time: event.start_time,
+              store_name: store?.name || event.venue,
+              available_seats: availableSeats
+            }
+          })
           
-          // 貸切公演の場合は満席として扱う
+          // ステータスは最も近い公演で判定
+          const nextEvent = sortedEvents[0]
           const isPrivateBooking = nextEvent.is_private_booking === true
-          const availableSeats = isPrivateBooking ? 0 : (nextEvent.max_participants || 8) - (nextEvent.current_participants || 0)
           const status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(nextEvent.max_participants || 8, nextEvent.current_participants || 0)
           
           scenarioMap.set(scenario.id, {
@@ -148,11 +163,8 @@ export function useBookingData() {
             player_count_min: scenario.player_count_min,
             player_count_max: scenario.player_count_max,
             genre: scenario.genre || [],
-            next_event_date: nextEvent.date,
-            next_event_time: nextEvent.start_time,
-            store_name: store?.name || nextEvent.venue,
-            store_color: store?.color,
-            available_seats: availableSeats,
+            next_events: nextEvents,
+            total_events_count: targetEvents.length, // 次回公演の総数
             status: status,
             is_new: isNew
           })

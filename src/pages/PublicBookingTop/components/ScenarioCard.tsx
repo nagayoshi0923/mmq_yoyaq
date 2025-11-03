@@ -1,10 +1,8 @@
 import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { Calendar, Clock, Users, MapPin, Heart } from 'lucide-react'
-import { getColorFromName } from '@/lib/utils'
+import { Clock, Users, Heart } from 'lucide-react'
 import { usePrefetch } from '@/hooks/usePrefetch'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
@@ -32,29 +30,6 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
     return `${date.getMonth() + 1}/${date.getDate()}`
   }
 
-  const formatTime = (timeStr?: string): string => {
-    if (!timeStr) return ''
-    return timeStr.slice(0, 5)
-  }
-
-  const getStatusBadge = (status: string, availableSeats?: number) => {
-    switch (status) {
-      case 'available':
-        return <Badge className="bg-green-600 text-white text-xs px-1.5 py-0">予約受付中</Badge>
-      case 'few_seats':
-        return (
-          <Badge className="bg-orange-500 text-white text-xs px-1.5 py-0">
-            残りわずか{availableSeats !== undefined && availableSeats >= 0 ? ` (残り${availableSeats}席)` : ''}
-          </Badge>
-        )
-      case 'sold_out':
-        return <Badge className="bg-red-600 text-white text-xs px-1.5 py-0">完売</Badge>
-      case 'private_booking':
-        return <Badge className="bg-gray-400 text-white text-xs px-1.5 py-0">貸切受付中</Badge>
-      default:
-        return null
-    }
-  }
 
   return (
     <Card 
@@ -124,34 +99,28 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
           </div>
         </div>
 
-        {/* 次回公演日（開催場所・残り人数も表示） */}
-        {scenario.next_event_date && (
-          <div className="flex items-start gap-1.5 text-sm text-gray-700 mt-0.5">
-            <Calendar className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-            <span>
-              次回: {formatDate(scenario.next_event_date)}
-              {scenario.store_name && ` @ ${scenario.store_name}`}
-              {scenario.available_seats !== undefined && scenario.available_seats >= 0 && (
-                <span className="ml-1 text-gray-600">
-                  (残り{scenario.available_seats}席)
-                </span>
-              )}
-            </span>
+        {/* 次回公演（最大3つまで表示） */}
+        {scenario.next_events && scenario.next_events.length > 0 && (
+          <div className="text-sm text-gray-700 mt-0.5 space-y-0.5">
+            {scenario.next_events.map((event, index) => (
+              <div key={index}>
+                次回: {formatDate(event.date)}
+                {event.time && ` ${event.time.slice(0, 5)}`}
+                {event.store_name && ` @ ${event.store_name}`}
+                {event.available_seats !== undefined && event.available_seats >= 0 && (
+                  <span className="ml-1 text-gray-600">
+                    (残り{event.available_seats}席)
+                  </span>
+                )}
+              </div>
+            ))}
+            {scenario.total_events_count && scenario.total_events_count > 3 && (
+              <div className="text-xs text-gray-500">
+                ...他 {scenario.total_events_count - 3}件
+              </div>
+            )}
           </div>
         )}
-
-        {/* 店舗（次回公演がない場合のみ表示） */}
-        {!scenario.next_event_date && scenario.store_name && (
-          <div className="flex items-start gap-1.5 text-sm text-gray-700 mt-0.5">
-            <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-            <span>{scenario.store_name}</span>
-          </div>
-        )}
-
-        {/* ステータスバッジ */}
-        <div className="mt-0.5">
-          {getStatusBadge(scenario.status, scenario.available_seats)}
-        </div>
       </CardContent>
     </Card>
   )
