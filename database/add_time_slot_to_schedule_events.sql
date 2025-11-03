@@ -9,11 +9,11 @@ ADD COLUMN IF NOT EXISTS time_slot TEXT;
 UPDATE schedule_events
 SET time_slot = CASE
   WHEN EXTRACT(HOUR FROM start_time) < 12 THEN '朝'
-  WHEN EXTRACT(HOUR FROM start_time) <= 17 THEN '昼'  -- 17時を含む
+  WHEN EXTRACT(HOUR FROM start_time) <= 17 THEN '昼'
   ELSE '夜'
 END
 WHERE time_slot IS NULL;
 
--- コメント追加
+-- コメント追加（PostgreSQLでCOMMENT構文が使える場合）
 COMMENT ON COLUMN schedule_events.time_slot IS '時間帯（朝/昼/夜）';
 
