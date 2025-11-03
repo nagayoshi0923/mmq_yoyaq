@@ -193,42 +193,6 @@ export interface ScheduleEvent {
   updated_at: string
 }
 
-// 予約関連の型定義
-export interface Reservation {
-  id: string
-  reservation_number: string
-  reservation_page_id?: string
-  title: string
-  scenario_id: string
-  store_id: string
-  customer_id: string
-  requested_datetime: string
-  actual_datetime?: string
-  duration: number
-  participant_count: number
-  participant_names: string[]
-  assigned_staff: string[]
-  gm_staff?: string
-  base_price: number
-  options_price: number
-  total_price: number
-  discount_amount: number
-  final_price: number
-  payment_status: string
-  payment_method?: string
-  payment_datetime?: string
-  status: string
-  customer_notes?: string
-  staff_notes?: string
-  special_requests?: string
-  cancellation_reason?: string
-  cancelled_at?: string
-  external_reservation_id?: string
-  reservation_source: string
-  created_at: string
-  updated_at: string
-}
-
 // ユーザー関連の型定義
 export interface User {
   id: string
@@ -238,21 +202,8 @@ export interface User {
   updated_at: string
 }
 
-// 顧客関連の型定義
-export interface Customer {
-  id: string
-  user_id: string
-  name: string
-  phone?: string
-  line_id?: string
-  notes?: string
-  visit_count: number
-  total_spent: number
-  last_visit?: string
-  preferences?: string[]
-  created_at: string
-  updated_at: string
-}
+// 注意: 顧客関連の型定義は下記（362行目付近）に定義されています
+// 注意: 予約関連の型定義は下記（380行目付近）に定義されています
 
 // 在庫関連の型定義
 export interface PerformanceKit {
@@ -401,16 +352,18 @@ export interface Reservation {
   payment_status: 'pending' | 'paid' | 'refunded' | 'cancelled'
   payment_method?: string | null
   payment_datetime?: string | null
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | 'gm_confirmed'
   customer_notes?: string | null
   staff_notes?: string | null
   special_requests?: string | null
   cancellation_reason?: string | null
   cancelled_at?: string | null
   external_reservation_id?: string | null
-  reservation_source: 'web' | 'phone' | 'walk_in' | 'external'
+  reservation_source: 'web' | 'phone' | 'walk_in' | 'external' | 'web_private'
   created_at: string
   updated_at: string
+  // Supabaseのjoinクエリで取得される拡張フィールド
+  customers?: Customer | Customer[] | null
 }
 
 // 予約サマリー（ビューから取得）
