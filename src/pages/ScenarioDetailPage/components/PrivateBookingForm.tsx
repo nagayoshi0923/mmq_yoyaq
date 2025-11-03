@@ -20,7 +20,7 @@ interface PrivateBookingFormProps {
   onMonthChange: (delta: number) => void
   availableDates: string[]
   timeSlots: TimeSlot[]
-  selectedSlots: Array<{ date: string; timeSlot: string }>
+  selectedSlots: Array<{ date: string; slot: TimeSlot }>
   onTimeSlotToggle: (date: string, slot: TimeSlot) => void
   checkTimeSlotAvailability: (date: string, slot: TimeSlot, storeIds?: string[]) => boolean
 }
@@ -41,7 +41,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   checkTimeSlotAvailability
 }: PrivateBookingFormProps) {
   const isTimeSlotSelected = (date: string, slot: TimeSlot): boolean => {
-    return selectedSlots.some(s => s.date === date && s.timeSlot === slot.value)
+    return selectedSlots.some(s => s.date === date && s.slot.label === slot.label)
   }
 
   return (
