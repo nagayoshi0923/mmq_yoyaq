@@ -1,7 +1,6 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { memo } from 'react'
-import { MonthSwitcher } from '@/components/patterns/calendar'
 import { formatDateJST } from '@/utils/dateUtils'
+import { BookingFilters } from './BookingFilters'
 
 interface CalendarDay {
   date: Date
@@ -40,33 +39,14 @@ export const CalendarView = memo(function CalendarView({
 }: CalendarViewProps) {
   return (
     <div>
-      {/* 月ナビゲーション */}
-      <div className="flex items-center justify-between mb-4">
-        <MonthSwitcher
-          value={currentMonth}
-          onChange={onMonthChange}
-          showToday
-          quickJump
-        />
-      </div>
-
-      {/* 店舗フィルター */}
-      <div className="flex items-center gap-4 mb-6">
-        <label className="text-sm font-medium">店舗:</label>
-        <Select value={selectedStoreFilter} onValueChange={onStoreFilterChange}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            {stores.map(store => (
-              <SelectItem key={store.id} value={store.id}>
-                {store.short_name || store.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* 月ナビゲーション + 店舗フィルター（1行に配置） */}
+      <BookingFilters
+        currentMonth={currentMonth}
+        onMonthChange={onMonthChange}
+        selectedStoreFilter={selectedStoreFilter}
+        onStoreFilterChange={onStoreFilterChange}
+        stores={stores}
+      />
       
       {/* カレンダーグリッド */}
       <div className="bg-white rounded-lg border shadow-sm overflow-hidden">

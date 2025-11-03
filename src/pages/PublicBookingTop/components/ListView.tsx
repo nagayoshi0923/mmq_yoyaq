@@ -1,7 +1,6 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { memo } from 'react'
-import { MonthSwitcher } from '@/components/patterns/calendar'
+import { BookingFilters } from './BookingFilters'
 
 interface ListViewData {
   date: number
@@ -117,33 +116,14 @@ export const ListView = memo(function ListView({
 
   return (
     <div className="space-y-4">
-      {/* 月ナビゲーション */}
-      <div className="flex items-center justify-between">
-        <MonthSwitcher
-          value={listViewMonth}
-          onChange={onMonthChange}
-          showToday
-          quickJump
-        />
-      </div>
-
-      {/* 店舗フィルター */}
-      <div className="flex items-center gap-4">
-        <label className="text-sm font-medium">店舗:</label>
-        <Select value={selectedStoreFilter} onValueChange={onStoreFilterChange}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            {stores.map(store => (
-              <SelectItem key={store.id} value={store.id}>
-                {store.short_name || store.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* 月ナビゲーション + 店舗フィルター（1行に配置） */}
+      <BookingFilters
+        currentMonth={listViewMonth}
+        onMonthChange={onMonthChange}
+        selectedStoreFilter={selectedStoreFilter}
+        onStoreFilterChange={onStoreFilterChange}
+        stores={stores}
+      />
 
       {/* リスト表示テーブル */}
       <Table>
