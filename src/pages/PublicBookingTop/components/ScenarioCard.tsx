@@ -117,13 +117,11 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                     @ {event.store_name}
                   </span>
                 )}
-                {event.available_seats !== undefined && event.available_seats >= 0 && (
+                {event.available_seats !== undefined && event.available_seats > 0 && (
                   <span className={`text-[11px] font-medium ml-auto ${
-                    event.available_seats === 0 
-                      ? 'text-red-600' 
-                      : event.available_seats <= 2 
-                        ? 'text-orange-600' 
-                        : 'text-gray-600'
+                    event.available_seats <= 2 
+                      ? 'text-orange-600' 
+                      : 'text-gray-600'
                   }`}>
                     残{event.available_seats}席
                   </span>
