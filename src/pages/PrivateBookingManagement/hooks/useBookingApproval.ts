@@ -105,7 +105,18 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
 
       // 貸切予約確定メールを送信
       try {
-        const customerEmail = selectedRequest?.customer_email
+        // 承認後の予約データを取得（total_priceを含む）
+        const { data: updatedReservation, error: reservationError } = await supabase
+          .from('reservations')
+          .select('total_price, final_price, customer_email, customer_name, reservation_number, customer_notes')
+          .eq('id', requestId)
+          .single()
+
+        if (reservationError) {
+          logger.error('予約データ取得エラー:', reservationError)
+        }
+
+        const customerEmail = selectedRequest?.customer_email || updatedReservation?.customer_email
         const customerName = selectedRequest?.customer_name
         if (customerEmail && customerName) {
           // GMの名前を取得
@@ -123,6 +134,9 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
           const selectedStore = stores.find(s => s.id === selectedStoreId)
           const storeAddress = selectedStore?.address || undefined
 
+          // total_priceまたはfinal_priceを使用（優先順位: final_price > total_price）
+          const priceToUse = updatedReservation?.final_price || updatedReservation?.total_price || 0
+
           await supabase.functions.invoke('send-private-booking-confirmation', {
             body: {
               reservationId: requestId,
@@ -135,10 +149,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
               storeName: stores.find(s => s.id === selectedStoreId)?.name || '',
               storeAddress,
               participantCount: selectedRequest?.participant_count || 0,
-              totalPrice: selectedRequest?.total_price || 0,
-              reservationNumber: selectedRequest?.reservation_number || '',
+              totalPrice: priceToUse,
+              reservationNumber: selectedRequest?.reservation_number || updatedReservation?.reservation_number || '',
               gmName: gmStaff?.name || undefined,
-              notes: selectedRequest?.notes || undefined
+              notes: selectedRequest?.notes || updatedReservation?.customer_notes || undefined
             }
           })
           logger.log('貸切予約確定メール送信成功:', customerEmail)

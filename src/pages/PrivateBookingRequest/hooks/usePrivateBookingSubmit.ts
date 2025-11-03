@@ -157,6 +157,43 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           .insert(gmResponses)
       }
 
+      // 貸切申し込み完了メールを送信
+      if (parentReservation && customerEmail) {
+        try {
+          const candidateDates = candidateDatetimes.candidates.map(c => ({
+            date: c.date,
+            timeSlot: c.timeSlot,
+            startTime: c.startTime,
+            endTime: c.endTime
+          }))
+
+          const { error: emailError } = await supabase.functions.invoke('send-private-booking-request-confirmation', {
+            body: {
+              reservationId: parentReservation.id,
+              customerEmail,
+              customerName,
+              scenarioTitle: props.scenarioTitle,
+              reservationNumber: baseReservationNumber,
+              candidateDates,
+              requestedStores: candidateDatetimes.requestedStores,
+              participantCount: props.maxParticipants,
+              estimatedPrice: props.participationFee * props.maxParticipants,
+              notes: notes || undefined
+            }
+          })
+
+          if (emailError) {
+            logger.error('貸切申し込み完了メール送信エラー:', emailError)
+            // メール送信エラーは予約処理の失敗とはしない
+          } else {
+            logger.log('貸切申し込み完了メールを送信しました')
+          }
+        } catch (emailError) {
+          logger.error('貸切申し込み完了メール送信エラー:', emailError)
+          // メール送信エラーは予約処理の失敗とはしない
+        }
+      }
+
       setSuccess(true)
       
     } catch (error) {
