@@ -15,10 +15,9 @@ import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { scenarioApi, staffApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi'
-import { sendEmail } from '@/lib/emailApi'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
-import type { Staff as StaffType, Scenario, Store, Reservation } from '@/types'
+import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import { logger } from '@/utils/logger'
 
 // スケジュールイベントの型定義
@@ -234,8 +233,61 @@ export function PerformanceModal({
       if (mode === 'edit' && event?.id) {
         setLoadingReservations(true)
         try {
-          const data = await reservationApi.getByScheduleEvent(event.id)
-          setReservations(data)
+          // 貸切予約の場合
+          if (event.is_private_request && event.reservation_id) {
+            logger.log('貸切予約を取得:', { reservationId: event.reservation_id, eventId: event.id })
+            
+            // event.idが仮想ID（UUID形式でない、または`private-`プレフィックス、または複合ID形式）の場合は、reservation_idから直接取得
+            const isVirtualId = event.id.startsWith('private-') || 
+                               !event.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) ||
+                               event.id.split('-').length > 5
+            
+            if (isVirtualId) {
+              // 仮想IDの場合はreservation_idから直接取得
+              const { data, error } = await supabase
+                .from('reservations')
+                .select('*, customers(*)')
+                .eq('id', event.reservation_id)
+                .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+              
+              if (error) {
+                logger.error('貸切予約データの取得に失敗:', error)
+                setReservations([])
+              } else {
+                logger.log('貸切予約データ取得成功:', data)
+                setReservations(data || [])
+              }
+            } else {
+              // 実IDの場合（schedule_event_idが紐付いている）、schedule_event_idで取得を試みる
+              let reservations = await reservationApi.getByScheduleEvent(event.id)
+              
+              // schedule_event_idで取得できなかった場合、reservation_idで直接取得（フォールバック）
+              if (reservations.length === 0) {
+                logger.log('schedule_event_idで取得できず、reservation_idで取得を試みます')
+                const { data, error } = await supabase
+                  .from('reservations')
+                  .select('*, customers(*)')
+                  .eq('id', event.reservation_id)
+                  .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+                
+                if (error) {
+                  logger.error('貸切予約データの取得に失敗:', error)
+                  setReservations([])
+                } else {
+                  logger.log('貸切予約データ取得成功（フォールバック）:', data)
+                  setReservations(data || [])
+                }
+              } else {
+                logger.log('貸切予約データ取得成功（schedule_event_id経由）:', reservations)
+                setReservations(reservations)
+              }
+            }
+          } else {
+            // 通常の予約の場合、schedule_event_idで取得
+            const data = await reservationApi.getByScheduleEvent(event.id)
+            logger.log('通常予約データ取得:', { eventId: event.id, count: data.length })
+            setReservations(data)
+          }
         } catch (error) {
           logger.error('予約データの取得に失敗:', error)
           setReservations([])
@@ -248,10 +300,10 @@ export function PerformanceModal({
     }
     
     loadReservations()
-  }, [mode, event?.id])
+  }, [mode, event?.id, event?.is_private_request, event?.reservation_id])
 
   // 予約ステータスを更新する関数
-  const handleUpdateReservationStatus = async (reservationId: string, newStatus: string) => {
+  const handleUpdateReservationStatus = async (reservationId: string, newStatus: Reservation['status']) => {
     try {
       // 変更前のステータスを取得
       const reservation = reservations.find(r => r.id === reservationId)
@@ -400,8 +452,8 @@ export function PerformanceModal({
         final_price: (participantName === 'デモ参加者' || newParticipant.payment_method === 'staff') ? 0 : (scenarioObj?.participation_fee || 0),
         payment_method: participantName === 'デモ参加者' ? 'onsite' : newParticipant.payment_method,
         payment_status: (participantName === 'デモ参加者' || newParticipant.payment_method === 'online') ? 'paid' : (newParticipant.payment_method === 'staff' ? 'paid' : 'pending'),
-        status: 'confirmed',
-        reservation_source: 'admin'
+        status: 'confirmed' as const,
+        reservation_source: 'walk_in' as const // 管理画面から追加する場合は'walk_in'として扱う
       }
 
       const createdReservation = await reservationApi.create(reservation)
@@ -1190,7 +1242,7 @@ export function PerformanceModal({
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <Select 
                             value={reservation.status} 
-                            onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value)}
+                            onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
                           >
                             <SelectTrigger className="w-[100px] h-8">
                               <SelectValue />
@@ -1325,15 +1377,17 @@ export function PerformanceModal({
                       .filter(r => selectedReservations.has(r.id))
                       .map(r => {
                         // customers がオブジェクトの場合と配列の場合の両方に対応
+                        // 型: Reservation型のcustomersプロパティ（Customer | Customer[] | null | undefined）
                         if (r.customers) {
                           if (Array.isArray(r.customers)) {
                             return r.customers[0]?.email
                           }
-                          return (r.customers as any).email
+                          // Customer型のemailプロパティ（string | null | undefined）
+                          return (r.customers as Customer).email
                         }
                         return null
                       })
-                      .filter(Boolean) as string[]
+                      .filter((email): email is string => email !== null && email !== undefined)
                     
                     if (selectedEmails.length === 0) {
                       alert('送信先のメールアドレスが見つかりませんでした')
