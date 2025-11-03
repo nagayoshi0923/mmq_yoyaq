@@ -175,6 +175,19 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
             .eq('reservation_id', req.id)
             .in('response_type', ['available', 'unavailable'])
 
+          // デバッグ: candidate_datetimesの構造を確認
+          if (req.candidate_datetimes?.candidates) {
+            req.candidate_datetimes.candidates.forEach((candidate, idx) => {
+              if (!candidate.date || candidate.date === 'Invalid Date' || isNaN(new Date(candidate.date).getTime())) {
+                console.warn(`[貸切予約 ${req.id}] 候補${idx + 1}の日付が無効:`, {
+                  order: candidate.order,
+                  date: candidate.date,
+                  timeSlot: candidate.timeSlot
+                })
+              }
+            })
+          }
+
           return {
             id: req.id,
             reservation_number: req.reservation_number || '',
@@ -210,7 +223,14 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
     return reqs.filter(req => {
       if (!req.candidate_datetimes?.candidates || req.candidate_datetimes.candidates.length === 0) return false
       const firstCandidate = req.candidate_datetimes.candidates[0]
+      if (!firstCandidate.date) return false
+      
       const candidateDate = new Date(firstCandidate.date)
+      if (isNaN(candidateDate.getTime())) {
+        console.warn(`[貸切予約 ${req.id}] 無効な日付でフィルタリングをスキップ:`, firstCandidate.date)
+        return false
+      }
+      
       return candidateDate.getFullYear() === year && candidateDate.getMonth() === month
     })
   }, [])
