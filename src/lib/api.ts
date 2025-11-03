@@ -687,24 +687,31 @@ export const scheduleApi = {
       const scenarioData = event.scenarios
       const scenarioMaxPlayers = scenarioData?.player_count_max
       
-      // デバッグログ（常に表示して問題を特定）
-      console.log('max_participants設定デバッグ:', {
-        eventId: event.id,
-        scenario: event.scenario,
-        scenario_id: event.scenario_id,
-        capacity: event.capacity,
-        max_participants: event.max_participants,
-        scenarioData: scenarioData,
-        scenarioMaxPlayers: scenarioMaxPlayers,
-        scenariosType: Array.isArray(event.scenarios) ? 'array' : typeof event.scenarios
-      })
+      // デバッグログ（詳細版）
+      if (!event.capacity && !scenarioMaxPlayers) {
+        console.warn('⚠️ max_participants取得失敗:', {
+          eventId: event.id,
+          scenario: event.scenario,
+          scenario_id: event.scenario_id,
+          capacity: event.capacity,
+          'capacity型': typeof event.capacity,
+          max_participants: event.max_participants,
+          scenarioData存在: !!scenarioData,
+          scenarioData内容: JSON.stringify(scenarioData),
+          scenarioMaxPlayers: scenarioMaxPlayers,
+          scenariosType: Array.isArray(event.scenarios) ? 'array' : typeof event.scenarios,
+          'event全体': JSON.stringify(event, null, 2).substring(0, 500)
+        })
+      }
       
       const maxParticipants = event.capacity || 
                               scenarioMaxPlayers ||
                               event.max_participants ||
                               8
       
-      console.log('最終的なmax_participants:', maxParticipants)
+      if (!event.capacity && !scenarioMaxPlayers) {
+        console.warn('⚠️ 最終的なmax_participants:', maxParticipants, '(フォールバック8を使用)')
+      }
       
       return {
         ...event,
