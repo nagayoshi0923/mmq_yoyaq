@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { formatDateJST } from '@/utils/dateUtils'
 
 interface CalendarDay {
   date: Date
@@ -71,7 +72,7 @@ export function useCalendarData(allEvents: any[], selectedStoreFilter: string) {
    * 特定日の公演を取得（店舗フィルター適用）
    */
   const getEventsForDate = useCallback((date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = formatDateJST(date)
     let filtered = allEvents.filter(event => event.date === dateStr)
     
     // 店舗フィルター適用

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { formatDateJST } from '@/utils/dateUtils'
 
 interface ListViewDataItem {
   date: number
@@ -57,7 +58,8 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
    * 特定の日付・店舗の公演を取得
    */
   const getEventsForDateStore = useCallback((date: number, storeId: string) => {
-    const dateStr = `${listViewMonth.getFullYear()}-${String(listViewMonth.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
+    const dateObj = new Date(listViewMonth.getFullYear(), listViewMonth.getMonth(), date)
+    const dateStr = formatDateJST(dateObj)
     
     const filtered = allEvents.filter((event: any) => {
       const eventStore = event.venue || event.store_id

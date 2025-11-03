@@ -79,8 +79,8 @@ export function useBookingData() {
         // 通常公演: category='open' かつ is_reservation_enabled=true
         const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open')
         
-        // 貸切公演: is_private_booking=true（予約不可として表示）
-        const isPrivateBooking = event.is_private_booking === true
+        // 貸切公演: category='private' または is_private_booking=true（予約不可として表示）
+        const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
         
         return isNotCancelled && (isOpenAndEnabled || isPrivateBooking)
       })
