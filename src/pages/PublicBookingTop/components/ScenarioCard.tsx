@@ -101,13 +101,13 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
 
         {/* 次回公演（最大3つまで表示） */}
         {scenario.next_events && scenario.next_events.length > 0 && (
-          <div className="mt-0.5 space-y-1">
+          <div className="mt-0.5 space-y-[2px]">
             {scenario.next_events.map((event, index) => (
               <div key={index} className="flex items-center gap-1.5 text-xs">
                 <span className="font-medium text-gray-800">
                   {formatDate(event.date)}
                   {event.time && (
-                    <span className="font-normal text-gray-600 ml-1">
+                    <span className="font-normal text-gray-600 ml-0.5">
                       {event.time.slice(0, 5)}
                     </span>
                   )}
