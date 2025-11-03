@@ -117,11 +117,12 @@ export function useBookingData() {
         // 公演がある場合
         if (scenarioEvents.length > 0) {
           // 今日以降の公演のみをフィルタリング（過去の公演は除外）
+          // 満席の公演も含めてすべての公演を取得
           const today = new Date()
           today.setHours(0, 0, 0, 0)
           const todayJST = formatDateJST(today) // JSTでの今日の日付文字列（YYYY-MM-DD）
           
-          // 今日以降の公演のみをフィルタリング（過去の公演は完全に除外）
+          // 今日以降の公演のみをフィルタリング（満席も含む、過去の公演は除外）
           const futureEvents = scenarioEvents.filter((event: any) => {
             // event.dateはYYYY-MM-DD形式の文字列なので、そのまま比較
             // 今日を含む（>=）で判定
@@ -132,6 +133,7 @@ export function useBookingData() {
           const targetEvents = futureEvents
           
           // 最も近い公演を最大3つまで取得（日付・時刻順にソート）
+          // 満席の公演も含めてソート
           const sortedEvents = targetEvents.sort((a: any, b: any) => {
             // 日付で比較
             const dateCompare = a.date.localeCompare(b.date)
@@ -140,12 +142,14 @@ export function useBookingData() {
             return (a.start_time || '').localeCompare(b.start_time || '')
           })
           
-          // 最大3つまで選択
+          // 最大3つまで選択（満席も含む）
           const nextEvents = sortedEvents.slice(0, 3).map((event: any) => {
-            const store = storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue)
+            const store = storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue || s.id === event.store_id)
+            const maxParticipants = event.max_participants || event.capacity || 8
+            const currentParticipants = event.current_participants || 0
             const availableSeats = event.is_private_booking === true 
               ? 0 
-              : (event.max_participants || 8) - (event.current_participants || 0)
+              : maxParticipants - currentParticipants
             
             return {
               date: event.date,
@@ -160,11 +164,14 @@ export function useBookingData() {
           if (sortedEvents.length > 0) {
             const nextEvent = sortedEvents[0]
             const isPrivateBooking = nextEvent.is_private_booking === true
-            status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(nextEvent.max_participants || 8, nextEvent.current_participants || 0)
+            const maxParticipants = nextEvent.max_participants || nextEvent.capacity || 8
+            const currentParticipants = nextEvent.current_participants || 0
+            status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(maxParticipants, currentParticipants)
           }
           
           // 未来の公演がある場合のみシナリオを追加
-          if (nextEvents.length > 0) {
+          // 満席の公演も含めて全ての公演をカウント
+          if (nextEvents.length > 0 || targetEvents.length > 0) {
             scenarioMap.set(scenario.id, {
               scenario_id: scenario.id,
               scenario_title: scenario.title,
@@ -175,7 +182,7 @@ export function useBookingData() {
               player_count_max: scenario.player_count_max,
               genre: scenario.genre || [],
               next_events: nextEvents,
-              total_events_count: targetEvents.length, // 次回公演の総数
+              total_events_count: targetEvents.length, // 次回公演の総数（満席も含む）
               status: status,
               is_new: isNew
             })
