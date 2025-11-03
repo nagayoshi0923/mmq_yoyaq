@@ -682,14 +682,15 @@ export const scheduleApi = {
         }
       }
       
-      // max_participantsを設定: schedule_eventsのcapacityがあればそれを使用、なければscenarios.player_count_maxを使用
+      // max_participantsを設定: scenarios.player_count_maxを最優先に使用（常に最新の値）
       // scenariosはSupabaseのJOINでオブジェクトとして返される（1対1リレーションの場合）
       const scenarioData = event.scenarios
       const scenarioMaxPlayers = scenarioData?.player_count_max
       
-      const maxParticipants = event.capacity || 
-                              scenarioMaxPlayers ||
+      // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
+      const maxParticipants = scenarioMaxPlayers ||
                               event.max_participants ||
+                              event.capacity ||
                               8
       
       return {

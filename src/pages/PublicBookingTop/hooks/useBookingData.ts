@@ -145,7 +145,12 @@ export function useBookingData() {
           // 最大3つまで選択（満席も含む）
           const nextEvents = sortedEvents.slice(0, 3).map((event: any) => {
             const store = storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue || s.id === event.store_id)
-            const maxParticipants = event.max_participants || event.capacity || 8
+            // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
+            const scenarioMaxPlayers = event.scenarios?.player_count_max
+            const maxParticipants = scenarioMaxPlayers ||
+                                    event.max_participants ||
+                                    event.capacity ||
+                                    8
             const currentParticipants = event.current_participants || 0
             const availableSeats = event.is_private_booking === true 
               ? 0 
@@ -164,7 +169,12 @@ export function useBookingData() {
           if (sortedEvents.length > 0) {
             const nextEvent = sortedEvents[0]
             const isPrivateBooking = nextEvent.is_private_booking === true
-            const maxParticipants = nextEvent.max_participants || nextEvent.capacity || 8
+            // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
+            const nextEventScenarioMaxPlayers = nextEvent.scenarios?.player_count_max
+            const maxParticipants = nextEventScenarioMaxPlayers ||
+                                    nextEvent.max_participants ||
+                                    nextEvent.capacity ||
+                                    8
             const currentParticipants = nextEvent.current_participants || 0
             status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(maxParticipants, currentParticipants)
           }

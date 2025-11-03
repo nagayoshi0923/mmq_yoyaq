@@ -82,7 +82,12 @@ export function useScenarioDetail(scenarioId: string) {
             s.short_name === event.venue
           )
           // 最大人数と現在の参加者数を正しく取得（満席も含む）
-          const maxParticipants = event.max_participants || event.capacity || 8
+          // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
+          const scenarioMaxPlayers = event.scenarios?.player_count_max
+          const maxParticipants = scenarioMaxPlayers ||
+                                  event.max_participants ||
+                                  event.capacity ||
+                                  8
           const currentParticipants = event.current_participants || 0
           const available = maxParticipants - currentParticipants
           
