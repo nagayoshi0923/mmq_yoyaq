@@ -37,16 +37,20 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
     return timeStr.slice(0, 5)
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, availableSeats?: number) => {
     switch (status) {
       case 'available':
-        return <Badge className="bg-green-600 text-white text-xs">開催中</Badge>
+        return <Badge className="bg-green-600 text-white text-xs px-1.5 py-0">予約受付中</Badge>
       case 'few_seats':
-        return <Badge className="bg-orange-500 text-white text-xs">残りわずか</Badge>
+        return (
+          <Badge className="bg-orange-500 text-white text-xs px-1.5 py-0">
+            残りわずか{availableSeats !== undefined && availableSeats >= 0 ? ` (残り${availableSeats}席)` : ''}
+          </Badge>
+        )
       case 'sold_out':
-        return <Badge className="bg-red-600 text-white text-xs">完売</Badge>
+        return <Badge className="bg-red-600 text-white text-xs px-1.5 py-0">完売</Badge>
       case 'private_booking':
-        return <Badge className="bg-gray-400 text-white text-xs">過去限定公開</Badge>
+        return <Badge className="bg-gray-400 text-white text-xs px-1.5 py-0">貸切受付中</Badge>
       default:
         return null
     }
@@ -95,30 +99,34 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         )}
       </div>
 
-      <CardContent className="p-2 space-y-1 bg-white">
+      <CardContent className="p-2 space-y-0.5 bg-white">
         {/* 著者 */}
         <p className="text-xs text-gray-500">{scenario.author}</p>
         
         {/* タイトル */}
-        <h3 className="font-bold text-base truncate leading-tight">
+        <h3 className="font-bold text-base truncate leading-tight mt-0.5">
           {scenario.scenario_title}
         </h3>
 
         {/* 人数・時間 */}
-        <div className="flex items-center gap-2.5 text-sm text-gray-600">
+        <div className="flex items-center gap-2.5 text-sm text-gray-600 mt-0.5">
           <div className="flex items-center gap-1">
             <Users className="h-4 w-4" />
-            <span>{scenario.player_count_min}~{scenario.player_count_max}人</span>
+            <span>
+              {scenario.player_count_min === scenario.player_count_max
+                ? `${scenario.player_count_max}人`
+                : `${scenario.player_count_min}~${scenario.player_count_max}人`}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
-            <span>{Math.floor(scenario.duration / 60)}.{Math.round((scenario.duration % 60) / 6)}h</span>
+            <span>{scenario.duration}分</span>
           </div>
         </div>
 
         {/* 次回公演日（開催場所・残り人数も表示） */}
         {scenario.next_event_date && (
-          <div className="flex items-center gap-1.5 text-sm text-gray-700">
+          <div className="flex items-center gap-1.5 text-sm text-gray-700 mt-0.5">
             <Calendar className="h-4 w-4 text-gray-500" />
             <span>
               次回: {formatDate(scenario.next_event_date)}
@@ -134,15 +142,15 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
 
         {/* 店舗（次回公演がない場合のみ表示） */}
         {!scenario.next_event_date && scenario.store_name && (
-          <div className="flex items-center gap-1.5 text-sm text-gray-700">
+          <div className="flex items-center gap-1.5 text-sm text-gray-700 mt-0.5">
             <MapPin className="h-4 w-4 text-gray-500" />
             <span>{scenario.store_name}</span>
           </div>
         )}
 
         {/* ステータスバッジ */}
-        <div className="pt-1">
-          {getStatusBadge(scenario.status)}
+        <div className="mt-0.5">
+          {getStatusBadge(scenario.status, scenario.available_seats)}
         </div>
       </CardContent>
     </Card>

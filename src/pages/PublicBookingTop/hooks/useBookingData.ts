@@ -21,12 +21,15 @@ export interface ScenarioCard {
 }
 
 /**
- * 空席状況を判定
+ * 空席状況を判定（最大人数に対する割合で判定）
  */
 function getAvailabilityStatus(max: number, current: number): 'available' | 'few_seats' | 'sold_out' {
   const available = max - current
   if (available === 0) return 'sold_out'
-  if (available <= 2) return 'few_seats'
+  
+  // 最大人数の20%以下を「残りわずか」とする（最低1席は残りわずかの対象）
+  const threshold = Math.max(1, Math.floor(max * 0.2))
+  if (available <= threshold) return 'few_seats'
   return 'available'
 }
 
