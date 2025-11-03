@@ -74,16 +74,32 @@ serve(async (req) => {
     for (const event of scheduleEvents) {
       try {
         // 該当公演の予約を取得
+        // デバッグ: まず全ての予約を確認（ステータス問わず）
+        const { data: allReservations, error: allResError } = await supabaseClient
+          .from('reservations')
+          .select('id, schedule_event_id, status, customer_id, requested_datetime')
+          .eq('schedule_event_id', event.id)
+
+        if (allResError) {
+          console.error(`公演 ${event.id} の予約取得エラー:`, allResError)
+        } else if (allReservations && allReservations.length > 0) {
+          console.log(`公演 ${event.id} の全予約数: ${allReservations.length}`, JSON.stringify(allReservations.map(r => ({ id: r.id, status: r.status, schedule_event_id: r.schedule_event_id }))))
+        } else {
+          console.log(`公演 ${event.id} にはschedule_event_idで紐付けられた予約がありません`)
+        }
+
+        // 該当公演の予約を取得（confirmed/pendingのみ）
+        // ステータスを拡張: gm_confirmedなども含める
         const { data: reservations, error: resError } = await supabaseClient
           .from('reservations')
           .select('*, customers(*)')
           .eq('schedule_event_id', event.id)
-          .in('status', ['confirmed', 'pending'])
+          .in('status', ['confirmed', 'pending', 'gm_confirmed'])
 
         if (resError) throw resError
 
         if (!reservations || reservations.length === 0) {
-          console.log(`公演 ${event.id} に予約がありません`)
+          console.log(`公演 ${event.id} に予約がありません（confirmed/pendingの予約のみ）`)
           continue
         }
 
@@ -110,7 +126,8 @@ serve(async (req) => {
                 storeAddress: event.stores?.address,
                 participantCount: reservation.participant_count,
                 totalPrice: reservation.total_price || 0,
-                reservationNumber: reservation.reservation_number
+                reservationNumber: reservation.reservation_number,
+                daysBefore: reminderDaysBefore  // 3日前なので3を渡す
               }
             })
 
