@@ -1,5 +1,4 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { MapPin } from 'lucide-react'
 import { memo } from 'react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { formatDateJST } from '@/utils/dateUtils'
@@ -41,32 +40,32 @@ export const CalendarView = memo(function CalendarView({
 }: CalendarViewProps) {
   return (
     <div>
-      {/* 月選択と店舗フィルター */}
-      <div className="flex items-center justify-between mb-6 gap-4">
+      {/* 月ナビゲーション */}
+      <div className="flex items-center justify-between mb-4">
         <MonthSwitcher
           value={currentMonth}
           onChange={onMonthChange}
           showToday
           quickJump
         />
-        
-        {/* 店舗フィルター */}
-        <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-muted-foreground" />
-          <Select value={selectedStoreFilter} onValueChange={onStoreFilterChange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="店舗を選択" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">すべての店舗</SelectItem>
-              {stores.map((store) => (
-                <SelectItem key={store.id} value={store.id}>
-                  {store.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      </div>
+
+      {/* 店舗フィルター */}
+      <div className="flex items-center gap-4 mb-6">
+        <label className="text-sm font-medium">店舗:</label>
+        <Select value={selectedStoreFilter} onValueChange={onStoreFilterChange}>
+          <SelectTrigger className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">すべて</SelectItem>
+            {stores.map(store => (
+              <SelectItem key={store.id} value={store.id}>
+                {store.short_name || store.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       
       {/* カレンダーグリッド */}
