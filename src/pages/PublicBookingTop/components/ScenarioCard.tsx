@@ -101,21 +101,37 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
 
         {/* 次回公演（最大3つまで表示） */}
         {scenario.next_events && scenario.next_events.length > 0 && (
-          <div className="text-sm text-gray-700 mt-0.5 space-y-0.5">
+          <div className="mt-0.5 space-y-1">
             {scenario.next_events.map((event, index) => (
-              <div key={index}>
-                次回: {formatDate(event.date)}
-                {event.time && ` ${event.time.slice(0, 5)}`}
-                {event.store_name && ` @ ${event.store_name}`}
+              <div key={index} className="flex items-center gap-1.5 text-xs">
+                <span className="font-medium text-gray-800">
+                  {formatDate(event.date)}
+                  {event.time && (
+                    <span className="font-normal text-gray-600 ml-1">
+                      {event.time.slice(0, 5)}
+                    </span>
+                  )}
+                </span>
+                {event.store_name && (
+                  <span className="text-gray-500 text-[11px]">
+                    @ {event.store_name}
+                  </span>
+                )}
                 {event.available_seats !== undefined && event.available_seats >= 0 && (
-                  <span className="ml-1 text-gray-600">
-                    (残り{event.available_seats}席)
+                  <span className={`text-[11px] font-medium ml-auto ${
+                    event.available_seats === 0 
+                      ? 'text-red-600' 
+                      : event.available_seats <= 2 
+                        ? 'text-orange-600' 
+                        : 'text-gray-600'
+                  }`}>
+                    残{event.available_seats}席
                   </span>
                 )}
               </div>
             ))}
             {scenario.total_events_count && scenario.total_events_count > 3 && (
-              <div className="text-xs text-gray-500">
+              <div className="text-[10px] text-gray-400 pt-0.5">
                 ...他 {scenario.total_events_count - 3}件
               </div>
             )}
