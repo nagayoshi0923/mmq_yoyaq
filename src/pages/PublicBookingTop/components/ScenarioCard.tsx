@@ -116,19 +116,22 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
           </div>
         </div>
 
-        {/* 店舗 */}
-        {scenario.store_name && (
-          <div className="flex items-center gap-1.5 text-sm text-gray-700">
-            <MapPin className="h-4 w-4 text-gray-500" />
-            <span>{scenario.store_name}</span>
-          </div>
-        )}
-
-        {/* 次回公演日 */}
+        {/* 次回公演日（開催場所も表示） */}
         {scenario.next_event_date && (
           <div className="flex items-center gap-1.5 text-sm text-gray-700">
             <Calendar className="h-4 w-4 text-gray-500" />
-            <span>次回: {formatDate(scenario.next_event_date)}</span>
+            <span>
+              次回: {formatDate(scenario.next_event_date)}
+              {scenario.store_name && ` @ ${scenario.store_name}`}
+            </span>
+          </div>
+        )}
+
+        {/* 店舗（次回公演がない場合のみ表示） */}
+        {!scenario.next_event_date && scenario.store_name && (
+          <div className="flex items-center gap-1.5 text-sm text-gray-700">
+            <MapPin className="h-4 w-4 text-gray-500" />
+            <span>{scenario.store_name}</span>
           </div>
         )}
 
