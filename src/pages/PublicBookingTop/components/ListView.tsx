@@ -55,24 +55,27 @@ export const ListView = memo(function ListView({
     return events.map((event: any, idx: number) => {
       const available = (event.max_participants || 8) - (event.current_participants || 0)
       const isFull = available === 0
+      const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
       const storeColor = getColorFromName(store.color)
 
       return (
         <div
           key={idx}
-          className="text-xs cursor-pointer hover:shadow-md transition-shadow border-l-2"
+          className={`text-xs transition-shadow border-l-2 ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
           style={{
-            borderLeftColor: isFull ? '#9CA3AF' : storeColor,
-            backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
+            borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
+            backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),
             padding: '4px 6px',
             display: 'block'
           }}
           onClick={() => {
-            const scenario = scenarios.find((s: any) =>
-              s.scenario_id === event.scenario_id ||
-              s.scenario_title === event.scenario
-            )
-            if (scenario) onCardClick(scenario.scenario_id)
+            if (!isPrivateBooking) {
+              const scenario = scenarios.find((s: any) =>
+                s.scenario_id === event.scenario_id ||
+                s.scenario_title === event.scenario
+              )
+              if (scenario) onCardClick(scenario.scenario_id)
+            }
           }}
         >
           <div className="flex gap-2">
@@ -95,15 +98,15 @@ export const ListView = memo(function ListView({
             {/* 右カラム: 情報 */}
             <div className="flex flex-col gap-0 flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                <div className="font-semibold text-[11px] leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                   {event.start_time?.slice(0, 5)}
                 </div>
-                <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                  {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
+                <div className={`text-[11px] font-medium leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+                  {isPrivateBooking ? '貸切' : isFull ? '満席' : `残${available}席`}
                 </div>
               </div>
-              <div className="text-[11px] font-medium leading-tight text-left text-gray-800">
-                {event.scenario || event.scenarios?.title}
+              <div className={`text-[11px] font-medium leading-tight text-left ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+                {isPrivateBooking ? '貸切予約済み' : (event.scenario || event.scenarios?.title)}
               </div>
             </div>
           </div>
