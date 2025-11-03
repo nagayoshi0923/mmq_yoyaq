@@ -38,6 +38,7 @@ interface ScheduleEvent {
   stores?: any
   scenarios?: any
   is_private_booking?: boolean
+  timeSlot?: string // 時間帯（朝/昼/夜）
 }
 
 // ページネーション用のレスポンス型
@@ -613,7 +614,8 @@ export const scheduleApi = {
         ),
         scenarios:scenario_id (
           id,
-          title
+          title,
+          player_count_max
         )
       `)
       .gte('date', startDate)
@@ -680,9 +682,17 @@ export const scheduleApi = {
         }
       }
       
+      // max_participantsを設定: schedule_eventsのcapacityがあればそれを使用、なければscenarios.player_count_maxを使用
+      const maxParticipants = event.capacity || 
+                              (Array.isArray(event.scenarios) ? event.scenarios[0]?.player_count_max : event.scenarios?.player_count_max) ||
+                              event.max_participants ||
+                              8
+      
       return {
         ...event,
         current_participants: actualParticipants,
+        max_participants: maxParticipants,
+        capacity: maxParticipants, // capacityも同様に設定
         is_private_booking: isPrivateBooking,
         ...(timeSlot && { timeSlot })
       }
