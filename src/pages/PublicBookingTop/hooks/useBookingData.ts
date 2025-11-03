@@ -17,7 +17,6 @@ export interface ScenarioCard {
     time?: string
     store_name?: string
     available_seats?: number
-    is_private_booking?: boolean // 貸切予約かどうか
   }>
   total_events_count?: number // 次回公演の総数（表示用）
   status: 'available' | 'few_seats' | 'sold_out' | 'private_booking'
@@ -123,11 +122,14 @@ export function useBookingData() {
           today.setHours(0, 0, 0, 0)
           const todayJST = formatDateJST(today) // JSTでの今日の日付文字列（YYYY-MM-DD）
           
-          // 今日以降の公演のみをフィルタリング（満席も含む、過去の公演は除外）
+          // 今日以降の公演のみをフィルタリング（満席も含む、過去の公演は除外、貸切は除外）
           const futureEvents = scenarioEvents.filter((event: any) => {
             // event.dateはYYYY-MM-DD形式の文字列なので、そのまま比較
             // 今日を含む（>=）で判定
-            return event.date >= todayJST
+            const isFuture = event.date >= todayJST
+            // 貸切予約は除外
+            const isNotPrivate = !(event.is_private_booking === true || event.category === 'private')
+            return isFuture && isNotPrivate
           })
           
           // 未来の公演がない場合は空配列にする（過去の公演は表示しない）
@@ -161,8 +163,7 @@ export function useBookingData() {
               date: event.date,
               time: event.start_time,
               store_name: store?.name || event.venue,
-              available_seats: availableSeats,
-              is_private_booking: event.is_private_booking === true || event.category === 'private'
+              available_seats: availableSeats
             }
           })
           
