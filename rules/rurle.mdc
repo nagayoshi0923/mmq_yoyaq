@@ -1,4 +1,183 @@
-# PROJECT_RULES.md — 追加の“縛り”ルール（設計レビューを反映）
+# PROJECT_RULES.md — 予約サイト プロジェクトルール（完全版）
+
+本書は、株式会社クインズワルツが開発・運用するマーダーミステリー予約サイトおよび関連システム全体に適用される開発ルールおよび運用基準を定めたものである。すべての開発者およびAIアシスタント（Cursor等）は本ルールに従うこと。
+
+---
+
+# 予約サイト プロジェクトルール（完全版）
+
+## ■ 1. Definition of Done（完成の定義）
+
+「npm run verify」（typecheck / lint / build）がすべて成功していること。
+
+**重要**: コードを変更した場合は、必ずコミット前に`npm run verify`を実行し、すべて成功することを確認すること。未検証の状態でコミット・PRを作成してはならない。
+
+Pull Request（PR）には変更理由と影響範囲が明記されていること。
+
+UI変更時はスクリーンショットまたは動画を添付すること。
+
+主要導線（予約・キャンセルなど）はE2E（Playwright）テストで最低1ケース担保すること。
+
+「できた」と報告する前にverifyがグリーンであること。
+
+### verifyの必須チェック項目
+- `npm run typecheck`: TypeScriptの型エラーがないこと
+- `npm run lint`: ESLintの警告・エラーがないこと
+- `npm run build`: ビルドが成功すること
+
+## ■ 2. ブランチ戦略
+
+| ブランチ名 | 用途 |
+|-----------|------|
+| main | 本番環境用ブランチ |
+| develop | 次リリース開発用 |
+| feature/* | 新機能・改修開発用（1機能単位） |
+| hotfix/* | 緊急修正用（main → developにも反映） |
+
+## ■ 3. Pull Request（PR）ルール
+
+1PR = 1目的（400行以内を目安とする）。
+
+タイトルは日本語Conventional Commits形式を使用する。
+　例：feat: 予約作成に確認モーダルを追加
+
+PRテンプレートを必ず使用する。
+
+提出前に必ず「npm run verify」を実行し、成功を確認すること。
+
+指摘対応は「再発防止テストを追加」で完結させること。
+
+## ■ 4. テスト方針（テストピラミッド）
+
+| 層 | 内容 | ツール |
+|----|------|--------|
+| ユニット | ロジック・小コンポーネント | Vitest / RTL |
+| 結合 | API・DB契約の整合性 | Zod / Supabase型 |
+| E2E | 主要導線（予約・キャンセルなど） | Playwright |
+
+## ■ 5. 型・品質ルール
+
+TypeScriptのstrictモード、exactOptionalPropertyTypes、noUncheckedIndexedAccessを有効化すること。
+
+anyの使用は禁止。ただし例外的に必要な場合は「// TODO(any): 理由」をコメントすること。
+
+assertNever()を用いて列挙型の漏れを防止する。
+
+importの循環は警告以上で排除する。
+
+既存のZodスキーマ・Supabase型に整合していることを確認する。
+
+## ■ 6. セキュリティと環境
+
+Supabase RLSはテストで検証すること。
+
+機密情報は.env.*に保存し、GitHub Secretsにも登録すること。
+
+依存関係の更新はpnpm up -Lで行い、重大脆弱性は即時PRを作成すること。
+
+## ■ 7. リリースフロー
+
+developブランチのCIがグリーンであることを確認する。
+
+リリースノートを更新する。
+
+mainブランチへPRを作成する。
+
+タグ付けルール：
+　・patch：修正
+　・minor：機能追加
+　・major：破壊的変更
+
+## ■ 8. コントリビュートガイド
+
+### セットアップ手順
+　pnpm i
+　pnpm dev
+
+### コーディング規約
+　- TypeScript厳格。
+　- UIはshadcn/ui準拠。
+　- TanStack TableはcreateColumnHelper()で行型固定。
+　- Zodで実行時スキーマ検証＋型生成。
+
+### コミット規約（日本語Conventional Commits）
+
+| 種別 | 説明 |
+|------|------|
+| feat | 機能追加 |
+| fix | バグ修正 |
+| docs | ドキュメント更新 |
+| style | フォーマット修正 |
+| refactor | 振る舞い不変の改善 |
+| test | テスト追加・修正 |
+| chore | ツール・設定変更 |
+
+例：feat: 予約作成に確認モーダルを追加
+
+## ■ 9. 自動検証とフック
+
+package.jsonの主要スクリプト
+　typecheck / lint / test / build / verifyを定義する。
+
+pre-pushでnpm run verifyを自動実行し、未検証状態でのpushを禁止する。
+
+## ■ 10. CI設定
+
+verifyワークフローでtypecheck, lint, test, buildを自動検証する。
+
+e2eワークフローでPlaywrightテストを自動実行する。
+
+## ■ 11. Pull Requestテンプレート
+
+目的（何を解決するか）
+
+変更点（箇条書き）
+
+動作確認（verify結果、E2E実施、スクショ等）
+
+型の根拠（Zodスキーマ / Supabase生成型など）
+
+影響範囲（関連機能・リスク）
+
+## ■ 12. Cursor AI開発ルール
+
+完成条件(DoD)：npm run verifyが成功していること。
+
+**必須ルール**: 
+- コード変更後は必ず`npm run verify`を実行すること
+- verifyが失敗している場合は「完了」「できた」と言ってはならない
+- verifyが通らない場合は、エラーを修正してから報告すること
+
+出力フォーマット：
+　変更概要 / コード差分 / verify結果（成功・失敗）を記載。
+
+ルール：
+　既存型（Zod, Supabase生成型, DTO）に整合させる。
+　anyの安易な使用を禁止。
+　1PR=1目的で小さく原子的な差分を保つ。
+
+禁止事項：
+　未検証のまま「完了」「できた」と言うこと。
+
+## ■ 13. CODEOWNERS（主要ファイルのレビュー責任）
+
+/src/schemas/* ：@maintainer
+
+/src/lib/db/* ：@maintainer
+
+/src/lib/api/* ：@maintainer
+
+/src/app/(booking)/** ：@maintainer
+
+## ■ 14. コミットリント設定
+
+type-enum：feat, fix, docs, style, refactor, test, chore, perf, revert。
+
+subject-case：制限なし（日本語許可）。
+
+---
+
+# 追加の"縛り"ルール（設計レビューを反映）
 
 ## 1) データの単一情報源（SSOT）
 - **スタッフ×シナリオの担当関係**は `staff_scenario_assignments` を**唯一の正**とする。  
