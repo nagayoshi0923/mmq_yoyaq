@@ -33,7 +33,7 @@ import { useBookingApproval } from './hooks/useBookingApproval'
 import { useStoreAndGMManagement } from './hooks/useStoreAndGMManagement'
 
 // ユーティリティ
-import { formatMonthYear } from './utils/bookingFormatters'
+// formatMonthYearは未使用のため削除
 
 export function PrivateBookingManagement() {
   const { user } = useAuth()
@@ -463,7 +463,7 @@ export function PrivateBookingManagement() {
                     キャンセル
                   </button>
                   <button
-                    onClick={handleRejectConfirm}
+                    onClick={() => handleRejectConfirm(selectedRequest)}
                     className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                     disabled={submitting || !rejectionReason.trim()}
                   >

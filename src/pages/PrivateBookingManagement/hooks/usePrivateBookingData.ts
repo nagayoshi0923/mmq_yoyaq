@@ -140,6 +140,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
         scenarios?: { title: string }
         title?: string
         customers?: { name: string; phone: string }
+        customer_name?: string  // reservationsテーブルに直接保存されている場合
         customer_email?: string
         customer_phone?: string
         candidate_datetimes?: {
@@ -193,9 +194,9 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
             reservation_number: req.reservation_number || '',
             scenario_id: req.scenario_id,
             scenario_title: req.scenarios?.title || req.title || 'シナリオ名不明',
-            customer_name: req.customers?.name || '顧客名不明',
+            customer_name: req.customer_name || req.customers?.name || '顧客名不明',
             customer_email: req.customer_email || '',
-            customer_phone: req.customers?.phone || req.customer_phone || '',
+            customer_phone: req.customer_phone || req.customers?.phone || '',
             candidate_datetimes: req.candidate_datetimes || { candidates: [] },
             participant_count: req.participant_count || 0,
             notes: req.customer_notes || '',

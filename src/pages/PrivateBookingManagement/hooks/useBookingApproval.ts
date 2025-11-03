@@ -79,7 +79,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       const storeName = selectedStore?.name || '店舗不明'
 
       if (selectedCandidate.date && selectedCandidate.startTime && selectedCandidate.endTime && storeName) {
-        const { error: scheduleError } = await supabase
+        const { data: scheduleEvent, error: scheduleError } = await supabase
           .from('schedule_events')
           .insert({
             date: selectedCandidate.date,
@@ -95,11 +95,27 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             status: 'confirmed',
             category: 'open'
           })
+          .select('id')
+          .single()
 
         if (scheduleError) {
           logger.error('スケジュール記録エラー:', scheduleError)
         } else {
           logger.log('スケジュール記録完了')
+          
+          // 予約にschedule_event_idを紐付け
+          if (scheduleEvent?.id) {
+            const { error: linkError } = await supabase
+              .from('reservations')
+              .update({ schedule_event_id: scheduleEvent.id })
+              .eq('id', requestId)
+
+            if (linkError) {
+              logger.error('schedule_event_id紐付けエラー:', linkError)
+            } else {
+              logger.log('schedule_event_id紐付け完了')
+            }
+          }
         }
       }
 
