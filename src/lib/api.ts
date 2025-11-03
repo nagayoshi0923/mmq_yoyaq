@@ -683,10 +683,25 @@ export const scheduleApi = {
       }
       
       // max_participantsを設定: schedule_eventsのcapacityがあればそれを使用、なければscenarios.player_count_maxを使用
+      // scenariosはSupabaseのJOINでオブジェクトとして返される（1対1リレーションの場合）
+      const scenarioData = event.scenarios
+      const scenarioMaxPlayers = scenarioData?.player_count_max
+      
       const maxParticipants = event.capacity || 
-                              (Array.isArray(event.scenarios) ? event.scenarios[0]?.player_count_max : event.scenarios?.player_count_max) ||
+                              scenarioMaxPlayers ||
                               event.max_participants ||
                               8
+      
+      // デバッグログ（開発時のみ）
+      if (process.env.NODE_ENV === 'development' && !event.capacity && scenarioMaxPlayers) {
+        console.log('max_participants設定:', {
+          eventId: event.id,
+          scenario: event.scenario,
+          capacity: event.capacity,
+          scenarioMaxPlayers,
+          maxParticipants
+        })
+      }
       
       return {
         ...event,
