@@ -1,5 +1,30 @@
 import { Calendar, Clock, XCircle, CheckCircle2 } from 'lucide-react'
 
+/**
+ * 候補日時の日付をフォーマット
+ */
+const formatCandidateDate = (dateStr: string | undefined | null): string => {
+  if (!dateStr) {
+    return '日付不明'
+  }
+  
+  const date = new Date(dateStr)
+  
+  // 無効な日付の場合
+  if (isNaN(date.getTime())) {
+    console.error('Invalid date string:', dateStr)
+    return '日付エラー'
+  }
+  
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  const weekday = weekdays[date.getDay()]
+  
+  return `${year}年${month}月${day}日(${weekday})`
+}
+
 interface Candidate {
   order: number
   date: string
@@ -81,7 +106,7 @@ export const CandidateDateSelector = ({
                 <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    <span>{new Date(candidate.date).toLocaleDateString('ja-JP')}</span>
+                    <span>{formatCandidateDate(candidate.date)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />

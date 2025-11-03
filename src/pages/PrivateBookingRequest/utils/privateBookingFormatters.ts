@@ -5,10 +5,26 @@
 /**
  * 日付を「YYYY年M月D日(曜)」形式にフォーマット
  */
-export const formatDate = (dateStr: string): string => {
+export const formatDate = (dateStr: string | undefined | null): string => {
+  if (!dateStr) {
+    return '日付不明'
+  }
+  
   const date = new Date(dateStr)
+  
+  // 無効な日付の場合
+  if (isNaN(date.getTime())) {
+    console.error('Invalid date string:', dateStr)
+    return '日付エラー'
+  }
+  
   const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日(${weekdays[date.getDay()]})`
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  const weekday = weekdays[date.getDay()]
+  
+  return `${year}年${month}月${day}日(${weekday})`
 }
 
 /**
