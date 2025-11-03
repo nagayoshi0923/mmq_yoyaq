@@ -70,7 +70,7 @@ serve(async (req) => {
     let totalSent = 0
     let totalErrors = 0
 
-    // 各公演の予約者にリマインダーを送信
+    // 各公演の予約者にリマインダーを送信（通常予約・貸切予約を含む）
     for (const event of scheduleEvents) {
       try {
         // 該当公演の予約を取得
