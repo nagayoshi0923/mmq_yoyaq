@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Badge } from '@/components/ui/badge'
-import { ConditionalSetting } from '@/components/ui/conditional-settings'
+// ConditionalSetting: 型として使われているが、実際には使用されていない（ItemizedSettingsコンポーネントで直接処理される）
+// import { ConditionalSetting } from '@/components/ui/conditional-settings'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
 import { Upload, X } from 'lucide-react'
@@ -82,32 +83,31 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   
   // スタッフデータ用のstate
   const [staff, setStaff] = useState<Staff[]>([])
+  // loadingStaff: setLoadingStaffは使用されているが、loadingStaffの値は未使用（将来のローディング表示で使用予定）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loadingStaff, setLoadingStaff] = useState(false)
   
   // 担当関係データ用のstate
   const [currentAssignments, setCurrentAssignments] = useState<any[]>([])
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
   
-  // ライセンス報酬用
-  const [newLicenseRewardItem, setNewLicenseRewardItem] = useState('通常')
-  // 金額入力値stateを追加
-  const [newLicenseRewardAmountInput, setNewLicenseRewardAmountInput] = useState('')
-  const [newLicenseRewardType, setNewLicenseRewardType] = useState<'fixed' | 'percentage'>('fixed')
+  // ライセンス報酬用（未使用 - ライセンス報酬はItemizedSettingsコンポーネントで管理）
+  // newLicenseRewardItem, setNewLicenseRewardItem, newLicenseRewardAmountInput, setNewLicenseRewardAmountInput,
+  // newLicenseRewardType, setNewLicenseRewardType: 未使用（ライセンス報酬の追加機能は現在実装されていない）
   
   // 削除確認ダイアログ用
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteTargetIndex, setDeleteTargetIndex] = useState<number | null>(null)
-  const [deleteItemName, setDeleteItemName] = useState('')
-  const [deleteItemType, setDeleteItemType] = useState('')
+  // deleteItemName, deleteItemType: 未使用のため削除
   
-  // 移行確認ダイアログ用
-  const [migrationDialogOpen, setMigrationDialogOpen] = useState(false)
-  const [existingActiveReward, setExistingActiveReward] = useState<{ index: number; reward: { item: string; amount: number; status?: string } } | null>(null)
+  // 移行確認ダイアログ用（未使用）
+  // migrationDialogOpen, setMigrationDialogOpen, existingActiveReward, setExistingActiveReward: 未使用（移行確認ダイアログ機能は未実装）
   
-  // 過去のみ非表示状態管理
-  const [hideLegacyRewards, setHideLegacyRewards] = useState(false)
+  // hideLegacyRewards: 未使用のため削除
 
-  // ライセンス報酬の「通常」設定バリデーション
+  // ライセンス報酬の「通常」設定バリデーション（未使用 - ItemizedSettingsコンポーネントで直接処理される）
+  // validateLicenseNormalSetting: 未使用
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const validateLicenseNormalSetting = () => {
     const hasNormalSetting = formData.license_rewards.some(reward => 
       reward.item === '通常' && (reward.status === 'active' || reward.status === 'ready')
@@ -126,7 +126,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     return { hasError: false, message: '' }
   }
 
-  const licenseValidation = validateLicenseNormalSetting()
+  // licenseValidation: 未使用のため削除（将来のバリデーション表示機能で使用予定）
 
   // 参加費の「通常」設定バリデーション
   const validateParticipationNormalSetting = (items: Array<{ originalTimeSlot?: string; item?: string; status?: string }>) => {
@@ -226,8 +226,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   const [newParticipationCostTimeSlot, setNewParticipationCostTimeSlot] = useState<string>('通常')
   const [newParticipationCostAmount, setNewParticipationCostAmount] = useState(0)
   
-  // 新規入力欄の表示制御
-  const [showNewGmItem, setShowNewGmItem] = useState(true)
+  // showNewGmItem: 未使用のため削除（将来のGM追加UIで使用予定）
   
 
   const addProductionCost = () => {
@@ -274,52 +273,16 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     })
   }
 
-  // ライセンス報酬管理
-  const addLicenseReward = () => {
-    if (newLicenseRewardItem && newLicenseRewardAmountInput !== '') {
-      const amount = parseCurrency(newLicenseRewardAmountInput)
-      
-      // 同じ項目で使用中の設定があるかチェック
-      const existingActiveIndex = formData.license_rewards.findIndex(reward => 
-        reward.item === newLicenseRewardItem && reward.status === 'active'
-      )
-      
-      
-      if (existingActiveIndex !== -1) {
-        // 使用中の項目がある場合は移行確認ダイアログを表示
-        setExistingActiveReward({
-          index: existingActiveIndex,
-          reward: formData.license_rewards[existingActiveIndex]
-        })
-        setMigrationDialogOpen(true)
-      } else {
-        // 使用中の項目がない場合は通常の追加
-        setFormData(prev => ({
-          ...prev,
-          license_rewards: [...prev.license_rewards, { 
-            item: newLicenseRewardItem, 
-            amount: amount,
-            type: newLicenseRewardType,
-            status: getItemStatus(amount, 0),
-            usageCount: 0
-          }]
-        }))
-        setNewLicenseRewardItem('通常')
-        setNewLicenseRewardAmountInput('')
-        setNewLicenseRewardType('fixed')
-      }
-    }
-  }
-
-  const handleDeleteClick = (index: number) => {
-    setDeleteTargetIndex(index)
-    setDeleteDialogOpen(true)
-  }
+  // ライセンス報酬管理（未使用 - ライセンス報酬はItemizedSettingsコンポーネントで管理）
+  // addLicenseReward: 未使用（ライセンス報酬の追加機能は現在実装されていない）
+  
+  // handleDeleteClick: 未使用（削除機能はDeleteConfirmationDialogで直接処理される）
 
   const confirmDelete = (action: 'delete' | 'archive') => {
     if (deleteTargetIndex === null) return
     
-    const reward = formData.license_rewards[deleteTargetIndex]
+    // reward: 未使用（将来の確認表示で使用予定）
+    // const reward = formData.license_rewards[deleteTargetIndex]
     
     if (action === 'archive') {
       // アーカイブ: ステータスを「過去のみ」に変更
@@ -341,44 +304,13 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     setDeleteTargetIndex(null)
   }
 
-  // 移行確認後の処理
-  const handleLicenseMigrationConfirm = () => {
-    if (existingActiveReward) {
-      // 既存の項目を「過去のみ」に変更
-      const updatedRewards = [...formData.license_rewards]
-      updatedRewards[existingActiveReward.index] = {
-        ...existingActiveReward.reward,
-        status: 'legacy'
-      }
-      
-      // 新しい項目を「使用中」として追加
-      const newActiveReward = {
-        item: newLicenseRewardItem,
-        amount: parseCurrency(newLicenseRewardAmountInput),
-        status: 'active' as const,
-        usageCount: 0
-      }
-      
-      setFormData(prev => ({
-        ...prev,
-        license_rewards: [...updatedRewards, newActiveReward]
-      }))
-      
-      // 入力欄をリセット
-      setNewLicenseRewardItem('通常')
-      setNewLicenseRewardAmountInput('')
-      setExistingActiveReward(null)
-    }
-  }
-
-  // 移行キャンセル後の処理
-  const handleLicenseMigrationCancel = () => {
-    setExistingActiveReward(null)
-    // 新規入力欄はそのまま（キャンセルしただけ）
-  }
+  // 移行確認後の処理（未使用）
+  // handleLicenseMigrationConfirm, handleLicenseMigrationCancel: 未使用
+  // migrationDialogOpen, existingActiveReward: 未使用（移行確認ダイアログ機能は未実装）
 
 
-  // 個別GM削除ハンドラー
+  // 個別GM削除ハンドラー（未使用 - ItemizedSettingsコンポーネントで直接処理される）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const removeGmAssignment = (index: number) => {
     setFormData(prev => ({
       ...prev,
@@ -388,7 +320,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }
 
 
-  // 参加費項目別管理
+  // 参加費項目別管理（未使用 - ItemizedSettingsコンポーネントで直接処理される）
+  // addParticipationCost: 未使用
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addParticipationCost = () => {
     if (newParticipationCostAmount > 0) {
       setFormData(prev => ({
@@ -406,60 +340,22 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     }
   }
 
-  const removeParticipationCost = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      participation_costs: (prev.participation_costs || []).filter((_, i) => i !== index)
-    }))
-  }
+  // removeParticipationCost: 未使用（ItemizedSettingsコンポーネントで直接処理されるため）
+  
+  // 参加費の新しいコンポーネント用ハンドラー（未使用）
+  // handleParticipationCostsChange, handleNewParticipationCostChange, handleAddParticipationCost, 
+  // handleClearNewParticipationCost: ItemizedSettingsコンポーネントで直接処理されるため未使用
+  
+  // GM設定の新しいコンポーネント用ハンドラー（未使用）
+  // handleGmAssignmentsChange: ItemizedSettingsコンポーネントで直接処理されるため未使用
 
-  // 参加費の新しいコンポーネント用ハンドラー
-  const handleParticipationCostsChange = (costs: ConditionalSetting[]) => {
-    setFormData(prev => ({
-      ...prev,
-      participation_costs: costs.map(cost => ({
-        time_slot: cost.condition,
-        amount: cost.amount,
-        type: 'fixed' as const,
-        status: cost.status,
-        usageCount: cost.usageCount
-      }))
-    }))
-  }
+  // handleNewGmAssignmentChange: 未使用（ItemizedSettingsコンポーネントで直接処理される）
+  // const handleNewGmAssignmentChange = (_newAssignment: ConditionalSetting) => {
+  //   // 新しいGM配置の変更は特に処理しない（追加時に処理）
+  // }
 
-  const handleNewParticipationCostChange = (newCost: ConditionalSetting) => {
-    setNewParticipationCostTimeSlot(newCost.condition)
-    setNewParticipationCostAmount(newCost.amount)
-  }
-
-  const handleAddParticipationCost = () => {
-    addParticipationCost()
-  }
-
-  const handleClearNewParticipationCost = () => {
-    setNewParticipationCostTimeSlot('通常')
-    setNewParticipationCostAmount(0)
-  }
-
-  // GM設定の新しいコンポーネント用ハンドラー
-  const handleGmAssignmentsChange = (assignments: ConditionalSetting[]) => {
-    const gmAssignments = assignments.map(assignment => ({
-      role: assignment.condition as 'main' | 'sub',
-      reward: assignment.amount,
-      status: assignment.status,
-      usageCount: assignment.usageCount
-    }))
-    setFormData(prev => ({
-      ...prev,
-      gm_assignments: gmAssignments,
-      gm_count: gmAssignments.length
-    }))
-  }
-
-  const handleNewGmAssignmentChange = (_newAssignment: ConditionalSetting) => {
-    // 新しいGM配置の変更は特に処理しない（追加時に処理）
-  }
-
+  // handleAddGmAssignment: 未使用（ItemizedSettingsコンポーネントで直接処理される）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAddGmAssignment = () => {
     const nextRole = getNextAvailableRole()
     setFormData(prev => ({
@@ -474,22 +370,24 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     }))
   }
 
-  const handleRemoveGmAssignment = (index: number) => {
-    removeGmAssignment(index)
-  }
+  // handleRemoveGmAssignment: 未使用（ItemizedSettingsコンポーネントで直接処理される）
+  // const handleRemoveGmAssignment = (index: number) => {
+  //   removeGmAssignment(index)
+  // }
 
-  const handleClearNewGmAssignment = () => {
-    // 新規入力欄をデフォルト状態にリセット
-    // ConditionalSettingsコンポーネント内で管理されているnewItemの状態をリセット
-    // 実際には、newItemの値を初期状態に戻すためのハンドラーを呼ぶ必要がある
-  }
+  // handleClearNewGmAssignment: 未使用（ItemizedSettingsコンポーネントで直接処理される）
+  // const handleClearNewGmAssignment = () => {
+  //   // 新規入力欄をデフォルト状態にリセット
+  // }
 
-  const handleHideNewGmItem = () => {
-    setShowNewGmItem(false)
-  }
+  // handleHideNewGmItem: 未使用（ItemizedSettingsコンポーネントで直接処理される）
+  // const handleHideNewGmItem = () => {
+  //   setShowNewGmItem(false)
+  // }
 
-
-  // GM役割に応じた説明文を生成
+  // GM役割に応じた説明文を生成（未使用）
+  // getGmRoleDescription: 未使用（将来の説明表示機能で使用予定）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getGmRoleDescription = (role: string) => {
     if (role === 'main') return 'ゲーム進行の主担当'
     if (role === 'sub1') return 'メインGMのサポート役'
@@ -521,7 +419,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     { value: '土日祝夜', label: '土日祝夜' }
   ]
 
-  // ライセンス報酬の時間帯オプション
+  // ライセンス報酬の時間帯オプション（未使用）
+  // licenseRewardOptions: 未使用（ライセンス報酬の追加機能は現在実装されていない）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const licenseRewardOptions = [
     { value: '通常', label: '通常' },
     { value: 'GMテスト', label: 'GMテスト' },
@@ -547,7 +447,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     return options
   }
 
-  // 現在必要な役割数に基づいてオプションを生成
+  // 現在必要な役割数に基づいてオプションを生成（未使用）
+  // getCurrentGmRoleOptions: 未使用（ItemizedSettingsコンポーネントで直接処理される）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getCurrentGmRoleOptions = () => {
     const currentMaxRole = Math.max(
       ...formData.gm_assignments.map(assignment => {
@@ -561,7 +463,9 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   }
 
 
-  // 時間帯に応じた説明文を生成（参加費用）
+  // 時間帯に応じた説明文を生成（参加費用）（未使用）
+  // getTimeSlotDescription: 未使用（将来の説明表示機能で使用予定）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getTimeSlotDescription = (timeSlot: string) => {
     const descriptions: { [key: string]: string } = {
       '通常': '基本の参加費',
