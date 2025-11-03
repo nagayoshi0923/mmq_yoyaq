@@ -641,12 +641,16 @@ export const scheduleApi = {
       const actualParticipants = reservations?.reduce((sum, reservation) => 
         sum + (reservation.participant_count || 0), 0) || 0
       
-      // 貸切予約の場合、timeSlotを取得
+      // 時間帯（timeSlot）を取得
       let timeSlot: string | undefined
       let isPrivateBooking = false
-      if (event.category === 'private') {
+      
+      // 通常公演の場合、schedule_eventsのtime_slotカラムを使用
+      if (event.category !== 'private' && event.time_slot) {
+        timeSlot = event.time_slot
+      } else if (event.category === 'private') {
+        // 貸切予約の場合、schedule_event_idが紐付いている貸切予約からtimeSlotを取得
         isPrivateBooking = true
-        // schedule_event_idが紐付いている貸切予約からtimeSlotを取得
         const privateReservation = reservations?.find(r => r.reservation_source === 'web_private')
         if (privateReservation?.candidate_datetimes?.candidates) {
           // 確定済みの候補を探す
@@ -761,10 +765,17 @@ export const scheduleApi = {
               
               // gmsから取得できなかった場合はgm_availability_responsesから取得
               if (gmNames.length === 0 && booking.gm_availability_responses) {
-                gmNames = booking.gm_availability_responses
-                  ?.filter((r: GMAvailabilityResponse) => r.response_status === 'available')
-                  ?.map((r: GMAvailabilityResponse) => r.staff?.name)
-                  ?.filter((name): name is string => !!name) || []
+                const responses = Array.isArray(booking.gm_availability_responses) 
+                  ? booking.gm_availability_responses 
+                  : []
+                gmNames = responses
+                  .filter((r: any) => r.response_status === 'available')
+                  .map((r: any) => {
+                    // staffが配列の場合は最初の要素を取得、オブジェクトの場合はそのまま
+                    const staff = Array.isArray(r.staff) ? r.staff[0] : r.staff
+                    return staff?.name
+                  })
+                  .filter((name): name is string => !!name) || []
               }
               
               if (gmNames.length === 0) {
@@ -826,6 +837,7 @@ export const scheduleApi = {
     capacity?: number
     gms?: string[]
     notes?: string
+    time_slot?: string | null // 時間帯（朝/昼/夜）
   }) {
     const { data, error } = await supabase
       .from('schedule_events')
@@ -860,6 +872,7 @@ export const scheduleApi = {
     notes: string
     is_cancelled: boolean
     is_reservation_enabled: boolean
+    time_slot: string | null // 時間帯（朝/昼/夜）
   }>) {
     const { data, error } = await supabase
       .from('schedule_events')

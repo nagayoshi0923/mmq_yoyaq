@@ -314,7 +314,8 @@ export function useEventOperations({
           end_time: performanceData.end_time,
           capacity: performanceData.max_participants,
           gms: performanceData.gms.filter((gm: string) => gm.trim() !== ''),
-          notes: performanceData.notes || null
+          notes: performanceData.notes || null,
+          time_slot: performanceData.time_slot || null // 時間帯（朝/昼/夜）
         }
         
         // Supabaseに保存
@@ -387,7 +388,8 @@ export function useEventOperations({
             end_time: performanceData.end_time,
             capacity: performanceData.max_participants,
             gms: performanceData.gms,
-            notes: performanceData.notes
+            notes: performanceData.notes,
+            time_slot: performanceData.time_slot || null // 時間帯（朝/昼/夜）
           })
 
           // ローカル状態を更新

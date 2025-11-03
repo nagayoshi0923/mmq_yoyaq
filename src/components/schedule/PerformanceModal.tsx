@@ -37,6 +37,7 @@ interface ScheduleEvent {
   is_private_request?: boolean // 貸切リクエストかどうか
   reservation_id?: string // 貸切リクエストの元のreservation ID
   reservation_info?: string
+  timeSlot?: string // 時間帯（朝/昼/夜）
 }
 
 
@@ -55,6 +56,7 @@ interface EventFormData {
   id?: string
   is_private_request?: boolean
   reservation_id?: string
+  time_slot?: string // 時間帯（朝/昼/夜）
 }
 
 interface PerformanceModalProps {
@@ -527,19 +529,32 @@ export function PerformanceModal({
       // 編集モード：既存データで初期化
       // シナリオIDがない場合は、タイトルから逆引き
       const selectedScenario = scenarios.find(s => s.title === event.scenario)
+      
+      // time_slotが存在する場合はそれを使用、なければstart_timeから判定
+      let slot: 'morning' | 'afternoon' | 'evening' = 'morning'
+      if (event.timeSlot) {
+        // timeSlotが'朝'/'昼'/'夜'形式の場合
+        if (event.timeSlot === '朝') slot = 'morning'
+        else if (event.timeSlot === '昼') slot = 'afternoon'
+        else if (event.timeSlot === '夜') slot = 'evening'
+      } else {
+        // start_timeから判定（フォールバック）
+        const startHour = parseInt(event.start_time.split(':')[0])
+        if (startHour < 12) {
+          slot = 'morning'
+        } else if (startHour < 17) {
+          slot = 'afternoon'
+        } else {
+          slot = 'evening'
+        }
+      }
+      setTimeSlot(slot)
+      
       setFormData({
         ...event,
-        scenario_id: selectedScenario?.id  // IDを設定
+        scenario_id: selectedScenario?.id,  // IDを設定
+        time_slot: event.timeSlot || (slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜') // time_slotを設定
       })
-      // 既存の開始時間から時間帯を判定
-      const startHour = parseInt(event.start_time.split(':')[0])
-      if (startHour < 12) {
-        setTimeSlot('morning')
-      } else if (startHour < 17) {
-        setTimeSlot('afternoon')
-      } else {
-        setTimeSlot('evening')
-      }
     } else if (mode === 'add' && initialData) {
       // 追加モード：初期データで初期化
       const slot = initialData.timeSlot as 'morning' | 'afternoon' | 'evening'
@@ -587,8 +602,18 @@ export function PerformanceModal({
     }))
   }
 
+  // 時間帯（morning/afternoon/evening）を'朝'/'昼'/'夜'にマッピング
+  const getTimeSlotLabel = (slot: 'morning' | 'afternoon' | 'evening'): string => {
+    return slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'
+  }
+
   const handleSave = () => {
-    onSave(formData)
+    // 時間帯を'朝'/'昼'/'夜'形式で保存
+    const saveData = {
+      ...formData,
+      time_slot: getTimeSlotLabel(timeSlot)
+    }
+    onSave(saveData)
     onClose()
   }
 
