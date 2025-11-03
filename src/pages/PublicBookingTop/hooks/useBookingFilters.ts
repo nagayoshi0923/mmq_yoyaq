@@ -31,11 +31,13 @@ export function useBookingFilters(scenarios: ScenarioCard[], searchTerm: string)
    */
   const upcomingScenarios = useMemo(() => {
     return filteredScenarios
-      .filter(s => s.next_event_date)
+      .filter(s => s.next_events && s.next_events.length > 0)
       .sort((a, b) => {
-        if (!a.next_event_date) return 1
-        if (!b.next_event_date) return -1
-        return a.next_event_date.localeCompare(b.next_event_date)
+        const aDate = a.next_events?.[0]?.date
+        const bDate = b.next_events?.[0]?.date
+        if (!aDate) return 1
+        if (!bDate) return -1
+        return aDate.localeCompare(bDate)
       })
   }, [filteredScenarios])
 
