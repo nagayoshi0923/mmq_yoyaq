@@ -104,7 +104,7 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     onDeletePerformance: eventOperations.handleDeletePerformance,
     onCancelConfirm: eventOperations.handleCancelConfirmPerformance,
     onUncancel: eventOperations.handleUncancelPerformance,
-    onToggleReservation: eventOperations.handleTogglePublish,
+    onToggleReservation: eventOperations.handleToggleReservation,
     onDrop: eventOperations.handleDrop,
     onContextMenuCell: contextMenuActions.handleCellContextMenu,
     onContextMenuEvent: contextMenuActions.handleEventContextMenu
@@ -148,8 +148,8 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
       conflictWarning: {
         isOpen: eventOperations.isConflictWarningOpen,
         onClose: () => eventOperations.setIsConflictWarningOpen(false),
-        onContinue: eventOperations.handleConfirmWithConflict,
-        conflictInfo: eventOperations.conflicts
+        onContinue: eventOperations.handleConflictContinue,
+        conflictInfo: eventOperations.conflictInfo
       },
       scheduleDialogs: {
         isDeleteDialogOpen: eventOperations.isDeleteDialogOpen,
@@ -158,9 +158,10 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         isCancelDialogOpen: eventOperations.isCancelDialogOpen,
         onCloseCancelDialog: () => eventOperations.setIsCancelDialogOpen(false),
         onConfirmCancel: eventOperations.handleConfirmCancel,
-        isRestoreDialogOpen: eventOperations.isRestoreDialogOpen,
-        onCloseRestoreDialog: () => eventOperations.setIsRestoreDialogOpen(false),
-        onConfirmRestore: eventOperations.handleConfirmRestore
+        // 復活機能はhandleUncancelPerformanceで直接実行される（ダイアログなし）
+        // isRestoreDialogOpen: eventOperations.isRestoreDialogOpen,
+        // onCloseRestoreDialog: () => eventOperations.setIsRestoreDialogOpen(false),
+        // onConfirmRestore: eventOperations.handleConfirmRestore
       },
       moveOrCopyDialog: {
         isOpen: eventOperations.isMoveOrCopyDialogOpen,
@@ -233,8 +234,8 @@ export function useScheduleTableModals(currentDate: Date) {
     conflictWarning: {
       isOpen: eventOperations.isConflictWarningOpen,
       onClose: () => eventOperations.setIsConflictWarningOpen(false),
-      onContinue: eventOperations.handleConfirmWithConflict,
-      conflictInfo: eventOperations.conflicts
+      onContinue: eventOperations.handleConflictContinue,
+      conflictInfo: eventOperations.conflictInfo
     },
     // ScheduleDialogs用
     scheduleDialogs: {
@@ -244,9 +245,10 @@ export function useScheduleTableModals(currentDate: Date) {
       isCancelDialogOpen: eventOperations.isCancelDialogOpen,
       onCloseCancelDialog: () => eventOperations.setIsCancelDialogOpen(false),
       onConfirmCancel: eventOperations.handleConfirmCancel,
-      isRestoreDialogOpen: eventOperations.isRestoreDialogOpen,
-      onCloseRestoreDialog: () => eventOperations.setIsRestoreDialogOpen(false),
-      onConfirmRestore: eventOperations.handleConfirmRestore
+      // 復活機能はhandleUncancelPerformanceで直接実行される（ダイアログなし）
+      // isRestoreDialogOpen: eventOperations.isRestoreDialogOpen,
+      // onCloseRestoreDialog: () => eventOperations.setIsRestoreDialogOpen(false),
+      // onConfirmRestore: eventOperations.handleConfirmRestore
     },
     // MoveOrCopyDialog用
     moveOrCopyDialog: {
