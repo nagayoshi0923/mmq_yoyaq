@@ -33,11 +33,20 @@ export function useBookingFilters(scenarios: ScenarioCard[], searchTerm: string)
     return filteredScenarios
       .filter(s => s.next_events && s.next_events.length > 0)
       .sort((a, b) => {
+        // 最も近い公演日でソート
         const aDate = a.next_events?.[0]?.date
         const bDate = b.next_events?.[0]?.date
         if (!aDate) return 1
         if (!bDate) return -1
-        return aDate.localeCompare(bDate)
+        
+        // 日付で比較（昇順：早い日付が先）
+        const dateCompare = aDate.localeCompare(bDate)
+        if (dateCompare !== 0) return dateCompare
+        
+        // 同じ日付の場合、時刻で比較
+        const aTime = a.next_events?.[0]?.time || ''
+        const bTime = b.next_events?.[0]?.time || ''
+        return aTime.localeCompare(bTime)
       })
   }, [filteredScenarios])
 

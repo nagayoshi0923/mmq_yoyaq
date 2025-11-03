@@ -117,21 +117,27 @@ export function useBookingData() {
         // 公演がある場合
         if (scenarioEvents.length > 0) {
           // 今日以降の公演のみをフィルタリング（過去の公演は除外）
-          const todayJST = formatDateJST(new Date()) // JSTでの今日の日付文字列（YYYY-MM-DD）
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          const todayJST = formatDateJST(today) // JSTでの今日の日付文字列（YYYY-MM-DD）
           
+          // 今日以降の公演のみをフィルタリング（過去の公演は完全に除外）
           const futureEvents = scenarioEvents.filter((event: any) => {
             // event.dateはYYYY-MM-DD形式の文字列なので、そのまま比較
+            // 今日を含む（>=）で判定
             return event.date >= todayJST
           })
           
-          // 未来の公演がない場合は、過去の公演も含める（全公演から選択）
-          const targetEvents = futureEvents.length > 0 ? futureEvents : scenarioEvents
+          // 未来の公演がない場合は空配列にする（過去の公演は表示しない）
+          const targetEvents = futureEvents
           
-          // 最も近い公演を最大3つまで取得
+          // 最も近い公演を最大3つまで取得（日付・時刻順にソート）
           const sortedEvents = targetEvents.sort((a: any, b: any) => {
+            // 日付で比較
             const dateCompare = a.date.localeCompare(b.date)
             if (dateCompare !== 0) return dateCompare
-            return a.start_time.localeCompare(b.start_time)
+            // 同じ日付の場合、時刻で比較
+            return (a.start_time || '').localeCompare(b.start_time || '')
           })
           
           // 最大3つまで選択
@@ -149,25 +155,45 @@ export function useBookingData() {
             }
           })
           
-          // ステータスは最も近い公演で判定
-          const nextEvent = sortedEvents[0]
-          const isPrivateBooking = nextEvent.is_private_booking === true
-          const status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(nextEvent.max_participants || 8, nextEvent.current_participants || 0)
+          // ステータスは最も近い公演で判定（未来の公演がある場合のみ）
+          let status: 'available' | 'few_seats' | 'sold_out' | 'private_booking' = 'private_booking'
+          if (sortedEvents.length > 0) {
+            const nextEvent = sortedEvents[0]
+            const isPrivateBooking = nextEvent.is_private_booking === true
+            status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(nextEvent.max_participants || 8, nextEvent.current_participants || 0)
+          }
           
-          scenarioMap.set(scenario.id, {
-            scenario_id: scenario.id,
-            scenario_title: scenario.title,
-            key_visual_url: scenario.key_visual_url,
-            author: scenario.author,
-            duration: scenario.duration,
-            player_count_min: scenario.player_count_min,
-            player_count_max: scenario.player_count_max,
-            genre: scenario.genre || [],
-            next_events: nextEvents,
-            total_events_count: targetEvents.length, // 次回公演の総数
-            status: status,
-            is_new: isNew
-          })
+          // 未来の公演がある場合のみシナリオを追加
+          if (nextEvents.length > 0) {
+            scenarioMap.set(scenario.id, {
+              scenario_id: scenario.id,
+              scenario_title: scenario.title,
+              key_visual_url: scenario.key_visual_url,
+              author: scenario.author,
+              duration: scenario.duration,
+              player_count_min: scenario.player_count_min,
+              player_count_max: scenario.player_count_max,
+              genre: scenario.genre || [],
+              next_events: nextEvents,
+              total_events_count: targetEvents.length, // 次回公演の総数
+              status: status,
+              is_new: isNew
+            })
+          } else {
+            // 未来の公演がない場合でも、全タイトル用にシナリオ情報を追加
+            scenarioMap.set(scenario.id, {
+              scenario_id: scenario.id,
+              scenario_title: scenario.title,
+              key_visual_url: scenario.key_visual_url,
+              author: scenario.author,
+              duration: scenario.duration,
+              player_count_min: scenario.player_count_min,
+              player_count_max: scenario.player_count_max,
+              genre: scenario.genre || [],
+              status: 'private_booking', // 公演予定なしは「貸切受付中」
+              is_new: isNew
+            })
+          }
         } else {
           // 公演がない場合でも、全タイトル用にシナリオ情報を追加
           scenarioMap.set(scenario.id, {
