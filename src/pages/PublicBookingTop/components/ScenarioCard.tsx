@@ -116,13 +116,18 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
           </div>
         </div>
 
-        {/* 次回公演日（開催場所も表示） */}
+        {/* 次回公演日（開催場所・残り人数も表示） */}
         {scenario.next_event_date && (
           <div className="flex items-center gap-1.5 text-sm text-gray-700">
             <Calendar className="h-4 w-4 text-gray-500" />
             <span>
               次回: {formatDate(scenario.next_event_date)}
               {scenario.store_name && ` @ ${scenario.store_name}`}
+              {scenario.available_seats !== undefined && scenario.available_seats >= 0 && (
+                <span className="ml-1 text-gray-600">
+                  (残り{scenario.available_seats}席)
+                </span>
+              )}
             </span>
           </div>
         )}
