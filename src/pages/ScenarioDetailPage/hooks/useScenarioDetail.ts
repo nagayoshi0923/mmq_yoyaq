@@ -57,7 +57,7 @@ export function useScenarioDetail(scenarioId: string) {
         allEvents.push(...events)
       }
       
-      // このシナリオの予約可能な公演のみフィルタリング
+      // このシナリオの公演をフィルタリング（満席も含めて全て表示）
       const scenarioEvents = allEvents
         .filter((event: any) => {
           // シナリオの照合
@@ -66,11 +66,12 @@ export function useScenarioDetail(scenarioId: string) {
             event.scenarios?.id === scenarioData.id ||
             event.scenario === scenarioData.title
           
-          // 予約可能条件
+          // 予約可能条件（満席も含めて表示）
           const isEnabled = event.is_reservation_enabled !== false
           const isNotCancelled = !event.is_cancelled
           const isOpen = event.category === 'open'
           
+          // 満席の公演も含めて全て表示
           return isMatchingScenario && isEnabled && isNotCancelled && isOpen
         })
         .map((event: any) => {
