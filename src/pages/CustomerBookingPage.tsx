@@ -180,11 +180,11 @@ export function CustomerBookingPage() {
         const data = await scheduleApi.getByMonth(year, month)
         
         // 予約可能な公演のみをフィルタリング
-        const filteredData = data.filter((event: any) => 
-          event.is_reservation_enabled && 
-          !event.is_cancelled &&
-          event.category === 'open' // オープン公演のみ
-        )
+        const filteredData = data.filter((event: any) => {
+          const isNotCancelled = !event.is_cancelled
+          const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open')
+          return isNotCancelled && isOpenAndEnabled
+        })
 
         // 営業時間制限を適用
         const publicEvents = []
