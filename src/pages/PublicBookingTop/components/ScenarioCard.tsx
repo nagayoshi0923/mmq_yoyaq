@@ -117,7 +117,12 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                     @ {event.store_name}
                   </span>
                 )}
-                {event.available_seats !== undefined && event.available_seats > 0 && (
+                {/* 貸切予約の場合は「貸切」と表示、空席がある場合は残席数を表示、満席の場合は何も表示しない */}
+                {event.is_private_booking ? (
+                  <span className="text-[11px] font-medium ml-auto text-gray-500">
+                    貸切
+                  </span>
+                ) : event.available_seats !== undefined && event.available_seats > 0 ? (
                   <span className={`text-[11px] font-medium ml-auto ${
                     event.available_seats <= 2 
                       ? 'text-orange-600' 
@@ -125,7 +130,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                   }`}>
                     残{event.available_seats}席
                   </span>
-                )}
+                ) : null}
               </div>
             ))}
             {scenario.total_events_count && scenario.total_events_count > 3 && (

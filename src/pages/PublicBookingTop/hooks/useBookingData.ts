@@ -17,6 +17,7 @@ export interface ScenarioCard {
     time?: string
     store_name?: string
     available_seats?: number
+    is_private_booking?: boolean // 貸切予約かどうか
   }>
   total_events_count?: number // 次回公演の総数（表示用）
   status: 'available' | 'few_seats' | 'sold_out' | 'private_booking'
@@ -160,7 +161,8 @@ export function useBookingData() {
               date: event.date,
               time: event.start_time,
               store_name: store?.name || event.venue,
-              available_seats: availableSeats
+              available_seats: availableSeats,
+              is_private_booking: event.is_private_booking === true || event.category === 'private'
             }
           })
           
