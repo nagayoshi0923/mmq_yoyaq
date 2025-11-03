@@ -50,13 +50,13 @@ export const CalendarView = memo(function CalendarView({
       
       {/* カレンダーグリッド */}
       <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        {/* 曜日ヘッダー（月曜始まり） */}
+        {/* 曜日ヘッダー（日曜始まり） */}
         <div className="grid grid-cols-7 border-b bg-muted/30">
-          {['月', '火', '水', '木', '金', '土', '日'].map((day, index) => (
+          {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
             <div 
               key={day} 
               className={`text-center py-3 font-medium ${
-                index === 5 ? 'text-blue-600' : index === 6 ? 'text-red-600' : ''
+                index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : ''
               }`}
             >
               {day}

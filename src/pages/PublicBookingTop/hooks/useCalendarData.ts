@@ -28,7 +28,7 @@ export function useCalendarData(allEvents: any[], selectedStoreFilter: string) {
   }, [])
 
   /**
-   * カレンダーの日付を生成（月曜始まり）
+   * カレンダーの日付を生成（日曜始まり）
    */
   const calendarDays = useMemo((): CalendarDay[] => {
     const year = currentMonth.getFullYear()
@@ -38,8 +38,8 @@ export function useCalendarData(allEvents: any[], selectedStoreFilter: string) {
     const firstDay = new Date(year, month, 1)
     const lastDay = new Date(year, month + 1, 0)
     
-    // 月曜日を0とする曜日（0=月曜, 6=日曜）
-    const firstDayOfWeek = (firstDay.getDay() + 6) % 7 // 月曜始まりに調整
+    // 日曜日を0とする曜日（0=日曜, 6=土曜）
+    const firstDayOfWeek = firstDay.getDay() // 日曜始まり
     const lastDate = lastDay.getDate()
     
     const days: CalendarDay[] = []
