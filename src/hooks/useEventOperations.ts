@@ -415,11 +415,40 @@ export function useEventOperations({
     if (!deletingEvent) return
 
     try {
-      const isPrivateBooking = deletingEvent.is_private_request || deletingEvent.id.startsWith('private-')
+      // 貸切予約の判定: is_private_requestフラグまたは、IDが`private-`で始まる、または複合ID形式
+      const isPrivateBooking = deletingEvent.is_private_request || 
+                               deletingEvent.id.startsWith('private-') ||
+                               (deletingEvent.id.includes('-') && deletingEvent.id.split('-').length > 5)
       
       if (isPrivateBooking) {
-        const reservationId = deletingEvent.reservation_id || deletingEvent.id.split('-').slice(1, 6).join('-')
+        // reservation_idが直接指定されている場合、それを使用
+        // そうでない場合、IDからUUID部分を抽出
+        let reservationId = deletingEvent.reservation_id
+        if (!reservationId) {
+          if (deletingEvent.id.startsWith('private-')) {
+            // `private-UUID-数字`形式の場合、`private-`を除去してUUID部分を取得
+            const parts = deletingEvent.id.replace(/^private-/, '').split('-')
+            reservationId = parts.slice(0, 5).join('-')
+          } else if (deletingEvent.id.includes('-') && deletingEvent.id.split('-').length > 5) {
+            // `UUID-数字`形式の場合、UUID部分（最初の5つの要素）を取得
+            reservationId = deletingEvent.id.split('-').slice(0, 5).join('-')
+          } else {
+            reservationId = deletingEvent.id
+          }
+        }
         
+        // まず予約情報を取得してschedule_event_idを確認
+        const { data: reservation, error: fetchError } = await supabase
+          .from('reservations')
+          .select('schedule_event_id')
+          .eq('id', reservationId)
+          .single()
+        
+        if (fetchError) {
+          logger.error('予約情報取得エラー:', fetchError)
+        }
+        
+        // 予約を削除
         const { error } = await supabase
           .from('reservations')
           .delete()
@@ -427,8 +456,30 @@ export function useEventOperations({
         
         if (error) throw error
         
+        // schedule_event_idが紐付いている場合、schedule_eventsも削除
+        if (reservation?.schedule_event_id) {
+          const { error: scheduleError } = await supabase
+            .from('schedule_events')
+            .delete()
+            .eq('id', reservation.schedule_event_id)
+          
+          if (scheduleError) {
+            logger.error('schedule_events削除エラー:', scheduleError)
+            // エラーでも処理は続行（予約は削除済み）
+          }
+        }
+        
         setEvents(prev => prev.filter(event => {
-          const eventReservationId = event.reservation_id || (event.id.startsWith('private-') ? event.id.split('-').slice(1, 6).join('-') : null)
+          // イベントのreservation_idを取得（複合IDの場合はUUID部分を抽出）
+          let eventReservationId = event.reservation_id
+          if (!eventReservationId) {
+            if (event.id.startsWith('private-')) {
+              const parts = event.id.replace(/^private-/, '').split('-')
+              eventReservationId = parts.slice(0, 5).join('-')
+            } else if (event.id.includes('-') && event.id.split('-').length > 5) {
+              eventReservationId = event.id.split('-').slice(0, 5).join('-')
+            }
+          }
           return eventReservationId !== reservationId
         }))
       } else {
@@ -604,7 +655,10 @@ export function useEventOperations({
   const handleConfirmPublishToggle = useCallback(async () => {
     if (!publishingEvent) return
     
-    if (publishingEvent.is_private_request || publishingEvent.id.startsWith('private-')) {
+    const isPrivateBooking = publishingEvent.is_private_request || 
+                            publishingEvent.id.startsWith('private-') ||
+                            (publishingEvent.id.includes('-') && publishingEvent.id.split('-').length > 5)
+    if (isPrivateBooking) {
       alert('貸切公演の公開状態は変更できません')
       setIsPublishDialogOpen(false)
       setPublishingEvent(null)

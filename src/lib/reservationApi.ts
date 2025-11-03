@@ -112,7 +112,7 @@ export const reservationApi = {
       .from('reservations')
       .select('*, customers(*)')
       .eq('schedule_event_id', scheduleEventId)
-      .in('status', ['pending', 'confirmed'])
+      .in('status', ['pending', 'confirmed', 'gm_confirmed'])
       .order('created_at', { ascending: true })
     
     if (error) throw error
