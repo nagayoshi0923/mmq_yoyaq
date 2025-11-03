@@ -687,21 +687,24 @@ export const scheduleApi = {
       const scenarioData = event.scenarios
       const scenarioMaxPlayers = scenarioData?.player_count_max
       
+      // デバッグログ（常に表示して問題を特定）
+      console.log('max_participants設定デバッグ:', {
+        eventId: event.id,
+        scenario: event.scenario,
+        scenario_id: event.scenario_id,
+        capacity: event.capacity,
+        max_participants: event.max_participants,
+        scenarioData: scenarioData,
+        scenarioMaxPlayers: scenarioMaxPlayers,
+        scenariosType: Array.isArray(event.scenarios) ? 'array' : typeof event.scenarios
+      })
+      
       const maxParticipants = event.capacity || 
                               scenarioMaxPlayers ||
                               event.max_participants ||
                               8
       
-      // デバッグログ（開発時のみ）
-      if (process.env.NODE_ENV === 'development' && !event.capacity && scenarioMaxPlayers) {
-        console.log('max_participants設定:', {
-          eventId: event.id,
-          scenario: event.scenario,
-          capacity: event.capacity,
-          scenarioMaxPlayers,
-          maxParticipants
-        })
-      }
+      console.log('最終的なmax_participants:', maxParticipants)
       
       return {
         ...event,
