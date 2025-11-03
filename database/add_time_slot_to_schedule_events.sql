@@ -5,10 +5,11 @@ ALTER TABLE schedule_events
 ADD COLUMN IF NOT EXISTS time_slot TEXT;
 
 -- 既存データに対して、start_timeからtime_slotを推定して設定
+-- 17時開始も「昼」に分類
 UPDATE schedule_events
 SET time_slot = CASE
   WHEN EXTRACT(HOUR FROM start_time) < 12 THEN '朝'
-  WHEN EXTRACT(HOUR FROM start_time) < 17 THEN '昼'
+  WHEN EXTRACT(HOUR FROM start_time) <= 17 THEN '昼'  -- 17時を含む
   ELSE '夜'
 END
 WHERE time_slot IS NULL;

@@ -153,8 +153,8 @@ export const ListView = memo(function ListView({
             <TableHead className="w-16 border-r">曜日</TableHead>
             <TableHead className="w-20 border-r">会場</TableHead>
             <TableHead style={{ width: '192px' }}>午前 (~12:00)</TableHead>
-            <TableHead style={{ width: '192px' }}>午後 (12:00-17:00)</TableHead>
-            <TableHead style={{ width: '192px' }}>夜間 (17:00~)</TableHead>
+            <TableHead style={{ width: '192px' }}>午後 (12:00-17:59)</TableHead>
+            <TableHead style={{ width: '192px' }}>夜間 (18:00~)</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -179,18 +179,18 @@ export const ListView = memo(function ListView({
               if (event.timeSlot) {
                 return event.timeSlot === '昼'
               }
-              // フォールバック：start_timeから判定
+              // フォールバック：start_timeから判定（17時を含む）
               const hour = parseInt(event.start_time?.split(':')[0] || '0')
-              return hour >= 12 && hour < 17
+              return hour >= 12 && hour <= 17
             })
             const eveningEvents = events.filter(event => {
               // timeSlotが設定されている場合はそれを使用
               if (event.timeSlot) {
                 return event.timeSlot === '夜'
               }
-              // フォールバック：start_timeから判定（17:00は夜間カラム）
+              // フォールバック：start_timeから判定（18時以降が夜間）
               const hour = parseInt(event.start_time?.split(':')[0] || '0')
-              return hour >= 17
+              return hour >= 18
             })
 
             const isFirstRowOfDate = index === 0 || listViewData[index - 1]?.date !== date
