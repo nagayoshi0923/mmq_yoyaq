@@ -750,6 +750,9 @@ export const scheduleApi = {
               
               const scenarioData = Array.isArray(booking.scenarios) ? booking.scenarios[0] : booking.scenarios
               
+              // timeSlotを取得（朝/昼/夜）
+              const timeSlot = candidate.timeSlot || ''
+              
               privateEvents.push({
                 id: `private-${booking.id}-${candidate.order}`,
                 date: candidateDateStr,
@@ -768,7 +771,8 @@ export const scheduleApi = {
                 gms: gmNames,
                 stores: booking.stores,
                 scenarios: scenarioData,
-                is_private_booking: true // 貸切公演フラグ
+                is_private_booking: true, // 貸切公演フラグ
+                timeSlot: timeSlot // 貸切予約の時間帯（朝/昼/夜）を保持
               })
             }
           }

@@ -17,5 +17,7 @@ export interface ScheduleEvent {
   is_reservation_enabled?: boolean
   is_private_request?: boolean // 貸切リクエストかどうか
   reservation_id?: string // 貸切リクエストの元のreservation ID
+  is_private_booking?: boolean // 貸切予約かどうか
+  timeSlot?: string // 貸切予約の時間帯（朝/昼/夜）
 }
 
