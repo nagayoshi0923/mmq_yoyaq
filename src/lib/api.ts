@@ -661,7 +661,8 @@ export const scheduleApi = {
       }
     }))
     
-    // 確定した貸切公演を取得
+    // 確定した貸切公演を取得（schedule_event_idが紐付いていないもののみ）
+    // schedule_event_idが紐付いているものは既にschedule_eventsから取得済みのため除外
     const { data: confirmedPrivateBookings, error: privateError } = await supabase
       .from('reservations')
       .select(`
@@ -671,6 +672,7 @@ export const scheduleApi = {
         gm_staff,
         participant_count,
         candidate_datetimes,
+        schedule_event_id,
         scenarios:scenario_id (
           id,
           title,
@@ -690,6 +692,7 @@ export const scheduleApi = {
       `)
       .eq('reservation_source', 'web_private')
       .eq('status', 'confirmed')
+      .is('schedule_event_id', null) // schedule_event_idがNULLのもののみ（まだschedule_eventsにリンクされていないもの）
     
     if (privateError) {
       // 確定貸切公演取得エラー
