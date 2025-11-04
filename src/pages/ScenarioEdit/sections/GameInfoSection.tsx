@@ -1,7 +1,10 @@
+import { useState, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
@@ -12,6 +15,39 @@ interface GameInfoSectionProps {
 }
 
 export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps) {
+  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) {
+      alert('カテゴリ名を入力してください')
+      return
+    }
+
+    // 既に選択されているカテゴリに追加
+    const currentGenres = formData.genre || []
+    if (!currentGenres.includes(newCategoryName.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        genre: [...currentGenres, newCategoryName.trim()]
+      }))
+    }
+
+    setNewCategoryName('')
+    setIsAddCategoryDialogOpen(false)
+  }
+
+  // 選択されたカテゴリのうち、genreOptionsに存在しないものを抽出
+  const selectedGenresNotInOptions = (formData.genre || []).filter(
+    genre => !genreOptions.some(opt => opt.name === genre)
+  )
+
+  // MultiSelect用のオプション（選択済みだがオプションにないものも含める）
+  const allGenreOptions = useMemo(() => [
+    ...genreOptions,
+    ...selectedGenresNotInOptions.map(genre => ({ id: genre, name: genre }))
+  ], [selectedGenresNotInOptions])
+
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4 pb-2 border-b">ゲーム情報</h3>
@@ -88,12 +124,16 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
           {/* カテゴリ・ステータス */}
           <div className="space-y-4 pt-4 border-t">
           <div>
-            <Label htmlFor="genre">ジャンル</Label>
+            <Label htmlFor="genre">カテゴリ</Label>
             <MultiSelect
-              options={genreOptions}
+              options={allGenreOptions}
               selectedValues={formData.genre || []}
               onSelectionChange={(values) => setFormData(prev => ({ ...prev, genre: values }))}
-              placeholder="ジャンルを選択"
+              placeholder="カテゴリを選択"
+              showBadges={true}
+              emptyText="カテゴリが見つかりません"
+              emptyActionLabel="+ カテゴリを追加"
+              onEmptyAction={() => setIsAddCategoryDialogOpen(true)}
             />
           </div>
 
@@ -128,6 +168,46 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
           </div>
           </div>
       </div>
+
+      {/* カテゴリ追加ダイアログ */}
+      <Dialog open={isAddCategoryDialogOpen} onOpenChange={setIsAddCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新しいカテゴリを追加</DialogTitle>
+            <DialogDescription>
+              新しいカテゴリ名を入力してください
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="newCategoryName">カテゴリ名</Label>
+              <Input
+                id="newCategoryName"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="例: アドベンチャー"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddCategory()
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setNewCategoryName('')
+              setIsAddCategoryDialogOpen(false)
+            }}>
+              キャンセル
+            </Button>
+            <Button onClick={handleAddCategory}>
+              追加
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

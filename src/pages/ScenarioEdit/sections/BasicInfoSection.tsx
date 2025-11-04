@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,7 +10,7 @@ import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
-import { genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
+import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 
 interface BasicInfoSectionProps {
   formData: ScenarioFormData
@@ -20,8 +20,24 @@ interface BasicInfoSectionProps {
 export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProps) {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
-  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
+  const [isAddAuthorDialogOpen, setIsAddAuthorDialogOpen] = useState(false)
+  const [newAuthorName, setNewAuthorName] = useState('')
+  
+  // 既存のシナリオから作者リストを取得
+  const { data: scenarios = [] } = useScenariosQuery()
+  const authorOptions = useMemo(() => {
+    const authors = new Set<string>()
+    scenarios.forEach(scenario => {
+      if (scenario.author) {
+        authors.add(scenario.author)
+      }
+    })
+    // 現在選択されている作者も含める
+    if (formData.author && !authors.has(formData.author)) {
+      authors.add(formData.author)
+    }
+    return Array.from(authors).sort().map(author => ({ id: author, name: author }))
+  }, [scenarios, formData.author])
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -58,35 +74,21 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
     }
   }
 
-  const handleAddCategory = () => {
-    if (!newCategoryName.trim()) {
-      alert('カテゴリ名を入力してください')
+  const handleAddAuthor = () => {
+    if (!newAuthorName.trim()) {
+      alert('作者名を入力してください')
       return
     }
 
-    // 既に選択されているカテゴリに追加
-    const currentGenres = formData.genre || []
-    if (!currentGenres.includes(newCategoryName.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        genre: [...currentGenres, newCategoryName.trim()]
-      }))
-    }
+    // 作者を設定（単一選択なので配列ではなく文字列）
+    setFormData(prev => ({
+      ...prev,
+      author: newAuthorName.trim()
+    }))
 
-    setNewCategoryName('')
-    setIsAddCategoryDialogOpen(false)
+    setNewAuthorName('')
+    setIsAddAuthorDialogOpen(false)
   }
-
-  // 選択されたカテゴリのうち、genreOptionsに存在しないものを抽出
-  const selectedGenresNotInOptions = (formData.genre || []).filter(
-    genre => !genreOptions.some(opt => opt.name === genre)
-  )
-
-  // MultiSelect用のオプション（選択済みだがオプションにないものも含める）
-  const allGenreOptions = [
-    ...genreOptions,
-    ...selectedGenresNotInOptions.map(genre => ({ id: genre, name: genre }))
-  ]
 
   return (
     <div>
@@ -150,26 +152,20 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
               </div>
               <div>
                 <Label htmlFor="author" className="text-sm font-medium">作者 *</Label>
-                <Input
-                  id="author"
-                  value={formData.author}
-                  onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
-                  required
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label htmlFor="genre" className="text-sm font-medium">カテゴリ</Label>
                 <MultiSelect
-                  options={allGenreOptions}
-                  selectedValues={formData.genre || []}
-                  onSelectionChange={(values) => setFormData(prev => ({ ...prev, genre: values }))}
-                  placeholder="カテゴリを選択"
+                  options={authorOptions}
+                  selectedValues={formData.author ? [formData.author] : []}
+                  onSelectionChange={(values) => {
+                    // 単一選択なので、最初の値を設定
+                    setFormData(prev => ({ ...prev, author: values[0] || '' }))
+                  }}
+                  placeholder="作者を選択"
                   showBadges={true}
                   className="mt-1.5"
-                  emptyText="カテゴリが見つかりません"
-                  emptyActionLabel="+ カテゴリを追加"
-                  onEmptyAction={() => setIsAddCategoryDialogOpen(true)}
+                  emptyText="作者が見つかりません"
+                  emptyActionLabel="+ 作者を追加"
+                  onEmptyAction={() => setIsAddAuthorDialogOpen(true)}
+                  closeOnSelect={true}
                 />
               </div>
             </div>
@@ -187,26 +183,26 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
           </div>
       </div>
 
-      {/* カテゴリ追加ダイアログ */}
-      <Dialog open={isAddCategoryDialogOpen} onOpenChange={setIsAddCategoryDialogOpen}>
+      {/* 作者追加ダイアログ */}
+      <Dialog open={isAddAuthorDialogOpen} onOpenChange={setIsAddAuthorDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新しいカテゴリを追加</DialogTitle>
+            <DialogTitle>新しい作者を追加</DialogTitle>
             <DialogDescription>
-              新しいカテゴリ名を入力してください
+              新しい作者名を入力してください
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="newCategoryName">カテゴリ名</Label>
+              <Label htmlFor="newAuthorName">作者名</Label>
               <Input
-                id="newCategoryName"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder="例: アドベンチャー"
+                id="newAuthorName"
+                value={newAuthorName}
+                onChange={(e) => setNewAuthorName(e.target.value)}
+                placeholder="例: 山田太郎"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    handleAddCategory()
+                    handleAddAuthor()
                   }
                 }}
                 autoFocus
@@ -215,12 +211,12 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
-              setNewCategoryName('')
-              setIsAddCategoryDialogOpen(false)
+              setNewAuthorName('')
+              setIsAddAuthorDialogOpen(false)
             }}>
               キャンセル
             </Button>
-            <Button onClick={handleAddCategory}>
+            <Button onClick={handleAddAuthor}>
               追加
             </Button>
           </DialogFooter>
