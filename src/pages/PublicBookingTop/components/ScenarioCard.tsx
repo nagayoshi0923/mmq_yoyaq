@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Clock, Users, Heart } from 'lucide-react'
 import { usePrefetch } from '@/hooks/usePrefetch'
@@ -24,10 +24,16 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
     onToggleFavorite?.(scenario.scenario_id, e)
   }
   
-  const formatDate = (dateStr?: string): string => {
-    if (!dateStr) return ''
+  const formatDate = (dateStr?: string): { date: string, weekday: string, dayOfWeek: number } => {
+    if (!dateStr) return { date: '', weekday: '', dayOfWeek: 0 }
     const date = new Date(dateStr)
-    return `${date.getMonth() + 1}/${date.getDate()}`
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+    const dayOfWeek = date.getDay()
+    return {
+      date: `${date.getMonth() + 1}/${date.getDate()}`,
+      weekday: weekdays[dayOfWeek],
+      dayOfWeek: dayOfWeek
+    }
   }
 
 
@@ -59,18 +65,16 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         
         {/* お気に入りボタン */}
         {onToggleFavorite && (
-          <Button
+          <button
             onClick={handleFavoriteClick}
-            size="icon"
-            variant="ghost"
-            className={`absolute top-2 right-2 h-9 w-9 rounded-full bg-white/90 hover:bg-white shadow-md transition-all ${
+            className={`absolute top-2 right-2 transition-all opacity-70 hover:opacity-100 ${
               isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'
             }`}
           >
             <Heart 
               className={`h-5 w-5 transition-all ${isFavorite ? 'fill-current' : ''}`}
             />
-          </Button>
+          </button>
         )}
       </div>
 
@@ -82,6 +86,29 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         <h3 className="font-bold text-base truncate leading-tight mt-0.5">
           {scenario.scenario_title}
         </h3>
+
+        {/* ジャンル（カテゴリ） */}
+        {scenario.genre && scenario.genre.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {scenario.genre.slice(0, 3).map((genre, index) => (
+              <Badge 
+                key={index} 
+                variant="outline" 
+                className="text-[10px] px-1.5 py-0.5 h-5 font-normal"
+              >
+                {genre}
+              </Badge>
+            ))}
+            {scenario.genre.length > 3 && (
+              <Badge 
+                variant="outline" 
+                className="text-[10px] px-1.5 py-0.5 h-5 font-normal"
+              >
+                +{scenario.genre.length - 3}
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* 人数・時間 */}
         <div className="flex items-center gap-2.5 text-sm text-gray-600 mt-0.5">
@@ -102,33 +129,42 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         {/* 次回公演（最大3つまで表示） */}
         {scenario.next_events && scenario.next_events.length > 0 && (
           <div className="mt-0.5 space-y-0">
-            {scenario.next_events.map((event, index) => (
-              <div key={index} className="flex items-center gap-1.5 text-xs">
-                <span className="font-medium text-gray-800">
-                  {formatDate(event.date)}
-                  {event.time && (
-                    <span className="font-normal text-gray-600 ml-0.5">
-                      {event.time.slice(0, 5)}
+            {scenario.next_events.map((event, index) => {
+              const dateInfo = formatDate(event.date)
+              const isSunday = dateInfo.dayOfWeek === 0
+              const isSaturday = dateInfo.dayOfWeek === 6
+              
+              return (
+                <div key={index} className="flex items-center gap-1.5 text-xs">
+                  <span className="font-medium text-gray-800">
+                    {dateInfo.date}
+                    <span className={`ml-0.5 ${isSunday ? 'text-red-600' : isSaturday ? 'text-blue-600' : 'text-gray-600'}`}>
+                      ({dateInfo.weekday})
+                    </span>
+                    {event.time && (
+                      <span className="font-normal text-gray-600 ml-0.5">
+                        {event.time.slice(0, 5)}
+                      </span>
+                    )}
+                  </span>
+                  {event.store_name && (
+                    <span className="text-gray-500 text-[11px]">
+                      @ {event.store_name}
                     </span>
                   )}
-                </span>
-                {event.store_name && (
-                  <span className="text-gray-500 text-[11px]">
-                    @ {event.store_name}
-                  </span>
-                )}
-                {/* 空席がある場合は残席数を表示、満席の場合は何も表示しない */}
-                {event.available_seats !== undefined && event.available_seats > 0 && (
-                  <span className={`text-[11px] font-medium ml-auto ${
-                    event.available_seats <= 2 
-                      ? 'text-orange-600' 
-                      : 'text-gray-600'
-                  }`}>
-                    残{event.available_seats}席
-                  </span>
-                )}
-              </div>
-            ))}
+                  {/* 空席がある場合は残席数を表示、満席の場合は何も表示しない */}
+                  {event.available_seats !== undefined && event.available_seats > 0 && (
+                    <span className={`text-[11px] font-medium ml-auto ${
+                      event.available_seats <= 2 
+                        ? 'text-orange-600' 
+                        : 'text-gray-600'
+                    }`}>
+                      残{event.available_seats}席
+                    </span>
+                  )}
+                </div>
+              )
+            })}
             {scenario.total_events_count && scenario.total_events_count > 3 && (
               <div className="text-[10px] text-gray-400 pt-0.5">
                 ...他 {scenario.total_events_count - 3}件
