@@ -109,16 +109,16 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
             {scenario.genre.slice(0, 3).map((genre, index) => (
               <Badge 
                 key={index} 
-                variant="outline" 
-                className="text-[10px] px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-gray-300 rounded-[2px]"
+                variant="secondary" 
+                className="text-[10px] px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
               >
                 {genre}
               </Badge>
             ))}
             {scenario.genre.length > 3 && (
               <Badge 
-                variant="outline" 
-                className="text-[10px] px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-gray-300 rounded-[2px]"
+                variant="secondary" 
+                className="text-[10px] px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
               >
                 +{scenario.genre.length - 3}
               </Badge>
