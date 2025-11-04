@@ -87,29 +87,6 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
           {scenario.scenario_title}
         </h3>
 
-        {/* ジャンル（カテゴリ） */}
-        {scenario.genre && scenario.genre.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {scenario.genre.slice(0, 3).map((genre, index) => (
-              <Badge 
-                key={index} 
-                variant="outline" 
-                className="text-[10px] px-1.5 py-0.5 h-5 font-normal"
-              >
-                {genre}
-              </Badge>
-            ))}
-            {scenario.genre.length > 3 && (
-              <Badge 
-                variant="outline" 
-                className="text-[10px] px-1.5 py-0.5 h-5 font-normal"
-              >
-                +{scenario.genre.length - 3}
-              </Badge>
-            )}
-          </div>
-        )}
-
         {/* 人数・時間 */}
         <div className="flex items-center gap-2.5 text-sm text-gray-600 mt-0.5">
           <div className="flex items-center gap-1">
@@ -125,6 +102,29 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
             <span>{scenario.duration}分</span>
           </div>
         </div>
+
+        {/* ジャンル（カテゴリ） */}
+        {scenario.genre && scenario.genre.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {scenario.genre.slice(0, 3).map((genre, index) => (
+              <Badge 
+                key={index} 
+                variant="outline" 
+                className="text-[10px] px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-gray-300 rounded-[2px]"
+              >
+                {genre}
+              </Badge>
+            ))}
+            {scenario.genre.length > 3 && (
+              <Badge 
+                variant="outline" 
+                className="text-[10px] px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-gray-300 rounded-[2px]"
+              >
+                +{scenario.genre.length - 3}
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* 次回公演（最大3つまで表示） */}
         {scenario.next_events && scenario.next_events.length > 0 && (
