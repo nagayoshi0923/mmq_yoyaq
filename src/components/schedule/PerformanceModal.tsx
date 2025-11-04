@@ -832,31 +832,30 @@ export function PerformanceModal({
                 emptyActionLabel="+ GMを作成"
                 onEmptyAction={() => setIsStaffModalOpen(true)}
               />
+              {/* GM選択バッジ表示 */}
+              {formData.gms.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formData.gms.map((gm: string, index: number) => (
+                    <Badge key={index} variant="secondary" className="flex items-center gap-1 font-normal bg-gray-100 border-0 rounded-[2px]">
+                      {gm}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-red-100"
+                        onClick={() => {
+                          const newGms = formData.gms.filter((g: string) => g !== gm)
+                          setFormData((prev: EventFormData) => ({ ...prev, gms: newGms }))
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-          
-          {/* GM選択バッジ表示 */}
-          {formData.gms.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {formData.gms.map((gm: string, index: number) => (
-                <Badge key={index} variant="secondary" className="flex items-center gap-1 font-normal bg-gray-100 border-0 rounded-[2px]">
-                  {gm}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-4 w-4 p-0 hover:bg-red-100"
-                    onClick={() => {
-                      const newGms = formData.gms.filter((g: string) => g !== gm)
-                      setFormData((prev: EventFormData) => ({ ...prev, gms: newGms }))
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              ))}
-            </div>
-          )}
 
           {/* 時間設定 */}
           <div className="grid grid-cols-2 gap-4">
