@@ -128,14 +128,17 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
 
         {/* 次回公演（最大3つまで表示） */}
         {scenario.next_events && scenario.next_events.length > 0 && (
-          <div className="mt-0.5 space-y-0">
+          <div className="mt-2 space-y-[1px]">
             {scenario.next_events.map((event, index) => {
               const dateInfo = formatDate(event.date)
               const isSunday = dateInfo.dayOfWeek === 0
               const isSaturday = dateInfo.dayOfWeek === 6
               
               return (
-                <div key={index} className="flex items-center gap-1.5 text-xs">
+                <div 
+                  key={index} 
+                  className="flex items-center gap-1.5 text-xs py-0.5 px-1 -mx-1 bg-gray-50/50 rounded-sm border-b border-gray-100 last:border-b-0"
+                >
                   <span className="font-medium text-gray-800">
                     {dateInfo.date}
                     <span className={`ml-0.5 ${isSunday ? 'text-red-600' : isSaturday ? 'text-blue-600' : 'text-gray-600'}`}>
