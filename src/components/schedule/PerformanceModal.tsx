@@ -978,63 +978,6 @@ export function PerformanceModal({
             })()}
           </div>
 
-          {/* GM管理 */}
-          <div>
-            <Label htmlFor="gms">GM</Label>
-            <MultiSelect
-              options={staff
-                .filter(s => s.status === 'active')
-                .map(staffMember => {
-                  // このシナリオの担当GMかチェック
-                  const isAssignedGM = formData.scenario && 
-                    (staffMember.special_scenarios?.includes(formData.scenario) ||
-                     scenarios.find(sc => sc.title === formData.scenario)?.id &&
-                     staffMember.special_scenarios?.includes(scenarios.find(sc => sc.title === formData.scenario)!.id))
-                  
-                  return {
-                    id: staffMember.id,
-                    name: staffMember.name,
-                    displayInfo: isAssignedGM ? '担当GM' : undefined,
-                    isAssignedGM
-                  }
-                })
-                .sort((a, b) => {
-                  // 担当GMを上に表示
-                  if (a.isAssignedGM && !b.isAssignedGM) return -1
-                  if (!a.isAssignedGM && b.isAssignedGM) return 1
-                  // 両方とも担当GMまたは両方とも非担当GMの場合は名前順
-                  return a.name.localeCompare(b.name, 'ja')
-                })}
-              selectedValues={formData.gms}
-              onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
-              placeholder="GMを選択"
-              closeOnSelect={true}
-              emptyText="GMが見つかりません"
-              emptyActionLabel="+ GMを作成"
-              onEmptyAction={() => setIsStaffModalOpen(true)}
-            />
-            {formData.gms.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {formData.gms.map((gm: string, index: number) => (
-                  <Badge key={index} variant="secondary" className="flex items-center gap-1 font-normal bg-gray-100 border-0 rounded-[2px]">
-                    {gm}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 hover:bg-red-100"
-                      onClick={() => {
-                        const newGms = formData.gms.filter((g: string) => g !== gm)
-                        setFormData((prev: EventFormData) => ({ ...prev, gms: newGms }))
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
 
           {/* 備考 */}
           <div>
