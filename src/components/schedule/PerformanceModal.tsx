@@ -89,6 +89,123 @@ const generateTimeOptions = () => {
 
 const timeOptions = generateTimeOptions()
 
+// メールプレビューコンポーネント
+interface EmailContent {
+  customerEmail: string
+  customerName: string
+  cancellationReason: string
+  scenarioTitle: string
+  eventDate: string
+  startTime: string
+  endTime: string
+  storeName: string
+  participantCount: number
+  totalPrice: number
+  reservationNumber: string
+  cancellationFee: number
+}
+
+function EmailPreview({ content }: { content: EmailContent }) {
+  const formatDate = (dateStr: string): string => {
+    if (!dateStr) return ''
+    try {
+      const date = new Date(dateStr)
+      const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+      return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日(${weekdays[date.getDay()]})`
+    } catch {
+      return dateStr
+    }
+  }
+
+  const formatTime = (timeStr: string): string => {
+    return timeStr.slice(0, 5)
+  }
+
+  const hasCancellationFee = content.cancellationFee > 0
+
+  return (
+    <div className="border rounded-lg p-4 bg-white max-h-[400px] overflow-y-auto">
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-3">
+        <h2 className="text-red-600 text-lg font-bold mb-1">公演中止のお知らせ</h2>
+        <p className="text-sm mb-1">{content.customerName} 様</p>
+        <p className="text-xs text-gray-600">
+          誠に申し訳ございませんが、以下の公演を中止させていただくこととなりました。
+        </p>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-3">
+        <h3 className="text-base font-semibold mb-3 pb-2 border-b border-gray-300">中止された公演</h3>
+        <table className="w-full text-sm">
+          <tbody>
+            <tr className="border-b border-gray-100">
+              <td className="py-2 font-medium text-gray-600 w-1/3">予約番号</td>
+              <td className="py-2 text-gray-900">{content.reservationNumber}</td>
+            </tr>
+            <tr className="border-b border-gray-100">
+              <td className="py-2 font-medium text-gray-600">シナリオ</td>
+              <td className="py-2 text-gray-900">{content.scenarioTitle}</td>
+            </tr>
+            <tr className="border-b border-gray-100">
+              <td className="py-2 font-medium text-gray-600">日時</td>
+              <td className="py-2 text-gray-900">
+                {formatDate(content.eventDate)}<br />
+                {formatTime(content.startTime)} - {formatTime(content.endTime)}
+              </td>
+            </tr>
+            <tr className="border-b border-gray-100">
+              <td className="py-2 font-medium text-gray-600">会場</td>
+              <td className="py-2 text-gray-900">{content.storeName}</td>
+            </tr>
+            <tr className="border-b border-gray-100">
+              <td className="py-2 font-medium text-gray-600">参加人数</td>
+              <td className="py-2 text-gray-900">{content.participantCount}名</td>
+            </tr>
+            <tr className={hasCancellationFee ? 'border-b border-gray-100' : ''}>
+              <td className="py-2 font-medium text-gray-600">予約金額</td>
+              <td className="py-2 text-gray-600">¥{content.totalPrice.toLocaleString()}</td>
+            </tr>
+            {hasCancellationFee && (
+              <tr>
+                <td className="py-2 font-medium text-red-600">キャンセル料</td>
+                <td className="py-2 text-red-600 text-base font-bold">¥{content.cancellationFee.toLocaleString()}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {content.cancellationReason && (
+        <div className="bg-gray-50 border-l-4 border-gray-500 rounded p-3 mb-3">
+          <h3 className="text-gray-700 font-semibold mb-1 text-sm">中止理由</h3>
+          <p className="text-gray-600 whitespace-pre-line text-xs">{content.cancellationReason}</p>
+        </div>
+      )}
+
+      <div className="bg-red-50 border-l-4 border-red-600 rounded p-3 mb-3">
+        <h3 className="text-red-900 font-semibold mb-1 text-sm">お詫び</h3>
+        <p className="text-red-900 text-xs">
+          この度は、ご予約いただいていたにもかかわらず、公演を中止せざるを得なくなり、誠に申し訳ございません。<br />
+          お支払いいただいた料金は全額返金させていただきます。<br />
+          またのご利用を心よりお待ちしております。
+        </p>
+      </div>
+
+      <div className="bg-gray-50 rounded-lg p-3 text-center mb-3">
+        <p className="text-gray-600 text-xs">
+          この度は大変ご迷惑をおかけし、誠に申し訳ございませんでした。<br />
+          またのご利用を心よりお待ちしております。
+        </p>
+      </div>
+
+      <div className="text-center pt-3 border-t border-gray-200 text-gray-400 text-xs">
+        <p className="mb-0.5">Murder Mystery Queue (MMQ)</p>
+        <p className="mb-0.5">このメールは自動送信されています</p>
+        <p>ご不明な点がございましたら、お気軽にお問い合わせください</p>
+      </div>
+    </div>
+  )
+}
+
 export function PerformanceModal({
   isOpen,
   onClose,
@@ -115,6 +232,23 @@ export function PerformanceModal({
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
+  const [cancellingReservation, setCancellingReservation] = useState<Reservation | null>(null)
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
+  const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false)
+  const [emailContent, setEmailContent] = useState({
+    customerEmail: '',
+    customerName: '',
+    cancellationReason: '店舗都合によるキャンセル',
+    scenarioTitle: '',
+    eventDate: '',
+    startTime: '',
+    endTime: '',
+    storeName: '',
+    participantCount: 0,
+    totalPrice: 0,
+    reservationNumber: '',
+    cancellationFee: 0
+  })
   const [isAddingParticipant, setIsAddingParticipant] = useState(false)
   const [newParticipant, setNewParticipant] = useState({
     customer_name: '',
@@ -313,6 +447,13 @@ export function PerformanceModal({
       
       const oldStatus = reservation.status
       
+      // キャンセルに変更する場合は確認ダイアログを表示
+      if (newStatus === 'cancelled' && oldStatus !== 'cancelled') {
+        setCancellingReservation(reservation)
+        setIsCancelDialogOpen(true)
+        return
+      }
+      
       await reservationApi.update(reservationId, { status: newStatus })
       
       // ローカルステートを更新
@@ -366,6 +507,217 @@ export function PerformanceModal({
     } catch (error) {
       logger.error('予約ステータス更新エラー:', error)
       alert('ステータスの更新に失敗しました')
+    }
+  }
+
+  // キャンセル確認処理（メール確認モーダルを表示するだけ）
+  const handleConfirmCancel = () => {
+    if (!cancellingReservation || !event) {
+      logger.error('キャンセル処理エラー: 必要な情報が不足しています', { cancellingReservation, event })
+      return
+    }
+
+    try {
+      // 顧客情報を取得
+      const customerName = cancellingReservation.customer_name || 
+        (cancellingReservation.customers ? 
+          (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.name : cancellingReservation.customers?.name) : 
+          null)
+      const customerEmail = cancellingReservation.customer_email || 
+        (cancellingReservation.customers ? 
+          (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.email : cancellingReservation.customers?.email) : 
+          null)
+
+      if (customerEmail && customerName) {
+        // イベント情報を取得
+        const eventDate = event.date || formData.date
+        const startTime = event.start_time || formData.start_time
+        const endTime = event.end_time || formData.end_time
+        const scenarioTitle = event.scenario || formData.scenario || cancellingReservation.title || ''
+        const storeName = formData.venue 
+          ? stores.find(s => s.id === formData.venue)?.name 
+          : event.venue 
+            ? stores.find(s => s.name === event.venue)?.name || event.venue
+            : ''
+
+        // キャンセル料を計算（24時間以内は100%）
+        let cancellationFee = 0
+        if (eventDate && startTime) {
+          try {
+            const eventDateTime = new Date(`${eventDate}T${startTime}`)
+            const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+            cancellationFee = hoursUntilEvent < 24 ? (cancellingReservation.total_price || cancellingReservation.final_price || 0) : 0
+          } catch (dateError) {
+            logger.warn('日時計算エラー:', dateError)
+          }
+        }
+
+        // メール内容を設定して確認モーダルを表示
+        setEmailContent({
+          customerEmail,
+          customerName,
+          cancellationReason: '店舗都合によるキャンセル',
+          scenarioTitle,
+          eventDate: eventDate || '',
+          startTime: startTime || '',
+          endTime: endTime || '',
+          storeName,
+          participantCount: cancellingReservation.participant_count,
+          totalPrice: cancellingReservation.total_price || cancellingReservation.final_price || 0,
+          reservationNumber: cancellingReservation.reservation_number || '',
+          cancellationFee
+        })
+        setIsEmailConfirmOpen(true)
+        setIsCancelDialogOpen(false)
+      } else {
+        logger.warn('顧客情報が不足しているため、メールを送信できませんでした', { customerName, customerEmail })
+        alert('顧客情報が不足しているため、メールを送信できません')
+      }
+    } catch (error) {
+      logger.error('メール内容の準備エラー:', error)
+      alert('メール内容の準備に失敗しました')
+    }
+  }
+
+  // 実際のキャンセル処理とメール送信を実行
+  const handleExecuteCancelAndSendEmail = async () => {
+    if (!cancellingReservation || !event) {
+      logger.error('キャンセル処理エラー: 必要な情報が不足しています', { cancellingReservation, event })
+      return
+    }
+
+    try {
+      logger.log('予約キャンセル処理開始:', { reservationId: cancellingReservation.id })
+      
+      // 予約をキャンセルに更新（cancelled_atも設定）
+      const cancelledAt = new Date().toISOString()
+      await reservationApi.update(cancellingReservation.id, {
+        status: 'cancelled',
+        cancelled_at: cancelledAt
+      })
+      logger.log('予約ステータス更新成功')
+
+      // ローカルステートを更新（キャンセルされた予約はリストから削除）
+      setReservations(prev => 
+        prev.filter(r => r.id !== cancellingReservation.id)
+      )
+      
+      // キャンセルされた予約が展開されている場合は閉じる
+      if (expandedReservation === cancellingReservation.id) {
+        setExpandedReservation(null)
+      }
+      
+      // キャンセルされた予約が選択されている場合は選択解除
+      setSelectedReservations(prev => {
+        const newSelected = new Set(prev)
+        newSelected.delete(cancellingReservation.id)
+        return newSelected
+      })
+
+      // schedule_eventsのcurrent_participantsを減らす
+      if (event.id && !event.id.startsWith('private-')) {
+        try {
+          const { data: eventData, error: eventError } = await supabase
+            .from('schedule_events')
+            .select('current_participants')
+            .eq('id', event.id)
+            .single()
+          
+          if (eventError) {
+            logger.error('schedule_events取得エラー:', eventError)
+          } else {
+            const currentCount = eventData?.current_participants || 0
+            const change = -cancellingReservation.participant_count
+            const newCount = Math.max(0, currentCount + change)
+            
+            const { error: updateError } = await supabase
+              .from('schedule_events')
+              .update({ current_participants: newCount })
+              .eq('id', event.id)
+            
+            if (updateError) {
+              logger.error('参加者数更新エラー:', updateError)
+            } else {
+              logger.log('参加者数更新成功:', { eventId: event.id, oldCount: currentCount, newCount })
+              if (onParticipantChange) {
+                onParticipantChange(event.id, newCount)
+              }
+            }
+          }
+        } catch (error) {
+          logger.error('参加者数の更新エラー:', error)
+        }
+      }
+
+      // メール送信
+      try {
+        logger.log('キャンセル確認メール送信開始:', {
+          reservationId: cancellingReservation.id,
+          customerEmail: emailContent.customerEmail,
+          customerName: emailContent.customerName
+        })
+
+        const { data, error: emailError } = await supabase.functions.invoke('send-cancellation-confirmation', {
+          body: {
+            reservationId: cancellingReservation.id,
+            customerEmail: emailContent.customerEmail,
+            customerName: emailContent.customerName,
+            scenarioTitle: emailContent.scenarioTitle,
+            eventDate: emailContent.eventDate,
+            startTime: emailContent.startTime,
+            endTime: emailContent.endTime,
+            storeName: emailContent.storeName,
+            participantCount: emailContent.participantCount,
+            totalPrice: emailContent.totalPrice,
+            reservationNumber: emailContent.reservationNumber,
+            cancelledBy: 'store',
+            cancellationReason: emailContent.cancellationReason,
+            cancellationFee: emailContent.cancellationFee
+          }
+        })
+
+        logger.log('メール送信レスポンス:', { data, error: emailError })
+
+        if (emailError) {
+          logger.error('メール送信エラー:', emailError)
+          throw emailError
+        }
+
+        logger.log('キャンセル確認メール送信成功')
+      } catch (emailError) {
+        logger.error('キャンセル確認メール送信エラー:', emailError)
+        // メール送信失敗してもキャンセル処理は完了しているので、ユーザーに通知
+        alert(`予約はキャンセルされましたが、メール送信に失敗しました: ${emailError instanceof Error ? emailError.message : '不明なエラー'}`)
+      }
+
+      // モーダルを閉じる
+      setIsEmailConfirmOpen(false)
+      
+      // 状態をリセット
+      setCancellingReservation(null)
+      setEmailContent({
+        customerEmail: '',
+        customerName: '',
+        cancellationReason: '店舗都合によるキャンセル',
+        scenarioTitle: '',
+        eventDate: '',
+        startTime: '',
+        endTime: '',
+        storeName: '',
+        participantCount: 0,
+        totalPrice: 0,
+        reservationNumber: '',
+        cancellationFee: 0
+      })
+      
+      // 成功メッセージを表示
+      alert('メールを送信しました')
+      
+      logger.log('予約キャンセル処理完了')
+    } catch (error) {
+      logger.error('予約キャンセルエラー:', error)
+      console.error('予約キャンセルエラーの詳細:', error)
+      alert(`予約のキャンセルに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
     }
   }
 
@@ -1473,6 +1825,158 @@ export function PerformanceModal({
                 {sendingEmail ? '送信中...' : `送信 (${selectedReservations.size}件)`}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* キャンセル確認ダイアログ */}
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>予約をキャンセルしますか？</DialogTitle>
+            <DialogDescription>
+              キャンセル確認メールが送信されます。
+            </DialogDescription>
+          </DialogHeader>
+          {cancellingReservation && (
+            <div className="space-y-2 py-4">
+              <div className="text-sm">
+                <span className="font-medium">予約者:</span>{' '}
+                {cancellingReservation.customer_name || 
+                  (cancellingReservation.customers ? 
+                    (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.name : cancellingReservation.customers?.name) : 
+                    '顧客名なし')}
+              </div>
+              <div className="text-sm">
+                <span className="font-medium">参加者数:</span> {cancellingReservation.participant_count}名
+              </div>
+              <div className="text-sm">
+                <span className="font-medium">予約番号:</span> {cancellingReservation.reservation_number || 'なし'}
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCancelDialogOpen(false)
+                setCancellingReservation(null)
+              }}
+            >
+              キャンセル
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmCancel}
+            >
+              キャンセル確定
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* メール送信確認・編集モーダル */}
+      <Dialog open={isEmailConfirmOpen} onOpenChange={setIsEmailConfirmOpen}>
+        <DialogContent size="lg" className="max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>キャンセル確認メール送信</DialogTitle>
+            <DialogDescription>
+              送信内容を確認・編集してください
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col min-h-0">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="edit">編集</TabsTrigger>
+                <TabsTrigger value="preview">プレビュー</TabsTrigger>
+              </TabsList>
+              <TabsContent value="edit" className="space-y-4 py-4 overflow-y-auto flex-1">
+                <div>
+                  <Label htmlFor="email-to">送信先</Label>
+                  <Input
+                    id="email-to"
+                    value={emailContent.customerEmail}
+                    disabled
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {emailContent.customerName} 様
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="cancellation-reason">キャンセル理由</Label>
+                  <Textarea
+                    id="cancellation-reason"
+                    value={emailContent.cancellationReason}
+                    onChange={(e) => setEmailContent(prev => ({ ...prev, cancellationReason: e.target.value }))}
+                    className="mt-1"
+                    rows={3}
+                    placeholder="キャンセル理由を入力してください"
+                  />
+                </div>
+
+                <div className="border-t pt-4 space-y-2">
+                  <div className="text-sm">
+                    <span className="font-medium">シナリオ:</span> {emailContent.scenarioTitle}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium">公演日時:</span> {emailContent.eventDate} {emailContent.startTime} - {emailContent.endTime}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium">店舗:</span> {emailContent.storeName}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium">参加者数:</span> {emailContent.participantCount}名
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium">予約番号:</span> {emailContent.reservationNumber}
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium">料金:</span> ¥{emailContent.totalPrice.toLocaleString()}
+                  </div>
+                  {emailContent.cancellationFee > 0 && (
+                    <div className="text-sm text-destructive">
+                      <span className="font-medium">キャンセル料:</span> ¥{emailContent.cancellationFee.toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+              <TabsContent value="preview" className="py-4 overflow-y-auto flex-1">
+                <EmailPreview content={emailContent} />
+              </TabsContent>
+            </Tabs>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEmailConfirmOpen(false)
+                // メール送信をキャンセルした場合は、予約キャンセルもキャンセル
+                // 状態をリセットするだけで、予約はキャンセルされない（まだキャンセル処理を実行していないため）
+                setEmailContent({
+                  customerEmail: '',
+                  customerName: '',
+                  cancellationReason: '店舗都合によるキャンセル',
+                  scenarioTitle: '',
+                  eventDate: '',
+                  startTime: '',
+                  endTime: '',
+                  storeName: '',
+                  participantCount: 0,
+                  totalPrice: 0,
+                  reservationNumber: '',
+                  cancellationFee: 0
+                })
+              }}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleExecuteCancelAndSendEmail}
+            >
+              メール送信
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

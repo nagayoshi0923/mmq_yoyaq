@@ -159,7 +159,7 @@ export const reservationApi = {
         .select(`
           *,
           customers(*),
-          schedule_events(date, start_time, end_time, venue, scenario, stores(name))
+          schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario)
         `)
         .eq('id', id)
         .single()
@@ -175,7 +175,7 @@ export const reservationApi = {
       .select(`
         *,
         customers(*),
-        schedule_events(date, start_time, end_time, venue, scenario, stores(name))
+        schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario)
       `)
       .single()
     
@@ -208,7 +208,7 @@ export const reservationApi = {
 
         // 変更がある場合のみメール送信
         if (changes.length > 0) {
-          const scheduleEvent = data.schedule_events?.[0]
+          const scheduleEvent = Array.isArray(data.schedule_events) ? data.schedule_events[0] : data.schedule_events
           const priceDifference = updates.total_price 
             ? updates.total_price - (originalReservation.total_price || 0)
             : 0
@@ -224,7 +224,7 @@ export const reservationApi = {
               newEventDate: scheduleEvent?.date,
               newStartTime: scheduleEvent?.start_time,
               newEndTime: scheduleEvent?.end_time,
-              newStoreName: scheduleEvent?.stores?.name || scheduleEvent?.venue,
+              newStoreName: scheduleEvent?.venue,
               newParticipantCount: data.participant_count,
               newTotalPrice: data.total_price,
               priceDifference: priceDifference !== 0 ? priceDifference : undefined
@@ -249,7 +249,7 @@ export const reservationApi = {
       .select(`
         *,
         customers(*),
-        schedule_events(date, start_time, end_time, venue, scenario, stores(name))
+        schedule_events!schedule_event_id(date, start_time, end_time, venue, scenario)
       `)
       .eq('id', id)
       .single()
@@ -272,8 +272,8 @@ export const reservationApi = {
     // キャンセル確認メールを送信
     if (reservation && reservation.customers) {
       try {
-        const scheduleEvent = reservation.schedule_events?.[0]
-        const storeName = scheduleEvent?.stores?.name || scheduleEvent?.venue || '店舗不明'
+        const scheduleEvent = Array.isArray(reservation.schedule_events) ? reservation.schedule_events[0] : reservation.schedule_events
+        const storeName = scheduleEvent?.venue || '店舗不明'
 
         // キャンセル料金を計算（ここでは簡易実装: 24時間前以降は100%）
         const eventDateTime = new Date(`${scheduleEvent?.date}T${scheduleEvent?.start_time}`)
