@@ -1,16 +1,16 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { MultiSelect } from '@/components/ui/multi-select'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Upload, X } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
-import { useState } from 'react'
 
 interface BasicInfoSectionProps {
   formData: ScenarioFormData
@@ -20,6 +20,8 @@ interface BasicInfoSectionProps {
 export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProps) {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -55,6 +57,36 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
       setFormData(prev => ({ ...prev, key_visual_url: '' }))
     }
   }
+
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) {
+      alert('カテゴリ名を入力してください')
+      return
+    }
+
+    // 既に選択されているカテゴリに追加
+    const currentGenres = formData.genre || []
+    if (!currentGenres.includes(newCategoryName.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        genre: [...currentGenres, newCategoryName.trim()]
+      }))
+    }
+
+    setNewCategoryName('')
+    setIsAddCategoryDialogOpen(false)
+  }
+
+  // 選択されたカテゴリのうち、genreOptionsに存在しないものを抽出
+  const selectedGenresNotInOptions = (formData.genre || []).filter(
+    genre => !genreOptions.some(opt => opt.name === genre)
+  )
+
+  // MultiSelect用のオプション（選択済みだがオプションにないものも含める）
+  const allGenreOptions = [
+    ...genreOptions,
+    ...selectedGenresNotInOptions.map(genre => ({ id: genre, name: genre }))
+  ]
 
   return (
     <div>
@@ -129,12 +161,15 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
               <div>
                 <Label htmlFor="genre" className="text-sm font-medium">カテゴリ</Label>
                 <MultiSelect
-                  options={genreOptions}
+                  options={allGenreOptions}
                   selectedValues={formData.genre || []}
                   onSelectionChange={(values) => setFormData(prev => ({ ...prev, genre: values }))}
                   placeholder="カテゴリを選択"
                   showBadges={true}
                   className="mt-1.5"
+                  emptyText="カテゴリが見つかりません"
+                  emptyActionLabel="+ カテゴリを追加"
+                  onEmptyAction={() => setIsAddCategoryDialogOpen(true)}
                 />
               </div>
             </div>
@@ -151,6 +186,46 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
             />
           </div>
       </div>
+
+      {/* カテゴリ追加ダイアログ */}
+      <Dialog open={isAddCategoryDialogOpen} onOpenChange={setIsAddCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新しいカテゴリを追加</DialogTitle>
+            <DialogDescription>
+              新しいカテゴリ名を入力してください
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="newCategoryName">カテゴリ名</Label>
+              <Input
+                id="newCategoryName"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="例: アドベンチャー"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddCategory()
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setNewCategoryName('')
+              setIsAddCategoryDialogOpen(false)
+            }}>
+              キャンセル
+            </Button>
+            <Button onClick={handleAddCategory}>
+              追加
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
