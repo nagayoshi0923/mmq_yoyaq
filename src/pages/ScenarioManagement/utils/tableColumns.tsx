@@ -205,35 +205,62 @@ export function createScenarioColumns(
 
   // displayMode に応じて列を追加
   if (displayMode === 'compact') {
-    columns.push({
-      key: 'available_gms',
-      header: '担当GM',
-      width: 'w-96',
-      sortable: true,
-      render: (scenario) => {
-        const { displayed: displayedGMs, remaining: remainingGMs } = getDisplayGMs(scenario.available_gms || [])
-        return (
-          <div className="text-sm">
-            {displayedGMs.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {displayedGMs.map((gm, i) => (
-                  <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
-                    {gm}
-                  </Badge>
-                ))}
-                {remainingGMs > 0 && (
-                  <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
-                    +{remainingGMs}
-                  </Badge>
-                )}
-              </div>
-            ) : (
-              <span className="text-muted-foreground">未設定</span>
-            )}
-          </div>
-        )
+    columns.push(
+      {
+        key: 'genre',
+        header: 'カテゴリ',
+        width: 'w-40',
+        sortable: true,
+        render: (scenario) => {
+          if (!scenario.genre || scenario.genre.length === 0) {
+            return <span className="text-sm text-muted-foreground">未設定</span>
+          }
+          return (
+            <div className="flex flex-wrap gap-1">
+              {scenario.genre.slice(0, 2).map((g, i) => (
+                <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
+                  {g}
+                </Badge>
+              ))}
+              {scenario.genre.length > 2 && (
+                <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
+                  +{scenario.genre.length - 2}
+                </Badge>
+              )}
+            </div>
+          )
+        }
+      },
+      {
+        key: 'available_gms',
+        header: '担当GM',
+        width: 'w-96',
+        sortable: true,
+        render: (scenario) => {
+          const { displayed: displayedGMs, remaining: remainingGMs } = getDisplayGMs(scenario.available_gms || [])
+          return (
+            <div className="text-sm">
+              {displayedGMs.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {displayedGMs.map((gm, i) => (
+                    <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
+                      {gm}
+                    </Badge>
+                  ))}
+                  {remainingGMs > 0 && (
+                    <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
+                      +{remainingGMs}
+                    </Badge>
+                  )}
+                </div>
+              ) : (
+                <span className="text-muted-foreground">未設定</span>
+              )}
+            </div>
+          )
+        }
       }
-    })
+    )
   } else {
     // detailed モード
     columns.push(
