@@ -3,11 +3,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { MultiSelect } from '@/components/ui/multi-select'
 import { Upload, X } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
+import { genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
 import { useState } from 'react'
 
 interface BasicInfoSectionProps {
@@ -102,7 +104,7 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
               )}
             </div>
 
-            {/* タイトル・作者 */}
+            {/* タイトル・作者・カテゴリ */}
             <div className="flex-1 flex flex-col justify-center space-y-4">
               <div>
                 <Label htmlFor="title" className="text-sm font-medium">タイトル *</Label>
@@ -121,6 +123,17 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
                   value={formData.author}
                   onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
                   required
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="genre" className="text-sm font-medium">カテゴリ</Label>
+                <MultiSelect
+                  options={genreOptions}
+                  selectedValues={formData.genre || []}
+                  onSelectionChange={(values) => setFormData(prev => ({ ...prev, genre: values }))}
+                  placeholder="カテゴリを選択"
+                  showBadges={true}
                   className="mt-1.5"
                 />
               </div>
