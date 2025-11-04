@@ -1242,7 +1242,21 @@ export function PerformanceModal({
                               }}
                             />
                           </div>
-                          <span className="font-medium truncate w-[100px]">{reservation.customer_notes || '顧客名なし'}</span>
+                          <span className="font-medium truncate w-[100px]">
+                            {(() => {
+                              // 予約者名の優先順位: customer_name > customers.name > customer_notes
+                              if (reservation.customer_name) {
+                                return reservation.customer_name
+                              }
+                              if (reservation.customers) {
+                                const customer = Array.isArray(reservation.customers) ? reservation.customers[0] : reservation.customers
+                                if (customer?.name) {
+                                  return customer.name
+                                }
+                              }
+                              return reservation.customer_notes || '顧客名なし'
+                            })()}
+                          </span>
                           <span className="text-sm text-muted-foreground flex-shrink-0 w-[60px]">
                             {reservation.participant_count ? `${reservation.participant_count}名` : '-'}
                           </span>

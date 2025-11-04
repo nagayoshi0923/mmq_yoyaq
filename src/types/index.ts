@@ -362,6 +362,10 @@ export interface Reservation {
   reservation_source: 'web' | 'phone' | 'walk_in' | 'external' | 'web_private'
   created_at: string
   updated_at: string
+  // 予約サイトから直接保存される顧客情報（web, web_private予約の場合）
+  customer_name?: string | null
+  customer_email?: string | null
+  customer_phone?: string | null
   // Supabaseのjoinクエリで取得される拡張フィールド
   customers?: Customer | Customer[] | null
 }
