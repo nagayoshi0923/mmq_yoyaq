@@ -43,7 +43,7 @@ export const GMSelector = ({
         <Users className="w-4 h-4" />
         担当GMを選択
         {forceMode && (
-          <Badge variant="outline" className="ml-2 bg-orange-100 text-orange-800 border-orange-200">
+          <Badge variant="secondary" className="ml-2 bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
             強行モード
           </Badge>
         )}
@@ -70,12 +70,12 @@ export const GMSelector = ({
                 <div className="flex items-center gap-2">
                   <span>{gm.name}</span>
                   {isAvailable && (
-                    <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs">
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal text-xs">
                       回答済
                     </Badge>
                   )}
                   {isAssigned && !isAvailable && (
-                    <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal text-xs">
                       担当
                     </Badge>
                   )}

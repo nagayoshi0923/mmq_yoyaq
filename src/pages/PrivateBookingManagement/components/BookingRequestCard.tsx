@@ -74,7 +74,7 @@ export const BookingRequestCard = ({
             <div className="flex items-center gap-2 flex-wrap">
               <span>希望店舗:</span>
               {request.candidate_datetimes.requestedStores.map((store, index) => (
-                <Badge key={index} variant="outline" className="bg-purple-50 text-purple-800 border-purple-200 text-xs">
+                <Badge key={index} variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal text-xs">
                   {store.storeName}
                 </Badge>
               ))}
@@ -134,7 +134,7 @@ export const BookingRequestCard = ({
                   )}
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
+                      <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
                         候補{candidate.order}
                       </Badge>
                       <div className="flex items-center gap-2 text-sm">

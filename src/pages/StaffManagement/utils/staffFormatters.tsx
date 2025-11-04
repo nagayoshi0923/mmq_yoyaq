@@ -10,15 +10,15 @@ import { Badge } from '@/components/ui/badge'
 export function getStatusBadge(status: string) {
   switch (status) {
     case 'active':
-      return <Badge size="sm" className="bg-green-100 text-green-800 font-normal text-xs">在籍中</Badge>
+      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs border-0 rounded-[2px]">在籍中</Badge>
     case 'inactive':
-      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs">休職中</Badge>
+      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs border-0 rounded-[2px]">休職中</Badge>
     case 'on_leave':
-      return <Badge size="sm" className="bg-yellow-100 text-yellow-800 font-normal text-xs">休暇中</Badge>
+      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs border-0 rounded-[2px]">休暇中</Badge>
     case 'resigned':
-      return <Badge size="sm" className="bg-red-100 text-red-800 font-normal text-xs">退職</Badge>
+      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs border-0 rounded-[2px]">退職</Badge>
     default:
-      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs">{status}</Badge>
+      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs border-0 rounded-[2px]">{status}</Badge>
   }
 }
 
@@ -35,7 +35,7 @@ export function getRoleBadges(roles: string[]) {
   }
 
   return roles.map((role, index) => (
-    <Badge key={index} size="sm" className="font-normal text-xs px-1 py-0.5 bg-gray-100 text-gray-800">
+    <Badge key={index} size="sm" className="font-normal text-xs px-1 py-0.5 bg-gray-100 text-gray-800 border-0 rounded-[2px]">
       {roleNames[role] || role}
     </Badge>
   ))

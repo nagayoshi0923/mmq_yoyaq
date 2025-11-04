@@ -754,7 +754,7 @@ export function PerformanceModal({
                 <SelectTrigger>
                   <SelectValue placeholder="店舗を選択">
                     <div className="flex items-center gap-2">
-                      <Badge className={getStoreColor(formData.venue)} variant="static">
+                      <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal" variant="secondary">
                         {getStoreName(formData.venue)}
                       </Badge>
                     </div>
@@ -764,7 +764,7 @@ export function PerformanceModal({
                   {stores.map(store => (
                     <SelectItem key={store.id} value={store.id}>
                       <div className="flex items-center gap-2">
-                        <Badge className={getStoreColor(store.id)} variant="static">
+                        <Badge className="bg-gray-100 border-0 rounded-[2px] font-normal" variant="secondary">
                           {store.name}
                         </Badge>
                       </div>
@@ -1016,7 +1016,7 @@ export function PerformanceModal({
             {formData.gms.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {formData.gms.map((gm: string, index: number) => (
-                  <Badge key={index} variant="secondary" className="flex items-center gap-1 font-normal">
+                  <Badge key={index} variant="secondary" className="flex items-center gap-1 font-normal bg-gray-100 border-0 rounded-[2px]">
                     {gm}
                     <Button
                       type="button"

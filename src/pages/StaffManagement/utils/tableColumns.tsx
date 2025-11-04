@@ -70,7 +70,7 @@ export function createStaffColumns(
             <>
               {getRoleBadges(staff.role.slice(0, 1))}
               {staff.role.length > 1 && (
-                <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
+                <Badge size="sm" variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
                   +{staff.role.length - 1}
                 </Badge>
               )}
@@ -96,15 +96,15 @@ export function createStaffColumns(
                   <Badge 
                     key={index} 
                     size="sm" 
-                    variant="static" 
-                    className={`font-normal text-xs px-1 py-0.5 ${getStoreColors(storeObj?.name || '')}`}
+                    variant="secondary" 
+                    className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]"
                   >
                     {storeObj ? storeObj.name : storeId}
                   </Badge>
                 )
               })}
               {staff.stores.length > 1 && (
-                <Badge size="sm" variant="outline" className="font-normal text-xs px-1 py-0.5">
+                <Badge size="sm" variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
                   +{staff.stores.length - 1}
                 </Badge>
               )}
@@ -133,8 +133,8 @@ export function createStaffColumns(
                     <Badge 
                       key={index} 
                       size="sm" 
-                      variant="outline" 
-                      className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0"
+                      variant="secondary" 
+                      className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0 bg-gray-100 border-0 rounded-[2px]"
                     >
                       {getScenarioName(scenarioId)}
                     </Badge>
@@ -143,8 +143,8 @@ export function createStaffColumns(
                 {staff.special_scenarios.length > 4 && (
                   <Badge 
                     size="sm" 
-                    variant="outline" 
-                    className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0"
+                    variant="secondary" 
+                    className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0 bg-gray-100 border-0 rounded-[2px]"
                   >
                     +{staff.special_scenarios.length - 4}
                   </Badge>
@@ -182,8 +182,8 @@ export function createStaffColumns(
                     <Badge 
                       key={index} 
                       size="sm" 
-                      variant="outline" 
-                      className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0"
+                      variant="secondary" 
+                      className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0 bg-gray-100 border-0 rounded-[2px]"
                     >
                       {getScenarioName(scenarioId)}
                     </Badge>
@@ -192,8 +192,8 @@ export function createStaffColumns(
                 {experiencedScenarios.length > 4 && (
                   <Badge 
                     size="sm" 
-                    variant="outline" 
-                    className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0"
+                    variant="secondary" 
+                    className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0 bg-gray-100 border-0 rounded-[2px]"
                   >
                     +{experiencedScenarios.length - 4}
                   </Badge>

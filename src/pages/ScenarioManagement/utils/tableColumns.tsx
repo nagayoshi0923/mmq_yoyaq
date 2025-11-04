@@ -218,12 +218,12 @@ export function createScenarioColumns(
           return (
             <div className="flex flex-wrap gap-1">
               {scenario.genre.slice(0, 2).map((g, i) => (
-                <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
+                <Badge key={i} variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
                   {g}
                 </Badge>
               ))}
               {scenario.genre.length > 2 && (
-                <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
+                <Badge variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
                   +{scenario.genre.length - 2}
                 </Badge>
               )}
@@ -242,16 +242,16 @@ export function createScenarioColumns(
             <div className="text-sm">
               {displayedGMs.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
-                  {displayedGMs.map((gm, i) => (
-                    <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
-                      {gm}
-                    </Badge>
-                  ))}
-                  {remainingGMs > 0 && (
-                    <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
-                      +{remainingGMs}
-                    </Badge>
-                  )}
+                {displayedGMs.map((gm, i) => (
+                  <Badge key={i} variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                    {gm}
+                  </Badge>
+                ))}
+                {remainingGMs > 0 && (
+                  <Badge variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                    +{remainingGMs}
+                  </Badge>
+                )}
                 </div>
               ) : (
                 <span className="text-muted-foreground">未設定</span>
@@ -327,9 +327,9 @@ export function createScenarioColumns(
       sortable: true,
       render: (scenario) => (
         <Badge className={
-          scenario.status === 'available' ? 'bg-green-100 text-green-800 px-1 py-0.5' :
-          scenario.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800 px-1 py-0.5' :
-          'bg-red-100 text-red-800 px-1 py-0.5'
+          scenario.status === 'available' ? 'bg-gray-100 text-gray-800 px-1 py-0.5 border-0 rounded-[2px]' :
+          scenario.status === 'maintenance' ? 'bg-gray-100 text-gray-800 px-1 py-0.5 border-0 rounded-[2px]' :
+          'bg-gray-100 text-gray-800 px-1 py-0.5 border-0 rounded-[2px]'
         }>
           {getStatusLabel(scenario.status)}
         </Badge>
@@ -349,16 +349,16 @@ export function createScenarioColumns(
         if (!scenario.genre || scenario.genre.length === 0) return null
         return (
           <div className="flex flex-wrap gap-1">
-            {scenario.genre.slice(0, 2).map((g, i) => (
-              <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5">
-                {g}
-              </Badge>
-            ))}
-            {scenario.genre.length > 2 && (
-              <Badge variant="outline" className="font-normal text-xs px-1 py-0.5">
-                +{scenario.genre.length - 2}
-              </Badge>
-            )}
+              {scenario.genre.slice(0, 2).map((g, i) => (
+                <Badge key={i} variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                  {g}
+                </Badge>
+              ))}
+              {scenario.genre.length > 2 && (
+                <Badge variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                  +{scenario.genre.length - 2}
+                </Badge>
+              )}
           </div>
         )
       }

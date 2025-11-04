@@ -12,26 +12,26 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
     case 'pending':
     case 'pending_gm':
       return (
-        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+        <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
           GM確認待ち
         </Badge>
       )
     case 'gm_confirmed':
     case 'pending_store':
       return (
-        <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+        <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
           店舗確認待ち
         </Badge>
       )
     case 'confirmed':
       return (
-        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+        <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
           承認済み
         </Badge>
       )
     case 'cancelled':
       return (
-        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+        <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
           却下
         </Badge>
       )

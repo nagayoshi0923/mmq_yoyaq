@@ -236,7 +236,7 @@ export function MultiSelect({
               ? normalizedOptions.find(opt => opt.id === value)?.name || value
               : value
             return (
-              <Badge key={value} variant="secondary" className="flex items-center gap-1 font-normal">
+              <Badge key={value} variant="secondary" className="flex items-center gap-1 font-normal bg-gray-100 border-0 rounded-[2px]">
                 {displayValue}
                 <Button
                   type="button"
