@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
+import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 
 interface GameInfoSectionProps {
   formData: ScenarioFormData
@@ -17,6 +18,47 @@ interface GameInfoSectionProps {
 export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps) {
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
+
+  // 既存のシナリオからカテゴリリストを取得
+  const { data: scenarios = [] } = useScenariosQuery()
+  
+  // 全シナリオから使用されているカテゴリを抽出
+  const allUsedGenres = useMemo(() => {
+    const genres = new Set<string>()
+    scenarios.forEach(scenario => {
+      if (scenario.genre && Array.isArray(scenario.genre)) {
+        scenario.genre.forEach(genre => {
+          if (genre) genres.add(genre)
+        })
+      }
+    })
+    // 現在選択されているカテゴリも含める
+    if (formData.genre && Array.isArray(formData.genre)) {
+      formData.genre.forEach(genre => {
+        if (genre) genres.add(genre)
+      })
+    }
+    return Array.from(genres).sort()
+  }, [scenarios, formData.genre])
+
+  // 固定のgenreOptionsと、実際に使用されているカテゴリをマージ
+  const allGenreOptions = useMemo(() => {
+    const genreMap = new Map<string, { id: string, name: string }>()
+    
+    // 固定のgenreOptionsを追加
+    genreOptions.forEach(opt => {
+      genreMap.set(opt.name, opt)
+    })
+    
+    // 実際に使用されているカテゴリを追加（固定リストにないもの）
+    allUsedGenres.forEach(genre => {
+      if (!genreMap.has(genre)) {
+        genreMap.set(genre, { id: genre, name: genre })
+      }
+    })
+    
+    return Array.from(genreMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+  }, [allUsedGenres])
 
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) {
@@ -36,17 +78,6 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
     setNewCategoryName('')
     setIsAddCategoryDialogOpen(false)
   }
-
-  // 選択されたカテゴリのうち、genreOptionsに存在しないものを抽出
-  const selectedGenresNotInOptions = (formData.genre || []).filter(
-    genre => !genreOptions.some(opt => opt.name === genre)
-  )
-
-  // MultiSelect用のオプション（選択済みだがオプションにないものも含める）
-  const allGenreOptions = useMemo(() => [
-    ...genreOptions,
-    ...selectedGenresNotInOptions.map(genre => ({ id: genre, name: genre }))
-  ], [selectedGenresNotInOptions])
 
   return (
     <div>
