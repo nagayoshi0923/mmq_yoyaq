@@ -775,26 +775,88 @@ export function PerformanceModal({
             </div>
           </div>
 
-          {/* 時間帯選択 */}
-          <div>
-            <Label htmlFor="timeSlot">時間帯</Label>
-            <Select 
-              value={timeSlot} 
-              onValueChange={(value: 'morning' | 'afternoon' | 'evening') => handleTimeSlotChange(value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="morning">{timeSlotDefaults.morning.label}</SelectItem>
-                <SelectItem value="afternoon">{timeSlotDefaults.afternoon.label}</SelectItem>
-                <SelectItem value="evening">{timeSlotDefaults.evening.label}</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1">
-              時間帯を選択すると開始・終了時間が自動設定されます
-            </p>
+          {/* 時間帯選択とGM選択 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="timeSlot">時間帯</Label>
+              <Select 
+                value={timeSlot} 
+                onValueChange={(value: 'morning' | 'afternoon' | 'evening') => handleTimeSlotChange(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="morning">{timeSlotDefaults.morning.label}</SelectItem>
+                  <SelectItem value="afternoon">{timeSlotDefaults.afternoon.label}</SelectItem>
+                  <SelectItem value="evening">{timeSlotDefaults.evening.label}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                時間帯を選択すると開始・終了時間が自動設定されます
+              </p>
+            </div>
+
+            {/* GM管理 */}
+            <div>
+              <Label htmlFor="gms">GM</Label>
+              <MultiSelect
+                options={staff
+                  .filter(s => s.status === 'active')
+                  .map(staffMember => {
+                    // このシナリオの担当GMかチェック
+                    const isAssignedGM = formData.scenario && 
+                      (staffMember.special_scenarios?.includes(formData.scenario) ||
+                       scenarios.find(sc => sc.title === formData.scenario)?.id &&
+                       staffMember.special_scenarios?.includes(scenarios.find(sc => sc.title === formData.scenario)!.id))
+                    
+                    return {
+                      id: staffMember.id,
+                      name: staffMember.name,
+                      displayInfo: isAssignedGM ? '担当GM' : undefined,
+                      isAssignedGM
+                    }
+                  })
+                  .sort((a, b) => {
+                    // 担当GMを上に表示
+                    if (a.isAssignedGM && !b.isAssignedGM) return -1
+                    if (!a.isAssignedGM && b.isAssignedGM) return 1
+                    // 両方とも担当GMまたは両方とも非担当GMの場合は名前順
+                    return a.name.localeCompare(b.name, 'ja')
+                  })}
+                selectedValues={formData.gms}
+                onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
+                placeholder="GMを選択"
+                closeOnSelect={true}
+                emptyText="GMが見つかりません"
+                emptyActionLabel="+ GMを作成"
+                onEmptyAction={() => setIsStaffModalOpen(true)}
+              />
+            </div>
           </div>
+          
+          {/* GM選択バッジ表示 */}
+          {formData.gms.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {formData.gms.map((gm: string, index: number) => (
+                <Badge key={index} variant="secondary" className="flex items-center gap-1 font-normal bg-gray-100 border-0 rounded-[2px]">
+                  {gm}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-4 w-4 p-0 hover:bg-red-100"
+                    onClick={() => {
+                      const newGms = formData.gms.filter((g: string) => g !== gm)
+                      setFormData((prev: EventFormData) => ({ ...prev, gms: newGms }))
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+            </div>
+          )}
 
           {/* 時間設定 */}
           <div className="grid grid-cols-2 gap-4">
