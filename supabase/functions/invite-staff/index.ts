@@ -43,20 +43,21 @@ serve(async (req) => {
     const existingUser = existingUsers?.users.find(u => u.email === email)
     
     let userId: string
+    let existingStaffByEmail: any = null
     
     if (existingUser) {
       // 既存ユーザーの場合
       userId = existingUser.id
       console.log('✅ Existing user found:', userId)
       
-      // 既にstaffテーブルにレコードがあるか確認
-      const { data: existingStaff, error: staffCheckError } = await supabase
+      // 既にstaffテーブルにレコードがあるか確認（user_idで検索）
+      const { data: existingStaffByUserId, error: staffCheckError } = await supabase
         .from('staff')
-        .select('id, user_id')
+        .select('id, user_id, email')
         .eq('user_id', userId)
         .maybeSingle()
       
-      if (existingStaff) {
+      if (existingStaffByUserId) {
         return new Response(
           JSON.stringify({
             success: false,
@@ -70,6 +71,37 @@ serve(async (req) => {
             status: 400
           }
         )
+      }
+      
+      // メールアドレスでstaffレコードを検索（user_idがNULLの可能性がある）
+      const { data: staffByEmail, error: emailCheckError } = await supabase
+        .from('staff')
+        .select('id, user_id, email, phone, line_name, x_account, discord_id, discord_channel_id, role, stores')
+        .eq('email', email)
+        .maybeSingle()
+      
+      existingStaffByEmail = staffByEmail
+      
+      if (existingStaffByEmail && existingStaffByEmail.user_id) {
+        // user_idが既に設定されている場合はエラー
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'このメールアドレスのスタッフは既に登録されています'
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            },
+            status: 400
+          }
+        )
+      }
+      
+      // user_idがNULLの場合は、既存のstaffレコードを更新するフラグを設定
+      if (existingStaffByEmail && !existingStaffByEmail.user_id) {
+        console.log('⚠️ 既存のstaffレコード（user_id未設定）が見つかりました。更新します:', existingStaffByEmail.id)
       }
     } else {
       // 新規ユーザーを作成（パスワード未設定、メール未確認状態）
@@ -90,6 +122,18 @@ serve(async (req) => {
 
       userId = authData.user.id
       console.log('✅ Auth user created:', userId)
+      
+      // 新規ユーザーの場合も、メールアドレスで既存のstaffレコードを確認
+      const { data: staffByEmailNew, error: emailCheckErrorNew } = await supabase
+        .from('staff')
+        .select('id, user_id, email, phone, line_name, x_account, discord_id, discord_channel_id, role, stores')
+        .eq('email', email)
+        .maybeSingle()
+      
+      if (staffByEmailNew && !staffByEmailNew.user_id) {
+        existingStaffByEmail = staffByEmailNew
+        console.log('⚠️ 新規ユーザーですが、既存のstaffレコード（user_id未設定）が見つかりました。更新します:', existingStaffByEmail.id)
+      }
     }
 
     // 2. usersテーブルの確認と更新
@@ -112,41 +156,78 @@ serve(async (req) => {
       console.log('✅ User role updated to staff')
     }
 
-    // 3. staffテーブルにレコード作成
-    const { data: staffData, error: staffError } = await supabase
-      .from('staff')
-      .insert({
-        user_id: userId,
-        name: name,
-        email: email,
-        phone: phone || '',
-        line_name: line_name || '',
-        x_account: x_account || '',
-        discord_id: discord_id || '',
-        discord_channel_id: discord_channel_id || '',
-        role: role || ['gm'],
-        stores: stores || [],
-        status: 'active',
-        experience: 0,
-        availability: [],
-        ng_days: [],
-        notes: '',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single()
-
-    if (staffError) {
-      console.error('❌ Error creating staff record:', staffError)
-      // 新規ユーザーの場合のみ削除（既存ユーザーは削除しない）
-      if (!existingUser) {
-        await supabase.auth.admin.deleteUser(userId)
+    // 3. staffテーブルにレコード作成または更新
+    let staffData: any
+    
+    // 既存ユーザーで、メールアドレスでstaffレコードが見つかり、user_idがNULLの場合
+    if (existingUser && existingStaffByEmail && !existingStaffByEmail.user_id) {
+      // 既存のstaffレコードを更新
+      console.log('📝 既存のstaffレコードを更新:', existingStaffByEmail.id)
+      const { data: updatedStaff, error: updateError } = await supabase
+        .from('staff')
+        .update({
+          user_id: userId,
+          name: name,
+          email: email,
+          phone: phone || existingStaffByEmail.phone || '',
+          line_name: line_name || existingStaffByEmail.line_name || '',
+          x_account: x_account || existingStaffByEmail.x_account || '',
+          discord_id: discord_id || existingStaffByEmail.discord_id || '',
+          discord_channel_id: discord_channel_id || existingStaffByEmail.discord_channel_id || '',
+          role: role || existingStaffByEmail.role || ['gm'],
+          stores: stores || existingStaffByEmail.stores || [],
+          status: 'active',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingStaffByEmail.id)
+        .select()
+        .single()
+      
+      if (updateError) {
+        console.error('❌ Error updating staff record:', updateError)
+        throw new Error(`Failed to update staff record: ${updateError.message}`)
       }
-      throw new Error(`Failed to create staff record: ${staffError.message}`)
-    }
+      
+      staffData = updatedStaff
+      console.log('✅ Staff record updated:', staffData.id)
+    } else {
+      // 新規でstaffレコードを作成
+      const { data: newStaff, error: staffError } = await supabase
+        .from('staff')
+        .insert({
+          user_id: userId,
+          name: name,
+          email: email,
+          phone: phone || '',
+          line_name: line_name || '',
+          x_account: x_account || '',
+          discord_id: discord_id || '',
+          discord_channel_id: discord_channel_id || '',
+          role: role || ['gm'],
+          stores: stores || [],
+          status: 'active',
+          experience: 0,
+          availability: [],
+          ng_days: [],
+          notes: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
 
-    console.log('✅ Staff record created:', staffData.id)
+      if (staffError) {
+        console.error('❌ Error creating staff record:', staffError)
+        // 新規ユーザーの場合のみ削除（既存ユーザーは削除しない）
+        if (!existingUser) {
+          await supabase.auth.admin.deleteUser(userId)
+        }
+        throw new Error(`Failed to create staff record: ${staffError.message}`)
+      }
+      
+      staffData = newStaff
+      console.log('✅ Staff record created:', staffData.id)
+    }
 
     // 4. パスワード設定/リセット用のリンクを生成
     // 既存ユーザーの場合はrecovery（パスワードリセット）、新規ユーザーの場合はinvite（パスワード設定）
