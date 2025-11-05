@@ -86,14 +86,14 @@ export function ScheduleTable({
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto -mx-2 sm:mx-0">
-          <Table className="table-fixed w-full border-collapse min-w-[386px] sm:min-w-[542px] md:min-w-[646px]">
+          <Table className="table-fixed w-full border-collapse min-w-[406px] sm:min-w-[562px] md:min-w-[676px]">
             <colgroup>
               <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
               <col className="w-[14px] sm:w-[18px] md:w-[22px]" />
               <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[100px] sm:w-[140px] md:w-[180px] lg:w-[220px]" />
-              <col className="w-[100px] sm:w-[140px] md:w-[180px] lg:w-[220px]" />
-              <col className="w-[100px] sm:w-[140px] md:w-[180px] lg:w-[220px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
               <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[36px]" />
             </colgroup>
             <TableHeader>

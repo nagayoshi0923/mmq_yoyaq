@@ -42,6 +42,25 @@ interface PerformanceCardProps {
   onContextMenu?: (event: ScheduleEvent, x: number, y: number) => void
 }
 
+// カテゴリラベルの短縮表示（モバイル用）
+function getCategoryShortLabel(
+  category: string,
+  categoryConfig: PerformanceCardProps['categoryConfig']
+): string {
+  const label = categoryConfig[category as keyof typeof categoryConfig]?.label || category
+  const shortLabels: Record<string, string> = {
+    'オープン公演': 'オ',
+    '貸切公演': '貸',
+    'GMテスト': 'G',
+    'テストプレイ': 'テ',
+    '出張公演': '出',
+    '場所貸し': '場',
+    '場所貸無料': '無',
+    'パッケージ会': 'パ'
+  }
+  return shortLabels[label] || label.slice(0, 1)
+}
+
 function PerformanceCardBase({
   event,
   categoryConfig,
@@ -107,23 +126,23 @@ function PerformanceCardBase({
         e.dataTransfer.setData('application/json', JSON.stringify(event))
       }}
       onContextMenu={handleContextMenu}
-      className={`p-2 border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-xs relative ${
+      className={`p-0.5 sm:p-1 border-l-2 sm:border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-[9px] sm:text-[10px] md:text-xs relative ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
           : 'cursor-move'
       } ${categoryColors}`}
-      style={{ margin: '4px' }}
+      style={{ margin: '0px' }}
       onClick={() => onClick?.(event)}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
-      <div className="flex items-center justify-between mb-0.5">
-        <span className={`font-mono text-xs ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className="flex items-center justify-between mb-0 gap-0.5">
+        <span className={`font-mono text-[9px] sm:text-[10px] md:text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 flex-shrink-0 min-w-0">
           {/* 中止バッジ */}
           {event.is_cancelled && (
-            <Badge variant="cancelled" size="sm" className="font-normal">
+            <Badge variant="cancelled" size="sm" className="font-normal text-[7px] sm:text-[8px] md:text-[9px] px-0 py-0 h-3 sm:h-4 whitespace-nowrap">
               中止
             </Badge>
           )}
@@ -133,19 +152,21 @@ function PerformanceCardBase({
             <>
               {/* 予約者数バッジ */}
               {!event.is_cancelled && (
-                <Badge size="sm" className={`font-normal ${
+                <Badge size="sm" className={`font-normal text-[7px] sm:text-[8px] md:text-[9px] px-0 py-0 h-3 sm:h-4 whitespace-nowrap ${
                   reservationCount >= maxCapacity 
                     ? 'bg-red-100 text-red-800' 
                     : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
                 }`}>
-                  <Users className="w-3 h-3 mr-1" />
-                  {reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}
+                  <Users className="w-2 h-2 sm:w-2.5 sm:h-2.5 mr-0.5 flex-shrink-0" />
+                  <span className="hidden sm:inline">{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
+                  <span className="sm:hidden">{reservationCount >= maxCapacity ? '満' : `${reservationCount}/${maxCapacity}`}</span>
                 </Badge>
               )}
               
               {/* カテゴリバッジ */}
-              <Badge variant="static" size="sm" className={`font-normal ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'} ${event.is_cancelled ? 'opacity-60' : ''}`}>
-                {categoryConfig[event.category as keyof typeof categoryConfig]?.label || event.category}
+              <Badge variant="static" size="sm" className={`font-normal text-[7px] sm:text-[8px] md:text-[9px] px-0 py-0 h-3 sm:h-4 whitespace-nowrap overflow-hidden ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'} ${event.is_cancelled ? 'opacity-60' : ''}`}>
+                <span className="hidden sm:inline truncate">{categoryConfig[event.category as keyof typeof categoryConfig]?.label || event.category}</span>
+                <span className="sm:hidden">{getCategoryShortLabel(event.category, categoryConfig)}</span>
               </Badge>
             </>
           )}
@@ -153,36 +174,36 @@ function PerformanceCardBase({
       </div>
       
       {/* シナリオタイトル */}
-      <div className={`font-medium line-clamp-2 mb-0.5 text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`font-medium line-clamp-2 mb-0 text-[9px] sm:text-[10px] md:text-xs leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.scenario || '未定'}
       </div>
       
       {/* GM情報 */}
-      <div className={`text-xs mb-0.5 text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`text-[9px] sm:text-[10px] md:text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         GM: {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
       </div>
       
       {/* ノート情報 */}
       {event.notes && (
-        <div className={`text-[10px] truncate text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+        <div className={`text-[8px] sm:text-[9px] truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.notes}
         </div>
       )}
 
       {/* 警告アイコン（右上） */}
       {isIncomplete && (
-        <div className="absolute top-1 right-1">
-          <AlertTriangle className="w-3 h-3 text-red-600" />
+        <div className="absolute top-0.5 right-0.5">
+          <AlertTriangle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-600" />
         </div>
       )}
 
       {/* アクションボタン群（右下） */}
-      <div className="absolute bottom-0.5 right-0.5 flex gap-0.5">
+      <div className="absolute bottom-0 right-0 flex gap-0.5">
         {/* 予約サイト公開バッジ */}
         <Badge
           variant="outline"
           size="sm"
-          className={`h-5 px-1.5 py-0 font-normal transition-all ${
+          className={`h-3 sm:h-4 px-0.5 sm:px-1 py-0 font-normal text-[8px] sm:text-[9px] transition-all ${
             event.is_private_request 
               ? 'bg-green-100 text-green-800 border-green-500 cursor-default' 
               : event.is_reservation_enabled 
@@ -204,7 +225,8 @@ function PerformanceCardBase({
                 : '予約サイトに非公開（クリックで公開）'
           }
         >
-          {event.is_reservation_enabled || event.is_private_request ? '公開中' : '公開前'}
+          <span className="hidden sm:inline">{event.is_reservation_enabled || event.is_private_request ? '公開中' : '公開前'}</span>
+          <span className="sm:hidden">{event.is_reservation_enabled || event.is_private_request ? '公開' : '前'}</span>
         </Badge>
       </div>
     </div>
