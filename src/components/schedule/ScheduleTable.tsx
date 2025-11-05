@@ -84,8 +84,8 @@ export function ScheduleTable({
           ※シナリオやGMが未定の場合は赤い色で警告表示されます
         </CardDescription>
       </CardHeader>
-      <CardContent className="p-0 overflow-x-auto">
-        <Table className="table-fixed w-full">
+      <CardContent className="p-0 overflow-x-auto -mx-2 sm:mx-0">
+        <Table className="table-fixed w-full min-w-[800px]">
           <colgroup>
             <col className="w-24" />
             <col className="w-16" />

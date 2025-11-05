@@ -206,12 +206,12 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 overflow-x-auto -mx-2 sm:mx-0">
       {/* ヘッダー行 */}
       <div className={stickyHeader ? 'sticky top-0 z-40' : ''}>
         <Card>
           <CardContent className="p-0">
-            <div className="flex items-stretch min-h-[50px] bg-muted/30">
+            <div className="flex items-stretch min-h-[50px] bg-muted/30 min-w-max">
               <div className="flex items-stretch flex-1">
                 {table.getHeaderGroups().map((headerGroup) =>
                   headerGroup.headers.map((header) => {
@@ -223,9 +223,9 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                     return (
                       <div
                         key={header.id}
-                        className={`${widthClass} px-3 py-2 border-r font-medium text-sm ${alignClass} ${
+                        className={`${widthClass} px-2 sm:px-3 py-2 border-r font-medium text-xs sm:text-sm ${alignClass} ${
                           isSortable ? 'cursor-pointer hover:bg-muted/50' : ''
-                        } ${meta?.headerClassName || ''} flex items-center justify-center`}
+                        } ${meta?.headerClassName || ''} flex items-center justify-center whitespace-nowrap`}
                         onClick={
                           isSortable
                             ? header.column.getToggleSortingHandler()
@@ -266,7 +266,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                     return (
                       <div
                         key={cell.id}
-                        className={`${widthClass} px-3 py-2 border-r ${alignClass} ${
+                        className={`${widthClass} px-2 sm:px-3 py-2 border-r text-xs sm:text-sm ${alignClass} ${
                           meta?.cellClassName || ''
                         }`}
                       >
