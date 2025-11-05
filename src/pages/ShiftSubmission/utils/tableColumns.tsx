@@ -178,50 +178,6 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
           />
         </div>
       )
-    },
-    {
-      key: 'all_day',
-      header: '終日',
-      width: 'w-[60px] sm:w-32 md:w-48',
-      sortable: false,
-      align: 'center',
-      renderHeader: () => (
-        <div className="flex flex-col items-center space-y-0.5 sm:space-y-1 w-full">
-          <span className="text-[10px] sm:text-xs md:text-sm">終日</span>
-          <span className="text-[8px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:inline">(全日)</span>
-          <div className="flex space-x-0.5 sm:space-x-1">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => actions.onSelectAll('all_day')}
-              className="h-5 sm:h-6 px-1 sm:px-2 text-[8px] sm:text-[10px] md:text-xs"
-            >
-              <CheckSquare className="h-2.5 w-2.5 sm:h-3 sm:w-3 sm:mr-1" />
-              <span className="hidden sm:inline">全選択</span>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => actions.onDeselectAll('all_day')}
-              className="h-5 sm:h-6 px-1 sm:px-2 text-[8px] sm:text-[10px] md:text-xs"
-            >
-              <Square className="h-2.5 w-2.5 sm:h-3 sm:w-3 sm:mr-1" />
-              <span className="hidden sm:inline">全解除</span>
-            </Button>
-          </div>
-        </div>
-      ),
-      render: (row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.shiftData.all_day}
-            onCheckedChange={(checked) =>
-              actions.onShiftChange(row.dayInfo.date, 'all_day', checked as boolean)
-            }
-            className="h-4 w-4 sm:h-5 sm:w-5"
-          />
-        </div>
-      )
     }
   ]
 }
