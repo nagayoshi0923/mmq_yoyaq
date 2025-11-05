@@ -86,14 +86,14 @@ export function ScheduleTable({
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto -mx-2 sm:mx-0">
-          <Table className="table-fixed w-full border-collapse min-w-[350px] sm:min-w-[500px] md:min-w-[600px]">
+          <Table className="table-fixed w-full border-collapse min-w-[386px] sm:min-w-[542px] md:min-w-[646px]">
             <colgroup>
               <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
               <col className="w-[14px] sm:w-[18px] md:w-[22px]" />
               <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[80px] sm:w-[120px] md:w-[160px] lg:w-[200px]" />
-              <col className="w-[80px] sm:w-[120px] md:w-[160px] lg:w-[200px]" />
-              <col className="w-[80px] sm:w-[120px] md:w-[160px] lg:w-[200px]" />
+              <col className="w-[100px] sm:w-[140px] md:w-[180px] lg:w-[220px]" />
+              <col className="w-[100px] sm:w-[140px] md:w-[180px] lg:w-[220px]" />
+              <col className="w-[100px] sm:w-[140px] md:w-[180px] lg:w-[220px]" />
               <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[36px]" />
             </colgroup>
             <TableHeader>
@@ -110,7 +110,7 @@ export function ScheduleTable({
           <TableBody>
             {monthDays.map(day => {
               return stores.map((store, storeIndex) => (
-                <TableRow key={`${day.date}-${store.id}`} className="h-16">
+                <TableRow key={`${day.date}-${store.id}`} className="h-10 sm:h-12 md:h-14">
                   {/* 日付セル */}
                   {storeIndex === 0 ? (
                     <TableCell className="schedule-table-cell border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 leading-none text-center" rowSpan={stores.length}>
