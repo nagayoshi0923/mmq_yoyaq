@@ -141,18 +141,7 @@ export function ShiftSubmission() {
               emptyMessage="シフトデータがありません"
               loading={loading}
               stickyHeader={true}
-              stickyHeaderContent={
-                <div className="hidden sm:block">
-                  <Button 
-                    onClick={handleSubmitShift} 
-                    disabled={loading}
-                    size="sm"
-                    className="text-xs sm:text-sm shadow-lg"
-                  >
-                    {loading ? '送信中...' : 'シフトを提出'}
-                  </Button>
-                </div>
-              }
+              stickyHeaderContent={undefined}
             />
           </div>
         )

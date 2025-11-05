@@ -214,7 +214,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
       <div className={stickyHeader ? 'sticky top-0 z-40' : ''}>
         <Card>
           <CardContent className="p-0">
-            <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-muted/30 min-w-max">
+            <div className={`flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-muted/30 ${stickyHeaderContent ? 'min-w-max' : 'w-full'}`}>
               <div className="flex items-stretch flex-1">
                 {table.getHeaderGroups().map((headerGroup) =>
                   headerGroup.headers.map((header) => {
@@ -226,7 +226,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                     return (
                       <div
                         key={header.id}
-                        className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 border-r font-medium text-[10px] sm:text-xs md:text-sm ${alignClass} ${
+                        className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${header.id === headerGroup.headers[headerGroup.headers.length - 1]?.id && !stickyHeaderContent ? '' : 'border-r'} font-medium text-[10px] sm:text-xs md:text-sm ${alignClass} ${
                           isSortable ? 'cursor-pointer hover:bg-muted/50' : ''
                         } ${meta?.headerClassName || ''} flex items-center justify-center whitespace-nowrap`}
                         onClick={
@@ -246,7 +246,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                 )}
               </div>
               {stickyHeaderContent && (
-                <div className="flex items-center px-4 border-l bg-muted/30">
+                <div className="hidden md:flex items-center px-4 border-l bg-muted/30 flex-shrink-0">
                   {stickyHeaderContent}
                 </div>
               )}
@@ -269,7 +269,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                     return (
                       <div
                         key={cell.id}
-                        className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 border-r text-[10px] sm:text-xs md:text-sm ${alignClass} ${
+                        className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${cell.id === row.getVisibleCells()[row.getVisibleCells().length - 1]?.id && !stickyHeaderContent ? '' : 'border-r'} text-[10px] sm:text-xs md:text-sm ${alignClass} ${
                           meta?.cellClassName || ''
                         }`}
                       >
