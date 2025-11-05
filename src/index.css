@@ -131,4 +131,12 @@
     -ms-ime-mode: disabled !important;
     -webkit-ime-mode: disabled !important;
   }
+
+  /* TanStack Tableのデバッグアイコンを非表示 */
+  [data-table-debug-icon],
+  [data-table-debug],
+  .ts-table-debug,
+  #tanstack-table-debug {
+    display: none !important;
+  }
 }
