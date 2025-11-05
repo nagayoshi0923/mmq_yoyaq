@@ -214,7 +214,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
       <div className={stickyHeader ? 'sticky top-0 z-40' : ''}>
         <Card>
           <CardContent className="p-0">
-            <div className="flex items-stretch min-h-[50px] bg-muted/30 min-w-max">
+            <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-muted/30 min-w-max">
               <div className="flex items-stretch flex-1">
                 {table.getHeaderGroups().map((headerGroup) =>
                   headerGroup.headers.map((header) => {
@@ -226,7 +226,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                     return (
                       <div
                         key={header.id}
-                        className={`${widthClass} px-2 sm:px-3 py-2 border-r font-medium text-xs sm:text-sm ${alignClass} ${
+                        className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 border-r font-medium text-[10px] sm:text-xs md:text-sm ${alignClass} ${
                           isSortable ? 'cursor-pointer hover:bg-muted/50' : ''
                         } ${meta?.headerClassName || ''} flex items-center justify-center whitespace-nowrap`}
                         onClick={
@@ -261,7 +261,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
           {table.getRowModel().rows.map((row) => (
             <Card key={getRowKey(row.original)}>
               <CardContent className="p-0">
-                <div className="flex items-center h-[50px]">
+                <div className="flex items-center h-[40px] sm:h-[45px] md:h-[50px]">
                   {row.getVisibleCells().map((cell) => {
                     const meta = cell.column.columnDef.meta as any
                     const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
@@ -269,7 +269,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                     return (
                       <div
                         key={cell.id}
-                        className={`${widthClass} px-2 sm:px-3 py-2 border-r text-xs sm:text-sm ${alignClass} ${
+                        className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 border-r text-[10px] sm:text-xs md:text-sm ${alignClass} ${
                           meta?.cellClassName || ''
                         }`}
                       >
