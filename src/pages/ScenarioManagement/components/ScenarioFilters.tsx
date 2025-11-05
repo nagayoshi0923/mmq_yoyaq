@@ -20,24 +20,24 @@ export const ScenarioFilters: React.FC<ScenarioFiltersProps> = ({
   onStatusFilterChange
 }) => {
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 md:gap-4">
       {/* 検索 */}
-      <div className="relative flex-1">
+      <div className="relative flex-1 min-w-0">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           type="text"
           placeholder="シナリオを検索（タイトル、作者、説明、ジャンル）..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
+          className="pl-9 text-sm sm:text-base"
         />
       </div>
 
       {/* ステータスフィルタ */}
-      <div className="flex items-center gap-2">
-        <Filter className="h-4 w-4 text-muted-foreground" />
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <Filter className="h-4 w-4 text-muted-foreground hidden sm:block" />
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full sm:w-40 text-sm sm:text-base">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

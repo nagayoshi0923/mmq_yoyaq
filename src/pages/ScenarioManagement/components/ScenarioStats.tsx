@@ -30,50 +30,50 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
   }, [scenarios])
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-2xl font-bold">{stats.totalScenarios}</p>
-              <p className="text-muted-foreground">総シナリオ数</p>
+        <CardContent className="p-3 sm:p-4 md:pt-6">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-lg sm:text-xl md:text-2xl font-bold">{stats.totalScenarios}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">総シナリオ数</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-2">
-            <Play className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-2xl font-bold">{stats.availableScenarios}</p>
-              <p className="text-muted-foreground">利用可能</p>
+        <CardContent className="p-3 sm:p-4 md:pt-6">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Play className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-lg sm:text-xl md:text-2xl font-bold">{stats.availableScenarios}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">利用可能</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-2xl font-bold">¥{stats.totalLicenseAmount.toLocaleString()}</p>
-              <p className="text-muted-foreground">総ライセンス料</p>
+        <CardContent className="p-3 sm:p-4 md:pt-6">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-lg sm:text-xl md:text-2xl font-bold">¥{stats.totalLicenseAmount.toLocaleString()}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">総ライセンス料</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-2xl font-bold">{stats.avgPlayers}名</p>
-              <p className="text-muted-foreground">平均プレイヤー数</p>
+        <CardContent className="p-3 sm:p-4 md:pt-6">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-lg sm:text-xl md:text-2xl font-bold">{stats.avgPlayers}名</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">平均プレイヤー数</p>
             </div>
           </div>
         </CardContent>

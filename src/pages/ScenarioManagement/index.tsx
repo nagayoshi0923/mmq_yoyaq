@@ -310,13 +310,13 @@ export function ScenarioManagement() {
     <AppLayout
       currentPage="scenarios"
       maxWidth="max-w-[1440px]"
-      containerPadding="px-4 py-8"
+      containerPadding="px-2 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8"
       className="mx-auto"
     >
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-4 md:space-y-6">
           {/* ヘッダー */}
           <div className="flex justify-end">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <CsvImportExport
                 data={allScenarios}
                 onImport={handleImport}
@@ -334,9 +334,10 @@ export function ScenarioManagement() {
                   s.participation_fee?.toString() || '3000'
                 ]}
               />
-              <Button onClick={handleNewScenario}>
-                <Plus className="h-4 w-4 mr-2" />
-                新規シナリオ
+              <Button onClick={handleNewScenario} size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                <span className="hidden sm:inline">新規シナリオ</span>
+                <span className="sm:hidden">新規</span>
               </Button>
             </div>
           </div>
@@ -357,7 +358,7 @@ export function ScenarioManagement() {
           <ScenarioStats scenarios={allScenarios} />
 
           {/* 検索・フィルター */}
-          <div className="flex justify-between items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 sm:gap-3 md:gap-4">
             <ScenarioFilters
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
@@ -366,20 +367,24 @@ export function ScenarioManagement() {
             />
             
             {/* 表示切り替えボタン */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Button
                 variant={displayMode === 'compact' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setDisplayMode('compact')}
+                className="text-xs sm:text-sm"
               >
-                基本情報
+                <span className="hidden sm:inline">基本情報</span>
+                <span className="sm:hidden">基本</span>
               </Button>
               <Button
                 variant={displayMode === 'detailed' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setDisplayMode('detailed')}
+                className="text-xs sm:text-sm"
               >
-                詳細情報
+                <span className="hidden sm:inline">詳細情報</span>
+                <span className="sm:hidden">詳細</span>
               </Button>
             </div>
           </div>
