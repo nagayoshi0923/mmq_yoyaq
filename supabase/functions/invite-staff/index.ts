@@ -172,24 +172,52 @@ serve(async (req) => {
     // 5. Resend APIで招待メールを送信
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
     const SITE_URL = Deno.env.get('SITE_URL') || 'https://mmq-yoyaq.vercel.app'
-    // Vercel URLからメールアドレスを生成（例: mmq-yoyaq.vercel.app → noreply@mmq-yoyaq.vercel.app）
-    const domain = new URL(SITE_URL).hostname
-    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || `MMQ <noreply@${domain}>`
+    // 送信元アドレスを設定（検証済みドメインを使用）
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'MMQ <onboarding@resend.dev>'
+    
+    console.log('📧 メール送信設定:', { 
+      hasApiKey: !!RESEND_API_KEY, 
+      fromEmail,
+      to: email,
+      siteUrl: SITE_URL
+    })
     
     if (!RESEND_API_KEY) {
-      console.warn('⚠️ RESEND_API_KEY not set, skipping email')
-    } else {
-      try {
-        const emailResponse = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
+      console.error('❌ RESEND_API_KEY not set, skipping email')
+      // APIキーがない場合はエラーを返す（メール送信は必須）
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'メール送信サービスが設定されていません。管理者に連絡してください。',
+          data: {
+            user_id: userId,
+            staff_id: staffData.id,
+            email: email,
+            name: name
+          }
+        }),
+        {
           headers: {
-            'Authorization': `Bearer ${RESEND_API_KEY}`,
             'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
           },
-          body: JSON.stringify({
-            from: fromEmail,
-            to: [email],
-            subject: existingUser ? '【MMQ】スタッフアカウント登録完了' : '【MMQ】スタッフアカウント招待',
+          status: 500
+        }
+      )
+    }
+    
+    try {
+      console.log('📨 メール送信開始:', { from: fromEmail, to: email })
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [email],
+          subject: existingUser ? '【MMQ】スタッフアカウント登録完了' : '【MMQ】スタッフアカウント招待',
             html: existingUser 
               ? `<h2>【MMQ】スタッフアカウント登録完了</h2>
               
@@ -264,16 +292,40 @@ serve(async (req) => {
         })
 
         if (!emailResponse.ok) {
-          const errorData = await emailResponse.text()
-          console.error('❌ Resend API error:', errorData)
-          throw new Error(`Failed to send email via Resend: ${errorData}`)
+          const errorText = await emailResponse.text()
+          console.error('❌ Resend API error:', {
+            status: emailResponse.status,
+            statusText: emailResponse.statusText,
+            error: errorText
+          })
+          
+          // エラーレスポンスをJSONとしてパースを試みる
+          let errorData: any
+          try {
+            errorData = JSON.parse(errorText)
+          } catch {
+            errorData = { message: errorText }
+          }
+          
+          console.error('❌ メール送信失敗の詳細:', errorData)
+          throw new Error(`メール送信に失敗しました: ${errorData.message || errorText}`)
         }
 
         const emailData = await emailResponse.json()
-        console.log('✅ Invite email sent via Resend:', emailData.id)
-      } catch (emailError) {
-        console.error('❌ Error sending email:', emailError)
+        console.log('✅ メール送信成功:', {
+          emailId: emailData.id,
+          to: email,
+          from: fromEmail
+        })
+      } catch (emailError: any) {
+        console.error('❌ メール送信エラー:', {
+          error: emailError.message,
+          stack: emailError.stack,
+          to: email,
+          from: fromEmail
+        })
         // メール送信失敗はエラーとしない（ユーザーとスタッフレコードは作成済み）
+        // ただし、ログには詳細を記録
       }
     }
 
