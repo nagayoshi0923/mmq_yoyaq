@@ -202,6 +202,7 @@ export function ScheduleTable({
             })}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   )
