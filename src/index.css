@@ -136,7 +136,27 @@
   [data-table-debug-icon],
   [data-table-debug],
   .ts-table-debug,
-  #tanstack-table-debug {
+  #tanstack-table-debug,
+  [data-table-debug-icon] *,
+  [data-table-debug] *,
+  .ts-table-debug *,
+  button[data-table-debug-icon],
+  div[data-table-debug],
+  span[data-table-debug-icon],
+  /* より広範囲のセレクター */
+  *[class*="debug"],
+  *[id*="debug"],
+  [class*="tanstack"][class*="debug"],
+  [id*="tanstack"][id*="debug"] {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: absolute !important;
+    left: -9999px !important;
   }
 }
