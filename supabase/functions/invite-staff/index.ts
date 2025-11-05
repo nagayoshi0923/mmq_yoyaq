@@ -128,6 +128,11 @@ serve(async (req) => {
 
     // 5. Resend APIで招待メールを送信
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+    const SITE_URL = Deno.env.get('SITE_URL') || 'https://mmq-yoyaq.vercel.app'
+    // Vercel URLからメールアドレスを生成（例: mmq-yoyaq.vercel.app → noreply@mmq-yoyaq.vercel.app）
+    const domain = new URL(SITE_URL).hostname
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || `MMQ <noreply@${domain}>`
+    
     if (!RESEND_API_KEY) {
       console.warn('⚠️ RESEND_API_KEY not set, skipping email')
     } else {
@@ -139,7 +144,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'MMQ <noreply@mmq.game>',
+            from: fromEmail,
             to: [email],
             subject: '【MMQ】スタッフアカウント招待',
             html: `
