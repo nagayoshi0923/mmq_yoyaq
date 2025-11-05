@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import { useAuth } from '@/contexts/AuthContext'
 import { getColorFromName } from '@/lib/utils'
 import { useBookingData } from './hooks/useBookingData'
 import { useCalendarData } from './hooks/useCalendarData'
@@ -18,6 +19,9 @@ interface PublicBookingTopProps {
 }
 
 export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
+  const { user } = useAuth()
+  const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
+  
   // タブ状態（URLハッシュと連携）
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash
@@ -108,7 +112,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <NavigationBar currentPage="customer-booking" />
+      {shouldShowNavigation && (
+        <NavigationBar currentPage="customer-booking" />
+      )}
 
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">

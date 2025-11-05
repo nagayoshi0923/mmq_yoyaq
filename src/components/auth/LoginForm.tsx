@@ -1,18 +1,33 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 
-export function LoginForm() {
+interface LoginFormProps {
+  signup?: boolean
+}
+
+export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [isSignUp, setIsSignUp] = useState(signup)
   const [isForgotPassword, setIsForgotPassword] = useState(false)
   const [message, setMessage] = useState('')
   const { signIn, loading } = useAuth()
+
+  // URLパラメータからsignup=trueを読み取って新規登録モードに切り替え（後方互換性のため）
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('signup') === 'true' || signup) {
+      setIsSignUp(true)
+      setIsForgotPassword(false)
+      setError('')
+      setMessage('')
+    }
+  }, [signup])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -77,12 +92,14 @@ export function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle>Queens Waltz</CardTitle>
+          <CardTitle>
+            {isSignUp ? 'アカウント作成' : 'Queens Waltz'}
+          </CardTitle>
           <CardDescription>
             {isForgotPassword 
               ? 'パスワードリセット' 
               : isSignUp 
-                ? 'アカウント作成' 
+                ? '新規アカウントを登録してください' 
                 : 'マーダーミステリー店舗管理システム'}
           </CardDescription>
         </CardHeader>
@@ -135,14 +152,6 @@ export function LoginForm() {
               </div>
             )}
 
-            {isSignUp && !message && (
-              <div className="border border-blue-200 bg-blue-50 rounded-md p-3 text-sm">
-                <p className="text-blue-800">
-                  <strong>顧客アカウント</strong>として登録されます。<br/>
-                  確認メールが送信されますので、メールのリンクをクリックしてアカウントを有効化してください。
-                </p>
-              </div>
-            )}
 
             <Button 
               type="submit" 
@@ -160,9 +169,13 @@ export function LoginForm() {
                 variant="ghost" 
                 className="w-full" 
                 onClick={() => {
-                  setIsSignUp(!isSignUp)
-                  setError('')
-                  setMessage('')
+                  if (isSignUp) {
+                    // 新規登録からログインに戻る場合はログインページに遷移
+                    window.location.hash = 'login'
+                  } else {
+                    // ログインから新規登録に切り替える場合は新規登録ページに遷移
+                    window.location.hash = 'signup'
+                  }
                 }}
               >
                 {isSignUp ? 'ログインに戻る' : 'アカウントを作成'}

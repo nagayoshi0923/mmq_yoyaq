@@ -41,6 +41,26 @@ const ScenarioMatcher = lazy(() => import('./ScenarioMatcher').then(m => ({ defa
 export function AdminDashboard() {
   const { user } = useAuth()
 
+  // 管理ツールのページ一覧（顧客がアクセスできないページ）
+  const adminOnlyPages = [
+    'dashboard',
+    'stores',
+    'staff',
+    'scenarios',
+    'scenarios-edit',
+    'schedule',
+    'shift-submission',
+    'gm-availability',
+    'private-booking-management',
+    'reservations',
+    'customer-management',
+    'user-management',
+    'sales',
+    'settings',
+    'add-demo-participants',
+    'scenario-matcher'
+  ]
+
   // ハッシュを解析してページとシナリオIDを返すユーティリティ
   function parseHash(hash: string, userRole?: string | null): { page: string, scenarioId: string | null } {
     const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/?]+)/)
@@ -75,14 +95,29 @@ export function AdminDashboard() {
     if (hash.startsWith('scenario-matcher')) {
       return { page: 'scenario-matcher', scenarioId: null }
     }
+    // ハッシュからクエリパラメータを分離
+    const hashWithoutQuery = hash.split('?')[0]
+    
     if (!hash && userRole === 'customer') {
       return { page: 'customer-booking', scenarioId: null }
     }
-    return { page: hash || 'dashboard', scenarioId: null }
+    
+    // loginページは特別扱い
+    if (hashWithoutQuery === 'login') {
+      return { page: 'login', scenarioId: null }
+    }
+    
+    return { page: hashWithoutQuery || 'dashboard', scenarioId: null }
   }
 
   const [currentPage, setCurrentPage] = useState(() => {
     const hash = window.location.hash.slice(1)
+    // ログアウト状態または顧客アカウントの場合、デフォルトは予約サイト
+    if (!user || user.role === 'customer') {
+      if (!hash || hash.split('?')[0] === 'login' || hash.split('?')[0] === '') {
+        return 'customer-booking'
+      }
+    }
     // ハッシュがない場合はダッシュボードを表示（ユーザーロールによる判定は後で行う）
     if (!hash) return 'dashboard'
     const { page } = parseHash(hash, user?.role)
@@ -115,11 +150,35 @@ export function AdminDashboard() {
 
   // ユーザーロールが確定したときに初回リダイレクト
   React.useEffect(() => {
+    // ログアウト状態または顧客アカウントの場合
+    const isCustomerOrLoggedOut = !user || user.role === 'customer'
+    
+    // デフォルトページを予約サイトに設定
+    if (isCustomerOrLoggedOut && (!currentPage || currentPage === 'dashboard')) {
+      setCurrentPage('customer-booking')
+      window.location.hash = 'customer-booking'
+      return
+    }
+
+    // 顧客が管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+    if (user && user.role === 'customer' && adminOnlyPages.includes(currentPage)) {
+      setCurrentPage('customer-booking')
+      window.location.hash = 'customer-booking'
+      return
+    }
+
+    // ログアウト状態で管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+    if (!user && adminOnlyPages.includes(currentPage)) {
+      setCurrentPage('customer-booking')
+      window.location.hash = 'customer-booking'
+      return
+    }
+
+    // 通常のログインユーザーの場合
     if (user && currentPage === 'dashboard' && !window.location.hash) {
-      // customerロールの場合のみ予約サイトにリダイレクト
-      if (user.role === 'customer') {
-        setCurrentPage('customer-booking')
-        window.location.hash = 'customer-booking'
+      // admin/staffの場合はダッシュボードを表示
+      if (user.role === 'admin' || user.role === 'staff') {
+        // ダッシュボードはそのまま表示
       }
     }
   }, [user, currentPage])
@@ -128,13 +187,24 @@ export function AdminDashboard() {
   React.useEffect(() => {
     const handleHashChange = () => {
       const { page, scenarioId } = parseHash(window.location.hash.slice(1), user?.role)
+      
+      // ログアウト状態または顧客アカウントの場合、管理ツールのページへのアクセスを制限
+      const isCustomerOrLoggedOut = !user || user.role === 'customer'
+      const restrictedPages = ['dashboard', 'stores', 'staff', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'add-demo-participants', 'scenario-matcher']
+      if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
+        // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+        setCurrentPage('customer-booking')
+        window.location.hash = 'customer-booking'
+        return
+      }
+      
       setCurrentPage(page)
       setSelectedScenarioId(scenarioId)
     }
 
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [user?.role])
+  }, [user?.role, user])
 
   // 統計情報を遅延ロード（ダッシュボード表示をブロックしない）
   const [stats, setStats] = React.useState({
@@ -172,6 +242,11 @@ export function AdminDashboard() {
     { id: 'sales', label: '売上', icon: TrendingUp, color: 'bg-emerald-100 text-emerald-800' },
     { id: 'settings', label: '設定', icon: Settings, color: 'bg-gray-100 text-gray-800' }
   ]
+
+  // ログインページはAdminDashboardで表示しない（App.tsxで処理される）
+  if (currentPage === 'login') {
+    return null
+  }
 
   // ページ切り替え処理（Suspense でラップ）
   if (currentPage === 'stores') {
@@ -315,10 +390,16 @@ export function AdminDashboard() {
   }
 
   if (currentPage === 'my-page') {
+    // ログアウト状態または顧客アカウントの場合はナビゲーションを表示しない
+    const isCustomerOrLoggedOut = !user || user.role === 'customer'
+    const shouldShowNavigation = !isCustomerOrLoggedOut
+    
     return (
       <div className="min-h-screen bg-background">
         <Header onPageChange={handlePageChange} />
-        <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
+        {shouldShowNavigation && (
+          <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
+        )}
         <Suspense fallback={<LoadingScreen message="マイページを読み込み中..." />}>
           <MyPage />
         </Suspense>
@@ -342,10 +423,16 @@ export function AdminDashboard() {
     )
   }
 
+  // ログアウト状態または顧客アカウントの場合は常にナビゲーションを表示しない
+  // userがnull、undefined、またはcustomerロールの場合はナビゲーション非表示
+  const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
+
   return (
     <div className="min-h-screen bg-background">
       <Header onPageChange={handlePageChange} />
-      <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
+      {shouldShowNavigation && (
+        <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
+      )}
 
       <main className="container mx-auto max-w-7xl px-8 py-6">
         <div className="space-y-6">

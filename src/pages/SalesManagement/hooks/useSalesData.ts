@@ -109,6 +109,11 @@ export function useSalesData() {
         startDate: rangeResult.startDateStr,
         endDate: rangeResult.endDateStr
       }
+      
+      // プリセット期間の場合もcustomStartDateとcustomEndDateを更新
+      // これにより、SalesOverviewのcurrentMonthが正しく同期される
+      setCustomStartDate(range.startDate)
+      setCustomEndDate(range.endDate)
     }
 
     setDateRange(range)

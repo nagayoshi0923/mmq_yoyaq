@@ -74,24 +74,30 @@ function AppContent() {
     return <ResetPassword />
   }
 
-  // ログインページを明示的に要求された場合
-  if (currentHash === 'login') {
+  // ログインページを明示的に要求された場合（クエリパラメータを含む場合も考慮）
+  const hashWithoutQuery = currentHash.split('?')[0]
+  if (hashWithoutQuery === 'login') {
     return <LoginForm />
   }
 
-  // 未ログインで予約サイトにアクセスした場合は閲覧可能
-  if (!user && (currentHash === 'customer-booking' || currentHash.startsWith('customer-booking/'))) {
+  // 新規登録ページ
+  if (hashWithoutQuery === 'signup') {
+    return <LoginForm signup={true} />
+  }
+
+  // 未ログインまたは顧客アカウントの場合は予約サイトを表示
+  // AdminDashboard内で管理ツールへのアクセスを制限する
+  if (!user || (user && user.role === 'customer')) {
+    // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+    const adminPages = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings']
+    if (adminPages.some(page => currentHash.startsWith(page))) {
+      window.location.hash = 'customer-booking'
+      return <AdminDashboard />
+    }
     return <AdminDashboard />
   }
 
-  // 未ログインで管理画面にアクセスしようとした場合はログインフォームを表示
-  if (!user) {
-    return <LoginForm />
-  }
-
-  // ロールに応じてルーティング
-  // ログインしていない、またはcustomerロールの場合は、
-  // AdminDashboard内で自動的に予約サイトが表示される
+  // 管理ツールのユーザー（admin/staff）は通常通りAdminDashboardを表示
   return <AdminDashboard />
 }
 

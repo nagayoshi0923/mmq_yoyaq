@@ -29,6 +29,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true)
   const [staffCache, setStaffCache] = useState<Map<string, string>>(new Map())
   const [isProcessing, setIsProcessing] = useState(false)
+  // 最新のユーザー情報を保持するためのref（クロージャー問題を回避）
+  const userRef = React.useRef<AuthUser | null>(null)
+  
+  // userが変更されたらrefも更新
+  React.useEffect(() => {
+    userRef.current = user
+  }, [user])
 
   useEffect(() => {
     // 初期認証状態の確認
@@ -37,10 +44,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        logger.log('🔄 認証状態変更:', event, session?.user?.email)
+        // TOKEN_REFRESHEDイベントの場合は、既存のユーザー情報を保持（ロールを維持）
+        if (event === 'TOKEN_REFRESHED' && session?.user && userRef.current) {
+          // トークンリフレッシュ時は、既存のユーザー情報があればロールを維持
+          logger.log('🔄 トークンリフレッシュ検出、既存ロールを維持:', userRef.current.role)
+          setLoading(false)
+          return
+        }
+        
         if (session?.user) {
           await setUserFromSession(session.user)
         } else {
           setUser(null)
+          userRef.current = null
         }
         setLoading(false)
       }
@@ -84,13 +101,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     setIsProcessing(true)
     logger.log('🔐 ユーザーセッション設定開始:', supabaseUser.email)
+    
+    // 既存のユーザー情報を保持（エラー時のフォールバック用）
+    // useStateのクロージャー問題を回避するため、refから取得
+    const existingUser = userRef.current
+    
     try {
       // データベースからユーザーのロールを取得
       let role: 'admin' | 'staff' | 'customer' = 'customer'
       
       logger.log('📊 usersテーブルからロール取得開始')
       try {
-        // タイムアウトを1.5秒に短縮（早期フォールバック）
+        // タイムアウトを5秒に延長（ネットワーク遅延に対応）
         const rolePromise = supabase
           .from('users')
           .select('role')
@@ -98,7 +120,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           .maybeSingle()
 
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 1500)
+          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 5000)
         )
 
         const { data: userData, error: roleError } = await Promise.race([
@@ -108,28 +130,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         if (roleError) {
           logger.warn('⚠️ usersテーブルからのロール取得エラー:', roleError)
-          // フォールバック: メールアドレスで判定（開発用）
+          // 既存のユーザー情報がある場合は、そのロールを保持（エラー時もロールを維持）
+          if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
+            role = existingUser.role
+            logger.log('🔄 既存のロールを保持:', role)
+          } else {
+            // フォールバック: メールアドレスで判定（開発用）
+            const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
+            if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
+              role = 'admin'
+            } else if (supabaseUser.email?.includes('staff')) {
+              role = 'staff'
+            }
+            logger.log('🔄 フォールバック: メールアドレスからロール判定 ->', role)
+          }
+        } else if (userData?.role) {
+          role = userData.role as 'admin' | 'staff' | 'customer'
+          logger.log('✅ データベースからロール取得:', role)
+        } else {
+          // userDataがnullの場合（usersテーブルにレコードがない）
+          // 既存のユーザー情報がある場合は、そのロールを保持
+          if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
+            role = existingUser.role
+            logger.log('🔄 レコードなし、既存のロールを保持:', role)
+          }
+        }
+      } catch (error: any) {
+        logger.warn('⚠️ ロール取得失敗（タイムアウト/エラー）:', error?.message || error)
+        // 既存のユーザー情報がある場合は、そのロールを保持（エラー時もロールを維持）
+        if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
+          role = existingUser.role
+          logger.log('🔄 例外発生、既存のロールを保持:', role)
+        } else {
+          // フォールバック: メールアドレスで判定
           const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
           if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
             role = 'admin'
           } else if (supabaseUser.email?.includes('staff')) {
             role = 'staff'
           }
-          logger.log('🔄 フォールバック: メールアドレスからロール判定 ->', role)
-        } else if (userData?.role) {
-          role = userData.role as 'admin' | 'staff' | 'customer'
-          logger.log('✅ データベースからロール取得:', role)
+          logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
         }
-      } catch (error: any) {
-        logger.warn('⚠️ ロール取得失敗（タイムアウト/エラー）:', error?.message || error)
-        // フォールバック: メールアドレスで判定
-        const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
-        if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
-          role = 'admin'
-        } else if (supabaseUser.email?.includes('staff')) {
-          role = 'staff'
-        }
-        logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
       }
 
       // ユーザー名を生成（メールアドレスから@より前の部分を使用、またはメタデータから取得）
@@ -184,6 +225,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       })
       
       setUser(userData)
+      userRef.current = userData
 
       // TODO: 将来的には実際のSupabaseテーブルからロール情報を取得
       // const { data: profile } = await supabase
@@ -193,22 +235,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
       //   .single()
     } catch (error) {
       logger.error('❌ ユーザーセッション設定エラー:', error)
-      // エラーの場合はデフォルトのcustomerロールを設定
-      const displayName = supabaseUser.user_metadata?.full_name || 
-                         supabaseUser.user_metadata?.name ||
-                         supabaseUser.email?.split('@')[0] ||
-                         'ユーザー'
-      
-      const fallbackUserData = {
-        id: supabaseUser.id,
-        email: supabaseUser.email!,
-        name: displayName,
-        staffName: undefined,
-        role: 'customer' as const
+      // エラー時も既存のユーザー情報を保持（ロールを維持）
+      if (existingUser && existingUser.id === supabaseUser.id) {
+        logger.log('🔄 エラー発生、既存のユーザー情報を保持:', existingUser.role)
+        setUser(existingUser)
+        userRef.current = existingUser
+      } else {
+        // 既存情報がない場合のみデフォルトのcustomerロールを設定
+        const displayName = supabaseUser.user_metadata?.full_name || 
+                           supabaseUser.user_metadata?.name ||
+                           supabaseUser.email?.split('@')[0] ||
+                           'ユーザー'
+        
+        const fallbackUserData = {
+          id: supabaseUser.id,
+          email: supabaseUser.email!,
+          name: displayName,
+          staffName: undefined,
+          role: 'customer' as const
+        }
+        
+        logger.log('🔄 フォールバックユーザー情報設定:', fallbackUserData)
+        setUser(fallbackUserData)
+        userRef.current = fallbackUserData
       }
-      
-      logger.log('🔄 フォールバックユーザー情報設定:', fallbackUserData)
-      setUser(fallbackUserData)
     } finally {
       setIsProcessing(false)
     }

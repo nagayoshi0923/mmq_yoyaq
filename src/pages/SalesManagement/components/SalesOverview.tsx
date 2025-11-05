@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { SalesData } from '@/types'
 import { SummaryCards } from './SummaryCards'
 import { EventListCard } from './EventListCard'
@@ -75,6 +75,32 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   })
   const [showPeriodSettings, setShowPeriodSettings] = useState(false)
   
+  // 前回のcustomStartDateとcustomEndDateを記録（無限ループ防止用）
+  const prevCustomDatesRef = useRef<{ startDate: string; endDate: string } | null>(null)
+  
+  // customStartDateが変更されたときにcurrentMonthを同期（外部から期間設定が変更された場合）
+  useEffect(() => {
+    if (!customStartDate) return
+    
+    // customStartDateから年月を取得
+    const [yearStr, monthStr] = customStartDate.split('-')
+    if (!yearStr || !monthStr) return
+    
+    const year = parseInt(yearStr, 10)
+    const month = parseInt(monthStr, 10) - 1 // 0-indexed
+    
+    // 現在のcurrentMonthと比較
+    const currentYear = currentMonth.getFullYear()
+    const currentMonthIndex = currentMonth.getMonth()
+    
+    // 異なる場合のみ更新（無限ループを防ぐ）
+    if (year !== currentYear || month !== currentMonthIndex) {
+      const newDate = new Date(year, month, 1, 12, 0, 0, 0)
+      setCurrentMonth(newDate)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customStartDate])
+
   // 月が変更されたら自動的に期間を更新（タイムゾーン安全）
   useEffect(() => {
     const year = currentMonth.getFullYear()
@@ -93,11 +119,44 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     
     console.log('📅 月切り替え:', { year, month: month + 1, startStr, endStr })
     
+    // 日付を更新（データ取得はcustomStartDate/customEndDateの更新後に実行される）
     onCustomStartDateChange(startStr)
     onCustomEndDateChange(endStr)
-    onPeriodChange('custom')
+    // 期間をcustomに設定（データ取得はcustomStartDate/customEndDateの更新後に実行される）
+    // 注意: onPeriodChangeは呼ばない（customStartDate/customEndDateの更新後に実行される）
+    if (selectedPeriod !== 'custom') {
+      onPeriodChange('custom')
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth])
+
+  // customStartDateとcustomEndDateが更新され、期間がcustomのときにデータを再取得
+  useEffect(() => {
+    // 期間がcustomでない場合はスキップ（他の期間設定から変更された場合）
+    if (selectedPeriod !== 'custom') {
+      // 期間がcustomでない場合は、prevCustomDatesRefをリセット
+      prevCustomDatesRef.current = null
+      return
+    }
+    // customStartDateまたはcustomEndDateが空の場合はスキップ
+    if (!customStartDate || !customEndDate) return
+    
+    // 前回の値と比較して、実際に変更があった場合のみデータを再取得
+    const prevDates = prevCustomDatesRef.current
+    if (prevDates && prevDates.startDate === customStartDate && prevDates.endDate === customEndDate) {
+      // 変更がない場合はスキップ
+      return
+    }
+    
+    // 前回の値を更新
+    prevCustomDatesRef.current = { startDate: customStartDate, endDate: customEndDate }
+    
+    console.log('📅 カスタム期間変更によるデータ再取得:', { customStartDate, customEndDate })
+    
+    // データを再取得（onPeriodChangeを呼ぶとloadSalesDataが実行される）
+    onPeriodChange('custom')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customStartDate, customEndDate, selectedPeriod])
 
   // モーダル用データの取得
   useEffect(() => {

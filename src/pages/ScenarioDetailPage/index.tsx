@@ -34,6 +34,7 @@ interface ScenarioDetailPageProps {
 
 export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPageProps) {
   const { user } = useAuth()
+  const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
   
   // データ取得フック
@@ -141,10 +142,15 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   }
 
   if (isLoading) {
+    const { user } = useAuth()
+    const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
+    
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <NavigationBar currentPage="customer-booking" />
+        {shouldShowNavigation && (
+          <NavigationBar currentPage="customer-booking" />
+        )}
         <div className="flex items-center justify-center py-20">
           <p className="text-muted-foreground text-lg">読み込み中...</p>
         </div>
@@ -156,7 +162,9 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <NavigationBar currentPage="customer-booking" />
+        {shouldShowNavigation && (
+          <NavigationBar currentPage="customer-booking" />
+        )}
         <div className="flex items-center justify-center py-20">
           <p className="text-muted-foreground text-lg">シナリオが見つかりませんでした</p>
         </div>
@@ -167,7 +175,9 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <NavigationBar currentPage="customer-booking" />
+      {shouldShowNavigation && (
+        <NavigationBar currentPage="customer-booking" />
+      )}
 
       {/* 戻るボタン */}
       <div className="bg-background border-b">
