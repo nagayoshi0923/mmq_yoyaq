@@ -38,30 +38,67 @@ serve(async (req) => {
 
     console.log('📨 Staff invitation request:', { email, name })
 
-    // 1. ユーザーを作成（パスワード未設定、メール未確認状態）
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: email,
-      email_confirm: false, // メール確認が必要
-      password: crypto.randomUUID(), // 一時パスワード（使用不可）
-      user_metadata: {
-        full_name: name,
-        invited_as: 'staff'
+    // 1. 既存ユーザーを検索
+    const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers()
+    const existingUser = existingUsers?.users.find(u => u.email === email)
+    
+    let userId: string
+    
+    if (existingUser) {
+      // 既存ユーザーの場合
+      userId = existingUser.id
+      console.log('✅ Existing user found:', userId)
+      
+      // 既にstaffテーブルにレコードがあるか確認
+      const { data: existingStaff, error: staffCheckError } = await supabase
+        .from('staff')
+        .select('id, user_id')
+        .eq('user_id', userId)
+        .maybeSingle()
+      
+      if (existingStaff) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'このメールアドレスのスタッフは既に登録されています'
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            },
+            status: 400
+          }
+        )
       }
-    })
+    } else {
+      // 新規ユーザーを作成（パスワード未設定、メール未確認状態）
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: email,
+        email_confirm: false, // メール確認が必要
+        password: crypto.randomUUID(), // 一時パスワード（使用不可）
+        user_metadata: {
+          full_name: name,
+          invited_as: 'staff'
+        }
+      })
 
-    if (authError) {
-      console.error('❌ Error creating auth user:', authError)
-      throw new Error(`Failed to create user: ${authError.message}`)
+      if (authError) {
+        console.error('❌ Error creating auth user:', authError)
+        throw new Error(`Failed to create user: ${authError.message}`)
+      }
+
+      userId = authData.user.id
+      console.log('✅ Auth user created:', userId)
     }
 
-    const userId = authData.user.id
-    console.log('✅ Auth user created:', userId)
-
-    // 2. usersテーブルは自動的にトリガーで作成される（handle_new_user）
-    // トリガーの処理を待つため、短時間スリープ
-    await new Promise(resolve => setTimeout(resolve, 500))
-    console.log('✅ Users record created by trigger')
-
+    // 2. usersテーブルの確認と更新
+    if (!existingUser) {
+      // 新規ユーザーの場合：トリガーの処理を待つ
+      await new Promise(resolve => setTimeout(resolve, 500))
+      console.log('✅ Users record created by trigger')
+    }
+    
     // 2.5. usersテーブルのroleをstaffに明示的に更新
     const { error: updateRoleError } = await supabase
       .from('users')
@@ -102,19 +139,25 @@ serve(async (req) => {
 
     if (staffError) {
       console.error('❌ Error creating staff record:', staffError)
-      // ユーザーをロールバック（usersテーブルはカスケード削除される）
-      await supabase.auth.admin.deleteUser(userId)
+      // 新規ユーザーの場合のみ削除（既存ユーザーは削除しない）
+      if (!existingUser) {
+        await supabase.auth.admin.deleteUser(userId)
+      }
       throw new Error(`Failed to create staff record: ${staffError.message}`)
     }
 
     console.log('✅ Staff record created:', staffData.id)
 
-    // 4. パスワード設定用のリンクを生成（signup typeを使用）
+    // 4. パスワード設定用のリンクを生成
+    // 既存ユーザーの場合はrecovery、新規ユーザーの場合はsignup
+    const linkType = existingUser ? 'recovery' : 'signup'
     const { data: inviteLinkData, error: inviteLinkError } = await supabase.auth.admin.generateLink({
-      type: 'signup',
+      type: linkType as 'signup' | 'recovery',
       email: email,
       options: {
-        redirectTo: 'https://mmq-yoyaq.vercel.app/#/set-password'
+        redirectTo: existingUser 
+          ? 'https://mmq-yoyaq.vercel.app/#/login'
+          : 'https://mmq-yoyaq.vercel.app/#/set-password'
       }
     })
 
@@ -146,8 +189,22 @@ serve(async (req) => {
           body: JSON.stringify({
             from: fromEmail,
             to: [email],
-            subject: '【MMQ】スタッフアカウント招待',
-            html: `
+            subject: existingUser ? '【MMQ】スタッフアカウント登録完了' : '【MMQ】スタッフアカウント招待',
+            html: existingUser 
+              ? `
+              <h2>【MMQ】スタッフアカウント登録完了</h2>
+              
+              <p>こんにちは、${name}さん</p>
+              
+              <p>謎解きカフェ・バーMMQのスタッフ管理システムへの登録が完了しました。</p>
+              
+              <p>既存のアカウントでスタッフ機能が利用可能になりました。下のリンクからログインしてスタッフページにアクセスできます。</p>
+              
+              <p style="text-align: center; margin: 30px 0;">
+                <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">ログインする</a>
+              </p>
+              `
+              : `
               <h2>【MMQ】スタッフアカウントへようこそ！</h2>
               
               <p>こんにちは、${name}さん</p>
@@ -165,13 +222,14 @@ serve(async (req) => {
               <p style="text-align: center; margin: 30px 0;">
                 <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードを設定する</a>
               </p>
+              `
               
               <p style="font-size: 12px; color: #666;">
                 または、以下のリンクをコピーしてブラウザに貼り付けてください：<br>
                 <a href="${inviteLink}">${inviteLink}</a>
               </p>
               
-              <h3>📋 ログイン後にできること</h3>
+              <h3>📋 スタッフとしてできること</h3>
               <ul>
                 <li>シフト提出</li>
                 <li>スケジュール確認</li>
@@ -182,9 +240,10 @@ serve(async (req) => {
               
               <p style="color: #666; font-size: 12px;">
                 <strong>⚠️ 注意事項</strong><br>
-                • このリンクは24時間で有効期限が切れます<br>
-                • 心当たりがない場合は無視してください<br>
-                • パスワードは誰にも教えないでください
+                ${existingUser 
+                  ? '• 既存のアカウントでスタッフ機能が利用可能になりました<br>• 心当たりがない場合は無視してください'
+                  : '• このリンクは24時間で有効期限が切れます<br>• 心当たりがない場合は無視してください<br>• パスワードは誰にも教えないでください'
+                }
               </p>
             `,
           }),
