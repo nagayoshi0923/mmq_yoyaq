@@ -204,50 +204,25 @@ serve(async (req) => {
       console.log('✅ Staff record created:', staffData.id)
     }
 
-    // 4. パスワード設定/リセット用のリンクを生成
-    // 既存ユーザーの場合はrecovery（パスワードリセット）、新規ユーザーの場合はinvite（パスワード設定）
-    let inviteLink: string
-    let linkType: string
-    
-    if (existingUser) {
-      // 既存ユーザーの場合：パスワードリセットリンクを生成
-      console.log('📧 既存ユーザー: パスワードリセットリンクを生成')
-      const { data: recoveryLinkData, error: recoveryLinkError } = await supabase.auth.admin.generateLink({
-        type: 'recovery',
-        email: email,
-        options: {
-          redirectTo: 'https://mmq-yoyaq.vercel.app/#/reset-password'
-        }
-      })
-
-      if (recoveryLinkError) {
-        console.error('❌ Error generating recovery link:', recoveryLinkError)
-        throw new Error(`Failed to generate recovery link: ${recoveryLinkError.message}`)
+    // 4. パスワード設定用のリンクを生成
+    // スタッフ招待は常にinviteタイプを使用（既存ユーザーでもパスワード設定可能）
+    // recoveryタイプは既存パスワードとの比較でエラーになる可能性があるため
+    console.log('📧 スタッフ招待リンクを生成（inviteタイプ）')
+    const { data: inviteLinkData, error: inviteLinkError } = await supabase.auth.admin.generateLink({
+      type: 'invite',
+      email: email,
+      options: {
+        redirectTo: 'https://mmq-yoyaq.vercel.app/#/set-password'
       }
+    })
 
-      inviteLink = recoveryLinkData.properties.action_link
-      linkType = 'recovery'
-      console.log('✅ Recovery link generated for existing user')
-    } else {
-      // 新規ユーザーの場合：招待リンクを生成
-      console.log('📧 新規ユーザー: 招待リンクを生成')
-      const { data: inviteLinkData, error: inviteLinkError } = await supabase.auth.admin.generateLink({
-        type: 'invite',
-        email: email,
-        options: {
-          redirectTo: 'https://mmq-yoyaq.vercel.app/#/set-password'
-        }
-      })
-
-      if (inviteLinkError) {
-        console.error('❌ Error generating invite link:', inviteLinkError)
-        throw new Error(`Failed to generate invite link: ${inviteLinkError.message}`)
-      }
-
-      inviteLink = inviteLinkData.properties.action_link
-      linkType = 'invite'
-      console.log('✅ Invite link generated for new user')
+    if (inviteLinkError) {
+      console.error('❌ Error generating invite link:', inviteLinkError)
+      throw new Error(`Failed to generate invite link: ${inviteLinkError.message}`)
     }
+
+    const inviteLink = inviteLinkData.properties.action_link
+    console.log('✅ Invite link generated')
 
     // 5. Resend APIで招待メールを送信
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
@@ -313,10 +288,10 @@ serve(async (req) => {
 
 <p>謎解きカフェ・バーMMQのスタッフ管理システムへの招待メールを再送信しました。</p>
 
-<p>既に登録済みのスタッフですが、下のリンクからパスワードをリセットして、スタッフページにアクセスできます。</p>
+<p>既に登録済みのスタッフですが、下のリンクからパスワードを設定して、スタッフページにアクセスできます。</p>
 
 <p style="text-align: center; margin: 30px 0;">
-  <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードをリセットする</a>
+  <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードを設定する</a>
 </p>
 
 <p style="font-size: 12px; color: #666;">
@@ -345,10 +320,10 @@ serve(async (req) => {
 
 <p>謎解きカフェ・バーMMQのスタッフ管理システムへの登録が完了しました。</p>
 
-<p>既存のアカウントでスタッフ機能が利用可能になりました。下のリンクからパスワードをリセットして、スタッフページにアクセスできます。</p>
+<p>既存のアカウントでスタッフ機能が利用可能になりました。下のリンクからパスワードを設定して、スタッフページにアクセスできます。</p>
 
 <p style="text-align: center; margin: 30px 0;">
-  <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードをリセットする</a>
+  <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードを設定する</a>
 </p>
 
 <p style="font-size: 12px; color: #666;">
