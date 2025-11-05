@@ -149,15 +149,12 @@ serve(async (req) => {
     console.log('✅ Staff record created:', staffData.id)
 
     // 4. パスワード設定用のリンクを生成
-    // 既存ユーザーの場合はrecovery、新規ユーザーの場合はsignup
-    const linkType = existingUser ? 'recovery' : 'signup'
+    // スタッフ招待は常にinviteタイプを使用（既存ユーザーでもパスワード設定可能）
     const { data: inviteLinkData, error: inviteLinkError } = await supabase.auth.admin.generateLink({
-      type: linkType as 'signup' | 'recovery',
+      type: 'invite',
       email: email,
       options: {
-        redirectTo: existingUser 
-          ? 'https://mmq-yoyaq.vercel.app/#/login'
-          : 'https://mmq-yoyaq.vercel.app/#/set-password'
+        redirectTo: 'https://mmq-yoyaq.vercel.app/#/set-password'
       }
     })
 
