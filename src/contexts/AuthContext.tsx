@@ -127,7 +127,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
               .select('role')
               .eq('id', supabaseUser.id)
               .maybeSingle()
-              .abortSignal(AbortSignal.timeout(timeoutMs))
 
             const timeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error('ロール取得タイムアウト')), timeoutMs)
