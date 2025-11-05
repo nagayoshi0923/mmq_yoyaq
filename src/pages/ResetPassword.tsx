@@ -136,7 +136,13 @@ export function ResetPassword() {
         password: newPassword
       })
       
-      if (error) throw error
+      if (error) {
+        // 「新しいパスワードが古いパスワードと同じ」エラーの場合、より分かりやすいメッセージを表示
+        if (error.message.includes('should be different from the old password')) {
+          throw new Error('新しいパスワードは現在のパスワードと異なるものを設定してください')
+        }
+        throw error
+      }
       
       setSuccess(true)
     } catch (error: any) {
