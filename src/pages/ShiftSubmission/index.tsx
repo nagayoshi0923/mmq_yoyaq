@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
@@ -105,12 +104,13 @@ export function ShiftSubmission() {
       case 'shift-submission':
       default:
         return (
-          <div className="space-y-6">
-            {/* 月選択 */}
-            <div className="flex items-center justify-between">
+          <div className="space-y-3 sm:space-y-4 md:space-y-6">
+            {/* ヘッダー */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
               <div>
-                <p className="text-muted-foreground">
-                  出勤可能な日時を選択してください
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold">シフト提出 - {formatMonthYear()}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                  出勤可能な時間帯にチェックを入れてください
                 </p>
               </div>
               <MonthSwitcher
@@ -121,39 +121,39 @@ export function ShiftSubmission() {
               />
             </div>
 
-            {/* メインカード・テーブル */}
-            <Card>
-              <CardHeader className="bg-muted/30 border-b border-border">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>シフト提出 - {formatMonthYear()}</CardTitle>
-                    <CardDescription className="text-muted-foreground">
-                      出勤可能な時間帯にチェックを入れてください
-                    </CardDescription>
-                  </div>
+            {/* シフト提出ボタン（モバイル用） */}
+            <div className="sm:hidden">
+              <Button 
+                onClick={handleSubmitShift} 
+                disabled={loading}
+                size="sm"
+                className="w-full text-xs shadow-lg"
+              >
+                {loading ? '送信中...' : 'シフトを提出'}
+              </Button>
+            </div>
+
+            {/* テーブル */}
+            <TanStackDataTable
+              data={tableData}
+              columns={tableColumns}
+              getRowKey={(row) => row.dayInfo.date}
+              emptyMessage="シフトデータがありません"
+              loading={loading}
+              stickyHeader={true}
+              stickyHeaderContent={
+                <div className="hidden sm:block">
+                  <Button 
+                    onClick={handleSubmitShift} 
+                    disabled={loading}
+                    size="sm"
+                    className="text-xs sm:text-sm shadow-lg"
+                  >
+                    {loading ? '送信中...' : 'シフトを提出'}
+                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent className="p-4">
-                <TanStackDataTable
-                  data={tableData}
-                  columns={tableColumns}
-                  getRowKey={(row) => row.dayInfo.date}
-                  emptyMessage="シフトデータがありません"
-                  loading={loading}
-                  stickyHeader={true}
-                  stickyHeaderContent={
-                    <Button 
-                      onClick={handleSubmitShift} 
-                      disabled={loading}
-                      size="lg"
-                      className="shadow-lg"
-                    >
-                      {loading ? '送信中...' : 'シフトを提出'}
-                    </Button>
-                  }
-                />
-              </CardContent>
-            </Card>
+              }
+            />
           </div>
         )
     }
@@ -172,7 +172,7 @@ export function ShiftSubmission() {
         />
       }
       maxWidth="max-w-[1600px]"
-      containerPadding="px-8 py-6"
+      containerPadding="px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
       {renderContent()}
