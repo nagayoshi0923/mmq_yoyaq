@@ -140,7 +140,7 @@ function TimeSlotCellBase({
 
   return (
     <TableCell 
-      className={`schedule-table-cell p-1 border-r border-gray-200 transition-colors ${
+      className={`schedule-table-cell p-0 sm:p-0.5 border-r border-gray-200 transition-colors ${
         isDragOver ? 'bg-purple-50 border-purple-300' : ''
       }`}
       onDragOver={handleDragOver}
@@ -163,23 +163,15 @@ function TimeSlotCellBase({
           onContextMenu={onContextMenuEvent}
         />
       ) : (
-        <div className="grid grid-rows-[10px_10px_10px] gap-0 h-full">
-          {/* 1行目: 空スペース (10px) */}
-          <div className="p-1"></div>
-          
-          {/* 2行目: 公演追加ボタン (10px) */}
-          <div className="flex items-center justify-center p-1">
-            <EmptySlot
-              date={date}
-              venue={venue}
-              timeSlot={timeSlot}
-              onAddPerformance={onAddPerformance}
-            />
-          </div>
-          
-          {/* 3行目: 出勤可能スタッフのバッジ表示 (10px) */}
-          {availableStaff.length > 0 ? (
-            <div className="flex flex-wrap gap-0.5 justify-end items-end p-1">
+        <div className="flex flex-col justify-center items-center h-full min-h-[24px] sm:min-h-[28px]">
+          <EmptySlot
+            date={date}
+            venue={venue}
+            timeSlot={timeSlot}
+            onAddPerformance={onAddPerformance}
+          />
+          {availableStaff.length > 0 && (
+            <div className="flex flex-wrap gap-0.5 justify-center items-center mt-0.5">
               {availableStaff.map((staff) => {
                 const { bgColor, textColor } = getStaffAvatarColors(staff as any)
                 return (
@@ -192,15 +184,13 @@ function TimeSlotCellBase({
                       color: textColor as string,
                       borderColor: (textColor as string) + '40'
                     }}
-                    className="text-[8px] px-1 py-0 h-4 font-normal border"
+                    className="text-[8px] px-0.5 py-0 h-3 sm:h-3.5 font-normal border"
                   >
                     {staff.name.slice(0, 2)}
                   </Badge>
                 )
               })}
             </div>
-          ) : (
-            <div className="p-1"></div>
           )}
         </div>
       )}
