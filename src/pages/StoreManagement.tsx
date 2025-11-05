@@ -149,16 +149,17 @@ export function StoreManagement() {
         <Header />
         <NavigationBar currentPage="stores" />
         
-        <div className="container mx-auto max-w-7xl px-8 py-6">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h1>店舗管理</h1>
-              <Button disabled>
-                <Plus className="h-4 w-4 mr-2" />
-                新規店舗
+        <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
+          <div className="space-y-3 sm:space-y-4 md:space-y-6">
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="text-lg sm:text-xl md:text-2xl">店舗管理</h1>
+              <Button disabled size="sm" className="text-xs sm:text-sm">
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">新規店舗</span>
+                <span className="sm:hidden">新規</span>
               </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               {[...Array(4)].map((_, i) => (
                 <Card key={i} className="animate-pulse">
                   <CardHeader>
@@ -185,19 +186,20 @@ export function StoreManagement() {
         <Header />
         <NavigationBar currentPage="stores" />
         
-        <div className="container mx-auto max-w-7xl px-8 py-6">
-          <div className="space-y-6">
-            <h1>店舗管理</h1>
+        <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
+          <div className="space-y-3 sm:space-y-4 md:space-y-6">
+            <h1 className="text-lg sm:text-xl md:text-2xl">店舗管理</h1>
             <Card className="border-red-200 bg-red-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 text-red-800">
-                  <Trash2 className="h-5 w-5" />
-                  <p>{error}</p>
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="flex items-center gap-2 text-red-800 text-sm sm:text-base">
+                  <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                  <p className="break-words">{error}</p>
                 </div>
                 <Button 
                   onClick={() => setError('')} 
-                  className="mt-4"
+                  className="mt-3 sm:mt-4"
                   variant="outline"
+                  size="sm"
                 >
                   再読み込み
                 </Button>
@@ -218,77 +220,83 @@ export function StoreManagement() {
       <Header />
       <NavigationBar currentPage="stores" />
       
-      <div className="container mx-auto max-w-7xl px-8 py-6">
-        <div className="space-y-6">
+      <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
+        <div className="space-y-3 sm:space-y-4 md:space-y-6">
           {/* ヘッダー */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <Button 
                 variant="ghost" 
                 size="sm"
                 onClick={() => window.history.back()}
+                className="h-7 w-7 sm:h-8 sm:w-auto p-0 sm:px-3 sm:py-2 flex-shrink-0"
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                戻る
+                <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
+                <span className="hidden sm:inline">戻る</span>
               </Button>
-              <div>
-                <h1>店舗管理</h1>
-                <p className="text-muted-foreground">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl md:text-2xl truncate">店舗管理</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">
                   Queens Waltz 全{stores.length}店舗の管理
                 </p>
               </div>
             </div>
-            <Button onClick={() => openEditModal(null)}>
-              <Plus className="h-4 w-4 mr-2" />
-              新規店舗
+            <Button 
+              onClick={() => openEditModal(null)}
+              size="sm"
+              className="w-full sm:w-auto text-xs sm:text-sm"
+            >
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+              <span className="hidden sm:inline">新規店舗</span>
+              <span className="sm:hidden">新規</span>
             </Button>
           </div>
 
           {/* 統計情報 */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2">
-                  <StoreIcon className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-2xl font-bold">{stores.length}</p>
-                    <p className="text-muted-foreground">総店舗数</p>
+              <CardContent className="pt-3 sm:pt-4 md:pt-6">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <StoreIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{stores.length}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">総店舗数</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-2xl font-bold">{totalCapacity}名</p>
-                    <p className="text-muted-foreground">総収容人数</p>
+              <CardContent className="pt-3 sm:pt-4 md:pt-6">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{totalCapacity}名</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">総収容人数</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2">
-                  <DoorOpen className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-2xl font-bold">{totalRooms}室</p>
-                    <p className="text-muted-foreground">総部屋数</p>
+              <CardContent className="pt-3 sm:pt-4 md:pt-6">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <DoorOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{totalRooms}室</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">総部屋数</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2">
-                  <Building className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-2xl font-bold">{activeStores}</p>
-                    <p className="text-muted-foreground">営業中店舗</p>
+              <CardContent className="pt-3 sm:pt-4 md:pt-6">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Building className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{activeStores}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">営業中店舗</p>
                   </div>
                 </div>
               </CardContent>
@@ -296,30 +304,34 @@ export function StoreManagement() {
           </div>
 
           {/* 店舗一覧 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {stores.map((store) => {
               const colors = getStoreThemeClasses(store.short_name)
               
               return (
                 <Card key={store.id} className="bg-card border-border">
                   <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${colors.dot}`}></div>
-                          {store.name}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                          <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0 ${colors.dot}`}></div>
+                          <span className="truncate">{store.name}</span>
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-xs sm:text-sm truncate">
                           {store.short_name}
                         </CardDescription>
                       </div>
-                      <div className="flex flex-col gap-2">
-                        {getStatusBadge(store.status)}
+                      <div className="flex flex-col gap-1 sm:gap-2 flex-shrink-0">
+                        <div className="scale-75 sm:scale-100 origin-top-right">
+                          {getStatusBadge(store.status)}
+                        </div>
                         {store.ownership_type && (
                           <Badge className={
-                            store.ownership_type === 'corporate' ? 'bg-blue-100 text-blue-800' : 
-                            store.ownership_type === 'office' ? 'bg-purple-100 text-purple-800' :
-                            'bg-amber-100 text-amber-800'
+                            `text-[10px] sm:text-xs px-1 sm:px-2 py-0 ${
+                              store.ownership_type === 'corporate' ? 'bg-blue-100 text-blue-800' : 
+                              store.ownership_type === 'office' ? 'bg-purple-100 text-purple-800' :
+                              'bg-amber-100 text-amber-800'
+                            }`
                           }>
                             {store.ownership_type === 'corporate' ? '直営店' : 
                              store.ownership_type === 'office' ? 'オフィス' : 'FC'}
@@ -329,66 +341,66 @@ export function StoreManagement() {
                     </div>
                   </CardHeader>
                   
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
+                  <CardContent className="space-y-2 sm:space-y-3 md:space-y-4">
+                    <div className="space-y-1.5 sm:space-y-2">
                       {store.address && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span>{store.address}</span>
+                        <div className="flex items-start gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                          <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          <span className="break-words min-w-0">{store.address}</span>
                         </div>
                       )}
                       {store.phone_number && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          <span>{store.phone_number}</span>
+                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                          <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="break-all">{store.phone_number}</span>
                         </div>
                       )}
                       {store.email && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span>{store.email}</span>
+                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                          <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="break-all truncate">{store.email}</span>
                         </div>
                       )}
                       {store.opening_date && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                          <span>開店日: {new Date(store.opening_date).toLocaleDateString()}</span>
+                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+                          <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate">開店日: {new Date(store.opening_date).toLocaleDateString()}</span>
                         </div>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 pt-2 border-t border-border">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">収容人数</p>
-                        <p className="text-lg font-bold">{store.capacity}名</p>
+                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">収容人数</p>
+                        <p className="text-base sm:text-lg font-bold">{store.capacity}名</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">部屋数</p>
-                        <p className="text-lg font-bold">{store.rooms}室</p>
+                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">部屋数</p>
+                        <p className="text-base sm:text-lg font-bold">{store.rooms}室</p>
                       </div>
                     </div>
 
                     {store.manager_name && (
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">店長</p>
-                        <p>{store.manager_name}</p>
+                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">店長</p>
+                        <p className="text-xs sm:text-sm truncate">{store.manager_name}</p>
                       </div>
                     )}
 
                     {store.notes && (
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">メモ</p>
-                        <p className="text-sm line-clamp-2">{store.notes}</p>
+                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">メモ</p>
+                        <p className="text-xs sm:text-sm line-clamp-2 break-words">{store.notes}</p>
                       </div>
                     )}
 
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full"
+                      className="w-full text-xs sm:text-sm"
                       onClick={() => handleEditStore(store)}
                     >
-                      <Edit className="h-4 w-4 mr-2" />
+                      <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                       編集
                     </Button>
                   </CardContent>
