@@ -209,16 +209,16 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[85vh] p-0 flex flex-col overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+      <DialogContent className="max-w-[95vw] sm:max-w-7xl max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-4 border-b shrink-0">
           <DialogTitle>{scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}</DialogTitle>
           <DialogDescription>
             {formData.title ? `${formData.title}の情報を編集します` : 'シナリオの情報を入力してください'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 pt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
             {/* 左カラム: 基本情報・ゲーム情報 */}
             <div className="space-y-6">
               <BasicInfoSection formData={formData} setFormData={setFormData} />
@@ -235,7 +235,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
         </div>
 
         {/* フッターボタン（固定） */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t bg-muted/30 shrink-0">
+        <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 border-t bg-muted/30 shrink-0">
           <Button type="button" variant="outline" onClick={onClose}>
             キャンセル
           </Button>

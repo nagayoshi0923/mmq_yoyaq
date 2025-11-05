@@ -146,8 +146,8 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[85vh] p-0 flex flex-col overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+      <DialogContent className="max-w-[95vw] sm:max-w-7xl max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-4 border-b shrink-0">
           <DialogTitle>{store ? '店舗情報編集' : '新規店舗作成'}</DialogTitle>
           <DialogDescription>
             {store ? `${store.name}の情報を編集します` : '新しい店舗を登録します'}
@@ -155,8 +155,8 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-6 pt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
               {/* 左カラム: 基本情報 */}
               <div className="space-y-6">
                 {/* 基本情報セクション */}
@@ -391,7 +391,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
             
             {/* 削除ボタン（スクロールコンテンツの最下部） */}
             {onDelete && store && (
-              <div className="pt-8 pb-4 px-6 border-t mt-8">
+              <div className="pt-4 sm:pt-6 md:pt-8 pb-2 sm:pb-4 px-3 sm:px-4 md:px-6 border-t mt-4 sm:mt-6 md:mt-8">
                 <Button
                   type="button"
                   variant="ghost"
@@ -412,8 +412,8 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
           </div>
 
           {/* アクションボタン */}
-          <div className="px-6 py-4 border-t bg-background shrink-0">
-            <div className="flex gap-2">
+          <div className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 border-t bg-background shrink-0">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 type="button"
                 variant="outline"
