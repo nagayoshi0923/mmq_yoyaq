@@ -206,6 +206,10 @@ serve(async (req) => {
       )
     }
     
+    // メール送信処理
+    let emailSent = false
+    let emailError: string | null = null
+    
     try {
       console.log('📨 メール送信開始:', { from: fromEmail, to: email })
       const emailResponse = await fetch('https://api.resend.com/emails', {
@@ -218,7 +222,7 @@ serve(async (req) => {
           from: fromEmail,
           to: [email],
           subject: existingUser ? '【MMQ】スタッフアカウント登録完了' : '【MMQ】スタッフアカウント招待',
-            html: existingUser 
+          html: existingUser 
               ? `<h2>【MMQ】スタッフアカウント登録完了</h2>
               
 <p>こんにちは、${name}さん</p>
@@ -288,45 +292,47 @@ serve(async (req) => {
   • 心当たりがない場合は無視してください<br>
   • パスワードは誰にも教えないでください
 </p>`,
-          }),
-        })
+        }),
+      })
 
-        if (!emailResponse.ok) {
-          const errorText = await emailResponse.text()
-          console.error('❌ Resend API error:', {
-            status: emailResponse.status,
-            statusText: emailResponse.statusText,
-            error: errorText
-          })
-          
-          // エラーレスポンスをJSONとしてパースを試みる
-          let errorData: any
-          try {
-            errorData = JSON.parse(errorText)
-          } catch {
-            errorData = { message: errorText }
-          }
-          
-          console.error('❌ メール送信失敗の詳細:', errorData)
-          throw new Error(`メール送信に失敗しました: ${errorData.message || errorText}`)
+      if (!emailResponse.ok) {
+        const errorText = await emailResponse.text()
+        console.error('❌ Resend API error:', {
+          status: emailResponse.status,
+          statusText: emailResponse.statusText,
+          error: errorText
+        })
+        
+        // エラーレスポンスをJSONとしてパースを試みる
+        let errorData: any
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { message: errorText }
         }
-
-        const emailData = await emailResponse.json()
-        console.log('✅ メール送信成功:', {
-          emailId: emailData.id,
-          to: email,
-          from: fromEmail
-        })
-      } catch (emailError: any) {
-        console.error('❌ メール送信エラー:', {
-          error: emailError.message,
-          stack: emailError.stack,
-          to: email,
-          from: fromEmail
-        })
-        // メール送信失敗はエラーとしない（ユーザーとスタッフレコードは作成済み）
-        // ただし、ログには詳細を記録
+        
+        console.error('❌ メール送信失敗の詳細:', JSON.stringify(errorData, null, 2))
+        emailError = `メール送信に失敗しました: ${errorData.message || errorText} (Status: ${emailResponse.status})`
+        throw new Error(emailError)
       }
+
+      const emailData = await emailResponse.json()
+      console.log('✅ メール送信成功:', {
+        emailId: emailData.id,
+        to: email,
+        from: fromEmail
+      })
+      emailSent = true
+    } catch (emailErrorCaught: any) {
+      console.error('❌ メール送信エラー:', {
+        error: emailErrorCaught.message,
+        stack: emailErrorCaught.stack,
+        to: email,
+        from: fromEmail
+      })
+      emailError = emailErrorCaught.message || 'メール送信に失敗しました'
+      // メール送信失敗はエラーとしない（ユーザーとスタッフレコードは作成済み）
+      // ただし、レスポンスにはエラー情報を含める
     }
 
     return new Response(
@@ -337,7 +343,10 @@ serve(async (req) => {
           user_id: userId,
           staff_id: staffData.id,
           email: email,
-          name: name
+          name: name,
+          email_sent: emailSent,
+          email_error: emailError || null,
+          invite_link: inviteLink
         }
       }),
       {
@@ -349,12 +358,12 @@ serve(async (req) => {
       }
     )
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error:', error)
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: error?.message || String(error)
       }),
       {
         headers: {
