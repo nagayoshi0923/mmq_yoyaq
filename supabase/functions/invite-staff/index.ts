@@ -61,22 +61,14 @@ serve(async (req) => {
       
       if (existingStaffByEmail) {
         if (existingStaffByEmail.user_id && existingStaffByEmail.user_id !== userId) {
-          // 別のユーザーに紐付いている場合はエラー
-          return new Response(
-            JSON.stringify({
-              success: false,
-              error: 'このメールアドレスのスタッフは別のユーザーアカウントに紐付いています'
-            }),
-            {
-              headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-              },
-              status: 400
-            }
-          )
+          // 別のユーザーに紐付いている場合でも、現在のユーザーに上書きして招待
+          console.log('⚠️ 既存のstaffレコードが別のユーザーに紐付いています。上書きして招待します:', existingStaffByEmail.id)
+        } else {
+          console.log('📝 既存のstaffレコードが見つかりました。更新してメールを再送信します:', existingStaffByEmail.id)
         }
-        console.log('📝 既存のstaffレコードが見つかりました。更新してメールを再送信します:', existingStaffByEmail.id)
+      } else {
+        // 既存ユーザーだがstaffレコードがない場合
+        console.log('📝 既存ユーザーですが、staffレコードがありません。新規作成して招待します')
       }
     } else {
       // 新規ユーザーを作成（パスワード未設定、メール未確認状態）
