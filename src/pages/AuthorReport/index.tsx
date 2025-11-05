@@ -68,28 +68,28 @@ export default function AuthorReport() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4 md:space-y-6">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">作者レポート</h1>
-          <p className="text-muted-foreground">作者別の公演実績レポート</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">作者レポート</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm md:text-base">作者別の公演実績レポート</p>
         </div>
       </div>
 
       {/* フィルター */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             フィルター
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="p-3 sm:p-4 md:p-6">
+          <div className="space-y-3 sm:space-y-4">
             {/* 月選択 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">対象月</label>
+            <div className="space-y-1 sm:space-y-2">
+              <label className="text-xs sm:text-sm font-medium">対象月</label>
               <MonthSwitcher
                 value={currentDate}
                 onChange={setCurrentDate}
@@ -99,12 +99,12 @@ export default function AuthorReport() {
             </div>
 
             {/* その他のフィルター */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {/* 店舗 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">店舗</label>
+              <div className="space-y-1 sm:space-y-2">
+                <label className="text-xs sm:text-sm font-medium">店舗</label>
                 <Select value={selectedStore} onValueChange={setSelectedStore}>
-                  <SelectTrigger>
+                  <SelectTrigger className="text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -114,15 +114,15 @@ export default function AuthorReport() {
               </div>
 
               {/* 作者検索 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">作者検索</label>
+              <div className="space-y-1 sm:space-y-2">
+                <label className="text-xs sm:text-sm font-medium">作者検索</label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                   <Input
                     placeholder="作者名で検索..."
                     value={searchAuthor}
                     onChange={(e) => setSearchAuthor(e.target.value)}
-                    className="pl-10"
+                    className="pl-7 sm:pl-10 text-xs sm:text-sm"
                   />
                 </div>
               </div>
@@ -134,108 +134,105 @@ export default function AuthorReport() {
       {/* データ表示 */}
       {loading ? (
         <Card>
-          <CardContent className="py-12">
-            <p className="text-center text-muted-foreground">読み込み中...</p>
+          <CardContent className="py-8 sm:py-12 p-3 sm:p-4 md:p-6">
+            <p className="text-center text-muted-foreground text-xs sm:text-sm">読み込み中...</p>
           </CardContent>
         </Card>
       ) : (
         finalData.map(monthData => (
           <Card key={monthData.month}>
-            <CardHeader>
-              <CardTitle>{monthData.month}</CardTitle>
+            <CardHeader className="p-3 sm:p-4 md:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">{monthData.month}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 sm:p-4 md:p-6">
               {monthData.authors.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground">データがありません</p>
+                <p className="text-center py-6 sm:py-8 text-muted-foreground text-xs sm:text-sm">データがありません</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[50px]"></TableHead>
-                      <TableHead>作者</TableHead>
-                      <TableHead className="text-right w-24">公演数</TableHead>
-                      <TableHead className="text-right w-32">ライセンス料</TableHead>
-                      <TableHead className="text-right w-28">所要時間</TableHead>
-                      <TableHead className="text-right w-[150px]">アクション</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {monthData.authors.map((author) => {
-                      const isExpanded = expandedAuthors.has(author.author)
-                      return (
-                        <Fragment key={author.author}>
-                          {/* メイン行 */}
-                          <TableRow>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleAuthorExpand(author.author)}
-                                className="h-6 w-6 p-0"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </TableCell>
-                            <TableCell>
-                              <span className="font-medium">{author.author}</span>
-                            </TableCell>
-                            <TableCell className="text-right">{author.totalEvents}回</TableCell>
-                            <TableCell className="text-right">
-                              <span className="font-medium">¥{author.totalLicenseCost.toLocaleString()}</span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {Math.round(author.totalDuration / 60)}時間
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex gap-2 justify-end">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[30px] sm:w-[50px]"></TableHead>
+                        <TableHead className="text-xs sm:text-sm">作者</TableHead>
+                        <TableHead className="text-right w-16 sm:w-24 text-xs sm:text-sm">公演数</TableHead>
+                        <TableHead className="text-right w-20 sm:w-32 text-xs sm:text-sm hidden sm:table-cell">ライセンス料</TableHead>
+                        <TableHead className="text-right w-20 sm:w-28 text-xs sm:text-sm hidden md:table-cell">所要時間</TableHead>
+                        <TableHead className="text-right w-[100px] sm:w-[150px] text-xs sm:text-sm">アクション</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {monthData.authors.map((author) => {
+                        const isExpanded = expandedAuthors.has(author.author)
+                        return (
+                          <Fragment key={author.author}>
+                            {/* メイン行 */}
+                            <TableRow>
+                              <TableCell className="p-2 sm:p-4">
                                 <Button
-                                  variant="outline"
+                                  variant="ghost"
                                   size="sm"
-                                  onClick={() => handleCopy(author)}
-                                  className="h-8"
+                                  onClick={() => toggleAuthorExpand(author.author)}
+                                  className="h-5 w-5 sm:h-6 sm:w-6 p-0"
                                 >
-                                  {copiedAuthor === author.author ? (
-                                    <>
-                                      <Check className="h-4 w-4 mr-1" />
-                                      コピー済み
-                                    </>
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
                                   ) : (
-                                    <>
-                                      <Copy className="h-4 w-4 mr-1" />
-                                      コピー
-                                    </>
+                                    <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                                   )}
                                 </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleSendEmail(author)}
-                                  className="h-8"
-                                >
-                                  <Mail className="h-4 w-4 mr-1" />
-                                  Gmail
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                          
-                          {/* 展開行 */}
-                          {isExpanded && (
-                            <TableRow>
-                              <TableCell colSpan={6} className="p-0">
-                                {renderExpandedRow(author)}
+                              </TableCell>
+                              <TableCell className="p-2 sm:p-4">
+                                <span className="font-medium text-xs sm:text-sm">{author.author}</span>
+                              </TableCell>
+                              <TableCell className="text-right p-2 sm:p-4 text-xs sm:text-sm">{author.totalEvents}回</TableCell>
+                              <TableCell className="text-right p-2 sm:p-4 text-xs sm:text-sm hidden sm:table-cell">
+                                <span className="font-medium">¥{author.totalLicenseCost.toLocaleString()}</span>
+                              </TableCell>
+                              <TableCell className="text-right p-2 sm:p-4 text-xs sm:text-sm hidden md:table-cell">
+                                {Math.round(author.totalDuration / 60)}時間
+                              </TableCell>
+                              <TableCell className="text-right p-2 sm:p-4">
+                                <div className="flex gap-1 sm:gap-2 justify-end">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleCopy(author)}
+                                    className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                                    title={copiedAuthor === author.author ? 'コピー済み' : 'コピー'}
+                                  >
+                                    {copiedAuthor === author.author ? (
+                                      <Check className="h-3 w-3 sm:h-4 sm:w-4" />
+                                    ) : (
+                                      <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleSendEmail(author)}
+                                    className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                                    title="Gmail"
+                                  >
+                                    <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
-                          )}
-                        </Fragment>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
+                            
+                            {/* 展開行 */}
+                            {isExpanded && (
+                              <TableRow>
+                                <TableCell colSpan={6} className="p-0">
+                                  {renderExpandedRow(author)}
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </Fragment>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>

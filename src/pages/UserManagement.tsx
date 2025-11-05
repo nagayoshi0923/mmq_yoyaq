@@ -170,37 +170,37 @@ export function UserManagement() {
 
   // ユーザーカードコンポーネント
   const UserCard = ({ userData }: { userData: User }) => (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <Card className="mt-4 sm:mt-6">
+      <CardHeader className="p-3 sm:p-4 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
           {getRoleIcon(userData.role)}
-          {userData.email}
+          <span className="break-words">{userData.email}</span>
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-xs sm:text-sm break-words">
           ユーザーID: {userData.id}
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="p-3 sm:p-4 md:p-6">
+        <div className="space-y-3 sm:space-y-4">
           <div>
-            <p className="text-sm text-gray-600 mb-2">現在のロール</p>
-            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium border ${getRoleBadgeColor(userData.role)}`}>
+            <p className="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">現在のロール</p>
+            <span className={`inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium border ${getRoleBadgeColor(userData.role)}`}>
               {getRoleIcon(userData.role)}
               {getRoleLabel(userData.role)}
             </span>
           </div>
 
           <div>
-            <p className="text-sm text-gray-600 mb-3">ロールを変更</p>
-            <div className="flex gap-2 flex-wrap">
+            <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">ロールを変更</p>
+            <div className="flex gap-1 sm:gap-2 flex-wrap">
               <Button
                 variant={userData.role === 'admin' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => handleRoleUpdate(userData.id, 'admin')}
                 disabled={loading || userData.role === 'admin'}
-                className="flex items-center gap-1"
+                className="flex items-center gap-1 text-xs sm:text-sm"
               >
-                <Shield className="w-4 h-4" />
+                <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
                 管理者
               </Button>
               <Button
@@ -208,9 +208,9 @@ export function UserManagement() {
                 size="sm"
                 onClick={() => handleRoleUpdate(userData.id, 'staff')}
                 disabled={loading || userData.role === 'staff'}
-                className="flex items-center gap-1"
+                className="flex items-center gap-1 text-xs sm:text-sm"
               >
-                <UserCog className="w-4 h-4" />
+                <UserCog className="w-3 h-3 sm:w-4 sm:h-4" />
                 スタッフ
               </Button>
               <Button
@@ -218,15 +218,15 @@ export function UserManagement() {
                 size="sm"
                 onClick={() => handleRoleUpdate(userData.id, 'customer')}
                 disabled={loading || userData.role === 'customer'}
-                className="flex items-center gap-1"
+                className="flex items-center gap-1 text-xs sm:text-sm"
               >
-                <UserIcon className="w-4 h-4" />
+                <UserIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                 顧客
               </Button>
             </div>
           </div>
 
-          <div className="pt-4 border-t text-xs text-gray-500">
+          <div className="pt-3 sm:pt-4 border-t text-[10px] sm:text-xs text-gray-500">
             <p>作成日: {new Date(userData.created_at).toLocaleString('ja-JP')}</p>
             <p>更新日: {new Date(userData.updated_at).toLocaleString('ja-JP')}</p>
           </div>
@@ -248,47 +248,47 @@ export function UserManagement() {
         />
       }
       maxWidth="max-w-[1600px]"
-      containerPadding="p-6"
+      containerPadding="px-2 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      <div className="space-y-6">
+      <div className="space-y-3 sm:space-y-4 md:space-y-6">
         <div></div>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="w-5 h-5" />
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+            <Search className="w-4 h-4 sm:w-5 sm:h-5" />
             メールアドレスで検索
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm">
             ユーザーのメールアドレスを入力して検索してください
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSearch} className="space-y-4">
-            <div className="flex gap-2">
+        <CardContent className="p-3 sm:p-4 md:p-6">
+          <form onSubmit={handleSearch} className="space-y-3 sm:space-y-4">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="email"
                 value={searchEmail}
                 onChange={(e) => setSearchEmail(e.target.value)}
                 placeholder="user@example.com"
-                className="flex-1 px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring text-xs sm:text-sm"
                 disabled={loading}
               />
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="text-xs sm:text-sm">
                 {loading ? '検索中...' : '検索'}
               </Button>
             </div>
           </form>
 
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
             <Button
               variant="outline"
               onClick={loadAllUsers}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2"
+              className="w-full flex items-center justify-center gap-2 text-xs sm:text-sm"
             >
-              <Users className="w-4 h-4" />
-              {showAllUsers ? '全ユーザーを再読み込み' : '全ユーザーを表示'}
+              <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="truncate">{showAllUsers ? '全ユーザーを再読み込み' : '全ユーザーを表示'}</span>
             </Button>
           </div>
         </CardContent>
@@ -296,11 +296,11 @@ export function UserManagement() {
 
       {/* エラーメッセージ */}
       {error && (
-        <Card className="mt-4 border-red-200 bg-red-50">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3 text-red-800">
-              <AlertCircle className="w-5 h-5 mt-0.5" />
-              <p>{error}</p>
+        <Card className="mt-3 sm:mt-4 border-red-200 bg-red-50">
+          <CardContent className="pt-4 sm:pt-6 p-3 sm:p-4 md:p-6">
+            <div className="flex items-start gap-2 sm:gap-3 text-red-800">
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mt-0.5 flex-shrink-0" />
+              <p className="text-xs sm:text-sm break-words">{error}</p>
             </div>
           </CardContent>
         </Card>
@@ -308,9 +308,9 @@ export function UserManagement() {
 
       {/* 成功メッセージ */}
       {message && (
-        <Card className="mt-4 border-green-200 bg-green-50">
-          <CardContent className="pt-6">
-            <p className="text-green-800">{message}</p>
+        <Card className="mt-3 sm:mt-4 border-green-200 bg-green-50">
+          <CardContent className="pt-4 sm:pt-6 p-3 sm:p-4 md:p-6">
+            <p className="text-green-800 text-xs sm:text-sm">{message}</p>
           </CardContent>
         </Card>
       )}
@@ -320,63 +320,63 @@ export function UserManagement() {
 
       {/* 全ユーザー一覧 */}
       {showAllUsers && allUsers.length > 0 && (
-        <div className="mt-8">
+        <div className="mt-4 sm:mt-6 md:mt-8">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
+            <CardHeader className="p-3 sm:p-4 md:p-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                 全ユーザー ({allUsers.length}人)
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 システムに登録されている全てのユーザー
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="p-3 sm:p-4 md:p-6">
+              <div className="space-y-2 sm:space-y-3 md:space-y-4">
                 {allUsers.map((userData) => (
-                  <div key={userData.id} className="border rounded-lg p-4 hover:bg-gray-50 transition">
-                    <div className="flex items-start justify-between gap-4">
+                  <div key={userData.id} className="border rounded-lg p-2 sm:p-3 md:p-4 hover:bg-gray-50 transition">
+                    <div className="flex items-start justify-between gap-2 sm:gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-1 sm:gap-2 mb-1">
                           {getRoleIcon(userData.role)}
-                          <p className="font-medium truncate">{userData.email}</p>
+                          <p className="font-medium truncate text-xs sm:text-sm md:text-base">{userData.email}</p>
                         </div>
-                        <p className="text-xs text-gray-500 truncate">ID: {userData.id}</p>
+                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">ID: {userData.id}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${getRoleBadgeColor(userData.role)}`}>
+                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                        <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium border whitespace-nowrap ${getRoleBadgeColor(userData.role)}`}>
                           {getRoleLabel(userData.role)}
                         </span>
-                        <div className="flex gap-1">
+                        <div className="flex gap-0.5 sm:gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'admin')}
                             disabled={loading || userData.role === 'admin'}
-                            className="h-8 w-8 p-0"
+                            className="h-6 w-6 sm:h-8 sm:w-8 p-0"
                             title="管理者に変更"
                           >
-                            <Shield className="w-4 h-4" />
+                            <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'staff')}
                             disabled={loading || userData.role === 'staff'}
-                            className="h-8 w-8 p-0"
+                            className="h-6 w-6 sm:h-8 sm:w-8 p-0"
                             title="スタッフに変更"
                           >
-                            <UserCog className="w-4 h-4" />
+                            <UserCog className="w-3 h-3 sm:w-4 sm:h-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'customer')}
                             disabled={loading || userData.role === 'customer'}
-                            className="h-8 w-8 p-0"
+                            className="h-6 w-6 sm:h-8 sm:w-8 p-0"
                             title="顧客に変更"
                           >
-                            <UserIcon className="w-4 h-4" />
+                            <UserIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                           </Button>
                         </div>
                       </div>
@@ -391,23 +391,23 @@ export function UserManagement() {
 
       {/* 全ユーザー表示時で0件の場合 */}
       {showAllUsers && allUsers.length === 0 && (
-        <Card className="mt-8 border-gray-200 bg-gray-50">
-          <CardContent className="pt-6">
-            <p className="text-gray-600 text-center">登録されているユーザーがいません</p>
+        <Card className="mt-4 sm:mt-6 md:mt-8 border-gray-200 bg-gray-50">
+          <CardContent className="pt-4 sm:pt-6 p-3 sm:p-4 md:p-6">
+            <p className="text-gray-600 text-center text-xs sm:text-sm">登録されているユーザーがいません</p>
           </CardContent>
         </Card>
       )}
 
       {/* 使い方の説明 */}
-      <Card className="mt-8 bg-blue-50 border-blue-200">
-        <CardHeader>
-          <CardTitle className="text-blue-900">使い方</CardTitle>
+      <Card className="mt-4 sm:mt-6 md:mt-8 bg-blue-50 border-blue-200">
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="text-blue-900 text-base sm:text-lg md:text-xl">使い方</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-blue-800 space-y-2">
+        <CardContent className="text-xs sm:text-sm text-blue-800 space-y-1 sm:space-y-2 p-3 sm:p-4 md:p-6 pt-0">
           <p>1. 上部の検索ボックスにメールアドレスを入力して検索</p>
           <p>2. または「全ユーザーを表示」をクリックして一覧から選択</p>
           <p>3. ユーザーが見つかったら、適切なロールを選択</p>
-          <div className="mt-4 pt-4 border-t border-blue-300 space-y-1">
+          <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-300 space-y-1">
             <p className="font-semibold">ロールの説明:</p>
             <p>• <strong>管理者</strong>: すべての機能にアクセス可能</p>
             <p>• <strong>スタッフ</strong>: スタッフ向け機能にアクセス可能</p>

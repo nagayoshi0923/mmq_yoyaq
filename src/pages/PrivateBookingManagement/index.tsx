@@ -220,29 +220,31 @@ export function PrivateBookingManagement() {
         />
       }
       maxWidth="max-w-[1600px]"
-      containerPadding="px-6 py-6"
+      containerPadding="px-2 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      <div className="space-y-6">
-        <div className="flex justify-between items-center mb-6">
+      <div className="space-y-3 sm:space-y-4 md:space-y-6">
+        <div className="flex justify-between items-center mb-3 sm:mb-4 md:mb-6">
           <div></div>
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')}>
-          <div className="flex items-center justify-between mb-6">
-            <TabsList>
-              <TabsTrigger value="pending">店舗確認待ち ({pendingRequests.length})</TabsTrigger>
-              <TabsTrigger value="all">全て ({requests.length})</TabsTrigger>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="pending" className="text-xs sm:text-sm">店舗確認待ち ({pendingRequests.length})</TabsTrigger>
+              <TabsTrigger value="all" className="text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
             </TabsList>
             
             {activeTab === 'pending' && (
-              <MonthSwitcher
-                value={currentDate}
-                onChange={setCurrentDate}
-                showToday
-                quickJump
-                enableKeyboard
-              />
+              <div className="flex-shrink-0">
+                <MonthSwitcher
+                  value={currentDate}
+                  onChange={setCurrentDate}
+                  showToday
+                  quickJump
+                  enableKeyboard
+                />
+              </div>
             )}
           </div>
 
@@ -250,12 +252,12 @@ export function PrivateBookingManagement() {
 
             {filteredRequests.length === 0 ? (
               <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
+                <CardContent className="py-8 sm:py-12 text-center text-muted-foreground text-xs sm:text-sm p-3 sm:p-4 md:p-6">
                   該当するリクエストがありません
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 {filteredRequests.map(req => (
                   <BookingRequestCard
                     key={req.id}
@@ -271,11 +273,11 @@ export function PrivateBookingManagement() {
 
         {/* 選択されたリクエストの詳細モーダル */}
         {selectedRequest && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
             <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto" data-detail-section>
-              <CardHeader className="sticky top-0 bg-background z-10 border-b">
-                <div className="flex items-center justify-between">
-                  <CardTitle>リクエスト詳細 - {selectedRequest.scenario_title}</CardTitle>
+              <CardHeader className="sticky top-0 bg-background z-10 border-b p-3 sm:p-4 md:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-base sm:text-lg md:text-xl break-words">リクエスト詳細 - {selectedRequest.scenario_title}</CardTitle>
                   <button
                     onClick={() => {
                       setSelectedRequest(null)
@@ -283,16 +285,16 @@ export function PrivateBookingManagement() {
                       setSelectedStoreId('')
                       setSelectedCandidateOrder(null)
                     }}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-1 sm:p-2 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
                     aria-label="閉じる"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6 p-6">
+              <CardContent className="space-y-4 sm:space-y-6 p-3 sm:p-4 md:p-6">
               <CustomerInfo request={selectedRequest} />
               
               <CandidateDateSelector
@@ -439,32 +441,33 @@ export function PrivateBookingManagement() {
 
         {/* 却下ダイアログ */}
         {showRejectDialog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-2 sm:p-4">
             <Card className="w-full max-w-lg">
-              <CardHeader>
-                <CardTitle>貸切リクエストの却下</CardTitle>
+              <CardHeader className="p-3 sm:p-4 md:p-6">
+                <CardTitle className="text-base sm:text-lg md:text-xl">貸切リクエストの却下</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6">
                 <div>
-                  <label className="block text-sm font-medium mb-2">却下理由</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">却下理由</label>
                   <Textarea
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
-                    rows={8}
+                    rows={6}
                     placeholder="却下理由を入力してください"
+                    className="text-xs sm:text-sm"
                   />
                 </div>
-                <div className="flex gap-2 justify-end">
+                <div className="flex flex-col sm:flex-row gap-2 justify-end">
                   <button
                     onClick={handleRejectCancel}
-                    className="px-4 py-2 border rounded hover:bg-gray-100"
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 border rounded hover:bg-gray-100 text-xs sm:text-sm"
                     disabled={submitting}
                   >
                     キャンセル
                   </button>
                   <button
                     onClick={() => handleRejectConfirm(selectedRequest)}
-                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs sm:text-sm"
                     disabled={submitting || !rejectionReason.trim()}
                   >
                     {submitting ? '処理中...' : '却下する'}

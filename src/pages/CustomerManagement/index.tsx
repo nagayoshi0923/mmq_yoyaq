@@ -62,32 +62,33 @@ export default function CustomerManagement() {
         />
       }
       maxWidth="max-w-[1600px]"
-      containerPadding="px-8 py-6"
+      containerPadding="px-2 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      <main className="space-y-6">
-        <div className="space-y-6">
+      <main className="space-y-3 sm:space-y-4 md:space-y-6">
+        <div className="space-y-3 sm:space-y-4 md:space-y-6">
           <div className="flex items-center justify-between">
             <div></div>
         <Button onClick={() => {
           setSelectedCustomer(null)
           setIsEditModalOpen(true)
-        }}>
-          <UserPlus className="mr-2 h-4 w-4" />
-          新規顧客
+        }} className="text-xs sm:text-sm" size="sm">
+          <UserPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+          <span className="hidden sm:inline">新規顧客</span>
+          <span className="sm:hidden">新規</span>
         </Button>
       </div>
 
       {/* 検索バー */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-4 sm:pt-6 p-3 sm:p-4 md:p-6">
           <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               placeholder="顧客名、メール、電話番号で検索..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-7 sm:pl-10 text-xs sm:text-sm"
             />
           </div>
         </CardContent>
@@ -95,26 +96,26 @@ export default function CustomerManagement() {
 
       {/* 顧客一覧 */}
       <Card>
-        <CardHeader>
-          <CardTitle>顧客一覧 ({filteredCustomers.length}件)</CardTitle>
+        <CardHeader className="p-3 sm:p-4 md:p-6">
+          <CardTitle className="text-base sm:text-lg md:text-xl">顧客一覧 ({filteredCustomers.length}件)</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 sm:p-4 md:p-6">
           {loading ? (
-            <div className="text-center py-8 text-muted-foreground">読み込み中...</div>
+            <div className="text-center py-6 sm:py-8 text-muted-foreground text-xs sm:text-sm">読み込み中...</div>
           ) : filteredCustomers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-6 sm:py-8 text-muted-foreground text-xs sm:text-sm">
               {searchTerm ? '該当する顧客が見つかりません' : '顧客がまだ登録されていません'}
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 overflow-x-auto">
               {/* テーブルヘッダー */}
-              <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-muted/50 rounded-lg text-sm font-medium">
-                <div className="col-span-2">顧客名</div>
-                <div className="col-span-2">メールアドレス</div>
-                <div className="col-span-2">電話番号</div>
-                <div className="col-span-1 text-center">来店回数</div>
-                <div className="col-span-2 text-right">累計支払額</div>
-                <div className="col-span-2">最終来店日</div>
+              <div className="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-muted/50 rounded-lg text-[10px] sm:text-xs md:text-sm font-medium min-w-max">
+                <div className="col-span-3 sm:col-span-2">顧客名</div>
+                <div className="col-span-3 sm:col-span-2 hidden sm:block">メールアドレス</div>
+                <div className="col-span-3 sm:col-span-2 hidden md:block">電話番号</div>
+                <div className="col-span-2 sm:col-span-1 text-center">来店</div>
+                <div className="col-span-3 sm:col-span-2 text-right hidden sm:block">累計支払額</div>
+                <div className="col-span-3 sm:col-span-2 hidden md:block">最終来店日</div>
                 <div className="col-span-1 text-center">詳細</div>
               </div>
 

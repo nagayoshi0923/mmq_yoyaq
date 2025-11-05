@@ -434,63 +434,63 @@ export function AdminDashboard() {
         <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
       )}
 
-      <main className="container mx-auto max-w-7xl px-8 py-6">
-        <div className="space-y-6">
+      <main className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6">
+        <div className="space-y-3 sm:space-y-4 md:space-y-6">
           {/* 概要統計 */}
           <section>
-            <h2>概要</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            <h2 className="text-lg sm:text-xl md:text-2xl">概要</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mt-3 sm:mt-4">
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <Store className="h-5 w-5 text-muted-foreground" />
+                <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base md:text-lg">
+                    <Store className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     店舗数
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.stores}</div>
-                  <p className="text-muted-foreground">店舗運営中</p>
+                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                  <div className="text-xl sm:text-2xl md:text-2xl font-bold">{stats.stores}</div>
+                  <p className="text-muted-foreground text-xs sm:text-sm">店舗運営中</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-muted-foreground" />
+                <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base md:text-lg">
+                    <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     公演数
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.performances}</div>
-                  <p className="text-muted-foreground">シナリオ登録済み</p>
+                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                  <div className="text-xl sm:text-2xl md:text-2xl font-bold">{stats.performances}</div>
+                  <p className="text-muted-foreground text-xs sm:text-sm">シナリオ登録済み</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base md:text-lg">
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     今月の予約
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.reservations}</div>
-                  <p className="text-muted-foreground">件の予約</p>
+                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                  <div className="text-xl sm:text-2xl md:text-2xl font-bold">{stats.reservations}</div>
+                  <p className="text-muted-foreground text-xs sm:text-sm">件の予約</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base md:text-lg">
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     今月の売上
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
+                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                  <div className="text-xl sm:text-2xl md:text-2xl font-bold">
                     ¥{stats.revenue.toLocaleString()}
                   </div>
-                  <p className="text-muted-foreground">前月比 +12%</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm">前月比 +12%</p>
                 </CardContent>
               </Card>
             </div>
@@ -498,8 +498,8 @@ export function AdminDashboard() {
 
           {/* ナビゲーションタブ */}
           <section>
-            <h2>機能メニュー</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-4">
+            <h2 className="text-lg sm:text-xl md:text-2xl">機能メニュー</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 md:gap-4 mt-3 sm:mt-4">
               {navigationTabs.map((tab) => {
                 const Icon = tab.icon
                 return (
@@ -508,14 +508,14 @@ export function AdminDashboard() {
                     className="hover:bg-accent cursor-pointer transition-colors"
                         onClick={() => handlePageChange(tab.id)}
                   >
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2">
-                        <Icon className="h-5 w-5" />
-                        {tab.label}
+                    <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
+                      <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base md:text-lg">
+                        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="truncate">{tab.label}</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <Badge className={tab.color}>
+                    <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                      <Badge className={`${tab.color} text-xs sm:text-sm`}>
                         {tab.id === 'stores' && '6店舗'}
                         {tab.id === 'schedule' && '今月128件'}
                         {tab.id === 'staff' && '15名'}
@@ -535,39 +535,39 @@ export function AdminDashboard() {
 
           {/* 最近の活動 */}
           <section>
-            <h2>最近の活動</h2>
-            <Card className="mt-4">
-              <CardHeader>
-                <CardTitle>システム活動ログ</CardTitle>
-                <CardDescription>最新の予約・変更・キャンセル情報</CardDescription>
+            <h2 className="text-lg sm:text-xl md:text-2xl">最近の活動</h2>
+            <Card className="mt-3 sm:mt-4">
+              <CardHeader className="p-3 sm:p-4 md:p-6">
+                <CardTitle className="text-base sm:text-lg md:text-xl">システム活動ログ</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">最新の予約・変更・キャンセル情報</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 border border-border rounded-md">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <div className="flex-1">
-                      <p><strong>新規予約</strong> - 高田馬場店「人狼村の悲劇」</p>
-                      <p className="text-muted-foreground">2024年12月25日 14:00-17:00 / 6名</p>
+              <CardContent className="p-3 sm:p-4 md:p-6">
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-border rounded-md">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm"><strong>新規予約</strong> - 高田馬場店「人狼村の悲劇」</p>
+                      <p className="text-muted-foreground text-[10px] sm:text-xs">2024年12月25日 14:00-17:00 / 6名</p>
                     </div>
-                    <Badge className="bg-blue-100 text-blue-800">5分前</Badge>
+                    <Badge className="bg-blue-100 text-blue-800 text-[10px] sm:text-xs flex-shrink-0">5分前</Badge>
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 border border-border rounded-md">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    <div className="flex-1">
-                      <p><strong>貸切予約</strong> - 別館②「密室の謎」</p>
-                      <p className="text-muted-foreground">2024年12月26日 19:00-22:00 / 8名</p>
+                  <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-border rounded-md">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm"><strong>貸切予約</strong> - 別館②「密室の謎」</p>
+                      <p className="text-muted-foreground text-[10px] sm:text-xs">2024年12月26日 19:00-22:00 / 8名</p>
                     </div>
-                    <Badge className="bg-purple-100 text-purple-800">15分前</Badge>
+                    <Badge className="bg-purple-100 text-purple-800 text-[10px] sm:text-xs flex-shrink-0">15分前</Badge>
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 border border-border rounded-md">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                    <div className="flex-1">
-                      <p><strong>GMテスト</strong> - 大久保店「新シナリオ検証」</p>
-                      <p className="text-muted-foreground">2024年12月24日 10:00-13:00 / スタッフ4名</p>
+                  <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-border rounded-md">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0"></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm"><strong>GMテスト</strong> - 大久保店「新シナリオ検証」</p>
+                      <p className="text-muted-foreground text-[10px] sm:text-xs">2024年12月24日 10:00-13:00 / スタッフ4名</p>
                     </div>
-                    <Badge className="bg-orange-100 text-orange-800">1時間前</Badge>
+                    <Badge className="bg-orange-100 text-orange-800 text-[10px] sm:text-xs flex-shrink-0">1時間前</Badge>
                   </div>
                 </div>
               </CardContent>

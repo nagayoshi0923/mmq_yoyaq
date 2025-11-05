@@ -105,40 +105,42 @@ export function GMAvailabilityCheck() {
         />
       }
       maxWidth="max-w-[1600px]"
-      containerPadding="px-6 py-6"
+      containerPadding="px-2 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      <div className="space-y-6">
-        <div className="flex justify-between items-center mb-6">
+      <div className="space-y-3 sm:space-y-4 md:space-y-6">
+        <div className="flex justify-between items-center mb-3 sm:mb-4 md:mb-6">
           <div></div>
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')} className="w-full">
-          <div className="flex items-center justify-between mb-6">
-            <TabsList>
-              <TabsTrigger value="pending">未回答 ({pendingRequests.length})</TabsTrigger>
-              <TabsTrigger value="all">全て ({requests.length})</TabsTrigger>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="pending" className="text-xs sm:text-sm">未回答 ({pendingRequests.length})</TabsTrigger>
+              <TabsTrigger value="all" className="text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
             </TabsList>
             
-            <MonthSwitcher
-              value={currentDate}
-              onChange={setCurrentDate}
-              showToday
-              quickJump
-              enableKeyboard
-            />
+            <div className="flex-shrink-0">
+              <MonthSwitcher
+                value={currentDate}
+                onChange={setCurrentDate}
+                showToday
+                quickJump
+                enableKeyboard
+              />
+            </div>
           </div>
 
           {/* 未回答タブ */}
           <TabsContent value="pending" className="mt-0">
             {pendingRequests.length === 0 ? (
               <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
+                <CardContent className="py-8 sm:py-12 text-center text-muted-foreground text-xs sm:text-sm p-3 sm:p-4 md:p-6">
                   未回答のリクエストはありません
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {pendingRequests.map((request) => (
                   <RequestCard
                     key={request.id}
@@ -160,12 +162,12 @@ export function GMAvailabilityCheck() {
           <TabsContent value="all" className="mt-0">
             {allRequests.length === 0 ? (
               <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
+                <CardContent className="py-8 sm:py-12 text-center text-muted-foreground text-xs sm:text-sm p-3 sm:p-4 md:p-6">
                   {formatMonthYear(currentDate)}のリクエストはありません
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {allRequests.map((request) => (
                   <RequestCard
                     key={request.id}
