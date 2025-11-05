@@ -50,30 +50,7 @@ serve(async (req) => {
       userId = existingUser.id
       console.log('✅ Existing user found:', userId)
       
-      // 既にstaffテーブルにレコードがあるか確認（user_idで検索）
-      const { data: existingStaffByUserId, error: staffCheckError } = await supabase
-        .from('staff')
-        .select('id, user_id, email')
-        .eq('user_id', userId)
-        .maybeSingle()
-      
-      if (existingStaffByUserId) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'このメールアドレスのスタッフは既に登録されています'
-          }),
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*'
-            },
-            status: 400
-          }
-        )
-      }
-      
-      // メールアドレスでstaffレコードを検索（user_idがNULLの可能性がある）
+      // メールアドレスでstaffレコードを検索（既存レコードの更新のため）
       const { data: staffByEmail, error: emailCheckError } = await supabase
         .from('staff')
         .select('id, user_id, email, phone, line_name, x_account, discord_id, discord_channel_id, role, stores')
@@ -82,26 +59,24 @@ serve(async (req) => {
       
       existingStaffByEmail = staffByEmail
       
-      if (existingStaffByEmail && existingStaffByEmail.user_id) {
-        // user_idが既に設定されている場合はエラー
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'このメールアドレスのスタッフは既に登録されています'
-          }),
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*'
-            },
-            status: 400
-          }
-        )
-      }
-      
-      // user_idがNULLの場合は、既存のstaffレコードを更新するフラグを設定
-      if (existingStaffByEmail && !existingStaffByEmail.user_id) {
-        console.log('⚠️ 既存のstaffレコード（user_id未設定）が見つかりました。更新します:', existingStaffByEmail.id)
+      if (existingStaffByEmail) {
+        if (existingStaffByEmail.user_id && existingStaffByEmail.user_id !== userId) {
+          // 別のユーザーに紐付いている場合はエラー
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'このメールアドレスのスタッフは別のユーザーアカウントに紐付いています'
+            }),
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              },
+              status: 400
+            }
+          )
+        }
+        console.log('📝 既存のstaffレコードが見つかりました。更新してメールを再送信します:', existingStaffByEmail.id)
       }
     } else {
       // 新規ユーザーを作成（パスワード未設定、メール未確認状態）
@@ -159,8 +134,8 @@ serve(async (req) => {
     // 3. staffテーブルにレコード作成または更新
     let staffData: any
     
-    // 既存のstaffレコード（user_id未設定）が見つかった場合、更新する
-    if (existingStaffByEmail && !existingStaffByEmail.user_id) {
+    // 既存のstaffレコードが見つかった場合、更新する（既に登録済みでも上書き）
+    if (existingStaffByEmail) {
       // 既存のstaffレコードを更新
       console.log('📝 既存のstaffレコードを更新:', existingStaffByEmail.id)
       const { data: updatedStaff, error: updateError } = await supabase
@@ -326,9 +301,45 @@ serve(async (req) => {
         body: JSON.stringify({
           from: fromEmail,
           to: [email],
-          subject: existingUser ? '【MMQ】スタッフアカウント登録完了' : '【MMQ】スタッフアカウント招待',
-            html: existingUser 
-              ? `<h2>【MMQ】スタッフアカウント登録完了</h2>
+          subject: existingStaffByEmail && existingStaffByEmail.user_id 
+            ? '【MMQ】スタッフ招待メール（再送信）' 
+            : existingUser 
+              ? '【MMQ】スタッフアカウント登録完了' 
+              : '【MMQ】スタッフアカウント招待',
+            html: existingStaffByEmail && existingStaffByEmail.user_id
+              ? `<h2>【MMQ】スタッフ招待メール（再送信）</h2>
+              
+<p>こんにちは、${name}さん</p>
+
+<p>謎解きカフェ・バーMMQのスタッフ管理システムへの招待メールを再送信しました。</p>
+
+<p>既に登録済みのスタッフですが、下のリンクからパスワードをリセットして、スタッフページにアクセスできます。</p>
+
+<p style="text-align: center; margin: 30px 0;">
+  <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードをリセットする</a>
+</p>
+
+<p style="font-size: 12px; color: #666;">
+  または、以下のリンクをコピーしてブラウザに貼り付けてください：<br>
+  <a href="${inviteLink}">${inviteLink}</a>
+</p>
+
+<h3>📋 スタッフとしてできること</h3>
+<ul>
+  <li>シフト提出</li>
+  <li>スケジュール確認</li>
+  <li>予約確認</li>
+</ul>
+
+<hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+
+<p style="color: #666; font-size: 12px;">
+  <strong>⚠️ 注意事項</strong><br>
+  • 既に登録済みのスタッフですが、招待メールを再送信しました<br>
+  • 心当たりがない場合は無視してください
+</p>`
+              : existingUser 
+                ? `<h2>【MMQ】スタッフアカウント登録完了</h2>
               
 <p>こんにちは、${name}さん</p>
 
