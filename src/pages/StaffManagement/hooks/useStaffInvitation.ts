@@ -1,7 +1,9 @@
 import { useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { staffApi } from '@/lib/api'
 import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
+import { staffKeys } from './useStaffQuery'
 import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
 
@@ -14,6 +16,7 @@ interface UseStaffInvitationProps {
  * スタッフ招待と紐付けロジックを管理するフック
  */
 export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationProps = {}) {
+  const queryClient = useQueryClient()
   /**
    * メールアドレスでユーザーを検索
    */
@@ -180,11 +183,21 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
 
     try {
       // staffテーブルのuser_idをNULLに設定
-      await staffApi.update(staff.id, {
+      const updatedStaff = {
         ...staff,
         user_id: null,
         email: staff.email || null // emailも保持（必要に応じて）
+      }
+      
+      await staffApi.update(staff.id, updatedStaff)
+
+      // React Queryのキャッシュを更新
+      queryClient.setQueryData<Staff[]>(staffKeys.all, (old = []) => {
+        return old.map(s => s.id === staff.id ? updatedStaff : s)
       })
+      
+      // キャッシュを無効化して最新データを取得
+      await queryClient.invalidateQueries({ queryKey: staffKeys.all })
 
       alert(`✅ ${staff.name}さんとアカウントの連携を解除しました`)
       onSuccess?.()
@@ -194,7 +207,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       alert(errorMessage)
       onError?.(errorMessage)
     }
-  }, [onSuccess, onError])
+  }, [onSuccess, onError, queryClient])
 
   return {
     searchUserByEmail,
