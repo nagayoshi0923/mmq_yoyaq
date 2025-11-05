@@ -29,7 +29,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   sidebar, 
   children, 
   maxWidth = 'max-w-[1600px]',
-  containerPadding = 'px-4 py-8',
+  containerPadding = 'px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8',
   stickyLayout = false,
   className = ''
 }) => {
@@ -53,7 +53,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           )}
           
           {/* メインコンテンツ（スクロール可能） */}
-          <div className="flex-1 min-w-0 overflow-y-auto">
+          <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
             <div className={containerPadding}>
               {children}
             </div>
@@ -78,7 +78,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         )}
         
         {/* メインコンテンツ */}
-        <div className={`flex-1 min-w-0 ${maxWidth} ${className}`}>
+        <div className={`flex-1 min-w-0 w-full ${maxWidth} ${className} mx-auto`}>
           <div className={containerPadding}>
             {children}
           </div>
