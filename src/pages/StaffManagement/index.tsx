@@ -12,6 +12,7 @@ import { StaffEditForm } from './components/StaffEditForm'
 import { usePageState } from '@/hooks/usePageState'
 import { supabase } from '@/lib/supabase'
 import { staffApi } from '@/lib/api'
+import type { Staff } from '@/types'
 import { 
   Users, Clock, Shield, CheckCircle2
 } from 'lucide-react'
@@ -135,14 +136,16 @@ export function StaffManagement() {
     closeDeleteDialog
   } = useStaffModals()
 
-  // 招待・紐付け
+  // 招待・紐付け・連携解除
   const {
     handleInviteStaff,
-    handleLinkWithInvite
+    handleLinkWithInvite,
+    handleUnlinkUser
   } = useStaffInvitation({
     onSuccess: async () => {
       closeInviteModal()
       closeLinkModal()
+      closeUnlinkDialog()
       // React Queryが自動でリロード
     }
   })
@@ -181,11 +184,35 @@ export function StaffManagement() {
     openEditModal(staff)
   }
 
+  // 連携解除モーダル
+  const [unlinkDialogOpen, setUnlinkDialogOpen] = useState(false)
+  const [staffToUnlink, setStaffToUnlink] = useState<Staff | null>(null)
+  
+  const openUnlinkDialog = (staff: Staff) => {
+    setStaffToUnlink(staff)
+    setUnlinkDialogOpen(true)
+  }
+  
+  const closeUnlinkDialog = () => {
+    setUnlinkDialogOpen(false)
+    setStaffToUnlink(null)
+  }
+  
+  const handleConfirmUnlink = async () => {
+    if (!staffToUnlink) return
+    await handleUnlinkUser(staffToUnlink)
+  }
+
   // テーブル列定義（メモ化）
   const tableColumns = useMemo(
     () => createStaffColumns(
       { stores, getScenarioName },
-      { onEdit: handleEditStaff, onLink: openLinkModal, onDelete: openDeleteDialog }
+      { 
+        onEdit: handleEditStaff, 
+        onLink: openLinkModal, 
+        onUnlink: openUnlinkDialog,
+        onDelete: openDeleteDialog 
+      }
     ),
     [stores, getScenarioName]
   )
@@ -436,6 +463,17 @@ export function StaffManagement() {
           message={`${staffToDelete?.name}さんのデータを削除します。この操作は取り消せません。`}
           variant="danger"
           confirmLabel="削除する"
+        />
+
+        {/* 連携解除確認ダイアログ */}
+        <ConfirmModal
+          open={unlinkDialogOpen}
+          onClose={closeUnlinkDialog}
+          onConfirm={handleConfirmUnlink}
+          title="アカウント連携を解除"
+          message={`${staffToUnlink?.name}さんとアカウントの連携を解除します。このスタッフはログインできなくなりますが、データは残ります。`}
+          variant="warning"
+          confirmLabel="連携解除"
         />
 
         {/* スタッフ招待モーダル（既存コードを一時的に簡略化） */}

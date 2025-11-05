@@ -169,11 +169,39 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
     }
   }, [onSuccess, onError])
 
+  /**
+   * スタッフとアカウントの連携を解除
+   */
+  const handleUnlinkUser = useCallback(async (staff: Staff) => {
+    if (!staff.user_id) {
+      alert('このスタッフは既にアカウントと連携されていません')
+      return
+    }
+
+    try {
+      // staffテーブルのuser_idをNULLに設定
+      await staffApi.update(staff.id, {
+        ...staff,
+        user_id: null,
+        email: staff.email || null // emailも保持（必要に応じて）
+      })
+
+      alert(`✅ ${staff.name}さんとアカウントの連携を解除しました`)
+      onSuccess?.()
+    } catch (err: any) {
+      logger.error('Error unlinking user:', err)
+      const errorMessage = '連携解除に失敗しました: ' + err.message
+      alert(errorMessage)
+      onError?.(errorMessage)
+    }
+  }, [onSuccess, onError])
+
   return {
     searchUserByEmail,
     handleInviteStaff,
     handleLinkExistingUser,
-    handleLinkWithInvite
+    handleLinkWithInvite,
+    handleUnlinkUser
   }
 }
 

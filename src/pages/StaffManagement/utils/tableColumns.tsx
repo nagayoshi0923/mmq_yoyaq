@@ -1,4 +1,4 @@
-import { Edit, Link2, Trash2 } from 'lucide-react'
+import { Edit, Link2, Trash2, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -10,6 +10,7 @@ import { getRoleBadges, getStoreColors, getStatusBadge } from './staffFormatters
 interface StaffTableActions {
   onEdit: (member: Staff) => void
   onLink: (member: Staff) => void
+  onUnlink: (member: Staff) => void
   onDelete: (member: Staff) => void
 }
 
@@ -26,7 +27,7 @@ export function createStaffColumns(
   actions: StaffTableActions
 ): Column<Staff>[] {
   const { stores, getScenarioName } = context
-  const { onEdit, onLink, onDelete } = actions
+  const { onEdit, onLink, onUnlink, onDelete } = actions
 
   return [
     {
@@ -220,7 +221,7 @@ export function createStaffColumns(
       align: 'center',
       render: (staff) => (
         <div className="flex gap-1 justify-center">
-          {!staff.user_id && (
+          {!staff.user_id ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
@@ -234,6 +235,22 @@ export function createStaffColumns(
               </TooltipTrigger>
               <TooltipContent>
                 <p className="text-xs">ユーザーと紐付け</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon-sm"
+                  onClick={() => onUnlink(staff)}
+                  className="h-7 w-7 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                >
+                  <Unlink className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">連携解除</p>
               </TooltipContent>
             </Tooltip>
           )}
