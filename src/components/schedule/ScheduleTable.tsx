@@ -1,6 +1,5 @@
 // スケジュールテーブルの本体（汎用化版）
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
@@ -76,17 +75,8 @@ export function ScheduleTable({
   const { categoryConfig, getReservationBadgeClass } = displayConfig
 
   return (
-    <Card>
-      <CardHeader className="bg-muted/30 border-b border-border">
-        <CardTitle className="text-base sm:text-lg md:text-xl">リストカレンダー - {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月</CardTitle>
-        <CardDescription className="text-xs sm:text-sm text-muted-foreground">
-          ※公演のタイトルが未決定の場合、当該公演は薄い色で警告表示されます<br className="hidden sm:block"/>
-          <span className="sm:hidden"> </span>※シナリオやGMが未定の場合は赤い色で警告表示されます
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto -mx-2 sm:mx-0">
-          <Table className="table-fixed w-full border-collapse min-w-[406px] sm:min-w-[562px] md:min-w-[676px]">
+    <div className="overflow-x-auto -mx-2 sm:mx-0">
+      <Table className="table-fixed w-full border-collapse min-w-[406px] sm:min-w-[562px] md:min-w-[676px]">
             <colgroup>
               <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
               <col className="w-[14px] sm:w-[18px] md:w-[22px]" />
@@ -202,8 +192,6 @@ export function ScheduleTable({
             })}
           </TableBody>
         </Table>
-        </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 }

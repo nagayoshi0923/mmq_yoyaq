@@ -211,25 +211,25 @@ export const MonthSwitcher = memo(function MonthSwitcher({
   const yearRange = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
 
   return (
-    <div className={`flex flex-wrap items-center justify-center gap-2 ${className}`} role="group" aria-label="月選択">
-      {/* 前月ボタン */}
+    <div className={`flex flex-wrap items-center justify-center gap-1 sm:gap-2 md:gap-3 ${className}`} role="group" aria-label="月選択">
+      {/* 前月ボタン - モバイル最適化 */}
       <Button
         variant="outline"
         size="sm"
         onClick={handlePrevMonth}
-        className="h-9 px-3 flex-shrink-0"
+        className="h-8 sm:h-9 px-2 sm:px-3 flex-shrink-0 min-w-[36px] sm:min-w-[44px] md:min-w-0 touch-manipulation"
         aria-label={`前月へ移動 (${prevLabel})`}
         title="← キーでも移動できます"
       >
-        <ChevronLeft className="h-4 w-4 mr-1" />
-        <span className="hidden sm:inline">{prevLabel}</span>
+        <ChevronLeft className="h-4 w-4 sm:h-4 sm:w-4 md:mr-1" />
+        <span className="hidden md:inline">{prevLabel}</span>
       </Button>
 
       {/* 年月表示 / 選択 */}
       {quickJump ? (
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
           <Select value={year.toString()} onValueChange={handleYearChange}>
-            <SelectTrigger className="h-9 w-[100px]" aria-label="年を選択">
+            <SelectTrigger className="h-8 sm:h-9 w-[85px] sm:w-[100px] md:w-[110px] text-xs sm:text-sm touch-manipulation whitespace-nowrap" aria-label="年を選択">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -242,7 +242,7 @@ export const MonthSwitcher = memo(function MonthSwitcher({
           </Select>
 
           <Select value={month.toString()} onValueChange={handleMonthChange}>
-            <SelectTrigger className="h-9 w-[80px]" aria-label="月を選択">
+            <SelectTrigger className="h-8 sm:h-9 w-[70px] sm:w-[80px] md:w-[90px] text-xs sm:text-sm touch-manipulation whitespace-nowrap" aria-label="月を選択">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -256,7 +256,7 @@ export const MonthSwitcher = memo(function MonthSwitcher({
         </div>
       ) : (
         <div 
-          className="text-lg font-bold min-w-[140px] text-center" 
+          className="text-sm sm:text-base md:text-lg font-bold min-w-[90px] sm:min-w-[110px] md:min-w-[140px] text-center px-1 sm:px-2 whitespace-nowrap" 
           aria-live="polite"
           aria-atomic="true"
         >
@@ -264,31 +264,31 @@ export const MonthSwitcher = memo(function MonthSwitcher({
         </div>
       )}
 
-      {/* 次月ボタン */}
+      {/* 次月ボタン - モバイル最適化 */}
       <Button
         variant="outline"
         size="sm"
         onClick={handleNextMonth}
-        className="h-9 px-3 flex-shrink-0"
+        className="h-8 sm:h-9 px-2 sm:px-3 flex-shrink-0 min-w-[36px] sm:min-w-[44px] md:min-w-0 touch-manipulation"
         aria-label={`次月へ移動 (${nextLabel})`}
         title="→ キーでも移動できます"
       >
-        <span className="hidden sm:inline">{nextLabel}</span>
-        <ChevronRight className="h-4 w-4 ml-1" />
+        <span className="hidden md:inline">{nextLabel}</span>
+        <ChevronRight className="h-4 w-4 sm:h-4 sm:w-4 md:ml-1" />
       </Button>
 
-      {/* 今月ボタン */}
+      {/* 今月ボタン - モバイル最適化 */}
       {showToday && (
         <Button
           variant="ghost"
           size="sm"
           onClick={handleToday}
-          className="h-9 px-3 flex-shrink-0"
+          className="h-8 sm:h-9 px-2 sm:px-3 flex-shrink-0 min-w-[36px] sm:min-w-[44px] md:min-w-0 touch-manipulation"
           aria-label="今月へ移動"
           title="Home キーでも移動できます"
         >
-          <Calendar className="h-4 w-4 mr-1" />
-          <span className="hidden sm:inline">今月</span>
+          <Calendar className="h-4 w-4 sm:h-4 sm:w-4 md:mr-1" />
+          <span className="hidden md:inline">今月</span>
         </Button>
       )}
     </div>

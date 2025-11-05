@@ -18,7 +18,7 @@ export const CategoryTabs = memo(function CategoryTabs({
     <div className="bg-card border rounded-lg p-2 sm:p-3 md:p-4">
       <h3 className="flex flex-wrap items-center gap-1 sm:gap-2 text-sm sm:text-base">
         <span>公演カテゴリ</span>
-        <span className="text-xs sm:text-sm text-muted-foreground">
+        <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
           （中止: {categoryCounts.cancelled}件 / 警告: {categoryCounts.alerts}件）
         </span>
       </h3>
