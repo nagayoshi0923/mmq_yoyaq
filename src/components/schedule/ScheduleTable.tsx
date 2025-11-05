@@ -84,48 +84,49 @@ export function ScheduleTable({
           <span className="sm:hidden"> </span>※シナリオやGMが未定の場合は赤い色で警告表示されます
         </CardDescription>
       </CardHeader>
-      <CardContent className="p-0 overflow-x-auto -mx-2 sm:mx-0">
-        <Table className="table-fixed w-full min-w-[800px]">
-          <colgroup>
-            <col className="w-20 sm:w-24" />
-            <col className="w-12 sm:w-16" />
-            <col className="w-20 sm:w-24" />
-            <col style={{ width: '300px' }} />
-            <col style={{ width: '300px' }} />
-            <col style={{ width: '300px' }} />
-            <col className="w-24 sm:w-32" />
-          </colgroup>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="border-r text-xs sm:text-sm">日付</TableHead>
-              <TableHead className="border-r text-xs sm:text-sm">曜日</TableHead>
-              <TableHead className="border-r text-xs sm:text-sm">会場</TableHead>
-              <TableHead className="border-r text-xs sm:text-sm whitespace-nowrap">午前<br className="hidden sm:block"/><span className="sm:hidden"> </span>(~12:00)</TableHead>
-              <TableHead className="border-r text-xs sm:text-sm whitespace-nowrap">午後<br className="hidden sm:block"/><span className="sm:hidden"> </span>(12:00-17:00)</TableHead>
-              <TableHead className="border-r text-xs sm:text-sm whitespace-nowrap">夜間<br className="hidden sm:block"/><span className="sm:hidden"> </span>(17:00~)</TableHead>
-              <TableHead className="text-xs sm:text-sm">メモ</TableHead>
-            </TableRow>
-          </TableHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto -mx-2 sm:mx-0">
+          <Table className="table-fixed w-full min-w-[600px] sm:min-w-[700px] md:min-w-[800px]">
+            <colgroup>
+              <col className="w-12 sm:w-14 md:w-16" />
+              <col className="w-8 sm:w-10 md:w-12" />
+              <col className="w-12 sm:w-14 md:w-16" />
+              <col className="w-[80px] sm:w-[120px] md:w-[160px] lg:w-[200px]" />
+              <col className="w-[80px] sm:w-[120px] md:w-[160px] lg:w-[200px]" />
+              <col className="w-[80px] sm:w-[120px] md:w-[160px] lg:w-[200px]" />
+              <col className="w-12 sm:w-14 md:w-16 lg:w-20" />
+            </colgroup>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="border-r text-[10px] sm:text-xs md:text-sm px-1 sm:px-2">日付</TableHead>
+                <TableHead className="border-r text-[10px] sm:text-xs md:text-sm px-1 sm:px-2">曜日</TableHead>
+                <TableHead className="border-r text-[10px] sm:text-xs md:text-sm px-1 sm:px-2">会場</TableHead>
+                <TableHead className="border-r text-[10px] sm:text-xs md:text-sm whitespace-nowrap px-1 sm:px-2">午前<br className="hidden sm:block"/><span className="sm:hidden"> </span>(~12)</TableHead>
+                <TableHead className="border-r text-[10px] sm:text-xs md:text-sm whitespace-nowrap px-1 sm:px-2">午後<br className="hidden sm:block"/><span className="sm:hidden"> </span>(12-17)</TableHead>
+                <TableHead className="border-r text-[10px] sm:text-xs md:text-sm whitespace-nowrap px-1 sm:px-2">夜間<br className="hidden sm:block"/><span className="sm:hidden"> </span>(17~)</TableHead>
+                <TableHead className="text-[10px] sm:text-xs md:text-sm px-1 sm:px-2">メモ</TableHead>
+              </TableRow>
+            </TableHeader>
           <TableBody>
             {monthDays.map(day => {
               return stores.map((store, storeIndex) => (
                 <TableRow key={`${day.date}-${store.id}`} className="h-16">
                   {/* 日付セル */}
                   {storeIndex === 0 ? (
-                    <TableCell className="schedule-table-cell border-r text-sm" rowSpan={stores.length}>
+                    <TableCell className="schedule-table-cell border-r text-[10px] sm:text-xs md:text-sm px-1 sm:px-2" rowSpan={stores.length}>
                       {day.displayDate}
                     </TableCell>
                   ) : null}
                   
                   {/* 曜日セル */}
                   {storeIndex === 0 ? (
-                    <TableCell className={`schedule-table-cell border-r text-sm ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
+                    <TableCell className={`schedule-table-cell border-r text-[10px] sm:text-xs md:text-sm px-1 sm:px-2 ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
                       {day.dayOfWeek}
                     </TableCell>
                   ) : null}
                   
                   {/* 店舗セル */}
-                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-sm">
+                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-[10px] sm:text-xs md:text-sm px-1 sm:px-2">
                     {store.short_name}
                   </TableCell>
                   
