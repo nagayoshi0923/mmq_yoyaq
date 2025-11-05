@@ -1,8 +1,7 @@
 import React from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, MapPin, Users, DollarSign, CreditCard, User } from 'lucide-react'
+import { Calendar, MapPin, Users, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Edit } from 'lucide-react'
 
 interface EventItem {
   id: string
