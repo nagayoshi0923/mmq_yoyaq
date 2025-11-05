@@ -172,8 +172,8 @@ serve(async (req) => {
     // 5. Resend APIで招待メールを送信
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
     const SITE_URL = Deno.env.get('SITE_URL') || 'https://mmq-yoyaq.vercel.app'
-    // 送信元アドレスを設定（検証済みドメインを使用）
-    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'MMQ <onboarding@resend.dev>'
+    // 送信元アドレスを設定（認証済みドメインを使用）
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'MMQ <noreply@mmq.game>'
     
     console.log('📧 メール送信設定:', { 
       hasApiKey: !!RESEND_API_KEY, 
