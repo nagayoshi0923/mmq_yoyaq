@@ -112,21 +112,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       logger.log('📊 usersテーブルからロール取得開始')
       try {
-        // タイムアウトを5秒に延長（ネットワーク遅延に対応）
-        const rolePromise = supabase
-          .from('users')
-          .select('role')
-          .eq('id', supabaseUser.id)
-          .maybeSingle()
+        // タイムアウトを10秒に延長し、リトライロジックを追加
+        let userData: any = null
+        let roleError: any = null
+        const maxRetries = 2
+        
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            const rolePromise = supabase
+              .from('users')
+              .select('role')
+              .eq('id', supabaseUser.id)
+              .maybeSingle()
 
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('ロール取得タイムアウト')), 5000)
-        )
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('ロール取得タイムアウト')), 10000)
+            )
 
-        const { data: userData, error: roleError } = await Promise.race([
-          rolePromise,
-          timeoutPromise
-        ]) as any
+            const result = await Promise.race([
+              rolePromise,
+              timeoutPromise
+            ]) as any
+            
+            // Supabaseのレスポンス形式を確認
+            if (result && (result.data !== undefined || result.error !== undefined)) {
+              userData = result.data
+              roleError = result.error
+              break // 成功したらループを抜ける
+            }
+          } catch (error: any) {
+            if (attempt === maxRetries) {
+              roleError = error
+              logger.warn(`⚠️ ロール取得リトライ${attempt + 1}回目で失敗:`, error?.message)
+            } else {
+              logger.log(`🔄 ロール取得リトライ${attempt + 1}回目...`)
+              // リトライ前に少し待機
+              await new Promise(resolve => setTimeout(resolve, 500))
+            }
+          }
+        }
 
         if (roleError) {
           logger.warn('⚠️ usersテーブルからのロール取得エラー:', roleError)
