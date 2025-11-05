@@ -28,7 +28,7 @@ function AppContent() {
   const fullUrl = window.location.href
   const hasAuthToken = fullUrl.includes('access_token=')
   const isSignupFlow = hasAuthToken && (fullUrl.includes('type=signup') || fullUrl.includes('type=invite'))
-  const isRecoveryFlow = hasAuthToken && fullUrl.includes('type=recovery')
+  const isRecoveryFlow = hasAuthToken && (fullUrl.includes('type=recovery') || fullUrl.includes('reset-password'))
   
   // パスワード設定/リセットフローは最優先で表示（user状態に関係なく）
   if (isSignupFlow) {

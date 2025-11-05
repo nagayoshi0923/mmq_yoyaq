@@ -17,24 +17,68 @@ export function ResetPassword() {
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   useEffect(() => {
-    // URLのハッシュフラグメントからトークンを取得してセッションを確立
+    // URLのハッシュフラグメントまたはクエリパラメータからトークンを取得してセッションを確立
     const setupSession = async () => {
       try {
-        // URLの形式: #access_token=...&refresh_token=...&type=recovery
-        const hash = window.location.hash.substring(1) // '#' を削除
-        logger.log('Current hash:', hash)
+        // まず、現在のセッションを確認（Supabaseが自動的にセッションを設定している可能性がある）
+        const { data: { session: existingSession }, error: sessionCheckError } = await supabase.auth.getSession()
         
-        const hashParams = new URLSearchParams(hash)
-        const accessToken = hashParams.get('access_token')
-        const refreshToken = hashParams.get('refresh_token')
+        if (existingSession && !sessionCheckError) {
+          logger.log('既存のセッションが見つかりました')
+          setSessionReady(true)
+          return
+        }
+
+        // URLの形式: #access_token=...&refresh_token=...&type=recovery
+        // または: ?access_token=...&refresh_token=...&type=recovery
+        const fullUrl = window.location.href
+        const hash = window.location.hash.substring(1) // '#' を削除
+        const searchParams = window.location.search.substring(1) // '?' を削除
+        
+        logger.log('Full URL:', fullUrl)
+        logger.log('Hash:', hash)
+        logger.log('Search params:', searchParams)
+        
+        // ハッシュとクエリパラメータの両方を確認
+        let hashParams = new URLSearchParams(hash)
+        let searchParamsObj = new URLSearchParams(searchParams)
+        
+        // ハッシュにパラメータがない場合、クエリパラメータを確認
+        if (!hashParams.get('access_token') && searchParamsObj.get('access_token')) {
+          hashParams = searchParamsObj
+        }
+        
+        // URL全体から直接検索（fallback）
+        const urlMatch = fullUrl.match(/[#?]access_token=([^&]+).*refresh_token=([^&]+)/)
+        
+        let accessToken = hashParams.get('access_token')
+        let refreshToken = hashParams.get('refresh_token')
         const type = hashParams.get('type')
+        
+        // URL全体からのマッチングで取得を試みる
+        if (!accessToken && urlMatch) {
+          accessToken = decodeURIComponent(urlMatch[1])
+          refreshToken = decodeURIComponent(urlMatch[2])
+        }
         
         logger.log('Access token:', accessToken ? 'Found' : 'Not found')
         logger.log('Refresh token:', refreshToken ? 'Found' : 'Not found')
         logger.log('Type:', type)
         
         if (!accessToken || !refreshToken) {
-          setError('無効なリセットリンクです。もう一度パスワードリセットを申請してください。')
+          // トークンが見つからない場合、Supabaseの認証フローを確認
+          logger.warn('トークンが見つかりません。Supabaseの認証フローを確認します。')
+          
+          // Supabaseが自動的にセッションを設定する可能性があるので、少し待ってから再確認
+          setTimeout(async () => {
+            const { data: { session: delayedSession } } = await supabase.auth.getSession()
+            if (delayedSession) {
+              logger.log('遅延セッション確認: セッションが見つかりました')
+              setSessionReady(true)
+            } else {
+              setError('無効なリセットリンクです。もう一度パスワードリセットを申請してください。')
+            }
+          }, 1000)
           return
         }
 
