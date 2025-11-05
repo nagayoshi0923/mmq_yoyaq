@@ -1,12 +1,20 @@
 -- usersテーブルのRLSポリシー修正
 -- タイムアウト問題を解決するため、シンプルなポリシーに変更
 
--- 既存のポリシーを削除
-DROP POLICY IF EXISTS users_select_policy ON users;
-DROP POLICY IF EXISTS users_insert_policy ON users;
-DROP POLICY IF EXISTS users_update_policy ON users;
-DROP POLICY IF EXISTS users_delete_policy ON users;
-DROP POLICY IF EXISTS users_policy ON users;
+-- 既存のポリシーを削除（DOブロックで安全に実行）
+DO $$ 
+BEGIN
+  DROP POLICY IF EXISTS users_select_policy ON users;
+  DROP POLICY IF EXISTS users_insert_policy ON users;
+  DROP POLICY IF EXISTS users_update_policy ON users;
+  DROP POLICY IF EXISTS users_delete_policy ON users;
+  DROP POLICY IF EXISTS users_policy ON users;
+  DROP POLICY IF EXISTS users_service_role_policy ON users;
+  RAISE NOTICE '既存のポリシーを削除しました';
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'ポリシー削除中にエラーが発生しましたが、続行します: %', SQLERRM;
+END $$;
 
 -- インデックスの追加（パフォーマンス向上のため）
 CREATE INDEX IF NOT EXISTS idx_users_id ON users(id);
