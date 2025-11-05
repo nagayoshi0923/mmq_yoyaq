@@ -211,7 +211,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
   return (
     <div className="space-y-1 overflow-x-auto -mx-2 sm:mx-0">
       {/* ヘッダー行 */}
-      <div className={stickyHeader ? 'sticky top-0 z-40' : ''}>
+      <div className={stickyHeader ? 'sticky top-[44px] sm:top-0 z-40 bg-background' : ''}>
         <Card>
           <CardContent className="p-0">
             <div className={`flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-muted/30 ${stickyHeaderContent ? 'min-w-max' : 'w-full'}`}>

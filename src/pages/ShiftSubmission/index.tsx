@@ -122,7 +122,7 @@ export function ShiftSubmission() {
             </div>
 
             {/* シフト提出ボタン（モバイル用・固定表示） */}
-            <div className="sm:hidden sticky top-0 z-50 bg-background pb-2">
+            <div className="sm:hidden sticky top-0 z-50 bg-background pb-2 mb-2">
               <Button 
                 onClick={handleSubmitShift} 
                 disabled={loading}
@@ -134,15 +134,17 @@ export function ShiftSubmission() {
             </div>
 
             {/* テーブル */}
-            <TanStackDataTable
-              data={tableData}
-              columns={tableColumns}
-              getRowKey={(row) => row.dayInfo.date}
-              emptyMessage="シフトデータがありません"
-              loading={loading}
-              stickyHeader={true}
-              stickyHeaderContent={undefined}
-            />
+            <div className="relative">
+              <TanStackDataTable
+                data={tableData}
+                columns={tableColumns}
+                getRowKey={(row) => row.dayInfo.date}
+                emptyMessage="シフトデータがありません"
+                loading={loading}
+                stickyHeader={true}
+                stickyHeaderContent={undefined}
+              />
+            </div>
           </div>
         )
     }
