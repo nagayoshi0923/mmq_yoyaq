@@ -188,6 +188,9 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
       }
     },
     manualSorting: !!onSort, // 外部でソートを管理する場合
+    debugTable: false, // デバッグモードを無効化
+    debugHeaders: false, // ヘッダーデバッグを無効化
+    debugColumns: false, // カラムデバッグを無効化
   })
 
   const getSortIcon = (columnId: string) => {
