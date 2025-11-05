@@ -159,8 +159,8 @@ serve(async (req) => {
     // 3. staffテーブルにレコード作成または更新
     let staffData: any
     
-    // 既存ユーザーで、メールアドレスでstaffレコードが見つかり、user_idがNULLの場合
-    if (existingUser && existingStaffByEmail && !existingStaffByEmail.user_id) {
+    // 既存のstaffレコード（user_id未設定）が見つかった場合、更新する
+    if (existingStaffByEmail && !existingStaffByEmail.user_id) {
       // 既存のstaffレコードを更新
       console.log('📝 既存のstaffレコードを更新:', existingStaffByEmail.id)
       const { data: updatedStaff, error: updateError } = await supabase
