@@ -347,58 +347,58 @@ export function StaffManagement() {
         containerPadding="px-2 sm:px-4 md:px-6 py-4 sm:py-6"
         className="mx-auto"
       >
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-4 md:space-y-6">
             {/* 統計情報 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-2xl font-bold">{staff.length}</p>
-                      <p className="text-muted-foreground">総スタッフ数</p>
+                <CardContent className="p-3 sm:p-4 md:pt-6">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-lg sm:text-xl md:text-2xl font-bold">{staff.length}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">総スタッフ数</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-2xl font-bold">
+                <CardContent className="p-3 sm:p-4 md:pt-6">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-lg sm:text-xl md:text-2xl font-bold">
                         {staff.filter(s => s.status === 'active').length}
                       </p>
-                      <p className="text-muted-foreground">在籍中</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">在籍中</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-2xl font-bold">
+                <CardContent className="p-3 sm:p-4 md:pt-6">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-lg sm:text-xl md:text-2xl font-bold">
                         {staff.filter(s => s.role && s.role.includes('GM')).length}
                       </p>
-                      <p className="text-muted-foreground">GM</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">GM</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-2xl font-bold">
+                <CardContent className="p-3 sm:p-4 md:pt-6">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-lg sm:text-xl md:text-2xl font-bold">
                         {Math.round(staff.reduce((sum, s) => sum + s.experience, 0) / staff.length) || 0}
                       </p>
-                      <p className="text-muted-foreground">平均経験年数</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">平均経験年数</p>
                     </div>
                   </div>
                 </CardContent>

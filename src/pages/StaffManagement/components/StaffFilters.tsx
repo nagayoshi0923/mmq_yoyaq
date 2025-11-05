@@ -25,24 +25,24 @@ export const StaffFilters = memo(function StaffFilters({
   onCreateClick
 }: StaffFiltersProps) {
   return (
-    <div className="flex gap-4 items-center">
+    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4 items-stretch sm:items-center">
       {/* 検索ボックス */}
-      <div className="relative flex-1 max-w-md">
+      <div className="relative flex-1 min-w-0">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           type="text"
           placeholder="スタッフ名・LINE名で検索..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-10 pr-4"
+          className="pl-10 pr-4 text-sm sm:text-base"
         />
       </div>
       
       {/* ステータスフィルタ */}
-      <div className="flex items-center gap-2">
-        <Filter className="h-4 w-4 text-muted-foreground" />
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <Filter className="h-4 w-4 text-muted-foreground hidden sm:block" />
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="w-32">
+          <SelectTrigger className="w-full sm:w-32 text-sm sm:text-base">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -54,24 +54,31 @@ export const StaffFilters = memo(function StaffFilters({
         </Select>
       </div>
 
-      {/* 招待ボタン */}
-      <Button 
-        variant="outline"
-        onClick={onInviteClick}
-        className="flex items-center gap-2"
-      >
-        <Mail className="h-4 w-4" />
-        スタッフを招待
-      </Button>
+      {/* ボタン群 */}
+      <div className="flex gap-2 flex-shrink-0">
+        {/* 招待ボタン */}
+        <Button 
+          variant="outline"
+          onClick={onInviteClick}
+          className="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm"
+          size="sm"
+        >
+          <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="hidden sm:inline">スタッフを招待</span>
+          <span className="sm:hidden">招待</span>
+        </Button>
 
-      {/* 新規作成ボタン */}
-      <Button 
-        onClick={onCreateClick}
-        className="flex items-center gap-2"
-      >
-        <Plus className="h-4 w-4" />
-        新規作成
-      </Button>
+        {/* 新規作成ボタン */}
+        <Button 
+          onClick={onCreateClick}
+          className="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm"
+          size="sm"
+        >
+          <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="hidden sm:inline">新規作成</span>
+          <span className="sm:hidden">新規</span>
+        </Button>
+      </div>
     </div>
   )
 })
