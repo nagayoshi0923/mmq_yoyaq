@@ -267,13 +267,13 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   }
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
+      <div className="space-y-3 sm:space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
         </div>
         <Card>
-          <CardContent className="p-8">
-            <div className="text-center text-muted-foreground">読み込み中...</div>
+          <CardContent className="p-4 sm:p-6 md:p-8">
+            <div className="text-center text-muted-foreground text-xs sm:text-sm">読み込み中...</div>
           </CardContent>
         </Card>
       </div>
@@ -281,41 +281,44 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   }
 
   return (
-    <div>
+    <div className="space-y-3 sm:space-y-4 md:space-y-6">
       {/* ヘッダー：タイトルとエクスポートボタン */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
         <ExportButtons salesData={salesData} />
       </div>
 
       {/* 月切り替えと期間設定 */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 flex-1">
           {/* 月切り替え */}
-          <MonthSwitcher
-            value={currentMonth}
-            onChange={setCurrentMonth}
-            showToday={true}
-            quickJump={true}
-            enableKeyboard={true}
-          />
+          <div className="flex-shrink-0">
+            <MonthSwitcher
+              value={currentMonth}
+              onChange={setCurrentMonth}
+              showToday={true}
+              quickJump={true}
+              enableKeyboard={true}
+            />
+          </div>
           
           {/* 期間設定ボタン */}
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowPeriodSettings(!showPeriodSettings)}
-            className="h-9"
+            className="h-8 sm:h-9 text-xs sm:text-sm"
           >
-            <Settings className="h-4 w-4 mr-2" />
-            期間設定
+            <Settings className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">期間設定</span>
+            <span className="sm:hidden">設定</span>
           </Button>
         </div>
 
         {/* 店舗選択 */}
-        <div className="w-[200px]">
+        <div className="w-full sm:w-[200px] flex-shrink-0">
           <Select value={selectedStore} onValueChange={onStoreChange}>
-            <SelectTrigger>
+            <SelectTrigger className="text-xs sm:text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -332,12 +335,12 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
 
       {/* 期間設定パネル（トグル表示） */}
       {showPeriodSettings && (
-        <Card className="mb-6">
-          <CardContent className="p-4 space-y-4">
-            <div className="flex items-center gap-4">
-              <Label className="min-w-[80px]">期間プリセット</Label>
+        <Card className="mb-4 sm:mb-6">
+          <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
+              <Label className="text-xs sm:text-sm min-w-[80px] sm:min-w-[80px]">期間プリセット</Label>
               <Select value={selectedPeriod} onValueChange={onPeriodChange}>
-                <SelectTrigger className="flex-1">
+                <SelectTrigger className="flex-1 text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -356,21 +359,24 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
 
             {/* カスタム期間選択UI */}
             {selectedPeriod === 'custom' && (
-              <div className="flex gap-4 items-center">
-                <Label className="min-w-[80px]">カスタム期間</Label>
-                <DateRangePopover
-                  label="期間を選択"
-                  startDate={customStartDate}
-                  endDate={customEndDate}
-                  onDateChange={(start, end) => {
-                    if (start) onCustomStartDateChange(start)
-                    if (end) onCustomEndDateChange(end)
-                  }}
-                />
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
+                <Label className="text-xs sm:text-sm min-w-[80px] sm:min-w-[80px]">カスタム期間</Label>
+                <div className="flex-1">
+                  <DateRangePopover
+                    label="期間を選択"
+                    startDate={customStartDate}
+                    endDate={customEndDate}
+                    onDateChange={(start, end) => {
+                      if (start) onCustomStartDateChange(start)
+                      if (end) onCustomEndDateChange(end)
+                    }}
+                  />
+                </div>
                 <Button
                   onClick={() => onPeriodChange('custom')}
                   disabled={!customStartDate || !customEndDate}
                   size="sm"
+                  className="text-xs sm:text-sm"
                 >
                   適用
                 </Button>
@@ -384,7 +390,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       {/* サマリーカード */}
       {salesData ? (
         <>
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
         <SummaryCards
           totalRevenue={salesData.totalRevenue}
           averageRevenue={salesData.averageRevenuePerEvent}
@@ -405,7 +411,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           </div>
 
           {/* 実施公演リスト */}
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <EventListCard 
               events={salesData.eventList} 
               onEditEvent={handleEditEvent}
@@ -433,8 +439,8 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
         </>
       ) : (
         <Card>
-          <CardContent className="p-8">
-            <div className="text-center text-muted-foreground">
+          <CardContent className="p-4 sm:p-6 md:p-8">
+            <div className="text-center text-muted-foreground text-xs sm:text-sm">
               データを読み込んでいます...
             </div>
           </CardContent>

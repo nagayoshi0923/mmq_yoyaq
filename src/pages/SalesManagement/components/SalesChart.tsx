@@ -15,11 +15,11 @@ const SalesChartBase: React.FC<SalesChartProps> = ({
 }) => {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>売上推移</CardTitle>
+      <CardHeader className="p-3 sm:p-4 md:p-6">
+        <CardTitle className="text-base sm:text-lg md:text-xl">売上推移</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="h-96">
+      <CardContent className="p-3 sm:p-4 md:p-6">
+        <div className="h-64 sm:h-80 md:h-96">
           <Line 
             data={chartData || { labels: [], datasets: [] }} 
             options={chartOptions} 
