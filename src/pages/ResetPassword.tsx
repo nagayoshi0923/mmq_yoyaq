@@ -38,10 +38,10 @@ export function ResetPassword() {
           return
         }
 
-        // type=recovery であることを確認
-        if (type !== 'recovery') {
-          setError('無効なリセットリンクです。もう一度パスワードリセットを申請してください。')
-          return
+        // type=recovery または typeがない場合（スタッフ招待リンクなど）も許可
+        // access_tokenとrefresh_tokenがあれば、セッションを確立できる
+        if (type && type !== 'recovery') {
+          logger.warn('Unexpected type parameter:', type, '- Continuing anyway if tokens are valid')
         }
 
         // セッションを設定
