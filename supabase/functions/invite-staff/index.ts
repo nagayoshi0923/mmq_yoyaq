@@ -51,13 +51,18 @@ serve(async (req) => {
       console.log('✅ Existing user found:', userId)
       
       // メールアドレスでstaffレコードを検索（既存レコードの更新のため）
-      const { data: staffByEmail, error: emailCheckError } = await supabase
+      // 複数のレコードがある場合は最初の1つを使用
+      const { data: staffByEmailList, error: emailCheckError } = await supabase
         .from('staff')
         .select('id, user_id, email, phone, line_name, x_account, discord_id, discord_channel_id, role, stores')
         .eq('email', email)
-        .maybeSingle()
+        .limit(1)
       
-      existingStaffByEmail = staffByEmail
+      if (emailCheckError) {
+        console.warn('⚠️ Staff検索エラー:', emailCheckError)
+      }
+      
+      existingStaffByEmail = staffByEmailList && staffByEmailList.length > 0 ? staffByEmailList[0] : null
       
       if (existingStaffByEmail) {
         if (existingStaffByEmail.user_id && existingStaffByEmail.user_id !== userId) {
@@ -91,11 +96,18 @@ serve(async (req) => {
       console.log('✅ Auth user created:', userId)
       
       // 新規ユーザーの場合も、メールアドレスで既存のstaffレコードを確認
-      const { data: staffByEmailNew, error: emailCheckErrorNew } = await supabase
+      // 複数のレコードがある場合は最初の1つを使用
+      const { data: staffByEmailNewList, error: emailCheckErrorNew } = await supabase
         .from('staff')
         .select('id, user_id, email, phone, line_name, x_account, discord_id, discord_channel_id, role, stores')
         .eq('email', email)
-        .maybeSingle()
+        .limit(1)
+      
+      if (emailCheckErrorNew) {
+        console.warn('⚠️ Staff検索エラー（新規ユーザー）:', emailCheckErrorNew)
+      }
+      
+      const staffByEmailNew = staffByEmailNewList && staffByEmailNewList.length > 0 ? staffByEmailNewList[0] : null
       
       if (staffByEmailNew && !staffByEmailNew.user_id) {
         existingStaffByEmail = staffByEmailNew
@@ -148,14 +160,17 @@ serve(async (req) => {
         })
         .eq('id', existingStaffByEmail.id)
         .select()
-        .single()
       
       if (updateError) {
         console.error('❌ Error updating staff record:', updateError)
         throw new Error(`Failed to update staff record: ${updateError.message}`)
       }
       
-      staffData = updatedStaff
+      if (!updatedStaff || updatedStaff.length === 0) {
+        throw new Error('Staff record update returned no data')
+      }
+      
+      staffData = Array.isArray(updatedStaff) ? updatedStaff[0] : updatedStaff
       console.log('✅ Staff record updated:', staffData.id)
     } else {
       // 新規でstaffレコードを作成
@@ -181,7 +196,6 @@ serve(async (req) => {
           updated_at: new Date().toISOString()
         })
         .select()
-        .single()
 
       if (staffError) {
         console.error('❌ Error creating staff record:', staffError)
@@ -192,7 +206,11 @@ serve(async (req) => {
         throw new Error(`Failed to create staff record: ${staffError.message}`)
       }
       
-      staffData = newStaff
+      if (!newStaff || newStaff.length === 0) {
+        throw new Error('Staff record creation returned no data')
+      }
+      
+      staffData = Array.isArray(newStaff) ? newStaff[0] : newStaff
       console.log('✅ Staff record created:', staffData.id)
     }
 
