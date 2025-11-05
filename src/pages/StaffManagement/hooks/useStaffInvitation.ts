@@ -100,11 +100,13 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       }
 
       // staffテーブルのuser_idを更新
-      await staffApi.update(linkingStaff.id, {
+      const updatedStaff = {
         ...linkingStaff,
         user_id: users.id,
         email: email
-      })
+      }
+      
+      await staffApi.update(linkingStaff.id, updatedStaff)
 
       // usersテーブルのroleをstaffに更新
       const { error: updateError } = await supabase
@@ -115,6 +117,14 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       if (updateError) {
         console.warn('usersテーブルの更新に失敗しました:', updateError)
       }
+
+      // React Queryのキャッシュを更新
+      queryClient.setQueryData<Staff[]>(staffKeys.all, (old = []) => {
+        return old.map(s => s.id === linkingStaff.id ? updatedStaff : s)
+      })
+      
+      // キャッシュを無効化して最新データを取得
+      await queryClient.invalidateQueries({ queryKey: staffKeys.all })
 
       alert(`✅ ${linkingStaff.name}さんを ${email} と紐付けました！`)
       onSuccess?.()
