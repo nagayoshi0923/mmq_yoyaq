@@ -309,7 +309,7 @@ export function StaffManagement() {
       <AppLayout currentPage="staff">
         <div className="space-y-6">
           <div className="h-16 bg-gray-200 rounded animate-pulse"></div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             {[...Array(4)].map((_, i) => (
               <Card key={i}>
                 <CardContent className="pt-6">
@@ -344,12 +344,12 @@ export function StaffManagement() {
       <AppLayout 
         currentPage="staff" 
         maxWidth="max-w-[1440px]"
-        containerPadding="px-6 py-6"
+        containerPadding="px-2 sm:px-4 md:px-6 py-4 sm:py-6"
         className="mx-auto"
       >
         <div className="space-y-6">
             {/* 統計情報 */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-2">
@@ -436,7 +436,7 @@ export function StaffManagement() {
         {/* スタッフ編集モーダル */}
         <Dialog open={!!editingStaff} onOpenChange={(open) => !open && closeEditModal()}>
           <DialogContent className="max-w-7xl max-h-[85vh] p-0 flex flex-col overflow-hidden">
-            <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+            <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-4 border-b shrink-0">
               <DialogTitle>{editingStaff?.id ? 'スタッフ編集' : '新規スタッフ作成'}</DialogTitle>
               <DialogDescription>
                 {editingStaff?.name ? `${editingStaff.name}の情報を編集します` : 'スタッフの情報を入力してください'}
