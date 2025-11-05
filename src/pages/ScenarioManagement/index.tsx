@@ -345,10 +345,10 @@ export function ScenarioManagement() {
           {/* エラー表示 */}
           {error && (
             <Card className="border-red-500 bg-red-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 text-red-800">
-                  <AlertTriangle className="h-5 w-5" />
-                  <p>{error}</p>
+              <CardContent className="p-3 sm:p-4 md:pt-6">
+                <div className="flex items-center gap-2 text-red-800 text-sm sm:text-base">
+                  <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                  <p className="break-words">{error}</p>
                 </div>
               </CardContent>
             </Card>
