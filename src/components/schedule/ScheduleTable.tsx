@@ -78,32 +78,32 @@ export function ScheduleTable({
   return (
     <Card>
       <CardHeader className="bg-muted/30 border-b border-border">
-        <CardTitle>リストカレンダー - {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月</CardTitle>
-        <CardDescription className="text-muted-foreground">
-          ※公演のタイトルが未決定の場合、当該公演は薄い色で警告表示されます<br/>
-          ※シナリオやGMが未定の場合は赤い色で警告表示されます
+        <CardTitle className="text-base sm:text-lg md:text-xl">リストカレンダー - {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月</CardTitle>
+        <CardDescription className="text-xs sm:text-sm text-muted-foreground">
+          ※公演のタイトルが未決定の場合、当該公演は薄い色で警告表示されます<br className="hidden sm:block"/>
+          <span className="sm:hidden"> </span>※シナリオやGMが未定の場合は赤い色で警告表示されます
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0 overflow-x-auto -mx-2 sm:mx-0">
         <Table className="table-fixed w-full min-w-[800px]">
           <colgroup>
-            <col className="w-24" />
-            <col className="w-16" />
-            <col className="w-24" />
+            <col className="w-20 sm:w-24" />
+            <col className="w-12 sm:w-16" />
+            <col className="w-20 sm:w-24" />
             <col style={{ width: '300px' }} />
             <col style={{ width: '300px' }} />
             <col style={{ width: '300px' }} />
-            <col className="w-32" />
+            <col className="w-24 sm:w-32" />
           </colgroup>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="border-r">日付</TableHead>
-              <TableHead className="border-r">曜日</TableHead>
-              <TableHead className="border-r">会場</TableHead>
-              <TableHead className="border-r">午前 (~12:00)</TableHead>
-              <TableHead className="border-r">午後 (12:00-17:00)</TableHead>
-              <TableHead className="border-r">夜間 (17:00~)</TableHead>
-              <TableHead>メモ</TableHead>
+              <TableHead className="border-r text-xs sm:text-sm">日付</TableHead>
+              <TableHead className="border-r text-xs sm:text-sm">曜日</TableHead>
+              <TableHead className="border-r text-xs sm:text-sm">会場</TableHead>
+              <TableHead className="border-r text-xs sm:text-sm whitespace-nowrap">午前<br className="hidden sm:block"/><span className="sm:hidden"> </span>(~12:00)</TableHead>
+              <TableHead className="border-r text-xs sm:text-sm whitespace-nowrap">午後<br className="hidden sm:block"/><span className="sm:hidden"> </span>(12:00-17:00)</TableHead>
+              <TableHead className="border-r text-xs sm:text-sm whitespace-nowrap">夜間<br className="hidden sm:block"/><span className="sm:hidden"> </span>(17:00~)</TableHead>
+              <TableHead className="text-xs sm:text-sm">メモ</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
