@@ -191,61 +191,75 @@ serve(async (req) => {
             to: [email],
             subject: existingUser ? '【MMQ】スタッフアカウント登録完了' : '【MMQ】スタッフアカウント招待',
             html: existingUser 
-              ? `
-              <h2>【MMQ】スタッフアカウント登録完了</h2>
+              ? `<h2>【MMQ】スタッフアカウント登録完了</h2>
               
-              <p>こんにちは、${name}さん</p>
+<p>こんにちは、${name}さん</p>
+
+<p>謎解きカフェ・バーMMQのスタッフ管理システムへの登録が完了しました。</p>
+
+<p>既存のアカウントでスタッフ機能が利用可能になりました。下のリンクからログインしてスタッフページにアクセスできます。</p>
+
+<p style="text-align: center; margin: 30px 0;">
+  <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">ログインする</a>
+</p>
+
+<p style="font-size: 12px; color: #666;">
+  または、以下のリンクをコピーしてブラウザに貼り付けてください：<br>
+  <a href="${inviteLink}">${inviteLink}</a>
+</p>
+
+<h3>📋 スタッフとしてできること</h3>
+<ul>
+  <li>シフト提出</li>
+  <li>スケジュール確認</li>
+  <li>予約確認</li>
+</ul>
+
+<hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+
+<p style="color: #666; font-size: 12px;">
+  <strong>⚠️ 注意事項</strong><br>
+  • 既存のアカウントでスタッフ機能が利用可能になりました<br>
+  • 心当たりがない場合は無視してください
+</p>`
+              : `<h2>【MMQ】スタッフアカウントへようこそ！</h2>
               
-              <p>謎解きカフェ・バーMMQのスタッフ管理システムへの登録が完了しました。</p>
-              
-              <p>既存のアカウントでスタッフ機能が利用可能になりました。下のリンクからログインしてスタッフページにアクセスできます。</p>
-              
-              <p style="text-align: center; margin: 30px 0;">
-                <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">ログインする</a>
-              </p>
-              `
-              : `
-              <h2>【MMQ】スタッフアカウントへようこそ！</h2>
-              
-              <p>こんにちは、${name}さん</p>
-              
-              <p>謎解きカフェ・バーMMQのスタッフ管理システムにご招待します。</p>
-              
-              <h3>🔐 アカウント設定手順</h3>
-              
-              <ol>
-                <li>下のボタンをクリック</li>
-                <li>パスワードを設定（8文字以上）</li>
-                <li>ログインしてスタッフページにアクセス</li>
-              </ol>
-              
-              <p style="text-align: center; margin: 30px 0;">
-                <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードを設定する</a>
-              </p>
-              `
-              
-              <p style="font-size: 12px; color: #666;">
-                または、以下のリンクをコピーしてブラウザに貼り付けてください：<br>
-                <a href="${inviteLink}">${inviteLink}</a>
-              </p>
-              
-              <h3>📋 スタッフとしてできること</h3>
-              <ul>
-                <li>シフト提出</li>
-                <li>スケジュール確認</li>
-                <li>予約確認</li>
-              </ul>
-              
-              <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-              
-              <p style="color: #666; font-size: 12px;">
-                <strong>⚠️ 注意事項</strong><br>
-                ${existingUser 
-                  ? '• 既存のアカウントでスタッフ機能が利用可能になりました<br>• 心当たりがない場合は無視してください'
-                  : '• このリンクは24時間で有効期限が切れます<br>• 心当たりがない場合は無視してください<br>• パスワードは誰にも教えないでください'
-                }
-              </p>
-            `,
+<p>こんにちは、${name}さん</p>
+
+<p>謎解きカフェ・バーMMQのスタッフ管理システムにご招待します。</p>
+
+<h3>🔐 アカウント設定手順</h3>
+
+<ol>
+  <li>下のボタンをクリック</li>
+  <li>パスワードを設定（8文字以上）</li>
+  <li>ログインしてスタッフページにアクセス</li>
+</ol>
+
+<p style="text-align: center; margin: 30px 0;">
+  <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードを設定する</a>
+</p>
+
+<p style="font-size: 12px; color: #666;">
+  または、以下のリンクをコピーしてブラウザに貼り付けてください：<br>
+  <a href="${inviteLink}">${inviteLink}</a>
+</p>
+
+<h3>📋 スタッフとしてできること</h3>
+<ul>
+  <li>シフト提出</li>
+  <li>スケジュール確認</li>
+  <li>予約確認</li>
+</ul>
+
+<hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+
+<p style="color: #666; font-size: 12px;">
+  <strong>⚠️ 注意事項</strong><br>
+  • このリンクは24時間で有効期限が切れます<br>
+  • 心当たりがない場合は無視してください<br>
+  • パスワードは誰にも教えないでください
+</p>`,
           }),
         })
 
