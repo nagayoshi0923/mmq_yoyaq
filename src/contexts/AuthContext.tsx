@@ -119,14 +119,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
           try {
+            // タイムアウトを3秒に短縮（RLSポリシーの問題を早期検出）
+            const timeoutMs = 3000
+            
             const rolePromise = supabase
               .from('users')
               .select('role')
               .eq('id', supabaseUser.id)
               .maybeSingle()
+              .abortSignal(AbortSignal.timeout(timeoutMs))
 
             const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('ロール取得タイムアウト')), 10000)
+              setTimeout(() => reject(new Error('ロール取得タイムアウト')), timeoutMs)
             )
 
             const result = await Promise.race([
@@ -138,12 +142,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (result && (result.data !== undefined || result.error !== undefined)) {
               userData = result.data
               roleError = result.error
+              
+              // エラーがある場合は詳細をログに記録
+              if (result.error) {
+                logger.warn('⚠️ ロール取得エラー:', result.error)
+                // RLSポリシーエラーの場合は特別に処理
+                if (result.error.message?.includes('permission') || result.error.message?.includes('RLS')) {
+                  logger.warn('⚠️ RLSポリシーエラーの可能性があります。データベースのRLSポリシーを確認してください。')
+                }
+              }
+              
               break // 成功したらループを抜ける
             }
           } catch (error: any) {
             if (attempt === maxRetries) {
               roleError = error
               logger.warn(`⚠️ ロール取得リトライ${attempt + 1}回目で失敗:`, error?.message)
+              
+              // タイムアウトエラーの場合は、RLSポリシーの問題を疑う
+              if (error?.message?.includes('タイムアウト')) {
+                logger.warn('⚠️ ロール取得がタイムアウトしました。RLSポリシーに無限再帰がある可能性があります。')
+                logger.warn('⚠️ database/fix_users_rls_timeout.sql を実行してRLSポリシーを修正してください。')
+              }
             } else {
               logger.log(`🔄 ロール取得リトライ${attempt + 1}回目...`)
               // リトライ前に少し待機
