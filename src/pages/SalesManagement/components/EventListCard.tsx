@@ -14,7 +14,7 @@ interface EventItem {
   net_profit: number
   participant_count: number
   category?: string
-  has_demo_participant?: boolean // デモ参加者がいるかどうか
+  has_demo_participant?: boolean
 }
 
 interface EventListCardProps {
@@ -23,300 +23,256 @@ interface EventListCardProps {
   onEditEvent?: (event: EventItem) => void
 }
 
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('ja-JP', {
+const formatCurrency = (amount: number): string =>
+  new Intl.NumberFormat('ja-JP', {
     style: 'currency',
     currency: 'JPY',
     minimumFractionDigits: 0
   }).format(amount)
-}
 
-const formatDate = (dateStr: string): string => {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('ja-JP', {
+const formatDate = (dateStr: string): string =>
+  new Date(dateStr).toLocaleDateString('ja-JP', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
   })
+
+const CATEGORY_STYLES: Record<
+  NonNullable<EventItem['category']>,
+  { label: string; className: string }
+> = {
+  gmtest: { label: 'GMテスト', className: 'bg-slate-100 text-slate-700 border-slate-200' },
+  private: { label: '貸切', className: 'bg-purple-100 text-purple-700 border-purple-200' },
+  open: { label: '公開', className: 'bg-green-100 text-green-700 border-green-200' },
+  enterprise: { label: '企業', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+  testplay: { label: 'テストプレイ', className: 'bg-orange-100 text-orange-700 border-orange-200' },
+  offsite: { label: '出張', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  venue_rental: { label: '会場貸切', className: 'bg-gray-100 text-gray-700 border-gray-200' },
+  venue_rental_free: { label: '会場貸切（無料）', className: 'bg-gray-100 text-gray-700 border-gray-200' },
+  package: { label: 'パッケージ', className: 'bg-pink-100 text-pink-700 border-pink-200' }
 }
 
-const EventListCardBase: React.FC<EventListCardProps> = ({
-  events,
-  loading = false,
-  onEditEvent
-}) => {
+const SectionHeader: React.FC<{ subtitle?: string }> = ({ subtitle }) => (
+  <div className="flex items-center gap-2">
+    <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+    <h2 className="text-base sm:text-lg md:text-xl font-semibold">実施公演リスト</h2>
+    {subtitle && <span className="text-xs text-muted-foreground">({subtitle})</span>}
+  </div>
+)
+
+const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = false, onEditEvent }) => {
   if (loading) {
     return (
-      <div className="space-y-3 sm:space-y-4">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-          <h2 className="text-base sm:text-lg md:text-xl font-semibold">実施公演リスト</h2>
-        </div>
-        <div className="text-center py-6 sm:py-8 text-muted-foreground text-xs sm:text-sm">
+      <section className="space-y-3 sm:space-y-4">
+        <SectionHeader />
+        <p className="text-center py-6 sm:py-8 text-muted-foreground text-xs sm:text-sm">
           データを読み込んでいます...
-        </div>
-      </div>
+        </p>
+      </section>
     )
   }
 
   if (events.length === 0) {
     return (
-      <div className="space-y-3 sm:space-y-4">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-          <h2 className="text-base sm:text-lg md:text-xl font-semibold">実施公演リスト</h2>
-        </div>
-        <div className="text-center py-6 sm:py-8 text-muted-foreground text-xs sm:text-sm">
-          公演データがありません
-        </div>
-      </div>
+      <section className="space-y-3 sm:space-y-4">
+        <SectionHeader />
+        <p className="text-center py-6 sm:py-8 text-muted-foreground text-xs sm:text-sm">公演データがありません</p>
+      </section>
     )
   }
 
+  const totals = events.reduce(
+    (acc, event) => ({
+      revenue: acc.revenue + event.revenue,
+      license: acc.license + event.license_cost,
+      gm: acc.gm + event.gm_cost,
+      profit: acc.profit + event.net_profit
+    }),
+    { revenue: 0, license: 0, gm: 0, profit: 0 }
+  )
+
   return (
-    <div className="space-y-3 sm:space-y-4">
-      <div className="flex items-center gap-2">
-        <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-        <h2 className="text-base sm:text-lg md:text-xl font-semibold">実施公演リスト</h2>
-      </div>
+    <section className="space-y-3 sm:space-y-4">
+      <SectionHeader subtitle={`${events.length}件`} />
+
       <div className="space-y-2 sm:space-y-3">
-          {events.map((event) => (
-            <div key={event.id} className="border rounded-lg p-2 sm:p-3 hover:bg-gray-50 transition-colors">
-              {/* モバイルレイアウト: 縦並び */}
-              <div className="flex flex-col sm:hidden gap-2">
-                {/* ヘッダー: 日付、バッジ、編集ボタン */}
+        {events.map((event) => {
+          const category = event.category ? CATEGORY_STYLES[event.category] : undefined
+
+          return (
+            <article
+              key={event.id}
+              className="border rounded-lg p-2 sm:p-3 hover:bg-muted/40 transition-colors space-y-2 sm:space-y-0"
+            >
+              {/* モバイル表示 */}
+              <div className="flex flex-col gap-2 sm:hidden">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-1 flex-wrap flex-1">
+                  <div className="flex items-center gap-1 flex-wrap">
                     <Badge variant="outline" className="text-xs">
                       {formatDate(event.date)}
                     </Badge>
-                    {/* カテゴリバッジ */}
-                    {event.category === 'gmtest' && (
-                      <Badge variant="secondary" className="text-xs">GMテスト</Badge>
-                    )}
-                    {event.category === 'private' && (
-                      <Badge variant="default" className="text-xs bg-purple-100 text-purple-700 border-purple-200">貸切</Badge>
-                    )}
-                    {event.category === 'open' && (
-                      <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">公開</Badge>
-                    )}
-                    {event.category === 'enterprise' && (
-                      <Badge variant="default" className="text-xs bg-blue-100 text-blue-700 border-blue-200">企業</Badge>
-                    )}
-                    {event.category === 'testplay' && (
-                      <Badge variant="default" className="text-xs bg-orange-100 text-orange-700 border-orange-200">テストプレイ</Badge>
-                    )}
-                    {event.category === 'offsite' && (
-                      <Badge variant="default" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">出張</Badge>
-                    )}
-                    {event.category === 'venue_rental' && (
-                      <Badge variant="default" className="text-xs bg-gray-100 text-gray-700 border-gray-200">会場貸切</Badge>
-                    )}
-                    {event.category === 'venue_rental_free' && (
-                      <Badge variant="default" className="text-xs bg-gray-100 text-gray-700 border-gray-200">会場貸切（無料）</Badge>
-                    )}
-                    {event.category === 'package' && (
-                      <Badge variant="default" className="text-xs bg-pink-100 text-pink-700 border-pink-200">パッケージ</Badge>
+                    {category && (
+                      <Badge variant="default" className={`text-xs ${category.className}`}>
+                        {category.label}
+                      </Badge>
                     )}
                     {event.has_demo_participant && (
-                      <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">デモ参加者</Badge>
+                      <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">
+                        デモ参加者
+                      </Badge>
                     )}
                   </div>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 flex-shrink-0"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground"
                     onClick={() => onEditEvent?.(event)}
-                    title="編集"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>
 
-                {/* シナリオタイトル */}
-                <h3 
-                  className="font-semibold text-sm truncate cursor-pointer hover:text-primary transition-colors"
+                <button
+                  type="button"
+                  className="text-left font-semibold text-sm truncate hover:text-primary transition-colors"
                   onClick={() => onEditEvent?.(event)}
-                  title="クリックして編集"
                 >
                   {event.scenario_title}
-                </h3>
+                </button>
 
-                {/* 店舗・参加者情報 */}
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
+                  <span className="flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
-                    <span>{event.store_name}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
+                    {event.store_name}
+                  </span>
+                  <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
-                    <span>{event.participant_count}名</span>
-                  </div>
+                    {event.participant_count}名
+                  </span>
                 </div>
 
-                {/* 金額情報: グリッドレイアウト */}
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+                <div className="grid grid-cols-2 gap-2 border-t pt-2 text-sm">
                   <div>
-                    <div className="text-xs text-muted-foreground mb-0.5">売上</div>
-                    <div className="font-bold text-green-600 text-sm">
-                      {formatCurrency(event.revenue)}
-                    </div>
+                    <p className="text-xs text-muted-foreground">売上</p>
+                    <p className="font-bold text-green-600">{formatCurrency(event.revenue)}</p>
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground mb-0.5">純利益</div>
-                    <div className={`font-bold ${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'} text-sm`}>
+                    <p className="text-xs text-muted-foreground">純利益</p>
+                    <p className={`font-bold ${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(event.net_profit)}
-                    </div>
+                    </p>
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground mb-0.5">ライセンス</div>
-                    <div className="font-bold text-red-600 text-sm">
-                      {formatCurrency(event.license_cost)}
-                    </div>
+                    <p className="text-xs text-muted-foreground">ライセンス</p>
+                    <p className="font-bold text-red-600">{formatCurrency(event.license_cost)}</p>
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground mb-0.5">GM給与</div>
-                    <div className="font-bold text-red-600 text-sm">
-                      {formatCurrency(event.gm_cost)}
-                    </div>
+                    <p className="text-xs text-muted-foreground">GM給与</p>
+                    <p className="font-bold text-red-600">{formatCurrency(event.gm_cost)}</p>
                   </div>
                 </div>
               </div>
 
-              {/* デスクトップレイアウト: 横並び */}
-              <div className="hidden sm:flex items-center justify-between w-full gap-4">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+              {/* デスクトップ表示 */}
+              <div className="hidden sm:flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">
                       {formatDate(event.date)}
                     </Badge>
-                    {/* カテゴリバッジ */}
-                    {event.category === 'gmtest' && (
-                      <Badge variant="secondary" className="text-xs">GMテスト</Badge>
-                    )}
-                    {event.category === 'private' && (
-                      <Badge variant="default" className="text-xs bg-purple-100 text-purple-700 border-purple-200">貸切</Badge>
-                    )}
-                    {event.category === 'open' && (
-                      <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-200">公開</Badge>
-                    )}
-                    {event.category === 'enterprise' && (
-                      <Badge variant="default" className="text-xs bg-blue-100 text-blue-700 border-blue-200">企業</Badge>
-                    )}
-                    {event.category === 'testplay' && (
-                      <Badge variant="default" className="text-xs bg-orange-100 text-orange-700 border-orange-200">テストプレイ</Badge>
-                    )}
-                    {event.category === 'offsite' && (
-                      <Badge variant="default" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">出張</Badge>
-                    )}
-                    {event.category === 'venue_rental' && (
-                      <Badge variant="default" className="text-xs bg-gray-100 text-gray-700 border-gray-200">会場貸切</Badge>
-                    )}
-                    {event.category === 'venue_rental_free' && (
-                      <Badge variant="default" className="text-xs bg-gray-100 text-gray-700 border-gray-200">会場貸切（無料）</Badge>
-                    )}
-                    {event.category === 'package' && (
-                      <Badge variant="default" className="text-xs bg-pink-100 text-pink-700 border-pink-200">パッケージ</Badge>
+                    {category && (
+                      <Badge variant="default" className={`text-xs ${category.className}`}>
+                        {category.label}
+                      </Badge>
                     )}
                     {event.has_demo_participant && (
-                      <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">デモ参加者</Badge>
+                      <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">
+                        デモ参加者
+                      </Badge>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
+
+                  <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
-                      <h3 
-                        className="font-semibold text-sm truncate cursor-pointer hover:text-primary transition-colors"
+                      <button
+                        type="button"
+                        className="text-left font-semibold text-sm truncate hover:text-primary transition-colors"
                         onClick={() => onEditEvent?.(event)}
-                        title="クリックして編集"
                       >
                         {event.scenario_title}
-                      </h3>
+                      </button>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 flex-shrink-0"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground"
                         onClick={() => onEditEvent?.(event)}
-                        title="編集"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
-                        <span>{event.store_name}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
+                        {event.store_name}
+                      </span>
+                      <span className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
-                        <span>{event.participant_count}名</span>
-                      </div>
+                        {event.participant_count}名
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6 text-right flex-shrink-0">
-                  <div className="text-center min-w-[80px]">
-                    <div className="text-xs text-muted-foreground">売上</div>
-                    <div className="font-bold text-green-600 text-sm">
-                      {formatCurrency(event.revenue)}
-                    </div>
+                <div className="flex items-center gap-6 text-right text-sm">
+                  <div className="min-w-[80px]">
+                    <p className="text-xs text-muted-foreground">売上</p>
+                    <p className="font-bold text-green-600">{formatCurrency(event.revenue)}</p>
                   </div>
-                  <div className="text-center min-w-[80px]">
-                    <div className="text-xs text-muted-foreground">ライセンス</div>
-                    <div className="font-bold text-red-600 text-sm">
-                      {formatCurrency(event.license_cost)}
-                    </div>
+                  <div className="min-w-[80px]">
+                    <p className="text-xs text-muted-foreground">ライセンス</p>
+                    <p className="font-bold text-red-600">{formatCurrency(event.license_cost)}</p>
                   </div>
-                  <div className="text-center min-w-[80px]">
-                    <div className="text-xs text-muted-foreground">GM給与</div>
-                    <div className="font-bold text-red-600 text-sm">
-                      {formatCurrency(event.gm_cost)}
-                    </div>
+                  <div className="min-w-[80px]">
+                    <p className="text-xs text-muted-foreground">GM給与</p>
+                    <p className="font-bold text-red-600">{formatCurrency(event.gm_cost)}</p>
                   </div>
-                  <div className="text-center min-w-[80px]">
-                    <div className="text-xs text-muted-foreground">純利益</div>
-                    <div className={`font-bold ${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'} text-sm`}>
+                  <div className="min-w-[80px]">
+                    <p className="text-xs text-muted-foreground">純利益</p>
+                    <p className={`font-bold ${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(event.net_profit)}
-                    </div>
+                    </p>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            </article>
+          )
+        })}
+      </div>
 
-        <div className="mt-3 sm:mt-4 md:mt-6 pt-3 sm:pt-4 border-t">
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 text-center">
-            <div>
-              <div className="text-xs sm:text-sm text-muted-foreground">総売上</div>
-              <div className="font-bold text-green-600 text-sm sm:text-base">
-                {formatCurrency(events.reduce((sum, event) => sum + event.revenue, 0))}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs sm:text-sm text-muted-foreground">総ライセンス</div>
-              <div className="font-bold text-red-600 text-sm sm:text-base">
-                {formatCurrency(events.reduce((sum, event) => sum + event.license_cost, 0))}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs sm:text-sm text-muted-foreground">総GM給与</div>
-              <div className="font-bold text-red-600 text-sm sm:text-base">
-                {formatCurrency(events.reduce((sum, event) => sum + event.gm_cost, 0))}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs sm:text-sm text-muted-foreground">総純利益</div>
-              <div className={`font-bold ${events.reduce((sum, event) => sum + event.net_profit, 0) >= 0 ? 'text-green-600' : 'text-red-600'} text-sm sm:text-base`}>
-                {formatCurrency(events.reduce((sum, event) => sum + event.net_profit, 0))}
-              </div>
-            </div>
+      <footer className="border-t pt-3 sm:pt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 text-center text-sm">
+          <div>
+            <p className="text-xs sm:text-sm text-muted-foreground">総売上</p>
+            <p className="font-bold text-green-600">{formatCurrency(totals.revenue)}</p>
+          </div>
+          <div>
+            <p className="text-xs sm:text-sm text-muted-foreground">総ライセンス</p>
+            <p className="font-bold text-red-600">{formatCurrency(totals.license)}</p>
+          </div>
+          <div>
+            <p className="text-xs sm:text-sm text-muted-foreground">総GM給与</p>
+            <p className="font-bold text-red-600">{formatCurrency(totals.gm)}</p>
+          </div>
+          <div>
+            <p className="text-xs sm:text-sm text-muted-foreground">総純利益</p>
+            <p className={`font-bold ${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {formatCurrency(totals.profit)}
+            </p>
           </div>
         </div>
-      </div>
-    </div>
+      </footer>
+    </section>
   )
 }
 
-// React.memoでメモ化してエクスポート
 export const EventListCard = React.memo(EventListCardBase)
