@@ -78,7 +78,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         )}
       </div>
 
-      <CardContent className="p-2 space-y-0.5 sm:space-y-0.5 bg-white">
+      <CardContent className="p-2 sm:p-2.5 space-y-0.5 sm:space-y-0.5 bg-white">
         {/* 著者 */}
         <p className="text-xs text-gray-500">{scenario.author}</p>
         
