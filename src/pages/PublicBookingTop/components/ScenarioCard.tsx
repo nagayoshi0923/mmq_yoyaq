@@ -144,7 +144,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
               return (
                 <div
                   key={index}
-                  className="grid grid-cols-[auto,1fr,auto] items-center gap-1.5 text-[11px] rounded-[6px] border border-gray-200 px-2 py-1"
+                  className="rounded-[6px] border border-gray-200 px-2 py-1 text-[11px] space-y-0.5"
                 >
                   <div className="flex items-baseline gap-1 font-medium text-gray-800">
                     <span>{dateInfo.date}</span>
@@ -160,23 +160,24 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                     )}
                   </div>
 
-                  <div className="truncate text-gray-600">
-                    {event.store_name ? `@ ${event.store_name}` : scenario.scenario_title}
-                  </div>
-
-                  {seatText && (
-                    <span
-                      className={`text-[11px] font-semibold ${
-                        seatText === '満席'
-                          ? 'text-gray-500'
-                          : event.available_seats && event.available_seats <= 2
-                            ? 'text-orange-600'
-                            : 'text-gray-600'
-                      }`}
-                    >
-                      {seatText}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-gray-600">
+                    <span className="leading-tight break-words">
+                      {event.store_name ? `@ ${event.store_name}` : scenario.scenario_title}
                     </span>
-                  )}
+                    {seatText && (
+                      <span
+                        className={`ml-auto leading-tight font-semibold ${
+                          seatText === '満席'
+                            ? 'text-gray-500'
+                            : event.available_seats && event.available_seats <= 2
+                              ? 'text-orange-600'
+                              : 'text-gray-600'
+                        }`}
+                      >
+                        {seatText}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )
             })}
