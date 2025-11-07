@@ -78,7 +78,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         )}
       </div>
 
-      <CardContent className="p-2 space-y-0.5 bg-white">
+      <CardContent className="p-2 space-y-1 bg-white">
         {/* 著者 */}
         <p className="text-xs text-gray-500">{scenario.author}</p>
         
@@ -128,43 +128,53 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
 
         {/* 次回公演（最大3つまで表示） */}
         {scenario.next_events && scenario.next_events.length > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-1.5 pt-1">
             {scenario.next_events.map((event, index) => {
               const dateInfo = formatDate(event.date)
               const isSunday = dateInfo.dayOfWeek === 0
               const isSaturday = dateInfo.dayOfWeek === 6
-              
+
+              const seatText =
+                event.available_seats !== undefined && event.available_seats > 0
+                  ? `残${event.available_seats}席`
+                  : event.available_seats === 0
+                    ? '満席'
+                    : undefined
+
               return (
-                <div 
-                  key={index} 
-                  className={`flex items-center gap-1.5 text-xs py-1 px-1.5 bg-gray-100 rounded-[2px] ${
-                    index === 0 ? 'mt-1' : ''
-                  }`}
+                <div
+                  key={index}
+                  className="grid grid-cols-[auto,1fr,auto] items-center gap-1.5 text-[11px] rounded-[6px] border border-gray-200 px-2 py-1"
                 >
-                  <span className="font-medium text-gray-800">
-                    {dateInfo.date}
-                    <span className={`ml-0.5 ${isSunday ? 'text-red-600' : isSaturday ? 'text-blue-600' : 'text-gray-600'}`}>
-                      ({dateInfo.weekday})
+                  <div className="flex items-baseline gap-1 font-medium text-gray-800">
+                    <span>{dateInfo.date}</span>
+                    <span
+                      className={`text-[10px] ${
+                        isSunday ? 'text-red-600' : isSaturday ? 'text-blue-600' : 'text-gray-500'
+                      }`}
+                    >
+                      {dateInfo.weekday}
                     </span>
                     {event.time && (
-                      <span className="font-normal text-gray-600 ml-0.5">
-                        {event.time.slice(0, 5)}
-                      </span>
+                      <span className="text-gray-500 text-[10px]">{event.time.slice(0, 5)}</span>
                     )}
-                  </span>
-                  {event.store_name && (
-                    <span className="text-gray-500 text-[11px]">
-                      @ {event.store_name}
-                    </span>
-                  )}
-                  {/* 空席がある場合は残席数を表示、満席の場合は何も表示しない */}
-                  {event.available_seats !== undefined && event.available_seats > 0 && (
-                    <span className={`text-[11px] font-medium ml-auto ${
-                      event.available_seats <= 2 
-                        ? 'text-orange-600' 
-                        : 'text-gray-600'
-                    }`}>
-                      残{event.available_seats}席
+                  </div>
+
+                  <div className="truncate text-gray-600">
+                    {event.store_name ? `@ ${event.store_name}` : scenario.scenario_title}
+                  </div>
+
+                  {seatText && (
+                    <span
+                      className={`text-[11px] font-semibold ${
+                        seatText === '満席'
+                          ? 'text-gray-500'
+                          : event.available_seats && event.available_seats <= 2
+                            ? 'text-orange-600'
+                            : 'text-gray-600'
+                      }`}
+                    >
+                      {seatText}
                     </span>
                   )}
                 </div>
