@@ -78,7 +78,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         )}
       </div>
 
-      <CardContent className="p-2 space-y-0.5 bg-white">
+      <CardContent className="p-2 space-y-0.5 sm:space-y-0.5 bg-white">
         {/* 著者 */}
         <p className="text-xs text-gray-500">{scenario.author}</p>
         
@@ -88,7 +88,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         </h3>
 
         {/* 人数・時間 */}
-        <div className="flex items-center gap-2.5 text-sm text-gray-600 mt-0.5">
+        <div className="flex items-center gap-2 text-sm text-gray-600 mt-0.5">
           <div className="flex items-center gap-1">
             <Users className="h-4 w-4" />
             <span>
@@ -128,7 +128,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
 
         {/* 次回公演（最大3つまで表示） */}
         {scenario.next_events && scenario.next_events.length > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-0.5 sm:space-y-1">
             {scenario.next_events.map((event, index) => {
               const dateInfo = formatDate(event.date)
               const isSunday = dateInfo.dayOfWeek === 0
@@ -137,8 +137,8 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
               return (
                 <div 
                   key={index} 
-                  className={`flex items-center gap-1.5 text-xs py-1 px-1.5 bg-gray-100 rounded-[2px] ${
-                    index === 0 ? 'mt-1' : ''
+                  className={`flex items-center gap-1.5 text-[11px] sm:text-xs py-1 px-1.5 sm:px-2 bg-gray-100 rounded-[3px] ${
+                    index === 0 ? 'mt-0.5 sm:mt-1' : ''
                   }`}
                 >
                   <span className="font-medium text-gray-800">
