@@ -577,8 +577,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             }))
           }
         })(),
-        license_amount: scenario.license_amount || 1500,
-        gm_test_license_amount: scenario.gm_test_license_amount || 0,
+        license_amount: (scenario.license_amount ?? 1500),
+        gm_test_license_amount: (scenario.gm_test_license_amount ?? 0),
         license_rewards: [],
         has_pre_reading: scenario.has_pre_reading || false,
         gm_count: scenario.gm_costs?.length || 2,

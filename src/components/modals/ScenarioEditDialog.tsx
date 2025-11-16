@@ -74,8 +74,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
 
         // license_rewards は DB に存在しないため、常に license_amount から生成
         const licenseRewards = [
-          { item: 'normal', amount: scenario.license_amount || 1500, type: 'fixed' as const },
-          { item: 'gmtest', amount: scenario.gm_test_license_amount || 0, type: 'fixed' as const }
+          { item: 'normal', amount: (scenario.license_amount ?? 1500), type: 'fixed' as const },
+          { item: 'gmtest', amount: (scenario.gm_test_license_amount ?? 0), type: 'fixed' as const }
         ]
         
         setFormData({
@@ -92,8 +92,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
           production_costs: scenario.production_costs || [],
           genre: scenario.genre || [],
           required_props: scenario.required_props || [],
-          license_amount: scenario.license_amount || 1500,
-          gm_test_license_amount: scenario.gm_test_license_amount || 0,
+          license_amount: (scenario.license_amount ?? 1500),
+          gm_test_license_amount: (scenario.gm_test_license_amount ?? 0),
           license_rewards: licenseRewards,
           has_pre_reading: scenario.has_pre_reading || false,
           gm_count: (scenario as any).gm_count || 1, // フォーム専用フィールド
@@ -177,8 +177,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
       const scenarioData: any = {
         ...dbFields,
         participation_fee: normalParticipationCost?.amount || formData.participation_fee || 3000,
-        license_amount: normalLicenseReward?.amount || formData.license_amount || 1500,
-        gm_test_license_amount: gmtestLicenseReward?.amount || formData.gm_test_license_amount || 0,
+        license_amount: (normalLicenseReward?.amount ?? formData.license_amount ?? 1500),
+        gm_test_license_amount: (gmtestLicenseReward?.amount ?? formData.gm_test_license_amount ?? 0),
         gm_costs: formData.gm_assignments.map(assignment => ({
           role: assignment.role,
           reward: assignment.reward,
