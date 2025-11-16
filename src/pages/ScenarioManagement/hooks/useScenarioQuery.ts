@@ -129,7 +129,8 @@ export function useScenarioMutation() {
     },
     onSettled: () => {
       // 成功・失敗に関わらず最終的に最新データを取得
-      queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
+      // すべてのシナリオ関連クエリを無効化（all、paginated、detail）
+      queryClient.invalidateQueries({ queryKey: ['scenarios'] })
       logger.log('🔄 最新データを再取得')
     },
   })
@@ -170,7 +171,8 @@ export function useDeleteScenarioMutation() {
     },
     onSettled: () => {
       // 最終的に最新データを取得
-      queryClient.invalidateQueries({ queryKey: scenarioKeys.all })
+      // すべてのシナリオ関連クエリを無効化（all、paginated、detail）
+      queryClient.invalidateQueries({ queryKey: ['scenarios'] })
       logger.log('🔄 最新データを再取得')
     },
   })

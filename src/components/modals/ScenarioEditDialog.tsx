@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button'
 import { Save } from 'lucide-react'
 import { useScenariosQuery, useScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useQueryClient } from '@tanstack/react-query'
 
 // 各セクションのコンポーネント
 import { BasicInfoSection } from '@/pages/ScenarioEdit/sections/BasicInfoSection'
@@ -21,6 +22,7 @@ interface ScenarioEditDialogProps {
 }
 
 export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: ScenarioEditDialogProps) {
+  const queryClient = useQueryClient()
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
@@ -251,9 +253,16 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         isEdit: !!scenarioId
       })
 
-      // 保存完了通知
+      // キャッシュを無効化して最新データを取得
+      await queryClient.invalidateQueries({ queryKey: ['scenarios'] })
+      
+      // 保存完了通知（キャッシュ更新後に呼ぶ）
       if (onSaved) {
-        try { onSaved() } catch {}
+        try { 
+          await onSaved() 
+        } catch (err) {
+          logger.error('onSavedコールバックエラー:', err)
+        }
       }
       onClose()
     } catch (err: unknown) {
