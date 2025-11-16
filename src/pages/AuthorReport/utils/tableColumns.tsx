@@ -123,8 +123,12 @@ export function createAuthorColumns(
 
 /**
  * 展開時の詳細行をレンダリング
+ * onScenarioClick を渡すと、シナリオタイトルをクリック可能にする
  */
-export function renderExpandedRow(author: AuthorPerformance) {
+export function renderExpandedRow(
+  author: AuthorPerformance,
+  onScenarioClick?: (scenarioTitle: string) => void
+) {
   return (
     <div className="py-4 px-6 space-y-2 bg-muted/30">
       <h4 className="font-semibold mb-3">シナリオ別詳細</h4>
@@ -141,7 +145,20 @@ export function renderExpandedRow(author: AuthorPerformance) {
         <TableBody>
           {author.scenarios.map((scenario) => (
             <TableRow key={scenario.title}>
-              <TableCell>{scenario.title}</TableCell>
+              <TableCell>
+                {onScenarioClick ? (
+                  <button
+                    type="button"
+                    onClick={() => onScenarioClick(scenario.title)}
+                    className="text-blue-600 hover:text-blue-700 underline underline-offset-2 cursor-pointer"
+                    title="シナリオを編集"
+                  >
+                    {scenario.title}
+                  </button>
+                ) : (
+                  scenario.title
+                )}
+              </TableCell>
               <TableCell className="text-right">{scenario.events}回</TableCell>
               <TableCell className="text-right">
                 ¥{scenario.licenseAmountPerEvent.toLocaleString()}

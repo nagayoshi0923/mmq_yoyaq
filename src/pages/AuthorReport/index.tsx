@@ -10,6 +10,7 @@ import { useAuthorReportData } from './hooks/useAuthorReportData'
 import { useReportFilters } from './hooks/useReportFilters'
 import { generateAuthorReportText, generateEmailUrl, copyToClipboard } from './utils/reportFormatters'
 import { renderExpandedRow } from './utils/tableColumns'
+import { useScenariosQuery } from '../ScenarioManagement/hooks/useScenarioQuery'
 import type { AuthorPerformance } from './types'
 
 export default function AuthorReport() {
@@ -32,6 +33,7 @@ export default function AuthorReport() {
 
   // データ取得
   const { monthlyData, loading } = useAuthorReportData(selectedYear, selectedMonth, selectedStore)
+  const { data: allScenarios = [] } = useScenariosQuery()
 
   // フィルタリング適用
   const { filteredMonthlyData: finalData } = useReportFilters(monthlyData)
@@ -65,6 +67,16 @@ export default function AuthorReport() {
       }
       return newSet
     })
+  }
+
+  // シナリオ編集（タイトルからID解決）
+  const handleEditScenarioByTitle = (title: string) => {
+    const scenario = allScenarios.find((s) => s.title === title)
+    if (!scenario) {
+      alert('シナリオが見つかりませんでした（タイトル重複の可能性あり）')
+      return
+    }
+    window.location.hash = `scenarios/edit/${scenario.id}`
   }
 
   return (
@@ -223,7 +235,7 @@ export default function AuthorReport() {
                             {isExpanded && (
                               <TableRow>
                                 <TableCell colSpan={6} className="p-0">
-                                  {renderExpandedRow(author)}
+                                  {renderExpandedRow(author, handleEditScenarioByTitle)}
                                 </TableCell>
                               </TableRow>
                             )}
