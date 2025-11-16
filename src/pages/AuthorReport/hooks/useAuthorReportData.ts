@@ -89,20 +89,20 @@ export function useAuthorReportData(year: number, month: number, storeId: string
 
         if (isFranchiseStore) {
           // フランチャイズ店舗の場合
+          // フランチャイズ料金が設定されていない（null/undefined/0）場合は内部用を使用
           if (isGMTest) {
             // 他店GMテスト用 → 他店通常用 → 通常GMテスト用 → 通常
             licenseAmountPerEvent = 
-              scenario.franchise_gm_test_license_amount ?? 
-              scenario.franchise_license_amount ?? 
-              scenario.gm_test_license_amount ?? 
-              scenario.license_amount ?? 
-              0
+              (scenario.franchise_gm_test_license_amount != null && scenario.franchise_gm_test_license_amount !== 0) ? scenario.franchise_gm_test_license_amount :
+              (scenario.franchise_license_amount != null && scenario.franchise_license_amount !== 0) ? scenario.franchise_license_amount :
+              (scenario.gm_test_license_amount != null && scenario.gm_test_license_amount !== 0) ? scenario.gm_test_license_amount :
+              scenario.license_amount ?? 0
           } else {
             // 他店通常用 → 通常
             licenseAmountPerEvent = 
-              scenario.franchise_license_amount ?? 
-              scenario.license_amount ?? 
-              0
+              (scenario.franchise_license_amount != null && scenario.franchise_license_amount !== 0) 
+                ? scenario.franchise_license_amount 
+                : (scenario.license_amount ?? 0)
           }
         } else {
           // 直営店舗の場合（従来通り）
