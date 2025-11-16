@@ -35,7 +35,7 @@ export default function AuthorReport() {
   } = useReportFilters([])
 
   // データ取得
-  const { monthlyData, loading } = useAuthorReportData(selectedYear, selectedMonth, selectedStore)
+  const { monthlyData, loading, refresh } = useAuthorReportData(selectedYear, selectedMonth, selectedStore)
   const { data: allScenarios = [] } = useScenariosQuery()
 
   // フィルタリング適用
@@ -89,6 +89,10 @@ export default function AuthorReport() {
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         scenarioId={editScenarioId}
+        onSaved={() => {
+          // 保存完了時に作者レポートをリフレッシュ
+          refresh()
+        }}
       />
       {/* ヘッダー */}
       <div className="flex items-center justify-between">

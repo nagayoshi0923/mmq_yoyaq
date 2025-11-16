@@ -17,9 +17,10 @@ interface ScenarioEditDialogProps {
   isOpen: boolean
   onClose: () => void
   scenarioId: string | null
+  onSaved?: () => void
 }
 
-export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEditDialogProps) {
+export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: ScenarioEditDialogProps) {
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
@@ -198,6 +199,10 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId }: ScenarioEdit
         isEdit: !!scenarioId
       })
 
+      // 保存完了通知
+      if (onSaved) {
+        try { onSaved() } catch {}
+      }
       onClose()
     } catch (err: unknown) {
       console.error('詳細エラー:', err)

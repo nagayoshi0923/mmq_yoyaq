@@ -160,7 +160,8 @@ export function useAuthorReportData(year: number, month: number, storeId: string
 
   return {
     monthlyData,
-    loading
+    loading,
+    refresh: fetchData
   }
 }
 
