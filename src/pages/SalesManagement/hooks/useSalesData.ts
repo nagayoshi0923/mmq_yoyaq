@@ -674,10 +674,34 @@ function calculateSalesData(
     let gmCost = 0
 
     if (scenario && isPastEvent) {
+      const store = stores.find(s => s.id === event.store_id)
+      const isFranchiseStore = store?.ownership_type === 'franchise'
       const isGmTest = event.category === 'gmtest'
-      licenseCost = isGmTest 
-        ? (scenario.gm_test_license_amount || 0)
-        : (scenario.license_amount || 0)
+      
+      // ライセンス金額を取得（優先順位: 他店用 → 他店GMテスト用 → 通常）
+      if (isFranchiseStore) {
+        // フランチャイズ店舗の場合
+        if (isGmTest) {
+          // 他店GMテスト用 → 他店通常用 → 通常GMテスト用 → 通常
+          licenseCost = 
+            scenario.franchise_gm_test_license_amount ?? 
+            scenario.franchise_license_amount ?? 
+            scenario.gm_test_license_amount ?? 
+            scenario.license_amount ?? 
+            0
+        } else {
+          // 他店通常用 → 通常
+          licenseCost = 
+            scenario.franchise_license_amount ?? 
+            scenario.license_amount ?? 
+            0
+        }
+      } else {
+        // 直営店舗の場合（従来通り）
+        licenseCost = isGmTest 
+          ? (scenario.gm_test_license_amount || 0)
+          : (scenario.license_amount || 0)
+      }
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
         const actualGmCount = (event as any).gms?.length || 0
