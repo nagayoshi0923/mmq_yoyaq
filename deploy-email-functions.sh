@@ -23,6 +23,7 @@ FUNCTIONS=(
   "send-private-booking-rejection"
   "send-booking-change-confirmation"
   "auto-send-reminder-emails"
+  "send-author-report"
 )
 
 # デプロイ結果を記録

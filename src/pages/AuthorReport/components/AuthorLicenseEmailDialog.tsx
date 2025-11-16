@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AuthorLicenseEmailPreview } from './AuthorLicenseEmailPreview'
 import type { AuthorPerformance } from '../types'
 import { generateEmailUrl } from '../utils/reportFormatters'
+import { supabase } from '@/lib/supabase'
 
 interface AuthorLicenseEmailDialogProps {
   isOpen: boolean
@@ -26,11 +27,60 @@ export function AuthorLicenseEmailDialog({
   email
 }: AuthorLicenseEmailDialogProps) {
   const [emailAddress, setEmailAddress] = useState(email)
+  const [sending, setSending] = useState(false)
+  const [sendMethod, setSendMethod] = useState<'resend' | 'gmail'>('resend')
 
-  const handleSend = () => {
-    const url = generateEmailUrl(author, year, month, emailAddress)
-    window.open(url, '_blank')
-    onClose()
+  const handleSend = async () => {
+    if (!emailAddress.trim()) {
+      alert('メールアドレスを入力してください')
+      return
+    }
+
+    if (sendMethod === 'gmail') {
+      // Gmailで開く（従来の動作）
+      const url = generateEmailUrl(author, year, month, emailAddress)
+      window.open(url, '_blank')
+      onClose()
+      return
+    }
+
+    // Resendで送信
+    setSending(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('send-author-report', {
+        body: {
+          to: emailAddress.trim(),
+          authorName: author.author,
+          year,
+          month,
+          totalEvents: author.totalEvents,
+          totalLicenseCost: author.totalLicenseCost,
+          scenarios: author.scenarios.map(scenario => ({
+            title: scenario.title,
+            events: scenario.events,
+            licenseAmountPerEvent: scenario.licenseAmountPerEvent,
+            licenseCost: scenario.licenseCost,
+            isGMTest: scenario.isGMTest
+          }))
+        }
+      })
+
+      if (error) {
+        throw error
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'メール送信に失敗しました')
+      }
+
+      alert('メールを送信しました')
+      onClose()
+    } catch (error: any) {
+      console.error('メール送信エラー:', error)
+      alert(`メール送信に失敗しました: ${error?.message || '不明なエラー'}`)
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -57,7 +107,36 @@ export function AuthorLicenseEmailDialog({
                   value={emailAddress}
                   onChange={(e) => setEmailAddress(e.target.value)}
                   className="mt-1"
+                  disabled={sending}
                 />
+              </div>
+
+              <div>
+                <Label>送信方法</Label>
+                <div className="flex gap-4 mt-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="sendMethod"
+                      value="resend"
+                      checked={sendMethod === 'resend'}
+                      onChange={(e) => setSendMethod(e.target.value as 'resend' | 'gmail')}
+                      disabled={sending}
+                    />
+                    <span className="text-sm">Resendで送信（推奨）</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="sendMethod"
+                      value="gmail"
+                      checked={sendMethod === 'gmail'}
+                      onChange={(e) => setSendMethod(e.target.value as 'resend' | 'gmail')}
+                      disabled={sending}
+                    />
+                    <span className="text-sm">Gmailで開く</span>
+                  </label>
+                </div>
               </div>
 
               <div className="border-t pt-4 space-y-2">
@@ -97,9 +176,9 @@ export function AuthorLicenseEmailDialog({
           </Button>
           <Button
             onClick={handleSend}
-            disabled={!emailAddress.trim()}
+            disabled={!emailAddress.trim() || sending}
           >
-            Gmailで送信
+            {sending ? '送信中...' : sendMethod === 'resend' ? 'メール送信' : 'Gmailで開く'}
           </Button>
         </div>
       </DialogContent>

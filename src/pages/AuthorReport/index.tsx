@@ -9,6 +9,7 @@ import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuthorReportData } from './hooks/useAuthorReportData'
 import { useReportFilters } from './hooks/useReportFilters'
 import { generateAuthorReportText, generateEmailUrl, copyToClipboard } from './utils/reportFormatters'
+import { supabase } from '@/lib/supabase'
 import { renderExpandedRow } from './utils/tableColumns'
 import { useScenariosQuery } from '../ScenarioManagement/hooks/useScenarioQuery'
 import type { AuthorPerformance } from './types'
@@ -107,22 +108,62 @@ export default function AuthorReport() {
       return
     }
 
-    if (!confirm(`${authorsWithEmail.length}名の作者にメールを送信しますか？\n各作者のGmailが開きます。`)) {
+    if (!confirm(`${authorsWithEmail.length}名の作者にメールを送信しますか？\nResendを使用して自動送信します。`)) {
       return
     }
 
     setIsSendingBatch(true)
     try {
-      // 少し間隔を空けて順番に開く
+      let successCount = 0
+      let failureCount = 0
+
+      // Resendで順番に送信
       for (let i = 0; i < authorsWithEmail.length; i++) {
         const { author, email } = authorsWithEmail[i]
-        const url = generateEmailUrl(author, selectedYear, selectedMonth, email)
-        window.open(url, '_blank')
         
-        // 最後の1つ以外は少し待つ（ブラウザがポップアップをブロックしないように）
-        if (i < authorsWithEmail.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500))
+        try {
+          const { data, error } = await supabase.functions.invoke('send-author-report', {
+            body: {
+              to: email,
+              authorName: author.author,
+              year: selectedYear,
+              month: selectedMonth,
+              totalEvents: author.totalEvents,
+              totalLicenseCost: author.totalLicenseCost,
+              scenarios: author.scenarios.map(scenario => ({
+                title: scenario.title,
+                events: scenario.events,
+                licenseAmountPerEvent: scenario.licenseAmountPerEvent,
+                licenseCost: scenario.licenseCost,
+                isGMTest: scenario.isGMTest
+              }))
+            }
+          })
+
+          if (error) {
+            throw error
+          }
+
+          if (!data?.success) {
+            throw new Error(data?.error || 'メール送信に失敗しました')
+          }
+
+          successCount++
+
+          // レート制限を避けるため、少し待つ
+          if (i < authorsWithEmail.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 300))
+          }
+        } catch (error: any) {
+          console.error(`メール送信エラー (${author.author}):`, error)
+          failureCount++
         }
+      }
+
+      if (failureCount > 0) {
+        alert(`${successCount}件のメールを送信しました。${failureCount}件の送信に失敗しました。`)
+      } else {
+        alert(`${successCount}件のメールを送信しました。`)
       }
     } catch (error) {
       console.error('一括送信に失敗:', error)
