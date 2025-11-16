@@ -173,7 +173,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
             columns={licenseRewardColumns}
             defaultNewItem={() => ({
               item: 'normal',
-              amount: 1500,
+              amount: 0,
               type: 'fixed' as const
             })}
             onAdd={() => {
@@ -181,7 +181,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
                 ...prev,
                 franchise_license_rewards: [...(prev.franchise_license_rewards || []), {
                   item: 'normal',
-                  amount: 1500,
+                  amount: 0,
                   type: 'fixed' as const
                 }]
               }))
