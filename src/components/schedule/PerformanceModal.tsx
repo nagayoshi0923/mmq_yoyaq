@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { X, ChevronDown, ChevronUp, Mail, ExternalLink } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { AutocompleteInput } from '@/components/ui/autocomplete-input'
-import { ScenarioEditModal } from '@/components/modals/ScenarioEditModal'
+import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
 import { scenarioApi, staffApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi'
@@ -221,8 +221,8 @@ export function PerformanceModal({
   onStaffUpdate,
   onParticipantChange
 }: PerformanceModalProps) {
-  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
-  const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
+  const [isScenarioDialogOpen, setIsScenarioDialogOpen] = useState(false)
+  const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false)
   const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
   const [reservations, setReservations] = useState<Reservation[]>([])
@@ -970,61 +970,13 @@ export function PerformanceModal({
     onClose()
   }
 
-  const handleSaveScenario = async (savedScenario: Scenario) => {
-    try {
-      if (editingScenario) {
-        // 編集モード
-        const { 
-          id, 
-          created_at, 
-          updated_at, 
-          production_costs, 
-          available_gms, 
-          play_count, 
-          required_props,
-          flexible_pricing,
-          ...scenarioForDB 
-        } = savedScenario as any
-        
-        logger.log('シナリオ更新リクエスト:', scenarioForDB)
-        await scenarioApi.update(editingScenario.id, scenarioForDB)
-        logger.log('シナリオ更新成功')
-      } else {
-        // 新規作成モード
-        const { 
-          id, 
-          created_at, 
-          updated_at, 
-          production_costs, 
-          available_gms, 
-          play_count, 
-          required_props,
-          flexible_pricing,
-          ...scenarioForDB 
-        } = savedScenario as any
-        
-        logger.log('シナリオ作成リクエスト:', scenarioForDB)
-        const createdScenario = await scenarioApi.create(scenarioForDB)
-        logger.log('シナリオ作成成功:', createdScenario)
-        // 新しく作成したシナリオを選択
-        setFormData((prev: EventFormData) => ({ 
-          ...prev, 
-          scenario: savedScenario.title,
-          scenario_id: createdScenario.id  // IDも設定
-        }))
-      }
-      
-      setIsScenarioModalOpen(false)
-      setEditingScenario(null)
-      // 親コンポーネントにシナリオリストの更新を通知
-      if (onScenariosUpdate) {
-        await onScenariosUpdate()
-      }
-    } catch (error: unknown) {
-      logger.error('シナリオ作成エラー:', error)
-      const message = error instanceof Error ? error.message : '不明なエラー'
-      alert(`シナリオの作成に失敗しました: ${message}`)
+  const handleScenarioSaved = async () => {
+    // シナリオリストを更新
+    if (onScenariosUpdate) {
+      await onScenariosUpdate()
     }
+    // 編集中のシナリオIDをリセット
+    setEditingScenarioId(null)
   }
 
   const handleCreateStaff = async (newStaff: StaffType) => {
@@ -1403,8 +1355,8 @@ export function PerformanceModal({
                     size="sm"
                     className="mt-1 h-auto p-0 text-xs"
                     onClick={() => {
-                      setEditingScenario(selectedScenario)
-                      setIsScenarioModalOpen(true)
+                      setEditingScenarioId(selectedScenario.id)
+                      setIsScenarioDialogOpen(true)
                     }}
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
@@ -1708,15 +1660,15 @@ export function PerformanceModal({
         </Tabs>
       </DialogContent>
 
-      {/* シナリオ作成・編集モーダル */}
-      <ScenarioEditModal
-        scenario={editingScenario}
-        isOpen={isScenarioModalOpen}
+      {/* シナリオ編集ダイアログ */}
+      <ScenarioEditDialog
+        isOpen={isScenarioDialogOpen}
         onClose={() => {
-          setIsScenarioModalOpen(false)
-          setEditingScenario(null)
+          setIsScenarioDialogOpen(false)
+          setEditingScenarioId(null)
         }}
-        onSave={handleSaveScenario}
+        scenarioId={editingScenarioId}
+        onSaved={handleScenarioSaved}
       />
 
       {/* スタッフ(GM)作成モーダル */}
