@@ -222,6 +222,7 @@ export function PerformanceModal({
   onParticipantChange
 }: PerformanceModalProps) {
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
+  const [editingScenario, setEditingScenario] = useState<Scenario | null>(null)
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false)
   const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
   const [reservations, setReservations] = useState<Reservation[]>([])
@@ -969,35 +970,56 @@ export function PerformanceModal({
     onClose()
   }
 
-  const handleCreateScenario = async (newScenario: Scenario) => {
+  const handleSaveScenario = async (savedScenario: Scenario) => {
     try {
-      // データベースに送信する前に不要なフィールドを除外
-      const { 
-        id, 
-        created_at, 
-        updated_at, 
-        production_costs, 
-        available_gms, 
-        play_count, 
-        required_props,
-        flexible_pricing,
-        ...scenarioForDB 
-      } = newScenario as any
+      if (editingScenario) {
+        // 編集モード
+        const { 
+          id, 
+          created_at, 
+          updated_at, 
+          production_costs, 
+          available_gms, 
+          play_count, 
+          required_props,
+          flexible_pricing,
+          ...scenarioForDB 
+        } = savedScenario as any
+        
+        logger.log('シナリオ更新リクエスト:', scenarioForDB)
+        await scenarioApi.update(editingScenario.id, scenarioForDB)
+        logger.log('シナリオ更新成功')
+      } else {
+        // 新規作成モード
+        const { 
+          id, 
+          created_at, 
+          updated_at, 
+          production_costs, 
+          available_gms, 
+          play_count, 
+          required_props,
+          flexible_pricing,
+          ...scenarioForDB 
+        } = savedScenario as any
+        
+        logger.log('シナリオ作成リクエスト:', scenarioForDB)
+        const createdScenario = await scenarioApi.create(scenarioForDB)
+        logger.log('シナリオ作成成功:', createdScenario)
+        // 新しく作成したシナリオを選択
+        setFormData((prev: EventFormData) => ({ 
+          ...prev, 
+          scenario: savedScenario.title,
+          scenario_id: createdScenario.id  // IDも設定
+        }))
+      }
       
-      logger.log('シナリオ作成リクエスト:', scenarioForDB)
-      const createdScenario = await scenarioApi.create(scenarioForDB)
-      logger.log('シナリオ作成成功:', createdScenario)
       setIsScenarioModalOpen(false)
+      setEditingScenario(null)
       // 親コンポーネントにシナリオリストの更新を通知
       if (onScenariosUpdate) {
         await onScenariosUpdate()
       }
-      // 新しく作成したシナリオを選択
-      setFormData((prev: EventFormData) => ({ 
-        ...prev, 
-        scenario: newScenario.title,
-        scenario_id: newScenario.id  // IDも設定
-      }))
     } catch (error: unknown) {
       logger.error('シナリオ作成エラー:', error)
       const message = error instanceof Error ? error.message : '不明なエラー'
@@ -1380,7 +1402,10 @@ export function PerformanceModal({
                     variant="link"
                     size="sm"
                     className="mt-1 h-auto p-0 text-xs"
-                    onClick={() => window.location.hash = `scenarios/edit/${selectedScenario.id}`}
+                    onClick={() => {
+                      setEditingScenario(selectedScenario)
+                      setIsScenarioModalOpen(true)
+                    }}
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
                     シナリオを編集
@@ -1683,12 +1708,15 @@ export function PerformanceModal({
         </Tabs>
       </DialogContent>
 
-      {/* シナリオ作成モーダル */}
+      {/* シナリオ作成・編集モーダル */}
       <ScenarioEditModal
-        scenario={null}
+        scenario={editingScenario}
         isOpen={isScenarioModalOpen}
-        onClose={() => setIsScenarioModalOpen(false)}
-        onSave={handleCreateScenario}
+        onClose={() => {
+          setIsScenarioModalOpen(false)
+          setEditingScenario(null)
+        }}
+        onSave={handleSaveScenario}
       />
 
       {/* スタッフ(GM)作成モーダル */}
