@@ -10,6 +10,7 @@ interface RankingItem {
   averageRevenue: number
   licenseCost: number
   gmCost: number
+  franchiseFee?: number
   netProfit: number
 }
 
@@ -59,6 +60,9 @@ const RankingCardsBase: React.FC<RankingCardsProps> = ({
                   </div>
                   <div className="text-xs text-muted-foreground">
                     ライセンス {formatCurrency(store.licenseCost)} / GM {formatCurrency(store.gmCost)}
+                    {store.franchiseFee !== undefined && store.franchiseFee > 0 && (
+                      <> / 事務手数料 {formatCurrency(store.franchiseFee)}</>
+                    )}
                   </div>
                 </div>
               </div>

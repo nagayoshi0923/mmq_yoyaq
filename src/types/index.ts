@@ -279,6 +279,7 @@ export interface SalesData {
     averageRevenue: number
     licenseCost: number
     gmCost: number
+    franchiseFee?: number
     netProfit: number
   }>
   scenarioRanking: Array<{

@@ -20,6 +20,7 @@ interface Store {
   name: string
   short_name: string
   ownership_type?: 'corporate' | 'franchise' | 'office'
+  franchise_fee?: number
   fixed_costs?: Array<{
     item: string
     amount: number
@@ -336,6 +337,7 @@ function calculateSalesData(
   // ライセンス金額とGM給与を計算（過去の公演のみ）
   let totalLicenseCost = 0
   let totalGmCost = 0
+  let totalFranchiseFee = 0
   
   const now = new Date()
   now.setHours(0, 0, 0, 0) // 今日の0時に設定
@@ -408,6 +410,7 @@ function calculateSalesData(
     id: string;
     licenseCost: number;
     gmCost: number;
+    franchiseFee: number;
   }>()
   
   events.forEach(event => {
@@ -417,15 +420,19 @@ function calculateSalesData(
     const storeId = event.store_id
     const store = stores.find(s => s.id === storeId)
     const storeName = store?.name || '不明'
+    const isFranchiseStore = store?.ownership_type === 'franchise'
     
     if (!storeRevenues.has(storeId)) {
+      // フランチャイズ店舗の場合、事務手数料（フランチャイズ手数料）を初期化
+      const franchiseFee = (isFranchiseStore && store?.franchise_fee) ? store.franchise_fee : 0
       storeRevenues.set(storeId, { 
         revenue: 0, 
         events: 0, 
         name: storeName, 
         id: storeId,
         licenseCost: 0,
-        gmCost: 0
+        gmCost: 0,
+        franchiseFee
       })
     }
     
@@ -479,11 +486,22 @@ function calculateSalesData(
     }
   })
 
+  // フランチャイズ手数料の合計を計算（期間内に公演を行ったフランチャイズ店舗の手数料の合計）
+  const franchiseStoreIds = new Set(storeRevenues.keys())
+  franchiseStoreIds.forEach(storeId => {
+    const store = stores.find(s => s.id === storeId)
+    const storeData = storeRevenues.get(storeId)
+    if (store?.ownership_type === 'franchise' && store.franchise_fee && storeData && storeData.events > 0) {
+      // 期間内に公演を行ったフランチャイズ店舗の手数料を合計に加算
+      totalFranchiseFee += store.franchise_fee
+    }
+  })
+
   const storeRanking = Array.from(storeRevenues.values())
     .map(store => ({
       ...store,
       averageRevenue: store.events > 0 ? store.revenue / store.events : 0,
-      netProfit: store.revenue - store.licenseCost - store.gmCost
+      netProfit: store.revenue - store.licenseCost - store.gmCost - store.franchiseFee
     }))
     .sort((a, b) => b.revenue - a.revenue)
 
@@ -866,11 +884,12 @@ function calculateSalesData(
     })
   }
 
-  // 変動費の計算（ライセンス費用 + GM給与 + 制作費 + 道具費用）
-  const totalVariableCost = totalLicenseCost + totalGmCost + totalProductionCost + totalPropsCost
+  // 変動費の計算（ライセンス費用 + GM給与 + 事務手数料（フランチャイズ手数料）+ 制作費 + 道具費用）
+  const totalVariableCost = totalLicenseCost + totalGmCost + totalFranchiseFee + totalProductionCost + totalPropsCost
   const variableCostBreakdown = [
     { category: 'ライセンス費用', amount: totalLicenseCost },
     { category: 'GM給与', amount: totalGmCost },
+    ...(totalFranchiseFee > 0 ? [{ category: '事務手数料', amount: totalFranchiseFee }] : []),
     { category: '制作費', amount: totalProductionCost },
     { category: '必要道具', amount: totalPropsCost }
   ]
