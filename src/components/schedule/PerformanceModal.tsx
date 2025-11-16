@@ -906,7 +906,8 @@ export function PerformanceModal({
       setFormData({
         ...event,
         scenario_id: selectedScenario?.id,  // IDを設定
-        time_slot: event.timeSlot || (slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜') // time_slotを設定
+        time_slot: event.timeSlot || (slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'), // time_slotを設定
+        max_participants: selectedScenario?.player_count_max ?? event.max_participants ?? DEFAULT_MAX_PARTICIPANTS // シナリオの参加人数を反映
       })
     } else if (mode === 'add' && initialData) {
       // 追加モード：初期データで初期化
