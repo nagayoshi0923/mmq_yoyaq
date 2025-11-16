@@ -49,7 +49,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
       label: '金額（円）',
       type: 'number',
       width: '1fr',
-      placeholder: '1500'
+      placeholder: '0'
     }
   ]
 

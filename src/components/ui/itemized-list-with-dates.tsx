@@ -156,7 +156,7 @@ export function ItemizedListWithDates({
                           ) : (
                             <Input
                               type={column.type}
-                              value={item[column.key] || ''}
+                              value={item[column.key] != null ? item[column.key] : ''}
                               onChange={(e) => {
                                 const value = column.type === 'number' 
                                   ? parseInt(e.target.value) || 0 
