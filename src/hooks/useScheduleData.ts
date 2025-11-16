@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
+import { useQueryClient } from '@tanstack/react-query'
 
 // 過去の定員未満の公演にデモ参加者を追加する関数
 export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ success: number; failed: number; skipped: number }> {
@@ -353,6 +354,8 @@ interface PrivateRequestData {
 }
 
 export function useScheduleData(currentDate: Date) {
+  const queryClient = useQueryClient()
+  
   // 初回読み込み完了フラグ（useRefで管理してレンダリングをトリガーしない）
   const initialLoadComplete = useRef(false)
   
@@ -394,6 +397,23 @@ export function useScheduleData(currentDate: Date) {
   const [scenariosLoading, setScenariosLoading] = useState(true)
   const [staff, setStaff] = useState<Staff[]>([])
   const [staffLoading, setStaffLoading] = useState(true)
+  
+  // シナリオデータを再取得する関数
+  const refreshScenarios = async () => {
+    try {
+      setScenariosLoading(true)
+      const scenarioData = await scenarioApi.getAll().catch(err => {
+        logger.error('シナリオデータの読み込みエラー:', err)
+        return []
+      })
+      setScenarios(scenarioData)
+      sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenarioData))
+      setScenariosLoading(false)
+    } catch (err) {
+      logger.error('シナリオデータの再取得エラー:', err)
+      setScenariosLoading(false)
+    }
+  }
 
   // イベントデータをキャッシュに保存
   useEffect(() => {
@@ -470,6 +490,30 @@ export function useScheduleData(currentDate: Date) {
     
     loadInitialData()
   }, [])
+  
+  // React Queryのシナリオキャッシュが無効化されたときにシナリオを再取得
+  useEffect(() => {
+    const queryCache = queryClient.getQueryCache()
+    
+    // キャッシュの変更を監視
+    const unsubscribe = queryCache.subscribe((event) => {
+      // scenarios関連のクエリが無効化されたときに再取得
+      if (event?.type === 'updated' && event.query) {
+        const queryKey = event.query.queryKey
+        if (Array.isArray(queryKey) && queryKey[0] === 'scenarios' && event.query.state.isInvalidated) {
+          logger.log('🔄 シナリオキャッシュが無効化されました。シナリオデータを再取得します。')
+          // 少し遅延させて再取得（React Queryの再取得が完了してから）
+          setTimeout(() => {
+            refreshScenarios()
+          }, 100)
+        }
+      }
+    })
+    
+    return () => {
+      unsubscribe()
+    }
+  }, [queryClient])
 
   // Supabaseからイベントデータを読み込む
   useEffect(() => {
