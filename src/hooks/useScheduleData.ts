@@ -400,11 +400,14 @@ export function useScheduleData(currentDate: Date) {
   // React Queryのデータをstateに同期（後方互換性のため）
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   
+  // React Queryのデータが更新されたら必ずstateに同期
   useEffect(() => {
+    // scenariosDataが更新されたら必ずstateを更新（長さのチェックを削除）
+    setScenarios(scenariosData)
     if (scenariosData.length > 0) {
-      setScenarios(scenariosData)
       sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenariosData))
     }
+    logger.log('🔄 シナリオデータをstateに同期:', scenariosData.length)
   }, [scenariosData])
 
   // イベントデータをキャッシュに保存

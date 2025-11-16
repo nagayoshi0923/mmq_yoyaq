@@ -256,6 +256,9 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
       // キャッシュを無効化して最新データを取得
       await queryClient.invalidateQueries({ queryKey: ['scenarios'] })
       
+      // 明示的にデータを再取得（確実に最新データを取得するため）
+      await queryClient.refetchQueries({ queryKey: ['scenarios'] })
+      
       // 保存完了通知（キャッシュ更新後に呼ぶ）
       if (onSaved) {
         try { 
