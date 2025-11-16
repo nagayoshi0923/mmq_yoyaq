@@ -116,6 +116,11 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
           scenario_type: scenario.scenario_type || 'normal',
           franchise_license_amount: scenario.franchise_license_amount,
           franchise_gm_test_license_amount: scenario.franchise_gm_test_license_amount,
+          // franchise_license_rewards は DB に存在しないため、常に franchise_license_amount から生成
+          franchise_license_rewards: [
+            { item: 'normal', amount: (scenario.franchise_license_amount ?? 0), type: 'fixed' as const },
+            { item: 'gmtest', amount: (scenario.franchise_gm_test_license_amount ?? 0), type: 'fixed' as const }
+          ].filter(r => r.amount > 0), // 0円のものは除外
           license_rewards: licenseRewards,
           has_pre_reading: scenario.has_pre_reading || false,
           gm_count: (scenario as any).gm_count || 1, // フォーム専用フィールド
@@ -153,6 +158,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         scenario_type: 'normal',
         franchise_license_amount: undefined,
         franchise_gm_test_license_amount: undefined,
+        franchise_license_rewards: [],
         license_rewards: [
           { item: 'normal', amount: 1500, type: 'fixed' },
           { item: 'gmtest', amount: 0, type: 'fixed' }
@@ -192,6 +198,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         flexible_pricing,
         participation_costs,
         license_rewards,
+        franchise_license_rewards,
         ...dbFields 
       } = formData
       
@@ -199,6 +206,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
       const normalParticipationCost = formData.participation_costs?.find(c => c.time_slot === 'normal')
       const normalLicenseReward = formData.license_rewards?.find(r => r.item === 'normal')
       const gmtestLicenseReward = formData.license_rewards?.find(r => r.item === 'gmtest')
+      const normalFranchiseLicenseReward = formData.franchise_license_rewards?.find(r => r.item === 'normal')
+      const gmtestFranchiseLicenseReward = formData.franchise_license_rewards?.find(r => r.item === 'gmtest')
       
       const scenarioData: any = {
         ...dbFields,
@@ -206,8 +215,9 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         license_amount: (normalLicenseReward?.amount ?? formData.license_amount ?? 1500),
         gm_test_license_amount: (gmtestLicenseReward?.amount ?? formData.gm_test_license_amount ?? 0),
         scenario_type: formData.scenario_type || 'normal',
-        franchise_license_amount: formData.franchise_license_amount || null,
-        franchise_gm_test_license_amount: formData.franchise_gm_test_license_amount || null,
+        // フランチャイズ用ライセンス金額: 配列から取得、なければ従来のフィールドから
+        franchise_license_amount: normalFranchiseLicenseReward?.amount || formData.franchise_license_amount || null,
+        franchise_gm_test_license_amount: gmtestFranchiseLicenseReward?.amount || formData.franchise_gm_test_license_amount || null,
         gm_costs: formData.gm_assignments.map(assignment => ({
           role: assignment.role,
           reward: assignment.reward,

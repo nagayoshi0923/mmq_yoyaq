@@ -68,5 +68,15 @@ export interface ScenarioFormData {
   // 他店用（フランチャイズ）ライセンス金額
   franchise_license_amount?: number
   franchise_gm_test_license_amount?: number
+  // 他店用（フランチャイズ）ライセンス報酬（UI用配列）
+  franchise_license_rewards?: {
+    item: string
+    amount: number
+    type?: 'fixed' | 'percentage'
+    status?: 'active' | 'legacy' | 'unused' | 'ready'
+    usageCount?: number
+    startDate?: string
+    endDate?: string
+  }[]
 }
 
