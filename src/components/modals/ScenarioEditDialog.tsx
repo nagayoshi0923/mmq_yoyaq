@@ -117,10 +117,18 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
           franchise_license_amount: scenario.franchise_license_amount,
           franchise_gm_test_license_amount: scenario.franchise_gm_test_license_amount,
           // franchise_license_rewards は DB に存在しないため、常に franchise_license_amount から生成
-          // 0円でも表示する
+          // 0円でも表示する（null/undefinedの場合は0円）
           franchise_license_rewards: [
-            { item: 'normal', amount: (scenario.franchise_license_amount ?? 0), type: 'fixed' as const },
-            { item: 'gmtest', amount: (scenario.franchise_gm_test_license_amount ?? 0), type: 'fixed' as const }
+            { 
+              item: 'normal', 
+              amount: (scenario.franchise_license_amount != null ? scenario.franchise_license_amount : 0), 
+              type: 'fixed' as const 
+            },
+            { 
+              item: 'gmtest', 
+              amount: (scenario.franchise_gm_test_license_amount != null ? scenario.franchise_gm_test_license_amount : 0), 
+              type: 'fixed' as const 
+            }
           ],
           license_rewards: licenseRewards,
           has_pre_reading: scenario.has_pre_reading || false,
