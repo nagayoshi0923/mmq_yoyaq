@@ -12,10 +12,13 @@ import { generateAuthorReportText, generateEmailUrl, copyToClipboard } from './u
 import { renderExpandedRow } from './utils/tableColumns'
 import { useScenariosQuery } from '../ScenarioManagement/hooks/useScenarioQuery'
 import type { AuthorPerformance } from './types'
+import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
 
 export default function AuthorReport() {
   const [copiedAuthor, setCopiedAuthor] = useState<string | null>(null)
   const [expandedAuthors, setExpandedAuthors] = useState<Set<string>>(new Set())
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editScenarioId, setEditScenarioId] = useState<string | null>(null)
   
   // 月選択（MonthSwitcher用）
   const [currentDate, setCurrentDate] = useState(() => new Date())
@@ -76,11 +79,17 @@ export default function AuthorReport() {
       alert('シナリオが見つかりませんでした（タイトル重複の可能性あり）')
       return
     }
-    window.location.hash = `scenarios/edit/${scenario.id}`
+    setEditScenarioId(scenario.id)
+    setIsEditOpen(true)
   }
 
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6">
+      <ScenarioEditDialog
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        scenarioId={editScenarioId}
+      />
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
