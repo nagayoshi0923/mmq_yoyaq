@@ -463,23 +463,28 @@ function calculateSalesData(
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
         const actualGmCount = (event as any).gms?.length || 0
+        const applicableGmCosts = scenario.gm_costs
+          .filter(gm => {
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+          .sort((a, b) => {
+            const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+            const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+            const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+            return aOrder - bOrder
+          })
         
         if (actualGmCount > 0) {
-          const applicableGmCosts = scenario.gm_costs
-            .filter(gm => {
-              const gmCategory = gm.category || 'normal'
-              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-            })
-            .sort((a, b) => {
-              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
-              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
-              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
-              return aOrder - bOrder
-            })
-          
+          // 実際のGM数がある場合、実際のGM数分だけ計算
           const gmCost = applicableGmCosts
             .slice(0, actualGmCount)
             .reduce((sum, gm) => sum + gm.reward, 0)
+          storeData.gmCost += gmCost
+        } else {
+          // 実際のGM数が0の場合でも、シナリオ設定のgm_costsから計算
+          // （シナリオ設定で必要なGM数分の給与を計算）
+          const gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
           storeData.gmCost += gmCost
         }
       }
@@ -561,23 +566,28 @@ function calculateSalesData(
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
         const actualGmCount = (event as any).gms?.length || 0
+        const applicableGmCosts = scenario.gm_costs
+          .filter(gm => {
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+          .sort((a, b) => {
+            const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+            const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+            const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+            return aOrder - bOrder
+          })
         
         if (actualGmCount > 0) {
-          const applicableGmCosts = scenario.gm_costs
-            .filter(gm => {
-              const gmCategory = gm.category || 'normal'
-              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-            })
-            .sort((a, b) => {
-              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
-              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
-              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
-              return aOrder - bOrder
-            })
-          
+          // 実際のGM数がある場合、実際のGM数分だけ計算
           const gmCost = applicableGmCosts
             .slice(0, actualGmCount)
             .reduce((sum, gm) => sum + gm.reward, 0)
+          scenarioData.gmCost += gmCost
+        } else {
+          // 実際のGM数が0の場合でも、シナリオ設定のgm_costsから計算
+          // （シナリオ設定で必要なGM数分の給与を計算）
+          const gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
           scenarioData.gmCost += gmCost
         }
       }
@@ -623,23 +633,28 @@ function calculateSalesData(
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
         const actualGmCount = (event as any).gms?.length || 0
+        const applicableGmCosts = scenario.gm_costs
+          .filter(gm => {
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+          .sort((a, b) => {
+            const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+            const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+            const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+            return aOrder - bOrder
+          })
         
         if (actualGmCount > 0) {
-          const applicableGmCosts = scenario.gm_costs
-            .filter(gm => {
-              const gmCategory = gm.category || 'normal'
-              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-            })
-            .sort((a, b) => {
-              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
-              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
-              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
-              return aOrder - bOrder
-            })
-          
+          // 実際のGM数がある場合、実際のGM数分だけ計算
           const gmCost = applicableGmCosts
             .slice(0, actualGmCount)
             .reduce((sum, gm) => sum + gm.reward, 0)
+          current.gmCost += gmCost
+        } else {
+          // 実際のGM数が0の場合でも、シナリオ設定のgm_costsから計算
+          // （シナリオ設定で必要なGM数分の給与を計算）
+          const gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
           current.gmCost += gmCost
         }
       }
@@ -687,23 +702,27 @@ function calculateSalesData(
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
         const actualGmCount = (event as any).gms?.length || 0
+        const applicableGmCosts = scenario.gm_costs
+          .filter(gm => {
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+          .sort((a, b) => {
+            const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+            const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+            const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+            return aOrder - bOrder
+          })
         
         if (actualGmCount > 0) {
-          const applicableGmCosts = scenario.gm_costs
-            .filter(gm => {
-              const gmCategory = gm.category || 'normal'
-              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-            })
-            .sort((a, b) => {
-              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
-              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
-              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
-              return aOrder - bOrder
-            })
-          
+          // 実際のGM数がある場合、実際のGM数分だけ計算
           gmCost = applicableGmCosts
             .slice(0, actualGmCount)
             .reduce((sum, gm) => sum + gm.reward, 0)
+        } else {
+          // 実際のGM数が0の場合でも、シナリオ設定のgm_costsから計算
+          // （シナリオ設定で必要なGM数分の給与を計算）
+          gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
         }
       }
     }
