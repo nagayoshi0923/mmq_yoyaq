@@ -289,8 +289,8 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       </div>
 
       {/* 月切り替えと期間設定 */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 flex-1">
+      <div className="flex flex-col gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           {/* 月切り替え */}
           <div className="flex-shrink-0">
             <MonthSwitcher
@@ -307,29 +307,29 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
             variant="outline"
             size="sm"
             onClick={() => setShowPeriodSettings(!showPeriodSettings)}
-            className="h-8 sm:h-9 text-xs sm:text-sm"
+            className="h-7 sm:h-8 md:h-9 text-xs sm:text-sm"
           >
             <Settings className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">期間設定</span>
             <span className="sm:hidden">設定</span>
           </Button>
-        </div>
 
-        {/* 店舗選択 */}
-        <div className="w-full sm:w-[200px] flex-shrink-0">
-          <Select value={selectedStore} onValueChange={onStoreChange}>
-            <SelectTrigger className="text-xs sm:text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全店舗</SelectItem>
-              {stores.map(store => (
-                <SelectItem key={store.id} value={store.id}>
-                  {store.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* 店舗選択 */}
+          <div className="w-full sm:w-[180px] md:w-[200px] flex-shrink-0">
+            <Select value={selectedStore} onValueChange={onStoreChange}>
+              <SelectTrigger className="text-xs sm:text-sm h-7 sm:h-8 md:h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全店舗</SelectItem>
+                {stores.map(store => (
+                  <SelectItem key={store.id} value={store.id}>
+                    {store.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

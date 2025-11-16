@@ -1,10 +1,10 @@
-import { useState, Fragment } from 'react'
+import { useState, Fragment, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Filter, ChevronDown, ChevronRight, Copy, Mail, Check } from 'lucide-react'
+import { Search, Filter, ChevronDown, ChevronRight, Copy, Mail, Check, MailCheck, Settings } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuthorReportData } from './hooks/useAuthorReportData'
 import { useReportFilters } from './hooks/useReportFilters'
@@ -13,12 +13,18 @@ import { renderExpandedRow } from './utils/tableColumns'
 import { useScenariosQuery } from '../ScenarioManagement/hooks/useScenarioQuery'
 import type { AuthorPerformance } from './types'
 import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
+import { AuthorEmailDialog } from './components/AuthorEmailDialog'
+import { authorApi, type Author } from '@/lib/api'
 
 export default function AuthorReport() {
   const [copiedAuthor, setCopiedAuthor] = useState<string | null>(null)
   const [expandedAuthors, setExpandedAuthors] = useState<Set<string>>(new Set())
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [editScenarioId, setEditScenarioId] = useState<string | null>(null)
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false)
+  const [selectedAuthorName, setSelectedAuthorName] = useState<string>('')
+  const [authors, setAuthors] = useState<Map<string, Author>>(new Map())
+  const [isSendingBatch, setIsSendingBatch] = useState(false)
   
   // 月選択（MonthSwitcher用）
   const [currentDate, setCurrentDate] = useState(() => new Date())
@@ -41,6 +47,81 @@ export default function AuthorReport() {
   // フィルタリング適用
   const { filteredMonthlyData: finalData } = useReportFilters(monthlyData)
 
+  // 作者データを読み込み
+  useEffect(() => {
+    loadAuthors()
+  }, [])
+
+  const loadAuthors = async () => {
+    try {
+      const authorList = await authorApi.getAll()
+      const authorMap = new Map<string, Author>()
+      authorList.forEach(author => {
+        authorMap.set(author.name, author)
+      })
+      setAuthors(authorMap)
+    } catch (error) {
+      console.error('作者データの読み込みに失敗:', error)
+    }
+  }
+
+  // メールアドレス管理ダイアログを開く
+  const handleOpenEmailDialog = (authorName: string) => {
+    setSelectedAuthorName(authorName)
+    setIsEmailDialogOpen(true)
+  }
+
+  // 一括メール送信
+  const handleBatchSend = async () => {
+    if (finalData.length === 0) {
+      alert('送信するデータがありません')
+      return
+    }
+
+    const authorsWithEmail: Array<{ author: AuthorPerformance; email: string }> = []
+    
+    finalData.forEach(monthData => {
+      monthData.authors.forEach(authorPerf => {
+        const authorInfo = authors.get(authorPerf.author)
+        if (authorInfo?.email) {
+          authorsWithEmail.push({
+            author: authorPerf,
+            email: authorInfo.email
+          })
+        }
+      })
+    })
+
+    if (authorsWithEmail.length === 0) {
+      alert('メールアドレスが設定されている作者がいません。先にメールアドレスを設定してください。')
+      return
+    }
+
+    if (!confirm(`${authorsWithEmail.length}名の作者にメールを送信しますか？\n各作者のGmailが開きます。`)) {
+      return
+    }
+
+    setIsSendingBatch(true)
+    try {
+      // 少し間隔を空けて順番に開く
+      for (let i = 0; i < authorsWithEmail.length; i++) {
+        const { author, email } = authorsWithEmail[i]
+        const url = generateEmailUrl(author, selectedYear, selectedMonth, email)
+        window.open(url, '_blank')
+        
+        // 最後の1つ以外は少し待つ（ブラウザがポップアップをブロックしないように）
+        if (i < authorsWithEmail.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+    } catch (error) {
+      console.error('一括送信に失敗:', error)
+      alert('一括送信に失敗しました')
+    } finally {
+      setIsSendingBatch(false)
+    }
+  }
+
   // クリップボードコピー
   const handleCopy = async (author: AuthorPerformance) => {
     const text = generateAuthorReportText(author, selectedYear, selectedMonth)
@@ -55,7 +136,8 @@ export default function AuthorReport() {
 
   // メール送信
   const handleSendEmail = (author: AuthorPerformance) => {
-    const url = generateEmailUrl(author, selectedYear, selectedMonth)
+    const authorInfo = authors.get(author.author)
+    const url = generateEmailUrl(author, selectedYear, selectedMonth, authorInfo?.email)
     window.open(url, '_blank')
   }
 
@@ -94,12 +176,31 @@ export default function AuthorReport() {
           refresh()
         }}
       />
+      <AuthorEmailDialog
+        isOpen={isEmailDialogOpen}
+        onClose={() => {
+          setIsEmailDialogOpen(false)
+          setSelectedAuthorName('')
+        }}
+        authorName={selectedAuthorName}
+        onSave={() => {
+          loadAuthors()
+        }}
+      />
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">作者レポート</h1>
           <p className="text-muted-foreground text-xs sm:text-sm md:text-base">作者別の公演実績レポート</p>
         </div>
+        <Button
+          onClick={handleBatchSend}
+          disabled={isSendingBatch || loading || finalData.length === 0}
+          className="flex items-center gap-2"
+        >
+          <MailCheck className="h-4 w-4" />
+          {isSendingBatch ? '送信中...' : '一括メール送信'}
+        </Button>
       </div>
 
       {/* フィルター */}
@@ -207,7 +308,21 @@ export default function AuthorReport() {
                                 </Button>
                               </TableCell>
                               <TableCell className="p-2 sm:p-4">
-                                <span className="font-medium text-xs sm:text-sm">{author.author}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-xs sm:text-sm">{author.author}</span>
+                                  {authors.get(author.author)?.email && (
+                                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" title="メールアドレス設定済み" />
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenEmailDialog(author.author)}
+                                    className="h-5 w-5 sm:h-6 sm:w-6 p-0"
+                                    title="メールアドレス設定"
+                                  >
+                                    <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
+                                  </Button>
+                                </div>
                               </TableCell>
                               <TableCell className="text-right p-2 sm:p-4 text-xs sm:text-sm">{author.totalEvents}回</TableCell>
                               <TableCell className="text-right p-2 sm:p-4 text-xs sm:text-sm hidden sm:table-cell">

@@ -47,7 +47,8 @@ export function generateAuthorReportText(
 export function generateEmailUrl(
   author: AuthorPerformance,
   year: number,
-  month: number
+  month: number,
+  email?: string | null
 ): string {
   const subject = `【${year}年${month}月】ライセンス料レポート - ${author.author}`
 
@@ -87,8 +88,9 @@ export function generateEmailUrl(
   lines.push(`よろしくお願いいたします。`)
 
   const body = lines.join('\n')
+  const to = email ? `&to=${encodeURIComponent(email)}` : ''
 
-  return `https://mail.google.com/mail/?view=cm&fs=1&to=&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  return `https://mail.google.com/mail/?view=cm&fs=1${to}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
 /**

@@ -111,6 +111,98 @@ export const storeApi = {
   }
 }
 
+// 作者関連のAPI
+export interface Author {
+  id: string
+  name: string
+  email: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const authorApi = {
+  // 全作者を取得
+  async getAll(): Promise<Author[]> {
+    const { data, error } = await supabase
+      .from('authors')
+      .select('*')
+      .order('name', { ascending: true })
+    
+    if (error) throw error
+    return data || []
+  },
+
+  // 作者を名前で取得
+  async getByName(name: string): Promise<Author | null> {
+    const { data, error } = await supabase
+      .from('authors')
+      .select('*')
+      .eq('name', name)
+      .single()
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // レコードが見つからない場合はnullを返す
+        return null
+      }
+      throw error
+    }
+    return data
+  },
+
+  // 作者を作成
+  async create(author: Omit<Author, 'id' | 'created_at' | 'updated_at'>): Promise<Author> {
+    const { data, error } = await supabase
+      .from('authors')
+      .insert([author])
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // 作者を更新
+  async update(id: string, updates: Partial<Omit<Author, 'id' | 'created_at' | 'updated_at'>>): Promise<Author> {
+    const { data, error } = await supabase
+      .from('authors')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // 名前で更新または作成（upsert）
+  async upsertByName(name: string, updates: Partial<Omit<Author, 'id' | 'name' | 'created_at' | 'updated_at'>>): Promise<Author> {
+    const existing = await this.getByName(name)
+    
+    if (existing) {
+      return this.update(existing.id, updates)
+    } else {
+      return this.create({
+        name,
+        ...updates,
+        email: updates.email ?? null,
+        notes: updates.notes ?? null
+      })
+    }
+  },
+
+  // 作者を削除
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('authors')
+      .delete()
+      .eq('id', id)
+    
+    if (error) throw error
+  }
+}
+
 // シナリオ関連のAPI
 export const scenarioApi = {
   // 全シナリオを取得
