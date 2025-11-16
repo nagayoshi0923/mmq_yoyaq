@@ -45,6 +45,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     required_props: [],
     license_amount: 1500,
     gm_test_license_amount: 0,
+    franchise_license_amount: undefined,
+    franchise_gm_test_license_amount: undefined,
     license_rewards: [],
     has_pre_reading: false,
     gm_count: 1,
@@ -627,6 +629,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         })(),
         license_amount: scenario.license_amount || 1500,
         gm_test_license_amount: scenario.gm_test_license_amount || 0,
+        franchise_license_amount: scenario.franchise_license_amount,
+        franchise_gm_test_license_amount: scenario.franchise_gm_test_license_amount,
         license_rewards: [],
         has_pre_reading: scenario.has_pre_reading || false,
         gm_count: scenario.gm_costs?.length || 2,
@@ -828,6 +832,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         required_props: formData.required_props, // Keep as object array with frequency
         license_amount: formData.license_amount || 0,
         gm_test_license_amount: formData.gm_test_license_amount || 0,
+        franchise_license_amount: formData.franchise_license_amount || null,
+        franchise_gm_test_license_amount: formData.franchise_gm_test_license_amount || null,
         license_rewards: [], // 空配列で保存（旧形式は使用しない）
         has_pre_reading: formData.has_pre_reading,
         gm_costs: formData.gm_assignments,
@@ -1279,6 +1285,60 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                       <p className="text-xs text-muted-foreground mt-1">
                         GMが練習用に実施する公演のライセンス料
                       </p>
+                    </div>
+                  </div>
+
+                  {/* 他店用（フランチャイズ）ライセンス料 */}
+                  <div className="mt-4 pt-4 border-t">
+                    <div>
+                      <h5 className="font-medium text-gray-800 mb-2">他店用（フランチャイズ）ライセンス料</h5>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        フランチャイズ店で使用する際のライセンス金額を設定します。未設定の場合は自店用ライセンス金額が使用されます。
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="franchise_license_amount">他店用通常公演ライセンス料</Label>
+                        <div className="relative">
+                          <Input
+                            id="franchise_license_amount"
+                            type="number"
+                            min="0"
+                            step="100"
+                            value={formData.franchise_license_amount ?? ''}
+                            onChange={(e) => setFormData(prev => ({ 
+                              ...prev, 
+                              franchise_license_amount: parseInt(e.target.value) || undefined 
+                            }))}
+                            placeholder="未設定の場合は自店用を使用"
+                            className="pr-8"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                            円
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="franchise_gm_test_license_amount">他店用GMテストライセンス料</Label>
+                        <div className="relative">
+                          <Input
+                            id="franchise_gm_test_license_amount"
+                            type="number"
+                            min="0"
+                            step="100"
+                            value={formData.franchise_gm_test_license_amount ?? ''}
+                            onChange={(e) => setFormData(prev => ({ 
+                              ...prev, 
+                              franchise_gm_test_license_amount: parseInt(e.target.value) || undefined 
+                            }))}
+                            placeholder="未設定の場合は自店用を使用"
+                            className="pr-8"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                            円
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
