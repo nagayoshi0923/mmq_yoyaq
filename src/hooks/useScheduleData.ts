@@ -1,6 +1,6 @@
 // スケジュールデータの読み込みと管理
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
@@ -400,14 +400,19 @@ export function useScheduleData(currentDate: Date) {
   // React Queryのデータをstateに同期（後方互換性のため）
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   
-  // React Queryのデータが更新されたら必ずstateに同期
+  // React Queryのデータが更新されたらstateに同期（メモ化して不要な再レンダリングを防ぐ）
+  const scenariosRef = useRef<Scenario[]>([])
   useEffect(() => {
-    // scenariosDataが更新されたら必ずstateを更新（長さのチェックを削除）
-    setScenarios(scenariosData)
-    if (scenariosData.length > 0) {
-      sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenariosData))
+    // データが実際に変更されたときだけ更新（参照の比較ではなく内容の比較）
+    const hasChanged = JSON.stringify(scenariosRef.current) !== JSON.stringify(scenariosData)
+    if (hasChanged || scenariosData.length !== scenariosRef.current.length) {
+      scenariosRef.current = scenariosData
+      setScenarios(scenariosData)
+      if (scenariosData.length > 0) {
+        sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenariosData))
+      }
+      logger.log('🔄 シナリオデータをstateに同期:', scenariosData.length)
     }
-    logger.log('🔄 シナリオデータをstateに同期:', scenariosData.length)
   }, [scenariosData])
 
   // イベントデータをキャッシュに保存

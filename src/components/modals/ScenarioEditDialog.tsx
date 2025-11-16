@@ -253,13 +253,10 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         isEdit: !!scenarioId
       })
 
-      // キャッシュを無効化して最新データを取得
-      await queryClient.invalidateQueries({ queryKey: ['scenarios'] })
+      // 楽観的更新で既にキャッシュが更新されているため、refetchQueriesは不要
+      // invalidateQueriesはバックグラウンドで再取得する（onSettledで既に実行される）
       
-      // 明示的にデータを再取得（確実に最新データを取得するため）
-      await queryClient.refetchQueries({ queryKey: ['scenarios'] })
-      
-      // 保存完了通知（キャッシュ更新後に呼ぶ）
+      // 保存完了通知
       if (onSaved) {
         try { 
           await onSaved() 
