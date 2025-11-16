@@ -266,7 +266,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-7xl h-[90vh] sm:h-[85vh] p-0 flex flex-col overflow-hidden [&>button]:z-10">
+      <DialogContent size="xl" className="max-w-[95vw] sm:max-w-7xl h-[90vh] sm:h-[85vh] p-0 flex flex-col overflow-hidden [&>button]:z-10">
         <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-4 border-b shrink-0">
           <DialogTitle>{scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}</DialogTitle>
           <DialogDescription>
