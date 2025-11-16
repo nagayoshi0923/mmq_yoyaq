@@ -63,5 +63,10 @@ export interface ScenarioFormData {
   // ライセンス金額
   license_amount?: number
   gm_test_license_amount?: number
+  // シナリオタイプ
+  scenario_type?: 'normal' | 'managed'
+  // 他店用（フランチャイズ）ライセンス金額
+  franchise_license_amount?: number
+  franchise_gm_test_license_amount?: number
 }
 

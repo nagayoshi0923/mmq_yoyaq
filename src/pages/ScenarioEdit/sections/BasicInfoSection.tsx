@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Upload, X } from 'lucide-react'
@@ -171,16 +172,35 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="description">説明</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              rows={6}
-              placeholder="シナリオの詳細な説明を入力してください"
-            />
-          </div>
+              <div>
+                <Label htmlFor="description">説明</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={6}
+                  placeholder="シナリオの詳細な説明を入力してください"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="scenario_type">シナリオタイプ</Label>
+                <Select
+                  value={formData.scenario_type || 'normal'}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, scenario_type: value as 'normal' | 'managed' }))}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">通常シナリオ</SelectItem>
+                    <SelectItem value="managed">管理シナリオ</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  管理シナリオは管理側が使用するシナリオです
+                </p>
+              </div>
       </div>
 
       {/* 作者追加ダイアログ */}

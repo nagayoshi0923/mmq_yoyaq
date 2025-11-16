@@ -35,6 +35,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
         manager_name: store.manager_name,
         status: store.status,
         ownership_type: store.ownership_type || 'corporate',
+        franchise_fee: store.franchise_fee ?? (store.ownership_type === 'franchise' ? 1000 : undefined),
         capacity: store.capacity,
         rooms: store.rooms,
         notes: store.notes,
@@ -53,6 +54,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
         manager_name: '',
         status: 'active',
         ownership_type: 'corporate',
+        franchise_fee: undefined,
         capacity: 0,
         rooms: 0,
         notes: '',
@@ -228,6 +230,25 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
                         </Select>
                       </div>
                     </div>
+
+                    {/* フランチャイズ手数料（フランチャイズ店のみ） */}
+                    {formData.ownership_type === 'franchise' && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          フランチャイズ登録手数料（円）
+                        </label>
+                        <Input
+                          type="number"
+                          value={formData.franchise_fee ?? 1000}
+                          onChange={(e) => handleInputChange('franchise_fee', parseInt(e.target.value) || 1000)}
+                          min={0}
+                          placeholder="1000"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          フランチャイズ店に登録されるシナリオごとに発生する手数料
+                        </p>
+                      </div>
+                    )}
 
                     {/* 識別色 */}
                     <div>

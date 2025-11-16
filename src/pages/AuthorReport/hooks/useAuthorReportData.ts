@@ -69,6 +69,10 @@ export function useAuthorReportData(year: number, month: number, storeId: string
           return
         }
 
+        // 店舗検索（フランチャイズ判定用）
+        const store = storesData.find(s => s.id === perf.store_id)
+        const isFranchiseStore = store?.ownership_type === 'franchise'
+
         const author = scenario.author
         const events = perf.events as number
         const isGMTest = perf.category === 'gmtest'
@@ -80,13 +84,33 @@ export function useAuthorReportData(year: number, month: number, storeId: string
         const duration = scenario.duration || 0
         const totalDuration = duration * events
 
-        // GMテストの場合は専用のライセンス金額を取得
+        // ライセンス金額を取得（優先順位: 他店用 → 他店GMテスト用 → 通常）
         let licenseAmountPerEvent = 0
 
-        if (isGMTest) {
-          licenseAmountPerEvent = scenario.gm_test_license_amount || 0
+        if (isFranchiseStore) {
+          // フランチャイズ店舗の場合
+          if (isGMTest) {
+            // 他店GMテスト用 → 他店通常用 → 通常GMテスト用 → 通常
+            licenseAmountPerEvent = 
+              scenario.franchise_gm_test_license_amount ?? 
+              scenario.franchise_license_amount ?? 
+              scenario.gm_test_license_amount ?? 
+              scenario.license_amount ?? 
+              0
+          } else {
+            // 他店通常用 → 通常
+            licenseAmountPerEvent = 
+              scenario.franchise_license_amount ?? 
+              scenario.license_amount ?? 
+              0
+          }
         } else {
-          licenseAmountPerEvent = scenario.license_amount || 0
+          // 直営店舗の場合（従来通り）
+          if (isGMTest) {
+            licenseAmountPerEvent = scenario.gm_test_license_amount ?? 0
+          } else {
+            licenseAmountPerEvent = scenario.license_amount ?? 0
+          }
         }
 
         const totalLicenseCost = licenseAmountPerEvent * events

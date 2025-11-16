@@ -22,6 +22,7 @@ export interface Store {
   manager_name: string
   status: 'active' | 'temporarily_closed' | 'closed'
   ownership_type?: 'corporate' | 'franchise' | 'office'  // 直営店 or フランチャイズ or オフィス
+  franchise_fee?: number  // フランチャイズ登録手数料（円）
   capacity: number
   rooms: number
   notes?: string
@@ -104,11 +105,16 @@ export interface Scenario {
   rating?: number
   play_count: number
   status: 'available' | 'maintenance' | 'retired'
+  scenario_type?: 'normal' | 'managed'  // 通常シナリオ or 管理シナリオ
   required_props: Array<{ item: string; amount: number; frequency: 'recurring' | 'one-time' }>
   // データベースカラム（通常ライセンス料）
   license_amount?: number
   // データベースカラム（GMテストライセンス料）
   gm_test_license_amount?: number
+  // データベースカラム（他店用/フランチャイズ通常ライセンス料）
+  franchise_license_amount?: number
+  // データベースカラム（他店用/フランチャイズGMテストライセンス料）
+  franchise_gm_test_license_amount?: number
   // 旧形式（互換性のため保持）
   license_rewards: Array<{ item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   props?: Array<{

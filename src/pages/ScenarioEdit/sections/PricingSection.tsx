@@ -1,5 +1,7 @@
 import React from 'react'
 import { ItemizedListWithDates, type ItemizedListColumn } from '@/components/ui/itemized-list-with-dates'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 
 interface PricingSectionProps {
@@ -144,7 +146,7 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
         {/* ライセンス料設定 */}
         <div className="pt-6 border-t">
           <ItemizedListWithDates
-            title="ライセンス料設定"
+            title="ライセンス料設定（自店用）"
             addButtonLabel="ライセンス料を追加"
             emptyMessage="ライセンス料設定がありません"
             items={formData.license_rewards || []}
@@ -161,6 +163,40 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
             dateRangeLabel="期間設定"
             enableStatusChange={true}
           />
+        </div>
+
+        {/* 他店用（フランチャイズ）ライセンス料設定 */}
+        <div className="pt-6 border-t">
+          <h4 className="text-md font-semibold mb-4">他店用（フランチャイズ）ライセンス料設定</h4>
+          <p className="text-sm text-muted-foreground mb-4">
+            フランチャイズ店で使用する際のライセンス金額を設定します。未設定の場合は自店用ライセンス金額が使用されます。
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="franchise_license_amount">他店用通常公演ライセンス料（円）</Label>
+              <Input
+                id="franchise_license_amount"
+                type="number"
+                value={formData.franchise_license_amount ?? ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, franchise_license_amount: parseInt(e.target.value) || undefined }))}
+                min={0}
+                placeholder="未設定の場合は自店用を使用"
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="franchise_gm_test_license_amount">他店用GMテストライセンス料（円）</Label>
+              <Input
+                id="franchise_gm_test_license_amount"
+                type="number"
+                value={formData.franchise_gm_test_license_amount ?? ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, franchise_gm_test_license_amount: parseInt(e.target.value) || undefined }))}
+                min={0}
+                placeholder="未設定の場合は自店用を使用"
+                className="mt-1.5"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
