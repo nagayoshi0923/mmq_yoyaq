@@ -129,7 +129,13 @@ export const authorApi = {
       .select('*')
       .order('name', { ascending: true })
     
-    if (error) throw error
+    if (error) {
+      // テーブルが存在しない場合は空配列を返す
+      if (error.code === 'PGRST205' || error.code === 'PGRST116') {
+        return []
+      }
+      throw error
+    }
     return data || []
   },
 
@@ -142,8 +148,8 @@ export const authorApi = {
       .single()
     
     if (error) {
-      if (error.code === 'PGRST116') {
-        // レコードが見つからない場合はnullを返す
+      // テーブルが存在しない場合、またはレコードが見つからない場合はnullを返す
+      if (error.code === 'PGRST116' || error.code === 'PGRST205') {
         return null
       }
       throw error
@@ -183,6 +189,7 @@ export const authorApi = {
     if (existing) {
       return this.update(existing.id, updates)
     } else {
+      // テーブルが存在しない場合はエラーを投げる（createでPGRST205が発生する）
       return this.create({
         name,
         ...updates,

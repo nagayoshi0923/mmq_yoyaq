@@ -44,8 +44,8 @@ export function AuthorEmailDialog({ isOpen, onClose, authorName, onSave }: Autho
         setNotes('')
       }
     } catch (error: any) {
-      // テーブルが存在しない場合（404）は無視（初期状態のまま）
-      if (error?.code === 'PGRST116' || error?.status === 404) {
+      // テーブルが存在しない場合、またはレコードが見つからない場合は無視（初期状態のまま）
+      if (error?.code === 'PGRST116' || error?.code === 'PGRST205' || error?.status === 404) {
         setEmail('')
         setNotes('')
       } else {
@@ -66,12 +66,14 @@ export function AuthorEmailDialog({ isOpen, onClose, authorName, onSave }: Autho
       onSave?.()
       onClose()
     } catch (error: any) {
-      // テーブルが存在しない場合（404）はエラーメッセージを表示
-      if (error?.code === 'PGRST116' || error?.status === 404) {
-        alert('authorsテーブルが存在しません。データベースにテーブルを作成してください。')
+      // テーブルが存在しない場合はエラーメッセージを表示
+      if (error?.code === 'PGRST205') {
+        alert('authorsテーブルが存在しません。\n\nSupabaseのSQL Editorで以下のSQLを実行してテーブルを作成してください：\n\nCREATE TABLE IF NOT EXISTS authors (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  name TEXT NOT NULL UNIQUE,\n  email TEXT,\n  notes TEXT,\n  created_at TIMESTAMPTZ DEFAULT NOW(),\n  updated_at TIMESTAMPTZ DEFAULT NOW()\n);')
+      } else if (error?.code === 'PGRST116' || error?.status === 404) {
+        alert('レコードが見つかりませんでした。')
       } else {
         console.error('保存に失敗:', error)
-        alert('保存に失敗しました')
+        alert(`保存に失敗しました: ${error?.message || '不明なエラー'}`)
       }
     } finally {
       setSaving(false)

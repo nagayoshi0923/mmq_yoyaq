@@ -65,8 +65,8 @@ export default function AuthorReport() {
       })
       setAuthors(authorMap)
     } catch (error: any) {
-      // テーブルが存在しない場合（404）は無視（空のMapのまま）
-      if (error?.code === 'PGRST116' || error?.status === 404) {
+      // テーブルが存在しない場合、またはレコードが見つからない場合は無視（空のMapのまま）
+      if (error?.code === 'PGRST116' || error?.code === 'PGRST205' || error?.status === 404) {
         // テーブルがまだ作成されていない場合は空のMapで続行
         setAuthors(new Map())
       } else {
