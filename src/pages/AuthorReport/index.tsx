@@ -14,6 +14,7 @@ import { useScenariosQuery } from '../ScenarioManagement/hooks/useScenarioQuery'
 import type { AuthorPerformance } from './types'
 import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
 import { AuthorEmailDialog } from './components/AuthorEmailDialog'
+import { AuthorLicenseEmailDialog } from './components/AuthorLicenseEmailDialog'
 import { authorApi, type Author } from '@/lib/api'
 
 export default function AuthorReport() {
@@ -25,6 +26,9 @@ export default function AuthorReport() {
   const [selectedAuthorName, setSelectedAuthorName] = useState<string>('')
   const [authors, setAuthors] = useState<Map<string, Author>>(new Map())
   const [isSendingBatch, setIsSendingBatch] = useState(false)
+  const [isEmailPreviewOpen, setIsEmailPreviewOpen] = useState(false)
+  const [previewAuthor, setPreviewAuthor] = useState<AuthorPerformance | null>(null)
+  const [previewEmail, setPreviewEmail] = useState<string>('')
   
   // 月選択（MonthSwitcher用）
   const [currentDate, setCurrentDate] = useState(() => new Date())
@@ -134,11 +138,19 @@ export default function AuthorReport() {
     }
   }
 
-  // メール送信
+  // メール送信（プレビュー表示）
   const handleSendEmail = (author: AuthorPerformance) => {
     const authorInfo = authors.get(author.author)
-    const url = generateEmailUrl(author, selectedYear, selectedMonth, authorInfo?.email)
-    window.open(url, '_blank')
+    const email = authorInfo?.email || ''
+    
+    if (!email) {
+      alert('メールアドレスが設定されていません。先にメールアドレスを設定してください。')
+      return
+    }
+    
+    setPreviewAuthor(author)
+    setPreviewEmail(email)
+    setIsEmailPreviewOpen(true)
   }
 
   // 作者展開トグル
@@ -187,6 +199,20 @@ export default function AuthorReport() {
           loadAuthors()
         }}
       />
+      {previewAuthor && (
+        <AuthorLicenseEmailDialog
+          isOpen={isEmailPreviewOpen}
+          onClose={() => {
+            setIsEmailPreviewOpen(false)
+            setPreviewAuthor(null)
+            setPreviewEmail('')
+          }}
+          author={previewAuthor}
+          year={selectedYear}
+          month={selectedMonth}
+          email={previewEmail}
+        />
+      )}
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
