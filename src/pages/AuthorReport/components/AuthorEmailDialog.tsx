@@ -23,7 +23,13 @@ export function AuthorEmailDialog({ isOpen, onClose, authorName, onSave }: Autho
   useEffect(() => {
     if (isOpen && authorName) {
       loadAuthorData()
+    } else {
+      // ダイアログが閉じた時は状態をリセット
+      setEmail('')
+      setNotes('')
+      setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, authorName])
 
   const loadAuthorData = async () => {
@@ -37,8 +43,14 @@ export function AuthorEmailDialog({ isOpen, onClose, authorName, onSave }: Autho
         setEmail('')
         setNotes('')
       }
-    } catch (error) {
-      console.error('作者データの読み込みに失敗:', error)
+    } catch (error: any) {
+      // テーブルが存在しない場合（404）は無視（初期状態のまま）
+      if (error?.code === 'PGRST116' || error?.status === 404) {
+        setEmail('')
+        setNotes('')
+      } else {
+        console.error('作者データの読み込みに失敗:', error)
+      }
     } finally {
       setLoading(false)
     }
@@ -53,9 +65,14 @@ export function AuthorEmailDialog({ isOpen, onClose, authorName, onSave }: Autho
       })
       onSave?.()
       onClose()
-    } catch (error) {
-      console.error('保存に失敗:', error)
-      alert('保存に失敗しました')
+    } catch (error: any) {
+      // テーブルが存在しない場合（404）はエラーメッセージを表示
+      if (error?.code === 'PGRST116' || error?.status === 404) {
+        alert('authorsテーブルが存在しません。データベースにテーブルを作成してください。')
+      } else {
+        console.error('保存に失敗:', error)
+        alert('保存に失敗しました')
+      }
     } finally {
       setSaving(false)
     }

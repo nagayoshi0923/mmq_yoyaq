@@ -304,8 +304,6 @@ function calculateSalesData(
   const now = new Date()
   now.setHours(0, 0, 0, 0) // 今日の0時に設定
 
-  console.log('💰 売上計算開始:', { eventsCount: events.length, today: now.toISOString() })
-
   events.forEach(event => {
     const eventDate = new Date(event.date)
     const isPastEvent = eventDate < now // 今日より前の公演のみ
@@ -321,28 +319,19 @@ function calculateSalesData(
 
       // GM給与の計算（時給ベース）
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        console.log('💵 GM報酬データ発見:', { 
-          scenario: event.scenario, 
-          gm_costs: scenario.gm_costs,
-          category: event.category,
-          duration: scenario.duration
-        })
-        
-          // カテゴリに応じてフィルタリングし、役割でソート
-          const applicableGmCosts = scenario.gm_costs
-            .filter(gm => {
-              const gmCategory = gm.category || 'normal'
-              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-            })
-            .sort((a, b) => {
-              // main, sub, gm3... の順にソート
-              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
-              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
-              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
-              return aOrder - bOrder
-            })
-          
-        console.log('💵 適用可能なGM報酬:', { applicableGmCosts })
+        // カテゴリに応じてフィルタリングし、役割でソート
+        const applicableGmCosts = scenario.gm_costs
+          .filter(gm => {
+            const gmCategory = gm.category || 'normal'
+            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+          })
+          .sort((a, b) => {
+            // main, sub, gm3... の順にソート
+            const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+            const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+            const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+            return aOrder - bOrder
+          })
         
         // GM数を取得（gm_costsの数 = 必要なGM数）
         const gmCount = applicableGmCosts.length
@@ -356,32 +345,9 @@ function calculateSalesData(
         // GM数分の給与を計上
         const gmCost = wagePerGm * gmCount
         
-        console.log('💵 GM給与計算:', { 
-          scenario: event.scenario,
-          duration: durationMinutes,
-          hours: (durationMinutes / 60).toFixed(2),
-          wagePerGm,
-          gmCount,
-          totalGmCost: gmCost
-        })
-        
-          totalGmCost += gmCost
-      } else {
-        console.log('⚠️ GM報酬データなし:', { 
-          scenario: event.scenario, 
-          gm_costs: scenario.gm_costs 
-        })
+        totalGmCost += gmCost
       }
-    } else {
-      console.log('⚠️ シナリオ情報なし:', { event })
     }
-  })
-
-  console.log('💰 売上計算完了:', { 
-    totalRevenue, 
-    totalLicenseCost, 
-    totalGmCost,
-    netProfit: totalRevenue - totalLicenseCost - totalGmCost
   })
 
   // 店舗別売上ランキング
@@ -655,14 +621,6 @@ function calculateSalesData(
   const endYear = endDate.getFullYear()
   const monthCount = (endYear - startYear) * 12 + (endMonth - startMonth) + 1
   
-  console.log('💰 固定費計算開始:', { 
-    storesCount: stores.length, 
-    storeNames: stores.map(s => s.name),
-    startDate: `${startYear}/${startMonth + 1}`,
-    endDate: `${endYear}/${endMonth + 1}`,
-    monthCount 
-  })
-  
   stores.forEach(store => {
     if (store.fixed_costs && Array.isArray(store.fixed_costs)) {
       store.fixed_costs.forEach((cost: any) => {
@@ -703,12 +661,6 @@ function calculateSalesData(
   let totalPropsCost = 0
   const productionCostBreakdown: Array<{ item: string; amount: number; scenario: string }> = []
   const propsCostBreakdown: Array<{ item: string; amount: number; scenario: string }> = []
-
-  console.log('💰 制作費・道具費用計算開始:', { 
-    eventsCount: events.length,
-    startMonth: `${startYear}/${startMonth + 1}`,
-    endMonth: `${endYear}/${endMonth + 1}`
-  })
 
   // 重複チェック用のSet（同じシナリオ・同じ項目の重複計上を防ぐ）
   const processedProductionCosts = new Set<string>()
@@ -815,14 +767,6 @@ function calculateSalesData(
       }
     })
   }
-
-  console.log('💰 制作費・道具費用計算完了:', { 
-    totalProductionCost,
-    totalPropsCost,
-    productionCostBreakdown,
-    propsCostBreakdown,
-    miscTransactionsCount: miscTransactions.length
-  })
 
   // 変動費の計算（ライセンス費用 + GM給与 + 制作費 + 道具費用）
   const totalVariableCost = totalLicenseCost + totalGmCost + totalProductionCost + totalPropsCost

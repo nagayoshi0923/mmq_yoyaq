@@ -64,8 +64,14 @@ export default function AuthorReport() {
         authorMap.set(author.name, author)
       })
       setAuthors(authorMap)
-    } catch (error) {
-      console.error('作者データの読み込みに失敗:', error)
+    } catch (error: any) {
+      // テーブルが存在しない場合（404）は無視（空のMapのまま）
+      if (error?.code === 'PGRST116' || error?.status === 404) {
+        // テーブルがまだ作成されていない場合は空のMapで続行
+        setAuthors(new Map())
+      } else {
+        console.error('作者データの読み込みに失敗:', error)
+      }
     }
   }
 

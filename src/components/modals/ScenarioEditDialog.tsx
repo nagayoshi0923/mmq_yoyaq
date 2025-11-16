@@ -64,7 +64,13 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
 
   // シナリオデータをロード
   useEffect(() => {
-    if (scenarioId && scenarios.length > 0) {
+    // ダイアログが閉じている時は何もしない
+    if (!isOpen) return
+
+    // scenariosがまだ読み込まれていない場合は待つ
+    if (scenarios.length === 0) return
+
+    if (scenarioId) {
       const scenario = scenarios.find(s => s.id === scenarioId)
       if (scenario) {
         // データをフォームにマッピング
@@ -78,6 +84,18 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
           { item: 'normal', amount: (scenario.license_amount ?? 1500), type: 'fixed' as const },
           { item: 'gmtest', amount: (scenario.gm_test_license_amount ?? 0), type: 'fixed' as const }
         ]
+        
+        // デフォルトのflexible_pricingを定義
+        const defaultFlexiblePricing = {
+          base_pricing: { participation_fee: 3000 },
+          pricing_modifiers: [],
+          gm_configuration: {
+            required_count: 1,
+            optional_count: 0,
+            total_max: 2,
+            special_requirements: ''
+          }
+        }
         
         setFormData({
           title: scenario.title || '',
@@ -107,11 +125,11 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
             : [{ role: 'main', category: 'normal' as const, reward: 2000 }],
           participation_costs: participationCosts,
           use_flexible_pricing: (scenario as any).use_flexible_pricing || false, // フォーム専用フィールド
-          flexible_pricing: scenario.flexible_pricing || formData.flexible_pricing,
+          flexible_pricing: scenario.flexible_pricing || defaultFlexiblePricing,
           key_visual_url: scenario.key_visual_url || ''
         })
       }
-    } else if (!scenarioId) {
+    } else {
       // 新規作成時は初期値にリセット
       setFormData({
         title: '',
@@ -151,7 +169,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         key_visual_url: ''
       })
     }
-  }, [scenarioId, scenarios])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, scenarioId, scenarios.length])
 
   const handleSave = async () => {
     if (!formData.title.trim()) {
