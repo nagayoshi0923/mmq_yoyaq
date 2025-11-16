@@ -221,8 +221,9 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         gm_test_license_amount: (gmtestLicenseReward?.amount ?? formData.gm_test_license_amount ?? 0),
         scenario_type: formData.scenario_type || 'normal',
         // フランチャイズ用ライセンス金額: 配列から取得、なければ従来のフィールドから
-        franchise_license_amount: normalFranchiseLicenseReward?.amount || formData.franchise_license_amount || null,
-        franchise_gm_test_license_amount: gmtestFranchiseLicenseReward?.amount || formData.franchise_gm_test_license_amount || null,
+        // 0円も保存するため、?? を使用（|| だと0が falsy で null になってしまう）
+        franchise_license_amount: normalFranchiseLicenseReward?.amount ?? formData.franchise_license_amount ?? null,
+        franchise_gm_test_license_amount: gmtestFranchiseLicenseReward?.amount ?? formData.franchise_gm_test_license_amount ?? null,
         gm_costs: formData.gm_assignments.map(assignment => ({
           role: assignment.role,
           reward: assignment.reward,
