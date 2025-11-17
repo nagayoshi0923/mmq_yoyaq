@@ -410,26 +410,33 @@ export function useScheduleData(currentDate: Date) {
     }
     
     // データが実際に変更されたときだけ更新（効率的な比較）
+    const prevLength = scenariosRef.current.length
     const currentString = scenariosStringRef.current
     const newString = scenariosData.length > 0 ? JSON.stringify(scenariosData) : ''
     
     // 文字列比較で内容が変わったかチェック（長さチェックを先に実行）
-    if (scenariosData.length !== scenariosRef.current.length || currentString !== newString) {
+    if (scenariosData.length !== prevLength || currentString !== newString) {
       scenariosRef.current = scenariosData
       scenariosStringRef.current = newString
       setScenarios(scenariosData)
       // sessionStorageへの書き込みは初回のみ、または大幅に変更があった場合のみ（パフォーマンス改善）
-      if (scenariosData.length > 0 && (scenariosRef.current.length === 0 || Math.abs(scenariosData.length - scenariosRef.current.length) > 5)) {
+      if (scenariosData.length > 0 && (prevLength === 0 || Math.abs(scenariosData.length - prevLength) > 5)) {
         sessionStorage.setItem('scheduleScenarios', newString)
       }
       logger.log('🔄 シナリオデータをstateに同期:', scenariosData.length)
     }
   }, [scenariosData])
 
-  // イベントデータをキャッシュに保存
+  // イベントデータをキャッシュに保存（変更時のみ、パフォーマンス改善）
+  const eventsStringRef = useRef<string>('')
   useEffect(() => {
     if (events.length > 0) {
-      sessionStorage.setItem('scheduleEvents', JSON.stringify(events))
+      const eventsString = JSON.stringify(events)
+      // 前回と同じ内容の場合はスキップ（不要な書き込みを防ぐ）
+      if (eventsStringRef.current !== eventsString) {
+        eventsStringRef.current = eventsString
+        sessionStorage.setItem('scheduleEvents', eventsString)
+      }
     }
   }, [events])
 
