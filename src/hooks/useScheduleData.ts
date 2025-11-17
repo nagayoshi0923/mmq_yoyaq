@@ -402,14 +402,25 @@ export function useScheduleData(currentDate: Date) {
   
   // React Queryのデータが更新されたらstateに同期（メモ化して不要な再レンダリングを防ぐ）
   const scenariosRef = useRef<Scenario[]>([])
+  const scenariosStringRef = useRef<string>('')
   useEffect(() => {
-    // データが実際に変更されたときだけ更新（参照の比較ではなく内容の比較）
-    const hasChanged = JSON.stringify(scenariosRef.current) !== JSON.stringify(scenariosData)
-    if (hasChanged || scenariosData.length !== scenariosRef.current.length) {
+    // 参照が同じ場合はスキップ（React Queryが同じオブジェクトを返している場合）
+    if (scenariosRef.current === scenariosData) {
+      return
+    }
+    
+    // データが実際に変更されたときだけ更新（効率的な比較）
+    const currentString = scenariosStringRef.current
+    const newString = scenariosData.length > 0 ? JSON.stringify(scenariosData) : ''
+    
+    // 文字列比較で内容が変わったかチェック（長さチェックを先に実行）
+    if (scenariosData.length !== scenariosRef.current.length || currentString !== newString) {
       scenariosRef.current = scenariosData
+      scenariosStringRef.current = newString
       setScenarios(scenariosData)
-      if (scenariosData.length > 0) {
-        sessionStorage.setItem('scheduleScenarios', JSON.stringify(scenariosData))
+      // sessionStorageへの書き込みは初回のみ、または大幅に変更があった場合のみ（パフォーマンス改善）
+      if (scenariosData.length > 0 && (scenariosRef.current.length === 0 || Math.abs(scenariosData.length - scenariosRef.current.length) > 5)) {
+        sessionStorage.setItem('scheduleScenarios', newString)
       }
       logger.log('🔄 シナリオデータをstateに同期:', scenariosData.length)
     }
