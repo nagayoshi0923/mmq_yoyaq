@@ -788,6 +788,12 @@ export function PerformanceModal({
       const scenarioObj = scenarios.find(s => s.title === formData.scenario)
       const storeObj = stores.find(s => s.id === formData.venue)
       
+      // 参加費を計算（1人あたり）
+      const participationFee = scenarioObj?.participation_fee || 0
+      // デモ参加者も有料、スタッフ参加のみ無料
+      const basePrice = newParticipant.payment_method === 'staff' ? 0 : participationFee
+      const totalPrice = basePrice * newParticipant.participant_count
+      
       const reservation: Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'> = {
         schedule_event_id: event.id,
         title: formData.scenario || '',
@@ -800,11 +806,11 @@ export function PerformanceModal({
         participant_count: newParticipant.participant_count,
         participant_names: [participantName],
         assigned_staff: formData.gms || [],
-        base_price: (participantName === 'デモ参加者' || newParticipant.payment_method === 'staff') ? 0 : (scenarioObj?.participation_fee || 0),
+        base_price: basePrice,
         options_price: 0,
-        total_price: (participantName === 'デモ参加者' || newParticipant.payment_method === 'staff') ? 0 : (scenarioObj?.participation_fee || 0),
+        total_price: totalPrice,
         discount_amount: 0,
-        final_price: (participantName === 'デモ参加者' || newParticipant.payment_method === 'staff') ? 0 : (scenarioObj?.participation_fee || 0),
+        final_price: totalPrice,
         payment_method: participantName === 'デモ参加者' ? 'onsite' : newParticipant.payment_method,
         payment_status: (participantName === 'デモ参加者' || newParticipant.payment_method === 'online') ? 'paid' : (newParticipant.payment_method === 'staff' ? 'paid' : 'pending'),
         status: 'confirmed' as const,
