@@ -221,86 +221,89 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
   }
 
   return (
-    <div className="border border-gray-300 rounded overflow-x-auto -mx-2 sm:mx-0">
-      {/* ヘッダー行 */}
-      <div className={stickyHeader ? 'sticky top-[44px] sm:top-0 z-40 bg-background' : ''}>
-        <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-300">
-          {table.getHeaderGroups().map((headerGroup) =>
-            headerGroup.headers.map((header, headerIndex) => {
-              const meta = header.column.columnDef.meta as any
-              const isSortable = header.column.getCanSort()
-              const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
-              const widthClass = getWidthClass(meta)
-              const isLastHeader = headerIndex === headerGroup.headers.length - 1
-              const shouldShowBorder = !isLastHeader || stickyHeaderContent
-              
-              return (
-                <div
-                  key={header.id}
-                  className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-300' : ''} font-medium text-[10px] sm:text-xs md:text-sm ${alignClass} ${
-                    isSortable ? 'cursor-pointer hover:bg-gray-200' : ''
-                  } ${meta?.headerClassName || ''} flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'} whitespace-nowrap`}
-                  onClick={
-                    isSortable
-                      ? header.column.getToggleSortingHandler()
-                      : undefined
-                  }
-                >
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext()
-                  )}
-                  {isSortable && getSortIcon(header.id)}
-                </div>
-              )
-            })
-          )}
-          {stickyHeaderContent && (
-            <div className="hidden md:flex items-center px-4 border-l border-gray-300 bg-gray-100 flex-shrink-0">
-              {stickyHeaderContent}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* データ行 */}
-      {table.getRowModel().rows.length > 0 ? (
-        <div>
-          {table.getRowModel().rows.map((row, index) => (
-            <div 
-              key={getRowKey(row.original)}
-              className={`flex items-stretch h-[40px] sm:h-[45px] md:h-[50px] border-b border-gray-200 hover:bg-gray-50 ${
-                index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-              }`}
-            >
-              {row.getVisibleCells().map((cell, cellIndex) => {
-                const meta = cell.column.columnDef.meta as any
+    <div className="border border-gray-300 rounded -mx-2 sm:mx-0">
+      {/* 横スクロール可能なコンテナ */}
+      <div className="overflow-x-auto overflow-y-hidden">
+        {/* ヘッダー行 */}
+        <div className={stickyHeader ? 'sticky top-[44px] sm:top-0 z-40' : ''}>
+          <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-300 min-w-max">
+            {table.getHeaderGroups().map((headerGroup) =>
+              headerGroup.headers.map((header, headerIndex) => {
+                const meta = header.column.columnDef.meta as any
+                const isSortable = header.column.getCanSort()
                 const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
                 const widthClass = getWidthClass(meta)
-                const isLastCell = cellIndex === row.getVisibleCells().length - 1
-                const shouldShowBorder = !isLastCell || stickyHeaderContent
+                const isLastHeader = headerIndex === headerGroup.headers.length - 1
+                const shouldShowBorder = !isLastHeader || stickyHeaderContent
+                
                 return (
                   <div
-                    key={cell.id}
-                    className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} text-[10px] sm:text-xs md:text-sm ${alignClass} ${
-                      meta?.cellClassName || ''
-                    } flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'}`}
+                    key={header.id}
+                    className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-300' : ''} font-medium text-[10px] sm:text-xs md:text-sm ${alignClass} bg-gray-100 ${
+                      isSortable ? 'cursor-pointer hover:bg-gray-200' : ''
+                    } ${meta?.headerClassName || ''} flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'} whitespace-nowrap`}
+                    onClick={
+                      isSortable
+                        ? header.column.getToggleSortingHandler()
+                        : undefined
+                    }
                   >
                     {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
+                      header.column.columnDef.header,
+                      header.getContext()
                     )}
+                    {isSortable && getSortIcon(header.id)}
                   </div>
                 )
-              })}
-            </div>
-          ))}
+              })
+            )}
+            {stickyHeaderContent && (
+              <div className="hidden md:flex items-center px-4 border-l border-gray-300 bg-gray-100 flex-shrink-0">
+                {stickyHeaderContent}
+              </div>
+            )}
+          </div>
         </div>
-      ) : (
-        <div className="py-12 text-center text-muted-foreground">
-          {emptyMessage}
-        </div>
-      )}
+
+        {/* データ行 */}
+        {table.getRowModel().rows.length > 0 ? (
+          <div>
+            {table.getRowModel().rows.map((row, index) => (
+              <div 
+                key={getRowKey(row.original)}
+                className={`flex items-stretch h-[40px] sm:h-[45px] md:h-[50px] border-b border-gray-200 hover:bg-gray-50 min-w-max ${
+                  index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                }`}
+              >
+                {row.getVisibleCells().map((cell, cellIndex) => {
+                  const meta = cell.column.columnDef.meta as any
+                  const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
+                  const widthClass = getWidthClass(meta)
+                  const isLastCell = cellIndex === row.getVisibleCells().length - 1
+                  const shouldShowBorder = !isLastCell || stickyHeaderContent
+                  return (
+                    <div
+                      key={cell.id}
+                      className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} text-[10px] sm:text-xs md:text-sm ${alignClass} ${
+                        meta?.cellClassName || ''
+                      } flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-12 text-center text-muted-foreground">
+            {emptyMessage}
+          </div>
+        )}
+      </div>
     </div>
   )
 }) as <T>(props: DataTableProps<T>) => JSX.Element
