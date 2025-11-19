@@ -1,5 +1,4 @@
 import { ReactNode, memo } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
 
 export interface Column<T> {
   /**
@@ -118,66 +117,61 @@ export const DataTable = memo(function DataTable<T>({
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center text-muted-foreground">
+      <div className="border border-gray-300 rounded">
+        <div className="py-12 text-center text-muted-foreground">
           読み込み中...
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-1">
+    <div className="border border-gray-300 rounded overflow-hidden">
       {/* ヘッダー行 */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex items-center h-[50px] bg-muted/30">
-            {columns.map((column) => (
-              <div
-                key={column.key}
-                className={`flex-shrink-0 ${column.width} px-3 py-2 border-r font-medium text-sm ${
-                  column.sortable ? 'cursor-pointer hover:bg-muted/50' : ''
-                } ${column.headerClassName || ''}`}
-                onClick={() => handleHeaderClick(column)}
-              >
-                {column.renderHeader ? column.renderHeader() : (
-                  <>
-                    {column.label}
-                    {column.sortable && getSortIcon(column.key)}
-                  </>
-                )}
-              </div>
-            ))}
+      <div className="flex items-center h-[40px] bg-gray-100 border-b border-gray-300">
+        {columns.map((column) => (
+          <div
+            key={column.key}
+            className={`flex-shrink-0 ${column.width} px-3 py-2 border-r border-gray-300 font-medium text-sm ${
+              column.sortable ? 'cursor-pointer hover:bg-gray-200' : ''
+            } ${column.headerClassName || ''}`}
+            onClick={() => handleHeaderClick(column)}
+          >
+            {column.renderHeader ? column.renderHeader() : (
+              <>
+                {column.label}
+                {column.sortable && getSortIcon(column.key)}
+              </>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
 
       {/* データ行 */}
       {data.length > 0 ? (
-        <div className="space-y-1">
-          {data.map((item) => (
-            <Card key={getRowKey(item)}>
-              <CardContent className="p-0">
-                <div className="flex items-center min-h-[60px]">
-                  {columns.map((column) => (
-                    <div
-                      key={column.key}
-                      className={`flex-shrink-0 ${column.width} px-3 py-2 border-r ${column.cellClassName || ''}`}
-                    >
-                      {column.render(item)}
-                    </div>
-                  ))}
+        <div>
+          {data.map((item, index) => (
+            <div 
+              key={getRowKey(item)} 
+              className={`flex items-center min-h-[40px] border-b border-gray-200 hover:bg-gray-50 ${
+                index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+              }`}
+            >
+              {columns.map((column) => (
+                <div
+                  key={column.key}
+                  className={`flex-shrink-0 ${column.width} px-3 py-2 border-r border-gray-200 text-sm ${column.cellClassName || ''}`}
+                >
+                  {column.render(item)}
                 </div>
-              </CardContent>
-            </Card>
+              ))}
+            </div>
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            {emptyMessage}
-          </CardContent>
-        </Card>
+        <div className="py-12 text-center text-muted-foreground">
+          {emptyMessage}
+        </div>
       )}
     </div>
   )
