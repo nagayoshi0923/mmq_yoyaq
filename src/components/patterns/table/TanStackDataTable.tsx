@@ -207,41 +207,54 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
     )
   }
 
+  // カラム幅クラスを計算する共通関数（ヘッダーとデータ行で完全に同じロジック）
+  const getWidthClass = (meta: any): string => {
+    if (meta?.width) {
+      if (meta.width === 'flex-1') {
+        return 'flex-1 min-w-[120px]'
+      } else {
+        return `flex-shrink-0 ${meta.width}`
+      }
+    } else {
+      return 'flex-1 min-w-[120px]'
+    }
+  }
+
   return (
-    <div className="border border-gray-300 rounded overflow-hidden overflow-x-auto -mx-2 sm:mx-0">
+    <div className="border border-gray-300 rounded overflow-x-auto -mx-2 sm:mx-0">
       {/* ヘッダー行 */}
       <div className={stickyHeader ? 'sticky top-[44px] sm:top-0 z-40 bg-background' : ''}>
-        <div className={`flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-300 ${stickyHeaderContent ? 'min-w-max' : 'w-full'}`}>
-          <div className="flex items-stretch flex-1">
-            {table.getHeaderGroups().map((headerGroup) =>
-              headerGroup.headers.map((header) => {
-                const meta = header.column.columnDef.meta as any
-                const isSortable = header.column.getCanSort()
-                const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
-                const widthClass = meta?.width ? `flex-shrink-0 ${meta.width}` : 'flex-1 min-w-0'
-                
-                return (
-                  <div
-                    key={header.id}
-                    className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${header.id === headerGroup.headers[headerGroup.headers.length - 1]?.id && !stickyHeaderContent ? '' : 'border-r border-gray-300'} font-medium text-[10px] sm:text-xs md:text-sm ${alignClass} ${
-                      isSortable ? 'cursor-pointer hover:bg-gray-200' : ''
-                    } ${meta?.headerClassName || ''} flex items-center justify-center whitespace-nowrap`}
-                    onClick={
-                      isSortable
-                        ? header.column.getToggleSortingHandler()
-                        : undefined
-                    }
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                    {isSortable && getSortIcon(header.id)}
-                  </div>
-                )
-              })
-            )}
-          </div>
+        <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-300">
+          {table.getHeaderGroups().map((headerGroup) =>
+            headerGroup.headers.map((header, headerIndex) => {
+              const meta = header.column.columnDef.meta as any
+              const isSortable = header.column.getCanSort()
+              const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
+              const widthClass = getWidthClass(meta)
+              const isLastHeader = headerIndex === headerGroup.headers.length - 1
+              const shouldShowBorder = !isLastHeader || stickyHeaderContent
+              
+              return (
+                <div
+                  key={header.id}
+                  className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-300' : ''} font-medium text-[10px] sm:text-xs md:text-sm ${alignClass} ${
+                    isSortable ? 'cursor-pointer hover:bg-gray-200' : ''
+                  } ${meta?.headerClassName || ''} flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'} whitespace-nowrap`}
+                  onClick={
+                    isSortable
+                      ? header.column.getToggleSortingHandler()
+                      : undefined
+                  }
+                >
+                  {flexRender(
+                    header.column.columnDef.header,
+                    header.getContext()
+                  )}
+                  {isSortable && getSortIcon(header.id)}
+                </div>
+              )
+            })
+          )}
           {stickyHeaderContent && (
             <div className="hidden md:flex items-center px-4 border-l border-gray-300 bg-gray-100 flex-shrink-0">
               {stickyHeaderContent}
@@ -256,20 +269,22 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
           {table.getRowModel().rows.map((row, index) => (
             <div 
               key={getRowKey(row.original)}
-              className={`flex items-center h-[40px] sm:h-[45px] md:h-[50px] border-b border-gray-200 hover:bg-gray-50 ${
+              className={`flex items-stretch h-[40px] sm:h-[45px] md:h-[50px] border-b border-gray-200 hover:bg-gray-50 ${
                 index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
               }`}
             >
-              {row.getVisibleCells().map((cell) => {
+              {row.getVisibleCells().map((cell, cellIndex) => {
                 const meta = cell.column.columnDef.meta as any
                 const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
-                const widthClass = meta?.width ? `flex-shrink-0 ${meta.width}` : 'flex-1 min-w-0'
+                const widthClass = getWidthClass(meta)
+                const isLastCell = cellIndex === row.getVisibleCells().length - 1
+                const shouldShowBorder = !isLastCell || stickyHeaderContent
                 return (
                   <div
                     key={cell.id}
-                    className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${cell.id === row.getVisibleCells()[row.getVisibleCells().length - 1]?.id && !stickyHeaderContent ? '' : 'border-r border-gray-200'} text-[10px] sm:text-xs md:text-sm ${alignClass} ${
+                    className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} text-[10px] sm:text-xs md:text-sm ${alignClass} ${
                       meta?.cellClassName || ''
-                    }`}
+                    } flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'}`}
                   >
                     {flexRender(
                       cell.column.columnDef.cell,

@@ -126,7 +126,7 @@ export const DataTable = memo(function DataTable<T>({
   }
 
   return (
-    <div className="border border-gray-300 rounded overflow-hidden">
+    <div className="border border-gray-300 rounded overflow-x-auto -mx-2 sm:mx-0">
       {/* ヘッダー行 */}
       <div className="flex items-center h-[40px] bg-gray-100 border-b border-gray-300">
         {columns.map((column) => (
