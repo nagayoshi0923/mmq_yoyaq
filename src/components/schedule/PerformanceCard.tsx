@@ -171,32 +171,32 @@ function PerformanceCardBase({
         {isIncomplete && (
           <AlertTriangle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-600 flex-shrink-0" />
         )}
-        
-        {/* 公開状態ステータスバッジ（●形式） */}
-        <div
-          className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 transition-all cursor-pointer ${
-            event.is_private_request 
-              ? 'bg-green-500' 
-              : event.is_reservation_enabled 
-                ? 'bg-green-500' 
-                : 'bg-gray-400'
-          }`}
-          title={
-            event.is_private_request 
-              ? '貸切公演は常に公開中です' 
-              : event.is_reservation_enabled 
-                ? '予約サイトに公開中（クリックで非公開）' 
-                : '予約サイトに非公開（クリックで公開）'
-          }
-          onClick={(e) => {
-            e.stopPropagation();
-            // 貸切公演の場合はクリック不可
-            if (!event.is_private_request) {
-              onToggleReservation?.(event);
-            }
-          }}
-        />
       </div>
+
+      {/* 右下：公開状態ステータスバッジ（●形式） */}
+      <div
+        className={`absolute bottom-0.5 right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 transition-all cursor-pointer ${
+          event.is_private_request 
+            ? 'bg-green-500' 
+            : event.is_reservation_enabled 
+              ? 'bg-green-500' 
+              : 'bg-gray-400'
+        }`}
+        title={
+          event.is_private_request 
+            ? '貸切公演は常に公開中です' 
+            : event.is_reservation_enabled 
+              ? '予約サイトに公開中（クリックで非公開）' 
+              : '予約サイトに非公開（クリックで公開）'
+        }
+        onClick={(e) => {
+          e.stopPropagation();
+          // 貸切公演の場合はクリック不可
+          if (!event.is_private_request) {
+            onToggleReservation?.(event);
+          }
+        }}
+      />
     </div>
   )
 }
