@@ -38,11 +38,13 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   timeSlots,
   selectedSlots,
   onTimeSlotToggle,
-  checkTimeSlotAvailability
+  checkTimeSlotAvailability,
+  events = []
 }: PrivateBookingFormProps) {
   const isTimeSlotSelected = (date: string, slot: TimeSlot): boolean => {
     return selectedSlots.some(s => s.date === date && s.slot.label === slot.label)
   }
+
 
   return (
     <div>
@@ -140,7 +142,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                           key={slot.label}
                           variant={isSelected ? "default" : "outline"}
                           size="sm"
-                          className={`flex-1 py-1.5 h-auto text-xs px-1 ${
+                          className={`flex-1 py-1.5 min-h-[48px] text-xs px-1 ${
                             !isAvailable 
                               ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
                               : isSelected
@@ -150,11 +152,17 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                           disabled={!isAvailable}
                           onClick={() => onTimeSlotToggle(date, slot)}
                         >
-                          <div className="flex flex-col items-center">
+                          <div className="flex flex-col items-center justify-center min-h-[32px]">
                             <span className="whitespace-nowrap leading-tight">{slot.label}</span>
-                            {isSelected && (
-                              <CheckCircle2 className="w-3 h-3 mt-0.5" />
-                            )}
+                            {/* 時間帯の開始時間を表示 */}
+                            <span className="text-[9px] mt-0.5 leading-tight opacity-80">
+                              {slot.startTime}
+                            </span>
+                            <div className="h-3 mt-0.5 flex items-center justify-center">
+                              {isSelected && (
+                                <CheckCircle2 className="w-3 h-3" />
+                              )}
+                            </div>
                           </div>
                         </Button>
                       )

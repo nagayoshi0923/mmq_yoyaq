@@ -48,15 +48,15 @@ export const EventList = memo(function EventList({
             key={event.event_id}
             className={`transition-all overflow-hidden ${
               event.available_seats === 0
-                ? 'opacity-50 cursor-not-allowed bg-gray-50 border border-gray-200'
-                : `cursor-pointer ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'hover:bg-accent border'}`
+                ? 'opacity-50 cursor-not-allowed bg-gray-50 border-2 border-gray-200'
+                : `cursor-pointer ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'hover:bg-accent border-2 border-gray-200'}`
             }`}
             onClick={() => {
               if (event.available_seats === 0) return
               onEventSelect(isSelected ? null : event.event_id)
             }}
           >
-            <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 touch-manipulation">
+            <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 touch-manipulation min-h-[56px] sm:min-h-[64px]">
               {/* 左側：日付と店舗情報 */}
               <div className="flex items-start gap-1.5 sm:gap-2 flex-1 min-w-0">
                 {/* 日付 */}

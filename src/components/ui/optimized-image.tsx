@@ -11,7 +11,7 @@
  * - 外部URLにも対応（最適化なし）
  */
 
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { getOptimizedImageUrl, generateSrcSet, generateSizes, isSupabaseStorageUrl } from '@/utils/imageUtils'
 
 export interface OptimizedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'srcSet' | 'sizes'> {

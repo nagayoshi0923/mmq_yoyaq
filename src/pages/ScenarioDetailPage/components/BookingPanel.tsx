@@ -1,6 +1,8 @@
 import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { VenueAccess } from './VenueAccess'
+import type { EventSchedule } from '../utils/types'
 
 interface BookingPanelProps {
   participantCount: number
@@ -8,6 +10,7 @@ interface BookingPanelProps {
   participationFee: number
   selectedEventId: string | null
   isLoggedIn: boolean
+  events: EventSchedule[]
   onParticipantCountChange: (count: number) => void
   onBooking: () => void
 }
@@ -18,6 +21,7 @@ export const BookingPanel = memo(function BookingPanel({
   participationFee,
   selectedEventId,
   isLoggedIn,
+  events,
   onParticipantCountChange,
   onBooking
 }: BookingPanelProps) {
@@ -45,6 +49,15 @@ export const BookingPanel = memo(function BookingPanel({
           </CardContent>
         </Card>
       </div>
+
+      {/* 会場アクセス（選択した公演がある場合のみ表示） */}
+      {selectedEventId && (
+        <VenueAccess
+          events={events}
+          selectedEventId={selectedEventId}
+          mode="schedule"
+        />
+      )}
 
       {/* 料金情報 */}
       <div>

@@ -66,28 +66,15 @@ export function useScenarioDetail(scenarioId: string) {
         if (event.venue) storeIds.add(event.venue)
       })
       
-      // 必要な店舗データのみ取得
+      // 店舗データを取得（貸切リクエストタブでも使用するため、全店舗を取得）
       let storesData: any[] = []
-      if (storeIds.size > 0) {
-        try {
-          const { data, error } = await supabase
-            .from('stores')
-            .select('*')
-            .in('id', Array.from(storeIds))
-          
-          if (!error && data) {
-            storesData = data
-          }
-        } catch (error) {
-          logger.error('店舗データの取得エラー:', error)
-          // フォールバック：全店舗を取得
-          try {
-            storesData = await storeApi.getAll()
-          } catch (fallbackError) {
-            logger.error('店舗データの取得エラー（フォールバック）:', fallbackError)
-            storesData = []
-          }
-        }
+      try {
+        // 貸切リクエストタブでも使用するため、常に全店舗を取得
+        storesData = await storeApi.getAll()
+      } catch (error) {
+        logger.error('店舗データの取得エラー:', error)
+        // エラー時は空配列を設定
+        storesData = []
       }
       setStores(storesData)
       

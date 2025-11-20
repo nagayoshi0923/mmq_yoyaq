@@ -201,7 +201,6 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
           {/* 左メインエリア - 詳細情報 */}
           <div className="lg:col-span-8 space-y-4 sm:space-y-6">
             <ScenarioAbout scenario={scenario} />
-            <VenueAccess events={events} />
             <BookingNotice 
               reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
               hasPreReading={scenario.has_pre_reading}
@@ -295,19 +294,30 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                     participationFee={scenario.participation_fee}
                     selectedEventId={selectedEventId}
                     isLoggedIn={!!user}
+                    events={events}
                     onParticipantCountChange={setParticipantCount}
                     onBooking={handleBooking}
                   />
                 )}
 
                 {activeTab === 'private' && (
-                  <PrivateBookingPanel
-                    participationFee={scenario.participation_fee}
-                    maxParticipants={scenario.player_count_max}
-                    selectedTimeSlotsCount={selectedTimeSlots.length}
-                    isLoggedIn={!!user}
-                    onRequestBooking={() => handlePrivateBookingRequest(!!user)}
-                  />
+                  <>
+                    {/* 選択店舗（選択した店舗がある場合のみ表示） */}
+                    {selectedStoreIds.length > 0 && (
+                      <VenueAccess
+                        selectedStoreIds={selectedStoreIds}
+                        stores={stores}
+                        mode="private"
+                      />
+                    )}
+                    <PrivateBookingPanel
+                      participationFee={scenario.participation_fee}
+                      maxParticipants={scenario.player_count_max}
+                      selectedTimeSlotsCount={selectedTimeSlots.length}
+                      isLoggedIn={!!user}
+                      onRequestBooking={() => handlePrivateBookingRequest(!!user)}
+                    />
+                  </>
                 )}
               </div>
             </div>

@@ -738,7 +738,8 @@ export const scheduleApi = {
           id,
           name,
           short_name,
-          color
+          color,
+          address
         ),
         scenarios:scenario_id (
           id,
@@ -866,7 +867,8 @@ export const scheduleApi = {
           id,
           name,
           short_name,
-          color
+          color,
+          address
         ),
         gm_availability_responses (
           staff_id,
