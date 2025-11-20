@@ -78,8 +78,7 @@ export function ScheduleTable({
     <div className="overflow-x-auto -mx-2 sm:mx-0">
       <Table className="table-fixed w-full border-collapse min-w-[406px] sm:min-w-[562px] md:min-w-[676px]">
             <colgroup>
-              <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[14px] sm:w-[18px] md:w-[22px]" />
+              <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
               <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
               <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
               <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
@@ -88,8 +87,7 @@ export function ScheduleTable({
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 !h-auto text-center">日付</TableHead>
-                <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 !h-auto text-center">曜日</TableHead>
+                <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 !h-auto text-center">日付<br/><span className="sm:hidden text-[7px]">曜</span><span className="hidden sm:inline">曜日</span></TableHead>
                 <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 !h-auto text-center">会場</TableHead>
                 <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] whitespace-nowrap !p-0 !h-auto text-center">午前<br className="hidden sm:block"/><span className="sm:hidden"> </span>(~12)</TableHead>
                 <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] whitespace-nowrap !p-0 !h-auto text-center">午後<br className="hidden sm:block"/><span className="sm:hidden"> </span>(12-17)</TableHead>
@@ -101,20 +99,12 @@ export function ScheduleTable({
             {monthDays.map(day => {
               return stores.map((store, storeIndex) => (
                 <TableRow key={`${day.date}-${store.id}`} className="h-10 sm:h-12 md:h-14">
-                  {/* 日付セル */}
-                  {storeIndex === 0 ? (
-                    <TableCell className="schedule-table-cell border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 leading-none text-center align-middle" rowSpan={stores.length}>
-                      <div className="flex items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px]">
-                        {day.displayDate}
-                      </div>
-                    </TableCell>
-                  ) : null}
-                  
-                  {/* 曜日セル */}
+                  {/* 日付・曜日統合セル */}
                   {storeIndex === 0 ? (
                     <TableCell className={`schedule-table-cell border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
-                      <div className="flex items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px]">
-                        {day.dayOfWeek}
+                      <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-0">
+                        <span className="font-semibold">{day.displayDate}</span>
+                        <span className="text-[7px] sm:text-[8px]">({day.dayOfWeek})</span>
                       </div>
                     </TableCell>
                   ) : null}
