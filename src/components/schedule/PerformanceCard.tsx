@@ -123,7 +123,7 @@ function PerformanceCardBase({
         <div className="flex items-center gap-0.5 flex-shrink-0 min-w-0">
           {/* 中止バッジ */}
           {event.is_cancelled && (
-            <Badge variant="cancelled" size="sm" className="font-normal text-[7px] sm:text-[8px] md:text-[9px] px-0 py-0 h-3 sm:h-4 whitespace-nowrap">
+            <Badge variant="cancelled" size="sm" className="font-normal text-badge px-0 py-0 h-3 sm:h-4 whitespace-nowrap">
               中止
             </Badge>
           )}
@@ -151,18 +151,18 @@ function PerformanceCardBase({
       </div>
       
       {/* シナリオタイトル */}
-      <div className={`font-medium line-clamp-2 mb-0 text-[9px] sm:text-[10px] md:text-xs leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`font-medium line-clamp-2 mb-0 text-schedule-base leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.scenario || '未定'}
       </div>
       
       {/* GM情報 */}
-      <div className={`text-[9px] sm:text-[10px] md:text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`text-schedule-base mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         GM: {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
       </div>
       
       {/* ノート情報 */}
       {event.notes && (
-        <div className={`text-[8px] sm:text-[9px] truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+        <div className={`text-schedule-sm truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.notes}
         </div>
       )}
