@@ -26,43 +26,43 @@ export default {
         // グローバル文字サイズ（xs/375→sm/390→md/640→lg/768→xl/1024→2xl/1280）
         // PC(2xl/1280px)を基準に逆算、モバイルファースト
         'xs': [
-          ['8px', '9px', '9px', '10px', '11px', '11px', '11px'],
+          ['8px', '8px', '8px', '10px', '11px', '11px', '11px'],
           { lineHeight: '1.2' }
         ],                                          // バッジ用最小
         'sm': [
-          ['9px', '11px', '12px', '12px', '13px', '14px', '14px'],
+          ['9px', '10px', '11px', '12px', '13px', '14px', '14px'],
           { lineHeight: '1.3' }
         ],                                          // 小コンテンツ用
         'base': [
-          ['11px', '13px', '14px', '14px', '16px', '17px', '18px'],
+          ['11px', '12px', '13px', '14px', '16px', '17px', '18px'],
           { lineHeight: '1.4' }
         ],                                          // デフォルト用
         'lg': [
-          ['12px', '14px', '15px', '15px', '18px', '20px', '21px'],
+          ['12px', '13px', '14px', '15px', '18px', '20px', '21px'],
           { lineHeight: '1.5' }
         ],                                          // 大コンテンツ用
         'xl': [
-          ['13px', '15px', '16px', '17px', '20px', '22px', '24px'],
+          ['13px', '14px', '15px', '17px', '20px', '22px', '24px'],
           { lineHeight: '1.6' }
         ],                                          // 見出し用
         'schedule-xs': [
-          ['8px', '9px', '10px', '10px', '10px', '10px', '10px'],
+          ['8px', '8px', '9px', '10px', '10px', '10px', '10px'],
           { lineHeight: '1' }
         ],                                          // スケジュール最小
         'schedule-sm': [
-          ['9px', '10px', '11px', '11px', '11px', '12px', '12px'],
+          ['9px', '9px', '10px', '11px', '11px', '12px', '12px'],
           { lineHeight: '1.2' }
         ],
         'schedule-base': [
-          ['9px', '11px', '12px', '12px', '12px', '13px', '14px'],
+          ['9px', '9px', '10px', '12px', '12px', '13px', '14px'],
           { lineHeight: '1.3' }
         ],
         'schedule-lg': [
-          ['10px', '12px', '13px', '13px', '13px', '14px', '15px'],
+          ['10px', '10px', '11px', '13px', '13px', '14px', '15px'],
           { lineHeight: '1.4' }
         ],
         'badge': [
-          ['8px', '9px', '9px', '10px', '10px', '10px', '10px'],
+          ['8px', '8px', '9px', '9px', '9px', '9px', '9px'],
           { lineHeight: '1' }
         ],                                          // バッジテキスト
       },
