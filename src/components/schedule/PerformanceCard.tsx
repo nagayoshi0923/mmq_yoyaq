@@ -175,7 +175,7 @@ function PerformanceCardBase({
 
       {/* 右下：公開状態ステータスバッジ（●形式） */}
       <div
-        className={`absolute bottom-0.5 right-0.5 w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full flex-shrink-0 transition-all cursor-pointer ${
+        className={`absolute bottom-0.5 right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 transition-all cursor-pointer ${
           event.is_private_request 
             ? 'bg-green-400' 
             : event.is_reservation_enabled 
