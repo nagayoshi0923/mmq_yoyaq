@@ -29,12 +29,12 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
             </div>
             <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {scenario.genre.map((g, i) => (
-                <Badge key={i} variant="outline" className="text-[10px] sm:text-xs">
+                <Badge key={i} variant="outline" className="text-xs">
                   {g}
                 </Badge>
               ))}
               {scenario.has_pre_reading && (
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px] sm:text-xs">
+                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
                   事前読解あり
                 </Badge>
               )}

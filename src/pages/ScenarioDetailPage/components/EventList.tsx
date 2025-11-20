@@ -62,7 +62,7 @@ export const EventList = memo(function EventList({
                 {/* 日付 */}
                 <div className="font-semibold text-xs sm:text-sm whitespace-nowrap min-w-[45px] sm:min-w-[50px] text-center flex-shrink-0">
                   <div>{month}/{day}</div>
-                  <div className={`text-[10px] sm:text-xs ${weekdayColor}`}>
+                  <div className={`text-xs ${weekdayColor}`}>
                     ({weekday})
                   </div>
                 </div>
@@ -88,7 +88,7 @@ export const EventList = memo(function EventList({
                       {formatTime(event.start_time)}〜
                     </span>
                   </div>
-                  <div className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                  <div className="text-xs text-muted-foreground truncate">
                     {event.scenario_title || scenarioTitle}
                   </div>
                 </div>
@@ -97,7 +97,7 @@ export const EventList = memo(function EventList({
               {/* 中央：残り人数 / 満席バッジ */}
               <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 {event.available_seats === 0 ? (
-                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 whitespace-nowrap">
+                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 whitespace-nowrap">
                     満席
                   </Badge>
                 ) : (

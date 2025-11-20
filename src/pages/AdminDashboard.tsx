@@ -450,7 +450,7 @@ export function AdminDashboard() {
                 </CardHeader>
                 <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
                   <div className="text-lg xs:text-xl sm:text-2xl md:text-2xl font-bold">{stats.stores}</div>
-                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm">店舗運営中</p>
+                  <p className="text-muted-foreground text-xs">店舗運営中</p>
                 </CardContent>
               </Card>
 
@@ -463,7 +463,7 @@ export function AdminDashboard() {
                 </CardHeader>
                 <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
                   <div className="text-lg xs:text-xl sm:text-2xl md:text-2xl font-bold">{stats.performances}</div>
-                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm">シナリオ登録済み</p>
+                  <p className="text-muted-foreground text-xs">シナリオ登録済み</p>
                 </CardContent>
               </Card>
 
@@ -476,7 +476,7 @@ export function AdminDashboard() {
                 </CardHeader>
                 <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
                   <div className="text-lg xs:text-xl sm:text-2xl md:text-2xl font-bold">{stats.reservations}</div>
-                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm">件の予約</p>
+                  <p className="text-muted-foreground text-xs">件の予約</p>
                 </CardContent>
               </Card>
 
@@ -491,7 +491,7 @@ export function AdminDashboard() {
                   <div className="text-lg xs:text-xl sm:text-2xl md:text-2xl font-bold">
                     ¥{stats.revenue.toLocaleString()}
                   </div>
-                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm">前月比 +12%</p>
+                  <p className="text-muted-foreground text-xs">前月比 +12%</p>
                 </CardContent>
               </Card>
             </div>
@@ -548,27 +548,27 @@ export function AdminDashboard() {
                     <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs sm:text-sm"><strong>新規予約</strong> - 高田馬場店「人狼村の悲劇」</p>
-                      <p className="text-muted-foreground text-[10px] sm:text-xs">2024年12月25日 14:00-17:00 / 6名</p>
+                      <p className="text-muted-foreground text-xs">2024年12月25日 14:00-17:00 / 6名</p>
                     </div>
-                    <Badge className="bg-blue-100 text-blue-800 text-[10px] sm:text-xs flex-shrink-0">5分前</Badge>
+                    <Badge className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">5分前</Badge>
                   </div>
 
                   <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-border rounded-md">
                     <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs sm:text-sm"><strong>貸切予約</strong> - 別館②「密室の謎」</p>
-                      <p className="text-muted-foreground text-[10px] sm:text-xs">2024年12月26日 19:00-22:00 / 8名</p>
+                      <p className="text-muted-foreground text-xs">2024年12月26日 19:00-22:00 / 8名</p>
                     </div>
-                    <Badge className="bg-purple-100 text-purple-800 text-[10px] sm:text-xs flex-shrink-0">15分前</Badge>
+                    <Badge className="bg-purple-100 text-purple-800 text-xs flex-shrink-0">15分前</Badge>
                   </div>
 
                   <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-border rounded-md">
                     <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0"></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs sm:text-sm"><strong>GMテスト</strong> - 大久保店「新シナリオ検証」</p>
-                      <p className="text-muted-foreground text-[10px] sm:text-xs">2024年12月24日 10:00-13:00 / スタッフ4名</p>
+                      <p className="text-muted-foreground text-xs">2024年12月24日 10:00-13:00 / スタッフ4名</p>
                     </div>
-                    <Badge className="bg-orange-100 text-orange-800 text-[10px] sm:text-xs flex-shrink-0">1時間前</Badge>
+                    <Badge className="bg-orange-100 text-orange-800 text-xs flex-shrink-0">1時間前</Badge>
                   </div>
                 </div>
               </CardContent>

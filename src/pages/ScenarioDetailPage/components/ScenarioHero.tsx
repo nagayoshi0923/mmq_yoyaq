@@ -45,7 +45,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
           {/* タイトル・基本情報 */}
           <div className="lg:col-span-8 space-y-2 sm:space-y-3 md:space-y-4">
             <div>
-              <p className="text-[11px] sm:text-xs opacity-80 mb-1">{scenario.author}</p>
+              <p className="text-sm opacity-80 mb-1">{scenario.author}</p>
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1.5 sm:mb-2 md:mb-3 leading-tight">{scenario.scenario_title}</h1>
               
               <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
@@ -75,12 +75,12 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
 
             <div className="flex flex-wrap gap-1 sm:gap-1.5">
               {scenario.genre.map((g, i) => (
-                <Badge key={i} variant="outline" className="bg-white/20 text-white border-white/30 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-sm">
+                <Badge key={i} variant="outline" className="bg-white/20 text-white border-white/30 text-xs px-1.5 sm:px-2 py-0.5 rounded-sm">
                   {g}
                 </Badge>
               ))}
               {scenario.has_pre_reading && (
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-sm">
+                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-1.5 sm:px-2 py-0.5 rounded-sm">
                   事前読解あり
                 </Badge>
               )}

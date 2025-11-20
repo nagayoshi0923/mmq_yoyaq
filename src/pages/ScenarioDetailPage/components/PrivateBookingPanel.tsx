@@ -43,7 +43,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
               </div>
               <div className="bg-purple-50 border border-purple-200 rounded p-2 sm:p-3 text-xs sm:text-sm text-purple-800">
                 <p className="font-medium mb-0.5 sm:mb-1">貸切料金</p>
-                <p className="text-[10px] sm:text-xs">詳細はリクエスト後にご相談</p>
+                <p className="text-xs">詳細はリクエスト後にご相談</p>
               </div>
             </div>
           </CardContent>

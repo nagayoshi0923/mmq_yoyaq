@@ -83,7 +83,7 @@ export const BookingPanel = memo(function BookingPanel({
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded p-2 sm:p-3 text-xs sm:text-sm text-blue-800">
                 <p className="font-medium mb-0.5 sm:mb-1">現地決済</p>
-                <p className="text-[10px] sm:text-xs">当日会場にてお支払いください</p>
+                <p className="text-xs">当日会場にてお支払いください</p>
               </div>
             </div>
           </CardContent>

@@ -183,7 +183,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
           <Button
             variant="ghost"
             onClick={onClose}
-            className="flex items-center gap-0.5 xs:gap-1 sm:gap-1.5 hover:bg-accent h-8 xs:h-9 sm:h-10 px-1.5 xs:px-2 sm:px-3 touch-manipulation text-[10px] xs:text-xs sm:text-sm"
+            className="flex items-center gap-0.5 xs:gap-1 sm:gap-1.5 hover:bg-accent h-8 xs:h-9 sm:h-10 px-1.5 xs:px-2 sm:px-3 touch-manipulation text-xs"
           >
             <ArrowLeft className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 flex-shrink-0" />
             <span className="hidden xs:inline">シナリオ一覧に戻る</span>

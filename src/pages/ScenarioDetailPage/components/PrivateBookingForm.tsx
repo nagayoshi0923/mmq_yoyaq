@@ -75,7 +75,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                 <Badge 
                   key={id} 
                   variant="secondary" 
-                  className="text-[10px] px-1.5 py-0 h-auto"
+                  className="text-xs px-1.5 py-0 h-auto"
                 >
                   {store.short_name || store.name}
                 </Badge>
@@ -155,7 +155,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                           <div className="flex flex-col items-center justify-center min-h-[32px]">
                             <span className="whitespace-nowrap leading-tight">{slot.label}</span>
                             {/* 時間帯の開始時間を表示 */}
-                            <span className="text-[9px] mt-0.5 leading-tight opacity-80">
+                            <span className="text-xs mt-0.5 leading-tight opacity-80">
                               {slot.startTime}
                             </span>
                             <div className="h-3 mt-0.5 flex items-center justify-center">
