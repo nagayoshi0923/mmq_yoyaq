@@ -6,6 +6,14 @@ export default {
   ],
   theme: {
     extend: {
+      // 375px対応：iPhone SE / 小型デバイス対応
+      screens: {
+        'xs': '375px',  // iPhone SE などの小型デバイス
+        'sm': '640px',  // デフォルト sm ブレークポイント
+      },
+      spacing: {
+        'safe': 'max(0.75rem, env(safe-area-inset-left))',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

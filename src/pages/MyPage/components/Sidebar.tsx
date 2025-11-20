@@ -44,9 +44,9 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
         </nav>
       </aside>
 
-      {/* モバイルタブナビゲーション */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card px-0">
-        <div className="flex justify-between overflow-x-auto">
+      {/* モバイルタブナビゲーション - 375px対応 */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card px-0 z-50 safe-area-inset-bottom">
+        <div className="flex justify-between overflow-x-auto scrollbar-hide">
           {menuItems.map((item) => {
             const Icon = item.icon
             const isActive = currentPage === item.id
@@ -55,15 +55,15 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
               <button
                 key={item.id}
                 onClick={() => onPageChange(item.id)}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 px-1.5 min-w-[56px] transition-colors text-[10px] ${
+                className={`flex-shrink-0 flex flex-col items-center justify-center gap-0.5 py-2 px-1 xs:px-1.5 min-w-[52px] xs:min-w-[56px] transition-colors ${
                   isActive
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
                 title={item.label}
               >
-                <Icon className="h-4 w-4 flex-shrink-0" />
-                <span className="text-[9px] leading-tight text-center truncate">{item.label}</span>
+                <Icon className="h-3.5 xs:h-4 w-3.5 xs:w-4 flex-shrink-0" />
+                <span className="text-[8px] xs:text-[9px] leading-tight text-center truncate">{item.label}</span>
               </button>
             )
           })}
