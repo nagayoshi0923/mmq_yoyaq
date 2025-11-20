@@ -36,33 +36,22 @@ export const useStaffData = (): UseStaffDataReturn => {
       setError('')
       const data = await staffApi.getAll()
 
-      // 各スタッフの担当シナリオ情報をリレーションテーブルから取得
-      const staffWithScenarios = await Promise.all(
-        data.map(async (staffMember) => {
-          try {
-            // GM可能なシナリオを取得
-            const gmAssignments = await assignmentApi.getStaffAssignments(staffMember.id)
-            const gmScenarios = gmAssignments.map(a => a.scenarios?.id).filter(Boolean) as string[]
+      // 最適化: N+1問題を回避（バッチ取得APIを使用）
+      const staffIds = data.map(s => s.id)
+      const assignmentMap = await assignmentApi.getBatchStaffAssignments(staffIds).catch((error) => {
+        logger.error('Error loading batch staff assignments:', error)
+        return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
+      })
 
-            // 体験済みシナリオを取得（GM不可）
-            const experiencedAssignments = await assignmentApi.getStaffExperiencedScenarios(staffMember.id)
-            const experiencedScenarios = experiencedAssignments.map(a => a.scenarios?.id).filter(Boolean) as string[]
-
-            return {
-              ...staffMember,
-              special_scenarios: gmScenarios,
-              experienced_scenarios: experiencedScenarios
-            }
-          } catch (error) {
-            logger.error(`Error loading assignments for staff ${staffMember.id}:`, error)
-            return {
-              ...staffMember,
-              special_scenarios: staffMember.special_scenarios || [],
-              experienced_scenarios: []
-            }
-          }
-        })
-      )
+      // スタッフにシナリオ情報をマージ
+      const staffWithScenarios = data.map(staffMember => {
+        const assignments = assignmentMap.get(staffMember.id) || { gmScenarios: [], experiencedScenarios: [] }
+        return {
+          ...staffMember,
+          special_scenarios: assignments.gmScenarios,
+          experienced_scenarios: assignments.experiencedScenarios
+        }
+      })
 
       logger.log('📥 読み込んだスタッフデータ（最初の1件）:', staffWithScenarios[0] ? {
         name: staffWithScenarios[0].name,

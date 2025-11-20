@@ -289,5 +289,61 @@ export const assignmentApi = {
     })
     
     return assignmentMap
+  },
+
+  // 複数スタッフの担当シナリオ情報を一括取得（N+1問題の回避）
+  async getBatchStaffAssignments(staffIds: string[]) {
+    if (staffIds.length === 0) {
+      return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
+    }
+
+    const { data, error } = await supabase
+      .from('staff_scenario_assignments')
+      .select(`
+        staff_id,
+        scenario_id,
+        scenarios:scenario_id (
+          id
+        ),
+        can_main_gm,
+        can_sub_gm,
+        is_experienced
+      `)
+      .in('staff_id', staffIds)
+    
+    if (error) throw error
+    
+    // スタッフIDごとにGM可能なシナリオと体験済みシナリオをグループ化
+    const assignmentMap = new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
+    
+    data?.forEach((assignment) => {
+      const staffId = assignment.staff_id
+      const scenarioId = assignment.scenarios?.id || assignment.scenario_id
+      
+      if (!assignmentMap.has(staffId)) {
+        assignmentMap.set(staffId, { gmScenarios: [], experiencedScenarios: [] })
+      }
+      
+      const staffData = assignmentMap.get(staffId)!
+      
+      // GM可能なシナリオ（can_main_gm = true OR can_sub_gm = true）
+      if ((assignment.can_main_gm || assignment.can_sub_gm) && scenarioId) {
+        if (!staffData.gmScenarios.includes(scenarioId)) {
+          staffData.gmScenarios.push(scenarioId)
+        }
+      }
+      
+      // 体験済みシナリオ（GM不可、is_experienced = true）
+      if (assignment.is_experienced && 
+          !assignment.can_main_gm && 
+          !assignment.can_sub_gm && 
+          scenarioId) {
+        if (!staffData.experiencedScenarios.includes(scenarioId)) {
+          staffData.experiencedScenarios.push(scenarioId)
+        }
+      }
+    })
+    
+    return assignmentMap
   }
 }
