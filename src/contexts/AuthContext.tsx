@@ -142,90 +142,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       logger.log('📊 usersテーブルからロール取得開始')
       try {
-        // タイムアウトを10秒に延長し、リトライロジックを追加
-        let userData: any = null
-        let roleError: any = null
-        const maxRetries = 2
+        // パフォーマンス最適化: リトライなし、タイムアウト1秒で早期フォールバック
+        const timeoutMs = 1000
         
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-          try {
-            // タイムアウトを3秒に短縮（RLSポリシーの問題を早期検出）
-            const timeoutMs = 3000
-            
-            const rolePromise = supabase
-              .from('users')
-              .select('role')
-              .eq('id', supabaseUser.id)
-              .maybeSingle()
+        const rolePromise = supabase
+          .from('users')
+          .select('role')
+          .eq('id', supabaseUser.id)
+          .maybeSingle()
 
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('ロール取得タイムアウト')), timeoutMs)
-            )
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('ロール取得タイムアウト')), timeoutMs)
+        )
 
-            const result = await Promise.race([
-              rolePromise,
-              timeoutPromise
-            ]) as any
-            
-            // Supabaseのレスポンス形式を確認
-            if (result && (result.data !== undefined || result.error !== undefined)) {
-              userData = result.data
-              roleError = result.error
-              
-              // エラーがある場合は詳細をログに記録
-              if (result.error) {
-                logger.warn('⚠️ ロール取得エラー:', result.error)
-                // RLSポリシーエラーの場合は特別に処理
-                if (result.error.message?.includes('permission') || result.error.message?.includes('RLS')) {
-                  logger.warn('⚠️ RLSポリシーエラーの可能性があります。データベースのRLSポリシーを確認してください。')
-                }
-              }
-              
-              break // 成功したらループを抜ける
-            }
-          } catch (error: any) {
-            if (attempt === maxRetries) {
-              roleError = error
-              logger.warn(`⚠️ ロール取得リトライ${attempt + 1}回目で失敗:`, error?.message)
-              
-              // タイムアウトエラーの場合は、RLSポリシーの問題を疑う
-              if (error?.message?.includes('タイムアウト')) {
-                logger.warn('⚠️ ロール取得がタイムアウトしました。RLSポリシーに無限再帰がある可能性があります。')
-                logger.warn('⚠️ database/fix_users_rls_timeout.sql を実行してRLSポリシーを修正してください。')
-              }
-            } else {
-              logger.log(`🔄 ロール取得リトライ${attempt + 1}回目...`)
-              // リトライ前に少し待機
-              await new Promise(resolve => setTimeout(resolve, 500))
+        const result = await Promise.race([
+          rolePromise,
+          timeoutPromise
+        ]) as any
+        
+        // Supabaseのレスポンス形式を確認
+        if (result && (result.data !== undefined || result.error !== undefined)) {
+          const userData = result.data
+          const roleError = result.error
+          
+          // エラーがある場合は詳細をログに記録
+          if (result.error) {
+            logger.warn('⚠️ ロール取得エラー:', result.error)
+            // RLSポリシーエラーの場合は特別に処理
+            if (result.error.message?.includes('permission') || result.error.message?.includes('RLS')) {
+              logger.warn('⚠️ RLSポリシーエラーの可能性があります。データベースのRLSポリシーを確認してください。')
             }
           }
-        }
-
-        if (roleError) {
-          logger.warn('⚠️ usersテーブルからのロール取得エラー:', roleError)
-          // 既存のユーザー情報がある場合は、そのロールを保持（エラー時もロールを維持）
-          if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
-            role = existingUser.role
-            logger.log('🔄 既存のロールを保持:', role)
-          } else {
-            // フォールバック: メールアドレスで判定（開発用）
-            const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
-            if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
-              role = 'admin'
-            } else if (supabaseUser.email?.includes('staff')) {
-              role = 'staff'
-            }
-            logger.log('🔄 フォールバック: メールアドレスからロール判定 ->', role)
-          }
-        } else if (userData?.role) {
-          role = userData.role as 'admin' | 'staff' | 'customer'
-          logger.log('✅ データベースからロール取得:', role)
-        } else {
-          // userDataがnullの場合（usersテーブルにレコードがない）
-          // 既存のユーザー情報がある場合は、そのロールを保持
-          if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
-            role = existingUser.role
-            logger.log('🔄 レコードなし、既存のロールを保持:', role)
+          
+          if (userData?.role) {
+            role = userData.role as 'admin' | 'staff' | 'customer'
+            logger.log('✅ データベースからロール取得:', role)
+          } else if (roleError) {
+            throw roleError
           }
         }
       } catch (error: any) {
