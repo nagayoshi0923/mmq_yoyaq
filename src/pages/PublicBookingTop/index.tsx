@@ -68,19 +68,49 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   useEffect(() => {
     const pageLoadStart = performance.now()
     console.log('🚀 PublicBookingTop ページロード開始:', new Date().toISOString())
+    console.log('📊 現在の状態:', {
+      scenariosCount: scenarios.length,
+      allEventsCount: allEvents.length,
+      storesCount: stores.length,
+      isLoading
+    })
     
     loadData().then(() => {
-      const pageLoadEnd = performance.now()
-      console.log(`⏱️ PublicBookingTop データ取得完了: ${((pageLoadEnd - pageLoadStart) / 1000).toFixed(2)}秒`)
+      const loadEnd = performance.now()
+      console.log(`⏱️ PublicBookingTop データ取得完了: ${((loadEnd - pageLoadStart) / 1000).toFixed(2)}秒`)
+      console.log('📊 データ取得後の状態:', {
+        scenariosCount: scenarios.length,
+        allEventsCount: allEvents.length,
+        storesCount: stores.length
+      })
       
-      // レンダリング完了を待つ
-      setTimeout(() => {
+      // レンダリング完了を待つ（複数回チェック）
+      let checkCount = 0
+      const checkRender = () => {
+        checkCount++
         const renderEnd = performance.now()
-        console.log(`⏱️ PublicBookingTop レンダリング完了: ${((renderEnd - pageLoadStart) / 1000).toFixed(2)}秒`)
-      }, 0)
+        const elapsed = (renderEnd - pageLoadStart) / 1000
+        
+        // DOMが更新されているか確認
+        const hasContent = document.querySelector('[data-scenario-card]') || document.querySelector('.grid')
+        
+        if (hasContent || checkCount > 20) {
+          console.log(`⏱️ PublicBookingTop レンダリング完了: ${elapsed.toFixed(2)}秒 (チェック回数: ${checkCount})`)
+          console.log('📊 最終状態:', {
+            scenariosCount: scenarios.length,
+            allEventsCount: allEvents.length,
+            storesCount: stores.length,
+            hasContent: !!hasContent
+          })
+        } else {
+          setTimeout(checkRender, 100)
+        }
+      }
+      setTimeout(checkRender, 0)
     }).catch((error) => {
       console.error('❌ PublicBookingTop データ取得エラー:', error)
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData])
 
   // タブ変更時にURLハッシュを更新（メモ化）

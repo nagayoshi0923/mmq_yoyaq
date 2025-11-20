@@ -39,13 +39,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [user])
 
   useEffect(() => {
+    const authStartTime = performance.now()
+    console.log('🚀 AuthContext 初期化開始:', new Date().toISOString())
+    
     // 初期認証状態の確認
-    getInitialSession()
+    getInitialSession().then(() => {
+      const authEndTime = performance.now()
+      console.log(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
+    })
 
     // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        logger.log('🔄 認証状態変更:', event, session?.user?.email)
+        const eventStartTime = performance.now()
+        logger.log('🔄 認証状態変更:', event, session?.user?.email, `(経過時間: ${((eventStartTime - authStartTime) / 1000).toFixed(2)}秒)`)
         
         // 処理中の場合はスキップ（重複実行防止）
         if (isProcessingRef.current) {
@@ -84,9 +91,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   async function getInitialSession() {
+    const startTime = performance.now()
     logger.log('🚀 初期セッション取得開始')
     try {
+      const sessionStartTime = performance.now()
       const { data: { session }, error } = await supabase.auth.getSession()
+      const sessionEndTime = performance.now()
+      console.log(`⏱️ getSession 完了: ${((sessionEndTime - sessionStartTime) / 1000).toFixed(2)}秒`)
       
       if (error) {
         logger.error('❌ セッション取得エラー:', error)
@@ -102,7 +113,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       logger.error('❌ 初期セッション取得エラー:', error)
     } finally {
+      const endTime = performance.now()
       logger.log('✅ 初期セッション処理完了')
+      console.log(`⏱️ getInitialSession 総時間: ${((endTime - startTime) / 1000).toFixed(2)}秒`)
       setLoading(false)
     }
   }
@@ -114,8 +127,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return
     }
     
+    const startTime = performance.now()
     isProcessingRef.current = true
     logger.log('🔐 ユーザーセッション設定開始:', supabaseUser.email)
+    console.log(`⏱️ setUserFromSession 開始: ${supabaseUser.email} (${new Date().toISOString()})`)
     
     // 既存のユーザー情報を保持（エラー時のフォールバック用）
     // useStateのクロージャー問題を回避するため、refから取得
@@ -318,7 +333,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         userRef.current = fallbackUserData
       }
     } finally {
+      const endTime = performance.now()
       isProcessingRef.current = false
+      console.log(`⏱️ setUserFromSession 完了: ${supabaseUser.email} (${((endTime - startTime) / 1000).toFixed(2)}秒)`)
     }
   }
 
