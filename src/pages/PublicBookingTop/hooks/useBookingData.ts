@@ -311,6 +311,21 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       setStores(storesData)
       setIsLoading(false)
       
+      // パフォーマンス最適化: よく使われる画像をプリロード（バックグラウンド）
+      // 新着・直近公演の画像を優先的にプリロード
+      const imagesToPreload = scenarioList
+        .filter(s => s.is_new || (s.next_events && s.next_events.length > 0))
+        .slice(0, 10) // 最大10枚まで
+        .map(s => s.key_visual_url)
+        .filter((url): url is string => !!url)
+      
+      // バックグラウンドで画像をプリロード
+      imagesToPreload.forEach(url => {
+        const img = new Image()
+        img.src = url
+      })
+      logger.log(`🖼️ 画像プリロード開始: ${imagesToPreload.length}枚`)
+      
       if (totalTime > 3000) {
         logger.warn(`⚠️ 処理時間が3秒を超えています: ${(totalTime / 1000).toFixed(2)}秒`)
       }
