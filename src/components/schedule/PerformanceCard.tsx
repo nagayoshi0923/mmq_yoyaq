@@ -177,9 +177,9 @@ function PerformanceCardBase({
       <div
         className={`absolute bottom-0.5 right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 transition-all cursor-pointer ${
           event.is_private_request 
-            ? 'bg-green-500' 
+            ? 'bg-green-600' 
             : event.is_reservation_enabled 
-              ? 'bg-green-500' 
+              ? 'bg-green-600' 
               : 'bg-gray-400'
         }`}
         title={
