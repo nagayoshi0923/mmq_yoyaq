@@ -193,23 +193,22 @@ export function ResetPassword() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:px-6 sm:py-12">
         <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center space-y-6">
-            <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
-            <h2 className="text-2xl font-bold text-green-800">パスワードを変更しました</h2>
+          <CardContent className="p-6 sm:p-8 text-center space-y-4 sm:space-y-6">
+            <CheckCircle2 className="w-12 h-12 sm:w-16 sm:h-16 text-green-600 mx-auto" />
+            <h2 className="text-xl sm:text-2xl font-bold text-green-800">パスワードを変更しました</h2>
             <div className="space-y-2">
-              <p className="text-muted-foreground">
+              <p className="text-sm sm:text-base text-muted-foreground">
                 新しいパスワードでログインできます。
               </p>
-              <p className="text-lg font-semibold text-primary">
+              <p className="text-base sm:text-lg font-semibold text-primary">
                 {countdown}秒後にログイン画面に移動します...
               </p>
             </div>
             <Button 
               onClick={handleGoToLogin}
-              className="w-full"
-              size="lg"
+              className="w-full h-10 sm:h-11 text-sm sm:text-base"
               disabled={isRedirecting}
               type="button"
             >
@@ -222,16 +221,16 @@ export function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:px-6 sm:py-12">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle>パスワードリセット</CardTitle>
-          <CardDescription>新しいパスワードを設定してください</CardDescription>
+        <CardHeader className="text-center px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-6">
+          <CardTitle className="text-xl sm:text-2xl">パスワードリセット</CardTitle>
+          <CardDescription className="text-sm sm:text-base mt-2">新しいパスワードを設定してください</CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             <div className="space-y-2">
-              <label htmlFor="newPassword" className="block text-sm font-medium">
+              <label htmlFor="newPassword" className="block text-sm sm:text-base font-medium">
                 新しいパスワード
               </label>
               <Input
@@ -243,11 +242,12 @@ export function ResetPassword() {
                 minLength={6}
                 placeholder="6文字以上のパスワード"
                 disabled={isLoading}
+                className="text-sm sm:text-base"
               />
             </div>
             
             <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="block text-sm font-medium">
+              <label htmlFor="confirmPassword" className="block text-sm sm:text-base font-medium">
                 パスワード（確認）
               </label>
               <Input
@@ -259,19 +259,20 @@ export function ResetPassword() {
                 minLength={6}
                 placeholder="もう一度入力してください"
                 disabled={isLoading}
+                className="text-sm sm:text-base"
               />
             </div>
 
             {error && (
-              <div className="border-2 border-destructive rounded-md p-3 flex items-start gap-2">
+              <div className="border-2 border-destructive rounded-md p-3 sm:p-4 flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-                <p className="text-destructive text-sm">{error}</p>
+                <p className="text-destructive text-sm sm:text-base">{error}</p>
               </div>
             )}
 
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full h-10 sm:h-11 text-sm sm:text-base" 
               disabled={isLoading || !sessionReady}
             >
               {isLoading ? 'パスワードを変更中...' : !sessionReady ? '準備中...' : 'パスワードを変更'}
@@ -280,7 +281,7 @@ export function ResetPassword() {
             <Button
               type="button"
               variant="ghost"
-              className="w-full"
+              className="w-full h-10 sm:h-11 text-sm sm:text-base"
               onClick={() => window.location.hash = 'login'}
             >
               ログイン画面に戻る
