@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
@@ -56,7 +56,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const { isFavorite, toggleFavorite } = useFavorites()
   
   // フィルタリングフック
-  const { filteredScenarios, newScenarios, upcomingScenarios, allScenarios } = useBookingFilters(scenarios, searchTerm)
+  const { newScenarios, upcomingScenarios, allScenarios } = useBookingFilters(scenarios, searchTerm)
   
   // お気に入りトグルハンドラ（メモ化）
   const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {
@@ -134,12 +134,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       </div>
 
       <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-4 sm:py-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <p className="text-sm sm:text-base text-muted-foreground">読み込み中...</p>
-          </div>
-        ) : (
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-4 sm:mb-6 h-10 sm:h-11">
               <TabsTrigger value="lineup" className="text-xs sm:text-sm">ラインナップ</TabsTrigger>
               <TabsTrigger value="calendar" className="text-xs sm:text-sm">カレンダー</TabsTrigger>
@@ -191,7 +187,6 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
               />
             </TabsContent>
           </Tabs>
-        )}
       </div>
     </div>
   )
