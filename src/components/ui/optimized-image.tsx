@@ -1,12 +1,13 @@
 /**
  * OptimizedImage Component
- * 
+ *
  * 画像最適化（srcSet、WebP、遅延ロード）をサポートする img コンポーネント
- * 
+ *
  * 特徴:
  * - 自動的にレスポンシブ画像（srcSet）を生成
  * - WebP フォールバック対応
  * - Supabase Storage の Transform API を活用
+ * - Intersection Observer を使用した高度な遅延ロード
  * - 外部URLにも対応（最適化なし）
  */
 
@@ -63,6 +64,12 @@ export interface OptimizedImageProps extends Omit<React.ImgHTMLAttributes<HTMLIm
    * @default true
    */
   lazy?: boolean
+
+  /**
+   * Intersection Observer を使用した高度な遅延ロード
+   * @default true
+   */
+  advancedLazy?: boolean
   
   /**
    * フォールバック要素（画像がない場合）
@@ -82,6 +89,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   useWebP = true,
   quality = 80,
   lazy = true,
+  advancedLazy = true,
   fallback,
   className,
   ...props
@@ -90,88 +98,226 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   if (!src) {
     return <>{fallback || null}</>
   }
-  
+
   // Supabase Storage の画像かどうか
   const isSupabaseImage = isSupabaseStorageUrl(src)
-  
+
   // 外部URLの場合はシンプルな img タグを返す
   if (!isSupabaseImage) {
-    return (
-      <img
-        src={src}
-        alt={alt}
-        loading={lazy ? 'lazy' : undefined}
-        className={className}
-        {...props}
-      />
-    )
+    return <LazyImage
+      src={src}
+      alt={alt}
+      lazy={lazy}
+      advancedLazy={advancedLazy}
+      className={className}
+      {...props}
+    />
   }
   
   // Supabase Storage の場合は最適化を適用
   
   // WebP 対応
   const format = useWebP ? 'webp' : 'origin'
-  
+
   // 基本URL（WebP版）
-  const optimizedSrc = getOptimizedImageUrl(src, { 
+  const optimizedSrc = getOptimizedImageUrl(src, {
     quality,
-    format 
+    format
   })
-  
+
   // srcSet の生成（レスポンシブ対応）
-  const srcSet = responsive 
+  const srcSet = responsive
     ? generateSrcSet(src, srcSetSizes, { quality, format })
     : undefined
-  
+
   // sizes 属性の生成
   const sizes = responsive
     ? generateSizes(breakpoints)
     : undefined
-  
+
   // WebP のフォールバックとして picture タグを使用
   if (useWebP) {
+    return <LazyPicture
+      webpSrcSet={srcSet || optimizedSrc}
+      fallbackSrcSet={
+        responsive
+          ? generateSrcSet(src, srcSetSizes, { quality, format: 'origin' })
+          : undefined
+      }
+      fallbackSrc={getOptimizedImageUrl(src, { quality, format: 'origin' }) || src}
+      sizes={sizes}
+      alt={alt}
+      lazy={lazy}
+      advancedLazy={advancedLazy}
+      className={className}
+      {...props}
+    />
+  }
+
+  // WebP を使わない場合はシンプルな img タグ
+  return <LazyImage
+    src={optimizedSrc || src}
+    srcSet={srcSet}
+    sizes={sizes}
+    alt={alt}
+    lazy={lazy}
+    advancedLazy={advancedLazy}
+    className={className}
+    {...props}
+  />
+}
+
+/**
+ * Intersection Observer を使用した高度な遅延ロードコンポーネント
+ */
+const LazyImage: React.FC<{
+  src: string
+  alt: string
+  srcSet?: string
+  sizes?: string
+  lazy?: boolean
+  advancedLazy?: boolean
+  className?: string
+  [key: string]: any
+}> = ({ src, alt, srcSet, sizes, lazy, advancedLazy, className, ...props }) => {
+  const [isVisible, setIsVisible] = useState(!advancedLazy)
+  const [hasLoaded, setHasLoaded] = useState(false)
+  const imgRef = useRef<HTMLImageElement>(null)
+
+  useEffect(() => {
+    if (!advancedLazy || !imgRef.current) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          observer.disconnect()
+        }
+      },
+      {
+        rootMargin: '50px', // 50px前に読み込み開始
+        threshold: 0.1
+      }
+    )
+
+    observer.observe(imgRef.current)
+
+    return () => observer.disconnect()
+  }, [advancedLazy])
+
+  const handleLoad = () => setHasLoaded(true)
+
+  if (!isVisible) {
+    // プレースホルダー表示
     return (
-      <picture>
-        {/* WebP バージョン */}
-        <source
-          type="image/webp"
-          srcSet={srcSet || optimizedSrc}
-          sizes={sizes}
-        />
-        
-        {/* オリジナルフォーマットのフォールバック */}
-        <source
-          srcSet={
-            responsive 
-              ? generateSrcSet(src, srcSetSizes, { quality, format: 'origin' })
-              : undefined
-          }
-          sizes={sizes}
-        />
-        
-        {/* フォールバック img */}
-        <img
-          src={getOptimizedImageUrl(src, { quality, format: 'origin' }) || src}
-          alt={alt}
-          loading={lazy ? 'lazy' : undefined}
-          className={className}
-          {...props}
-        />
-      </picture>
+      <div
+        ref={imgRef}
+        className={`bg-gray-200 animate-pulse ${className}`}
+        style={{ aspectRatio: '1/1' }}
+      />
     )
   }
-  
-  // WebP を使わない場合はシンプルな img タグ
+
   return (
     <img
-      src={optimizedSrc || src}
+      ref={imgRef}
+      src={src}
       srcSet={srcSet}
       sizes={sizes}
       alt={alt}
       loading={lazy ? 'lazy' : undefined}
-      className={className}
+      className={`${className} ${!hasLoaded ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+      onLoad={handleLoad}
       {...props}
     />
+  )
+}
+
+/**
+ * Picture タグ用の遅延ロードコンポーネント
+ */
+const LazyPicture: React.FC<{
+  webpSrcSet: string
+  fallbackSrcSet?: string
+  fallbackSrc: string
+  sizes?: string
+  alt: string
+  lazy?: boolean
+  advancedLazy?: boolean
+  className?: string
+  [key: string]: any
+}> = ({
+  webpSrcSet,
+  fallbackSrcSet,
+  fallbackSrc,
+  sizes,
+  alt,
+  lazy,
+  advancedLazy,
+  className,
+  ...props
+}) => {
+  const [isVisible, setIsVisible] = useState(!advancedLazy)
+  const [hasLoaded, setHasLoaded] = useState(false)
+  const imgRef = useRef<HTMLImageElement>(null)
+
+  useEffect(() => {
+    if (!advancedLazy || !imgRef.current) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          observer.disconnect()
+        }
+      },
+      {
+        rootMargin: '50px', // 50px前に読み込み開始
+        threshold: 0.1
+      }
+    )
+
+    observer.observe(imgRef.current)
+
+    return () => observer.disconnect()
+  }, [advancedLazy])
+
+  const handleLoad = () => setHasLoaded(true)
+
+  if (!isVisible) {
+    // プレースホルダー表示
+    return (
+      <div
+        ref={imgRef}
+        className={`bg-gray-200 animate-pulse ${className}`}
+        style={{ aspectRatio: '1/1' }}
+      />
+    )
+  }
+
+  return (
+    <picture>
+      <source
+        type="image/webp"
+        srcSet={webpSrcSet}
+        sizes={sizes}
+      />
+      {fallbackSrcSet && (
+        <source
+          srcSet={fallbackSrcSet}
+          sizes={sizes}
+        />
+      )}
+      <img
+        ref={imgRef}
+        src={fallbackSrc}
+        alt={alt}
+        loading={lazy ? 'lazy' : undefined}
+        className={`${className} ${!hasLoaded ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+        onLoad={handleLoad}
+        {...props}
+      />
+    </picture>
   )
 }
 

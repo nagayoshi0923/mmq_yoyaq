@@ -1,6 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { memo, useState, useEffect, useMemo } from 'react'
 import { BookingFilters } from './BookingFilters'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface ListViewData {
   date: number
@@ -112,10 +113,10 @@ export const ListView = memo(function ListView({
           <div className="flex gap-0.5 sm:gap-2">
             {/* 左カラム: 画像 */}
             <div className={`flex-shrink-0 w-[28px] h-[36px] sm:w-[46px] sm:h-[60px] overflow-hidden ${
-              isPrivateBooking 
-                ? 'bg-gray-300' 
-                : imageUrl 
-                  ? 'bg-gray-200' 
+              isPrivateBooking
+                ? 'bg-gray-300'
+                : imageUrl
+                  ? 'bg-gray-200'
                   : 'bg-gray-200'
             }`}>
               {isPrivateBooking ? (
@@ -123,11 +124,21 @@ export const ListView = memo(function ListView({
                   <span className="text-gray-500 text-[8px] sm:text-[10px] font-bold">MMQ</span>
                 </div>
               ) : imageUrl ? (
-                <img
+                <OptimizedImage
                   src={imageUrl}
                   alt={event.scenario || scenario?.scenario_title || event.scenarios?.title || 'シナリオ画像'}
-                  loading="lazy"
+                  responsive={false}
+                  useWebP={true}
+                  quality={70}
+                  lazy={true}
+                  srcSetSizes={[50, 100]}
+                  breakpoints={{ mobile: 50, tablet: 75, desktop: 100 }}
                   className="w-full h-full object-cover"
+                  fallback={
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-[7px] sm:text-xs">
+                      No Image
+                    </div>
+                  }
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400 text-[7px] sm:text-xs">

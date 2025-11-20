@@ -47,6 +47,12 @@ export function useBookingData() {
 
   /**
    * シナリオ・公演・店舗データを読み込む
+   *
+   * パフォーマンス最適化:
+   * - 3ヶ月分のデータを並列取得（Promise.all）
+   * - scenarioApi.getPublic() で必要なフィールドのみ取得
+   * - Mapを使用したO(1)アクセス
+   * - イベントの事前インデックス化
    */
   const loadData = useCallback(async () => {
     try {
