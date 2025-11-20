@@ -42,10 +42,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const authStartTime = performance.now()
     console.log('🚀 AuthContext 初期化開始:', new Date().toISOString())
     
-    // 初期認証状態の確認
+    // パフォーマンス最適化: 認証処理を非ブロッキング化
+    // 0.3秒後にloadingをfalseにして、ページを表示開始
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.log('⏱️ 認証処理タイムアウト（0.3秒）、ページ表示を開始')
+        setLoading(false)
+      }
+    }, 300)
+    
+    // 初期認証状態の確認（バックグラウンドで実行）
     getInitialSession().then(() => {
+      clearTimeout(loadingTimeout)
       const authEndTime = performance.now()
       console.log(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
+      setLoading(false)
+    }).catch(() => {
+      clearTimeout(loadingTimeout)
+      setLoading(false)
     })
 
     // 認証状態の変更を監視
@@ -149,8 +163,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       logger.log('📊 usersテーブルからロール取得開始')
       try {
-        // パフォーマンス最適化: リトライなし、タイムアウト1秒で早期フォールバック
-        const timeoutMs = 1000
+        // パフォーマンス最適化: リトライなし、タイムアウト0.5秒で早期フォールバック
+        const timeoutMs = 500
         
         const rolePromise = supabase
           .from('users')
