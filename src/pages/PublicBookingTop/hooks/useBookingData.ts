@@ -36,14 +36,19 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
   return 'available'
 }
 
-/**
- * 公演データの取得と管理を行うフック
- */
-export function useBookingData() {
-  const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
-  const [allEvents, setAllEvents] = useState<any[]>([])
-  const [stores, setStores] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  /**
+   * 公演データの取得と管理を行うフック
+   *
+   * パフォーマンス最適化:
+   * - React Queryの導入検討（キャッシュ有効活用）
+   * - メモリ使用量の最適化（不要なデータは破棄）
+   * - 初期表示データの制限（最初の1ヶ月のみ取得）
+   */
+  export function useBookingData() {
+    const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
+    const [allEvents, setAllEvents] = useState<any[]>([])
+    const [stores, setStores] = useState<any[]>([])
+    const [isLoading, setIsLoading] = useState(true)
 
   /**
    * シナリオ・公演・店舗データを読み込む
@@ -58,21 +63,23 @@ export function useBookingData() {
     try {
       setIsLoading(true)
       
-      // シナリオ、店舗、公演データを並列取得
+      // 初期表示パフォーマンス最適化: 最初の1ヶ月のみ取得
+      // （ユーザーが操作で追加の月を読み込むようにする）
       const currentDate = new Date()
       const monthPromises = []
-      
-      // 現在の月から3ヶ月先までの公演を並列取得
-      for (let i = 0; i < 3; i++) {
+
+      // 現在の月から1ヶ月先までの公演を取得（2ヶ月分）
+      // 将来的にはユーザーの操作で追加読み込み可能にする
+      for (let i = 0; i < 2; i++) {
         const targetDate = new Date(currentDate)
         targetDate.setMonth(currentDate.getMonth() + i)
-        
+
         const year = targetDate.getFullYear()
         const month = targetDate.getMonth() + 1
-        
+
         monthPromises.push(scheduleApi.getByMonth(year, month))
       }
-      
+
       // すべてのデータを並列取得（最適化: getPublic()を使用）
       const [scenariosData, storesDataResult, ...monthResults] = await Promise.all([
         scenarioApi.getPublic(), // status='available'のみ、必要なフィールドのみ取得
@@ -280,6 +287,9 @@ export function useBookingData() {
       setAllEvents(publicEvents) // カレンダー用に全公演データを保存
       setStores(storesData) // 店舗データを保存
       
+      // パフォーマンスログ
+      logger.log(`📊 予約サイトデータ取得完了: ${scenarioList.length}件のシナリオ, ${publicEvents.length}件の公演`)
+
       // デバッグ: データがない場合の警告
       if (scenarioList.length === 0) {
         console.warn('⚠️ 表示可能なシナリオがありません')
