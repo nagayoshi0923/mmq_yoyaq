@@ -139,7 +139,7 @@ function PerformanceCardBase({
                     : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
                 }`}>
                   {reservationCount < maxCapacity && (
-                    <Users className="w-2 h-2 sm:w-2.5 sm:h-2.5 mr-0.5 flex-shrink-0" />
+                    <Users className="w-icon-sm h-icon-sm mr-0.5 flex-shrink-0" />
                   )}
                   <span className="hidden sm:inline">{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
                   <span className="sm:hidden">{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
@@ -171,7 +171,7 @@ function PerformanceCardBase({
       <div className="absolute top-0.5 right-0.5 flex gap-1 items-center">
         {/* 警告アイコン */}
         {isIncomplete && (
-          <AlertTriangle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-600 flex-shrink-0" />
+          <AlertTriangle className="w-icon-md h-icon-md text-red-600 flex-shrink-0" />
         )}
       </div>
 

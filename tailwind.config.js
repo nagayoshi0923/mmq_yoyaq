@@ -38,6 +38,18 @@ export default {
           { lineHeight: '1.4' }
         ],
       },
+      width: {
+        // グローバルアイコンサイズ
+        'icon-sm': ['6px', '7px', '8px'],            // 小（ユーザー、バッジ内アイコン）
+        'icon-md': ['8px', '10px', '12px'],          // 中（警告アイコン）
+        'icon-lg': ['12px', '14px', '16px'],         // 大（ナビゲーションアイコン）
+      },
+      height: {
+        // グローバルアイコンサイズ
+        'icon-sm': ['6px', '7px', '8px'],            // 小（ユーザー、バッジ内アイコン）
+        'icon-md': ['8px', '10px', '12px'],          // 中（警告アイコン）
+        'icon-lg': ['12px', '14px', '16px'],         // 大（ナビゲーションアイコン）
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
