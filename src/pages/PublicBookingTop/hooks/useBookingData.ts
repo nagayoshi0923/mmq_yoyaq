@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
@@ -67,9 +67,9 @@ export function useBookingData() {
         monthPromises.push(scheduleApi.getByMonth(year, month))
       }
       
-      // すべてのデータを並列取得
+      // すべてのデータを並列取得（最適化: getPublic()を使用）
       const [scenariosData, storesDataResult, ...monthResults] = await Promise.all([
-        scenarioApi.getAll(),
+        scenarioApi.getPublic(), // status='available'のみ、必要なフィールドのみ取得
         storeApi.getAll().catch((error) => {
           logger.error('店舗データの取得エラー:', error)
           return []
@@ -97,8 +97,7 @@ export function useBookingData() {
       const scenarioMap = new Map<string, ScenarioCard>()
       
       scenariosData.forEach((scenario: any) => {
-        // ステータスがavailableでないシナリオはスキップ
-        if (scenario.status !== 'available') return
+        // getPublic()で既にstatus='available'のみ取得されているため、チェック不要
         
         // このシナリオの公演を探す（scenario_idまたはタイトルで照合）
         const scenarioEvents = publicEvents.filter((event: any) => {
