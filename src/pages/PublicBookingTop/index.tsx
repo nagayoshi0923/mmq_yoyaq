@@ -162,9 +162,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-10 md:py-12">
-          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 leading-tight">Murder Mystery Quest</h1>
-          <p className="text-xs sm:text-sm md:text-base lg:text-lg text-purple-100 leading-relaxed">
+        <div className="container mx-auto max-w-7xl px-3 xs:px-4 sm:px-6 py-5 xs:py-6 sm:py-10 md:py-12">
+          <h1 className="text-lg xs:text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-1.5 xs:mb-2 sm:mb-3 leading-tight">Murder Mystery Quest</h1>
+          <p className="text-[11px] xs:text-xs sm:text-sm md:text-base lg:text-lg text-purple-100 leading-relaxed">
             リアルな謎解き体験。あなたは事件の真相を暴けるか？
           </p>
         </div>
@@ -172,18 +172,18 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       {/* 検索バー */}
       <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto max-w-7xl px-3 sm:px-6 py-2 sm:py-3">
+        <div className="container mx-auto max-w-7xl px-3 xs:px-3.5 sm:px-6 py-1.5 xs:py-2 sm:py-3">
           <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-3 sm:px-6 py-3 sm:py-4 md:py-6">
+      <div className="container mx-auto max-w-7xl px-3 xs:px-3.5 sm:px-6 py-2.5 xs:py-3 sm:py-4 md:py-6">
         {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-3 sm:mb-6 h-9 sm:h-10 md:h-11 gap-1 sm:gap-0">
-              <TabsTrigger value="lineup" className="text-[11px] sm:text-xs md:text-sm px-2 sm:px-3">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar" className="text-[11px] sm:text-xs md:text-sm px-2 sm:px-3">カレンダー</TabsTrigger>
-              <TabsTrigger value="list" className="text-[11px] sm:text-xs md:text-sm px-2 sm:px-3">リスト</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 mb-2.5 xs:mb-3 sm:mb-6 h-8 xs:h-9 sm:h-10 md:h-11 gap-1 xs:gap-1 sm:gap-0">
+              <TabsTrigger value="lineup" className="text-[10px] xs:text-[11px] sm:text-xs md:text-sm px-1 xs:px-2 sm:px-3">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-[10px] xs:text-[11px] sm:text-xs md:text-sm px-1 xs:px-2 sm:px-3">カレンダー</TabsTrigger>
+              <TabsTrigger value="list" className="text-[10px] xs:text-[11px] sm:text-xs md:text-sm px-1 xs:px-2 sm:px-3">リスト</TabsTrigger>
             </TabsList>
 
             {/* ラインナップ表示 */}
