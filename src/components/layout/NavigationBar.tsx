@@ -45,8 +45,8 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
 
   return (
     <nav className="border-b border-border bg-muted/30">
-      <div className="mx-auto px-0 sm:px-2 md:px-4 lg:px-8 py-1 sm:py-2 md:py-3 max-w-full overflow-hidden">
-        <div className="flex flex-wrap items-center justify-start gap-0 sm:gap-1">
+      <div className="mx-auto px-0 sm:px-2 md:px-4 lg:px-8 py-1.5 sm:py-2 md:py-3 max-w-full overflow-x-auto overflow-y-hidden">
+        <div className="flex items-center justify-start gap-0 sm:gap-0.5 md:gap-1 min-w-max">
           {navigationTabs.map((tab) => {
             const Icon = tab.icon
             const isActive = currentPage === tab.id
@@ -66,14 +66,14 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
                     onPageChange(tab.id)
                   }
                 }}
-                className={`inline-flex flex-col items-center justify-center gap-0.5 sm:flex-row sm:gap-1 md:gap-2 px-1.5 sm:px-2 md:px-3 py-1 sm:py-1.5 md:py-2 text-[10px] sm:text-xs md:text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-none min-w-[44px] sm:min-w-auto ${
+                className={`inline-flex flex-col items-center justify-center gap-0.5 sm:flex-row sm:gap-1 md:gap-2 px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-2.5 text-[10px] sm:text-xs md:text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-none min-w-[48px] sm:min-w-[56px] md:min-w-auto touch-manipulation ${
                   isActive 
                     ? 'text-foreground border-b-[2px] sm:border-b-[3px] border-primary bg-accent/50' 
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
                 title={tab.label}
               >
-                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-4 md:w-4 flex-shrink-0" />
+                <Icon className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5 flex-shrink-0" />
                 <span className="hidden md:inline whitespace-nowrap">{tab.label}</span>
                 <span className="md:hidden text-[9px] sm:text-[10px] leading-tight text-center">{tab.label.length > 3 ? tab.label.slice(0, 3) : tab.label}</span>
               </a>
