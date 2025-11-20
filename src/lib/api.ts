@@ -223,6 +223,23 @@ export const scenarioApi = {
     return data || []
   },
 
+  // IDでシナリオを取得
+  async getById(id: string): Promise<Scenario | null> {
+    const { data, error } = await supabase
+      .from('scenarios')
+      .select('*')
+      .eq('id', id)
+      .single()
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null // レコードが見つからない
+      }
+      throw error
+    }
+    return data
+  },
+
   // ページネーション対応：シナリオを取得
   async getPaginated(page: number = 0, pageSize: number = 20): Promise<PaginatedResponse<Scenario>> {
     const from = page * pageSize
@@ -930,6 +947,233 @@ export const scheduleApi = {
     
     // 通常公演と貸切公演を結合してソート
     const allEvents = [...(eventsWithActualParticipants || []), ...privateEvents]
+    allEvents.sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date)
+      if (dateCompare !== 0) return dateCompare
+      return a.start_time.localeCompare(b.start_time)
+    })
+    
+    return allEvents
+  },
+
+  // シナリオIDで指定期間の公演を取得（最適化版）
+  async getByScenarioId(scenarioId: string, startDate: string, endDate: string) {
+    // 通常公演を取得（シナリオIDでフィルタリング）
+    // 貸切申込可能な日付を判定するため、通常公演のみを取得（貸切予約は別途取得）
+    const { data: scheduleEvents, error } = await supabase
+      .from('schedule_events')
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name,
+          color
+        ),
+        scenarios:scenario_id (
+          id,
+          title,
+          player_count_max
+        )
+      `)
+      .eq('scenario_id', scenarioId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('category', 'open')
+      .eq('is_reservation_enabled', true)
+      .eq('is_cancelled', false)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+    
+    if (error) throw error
+    
+    if (!scheduleEvents || scheduleEvents.length === 0) {
+      return []
+    }
+    
+    // 各イベントの実際の参加者数を計算（並列処理）
+    const eventIds = scheduleEvents.map(e => e.id)
+    const { data: allReservations, error: reservationError } = await supabase
+      .from('reservations')
+      .select('schedule_event_id, participant_count')
+      .in('schedule_event_id', eventIds)
+      .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+    
+    if (reservationError) {
+      console.error('予約データの取得に失敗:', reservationError)
+    }
+    
+    // イベントIDごとに参加者数を集計
+    const participantsByEventId = new Map<string, number>()
+    allReservations?.forEach((reservation: any) => {
+      const eventId = reservation.schedule_event_id
+      const count = reservation.participant_count || 0
+      participantsByEventId.set(eventId, (participantsByEventId.get(eventId) || 0) + count)
+    })
+    
+    // イベントデータを構築
+    const eventsWithActualParticipants = scheduleEvents.map((event) => {
+      const actualParticipants = participantsByEventId.get(event.id) || 0
+      
+      // 参加者数が異なる場合は更新（非同期で実行、エラーは無視）
+      if (event.current_participants !== actualParticipants) {
+        supabase
+          .from('schedule_events')
+          .update({ current_participants: actualParticipants })
+          .eq('id', event.id)
+          .then(({ error }) => {
+            if (error) {
+              console.error('参加者数の同期に失敗:', error)
+            } else {
+              console.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
+            }
+          })
+      }
+      
+      const scenarioData = event.scenarios
+      const scenarioMaxPlayers = scenarioData?.player_count_max
+      const maxParticipants = scenarioMaxPlayers ||
+                              event.max_participants ||
+                              event.capacity ||
+                              8
+      
+      return {
+        ...event,
+        current_participants: actualParticipants,
+        max_participants: maxParticipants,
+        capacity: maxParticipants,
+        is_private_booking: false,
+        ...(event.time_slot && { timeSlot: event.time_slot })
+      }
+    })
+    
+    // 確定した貸切公演を取得（シナリオIDでフィルタリング、schedule_event_idが紐付いていないもののみ）
+    const { data: confirmedPrivateBookings, error: privateError } = await supabase
+      .from('reservations')
+      .select(`
+        id,
+        scenario_id,
+        store_id,
+        gm_staff,
+        participant_count,
+        candidate_datetimes,
+        schedule_event_id,
+        scenarios:scenario_id (
+          id,
+          title,
+          player_count_max
+        ),
+        stores:store_id (
+          id,
+          name,
+          short_name,
+          color
+        ),
+        gm_availability_responses (
+          staff_id,
+          response_status,
+          staff:staff_id (name)
+        )
+      `)
+      .eq('reservation_source', 'web_private')
+      .eq('status', 'confirmed')
+      .eq('scenario_id', scenarioId)
+      .is('schedule_event_id', null) // schedule_event_idがNULLのもののみ
+    
+    if (privateError) {
+      console.error('貸切公演データの取得エラー:', privateError)
+    }
+    
+    // 貸切公演を schedule_events 形式に変換
+    const privateEvents: ScheduleEvent[] = []
+    if (confirmedPrivateBookings) {
+      for (const booking of confirmedPrivateBookings) {
+        if (booking.candidate_datetimes?.candidates) {
+          // 確定済みの候補のみ取得（最初の1つだけ）
+          const confirmedCandidates = booking.candidate_datetimes.candidates.filter((c: CandidateDateTime) => c.status === 'confirmed')
+          const candidatesToShow = confirmedCandidates.length > 0 
+            ? confirmedCandidates.slice(0, 1)  // 確定候補がある場合は最初の1つ
+            : booking.candidate_datetimes.candidates.slice(0, 1)  // フォールバック
+          
+          for (const candidate of candidatesToShow) {
+            const candidateDate = new Date(candidate.date)
+            const candidateDateStr = candidateDate.toISOString().split('T')[0]
+            
+            // 指定期間の範囲内かチェック
+            if (candidateDateStr >= startDate && candidateDateStr <= endDate) {
+              // 候補の実際の時間を使用（startTime, endTimeがある場合）
+              const startTime = candidate.startTime || '18:00:00'
+              const endTime = candidate.endTime || '21:00:00'
+              
+              // GMの名前を取得
+              let gmNames: string[] = []
+              
+              // まずgm_staffからstaffテーブルで名前を取得
+              if (booking.gm_staff) {
+                const { data: gmStaff, error: gmError } = await supabase
+                  .from('staff')
+                  .select('id, name')
+                  .eq('id', booking.gm_staff)
+                  .maybeSingle()
+                
+                if (!gmError && gmStaff) {
+                  gmNames = [gmStaff.name]
+                }
+              }
+              
+              // gmsから取得できなかった場合はgm_availability_responsesから取得
+              if (gmNames.length === 0 && booking.gm_availability_responses) {
+                const responses = Array.isArray(booking.gm_availability_responses) 
+                  ? booking.gm_availability_responses 
+                  : []
+                gmNames = responses
+                  .filter((r: any) => r.response_status === 'available')
+                  .map((r: any) => {
+                    // staffが配列の場合は最初の要素を取得、オブジェクトの場合はそのまま
+                    const staff = Array.isArray(r.staff) ? r.staff[0] : r.staff
+                    return staff?.name
+                  })
+                  .filter((name): name is string => !!name) || []
+              }
+              
+              if (gmNames.length === 0) {
+                gmNames = ['未定']
+              }
+              
+              const scenarioData = Array.isArray(booking.scenarios) ? booking.scenarios[0] : booking.scenarios
+              
+              // timeSlotを取得（朝/昼/夜）
+              const timeSlot = candidate.timeSlot || ''
+              
+              privateEvents.push({
+                id: `private-${booking.id}-${candidate.order}`,
+                date: candidateDateStr,
+                venue: booking.store_id,
+                store_id: booking.store_id,
+                scenario: scenarioData?.title || '',
+                scenario_id: booking.scenario_id,
+                start_time: startTime,
+                end_time: endTime,
+                category: 'private',
+                is_cancelled: false,
+                is_reservation_enabled: true, // 貸切公演は常に公開中
+                current_participants: booking.participant_count,
+                max_participants: scenarioData?.player_count_max || 8,
+                capacity: scenarioData?.player_count_max || 8,
+                gms: gmNames,
+                stores: booking.stores,
+                scenarios: scenarioData,
+                is_private_booking: true, // 貸切公演フラグ
+                timeSlot: timeSlot // 貸切予約の時間帯（朝/昼/夜）を保持
+              })
+            }
+          }
+        }
+      }
+    }
+    
+    // 通常公演と貸切公演を結合してソート
+    const allEvents = [...eventsWithActualParticipants, ...privateEvents]
     allEvents.sort((a, b) => {
       const dateCompare = a.date.localeCompare(b.date)
       if (dateCompare !== 0) return dateCompare

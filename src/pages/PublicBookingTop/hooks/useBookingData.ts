@@ -52,21 +52,11 @@ export function useBookingData() {
     try {
       setIsLoading(true)
       
-      // シナリオと公演データを取得
-      const scenariosData = await scenarioApi.getAll()
-      
-      let storesData: any[] = []
-      try {
-        storesData = await storeApi.getAll()
-      } catch (error) {
-        logger.error('店舗データの取得エラー:', error)
-        storesData = []
-      }
-      
-      // 現在の月から3ヶ月先までの公演を取得
+      // シナリオ、店舗、公演データを並列取得
       const currentDate = new Date()
-      const allEventsData: any[] = []
+      const monthPromises = []
       
+      // 現在の月から3ヶ月先までの公演を並列取得
       for (let i = 0; i < 3; i++) {
         const targetDate = new Date(currentDate)
         targetDate.setMonth(currentDate.getMonth() + i)
@@ -74,9 +64,21 @@ export function useBookingData() {
         const year = targetDate.getFullYear()
         const month = targetDate.getMonth() + 1
         
-        const events = await scheduleApi.getByMonth(year, month)
-        allEventsData.push(...events)
+        monthPromises.push(scheduleApi.getByMonth(year, month))
       }
+      
+      // すべてのデータを並列取得
+      const [scenariosData, storesDataResult, ...monthResults] = await Promise.all([
+        scenarioApi.getAll(),
+        storeApi.getAll().catch((error) => {
+          logger.error('店舗データの取得エラー:', error)
+          return []
+        }),
+        ...monthPromises
+      ])
+      
+      const storesData = storesDataResult || []
+      const allEventsData = monthResults.flat()
       
       // 予約可能な公演 + 確定貸切公演をフィルタリング
       const publicEvents = allEventsData.filter((event: any) => {

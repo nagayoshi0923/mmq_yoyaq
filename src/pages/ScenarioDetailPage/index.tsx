@@ -23,7 +23,6 @@ import { PrivateBookingForm } from './components/PrivateBookingForm'
 import { BookingPanel } from './components/BookingPanel'
 import { PrivateBookingPanel } from './components/PrivateBookingPanel'
 import { BookingNotice } from './components/BookingNotice'
-import { OrganizerInfo } from './components/OrganizerInfo'
 import { VenueAccess } from './components/VenueAccess'
 import { ScenarioAbout } from './components/ScenarioAbout'
 
@@ -69,7 +68,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
     generatePrivateDates,
     changeMonth,
     toggleTimeSlot
-  } = usePrivateBooking({ events, stores })
+  } = usePrivateBooking({ events, stores, scenarioId, scenario })
 
   useEffect(() => {
     // URLパラメータを処理して貸切リクエストタブを開く
@@ -181,14 +180,14 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
       {/* 戻るボタン */}
       <div className="bg-background border-b">
-        <div className="container mx-auto max-w-7xl px-6 py-2">
+        <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-2">
           <Button
             variant="ghost"
             onClick={onClose}
-            className="flex items-center gap-1.5 hover:bg-accent h-8 px-2"
+            className="flex items-center gap-1 sm:gap-1.5 hover:bg-accent h-8 sm:h-9 px-2 sm:px-3 touch-manipulation"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">シナリオ一覧に戻る</span>
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-xs sm:text-sm">シナリオ一覧に戻る</span>
           </Button>
         </div>
       </div>
@@ -197,37 +196,36 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
       <ScenarioHero scenario={scenario} />
 
       {/* メインコンテンツ */}
-      <div className="container mx-auto max-w-7xl px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-4 sm:py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
           {/* 左メインエリア - 詳細情報 */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-8 space-y-4 sm:space-y-6">
             <ScenarioAbout scenario={scenario} />
             <VenueAccess events={events} />
             <BookingNotice 
               reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
               hasPreReading={scenario.has_pre_reading}
             />
-            <OrganizerInfo authorName={scenario.author} />
           </div>
 
           {/* 右サイドバー - チケット購入 */}
           <div className="lg:col-span-4">
-            <div className="sticky top-4 space-y-6">
+            <div className="lg:sticky lg:top-4 space-y-4 sm:space-y-6">
               {/* タブ: 公演日程 / 貸切リクエスト */}
               <Tabs 
                 defaultValue="schedule" 
                 className="w-full" 
                 onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
               >
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="schedule">公演日程</TabsTrigger>
-                  <TabsTrigger value="private">貸切リクエスト</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 mb-3 sm:mb-4 h-9 sm:h-10">
+                  <TabsTrigger value="schedule" className="text-xs sm:text-sm">公演日程</TabsTrigger>
+                  <TabsTrigger value="private" className="text-xs sm:text-sm">貸切リクエスト</TabsTrigger>
                 </TabsList>
                 
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    <h3 className="font-bold mb-3">日付を選択</h3>
+                    <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">日付を選択</h3>
                     <EventList
                       events={events}
                       selectedEventId={selectedEventId}
@@ -254,8 +252,8 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                   
                   {/* 選択された時間枠の表示 */}
                   {selectedTimeSlots.length > 0 && (
-                    <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
-                      <div className="text-xs font-medium text-purple-900 mb-2">
+                    <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-purple-50 border border-purple-200 rounded">
+                      <div className="text-xs sm:text-sm font-medium text-purple-900 mb-1.5 sm:mb-2">
                         選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                       </div>
                       <div className="space-y-1">
@@ -267,14 +265,14 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                           const weekday = weekdays[dateObj.getDay()]
                           
                           return (
-                            <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs">
-                              <span className="text-purple-900">
+                            <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs sm:text-sm">
+                              <span className="text-purple-900 flex-1 min-w-0 pr-2">
                                 {index + 1}. {month}/{day}({weekday}) {item.slot.label} {item.slot.startTime}〜
                               </span>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-5 w-5 p-0 hover:bg-red-100"
+                                className="h-6 w-6 sm:h-7 sm:w-7 p-0 hover:bg-red-100 flex-shrink-0 touch-manipulation"
                                 onClick={() => toggleTimeSlot(item.date, item.slot)}
                               >
                                 ×

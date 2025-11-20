@@ -145,7 +145,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
           participation_costs: participationCosts,
           use_flexible_pricing: (scenario as any).use_flexible_pricing || false, // フォーム専用フィールド
           flexible_pricing: scenario.flexible_pricing || defaultFlexiblePricing,
-          key_visual_url: scenario.key_visual_url || ''
+          key_visual_url: scenario.key_visual_url || '',
+          available_stores: (scenario as any).available_stores || []
         })
       }
     } else {
@@ -193,7 +194,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
             special_requirements: ''
           }
         },
-        key_visual_url: ''
+        key_visual_url: '',
+        available_stores: []
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -239,6 +241,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
           reward: assignment.reward,
           ...(assignment.category && { category: assignment.category })
         })),
+        // 公演可能店舗
+        available_stores: formData.available_stores || [],
         // gm_countはScenario型にないためコメントアウト（フォーム専用フィールド）
         // gm_count: formData.gm_count || 1,
         updated_at: new Date().toISOString()

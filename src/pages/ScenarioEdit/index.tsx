@@ -73,7 +73,8 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
         special_requirements: ''
       }
     },
-    key_visual_url: ''
+    key_visual_url: '',
+    available_stores: []
   })
 
   // スタッフデータ
@@ -193,7 +194,8 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
               special_requirements: ''
             }
           },
-          key_visual_url: scenario.key_visual_url || ''
+          key_visual_url: scenario.key_visual_url || '',
+          available_stores: (scenario as any).available_stores || []
         })
         loadCurrentAssignments(scenarioId)
       }

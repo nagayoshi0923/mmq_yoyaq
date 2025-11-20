@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from 'react'
+import { useRef, useState, useMemo, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -12,6 +12,8 @@ import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { storeApi } from '@/lib/api'
+import type { Store } from '@/types'
 
 interface BasicInfoSectionProps {
   formData: ScenarioFormData
@@ -23,6 +25,28 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
   const [uploading, setUploading] = useState(false)
   const [isAddAuthorDialogOpen, setIsAddAuthorDialogOpen] = useState(false)
   const [newAuthorName, setNewAuthorName] = useState('')
+  const [stores, setStores] = useState<Store[]>([])
+  
+  // 店舗データを取得
+  useEffect(() => {
+    const loadStores = async () => {
+      try {
+        const storesData = await storeApi.getAll()
+        setStores(storesData)
+      } catch (error) {
+        logger.error('店舗データの取得エラー:', error)
+      }
+    }
+    loadStores()
+  }, [])
+  
+  // 店舗選択オプション
+  const storeOptions = useMemo(() => {
+    return stores.map(store => ({
+      id: store.id,
+      name: store.name
+    }))
+  }, [stores])
   
   // 既存のシナリオから作者リストを取得
   const { data: scenarios = [] } = useScenariosQuery()
@@ -199,6 +223,30 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
                   管理シナリオは管理側が使用するシナリオです
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="available_stores">公演可能店舗</Label>
+                <MultiSelect
+                  options={storeOptions}
+                  selectedValues={(formData.available_stores || []).map(storeId => {
+                    const store = stores.find(s => s.id === storeId)
+                    return store?.name || ''
+                  }).filter(Boolean)}
+                  onSelectionChange={(storeNames) => {
+                    const storeIds = storeNames.map(name => 
+                      stores.find(s => s.name === name)?.id || ''
+                    ).filter(Boolean)
+                    setFormData(prev => ({ ...prev, available_stores: storeIds }))
+                  }}
+                  placeholder="店舗を選択（未選択=全店舗で公演可能）"
+                  showBadges={true}
+                  className="mt-1.5"
+                  emptyText="店舗が見つかりません"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  このシナリオを公演可能な店舗を選択してください。未選択の場合は全店舗で公演可能です。
                 </p>
               </div>
       </div>

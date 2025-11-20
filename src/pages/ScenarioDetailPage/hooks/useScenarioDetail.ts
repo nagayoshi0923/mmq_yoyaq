@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { getColorFromName } from '@/lib/utils'
 import { logger } from '@/utils/logger'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
@@ -22,30 +23,24 @@ export function useScenarioDetail(scenarioId: string) {
       
       setIsLoading(true)
       
-      // シナリオ詳細を取得
-      const scenariosData = await scenarioApi.getAll()
-      const scenarioData = scenariosData.find((s: any) => s.id === scenarioId)
+      // シナリオを取得
+      const scenarioDataResult = await scenarioApi.getById(scenarioId).catch((error) => {
+        logger.error('シナリオデータの取得エラー:', error)
+        return null
+      })
       
-      if (!scenarioData) {
+      if (!scenarioDataResult) {
         logger.error('シナリオが見つかりません')
         return
       }
       
-      // 店舗データを取得
-      let storesData: any[] = []
-      try {
-        storesData = await storeApi.getAll()
-        setStores(storesData)
-      } catch (error) {
-        logger.error('店舗データの取得エラー:', error)
-        storesData = []
-        setStores([])
-      }
+      const scenarioData = scenarioDataResult
       
-      // 公演スケジュールを取得（3ヶ月先まで）
+      // 現在の日付から3ヶ月先までの期間を計算
       const currentDate = new Date()
-      const allEvents: any[] = []
+      const monthPromises = []
       
+      // 現在の月から3ヶ月先までの公演を並列取得（元の実装に戻す）
       for (let i = 0; i < 3; i++) {
         const targetDate = new Date(currentDate)
         targetDate.setMonth(currentDate.getMonth() + i)
@@ -53,9 +48,48 @@ export function useScenarioDetail(scenarioId: string) {
         const year = targetDate.getFullYear()
         const month = targetDate.getMonth() + 1
         
-        const events = await scheduleApi.getByMonth(year, month)
-        allEvents.push(...events)
+        monthPromises.push(scheduleApi.getByMonth(year, month))
       }
+      
+      // 3ヶ月分のデータを並列取得
+      const monthResults = await Promise.all(monthPromises).catch((error) => {
+        logger.error('イベントデータの取得エラー:', error)
+        return []
+      })
+      
+      const allEvents = monthResults.flat()
+      
+      // イベントに含まれる店舗IDを収集
+      const storeIds = new Set<string>()
+      allEvents.forEach((event: any) => {
+        if (event.store_id) storeIds.add(event.store_id)
+        if (event.venue) storeIds.add(event.venue)
+      })
+      
+      // 必要な店舗データのみ取得
+      let storesData: any[] = []
+      if (storeIds.size > 0) {
+        try {
+          const { data, error } = await supabase
+            .from('stores')
+            .select('*')
+            .in('id', Array.from(storeIds))
+          
+          if (!error && data) {
+            storesData = data
+          }
+        } catch (error) {
+          logger.error('店舗データの取得エラー:', error)
+          // フォールバック：全店舗を取得
+          try {
+            storesData = await storeApi.getAll()
+          } catch (fallbackError) {
+            logger.error('店舗データの取得エラー（フォールバック）:', fallbackError)
+            storesData = []
+          }
+        }
+      }
+      setStores(storesData)
       
       // このシナリオの公演をフィルタリング（満席も含めて全て表示）
       const scenarioEvents = allEvents
@@ -66,21 +100,37 @@ export function useScenarioDetail(scenarioId: string) {
             event.scenarios?.id === scenarioData.id ||
             event.scenario === scenarioData.title
           
-          // 予約可能条件（満席も含めて表示）
-          const isEnabled = event.is_reservation_enabled !== false
-          const isNotCancelled = !event.is_cancelled
-          const isOpen = event.category === 'open'
+          if (!isMatchingScenario) return false
           
-          // 満席の公演も含めて全て表示
-          return isMatchingScenario && isEnabled && isNotCancelled && isOpen
+          // キャンセルされていないもの
+          if (event.is_cancelled) return false
+          
+          // 通常公演の場合：予約可能なもののみ
+          if (event.category === 'open') {
+            return event.is_reservation_enabled !== false
+          }
+          
+          // 貸切公演の場合：常に表示
+          if (event.category === 'private') {
+            return true
+          }
+          
+          return false
         })
         .map((event: any) => {
-          // 店舗IDまたはshort_nameで検索（store_idを優先）
-          const store = storesData.find((s: any) => 
-            s.id === event.store_id || 
-            s.id === event.venue || 
-            s.short_name === event.venue
-          )
+          // 店舗データを取得（優先順位：event.stores > storesDataから検索）
+          let store = event.stores // getByMonthでJOINされている場合
+          
+          if (!store) {
+            // storesDataから検索（store_idを優先、次にvenue）
+            store = storesData.find((s: any) => 
+              s.id === event.store_id || 
+              s.id === event.venue || 
+              s.short_name === event.venue ||
+              s.name === event.venue
+            )
+          }
+          
           // 最大人数と現在の参加者数を正しく取得（満席も含む）
           // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
           const scenarioMaxPlayers = event.scenarios?.player_count_max
@@ -92,7 +142,9 @@ export function useScenarioDetail(scenarioId: string) {
           const available = maxParticipants - currentParticipants
           
           // 店舗カラーを取得（色名から実際の色コードに変換）
-          const storeColor = store?.color ? getColorFromName(store.color) : '#6B7280'
+          // event.storesから直接取得するか、storesDataから取得
+          const storeColorName = store?.color || (event.stores?.color)
+          const storeColor = storeColorName ? getColorFromName(storeColorName) : '#6B7280'
           
           return {
             event_id: event.id,

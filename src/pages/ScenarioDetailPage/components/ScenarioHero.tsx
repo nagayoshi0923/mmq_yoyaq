@@ -15,8 +15,8 @@ interface ScenarioHeroProps {
 export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHeroProps) {
   return (
     <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white">
-      <div className="container mx-auto max-w-7xl px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-6 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8">
           {/* キービジュアル */}
           <div className="lg:col-span-4">
             <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden shadow-2xl">
@@ -41,25 +41,25 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHer
           </div>
 
           {/* タイトル・基本情報 */}
-          <div className="lg:col-span-8 space-y-4">
+          <div className="lg:col-span-8 space-y-3 sm:space-y-4">
             <div>
-              <p className="text-sm opacity-80 mb-1">{scenario.author}</p>
-              <h1 className="text-3xl font-bold mb-3">{scenario.scenario_title}</h1>
+              <p className="text-xs sm:text-sm opacity-80 mb-1">{scenario.author}</p>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2 sm:mb-3">{scenario.scenario_title}</h1>
               
-              <div className="flex flex-wrap gap-2 items-center">
-                <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full text-sm">
-                  <Users className="w-4 h-4" />
+              <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
+                  <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="font-medium">{scenario.player_count_min}〜{scenario.player_count_max}人</span>
                 </div>
                 
-                <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full text-sm">
-                  <Clock className="w-4 h-4" />
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
+                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="font-medium">{(scenario.duration / 60).toFixed(1)}h</span>
                 </div>
                 
                 {scenario.rating && (
-                  <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full text-sm">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400" />
                     <span className="font-medium">{scenario.rating.toFixed(1)}</span>
                   </div>
                 )}
@@ -67,19 +67,19 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHer
             </div>
 
             {scenario.description && (
-              <p className="opacity-90 leading-relaxed">
+              <p className="opacity-90 leading-relaxed text-sm sm:text-base">
                 {scenario.description}
               </p>
             )}
 
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1 sm:gap-1.5">
               {scenario.genre.map((g, i) => (
-                <Badge key={i} variant="outline" className="bg-white/20 text-white border-white/30 text-xs px-2 py-0.5 rounded-sm">
+                <Badge key={i} variant="outline" className="bg-white/20 text-white border-white/30 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-sm">
                   {g}
                 </Badge>
               ))}
               {scenario.has_pre_reading && (
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-2 py-0.5 rounded-sm">
+                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-sm">
                   事前読解あり
                 </Badge>
               )}
@@ -90,10 +90,10 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHer
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-white/10 border-white/30 text-white hover:bg-white/20 h-8 text-sm"
+                  className="bg-white/10 border-white/30 text-white hover:bg-white/20 h-8 sm:h-9 text-xs sm:text-sm touch-manipulation"
                   onClick={() => window.open(scenario.official_site_url, '_blank')}
                 >
-                  <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                  <ExternalLink className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1 sm:mr-1.5" />
                   公式サイト
                 </Button>
               )}

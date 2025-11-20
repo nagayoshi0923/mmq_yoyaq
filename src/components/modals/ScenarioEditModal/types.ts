@@ -78,5 +78,7 @@ export interface ScenarioFormData {
     startDate?: string
     endDate?: string
   }[]
+  // 公演可能店舗（UUID配列）
+  available_stores?: string[]
 }
 

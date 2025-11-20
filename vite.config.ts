@@ -17,7 +17,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     // lucide-react の Tree-shaking を最適化
-    include: ['lucide-react', 'react', 'react-dom'],
+    include: ['lucide-react', 'react', 'react-dom', '@radix-ui/react-switch'],
     force: true
   },
   build: {

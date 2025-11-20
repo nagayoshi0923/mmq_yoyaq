@@ -11,29 +11,29 @@ interface ScenarioAboutProps {
 export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioAboutProps) {
   return (
     <div>
-      <h3 className="font-bold mb-3">ABOUT</h3>
+      <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">ABOUT</h3>
       <Card>
-        <CardContent className="p-4 space-y-3">
+        <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
           {/* 概要（基本情報） */}
-          <div className="bg-muted/50 p-3 rounded space-y-2">
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-muted-foreground" />
+          <div className="bg-muted/50 p-2 sm:p-3 rounded space-y-1.5 sm:space-y-2">
+            <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                 <span>{scenario.player_count_min}〜{scenario.player_count_max}人</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                 <span>{(scenario.duration / 60).toFixed(1)}時間</span>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {scenario.genre.map((g, i) => (
-                <Badge key={i} variant="outline" className="text-xs">
+                <Badge key={i} variant="outline" className="text-[10px] sm:text-xs">
                   {g}
                 </Badge>
               ))}
               {scenario.has_pre_reading && (
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
+                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px] sm:text-xs">
                   事前読解あり
                 </Badge>
               )}
@@ -43,7 +43,7 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
           {/* あらすじ */}
           {scenario.synopsis && (
             <div>
-              <p className="leading-relaxed whitespace-pre-wrap">{scenario.synopsis}</p>
+              <p className="leading-relaxed whitespace-pre-wrap text-xs sm:text-sm">{scenario.synopsis}</p>
             </div>
           )}
         </CardContent>
