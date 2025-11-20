@@ -37,19 +37,19 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
   return 'available'
 }
 
-  /**
-   * 公演データの取得と管理を行うフック
-   *
-   * パフォーマンス最適化:
-   * - React Queryの導入検討（キャッシュ有効活用）
-   * - メモリ使用量の最適化（不要なデータは破棄）
-   * - 初期表示データの制限（最初の1ヶ月のみ取得）
-   */
-  export function useBookingData() {
-    const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
-    const [allEvents, setAllEvents] = useState<any[]>([])
-    const [stores, setStores] = useState<any[]>([])
-    const [isLoading, setIsLoading] = useState(true)
+/**
+ * 公演データの取得と管理を行うフック
+ *
+ * パフォーマンス最適化:
+ * - React Queryの導入検討（キャッシュ有効活用）
+ * - メモリ使用量の最適化（不要なデータは破棄）
+ * - 初期表示データの制限（最初の1ヶ月のみ取得）
+ */
+export function useBookingData() {
+  const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
+  const [allEvents, setAllEvents] = useState<any[]>([])
+  const [stores, setStores] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   /**
    * シナリオ・公演・店舗データを読み込む
@@ -140,9 +140,6 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
           eventsByScenarioId.get(scenarioId)!.set(event.id, event)
         }
       })
-      
-      // 今日のタイムスタンプ（isNew判定用、既に計算済み）
-      const todayTimestamp = today.getTime()
       
       // シナリオごとにグループ化
       const scenarioMap = new Map<string, ScenarioCard>()
