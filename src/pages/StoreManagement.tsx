@@ -260,7 +260,7 @@ export function StoreManagement() {
                   <StoreIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{stores.length}</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">総店舗数</p>
+                    <p className="text-xs text-muted-foreground truncate">総店舗数</p>
                   </div>
                 </div>
               </CardContent>
@@ -272,7 +272,7 @@ export function StoreManagement() {
                   <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{totalCapacity}名</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">総収容人数</p>
+                    <p className="text-xs text-muted-foreground truncate">総収容人数</p>
                   </div>
                 </div>
               </CardContent>
@@ -284,7 +284,7 @@ export function StoreManagement() {
                   <DoorOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{totalRooms}室</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">総部屋数</p>
+                    <p className="text-xs text-muted-foreground truncate">総部屋数</p>
                   </div>
                 </div>
               </CardContent>
@@ -296,7 +296,7 @@ export function StoreManagement() {
                   <Building className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{activeStores}</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate">営業中店舗</p>
+                    <p className="text-xs text-muted-foreground truncate">営業中店舗</p>
                   </div>
                 </div>
               </CardContent>
@@ -327,7 +327,7 @@ export function StoreManagement() {
                         </div>
                         {store.ownership_type && (
                           <Badge className={
-                            `text-[10px] sm:text-xs px-1 sm:px-2 py-0 ${
+                            `text-xs px-1 sm:px-2 py-0 ${
                               store.ownership_type === 'corporate' ? 'bg-blue-100 text-blue-800' : 
                               store.ownership_type === 'office' ? 'bg-purple-100 text-purple-800' :
                               'bg-amber-100 text-amber-800'
@@ -371,25 +371,25 @@ export function StoreManagement() {
 
                     <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 pt-2 border-t border-border">
                       <div>
-                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">収容人数</p>
+                        <p className="text-xs font-medium text-muted-foreground">収容人数</p>
                         <p className="text-base sm:text-lg font-bold">{store.capacity}名</p>
                       </div>
                       <div>
-                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">部屋数</p>
+                        <p className="text-xs font-medium text-muted-foreground">部屋数</p>
                         <p className="text-base sm:text-lg font-bold">{store.rooms}室</p>
                       </div>
                     </div>
 
                     {store.manager_name && (
                       <div>
-                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">店長</p>
+                        <p className="text-xs font-medium text-muted-foreground">店長</p>
                         <p className="text-xs sm:text-sm truncate">{store.manager_name}</p>
                       </div>
                     )}
 
                     {store.notes && (
                       <div>
-                        <p className="text-[10px] sm:text-xs font-medium text-muted-foreground">メモ</p>
+                        <p className="text-xs font-medium text-muted-foreground">メモ</p>
                         <p className="text-xs sm:text-sm line-clamp-2 break-words">{store.notes}</p>
                       </div>
                     )}

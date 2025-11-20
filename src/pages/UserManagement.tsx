@@ -226,7 +226,7 @@ export function UserManagement() {
             </div>
           </div>
 
-          <div className="pt-3 sm:pt-4 border-t text-[10px] sm:text-xs text-gray-500">
+          <div className="pt-3 sm:pt-4 border-t text-xs text-gray-500">
             <p>作成日: {new Date(userData.created_at).toLocaleString('ja-JP')}</p>
             <p>更新日: {new Date(userData.updated_at).toLocaleString('ja-JP')}</p>
           </div>
@@ -341,10 +341,10 @@ export function UserManagement() {
                           {getRoleIcon(userData.role)}
                           <p className="font-medium truncate text-xs sm:text-sm md:text-base">{userData.email}</p>
                         </div>
-                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">ID: {userData.id}</p>
+                        <p className="text-xs text-gray-500 truncate">ID: {userData.id}</p>
                       </div>
                       <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                        <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium border whitespace-nowrap ${getRoleBadgeColor(userData.role)}`}>
+                        <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium border whitespace-nowrap ${getRoleBadgeColor(userData.role)}`}>
                           {getRoleLabel(userData.role)}
                         </span>
                         <div className="flex gap-0.5 sm:gap-1">

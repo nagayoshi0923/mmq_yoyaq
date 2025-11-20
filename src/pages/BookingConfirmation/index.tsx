@@ -138,7 +138,7 @@ export function BookingConfirmation({
       {/* 戻るボタン */}
       <div className="bg-background border-b sticky top-0 z-10">
         <div className="container mx-auto max-w-5xl px-3 xs:px-4 sm:px-6 py-1.5 xs:py-2">
-          <Button variant="ghost" onClick={onBack} className="flex items-center gap-0.5 xs:gap-1 sm:gap-1.5 hover:bg-accent h-8 xs:h-9 sm:h-10 px-1.5 xs:px-2 sm:px-3 text-[10px] xs:text-xs sm:text-sm">
+          <Button variant="ghost" onClick={onBack} className="flex items-center gap-0.5 xs:gap-1 sm:gap-1.5 hover:bg-accent h-8 xs:h-9 sm:h-10 px-1.5 xs:px-2 sm:px-3 text-xs">
             <ArrowLeft className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 flex-shrink-0" />
             <span className="hidden xs:inline">シナリオ詳細に戻る</span>
             <span className="xs:hidden">戻</span>

@@ -33,7 +33,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
       width: 'w-12 sm:w-16 md:w-20',
       sortable: false,
       render: (row) => (
-        <p className="font-medium text-[10px] sm:text-xs md:text-sm">{row.dayInfo.displayDate}</p>
+        <p className="font-medium text-xs">{row.dayInfo.displayDate}</p>
       )
     },
     {
@@ -42,7 +42,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
       width: 'w-10 sm:w-12 md:w-16',
       sortable: false,
       render: (row) => (
-        <p className={`text-[10px] sm:text-xs md:text-sm font-medium ${getDayOfWeekColor(row.dayInfo.dayOfWeek)}`}>
+        <p className={`text-xs font-medium ${getDayOfWeekColor(row.dayInfo.dayOfWeek)}`}>
           {row.dayInfo.dayOfWeek}
         </p>
       )
@@ -55,14 +55,14 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
       align: 'center',
       renderHeader: () => (
         <div className="flex flex-col items-center space-y-0.5 sm:space-y-1 w-full">
-          <span className="text-[10px] sm:text-xs md:text-sm">午前</span>
-          <span className="text-[8px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:inline">(~12:00)</span>
+          <span className="text-xs">午前</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">(~12:00)</span>
           <div className="flex space-x-0.5 sm:space-x-1">
             <Button
               size="sm"
               variant="outline"
               onClick={() => actions.onSelectAll('morning')}
-              className="h-5 sm:h-6 px-1 sm:px-2 text-[8px] sm:text-[10px] md:text-xs"
+              className="h-5 sm:h-6 px-1 sm:px-2 text-xs"
             >
               <CheckSquare className="h-2.5 w-2.5 sm:h-3 sm:w-3 sm:mr-1" />
               <span className="hidden sm:inline">全選択</span>
@@ -71,7 +71,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
               size="sm"
               variant="outline"
               onClick={() => actions.onDeselectAll('morning')}
-              className="h-5 sm:h-6 px-1 sm:px-2 text-[8px] sm:text-[10px] md:text-xs"
+              className="h-5 sm:h-6 px-1 sm:px-2 text-xs"
             >
               <Square className="h-2.5 w-2.5 sm:h-3 sm:w-3 sm:mr-1" />
               <span className="hidden sm:inline">全解除</span>
@@ -99,14 +99,14 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
       align: 'center',
       renderHeader: () => (
         <div className="flex flex-col items-center space-y-0.5 sm:space-y-1 w-full">
-          <span className="text-[10px] sm:text-xs md:text-sm">午後</span>
-          <span className="text-[8px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:inline">(12:00-17:00)</span>
+          <span className="text-xs">午後</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">(12:00-17:00)</span>
           <div className="flex space-x-0.5 sm:space-x-1">
             <Button
               size="sm"
               variant="outline"
               onClick={() => actions.onSelectAll('afternoon')}
-              className="h-5 sm:h-6 px-1 sm:px-2 text-[8px] sm:text-[10px] md:text-xs"
+              className="h-5 sm:h-6 px-1 sm:px-2 text-xs"
             >
               <CheckSquare className="h-2.5 w-2.5 sm:h-3 sm:w-3 sm:mr-1" />
               <span className="hidden sm:inline">全選択</span>
@@ -115,7 +115,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
               size="sm"
               variant="outline"
               onClick={() => actions.onDeselectAll('afternoon')}
-              className="h-5 sm:h-6 px-1 sm:px-2 text-[8px] sm:text-[10px] md:text-xs"
+              className="h-5 sm:h-6 px-1 sm:px-2 text-xs"
             >
               <Square className="h-2.5 w-2.5 sm:h-3 sm:w-3 sm:mr-1" />
               <span className="hidden sm:inline">全解除</span>
@@ -143,14 +143,14 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
       align: 'center',
       renderHeader: () => (
         <div className="flex flex-col items-center space-y-0.5 sm:space-y-1 w-full">
-          <span className="text-[10px] sm:text-xs md:text-sm">夜間</span>
-          <span className="text-[8px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:inline">(17:00~)</span>
+          <span className="text-xs">夜間</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">(17:00~)</span>
           <div className="flex space-x-0.5 sm:space-x-1">
             <Button
               size="sm"
               variant="outline"
               onClick={() => actions.onSelectAll('evening')}
-              className="h-5 sm:h-6 px-1 sm:px-2 text-[8px] sm:text-[10px] md:text-xs"
+              className="h-5 sm:h-6 px-1 sm:px-2 text-xs"
             >
               <CheckSquare className="h-2.5 w-2.5 sm:h-3 sm:w-3 sm:mr-1" />
               <span className="hidden sm:inline">全選択</span>
@@ -159,7 +159,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
               size="sm"
               variant="outline"
               onClick={() => actions.onDeselectAll('evening')}
-              className="h-5 sm:h-6 px-1 sm:px-2 text-[8px] sm:text-[10px] md:text-xs"
+              className="h-5 sm:h-6 px-1 sm:px-2 text-xs"
             >
               <Square className="h-2.5 w-2.5 sm:h-3 sm:w-3 sm:mr-1" />
               <span className="hidden sm:inline">全解除</span>
@@ -187,14 +187,14 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
       align: 'center',
       renderHeader: () => (
         <div className="flex flex-col items-center space-y-0.5 sm:space-y-1 w-full">
-          <span className="text-[10px] sm:text-xs md:text-sm">終日</span>
-          <span className="text-[8px] sm:text-[10px] md:text-xs text-muted-foreground hidden sm:inline">(全日)</span>
+          <span className="text-xs">終日</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">(全日)</span>
           <div className="flex space-x-0.5 sm:space-x-1">
             <Button
               size="sm"
               variant="outline"
               onClick={() => actions.onSelectAll('all_day')}
-              className="h-5 sm:h-6 px-1 sm:px-2 text-[8px] sm:text-[10px] md:text-xs"
+              className="h-5 sm:h-6 px-1 sm:px-2 text-xs"
             >
               <CheckSquare className="h-2.5 w-2.5 sm:h-3 sm:w-3 sm:mr-1" />
               <span className="hidden sm:inline">全選択</span>
@@ -203,7 +203,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
               size="sm"
               variant="outline"
               onClick={() => actions.onDeselectAll('all_day')}
-              className="h-5 sm:h-6 px-1 sm:px-2 text-[8px] sm:text-[10px] md:text-xs"
+              className="h-5 sm:h-6 px-1 sm:px-2 text-xs"
             >
               <Square className="h-2.5 w-2.5 sm:h-3 sm:w-3 sm:mr-1" />
               <span className="hidden sm:inline">全解除</span>

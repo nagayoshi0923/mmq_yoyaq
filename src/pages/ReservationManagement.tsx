@@ -250,13 +250,13 @@ export function ReservationManagement() {
                     <div className="flex justify-between items-start mb-3 sm:mb-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1 sm:gap-2 mb-2 flex-wrap">
-                          <span className="font-mono text-[10px] sm:text-xs md:text-sm text-muted-foreground truncate">
+                          <span className="font-mono text-xs text-muted-foreground truncate">
                             #{reservation.reservation_number}
                           </span>
                           {getStatusBadge(reservation.status)}
                           {getPaymentBadge(reservation.payment_status || 'unpaid')}
                           {reservation.reservation_source === 'web_private' && (
-                            <Badge variant="outline" className="text-[10px] sm:text-xs">貸切</Badge>
+                            <Badge variant="outline" className="text-xs">貸切</Badge>
                           )}
                         </div>
                         <h3 className="text-base sm:text-lg md:text-xl font-bold mb-2 break-words">{reservation.scenario_title}</h3>

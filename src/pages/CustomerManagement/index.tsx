@@ -109,7 +109,7 @@ export default function CustomerManagement() {
           ) : (
             <div className="space-y-2 overflow-x-auto">
               {/* テーブルヘッダー */}
-              <div className="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-muted/50 rounded-lg text-[10px] sm:text-xs md:text-sm font-medium min-w-max">
+              <div className="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-muted/50 rounded-lg text-xs font-medium min-w-max">
                 <div className="col-span-3 sm:col-span-2">顧客名</div>
                 <div className="col-span-3 sm:col-span-2 hidden sm:block">メールアドレス</div>
                 <div className="col-span-3 sm:col-span-2 hidden md:block">電話番号</div>
