@@ -60,6 +60,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return
         }
         
+        // 既に同じユーザーが設定されている場合はスキップ（重複実行防止）
+        if (session?.user && userRef.current && userRef.current.id === session.user.id) {
+          logger.log('⏭️ 既に同じユーザーが設定されているためスキップ:', event)
+          setLoading(false)
+          return
+        }
+        
         // TOKEN_REFRESHEDイベントの場合は、既存のユーザー情報を保持（ロールを維持）
         if (event === 'TOKEN_REFRESHED' && session?.user && userRef.current) {
           // トークンリフレッシュ時は、既存のユーザー情報があればロールを維持
