@@ -195,7 +195,7 @@ const LazyImage: React.FC<{
         }
       },
       {
-        rootMargin: '50px', // 50px前に読み込み開始
+        rootMargin: '200px', // 200px前に読み込み開始（パフォーマンス最適化）
         threshold: 0.1
       }
     )
@@ -272,7 +272,7 @@ const LazyPicture: React.FC<{
         }
       },
       {
-        rootMargin: '50px', // 50px前に読み込み開始
+        rootMargin: '200px', // 200px前に読み込み開始（パフォーマンス最適化）
         threshold: 0.1
       }
     )

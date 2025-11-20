@@ -69,17 +69,10 @@ export function useBookingData() {
       const currentDate = new Date()
       const monthPromises = []
 
-      // 現在の月から1ヶ月先までの公演を取得（2ヶ月分）
-      // 将来的にはユーザーの操作で追加読み込み可能にする
-      for (let i = 0; i < 2; i++) {
-        const targetDate = new Date(currentDate)
-        targetDate.setMonth(currentDate.getMonth() + i)
-
-        const year = targetDate.getFullYear()
-        const month = targetDate.getMonth() + 1
-
-        monthPromises.push(scheduleApi.getByMonth(year, month))
-      }
+      // 現在の月のみ取得（1ヶ月分）- パフォーマンス最適化
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+      monthPromises.push(scheduleApi.getByMonth(year, month))
 
       // すべてのデータを並列取得（最適化: getPublic()を使用）
       const [scenariosData, storesDataResult, ...monthResults] = await Promise.all([

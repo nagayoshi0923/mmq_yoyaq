@@ -109,6 +109,11 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     return '#4F46E5'
   }, [])
 
+  // メモ化: フィルタリング結果をキャッシュ
+  const memoizedFilteredScenarios = useMemo(() => {
+    return { filteredScenarios, newScenarios, upcomingScenarios, allScenarios }
+  }, [filteredScenarios, newScenarios, upcomingScenarios, allScenarios])
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -135,8 +140,23 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-4 sm:py-6">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <p className="text-sm sm:text-base text-muted-foreground">読み込み中...</p>
+          <div className="space-y-6 sm:space-y-8">
+            {/* スケルトンローディング */}
+            <div>
+              <div className="h-7 w-48 bg-gray-200 rounded mb-3 sm:mb-4 animate-pulse"></div>
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="aspect-[1/1.4] bg-gray-200 animate-pulse"></div>
+                    <div className="p-2 sm:p-2.5 md:p-3 space-y-2">
+                      <div className="h-3 w-16 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-4 w-full bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-3 w-24 bg-gray-200 rounded animate-pulse"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
@@ -149,9 +169,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             {/* ラインナップ表示 */}
             <TabsContent value="lineup">
               <LineupView
-                newScenarios={newScenarios}
-                upcomingScenarios={upcomingScenarios}
-                allScenarios={allScenarios}
+                newScenarios={memoizedFilteredScenarios.newScenarios}
+                upcomingScenarios={memoizedFilteredScenarios.upcomingScenarios}
+                allScenarios={memoizedFilteredScenarios.allScenarios}
                 onCardClick={handleCardClick}
                 isFavorite={isFavorite}
                 onToggleFavorite={handleToggleFavorite}
