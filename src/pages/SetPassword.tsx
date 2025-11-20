@@ -74,20 +74,20 @@ export function SetPassword() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
         <Card className="w-full max-w-md">
-          <CardHeader>
-            <div className="flex justify-center mb-4">
-              <CheckCircle className="h-16 w-16 text-green-600" />
+          <CardHeader className="px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-6">
+            <div className="flex justify-center mb-3 sm:mb-4">
+              <CheckCircle className="h-12 w-12 sm:h-16 sm:w-16 text-green-600" />
             </div>
-            <CardTitle className="text-center">パスワードの設定が完了しました！</CardTitle>
-            <CardDescription className="text-center">
+            <CardTitle className="text-center text-xl sm:text-2xl">パスワードの設定が完了しました！</CardTitle>
+            <CardDescription className="text-center text-sm sm:text-base mt-2">
               3秒後にログイン画面に移動します...
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
             <Button
-              className="w-full"
+              className="w-full h-10 sm:h-11 text-sm sm:text-base"
               onClick={() => window.location.hash = '#login'}
             >
               今すぐログイン
@@ -99,28 +99,28 @@ export function SetPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <div className="flex justify-center mb-4">
-            <Lock className="h-12 w-12 text-blue-600" />
+        <CardHeader className="px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-6">
+          <div className="flex justify-center mb-3 sm:mb-4">
+            <Lock className="h-10 w-10 sm:h-12 sm:w-12 text-blue-600" />
           </div>
-          <CardTitle className="text-center">パスワードを設定</CardTitle>
-          <CardDescription className="text-center">
+          <CardTitle className="text-center text-xl sm:text-2xl">パスワードを設定</CardTitle>
+          <CardDescription className="text-center text-sm sm:text-base mt-2">
             新しいパスワードを設定してアカウントをアクティブ化します
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSetPassword} className="space-y-4">
+        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
+          <form onSubmit={handleSetPassword} className="space-y-4 sm:space-y-5">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-800">{error}</p>
+                <p className="text-sm sm:text-base text-red-800">{error}</p>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="password">新しいパスワード</Label>
+              <Label htmlFor="password" className="text-sm sm:text-base font-medium">新しいパスワード</Label>
               <Input
                 id="password"
                 type="password"
@@ -130,14 +130,15 @@ export function SetPassword() {
                 minLength={6}
                 placeholder="6文字以上"
                 disabled={loading}
+                className="text-sm sm:text-base"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 パスワードは6文字以上で設定してください
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">パスワード確認</Label>
+              <Label htmlFor="confirm-password" className="text-sm sm:text-base font-medium">パスワード確認</Label>
               <Input
                 id="confirm-password"
                 type="password"
@@ -147,12 +148,13 @@ export function SetPassword() {
                 minLength={6}
                 placeholder="もう一度入力"
                 disabled={loading}
+                className="text-sm sm:text-base"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-10 sm:h-11 text-sm sm:text-base"
               disabled={loading}
             >
               {loading ? (
