@@ -66,7 +66,21 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
   // 初期データロード
   useEffect(() => {
-    loadData()
+    const pageLoadStart = performance.now()
+    console.log('🚀 PublicBookingTop ページロード開始:', new Date().toISOString())
+    
+    loadData().then(() => {
+      const pageLoadEnd = performance.now()
+      console.log(`⏱️ PublicBookingTop データ取得完了: ${((pageLoadEnd - pageLoadStart) / 1000).toFixed(2)}秒`)
+      
+      // レンダリング完了を待つ
+      setTimeout(() => {
+        const renderEnd = performance.now()
+        console.log(`⏱️ PublicBookingTop レンダリング完了: ${((renderEnd - pageLoadStart) / 1000).toFixed(2)}秒`)
+      }, 0)
+    }).catch((error) => {
+      console.error('❌ PublicBookingTop データ取得エラー:', error)
+    })
   }, [loadData])
 
   // タブ変更時にURLハッシュを更新（メモ化）
