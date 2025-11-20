@@ -63,7 +63,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
                   <span className="font-medium text-white">
                     {scenario.participation_fee ? `¥${scenario.participation_fee.toLocaleString()}〜` : '¥3,000〜'}
                   </span>
-                </div>
+                  </div>
               </div>
             </div>
 

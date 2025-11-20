@@ -306,13 +306,13 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                         mode="private"
                       />
                     )}
-                    <PrivateBookingPanel
-                      participationFee={scenario.participation_fee}
-                      maxParticipants={scenario.player_count_max}
-                      selectedTimeSlotsCount={selectedTimeSlots.length}
-                      isLoggedIn={!!user}
-                      onRequestBooking={() => handlePrivateBookingRequest(!!user)}
-                    />
+                  <PrivateBookingPanel
+                    participationFee={scenario.participation_fee}
+                    maxParticipants={scenario.player_count_max}
+                    selectedTimeSlotsCount={selectedTimeSlots.length}
+                    isLoggedIn={!!user}
+                    onRequestBooking={() => handlePrivateBookingRequest(!!user)}
+                  />
                   </>
                 )}
               </div>

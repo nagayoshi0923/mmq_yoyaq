@@ -264,6 +264,7 @@ export function useBookingData() {
       
       const scenarioList = Array.from(scenarioMap.values())
       
+      // データを先に設定
       setScenarios(scenarioList)
       setAllEvents(publicEvents) // カレンダー用に全公演データを保存
       setStores(storesData) // 店舗データを保存
@@ -273,8 +274,10 @@ export function useBookingData() {
       logger.log(`📊 予約サイトデータ取得完了: ${scenarioList.length}件のシナリオ, ${publicEvents.length}件の公演`)
       logger.log(`⏱️ 総処理時間: ${(totalTime / 1000).toFixed(2)}秒`)
       
-      // パフォーマンス最適化: ローディングをすぐに解除（レンダリングをブロックしない）
-      setIsLoading(false)
+      // パフォーマンス最適化: ローディングを非同期で解除（レンダリングをブロックしない）
+      setTimeout(() => {
+        setIsLoading(false)
+      }, 0)
       
       if (totalTime > 3000) {
         logger.warn(`⚠️ 処理時間が3秒を超えています: ${(totalTime / 1000).toFixed(2)}秒`)

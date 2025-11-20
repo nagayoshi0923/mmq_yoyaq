@@ -150,8 +150,8 @@ export const ListView = memo(function ListView({
             {/* 右カラム: 情報 */}
             <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
               <div className="font-semibold text-[10px] sm:text-[12px] md:text-[14px] leading-tight text-left" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
-                {event.start_time?.slice(0, 5)}
-              </div>
+                  {event.start_time?.slice(0, 5)}
+                </div>
               <div className={`text-[10px] sm:text-[12px] md:text-[14px] font-medium leading-tight text-left truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
                 {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
               </div>
@@ -179,8 +179,8 @@ export const ListView = memo(function ListView({
       {/* リスト表示テーブル */}
       <div className="overflow-x-auto -mx-2 sm:mx-0">
         <Table className="sm:min-w-max" style={{ tableLayout: 'fixed', width: isMobile ? '100%' : 'auto' }}>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
+        <TableHeader>
+          <TableRow className="bg-muted/50">
               <TableHead className="hidden sm:table-cell w-24 border-r text-sm">日付</TableHead>
               <TableHead className="border-r text-xs sm:text-sm" style={{ width: isMobile ? '10px' : '60px', minWidth: isMobile ? '10px' : '60px', maxWidth: isMobile ? '10px' : '60px', flexShrink: 0 }}>
                 会場
@@ -197,8 +197,8 @@ export const ListView = memo(function ListView({
                 <span className="sm:hidden">夜間</span>
                 <span className="hidden sm:inline">夜間 (18:00~)</span>
               </TableHead>
-            </TableRow>
-          </TableHeader>
+          </TableRow>
+        </TableHeader>
         <TableBody>
           {listViewData.map(({ date, store }, index) => {
             const events = getEventsForDateStore(date, store.id)
@@ -245,27 +245,27 @@ export const ListView = memo(function ListView({
                   <TableRow className="sm:hidden bg-muted/30">
                     <TableCell colSpan={4} className={`text-left px-2 py-1.5 text-xs font-medium ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`}>
                       {listViewMonth.getMonth() + 1}/{date} ({dayOfWeek})
-                    </TableCell>
+                  </TableCell>
                   </TableRow>
                 )}
 
                 <TableRow key={`${date}-${store.id}`} className={isFirstRowOfDate && index !== 0 ? 'border-t-2 border-gray-300' : ''}>
                   {/* 日付・曜日セル（統合）- デスクトップのみ表示 */}
-                  {isFirstRowOfDate && (
+                {isFirstRowOfDate && (
                     <TableCell className={`hidden sm:table-cell schedule-table-cell border-r text-sm align-top w-24 ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={rowSpan}>
                       <div className="flex flex-col items-center">
                         <div className="font-medium">{listViewMonth.getMonth() + 1}/{date}</div>
                         <div className="text-[11px]">{dayOfWeek}</div>
                       </div>
-                    </TableCell>
-                  )}
+                  </TableCell>
+                )}
 
-                  {/* 店舗セル */}
+                {/* 店舗セル */}
                   <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-xs sm:text-sm" style={{ width: isMobile ? '10px' : '60px', minWidth: isMobile ? '10px' : '60px', maxWidth: isMobile ? '10px' : '60px', flexShrink: 0 }}>
                     <div className="font-medium leading-tight whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: getColorFromName(store.color) }}>
-                      {store.short_name || store.name}
-                    </div>
-                  </TableCell>
+                    {store.short_name || store.name}
+                  </div>
+                </TableCell>
 
                 {/* 午前セル */}
                 <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
@@ -292,7 +292,7 @@ export const ListView = memo(function ListView({
             )
           })}
         </TableBody>
-        </Table>
+      </Table>
       </div>
     </div>
   )

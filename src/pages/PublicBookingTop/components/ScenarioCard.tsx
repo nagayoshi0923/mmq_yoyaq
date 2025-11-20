@@ -16,7 +16,7 @@ interface ScenarioCardProps {
 /**
  * シナリオカード表示コンポーネント
  */
-export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFavorite = false, onToggleFavorite }: ScenarioCardProps) {
+function ScenarioCardComponent({ scenario, onClick, isFavorite = false, onToggleFavorite }: ScenarioCardProps) {
   const { prefetchScenario } = usePrefetch()
   
   const handleFavoriteClick = (e: React.MouseEvent) => {
@@ -184,6 +184,25 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         )}
       </CardContent>
     </Card>
+  )
+}
+
+// メモ化の比較関数（パフォーマンス最適化）
+export const ScenarioCard = memo(ScenarioCardComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.scenario.scenario_id === nextProps.scenario.scenario_id &&
+    prevProps.scenario.scenario_title === nextProps.scenario.scenario_title &&
+    prevProps.scenario.key_visual_url === nextProps.scenario.key_visual_url &&
+    prevProps.scenario.author === nextProps.scenario.author &&
+    prevProps.scenario.duration === nextProps.scenario.duration &&
+    prevProps.scenario.player_count_min === nextProps.scenario.player_count_min &&
+    prevProps.scenario.player_count_max === nextProps.scenario.player_count_max &&
+    prevProps.scenario.participation_fee === nextProps.scenario.participation_fee &&
+    prevProps.scenario.status === nextProps.scenario.status &&
+    prevProps.scenario.is_new === nextProps.scenario.is_new &&
+    prevProps.isFavorite === nextProps.isFavorite &&
+    prevProps.onClick === nextProps.onClick &&
+    prevProps.onToggleFavorite === nextProps.onToggleFavorite
   )
 })
 

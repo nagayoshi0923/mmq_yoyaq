@@ -55,8 +55,13 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   // お気に入り機能
   const { isFavorite, toggleFavorite } = useFavorites()
   
-  // フィルタリングフック
+  // フィルタリングフック（メモ化済み）
   const { filteredScenarios, newScenarios, upcomingScenarios, allScenarios } = useBookingFilters(scenarios, searchTerm)
+  
+  // パフォーマンス最適化: ローディング中は空配列を返す
+  const displayScenarios = isLoading ? [] : allScenarios
+  const displayNewScenarios = isLoading ? [] : newScenarios
+  const displayUpcomingScenarios = isLoading ? [] : upcomingScenarios
   
   // お気に入りトグルハンドラ（メモ化）
   const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {
@@ -109,10 +114,6 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     return '#4F46E5'
   }, [])
 
-  // メモ化: フィルタリング結果をキャッシュ
-  const memoizedFilteredScenarios = useMemo(() => {
-    return { filteredScenarios, newScenarios, upcomingScenarios, allScenarios }
-  }, [filteredScenarios, newScenarios, upcomingScenarios, allScenarios])
 
   return (
     <div className="min-h-screen bg-background">
@@ -169,9 +170,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             {/* ラインナップ表示 */}
             <TabsContent value="lineup">
               <LineupView
-                newScenarios={memoizedFilteredScenarios.newScenarios}
-                upcomingScenarios={memoizedFilteredScenarios.upcomingScenarios}
-                allScenarios={memoizedFilteredScenarios.allScenarios}
+                newScenarios={displayNewScenarios}
+                upcomingScenarios={displayUpcomingScenarios}
+                allScenarios={displayScenarios}
                 onCardClick={handleCardClick}
                 isFavorite={isFavorite}
                 onToggleFavorite={handleToggleFavorite}

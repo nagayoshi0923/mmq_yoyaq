@@ -129,23 +129,23 @@ export const DataTable = memo(function DataTable<T>({
     <div className="border border-gray-300 rounded overflow-x-auto -mx-2 sm:mx-0">
       {/* ヘッダー行 */}
       <div className="flex items-center h-[40px] bg-gray-100 border-b border-gray-300">
-        {columns.map((column) => (
-          <div
-            key={column.key}
+            {columns.map((column) => (
+              <div
+                key={column.key}
             className={`flex-shrink-0 ${column.width} px-3 py-2 border-r border-gray-300 font-medium text-sm ${
               column.sortable ? 'cursor-pointer hover:bg-gray-200' : ''
-            } ${column.headerClassName || ''}`}
-            onClick={() => handleHeaderClick(column)}
-          >
-            {column.renderHeader ? column.renderHeader() : (
-              <>
-                {column.label}
-                {column.sortable && getSortIcon(column.key)}
-              </>
-            )}
+                } ${column.headerClassName || ''}`}
+                onClick={() => handleHeaderClick(column)}
+              >
+                {column.renderHeader ? column.renderHeader() : (
+                  <>
+                    {column.label}
+                    {column.sortable && getSortIcon(column.key)}
+                  </>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
       {/* データ行 */}
       {data.length > 0 ? (
@@ -157,20 +157,20 @@ export const DataTable = memo(function DataTable<T>({
                 index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
               }`}
             >
-              {columns.map((column) => (
-                <div
-                  key={column.key}
+                  {columns.map((column) => (
+                    <div
+                      key={column.key}
                   className={`flex-shrink-0 ${column.width} px-3 py-2 border-r border-gray-200 text-sm ${column.cellClassName || ''}`}
-                >
-                  {column.render(item)}
+                    >
+                      {column.render(item)}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
           ))}
         </div>
       ) : (
         <div className="py-12 text-center text-muted-foreground">
-          {emptyMessage}
+            {emptyMessage}
         </div>
       )}
     </div>

@@ -84,7 +84,7 @@ export function ShiftSubmission() {
     [handleShiftChange, handleSelectAll, handleDeselectAll]
   )
 
-  return (
+        return (
     <AppLayout
       currentPage="shift-submission"
       sidebar={undefined}
@@ -92,48 +92,48 @@ export function ShiftSubmission() {
       containerPadding="px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        {/* ヘッダー */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-          <div>
-            <h2 className="text-lg sm:text-xl md:text-2xl font-bold">シフト提出 - {formatMonthYear()}</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              出勤可能な時間帯にチェックを入れてください
-            </p>
+          <div className="space-y-3 sm:space-y-4 md:space-y-6">
+            {/* ヘッダー */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+              <div>
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold">シフト提出 - {formatMonthYear()}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                  出勤可能な時間帯にチェックを入れてください
+                </p>
+              </div>
+              <MonthSwitcher
+                value={currentDate}
+                onChange={setCurrentDate}
+                showToday
+                quickJump
+              />
+            </div>
+
+            {/* シフト提出ボタン（モバイル用・固定表示） */}
+            <div className="sm:hidden sticky top-0 z-50 bg-background pb-2 mb-2">
+              <Button 
+                onClick={handleSubmitShift} 
+                disabled={loading}
+                size="sm"
+                className="w-full text-xs shadow-lg"
+              >
+                {loading ? '送信中...' : 'シフトを提出'}
+              </Button>
+            </div>
+
+            {/* テーブル */}
+            <div className="relative">
+              <TanStackDataTable
+                data={tableData}
+                columns={tableColumns}
+                getRowKey={(row) => row.dayInfo.date}
+                emptyMessage="シフトデータがありません"
+                loading={loading}
+                stickyHeader={true}
+                stickyHeaderContent={undefined}
+              />
+            </div>
           </div>
-          <MonthSwitcher
-            value={currentDate}
-            onChange={setCurrentDate}
-            showToday
-            quickJump
-          />
-        </div>
-
-        {/* シフト提出ボタン（モバイル用・固定表示） */}
-        <div className="sm:hidden sticky top-0 z-50 bg-background pb-2 mb-2">
-          <Button 
-            onClick={handleSubmitShift} 
-            disabled={loading}
-            size="sm"
-            className="w-full text-xs shadow-lg"
-          >
-            {loading ? '送信中...' : 'シフトを提出'}
-          </Button>
-        </div>
-
-        {/* テーブル */}
-        <div className="relative">
-          <TanStackDataTable
-            data={tableData}
-            columns={tableColumns}
-            getRowKey={(row) => row.dayInfo.date}
-            emptyMessage="シフトデータがありません"
-            loading={loading}
-            stickyHeader={true}
-            stickyHeaderContent={undefined}
-          />
-        </div>
-      </div>
     </AppLayout>
   )
 }

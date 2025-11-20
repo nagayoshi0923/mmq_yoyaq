@@ -105,7 +105,7 @@ export function ScheduleTable({
                   {storeIndex === 0 ? (
                     <TableCell className="schedule-table-cell border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 leading-none text-center align-middle" rowSpan={stores.length}>
                       <div className="flex items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px]">
-                        {day.displayDate}
+                      {day.displayDate}
                       </div>
                     </TableCell>
                   ) : null}
@@ -114,7 +114,7 @@ export function ScheduleTable({
                   {storeIndex === 0 ? (
                     <TableCell className={`schedule-table-cell border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
                       <div className="flex items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px]">
-                        {day.dayOfWeek}
+                      {day.dayOfWeek}
                       </div>
                     </TableCell>
                   ) : null}
