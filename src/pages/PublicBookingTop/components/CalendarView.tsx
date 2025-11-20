@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { formatDateJST } from '@/utils/dateUtils'
 import { BookingFilters } from './BookingFilters'
 
@@ -37,6 +37,18 @@ export const CalendarView = memo(function CalendarView({
   getStoreName,
   getStoreColor
 }: CalendarViewProps) {
+  // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
+  const scenarioMap = useMemo(() => {
+    const map = new Map<string, any>()
+    scenarios.forEach(scenario => {
+      map.set(scenario.scenario_id, scenario)
+      if (scenario.scenario_title) {
+        map.set(scenario.scenario_title, scenario)
+      }
+    })
+    return map
+  }, [scenarios])
+
   return (
     <div>
       {/* 月ナビゲーション + 店舗フィルター（1行に配置） */}
@@ -126,10 +138,13 @@ export const CalendarView = memo(function CalendarView({
                         key={idx}
                         onClick={() => {
                           if (!isPrivateBooking) {
-                            const scenario = scenarios.find(s => 
-                              s.scenario_id === event.scenario_id || 
-                              s.scenario_title === event.scenario
-                            )
+                            // 最適化: Mapから直接取得（O(1)）
+                            const scenario = scenarioMap.get(event.scenario_id) || 
+                                           scenarioMap.get(event.scenario) ||
+                                           scenarios.find(s => 
+                                             s.scenario_id === event.scenario_id || 
+                                             s.scenario_title === event.scenario
+                                           )
                             if (scenario) onCardClick(scenario.scenario_id)
                           }
                         }}

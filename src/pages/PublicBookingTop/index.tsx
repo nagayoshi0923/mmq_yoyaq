@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
@@ -58,19 +58,19 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   // フィルタリングフック
   const { filteredScenarios, newScenarios, upcomingScenarios, allScenarios } = useBookingFilters(scenarios, searchTerm)
   
-  // お気に入りトグルハンドラ
-  const handleToggleFavorite = (scenarioId: string, e: React.MouseEvent) => {
+  // お気に入りトグルハンドラ（メモ化）
+  const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     toggleFavorite(scenarioId)
-  }
+  }, [toggleFavorite])
 
   // 初期データロード
   useEffect(() => {
     loadData()
   }, [loadData])
 
-  // タブ変更時にURLハッシュを更新
-  const handleTabChange = (value: string) => {
+  // タブ変更時にURLハッシュを更新（メモ化）
+  const handleTabChange = useCallback((value: string) => {
     setActiveTab(value)
     if (value === 'calendar') {
       window.location.hash = 'customer-booking/calendar'
@@ -79,27 +79,27 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     } else {
       window.location.hash = 'customer-booking'
     }
-  }
+  }, [])
 
-  // シナリオカードクリック
-  const handleCardClick = (scenarioId: string) => {
+  // シナリオカードクリック（メモ化）
+  const handleCardClick = useCallback((scenarioId: string) => {
     if (onScenarioSelect) {
       onScenarioSelect(scenarioId)
     } else {
       window.location.hash = `scenario-detail/${scenarioId}`
     }
-  }
+  }, [onScenarioSelect])
 
-  // 店舗名取得
-  const getStoreName = (event: any): string => {
+  // 店舗名取得（メモ化）
+  const getStoreName = useCallback((event: any): string => {
     if (event.stores) {
       return event.stores.short_name || event.stores.name || '店舗不明'
     }
     return event.store_name || event.store_short_name || '店舗不明'
-  }
+  }, [])
 
-  // 店舗カラー取得
-  const getStoreColor = (event: any): string => {
+  // 店舗カラー取得（メモ化）
+  const getStoreColor = useCallback((event: any): string => {
     if (event.stores?.color) {
       return getColorFromName(event.stores.color)
     }
@@ -107,7 +107,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       return getColorFromName(event.store_color)
     }
     return '#4F46E5'
-  }
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">

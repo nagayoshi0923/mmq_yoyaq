@@ -1,5 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { memo, useState, useEffect } from 'react'
+import { memo, useState, useEffect, useMemo } from 'react'
 import { BookingFilters } from './BookingFilters'
 
 interface ListViewData {
@@ -46,6 +46,18 @@ export const ListView = memo(function ListView({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
+  const scenarioMap = useMemo(() => {
+    const map = new Map<string, any>()
+    scenarios.forEach(scenario => {
+      map.set(scenario.scenario_id, scenario)
+      if (scenario.scenario_title) {
+        map.set(scenario.scenario_title, scenario)
+      }
+    })
+    return map
+  }, [scenarios])
+
   const renderEventCell = (events: any[], store: any, timeSlot: string) => {
     if (events.length === 0) {
       return (
@@ -70,12 +82,15 @@ export const ListView = memo(function ListView({
       const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
       const storeColor = getColorFromName(store.color)
       
-      // シナリオ情報を取得
-      const scenario = scenarios.find((s: any) =>
-        s.scenario_id === event.scenario_id ||
-        s.scenario_title === event.scenario ||
-        s.scenario_id === event.scenarios?.id
-      )
+      // シナリオ情報を取得（最適化: Mapから直接取得）
+      const scenario = scenarioMap.get(event.scenario_id) || 
+                       scenarioMap.get(event.scenario) ||
+                       scenarioMap.get(event.scenarios?.id) ||
+                       scenarios.find((s: any) =>
+                         s.scenario_id === event.scenario_id ||
+                         s.scenario_title === event.scenario ||
+                         s.scenario_id === event.scenarios?.id
+                       )
       const imageUrl = scenario?.key_visual_url || event.scenarios?.image_url || event.scenarios?.key_visual_url
 
       return (

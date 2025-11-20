@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 const FAVORITES_KEY = 'scenario_favorites'
 
@@ -20,7 +20,7 @@ export function useFavorites() {
     }
   }, [favorites])
 
-  const toggleFavorite = (scenarioId: string) => {
+  const toggleFavorite = useCallback((scenarioId: string) => {
     setFavorites(prev => {
       const newFavorites = new Set(prev)
       if (newFavorites.has(scenarioId)) {
@@ -30,9 +30,9 @@ export function useFavorites() {
       }
       return newFavorites
     })
-  }
+  }, [])
 
-  const isFavorite = (scenarioId: string) => favorites.has(scenarioId)
+  const isFavorite = useCallback((scenarioId: string) => favorites.has(scenarioId), [favorites])
 
   return {
     favorites,
