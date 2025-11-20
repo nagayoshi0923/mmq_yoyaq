@@ -14,6 +14,10 @@ export default {
       spacing: {
         'safe': 'max(0.75rem, env(safe-area-inset-left))',
       },
+      // グローバルスペーシング拡張（ブレークポイント対応）
+      inset: {
+        'full': '100%',
+      },
       fontSize: {
         // グローバル文字サイズ（xs/375→sm/640→md/768→lg/1024→xl/1280→2xl/1536）
         // PC(xl/1280px)を基準に逆算、モバイルファースト
@@ -109,6 +113,38 @@ export default {
         'compact': '1',                                                     // 圧縮
         'relaxed': '1.5',                                                   // ゆったり
       },
+      maxWidth: {
+        // グローバル最大幅（コンテナ）
+        'container-default': ['100%', '100%', '100%', '1024px', '1280px', '1536px'], // ページ最大幅
+      },
+      minHeight: {
+        // グローバル最小高さ（ボタン等）
+        'button-default': ['32px', '32px', '36px', '40px', '40px', '40px'],  // ボタンデフォルト
+        'input-default': ['32px', '32px', '36px', '40px', '40px', '40px'],   // 入力フィールド
+      },
+      boxShadow: {
+        // グローバルシャドウ
+        'default': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',                       // 薄い影
+        'md': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)', // 中
+        'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)', // 大
+      },
+      transition: {
+        // グローバルトランジション
+        'default': 'all 0.2s ease-in-out',                                 // デフォルト
+        'fast': 'all 0.15s ease-in-out',                                    // 高速
+        'slow': 'all 0.3s ease-in-out',                                     // 低速
+      },
+      opacity: {
+        // グローバル透明度（よく使うもの）
+        '5': '0.05',
+        '10': '0.1',
+        '15': '0.15',
+        '25': '0.25',
+        '50': '0.5',
+        '75': '0.75',
+        '90': '0.9',
+        '95': '0.95',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -142,6 +178,13 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        // グローバルカラー（ステータス・バッジ用）
+        'status': {
+          'success': '#16a34a',      // 緑
+          'warning': '#ea580c',      // オレンジ
+          'error': '#dc2626',        // 赤
+          'info': '#0284c7',         // 青
         },
       },
       borderRadius: {
