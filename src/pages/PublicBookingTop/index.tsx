@@ -118,7 +118,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-12">
+        <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-8 sm:py-12">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-4">Murder Mystery Quest</h1>
           <p className="text-sm sm:text-base md:text-lg text-purple-100">
             リアルな謎解き体験。あなたは事件の真相を暴けるか？
@@ -128,12 +128,12 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       {/* 検索バー */}
       <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-2 sm:py-3">
+        <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-2 sm:py-3">
           <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-4 sm:py-6">
+      <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-4 sm:py-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-sm sm:text-base text-muted-foreground">読み込み中...</p>
