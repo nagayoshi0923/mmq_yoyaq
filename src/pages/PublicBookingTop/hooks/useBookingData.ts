@@ -12,6 +12,7 @@ export interface ScenarioCard {
   player_count_min: number
   player_count_max: number
   genre: string[]
+  participation_fee?: number
   next_events?: Array<{
     date: string
     time?: string
@@ -244,6 +245,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
               player_count_min: scenario.player_count_min,
               player_count_max: scenario.player_count_max,
               genre: scenario.genre || [],
+              participation_fee: scenario.participation_fee || 3000,
               next_events: nextEvents,
               total_events_count: targetEvents.length, // 次回公演の総数（満席も含む）
               status: status,
@@ -260,6 +262,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
               player_count_min: scenario.player_count_min,
               player_count_max: scenario.player_count_max,
               genre: scenario.genre || [],
+              participation_fee: scenario.participation_fee || 3000,
               status: 'private_booking', // 公演予定なしは「貸切受付中」
               is_new: isNew
             })
@@ -275,6 +278,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
             player_count_min: scenario.player_count_min,
             player_count_max: scenario.player_count_max,
             genre: scenario.genre || [],
+            participation_fee: scenario.participation_fee || 3000,
             status: 'private_booking', // 公演予定なしは「貸切受付中」
             is_new: isNew
           })

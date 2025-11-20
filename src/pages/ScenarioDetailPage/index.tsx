@@ -24,7 +24,6 @@ import { BookingPanel } from './components/BookingPanel'
 import { PrivateBookingPanel } from './components/PrivateBookingPanel'
 import { BookingNotice } from './components/BookingNotice'
 import { VenueAccess } from './components/VenueAccess'
-import { ScenarioAbout } from './components/ScenarioAbout'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -192,15 +191,12 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         </div>
       </div>
 
-      {/* ヒーローセクション */}
-      <ScenarioHero scenario={scenario} />
-
       {/* メインコンテンツ */}
       <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-4 sm:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-          {/* 左メインエリア - 詳細情報 */}
+          {/* メインエリア - 詳細情報 */}
           <div className="lg:col-span-8 space-y-4 sm:space-y-6">
-            <ScenarioAbout scenario={scenario} />
+            <ScenarioHero scenario={scenario} events={events} />
             <BookingNotice 
               reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
               hasPreReading={scenario.has_pre_reading}

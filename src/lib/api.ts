@@ -227,8 +227,9 @@ export const scenarioApi = {
   async getPublic(): Promise<Partial<Scenario>[]> {
     const { data, error } = await supabase
       .from('scenarios')
-      .select('id, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status')
+      .select('id, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type')
       .eq('status', 'available')
+      .neq('scenario_type', 'gm_test') // GMテストを除外
       .order('title', { ascending: true })
     
     if (error) throw error

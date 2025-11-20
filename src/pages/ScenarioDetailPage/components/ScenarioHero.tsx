@@ -2,17 +2,19 @@ import { memo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { Clock, Users, Star, ExternalLink } from 'lucide-react'
-import type { ScenarioDetail } from '../utils/types'
+import { Clock, Users, ExternalLink } from 'lucide-react'
+import type { ScenarioDetail, EventSchedule } from '../utils/types'
+import { formatDuration, formatPlayerCount } from '../utils/formatters'
 
 interface ScenarioHeroProps {
   scenario: ScenarioDetail
+  events?: EventSchedule[]
 }
 
 /**
  * シナリオヒーローセクション（キービジュアル + タイトル + 基本情報）
  */
-export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHeroProps) {
+export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }: ScenarioHeroProps) {
   return (
     <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white">
       <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-6 sm:py-8">
@@ -49,20 +51,19 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario }: ScenarioHer
               <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
                 <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
                   <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="font-medium">{scenario.player_count_min}〜{scenario.player_count_max}人</span>
+                  <span className="font-medium">{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</span>
                 </div>
                 
                 <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
                   <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="font-medium">{(scenario.duration / 60).toFixed(1)}h</span>
+                  <span className="font-medium">{formatDuration(scenario.duration, 'minutes')}</span>
                 </div>
                 
-                {scenario.rating && (
-                  <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
-                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-medium">{scenario.rating.toFixed(1)}</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
+                  <span className="font-medium text-white">
+                    {scenario.participation_fee ? `¥${scenario.participation_fee.toLocaleString()}〜` : '¥3,000〜'}
+                  </span>
+                </div>
               </div>
             </div>
 

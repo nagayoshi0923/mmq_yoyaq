@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Users } from 'lucide-react'
 import type { ScenarioDetail } from '../utils/types'
+import { formatDuration, formatPlayerCount } from '../utils/formatters'
 
 interface ScenarioAboutProps {
   scenario: ScenarioDetail
@@ -19,11 +20,11 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
             <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm flex-wrap">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
-                <span>{scenario.player_count_min}〜{scenario.player_count_max}人</span>
+                <span>{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</span>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
-                <span>{(scenario.duration / 60).toFixed(1)}時間</span>
+                <span>{formatDuration(scenario.duration, 'minutes')}</span>
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5 sm:gap-2">
