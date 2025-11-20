@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
@@ -195,10 +195,11 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
           
           // 最大3つまで選択（満席も含む）
           const nextEvents = sortedEvents.slice(0, 3).map((event: any) => {
-            // 最適化: Mapから直接取得（O(1)）
+            // 最適化: Mapから直接取得（O(1)）- find()を完全に排除
             const store = storeMap.get(event.venue) || 
                          storeMap.get(event.store_id) ||
-                         storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue || s.id === event.store_id)
+                         storeMap.get(event.store_short_name) ||
+                         null
             
             // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
             const scenarioMaxPlayers = event.scenarios?.player_count_max
@@ -291,20 +292,28 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       
       const scenarioList = Array.from(scenarioMap.values())
       
-      // データを先に設定
-      setScenarios(scenarioList)
-      setAllEvents(publicEvents) // カレンダー用に全公演データを保存
-      setStores(storesData) // 店舗データを保存
-      
       const totalTime = performance.now() - startTime
       // パフォーマンスログ
       logger.log(`📊 予約サイトデータ取得完了: ${scenarioList.length}件のシナリオ, ${publicEvents.length}件の公演`)
       logger.log(`⏱️ 総処理時間: ${(totalTime / 1000).toFixed(2)}秒`)
       
-      // パフォーマンス最適化: ローディングを非同期で解除（レンダリングをブロックしない）
-      setTimeout(() => {
-        setIsLoading(false)
-      }, 0)
+      // パフォーマンス最適化: データ設定とローディング解除を非同期で実行（レンダリングをブロックしない）
+      // requestIdleCallback が使える場合はそれを使い、使えない場合は setTimeout
+      if (window.requestIdleCallback) {
+        requestIdleCallback(() => {
+          setScenarios(scenarioList)
+          setAllEvents(publicEvents)
+          setStores(storesData)
+          setIsLoading(false)
+        }, { timeout: 100 })
+      } else {
+        setTimeout(() => {
+          setScenarios(scenarioList)
+          setAllEvents(publicEvents)
+          setStores(storesData)
+          setIsLoading(false)
+        }, 0)
+      }
       
       if (totalTime > 3000) {
         logger.warn(`⚠️ 処理時間が3秒を超えています: ${(totalTime / 1000).toFixed(2)}秒`)
