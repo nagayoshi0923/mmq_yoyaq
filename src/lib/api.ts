@@ -231,6 +231,7 @@ export const scenarioApi = {
       .eq('status', 'available')
       .neq('scenario_type', 'gm_test') // GMテストを除外
       .order('title', { ascending: true })
+      .limit(100) // パフォーマンス最適化: 最大100件に制限
     
     if (error) throw error
     return data || []
@@ -824,20 +825,8 @@ export const scheduleApi = {
         }
       }
       
-      // schedule_eventsのcurrent_participantsが実際の値と異なる場合は更新（非同期で実行、エラーは無視）
-      if (event.current_participants !== actualParticipants) {
-        // 非同期で更新（ブロックしない）
-        Promise.resolve(supabase
-          .from('schedule_events')
-          .update({ current_participants: actualParticipants })
-          .eq('id', event.id))
-          .then(() => {
-            console.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
-          })
-          .catch((error) => {
-            console.error('参加者数の同期に失敗:', error)
-          })
-      }
+      // パフォーマンス最適化: current_participantsの更新は削除（ブロッキングを避ける）
+      // 必要に応じて別途バッチ処理で更新する
       
       // max_participantsを設定: scenarios.player_count_maxを最優先に使用（常に最新の値）
       // scenariosはSupabaseのJOINでオブジェクトとして返される（1対1リレーションの場合）

@@ -15,8 +15,8 @@ interface LineupViewProps {
 /**
  * ラインナップビューコンポーネント
  */
-const INITIAL_DISPLAY_COUNT = 10
-const LOAD_MORE_COUNT = 10
+const INITIAL_DISPLAY_COUNT = 5
+const LOAD_MORE_COUNT = 5
 
 export const LineupView = memo(function LineupView({
   newScenarios,

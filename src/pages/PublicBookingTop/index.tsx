@@ -141,11 +141,11 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-4 sm:py-6">
         {isLoading ? (
           <div className="space-y-6 sm:space-y-8">
-            {/* スケルトンローディング */}
+            {/* スケルトンローディング（軽量化） */}
             <div>
               <div className="h-7 w-48 bg-gray-200 rounded mb-3 sm:mb-4 animate-pulse"></div>
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
-                {[...Array(10)].map((_, i) => (
+                {[...Array(5)].map((_, i) => (
                   <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
                     <div className="aspect-[1/1.4] bg-gray-200 animate-pulse"></div>
                     <div className="p-2 sm:p-2.5 md:p-3 space-y-2">

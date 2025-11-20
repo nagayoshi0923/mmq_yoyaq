@@ -63,6 +63,7 @@ export function useBookingData() {
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true)
+      const startTime = performance.now()
       
       // 初期表示パフォーマンス最適化: 最初の1ヶ月のみ取得
       // （ユーザーが操作で追加の月を読み込むようにする）
@@ -72,9 +73,13 @@ export function useBookingData() {
       // 現在の月のみ取得（1ヶ月分）- パフォーマンス最適化
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth() + 1
+      
+      const apiStartTime = performance.now()
       monthPromises.push(scheduleApi.getByMonth(year, month))
+      logger.log(`⏱️ API呼び出し開始: ${((performance.now() - apiStartTime).toFixed(2))}ms`)
 
       // すべてのデータを並列取得（最適化: getPublic()を使用）
+      const fetchStartTime = performance.now()
       const [scenariosData, storesDataResult, ...monthResults] = await Promise.all([
         scenarioApi.getPublic(), // status='available'のみ、必要なフィールドのみ取得
         storeApi.getAll().catch((error) => {
@@ -83,9 +88,12 @@ export function useBookingData() {
         }),
         ...monthPromises
       ])
+      const fetchEndTime = performance.now()
+      logger.log(`⏱️ データ取得完了: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
       
       const storesData = storesDataResult || []
       const allEventsData = monthResults.flat()
+      logger.log(`📊 取得データ: シナリオ${scenariosData.length}件, 店舗${storesData.length}件, 公演${allEventsData.length}件`)
       
       // 今日の日付を一度だけ計算（フィルタリング前に計算）
       const today = new Date()
@@ -251,14 +259,26 @@ export function useBookingData() {
         }
       })
       
+      const processEndTime = performance.now()
+      logger.log(`⏱️ データ処理完了: ${((processEndTime - fetchEndTime) / 1000).toFixed(2)}秒`)
+      
       const scenarioList = Array.from(scenarioMap.values())
       
       setScenarios(scenarioList)
       setAllEvents(publicEvents) // カレンダー用に全公演データを保存
       setStores(storesData) // 店舗データを保存
       
+      const totalTime = performance.now() - startTime
       // パフォーマンスログ
       logger.log(`📊 予約サイトデータ取得完了: ${scenarioList.length}件のシナリオ, ${publicEvents.length}件の公演`)
+      logger.log(`⏱️ 総処理時間: ${(totalTime / 1000).toFixed(2)}秒`)
+      
+      // パフォーマンス最適化: ローディングをすぐに解除（レンダリングをブロックしない）
+      setIsLoading(false)
+      
+      if (totalTime > 3000) {
+        logger.warn(`⚠️ 処理時間が3秒を超えています: ${(totalTime / 1000).toFixed(2)}秒`)
+      }
 
       // デバッグ: データがない場合の警告
       if (scenarioList.length === 0) {
@@ -271,7 +291,6 @@ export function useBookingData() {
       }
     } catch (error) {
       logger.error('データの読み込みエラー:', error)
-    } finally {
       setIsLoading(false)
     }
   }, [])
