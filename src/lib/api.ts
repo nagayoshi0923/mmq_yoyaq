@@ -730,11 +730,24 @@ export const scheduleApi = {
     const lastDay = new Date(year, month, 0).getDate() // monthは1-12なので、翌月の0日目=当月末日
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     
-    // 通常公演を取得
+    // 通常公演を取得（必要なフィールドのみ取得してパフォーマンス最適化）
     const { data: scheduleEvents, error } = await supabase
       .from('schedule_events')
       .select(`
-        *,
+        id,
+        date,
+        start_time,
+        end_time,
+        scenario_id,
+        store_id,
+        venue,
+        category,
+        is_cancelled,
+        is_reservation_enabled,
+        current_participants,
+        max_participants,
+        capacity,
+        time_slot,
         stores:store_id (
           id,
           name,

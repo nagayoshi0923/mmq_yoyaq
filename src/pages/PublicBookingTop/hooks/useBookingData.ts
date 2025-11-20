@@ -94,9 +94,20 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       const storesData = storesDataResult || []
       const allEventsData = monthResults.flat()
       
+      // 今日の日付を一度だけ計算（フィルタリング前に計算）
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const todayJST = formatDateJST(today)
+      const todayTimestamp = today.getTime()
+      
       // 予約可能な公演 + 確定貸切公演をフィルタリング
+      // 最適化: 過去の公演は除外してメモリ使用量を削減
       const publicEvents = allEventsData.filter((event: any) => {
         const isNotCancelled = !event.is_cancelled
+        
+        // 過去の公演は除外（メモリ最適化）
+        const isFuture = event.date >= todayJST
+        if (!isFuture) return false
         
         // 通常公演: category='open' かつ is_reservation_enabled=true
         const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open')
@@ -116,54 +127,59 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       })
       
       // 最適化: イベントをシナリオIDでインデックス化（O(1)アクセス）
-      const eventsByScenarioId = new Map<string, any[]>()
-      const eventsByScenarioTitle = new Map<string, any[]>()
+      // 重複を避けるため、SetでイベントIDを管理
+      const eventsByScenarioId = new Map<string, Map<string, any>>()
       
       publicEvents.forEach((event: any) => {
-        // scenario_idでインデックス化
+        // scenario_idでインデックス化（優先）
         const scenarioId = event.scenario_id || event.scenarios?.id
         if (scenarioId) {
           if (!eventsByScenarioId.has(scenarioId)) {
-            eventsByScenarioId.set(scenarioId, [])
+            eventsByScenarioId.set(scenarioId, new Map())
           }
-          eventsByScenarioId.get(scenarioId)!.push(event)
-        }
-        
-        // タイトルでインデックス化（フォールバック用）
-        const scenarioTitle = event.scenario || event.scenarios?.title
-        if (scenarioTitle) {
-          if (!eventsByScenarioTitle.has(scenarioTitle)) {
-            eventsByScenarioTitle.set(scenarioTitle, [])
-          }
-          eventsByScenarioTitle.get(scenarioTitle)!.push(event)
+          eventsByScenarioId.get(scenarioId)!.set(event.id, event)
         }
       })
       
-      // 今日の日付を一度だけ計算
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const todayJST = formatDateJST(today)
+      // 今日のタイムスタンプ（isNew判定用、既に計算済み）
+      const todayTimestamp = today.getTime()
       
       // シナリオごとにグループ化
       const scenarioMap = new Map<string, ScenarioCard>()
       
+      // シナリオカード作成のヘルパー関数（重複コード削減）
+      const createScenarioCard = (
+        scenario: any,
+        nextEvents: any[],
+        targetEvents: any[],
+        status: 'available' | 'few_seats' | 'sold_out' | 'private_booking',
+        isNew: boolean
+      ): ScenarioCard => ({
+        scenario_id: scenario.id,
+        scenario_title: scenario.title,
+        key_visual_url: scenario.key_visual_url,
+        author: scenario.author,
+        duration: scenario.duration,
+        player_count_min: scenario.player_count_min,
+        player_count_max: scenario.player_count_max,
+        genre: scenario.genre || [],
+        participation_fee: scenario.participation_fee || 3000,
+        next_events: nextEvents,
+        total_events_count: targetEvents.length,
+        status: status,
+        is_new: isNew
+      })
+      
       scenariosData.forEach((scenario: any) => {
         // getPublic()で既にstatus='available'のみ取得されているため、チェック不要
         
-        // 最適化: Mapから直接取得（O(1)）
-        const scenarioEvents = [
-          ...(eventsByScenarioId.get(scenario.id) || []),
-          ...(eventsByScenarioTitle.get(scenario.title) || [])
-        ]
+        // 最適化: Mapから直接取得（O(1)）、重複なし
+        const scenarioEventsMap = eventsByScenarioId.get(scenario.id)
+        const uniqueEvents = scenarioEventsMap ? Array.from(scenarioEventsMap.values()) : []
         
-        // 重複を除去（同じイベントが両方のMapに存在する可能性がある）
-        const uniqueEvents = Array.from(
-          new Map(scenarioEvents.map(e => [e.id, e])).values()
-        )
-        
-        // 新着判定（リリース日から30日以内）
+        // 新着判定（リリース日から30日以内）- 事前計算で最適化
         const isNew = scenario.release_date ? 
-          (new Date().getTime() - new Date(scenario.release_date).getTime()) / (1000 * 60 * 60 * 24) <= 30 : 
+          (todayTimestamp - new Date(scenario.release_date).getTime()) / (1000 * 60 * 60 * 24) <= 30 : 
           false
         
         // 公演がある場合
@@ -194,10 +210,8 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
           
           // 最大3つまで選択（満席も含む）
           const nextEvents = sortedEvents.slice(0, 3).map((event: any) => {
-            // 最適化: Mapから直接取得（O(1)）
-            const store = storeMap.get(event.venue) || 
-                         storeMap.get(event.store_id) ||
-                         storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue || s.id === event.store_id)
+            // 最適化: Mapから直接取得（O(1)）、find()は使用しない
+            const store = storeMap.get(event.venue) || storeMap.get(event.store_id)
             
             // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
             const scenarioMaxPlayers = event.scenarios?.player_count_max
@@ -236,52 +250,14 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
           // 未来の公演がある場合のみシナリオを追加
           // 満席の公演も含めて全ての公演をカウント
           if (nextEvents.length > 0 || targetEvents.length > 0) {
-            scenarioMap.set(scenario.id, {
-              scenario_id: scenario.id,
-              scenario_title: scenario.title,
-              key_visual_url: scenario.key_visual_url,
-              author: scenario.author,
-              duration: scenario.duration,
-              player_count_min: scenario.player_count_min,
-              player_count_max: scenario.player_count_max,
-              genre: scenario.genre || [],
-              participation_fee: scenario.participation_fee || 3000,
-              next_events: nextEvents,
-              total_events_count: targetEvents.length, // 次回公演の総数（満席も含む）
-              status: status,
-              is_new: isNew
-            })
+            scenarioMap.set(scenario.id, createScenarioCard(scenario, nextEvents, targetEvents, status, isNew))
           } else {
             // 未来の公演がない場合でも、全タイトル用にシナリオ情報を追加
-            scenarioMap.set(scenario.id, {
-              scenario_id: scenario.id,
-              scenario_title: scenario.title,
-              key_visual_url: scenario.key_visual_url,
-              author: scenario.author,
-              duration: scenario.duration,
-              player_count_min: scenario.player_count_min,
-              player_count_max: scenario.player_count_max,
-              genre: scenario.genre || [],
-              participation_fee: scenario.participation_fee || 3000,
-              status: 'private_booking', // 公演予定なしは「貸切受付中」
-              is_new: isNew
-            })
+            scenarioMap.set(scenario.id, createScenarioCard(scenario, [], [], 'private_booking', isNew))
           }
         } else {
           // 公演がない場合でも、全タイトル用にシナリオ情報を追加
-          scenarioMap.set(scenario.id, {
-            scenario_id: scenario.id,
-            scenario_title: scenario.title,
-            key_visual_url: scenario.key_visual_url,
-            author: scenario.author,
-            duration: scenario.duration,
-            player_count_min: scenario.player_count_min,
-            player_count_max: scenario.player_count_max,
-            genre: scenario.genre || [],
-            participation_fee: scenario.participation_fee || 3000,
-            status: 'private_booking', // 公演予定なしは「貸切受付中」
-            is_new: isNew
-          })
+          scenarioMap.set(scenario.id, createScenarioCard(scenario, [], [], 'private_booking', isNew))
         }
       })
       

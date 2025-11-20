@@ -1,28 +1,12 @@
 import { Badge } from '@/components/ui/badge'
 import { ScenarioCard } from './ScenarioCard'
-import { memo } from 'react'
-
-interface ScenarioWithEvents {
-  scenario_id: string
-  title: string
-  author: string
-  player_count_min: number
-  player_count_max: number
-  duration: number
-  image_url: string | null
-  status: string
-  created_at: string
-  nextEvent?: {
-    event_datetime: string
-    store_name: string
-    store_short_name: string
-  } | null
-}
+import { memo, useState, useEffect } from 'react'
+import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
 interface LineupViewProps {
-  newScenarios: ScenarioWithEvents[]
-  upcomingScenarios: ScenarioWithEvents[]
-  allScenarios: ScenarioWithEvents[]
+  newScenarios: ScenarioCardType[]
+  upcomingScenarios: ScenarioCardType[]
+  allScenarios: ScenarioCardType[]
   onCardClick: (scenarioId: string) => void
   isFavorite: (scenarioId: string) => boolean
   onToggleFavorite: (scenarioId: string, e: React.MouseEvent) => void
@@ -31,6 +15,9 @@ interface LineupViewProps {
 /**
  * ラインナップビューコンポーネント
  */
+const INITIAL_DISPLAY_COUNT = 20
+const LOAD_MORE_COUNT = 20
+
 export const LineupView = memo(function LineupView({
   newScenarios,
   upcomingScenarios,
@@ -39,6 +26,34 @@ export const LineupView = memo(function LineupView({
   isFavorite,
   onToggleFavorite
 }: LineupViewProps) {
+  // 遅延読み込み: 初期表示は20件のみ
+  const [displayedAllScenariosCount, setDisplayedAllScenariosCount] = useState(INITIAL_DISPLAY_COUNT)
+  
+  // スクロール検知で追加読み込み
+  useEffect(() => {
+    const handleScroll = () => {
+      // ページの最下部に近づいたら追加読み込み
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+      const windowHeight = window.innerHeight
+      const documentHeight = document.documentElement.scrollHeight
+      
+      // 最下部から100px以内に来たら追加読み込み
+      if (scrollTop + windowHeight >= documentHeight - 100) {
+        setDisplayedAllScenariosCount(prev => {
+          const next = prev + LOAD_MORE_COUNT
+          return next > allScenarios.length ? allScenarios.length : next
+        })
+      }
+    }
+    
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [allScenarios.length])
+  
+  // 表示するシナリオを制限
+  const displayedAllScenarios = allScenarios.slice(0, displayedAllScenariosCount)
+  const hasMore = displayedAllScenariosCount < allScenarios.length
+  
   return (
     <div className="space-y-6 sm:space-y-8">
       {/* 新着公演セクション */}
@@ -83,9 +98,16 @@ export const LineupView = memo(function LineupView({
       {/* 全タイトルセクション */}
       {allScenarios.length > 0 ? (
         <section>
-          <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">全タイトル</h2>
+          <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+            全タイトル
+            {allScenarios.length > INITIAL_DISPLAY_COUNT && (
+              <span className="text-sm sm:text-base font-normal text-gray-500 ml-2">
+                ({displayedAllScenarios.length} / {allScenarios.length})
+              </span>
+            )}
+          </h2>
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
-            {allScenarios.map((scenario) => (
+            {displayedAllScenarios.map((scenario) => (
               <ScenarioCard 
                 key={scenario.scenario_id} 
                 scenario={scenario} 
@@ -95,6 +117,13 @@ export const LineupView = memo(function LineupView({
               />
             ))}
           </div>
+          {hasMore && (
+            <div className="text-center mt-4 sm:mt-6">
+              <p className="text-xs sm:text-sm text-gray-500">
+                スクロールで続きを読み込む
+              </p>
+            </div>
+          )}
         </section>
       ) : (
         <div className="text-center py-8 sm:py-12">
