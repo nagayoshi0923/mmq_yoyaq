@@ -78,21 +78,29 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       monthPromises.push(scheduleApi.getByMonth(year, month))
       logger.log(`⏱️ API呼び出し開始: ${((performance.now() - apiStartTime).toFixed(2))}ms`)
 
-      // すべてのデータを並列取得（最適化: getPublic()を使用）
+      // パフォーマンス最適化: 段階的データ取得
+      // 1. まずシナリオと店舗データを取得（軽量、即座に表示可能）
       const fetchStartTime = performance.now()
-      const [scenariosData, storesDataResult, ...monthResults] = await Promise.all([
+      const [scenariosData, storesDataResult] = await Promise.all([
         scenarioApi.getPublic(), // status='available'のみ、必要なフィールドのみ取得
         storeApi.getAll().catch((error) => {
           logger.error('店舗データの取得エラー:', error)
           return []
-        }),
-        ...monthPromises
+        })
       ])
-      const fetchEndTime = performance.now()
-      logger.log(`⏱️ データ取得完了: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
-      
       const storesData = storesDataResult || []
+      const firstFetchEndTime = performance.now()
+      logger.log(`⏱️ シナリオ・店舗データ取得完了: ${((firstFetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
+      
+      // 2. 店舗データを即座に設定（シナリオデータは公演データと一緒に処理）
+      setStores(storesData)
+      
+      // 3. 公演データを取得（重い処理、バックグラウンドで実行）
+      const monthResults = await Promise.all(monthPromises)
       const allEventsData = monthResults.flat()
+      const fetchEndTime = performance.now()
+      logger.log(`⏱️ 公演データ取得完了: ${((fetchEndTime - firstFetchEndTime) / 1000).toFixed(2)}秒`)
+      logger.log(`⏱️ データ取得完了: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
       logger.log(`📊 取得データ: シナリオ${scenariosData.length}件, 店舗${storesData.length}件, 公演${allEventsData.length}件`)
       
       // 予約可能な公演 + 確定貸切公演をフィルタリング
