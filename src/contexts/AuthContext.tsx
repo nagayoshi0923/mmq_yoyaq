@@ -28,9 +28,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [staffCache, setStaffCache] = useState<Map<string, string>>(new Map())
-  const [isProcessing, setIsProcessing] = useState(false)
   // 最新のユーザー情報を保持するためのref（クロージャー問題を回避）
   const userRef = React.useRef<AuthUser | null>(null)
+  // 認証処理中のフラグ（クロージャー問題を回避するためuseRefを使用）
+  const isProcessingRef = React.useRef<boolean>(false)
   
   // userが変更されたらrefも更新
   React.useEffect(() => {
@@ -45,10 +46,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         logger.log('🔄 認証状態変更:', event, session?.user?.email)
+        
+        // 処理中の場合はスキップ（重複実行防止）
+        if (isProcessingRef.current) {
+          logger.log('⏭️ 認証処理中のためスキップ:', event)
+          return
+        }
+        
         // TOKEN_REFRESHEDイベントの場合は、既存のユーザー情報を保持（ロールを維持）
         if (event === 'TOKEN_REFRESHED' && session?.user && userRef.current) {
           // トークンリフレッシュ時は、既存のユーザー情報があればロールを維持
           logger.log('🔄 トークンリフレッシュ検出、既存ロールを維持:', userRef.current.role)
+          setLoading(false)
+          return
+        }
+        
+        // INITIAL_SESSIONイベントの場合は、getInitialSessionで処理済みの可能性があるためスキップ
+        if (event === 'INITIAL_SESSION' && userRef.current) {
+          logger.log('⏭️ 初期セッションは既に処理済みのためスキップ')
           setLoading(false)
           return
         }
@@ -94,12 +109,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function setUserFromSession(supabaseUser: User) {
     // 既に処理中の場合はスキップ（重複呼び出し防止）
-    if (isProcessing) {
+    if (isProcessingRef.current) {
       logger.log('⏭️ 処理中のためスキップ:', supabaseUser.email)
       return
     }
     
-    setIsProcessing(true)
+    isProcessingRef.current = true
     logger.log('🔐 ユーザーセッション設定開始:', supabaseUser.email)
     
     // 既存のユーザー情報を保持（エラー時のフォールバック用）
@@ -235,20 +250,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (role === 'staff' || role === 'admin') {
           logger.log('📋 スタッフ情報をバックグラウンドで取得開始')
           // 非同期で取得（await しない）
-          supabase
+          const staffPromise = supabase
             .from('staff')
             .select('name')
             .eq('user_id', supabaseUser.id)
             .maybeSingle()
-            .then(({ data }) => {
-              if (data?.name) {
-                setStaffCache(prev => new Map(prev.set(supabaseUser.id, data.name)))
-                logger.log('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
-              }
-            })
-            .catch((error) => {
-              logger.log('📋 スタッフ情報の取得エラー（バックグラウンド）:', error)
-            })
+          
+          Promise.resolve(staffPromise).then(({ data }) => {
+            if (data?.name) {
+              setStaffCache(prev => new Map(prev.set(supabaseUser.id, data.name)))
+              logger.log('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
+            }
+          }).catch((error) => {
+            logger.log('📋 スタッフ情報の取得エラー（バックグラウンド）:', error)
+          })
         }
       }
 
@@ -303,7 +318,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         userRef.current = fallbackUserData
       }
     } finally {
-      setIsProcessing(false)
+      isProcessingRef.current = false
     }
   }
 
