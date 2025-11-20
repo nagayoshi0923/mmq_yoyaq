@@ -297,23 +297,11 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       logger.log(`📊 予約サイトデータ取得完了: ${scenarioList.length}件のシナリオ, ${publicEvents.length}件の公演`)
       logger.log(`⏱️ 総処理時間: ${(totalTime / 1000).toFixed(2)}秒`)
       
-      // パフォーマンス最適化: データ設定とローディング解除を非同期で実行（レンダリングをブロックしない）
-      // requestIdleCallback が使える場合はそれを使い、使えない場合は setTimeout
-      if (window.requestIdleCallback) {
-        requestIdleCallback(() => {
-          setScenarios(scenarioList)
-          setAllEvents(publicEvents)
-          setStores(storesData)
-          setIsLoading(false)
-        }, { timeout: 100 })
-      } else {
-        setTimeout(() => {
-          setScenarios(scenarioList)
-          setAllEvents(publicEvents)
-          setStores(storesData)
-          setIsLoading(false)
-        }, 0)
-      }
+      // データを即座に設定（非同期化は不要、むしろ遅延の原因になる）
+      setScenarios(scenarioList)
+      setAllEvents(publicEvents)
+      setStores(storesData)
+      setIsLoading(false)
       
       if (totalTime > 3000) {
         logger.warn(`⚠️ 処理時間が3秒を超えています: ${(totalTime / 1000).toFixed(2)}秒`)
