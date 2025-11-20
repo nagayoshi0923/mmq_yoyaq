@@ -89,13 +89,13 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:px-6 sm:py-12">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle>
+        <CardHeader className="text-center px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-6">
+          <CardTitle className="text-xl sm:text-2xl">
             {isSignUp ? 'アカウント作成' : 'Queens Waltz'}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-sm sm:text-base mt-2">
             {isForgotPassword 
               ? 'パスワードリセット' 
               : isSignUp 
@@ -103,10 +103,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 : 'マーダーミステリー店舗管理システム'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             <div className="space-y-2">
-              <label htmlFor="email" className="block">
+              <label htmlFor="email" className="block text-sm sm:text-base font-medium">
                 メールアドレス
               </label>
               <input
@@ -116,14 +116,14 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="username"
-                className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 placeholder="your@email.com"
               />
             </div>
             
             {!isForgotPassword && (
               <div className="space-y-2">
-                <label htmlFor="password" className="block">
+                <label htmlFor="password" className="block text-sm sm:text-base font-medium">
                   パスワード
                 </label>
                 <input
@@ -134,28 +134,28 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                   required
                   minLength={6}
                   autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                  className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   placeholder={isSignUp ? "6文字以上のパスワード" : "パスワードを入力"}
                 />
               </div>
             )}
 
             {error && (
-              <div className="border-2 border-destructive rounded-md p-3">
-                <p className="text-destructive">{error}</p>
+              <div className="border-2 border-destructive rounded-md p-3 sm:p-4">
+                <p className="text-destructive text-sm sm:text-base">{error}</p>
               </div>
             )}
 
             {message && (
-              <div className="border-2 border-green-200 bg-green-50 rounded-md p-3">
-                <p className="text-green-800">{message}</p>
+              <div className="border-2 border-green-200 bg-green-50 rounded-md p-3 sm:p-4">
+                <p className="text-green-800 text-sm sm:text-base">{message}</p>
               </div>
             )}
 
 
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full h-10 sm:h-11 text-sm sm:text-base" 
               disabled={loading}
             >
               {loading 
@@ -167,7 +167,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
               <Button 
                 type="button" 
                 variant="ghost" 
-                className="w-full" 
+                className="w-full h-10 sm:h-11 text-sm sm:text-base" 
                 onClick={() => {
                   if (isSignUp) {
                     // 新規登録からログインに戻る場合はログインページに遷移
@@ -185,7 +185,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
             <Button 
               type="button" 
               variant="link" 
-              className="w-full text-sm" 
+              className="w-full text-xs sm:text-sm h-auto py-2" 
               onClick={() => {
                 setIsForgotPassword(!isForgotPassword)
                 setIsSignUp(false)
