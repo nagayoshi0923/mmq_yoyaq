@@ -16,9 +16,9 @@ interface ScenarioHeroProps {
  */
 export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }: ScenarioHeroProps) {
   return (
-    <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white">
-      <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-6 sm:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8">
+    <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white -mx-3 sm:mx-0">
+      <div className="container mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-6 md:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
           {/* キービジュアル */}
           <div className="lg:col-span-4">
             <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden shadow-2xl">
@@ -43,10 +43,10 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
           </div>
 
           {/* タイトル・基本情報 */}
-          <div className="lg:col-span-8 space-y-3 sm:space-y-4">
+          <div className="lg:col-span-8 space-y-2 sm:space-y-3 md:space-y-4">
             <div>
-              <p className="text-xs sm:text-sm opacity-80 mb-1">{scenario.author}</p>
-              <h1 className="text-2xl sm:text-3xl font-bold mb-2 sm:mb-3">{scenario.scenario_title}</h1>
+              <p className="text-[11px] sm:text-xs opacity-80 mb-1">{scenario.author}</p>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1.5 sm:mb-2 md:mb-3 leading-tight">{scenario.scenario_title}</h1>
               
               <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
                 <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
