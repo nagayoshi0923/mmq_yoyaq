@@ -93,7 +93,7 @@ export const CalendarView = memo(function CalendarView({
               >
                 {/* 日付 */}
                 <div 
-                  className={`text-[10px] sm:text-xs font-medium p-0.5 sm:p-1 pb-0.5 flex-shrink-0 flex items-center justify-between ${
+                  className={`text-xs font-medium p-0.5 sm:p-1 pb-0.5 flex-shrink-0 flex items-center justify-between ${
                     !day.isCurrentMonth 
                       ? 'text-muted-foreground' 
                       : isSunday 
@@ -105,7 +105,7 @@ export const CalendarView = memo(function CalendarView({
                 >
                   <span>{dateNum}</span>
                   {events.length > 3 && (
-                    <span className="text-[8px] sm:text-[10px] bg-blue-100 text-blue-600 px-0.5 sm:px-1 py-0.5 rounded-full">
+                    <span className="text-xs bg-blue-100 text-blue-600 px-0.5 sm:px-1 py-0.5 rounded-full">
                       +{events.length - 3}
                     </span>
                   )}
@@ -116,7 +116,7 @@ export const CalendarView = memo(function CalendarView({
                   {events.length === 0 ? (
                     <div className="p-1 sm:p-2">
                       <button
-                        className="w-full text-[9px] sm:text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                        className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
                         onClick={() => {
                           const dateStr = formatDateJST(day.date)
                           window.location.hash = `#private-booking-select?date=${dateStr}`
@@ -148,7 +148,7 @@ export const CalendarView = memo(function CalendarView({
                             if (scenario) onCardClick(scenario.scenario_id)
                           }
                         }}
-                        className={`text-[9px] sm:text-[10px] md:text-xs p-0.5 sm:p-1 rounded-none transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
+                        className={`text-xs p-0.5 sm:p-1 rounded-none transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
                         style={{
                           borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
                           backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`)
@@ -157,14 +157,14 @@ export const CalendarView = memo(function CalendarView({
                         <div className="flex items-start gap-0">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-0.5">
-                              <div className="font-semibold truncate text-[9px] sm:text-[10px] md:text-[11px] leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                              <div className="font-semibold truncate text-sm leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                                 {event.start_time?.slice(0, 5)} {storeName}
                               </div>
-                              <div className={`text-[9px] sm:text-[10px] md:text-[11px] font-medium leading-tight flex-shrink-0 ml-0.5 ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+                              <div className={`text-sm font-medium leading-tight flex-shrink-0 ml-0.5 ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
                                 {isPrivateBooking ? '貸切' : isFull ? '満' : `${available}`}
                               </div>
                             </div>
-                            <div className={`text-[9px] sm:text-[10px] md:text-[11px] font-medium leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+                            <div className={`text-sm font-medium leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
                               {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
                             </div>
                           </div>

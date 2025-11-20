@@ -66,7 +66,7 @@ export const LineupView = memo(function LineupView({
         <section>
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 sm:mb-3 md:mb-4 flex items-center gap-2 leading-tight">
             <span>新着公演</span>
-            <Badge className="bg-red-600 text-white border-0 text-[9px] sm:text-[10px] md:text-xs px-1 sm:px-1.5 md:px-2 py-0.5 rounded-sm flex-shrink-0">NEW</Badge>
+            <Badge className="bg-red-600 text-white border-0 text-xs px-1 sm:px-1.5 md:px-2 py-0.5 rounded-sm flex-shrink-0">NEW</Badge>
             {newScenarios.length > 10 && (
               <span className="text-xs sm:text-sm font-normal text-gray-500 ml-1 flex-shrink-0">
                 ({displayedNewScenarios.length} / {newScenarios.length})

@@ -65,7 +65,7 @@ export const ListView = memo(function ListView({
       return (
         <div className="p-1 sm:p-2">
           <button
-            className="w-full text-[9px] sm:text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+            className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
             onClick={() => {
               window.location.hash = `#private-booking-select?date=${timeSlot}&store=${store.id}&slot=${timeSlot}`
             }}
@@ -98,7 +98,7 @@ export const ListView = memo(function ListView({
       return (
         <div
           key={idx}
-          className={`text-[9px] sm:text-xs transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
+          className={`text-xs transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
           style={{
             borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
             backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),
@@ -122,7 +122,7 @@ export const ListView = memo(function ListView({
             }`}>
               {isPrivateBooking ? (
                 <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                  <span className="text-gray-500 text-[8px] sm:text-[10px] font-bold">MMQ</span>
+                  <span className="text-gray-500 text-xs font-bold">MMQ</span>
                 </div>
               ) : imageUrl ? (
                 <OptimizedImage
@@ -136,13 +136,13 @@ export const ListView = memo(function ListView({
                   breakpoints={{ mobile: 50, tablet: 75, desktop: 100 }}
                   className="w-full h-full object-cover"
                   fallback={
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-[7px] sm:text-xs">
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
                       No Image
                     </div>
                   }
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400 text-[7px] sm:text-xs">
+                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
                   No Image
                 </div>
               )}
@@ -150,13 +150,13 @@ export const ListView = memo(function ListView({
 
             {/* 右カラム: 情報 */}
             <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
-              <div className="font-semibold text-[10px] sm:text-[12px] md:text-[14px] leading-tight text-left" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+              <div className="font-semibold text-sm leading-tight text-left" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                 {event.start_time?.slice(0, 5)}
               </div>
-              <div className={`text-[10px] sm:text-[12px] md:text-[14px] font-medium leading-tight text-left truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+              <div className={`text-sm font-medium leading-tight text-left truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
                 {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
               </div>
-              <div className={`text-[9px] sm:text-[11px] md:text-[13px] font-medium leading-tight text-right ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+              <div className={`text-sm font-medium leading-tight text-right ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
                 {isPrivateBooking ? `残り0人` : isFull ? '満席' : `残り${available}人`}
               </div>
             </div>
@@ -256,7 +256,7 @@ export const ListView = memo(function ListView({
                     <TableCell className={`hidden sm:table-cell schedule-table-cell border-r text-sm align-top w-24 ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={rowSpan}>
                       <div className="flex flex-col items-center">
                         <div className="font-medium">{listViewMonth.getMonth() + 1}/{date}</div>
-                        <div className="text-[11px]">{dayOfWeek}</div>
+                        <div className="text-sm">{dayOfWeek}</div>
                       </div>
                     </TableCell>
                   )}
