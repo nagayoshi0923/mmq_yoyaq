@@ -435,63 +435,63 @@ export function AdminDashboard() {
         <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
       )}
 
-      <main className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6">
-        <div className="space-y-3 sm:space-y-4 md:space-y-6">
+      <main className="container mx-auto max-w-7xl px-3 xs:px-3.5 sm:px-4 md:px-6 lg:px-8 py-2.5 xs:py-3 sm:py-4 md:py-6">
+        <div className="space-y-2.5 xs:space-y-3 sm:space-y-4 md:space-y-6">
           {/* 概要統計 */}
           <section>
-            <h2 className="text-lg sm:text-xl md:text-2xl">概要</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mt-3 sm:mt-4">
+            <h2 className="text-base xs:text-lg sm:text-xl md:text-2xl font-semibold leading-tight">概要</h2>
+            <div className="grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3 md:gap-4 mt-2 xs:mt-3 sm:mt-4">
               <Card>
-                <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base md:text-lg">
-                    <Store className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                    店舗数
+                <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 text-xs xs:text-sm sm:text-base md:text-lg leading-tight">
+                    <Store className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate">店舗数</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
-                  <div className="text-xl sm:text-2xl md:text-2xl font-bold">{stats.stores}</div>
-                  <p className="text-muted-foreground text-xs sm:text-sm">店舗運営中</p>
+                <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
+                  <div className="text-lg xs:text-xl sm:text-2xl md:text-2xl font-bold">{stats.stores}</div>
+                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm">店舗運営中</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base md:text-lg">
-                    <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                    公演数
+                <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 text-xs xs:text-sm sm:text-base md:text-lg leading-tight">
+                    <BookOpen className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate">公演数</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
-                  <div className="text-xl sm:text-2xl md:text-2xl font-bold">{stats.performances}</div>
-                  <p className="text-muted-foreground text-xs sm:text-sm">シナリオ登録済み</p>
+                <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
+                  <div className="text-lg xs:text-xl sm:text-2xl md:text-2xl font-bold">{stats.performances}</div>
+                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm">シナリオ登録済み</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base md:text-lg">
-                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                    今月の予約
+                <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 text-xs xs:text-sm sm:text-base md:text-lg leading-tight">
+                    <Calendar className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate">今月の予約</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
-                  <div className="text-xl sm:text-2xl md:text-2xl font-bold">{stats.reservations}</div>
-                  <p className="text-muted-foreground text-xs sm:text-sm">件の予約</p>
+                <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
+                  <div className="text-lg xs:text-xl sm:text-2xl md:text-2xl font-bold">{stats.reservations}</div>
+                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm">件の予約</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base md:text-lg">
-                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                    今月の売上
+                <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 text-xs xs:text-sm sm:text-base md:text-lg leading-tight">
+                    <TrendingUp className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate">今月の売上</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
-                  <div className="text-xl sm:text-2xl md:text-2xl font-bold">
+                <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
+                  <div className="text-lg xs:text-xl sm:text-2xl md:text-2xl font-bold">
                     ¥{stats.revenue.toLocaleString()}
                   </div>
-                  <p className="text-muted-foreground text-xs sm:text-sm">前月比 +12%</p>
+                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm">前月比 +12%</p>
                 </CardContent>
               </Card>
             </div>
