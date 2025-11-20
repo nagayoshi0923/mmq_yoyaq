@@ -42,25 +42,6 @@ interface PerformanceCardProps {
   onContextMenu?: (event: ScheduleEvent, x: number, y: number) => void
 }
 
-// カテゴリラベルの短縮表示（モバイル用）
-function getCategoryShortLabel(
-  category: string,
-  categoryConfig: PerformanceCardProps['categoryConfig']
-): string {
-  const label = categoryConfig[category as keyof typeof categoryConfig]?.label || category
-  const shortLabels: Record<string, string> = {
-    'オープン公演': 'オ',
-    '貸切公演': '貸',
-    'GMテスト': 'G',
-    'テストプレイ': 'テ',
-    '出張公演': '出',
-    '場所貸し': '場',
-    '場所貸無料': '無',
-    'パッケージ会': 'パ'
-  }
-  return shortLabels[label] || label.slice(0, 1)
-}
-
 function PerformanceCardBase({
   event,
   categoryConfig,
@@ -162,12 +143,6 @@ function PerformanceCardBase({
                   <span className="sm:hidden">{reservationCount >= maxCapacity ? '満' : `${reservationCount}/${maxCapacity}`}</span>
                 </Badge>
               )}
-              
-              {/* カテゴリバッジ */}
-              <Badge variant="static" size="sm" className={`font-normal text-[7px] sm:text-[8px] md:text-[9px] px-0 py-0 h-3 sm:h-4 whitespace-nowrap overflow-hidden ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'} ${event.is_cancelled ? 'opacity-60' : ''}`}>
-                <span className="hidden sm:inline truncate">{categoryConfig[event.category as keyof typeof categoryConfig]?.label || event.category}</span>
-                <span className="sm:hidden">{getCategoryShortLabel(event.category, categoryConfig)}</span>
-              </Badge>
             </>
           )}
         </div>
@@ -190,33 +165,22 @@ function PerformanceCardBase({
         </div>
       )}
 
-      {/* 警告アイコン（右上） */}
-      {isIncomplete && (
-        <div className="absolute top-0.5 right-0.5">
-          <AlertTriangle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-600" />
-        </div>
-      )}
-
-      {/* アクションボタン群（右下） */}
-      <div className="absolute bottom-0 right-0 flex gap-0.5">
-        {/* 予約サイト公開バッジ */}
-        <Badge
-          variant="outline"
-          size="sm"
-          className={`h-3 sm:h-4 px-0.5 sm:px-1 py-0 font-normal text-[8px] sm:text-[9px] transition-all ${
+      {/* 右上ステータス群 */}
+      <div className="absolute top-0.5 right-0.5 flex gap-1 items-center">
+        {/* 警告アイコン */}
+        {isIncomplete && (
+          <AlertTriangle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-600 flex-shrink-0" />
+        )}
+        
+        {/* 公開状態ステータスバッジ（●形式） */}
+        <div
+          className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 transition-all cursor-pointer ${
             event.is_private_request 
-              ? 'bg-green-100 text-green-800 border-green-500 cursor-default' 
+              ? 'bg-green-500' 
               : event.is_reservation_enabled 
-                ? 'bg-green-100 text-green-800 border-green-500 cursor-pointer' 
-                : 'bg-gray-100 text-gray-600 border-gray-400 cursor-pointer'
+                ? 'bg-green-500' 
+                : 'bg-gray-400'
           }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            // 貸切公演の場合はクリック不可
-            if (!event.is_private_request) {
-              onToggleReservation?.(event);
-            }
-          }}
           title={
             event.is_private_request 
               ? '貸切公演は常に公開中です' 
@@ -224,10 +188,14 @@ function PerformanceCardBase({
                 ? '予約サイトに公開中（クリックで非公開）' 
                 : '予約サイトに非公開（クリックで公開）'
           }
-        >
-          <span className="hidden sm:inline">{event.is_reservation_enabled || event.is_private_request ? '公開中' : '公開前'}</span>
-          <span className="sm:hidden">{event.is_reservation_enabled || event.is_private_request ? '公開' : '前'}</span>
-        </Badge>
+          onClick={(e) => {
+            e.stopPropagation();
+            // 貸切公演の場合はクリック不可
+            if (!event.is_private_request) {
+              onToggleReservation?.(event);
+            }
+          }}
+        />
       </div>
     </div>
   )
