@@ -49,6 +49,45 @@ export default {
         'icon-sm': ['6px', '7px', '8px'],            // 小（ユーザー、バッジ内アイコン）
         'icon-md': ['8px', '10px', '12px'],          // 中（警告アイコン）
         'icon-lg': ['12px', '14px', '16px'],         // 大（ナビゲーションアイコン）
+        // グローバルバッジサイズ
+        'badge-default': ['16px', '16px', '16px'],  // デフォルト
+        'badge-compact': ['12px', '12px', '12px'],  // 圧縮
+      },
+      gap: {
+        // グローバルギャップ
+        'default': '4px',                             // デフォルト（基本）
+        'compact': '2px',                             // 圧縮（狭い）
+        'relaxed': '8px',                             // ゆったり（広い）
+      },
+      padding: {
+        // グローバルパディング（既存に追加）
+        'default': '4px',                             // デフォルト
+        'compact': '0px',                             // 圧縮
+        'relaxed': '8px',                             // ゆったり
+      },
+      margin: {
+        // グローバルマージン
+        'default': '4px',                             // デフォルト
+        'compact': '0px',                             // 圧縮
+        'relaxed': '8px',                             // ゆったり
+      },
+      borderWidth: {
+        // グローバルボーダー
+        'default': '2px',                             // デフォルト
+        'thin': '1px',                                // 細い
+        'thick': '4px',                               // 太い
+      },
+      borderRadius: {
+        // グローバルボーダーradius
+        'default': '8px',                             // デフォルト
+        'compact': '4px',                             // 圧縮
+        'full': '9999px',                             // 完全な丸
+      },
+      lineHeight: {
+        // グローバル行間
+        'default': '1.25',                            // デフォルト（タイト）
+        'compact': '1',                               // 圧縮（最小）
+        'relaxed': '1.5',                             // ゆったり
       },
       colors: {
         border: "hsl(var(--border))",
