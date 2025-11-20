@@ -118,9 +118,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-        <div className="container mx-auto max-w-7xl px-6 py-12">
-          <h1 className="text-4xl font-bold mb-4">Murder Mystery Quest</h1>
-          <p className="text-lg text-purple-100">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-12">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-4">Murder Mystery Quest</h1>
+          <p className="text-sm sm:text-base md:text-lg text-purple-100">
             リアルな謎解き体験。あなたは事件の真相を暴けるか？
           </p>
         </div>
@@ -128,22 +128,22 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       {/* 検索バー */}
       <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto max-w-7xl px-6 py-2">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-2 sm:py-3">
           <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-6 py-4">
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-4 sm:py-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground">読み込み中...</p>
+            <p className="text-sm sm:text-base text-muted-foreground">読み込み中...</p>
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-6">
-              <TabsTrigger value="lineup">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar">カレンダー</TabsTrigger>
-              <TabsTrigger value="list">リスト</TabsTrigger>
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-4 sm:mb-6 h-10 sm:h-11">
+              <TabsTrigger value="lineup" className="text-xs sm:text-sm">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-xs sm:text-sm">カレンダー</TabsTrigger>
+              <TabsTrigger value="list" className="text-xs sm:text-sm">リスト</TabsTrigger>
             </TabsList>
 
             {/* ラインナップ表示 */}

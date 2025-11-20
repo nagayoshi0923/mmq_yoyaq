@@ -40,15 +40,15 @@ export const LineupView = memo(function LineupView({
   onToggleFavorite
 }: LineupViewProps) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* 新着公演セクション */}
       {newScenarios.length > 0 && (
         <section>
-          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+          <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 flex items-center gap-2">
             <span>新着公演</span>
-            <Badge className="bg-red-600 text-white border-0 text-xs px-2 py-0.5 rounded-sm">NEW</Badge>
+            <Badge className="bg-red-600 text-white border-0 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-sm">NEW</Badge>
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
             {newScenarios.map((scenario) => (
               <ScenarioCard 
                 key={scenario.scenario_id} 
@@ -65,8 +65,8 @@ export const LineupView = memo(function LineupView({
       {/* 直近公演セクション */}
       {upcomingScenarios.length > 0 && (
         <section>
-          <h2 className="text-2xl font-bold mb-4">直近公演</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">直近公演</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
             {upcomingScenarios.map((scenario) => (
               <ScenarioCard 
                 key={scenario.scenario_id} 
@@ -83,8 +83,8 @@ export const LineupView = memo(function LineupView({
       {/* 全タイトルセクション */}
       {allScenarios.length > 0 ? (
         <section>
-          <h2 className="text-2xl font-bold mb-4">全タイトル</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">全タイトル</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
             {allScenarios.map((scenario) => (
               <ScenarioCard 
                 key={scenario.scenario_id} 
@@ -97,8 +97,8 @@ export const LineupView = memo(function LineupView({
           </div>
         </section>
       ) : (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">シナリオが見つかりませんでした</p>
+        <div className="text-center py-8 sm:py-12">
+          <p className="text-sm sm:text-base text-muted-foreground">シナリオが見つかりませんでした</p>
         </div>
       )}
     </div>

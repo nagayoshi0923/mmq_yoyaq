@@ -21,20 +21,22 @@ export function BookingFilters({
   stores
 }: BookingFiltersProps) {
   return (
-    <div className="flex items-center justify-between gap-4 mb-6">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
       {/* 月ナビゲーション */}
-      <MonthSwitcher
-        value={currentMonth}
-        onChange={onMonthChange}
-        showToday
-        quickJump
-      />
+      <div className="flex-1 sm:flex-initial">
+        <MonthSwitcher
+          value={currentMonth}
+          onChange={onMonthChange}
+          showToday
+          quickJump
+        />
+      </div>
       
       {/* 店舗フィルター */}
-      <div className="flex items-center gap-4">
-        <label className="text-sm font-medium">店舗:</label>
+      <div className="flex items-center gap-2 sm:gap-4">
+        <label className="text-xs sm:text-sm font-medium whitespace-nowrap">店舗:</label>
         <Select value={selectedStoreFilter} onValueChange={onStoreFilterChange}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

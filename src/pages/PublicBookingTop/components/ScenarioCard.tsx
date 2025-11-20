@@ -67,50 +67,50 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         {onToggleFavorite && (
           <button
             onClick={handleFavoriteClick}
-            className={`absolute top-2 right-2 transition-all opacity-70 hover:opacity-100 ${
+            className={`absolute top-2 right-2 transition-all opacity-70 hover:opacity-100 touch-manipulation ${
               isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'
             }`}
           >
             <Heart 
-              className={`h-5 w-5 transition-all ${isFavorite ? 'fill-current' : ''}`}
+              className={`h-5 w-5 sm:h-6 sm:w-6 transition-all ${isFavorite ? 'fill-current' : ''}`}
             />
           </button>
         )}
       </div>
 
-      <CardContent className="p-2 sm:p-2.5 space-y-0.5 sm:space-y-0.5 bg-white">
+      <CardContent className="p-2 sm:p-2.5 md:p-3 space-y-0.5 sm:space-y-1 bg-white">
         {/* 著者 */}
-        <p className="text-xs text-gray-500">{scenario.author}</p>
+        <p className="text-[10px] sm:text-xs text-gray-500">{scenario.author}</p>
         
         {/* タイトル */}
-        <h3 className="font-bold text-base truncate leading-tight mt-0.5">
+        <h3 className="font-bold text-sm sm:text-base truncate leading-tight mt-0.5 sm:mt-1">
           {scenario.scenario_title}
         </h3>
 
         {/* 人数・時間 */}
-        <div className="flex items-center gap-2 text-sm text-gray-600 mt-0.5">
-          <div className="flex items-center gap-1">
-            <Users className="h-4 w-4" />
+        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
+          <div className="flex items-center gap-0.5 sm:gap-1">
+            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
             <span>
               {scenario.player_count_min === scenario.player_count_max
                 ? `${scenario.player_count_max}人`
                 : `${scenario.player_count_min}~${scenario.player_count_max}人`}
             </span>
           </div>
-          <div className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
+          <div className="flex items-center gap-0.5 sm:gap-1">
+            <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
             <span>{scenario.duration}分</span>
           </div>
         </div>
 
         {/* ジャンル（カテゴリ） */}
         {scenario.genre && scenario.genre.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
+          <div className="flex flex-wrap gap-1 mt-1 sm:mt-1.5">
             {scenario.genre.slice(0, 3).map((genre, index) => (
               <Badge 
                 key={index} 
                 variant="secondary" 
-                className="text-[10px] px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
+                className="text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
               >
                 {genre}
               </Badge>
@@ -118,7 +118,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
             {scenario.genre.length > 3 && (
               <Badge 
                 variant="secondary" 
-                className="text-[10px] px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
+                className="text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
               >
                 +{scenario.genre.length - 3}
               </Badge>
@@ -128,7 +128,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
 
         {/* 次回公演（最大3つまで表示） */}
         {scenario.next_events && scenario.next_events.length > 0 && (
-          <div className="space-y-0.5 sm:space-y-1">
+          <div className="space-y-0.5 sm:space-y-1 mt-1 sm:mt-1.5">
             {scenario.next_events.map((event, index) => {
               const dateInfo = formatDate(event.date)
               const isSunday = dateInfo.dayOfWeek === 0
@@ -137,7 +137,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
               return (
                 <div 
                   key={index} 
-                  className={`flex items-center gap-1.5 text-[11px] sm:text-xs py-1 px-1.5 sm:px-2 bg-gray-100 rounded-[3px] ${
+                  className={`flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs md:text-sm py-0.5 sm:py-1 px-1 sm:px-1.5 md:px-2 bg-gray-100 rounded-[3px] ${
                     index === 0 ? 'mt-0.5 sm:mt-1' : ''
                   }`}
                 >
@@ -153,13 +153,13 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                     )}
                   </span>
                   {event.store_name && (
-                    <span className="text-gray-500 text-[11px]">
+                    <span className="text-gray-500 text-[10px] sm:text-[11px] md:text-xs truncate">
                       @ {event.store_name}
                     </span>
                   )}
                   {/* 空席がある場合は残席数を表示、満席の場合は何も表示しない */}
                   {event.available_seats !== undefined && event.available_seats > 0 && (
-                    <span className={`text-[11px] font-medium ml-auto ${
+                    <span className={`text-[10px] sm:text-[11px] md:text-xs font-medium ml-auto flex-shrink-0 ${
                       event.available_seats <= 2 
                         ? 'text-orange-600' 
                         : 'text-gray-600'
@@ -171,7 +171,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
               )
             })}
             {scenario.total_events_count && scenario.total_events_count > 3 && (
-              <div className="text-[10px] text-gray-400 pt-0.5">
+              <div className="text-[10px] sm:text-[11px] text-gray-400 pt-0.5">
                 ...他 {scenario.total_events_count - 3}件
               </div>
             )}
