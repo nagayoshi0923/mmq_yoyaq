@@ -69,22 +69,38 @@ export function useCalendarData(allEvents: any[], selectedStoreFilter: string) {
   }, [currentMonth])
 
   /**
+   * 最適化: イベントを日付でインデックス化（メモ化）
+   */
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, any[]>()
+    allEvents.forEach(event => {
+      const dateStr = event.date
+      if (!map.has(dateStr)) {
+        map.set(dateStr, [])
+      }
+      map.get(dateStr)!.push(event)
+    })
+    return map
+  }, [allEvents])
+
+  /**
    * 特定日の公演を取得（店舗フィルター適用）
+   * 最適化: インデックス化されたイベントを使用（O(1)アクセス）
    */
   const getEventsForDate = useCallback((date: Date) => {
     const dateStr = formatDateJST(date)
-    let filtered = allEvents.filter(event => event.date === dateStr)
+    const events = eventsByDate.get(dateStr) || []
     
     // 店舗フィルター適用
     if (selectedStoreFilter !== 'all') {
-      filtered = filtered.filter(event => 
+      return events.filter(event => 
         event.store_id === selectedStoreFilter || 
         event.venue === selectedStoreFilter
       )
     }
     
-    return filtered
-  }, [allEvents, selectedStoreFilter])
+    return events
+  }, [eventsByDate, selectedStoreFilter])
 
   return {
     currentMonth,

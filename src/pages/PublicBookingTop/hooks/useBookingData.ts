@@ -93,22 +93,59 @@ export function useBookingData() {
         return isNotCancelled && (isOpenAndEnabled || isPrivateBooking)
       })
       
+      // 最適化: 店舗データをMapに変換（O(1)アクセス）
+      const storeMap = new Map<string, any>()
+      storesData.forEach((store: any) => {
+        storeMap.set(store.id, store)
+        if (store.short_name) storeMap.set(store.short_name, store)
+        if (store.name) storeMap.set(store.name, store)
+      })
+      
+      // 最適化: イベントをシナリオIDでインデックス化（O(1)アクセス）
+      const eventsByScenarioId = new Map<string, any[]>()
+      const eventsByScenarioTitle = new Map<string, any[]>()
+      
+      publicEvents.forEach((event: any) => {
+        // scenario_idでインデックス化
+        const scenarioId = event.scenario_id || event.scenarios?.id
+        if (scenarioId) {
+          if (!eventsByScenarioId.has(scenarioId)) {
+            eventsByScenarioId.set(scenarioId, [])
+          }
+          eventsByScenarioId.get(scenarioId)!.push(event)
+        }
+        
+        // タイトルでインデックス化（フォールバック用）
+        const scenarioTitle = event.scenario || event.scenarios?.title
+        if (scenarioTitle) {
+          if (!eventsByScenarioTitle.has(scenarioTitle)) {
+            eventsByScenarioTitle.set(scenarioTitle, [])
+          }
+          eventsByScenarioTitle.get(scenarioTitle)!.push(event)
+        }
+      })
+      
+      // 今日の日付を一度だけ計算
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const todayJST = formatDateJST(today)
+      
       // シナリオごとにグループ化
       const scenarioMap = new Map<string, ScenarioCard>()
       
       scenariosData.forEach((scenario: any) => {
         // getPublic()で既にstatus='available'のみ取得されているため、チェック不要
         
-        // このシナリオの公演を探す（scenario_idまたはタイトルで照合）
-        const scenarioEvents = publicEvents.filter((event: any) => {
-          // scenario_idで照合（リレーション）
-          if (event.scenario_id === scenario.id) return true
-          // scenariosオブジェクトのIDで照合
-          if (event.scenarios?.id === scenario.id) return true
-          // タイトルで照合（フォールバック）
-          if (event.scenario === scenario.title) return true
-          return false
-        })
+        // 最適化: Mapから直接取得（O(1)）
+        const scenarioEvents = [
+          ...(eventsByScenarioId.get(scenario.id) || []),
+          ...(eventsByScenarioTitle.get(scenario.title) || [])
+        ]
+        
+        // 重複を除去（同じイベントが両方のMapに存在する可能性がある）
+        const uniqueEvents = Array.from(
+          new Map(scenarioEvents.map(e => [e.id, e])).values()
+        )
         
         // 新着判定（リリース日から30日以内）
         const isNew = scenario.release_date ? 
@@ -116,15 +153,9 @@ export function useBookingData() {
           false
         
         // 公演がある場合
-        if (scenarioEvents.length > 0) {
-          // 今日以降の公演のみをフィルタリング（過去の公演は除外）
-          // 満席の公演も含めてすべての公演を取得
-          const today = new Date()
-          today.setHours(0, 0, 0, 0)
-          const todayJST = formatDateJST(today) // JSTでの今日の日付文字列（YYYY-MM-DD）
-          
+        if (uniqueEvents.length > 0) {
           // 今日以降の公演のみをフィルタリング（満席も含む、過去の公演は除外、貸切・GMテストは除外）
-          const futureEvents = scenarioEvents.filter((event: any) => {
+          const futureEvents = uniqueEvents.filter((event: any) => {
             // event.dateはYYYY-MM-DD形式の文字列なので、そのまま比較
             // 今日を含む（>=）で判定
             const isFuture = event.date >= todayJST
@@ -139,7 +170,7 @@ export function useBookingData() {
           
           // 最も近い公演を最大3つまで取得（日付・時刻順にソート）
           // 満席の公演も含めてソート
-          const sortedEvents = targetEvents.sort((a: any, b: any) => {
+          const sortedEvents = [...targetEvents].sort((a: any, b: any) => {
             // 日付で比較
             const dateCompare = a.date.localeCompare(b.date)
             if (dateCompare !== 0) return dateCompare
@@ -149,7 +180,11 @@ export function useBookingData() {
           
           // 最大3つまで選択（満席も含む）
           const nextEvents = sortedEvents.slice(0, 3).map((event: any) => {
-            const store = storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue || s.id === event.store_id)
+            // 最適化: Mapから直接取得（O(1)）
+            const store = storeMap.get(event.venue) || 
+                         storeMap.get(event.store_id) ||
+                         storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue || s.id === event.store_id)
+            
             // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
             const scenarioMaxPlayers = event.scenarios?.player_count_max
             const maxParticipants = scenarioMaxPlayers ||

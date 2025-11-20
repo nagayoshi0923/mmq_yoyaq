@@ -55,42 +55,82 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
   }, [listViewMonth, stores, selectedStoreFilter])
 
   /**
+   * 最適化: 店舗データをMapに変換（O(1)アクセス）
+   */
+  const storeMap = useMemo(() => {
+    const map = new Map<string, any>()
+    stores.forEach(store => {
+      map.set(store.id, store)
+      if (store.short_name) map.set(store.short_name, store)
+      if (store.name) map.set(store.name, store)
+    })
+    return map
+  }, [stores])
+
+  /**
+   * 最適化: イベントを日付×店舗でインデックス化（メモ化）
+   */
+  const eventsByDateStore = useMemo(() => {
+    const map = new Map<string, any[]>()
+    allEvents.forEach(event => {
+      const dateStr = event.date
+      const eventStoreId = event.store_id || event.venue
+      const key = `${dateStr}:${eventStoreId}`
+      
+      if (!map.has(key)) {
+        map.set(key, [])
+      }
+      map.get(key)!.push(event)
+    })
+    return map
+  }, [allEvents])
+
+  /**
    * 特定の日付・店舗の公演を取得
+   * 最適化: インデックス化されたイベントを使用（O(1)アクセス）
    */
   const getEventsForDateStore = useCallback((date: number, storeId: string) => {
     const dateObj = new Date(listViewMonth.getFullYear(), listViewMonth.getMonth(), date)
     const dateStr = formatDateJST(dateObj)
     
-    const filtered = allEvents.filter((event: any) => {
-      const eventStore = event.venue || event.store_id
-      // より柔軟な店舗照合（ID、short_name、nameで照合）
-      const storeMatches = eventStore === storeId || 
-                          eventStore === stores.find(s => s.id === storeId)?.short_name ||
-                          eventStore === stores.find(s => s.id === storeId)?.name ||
-                          stores.find(s => s.id === storeId)?.short_name === eventStore ||
-                          stores.find(s => s.id === storeId)?.name === eventStore
-      
-      return event.date === dateStr && storeMatches
+    // 店舗情報を取得（一度だけ）
+    const store = storeMap.get(storeId)
+    if (!store) return []
+    
+    // 可能な店舗ID/名前の組み合わせで検索
+    const possibleKeys = [
+      `${dateStr}:${storeId}`,
+      `${dateStr}:${store.short_name}`,
+      `${dateStr}:${store.name}`
+    ]
+    
+    const events: any[] = []
+    possibleKeys.forEach(key => {
+      const keyEvents = eventsByDateStore.get(key) || []
+      events.push(...keyEvents)
     })
     
-    return filtered
-  }, [allEvents, stores, listViewMonth])
+    // 重複を除去
+    return Array.from(new Map(events.map(e => [e.id, e])).values())
+  }, [eventsByDateStore, storeMap, listViewMonth])
 
   /**
    * 店舗名を取得
+   * 最適化: Mapから直接取得（O(1)アクセス）
    */
   const getStoreName = useCallback((event: any): string => {
-    const store = stores.find(s => s.id === event.store_id || s.id === event.venue)
+    const store = storeMap.get(event.store_id) || storeMap.get(event.venue)
     return store?.short_name || store?.name || ''
-  }, [stores])
+  }, [storeMap])
 
   /**
    * 店舗の色を取得
+   * 最適化: Mapから直接取得（O(1)アクセス）
    */
   const getStoreColor = useCallback((event: any): string => {
-    const store = stores.find(s => s.id === event.store_id || s.id === event.venue)
+    const store = storeMap.get(event.store_id) || storeMap.get(event.venue)
     return store?.color || '#gray'
-  }, [stores])
+  }, [storeMap])
 
   return {
     listViewMonth,
