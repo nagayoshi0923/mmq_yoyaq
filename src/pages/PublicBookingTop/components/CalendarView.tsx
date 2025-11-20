@@ -110,7 +110,7 @@ export const CalendarView = memo(function CalendarView({
                           window.location.hash = `#private-booking-select?date=${dateStr}`
                         }}
                       >
-                        貸切
+                        貸切申込
                       </button>
                     </div>
                   ) : (

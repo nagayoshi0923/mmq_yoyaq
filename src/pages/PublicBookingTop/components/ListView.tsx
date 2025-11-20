@@ -1,5 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { memo } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { BookingFilters } from './BookingFilters'
 
 interface ListViewData {
@@ -35,6 +35,17 @@ export const ListView = memo(function ListView({
   scenarios,
   onCardClick
 }: ListViewProps) {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   const renderEventCell = (events: any[], store: any, timeSlot: string) => {
     if (events.length === 0) {
       return (
@@ -45,67 +56,81 @@ export const ListView = memo(function ListView({
               window.location.hash = `#private-booking-select?date=${timeSlot}&store=${store.id}&slot=${timeSlot}`
             }}
           >
-            貸切
+            貸切申込
           </button>
         </div>
       )
     }
 
     return events.map((event: any, idx: number) => {
-      const available = (event.max_participants || 8) - (event.current_participants || 0)
+      const maxParticipants = event.scenarios?.player_count_max || event.max_participants || 8
+      const currentParticipants = event.current_participants || 0
+      const available = maxParticipants - currentParticipants
       const isFull = available === 0
       const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
       const storeColor = getColorFromName(store.color)
+      
+      // シナリオ情報を取得
+      const scenario = scenarios.find((s: any) =>
+        s.scenario_id === event.scenario_id ||
+        s.scenario_title === event.scenario ||
+        s.scenario_id === event.scenarios?.id
+      )
+      const imageUrl = scenario?.key_visual_url || event.scenarios?.image_url || event.scenarios?.key_visual_url
 
       return (
         <div
           key={idx}
-          className={`text-[10px] sm:text-xs transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
+          className={`text-[9px] sm:text-xs transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
           style={{
             borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
             backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),
-            padding: '3px 4px',
+            padding: '2px 3px',
             display: 'block'
           }}
           onClick={() => {
-            if (!isPrivateBooking) {
-              const scenario = scenarios.find((s: any) =>
-                s.scenario_id === event.scenario_id ||
-                s.scenario_title === event.scenario
-              )
-              if (scenario) onCardClick(scenario.scenario_id)
+            if (!isPrivateBooking && scenario) {
+              onCardClick(scenario.scenario_id)
             }
           }}
         >
-          <div className="flex gap-1 sm:gap-2">
+          <div className="flex gap-0.5 sm:gap-2">
             {/* 左カラム: 画像 */}
-            <div className="flex-shrink-0 w-[18px] h-[24px] sm:w-[23px] sm:h-[30px] bg-gray-200 overflow-hidden">
-              {event.scenarios?.image_url ? (
+            <div className={`flex-shrink-0 w-[28px] h-[36px] sm:w-[46px] sm:h-[60px] overflow-hidden ${
+              isPrivateBooking 
+                ? 'bg-gray-300' 
+                : imageUrl 
+                  ? 'bg-gray-200' 
+                  : 'bg-gray-200'
+            }`}>
+              {isPrivateBooking ? (
+                <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                  <span className="text-gray-500 text-[8px] sm:text-[10px] font-bold">MMQ</span>
+                </div>
+              ) : imageUrl ? (
                 <img
-                  src={event.scenarios.image_url}
-                  alt={event.scenario || event.scenarios?.title}
+                  src={imageUrl}
+                  alt={event.scenario || scenario?.scenario_title || event.scenarios?.title || 'シナリオ画像'}
                   loading="lazy"
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400 text-[8px] sm:text-xs">
+                <div className="w-full h-full flex items-center justify-center text-gray-400 text-[7px] sm:text-xs">
                   No Image
                 </div>
               )}
             </div>
 
             {/* 右カラム: 情報 */}
-            <div className="flex flex-col gap-0 flex-1 min-w-0">
-              <div className="flex items-center gap-1 sm:gap-2">
-                <div className="font-semibold text-[9px] sm:text-[10px] md:text-[11px] leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
-                  {event.start_time?.slice(0, 5)}
-                </div>
-                <div className={`text-[9px] sm:text-[10px] md:text-[11px] font-medium leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
-                  {isPrivateBooking ? '貸切' : isFull ? '満' : `${available}`}
-                </div>
+            <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
+              <div className="font-semibold text-[10px] sm:text-[12px] md:text-[14px] leading-tight text-left" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                {event.start_time?.slice(0, 5)}
               </div>
-              <div className={`text-[9px] sm:text-[10px] md:text-[11px] font-medium leading-tight text-left truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+              <div className={`text-[10px] sm:text-[12px] md:text-[14px] font-medium leading-tight text-left truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
                 {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
+              </div>
+              <div className={`text-[9px] sm:text-[11px] md:text-[13px] font-medium leading-tight text-right ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+                {isPrivateBooking ? `残り0人` : isFull ? '満席' : `残り${available}人`}
               </div>
             </div>
           </div>
@@ -126,16 +151,26 @@ export const ListView = memo(function ListView({
       />
 
       {/* リスト表示テーブル */}
-      <div className="overflow-x-auto -mx-4 sm:mx-0">
-        <Table className="min-w-max">
+      <div className="overflow-x-auto -mx-2 sm:mx-0">
+        <Table className="sm:min-w-max" style={{ tableLayout: 'fixed', width: isMobile ? '100%' : 'auto' }}>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-16 sm:w-20 border-r text-xs sm:text-sm">日付</TableHead>
-              <TableHead className="w-12 sm:w-16 border-r text-xs sm:text-sm">曜日</TableHead>
-              <TableHead className="w-16 sm:w-20 border-r text-xs sm:text-sm">会場</TableHead>
-              <TableHead className="w-32 sm:w-48 border-r text-xs sm:text-sm">午前 (~12:00)</TableHead>
-              <TableHead className="w-32 sm:w-48 border-r text-xs sm:text-sm">午後 (12:00-17:59)</TableHead>
-              <TableHead className="w-32 sm:w-48 text-xs sm:text-sm">夜間 (18:00~)</TableHead>
+              <TableHead className="hidden sm:table-cell w-24 border-r text-sm">日付</TableHead>
+              <TableHead className="border-r text-xs sm:text-sm" style={{ width: isMobile ? '10px' : '60px', minWidth: isMobile ? '10px' : '60px', maxWidth: isMobile ? '10px' : '60px', flexShrink: 0 }}>
+                会場
+              </TableHead>
+              <TableHead className="w-10 sm:w-48 border-r text-xs sm:text-sm">
+                <span className="sm:hidden">午前</span>
+                <span className="hidden sm:inline">午前 (~12:00)</span>
+              </TableHead>
+              <TableHead className="w-10 sm:w-48 border-r text-xs sm:text-sm">
+                <span className="sm:hidden">午後</span>
+                <span className="hidden sm:inline">午後 (12:00-17:59)</span>
+              </TableHead>
+              <TableHead className="w-10 sm:w-48 text-xs sm:text-sm">
+                <span className="sm:hidden">夜間</span>
+                <span className="hidden sm:inline">夜間 (18:00~)</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
         <TableBody>
@@ -178,49 +213,56 @@ export const ListView = memo(function ListView({
             const rowSpan = stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length
 
             return (
-              <TableRow key={`${date}-${store.id}`} className={isFirstRowOfDate && index !== 0 ? 'border-t-2 border-gray-300' : ''}>
-                {/* 日付セル */}
+              <>
+                {/* モバイル用：日付行（全幅） */}
                 {isFirstRowOfDate && (
-                  <TableCell className="schedule-table-cell border-r text-xs sm:text-sm align-top" rowSpan={rowSpan}>
-                    {listViewMonth.getMonth() + 1}/{date}
-                  </TableCell>
+                  <TableRow className="sm:hidden bg-muted/30">
+                    <TableCell colSpan={4} className={`text-left px-2 py-1.5 text-xs font-medium ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`}>
+                      {listViewMonth.getMonth() + 1}/{date} ({dayOfWeek})
+                    </TableCell>
+                  </TableRow>
                 )}
 
-                {/* 曜日セル */}
-                {isFirstRowOfDate && (
-                  <TableCell className={`schedule-table-cell border-r text-xs sm:text-sm align-top ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={rowSpan}>
-                    {dayOfWeek}
-                  </TableCell>
-                )}
+                <TableRow key={`${date}-${store.id}`} className={isFirstRowOfDate && index !== 0 ? 'border-t-2 border-gray-300' : ''}>
+                  {/* 日付・曜日セル（統合）- デスクトップのみ表示 */}
+                  {isFirstRowOfDate && (
+                    <TableCell className={`hidden sm:table-cell schedule-table-cell border-r text-sm align-top w-24 ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={rowSpan}>
+                      <div className="flex flex-col items-center">
+                        <div className="font-medium">{listViewMonth.getMonth() + 1}/{date}</div>
+                        <div className="text-[11px]">{dayOfWeek}</div>
+                      </div>
+                    </TableCell>
+                  )}
 
-                {/* 店舗セル */}
-                <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-xs sm:text-sm">
-                  <div className="font-medium" style={{ color: getColorFromName(store.color) }}>
-                    {store.short_name || store.name}
-                  </div>
-                </TableCell>
+                  {/* 店舗セル */}
+                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-xs sm:text-sm" style={{ width: isMobile ? '10px' : '60px', minWidth: isMobile ? '10px' : '60px', maxWidth: isMobile ? '10px' : '60px', flexShrink: 0 }}>
+                    <div className="font-medium leading-tight whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: getColorFromName(store.color) }}>
+                      {store.short_name || store.name}
+                    </div>
+                  </TableCell>
 
                 {/* 午前セル */}
-                <TableCell className="schedule-table-cell p-0 w-32 sm:w-48">
+                <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
                   <div className="flex flex-col">
                     {renderEventCell(morningEvents, store, 'morning')}
                   </div>
                 </TableCell>
 
                 {/* 午後セル */}
-                <TableCell className="schedule-table-cell p-0 w-32 sm:w-48">
+                <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
                   <div className="flex flex-col">
                     {renderEventCell(afternoonEvents, store, 'afternoon')}
                   </div>
                 </TableCell>
 
                 {/* 夜間セル */}
-                <TableCell className="schedule-table-cell p-0 w-32 sm:w-48">
+                <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
                   <div className="flex flex-col">
                     {renderEventCell(eveningEvents, store, 'evening')}
                   </div>
                 </TableCell>
               </TableRow>
+              </>
             )
           })}
         </TableBody>
