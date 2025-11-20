@@ -61,17 +61,35 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
 
   // そのシナリオを公演可能な店舗IDを取得（シナリオのavailable_stores設定から）
   const getAvailableStoreIds = useCallback((): Set<string> => {
-    if (!scenario) return new Set()
-    
-    // シナリオにavailable_storesが設定されている場合
-    const availableStores = scenario.available_stores || scenario.available_stores_ids
-    if (Array.isArray(availableStores) && availableStores.length > 0) {
-      return new Set(availableStores)
+    // シナリオにavailable_storesが設定されている場合のみ、その店舗に限定
+    if (scenario) {
+      const availableStores = scenario.available_stores || scenario.available_stores_ids
+      // 配列が存在し、かつ空でない場合のみ限定
+      if (Array.isArray(availableStores) && availableStores.length > 0) {
+        return new Set(availableStores)
+      }
     }
     
-    // 設定されていない場合は全店舗を対象
+    // 設定されていない場合、または空配列の場合は全店舗を対象
     return new Set(stores.map(s => s.id))
   }, [scenario, stores])
+  
+  // イベントの店舗IDを取得（store_id、stores.id、venueから店舗名で検索）
+  const getEventStoreId = useCallback((event: any): string | null => {
+    // 優先順位：store_id > stores.id > venue（店舗名で検索）
+    if (event.store_id) return event.store_id
+    if (event.stores?.id) return event.stores.id
+    if (event.venue) {
+      // venueが店舗ID（UUID）の場合
+      if (stores.some(s => s.id === event.venue)) {
+        return event.venue
+      }
+      // venueが店舗名の場合、stores配列から検索
+      const store = stores.find(s => s.name === event.venue || s.short_name === event.venue)
+      if (store) return store.id
+    }
+    return null
+  }, [stores])
 
   // 特定の日付と時間枠が空いているかチェック（店舗フィルター対応）
   // 全店舗のイベントを使用して判定（特定シナリオのイベントのみではない）
@@ -79,18 +97,28 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
   const checkTimeSlotAvailability = useCallback((date: string, slot: TimeSlot, storeIds?: string[]): boolean => {
     const availableStoreIds = getAvailableStoreIds()
     
+    // 店舗データがまだ読み込まれていない場合は、とりあえずtrueを返す（後で再評価される）
+    if (stores.length === 0) return true
+    
     // 店舗が選択されている場合
     if (storeIds && storeIds.length > 0) {
       return storeIds.some(storeId => {
         // そのシナリオを公演可能な店舗かチェック
-        if (!availableStoreIds.has(storeId)) return false
+        // availableStoreIdsが空の場合は全店舗対象なのでチェックしない
+        if (availableStoreIds.size > 0 && !availableStoreIds.has(storeId)) return false
         
-        const storeEvents = allStoreEvents.filter((e: any) => 
-          e.date === date && 
-          (e.store_id === storeId || e.venue === storeId)
-        )
+        // その店舗のイベントをフィルタリング
+        const storeEvents = allStoreEvents.filter((e: any) => {
+          const eventStoreId = getEventStoreId(e)
+          // eventStoreIdがnullの場合は無視（店舗情報が取得できないイベント）
+          if (!eventStoreId) return false
+          return e.date === date && eventStoreId === storeId
+        })
+        
+        // イベントがない場合は空いている
         if (storeEvents.length === 0) return true
         
+        // 時間枠の衝突をチェック
         const hasConflict = storeEvents.some((event: any) => {
           const eventStart = event.start_time?.slice(0, 5) || '00:00'
           const eventEnd = event.end_time?.slice(0, 5) || '23:59'
@@ -105,15 +133,27 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     
     // 店舗が選択されていない場合：そのシナリオを公演可能な店舗のみを対象
     const availableStoreIdsArray = Array.from(availableStoreIds)
-    if (availableStoreIdsArray.length === 0) return false
     
+    // availableStoreIdsが空の場合は、storesが空（まだ読み込まれていない）か、何か問題がある
+    if (availableStoreIdsArray.length === 0) {
+      // storesが空の場合はまだ読み込まれていないので、とりあえずtrueを返す
+      return stores.length === 0
+    }
+    
+    // いずれかの店舗で空きがあればtrue
     return availableStoreIdsArray.some(storeId => {
-      const storeEvents = allStoreEvents.filter((e: any) => 
-        e.date === date && 
-        (e.store_id === storeId || e.venue === storeId)
-      )
+      // その店舗のイベントをフィルタリング
+      const storeEvents = allStoreEvents.filter((e: any) => {
+        const eventStoreId = getEventStoreId(e)
+        // eventStoreIdがnullの場合は無視（店舗情報が取得できないイベント）
+        if (!eventStoreId) return false
+        return e.date === date && eventStoreId === storeId
+      })
+      
+      // イベントがない場合は空いている
       if (storeEvents.length === 0) return true
       
+      // 時間枠の衝突をチェック
       const hasConflict = storeEvents.some((event: any) => {
         const eventStart = event.start_time?.slice(0, 5) || '00:00'
         const eventEnd = event.end_time?.slice(0, 5) || '23:59'
@@ -124,7 +164,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       
       return !hasConflict
     })
-  }, [allStoreEvents, getAvailableStoreIds])
+  }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, stores])
 
   // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）
   const generatePrivateDates = useCallback(() => {
