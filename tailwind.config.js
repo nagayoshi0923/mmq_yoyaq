@@ -14,6 +14,30 @@ export default {
       spacing: {
         'safe': 'max(0.75rem, env(safe-area-inset-left))',
       },
+      fontSize: {
+        // スケジュール画面用：小さめな文字サイズ
+        'xs': ['8px', { lineHeight: '1.2' }],       // バッジ用最小
+        'sm': ['9px', { lineHeight: '1.3' }],       // 小コンテンツ用
+        'base': ['10px', { lineHeight: '1.4' }],    // 標準コンテンツ用
+        'lg': ['11px', { lineHeight: '1.5' }],      // 大コンテンツ用
+        'xl': ['12px', { lineHeight: '1.6' }],      // 見出し用
+        'schedule-xs': [
+          ['8px', '9px', '10px'],
+          { lineHeight: '1' }
+        ],
+        'schedule-sm': [
+          ['9px', '10px', '11px'],
+          { lineHeight: '1.2' }
+        ],
+        'schedule-base': [
+          ['9px', '10px', '12px'],
+          { lineHeight: '1.3' }
+        ],
+        'schedule-lg': [
+          ['10px', '11px', '13px'],
+          { lineHeight: '1.4' }
+        ],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

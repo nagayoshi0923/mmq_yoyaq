@@ -107,7 +107,7 @@ function PerformanceCardBase({
         e.dataTransfer.setData('application/json', JSON.stringify(event))
       }}
       onContextMenu={handleContextMenu}
-      className={`p-0.5 sm:p-1 border-l-2 sm:border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-[9px] sm:text-[10px] md:text-xs relative ${
+      className={`p-0.5 sm:p-1 border-l-2 sm:border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-schedule-base relative ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
           : 'cursor-move'
@@ -117,7 +117,7 @@ function PerformanceCardBase({
     >
       {/* ヘッダー行：時間 + バッジ群 */}
       <div className="flex items-center justify-between mb-0 gap-0.5">
-        <span className={`font-mono text-[9px] sm:text-[10px] md:text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+        <span className={`font-mono text-schedule-base leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
         <div className="flex items-center gap-0.5 flex-shrink-0 min-w-0">
@@ -133,7 +133,7 @@ function PerformanceCardBase({
             <>
               {/* 予約者数バッジ */}
               {!event.is_cancelled && (
-                <Badge size="sm" className={`font-normal text-[7px] sm:text-[8px] md:text-[9px] px-0 py-0 h-3 sm:h-4 whitespace-nowrap ${
+                <Badge size="sm" className={`font-normal text-schedule-xs px-0 py-0 h-3 sm:h-4 whitespace-nowrap ${
                   reservationCount >= maxCapacity 
                     ? 'bg-red-100 text-red-800' 
                     : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
