@@ -1,5 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { memo, useState, useEffect, useMemo } from 'react'
+import React from 'react'
 import { BookingFilters } from './BookingFilters'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 
@@ -239,7 +240,7 @@ export const ListView = memo(function ListView({
             const rowSpan = stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length
 
             return (
-              <>
+              <React.Fragment key={`${date}-${store.id}`}>
                 {/* モバイル用：日付行（全幅） */}
                 {isFirstRowOfDate && (
                   <TableRow className="sm:hidden bg-muted/30">
@@ -249,7 +250,7 @@ export const ListView = memo(function ListView({
                   </TableRow>
                 )}
 
-                <TableRow key={`${date}-${store.id}`} className={isFirstRowOfDate && index !== 0 ? 'border-t-2 border-gray-300' : ''}>
+                <TableRow className={isFirstRowOfDate && index !== 0 ? 'border-t-2 border-gray-300' : ''}>
                   {/* 日付・曜日セル（統合）- デスクトップのみ表示 */}
                   {isFirstRowOfDate && (
                     <TableCell className={`hidden sm:table-cell schedule-table-cell border-r text-sm align-top w-24 ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={rowSpan}>
@@ -288,7 +289,7 @@ export const ListView = memo(function ListView({
                   </div>
                 </TableCell>
               </TableRow>
-              </>
+              </React.Fragment>
             )
           })}
         </TableBody>
