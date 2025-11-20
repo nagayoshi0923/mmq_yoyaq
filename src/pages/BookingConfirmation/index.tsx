@@ -104,19 +104,19 @@ export function BookingConfirmation({
         <Header />
         <NavigationBar currentPage="customer-booking" />
         
-        <div className="container mx-auto max-w-3xl px-6 py-12">
+        <div className="container mx-auto max-w-3xl px-3 xs:px-4 sm:px-6 py-8 xs:py-10 sm:py-12">
           <Card className="border-2 border-green-200 bg-green-50">
-            <CardContent className="p-8 text-center space-y-4">
-              <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
-              <h2 className="text-2xl font-bold text-green-800">予約が完了しました！</h2>
-              <p className="text-green-700">
+            <CardContent className="p-4 xs:p-6 sm:p-8 text-center space-y-4">
+              <CheckCircle2 className="w-12 xs:w-14 sm:w-16 h-12 xs:h-14 sm:h-16 text-green-600 mx-auto" />
+              <h2 className="text-lg xs:text-xl sm:text-2xl font-bold text-green-800 leading-tight">予約が完了しました！</h2>
+              <p className="text-xs xs:text-sm sm:text-base text-green-700 leading-relaxed">
                 ご予約ありがとうございます。<br />
                 確認メールを {customerEmail} に送信しました。
               </p>
-              <div className="pt-4">
+              <div className="pt-2 xs:pt-3 sm:pt-4">
                 <Button
                   onClick={() => window.location.hash = 'customer-booking'}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-green-600 hover:bg-green-700 text-xs xs:text-sm sm:text-base h-8 xs:h-9 sm:h-10"
                 >
                   予約サイトトップに戻る
                 </Button>
@@ -136,17 +136,18 @@ export function BookingConfirmation({
       <NavigationBar currentPage="customer-booking" />
 
       {/* 戻るボタン */}
-      <div className="bg-background border-b">
-        <div className="container mx-auto max-w-5xl px-6 py-2">
-          <Button variant="ghost" onClick={onBack} className="flex items-center gap-1.5 hover:bg-accent h-8 px-2">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">シナリオ詳細に戻る</span>
+      <div className="bg-background border-b sticky top-0 z-10">
+        <div className="container mx-auto max-w-5xl px-3 xs:px-4 sm:px-6 py-1.5 xs:py-2">
+          <Button variant="ghost" onClick={onBack} className="flex items-center gap-0.5 xs:gap-1 sm:gap-1.5 hover:bg-accent h-8 xs:h-9 sm:h-10 px-1.5 xs:px-2 sm:px-3 text-[10px] xs:text-xs sm:text-sm">
+            <ArrowLeft className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+            <span className="hidden xs:inline">シナリオ詳細に戻る</span>
+            <span className="xs:hidden">戻</span>
           </Button>
         </div>
       </div>
 
-      <div className="container mx-auto max-w-5xl px-6 py-6">
-        <h1 className="text-3xl font-bold mb-6">予約確認</h1>
+      <div className="container mx-auto max-w-5xl px-3 xs:px-4 sm:px-6 py-4 xs:py-5 sm:py-6">
+        <h1 className="text-xl xs:text-2xl sm:text-3xl font-bold mb-4 xs:mb-5 sm:mb-6 leading-tight">予約確認</h1>
 
         {error && (
           <Card className="mb-6 border-2 border-red-200 bg-red-50">
@@ -157,12 +158,12 @@ export function BookingConfirmation({
           </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 xs:gap-5 sm:gap-6">
           {/* 左側：予約内容 */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 xs:space-y-5 sm:space-y-6">
             {/* 公演情報 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">公演情報</h2>
+              <h2 className="font-bold text-base xs:text-lg sm:text-lg mb-2 xs:mb-3">公演情報</h2>
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div>
