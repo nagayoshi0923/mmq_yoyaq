@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, memo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +9,7 @@ interface HeaderProps {
   onPageChange?: (pageId: string) => void
 }
 
-export function Header({ onPageChange }: HeaderProps) {
+export const Header = memo(function Header({ onPageChange }: HeaderProps) {
   const { user, signOut } = useAuth()
 
   const handleSignOut = useCallback(async () => {
@@ -26,6 +26,16 @@ export function Header({ onPageChange }: HeaderProps) {
     } else {
       // 各機能ページから呼ばれた場合はハッシュを変更
       window.location.hash = ''
+    }
+  }, [onPageChange])
+
+  // 最適化: マイページボタンのクリックハンドラをメモ化
+  const handleMyPageClick = useCallback(() => {
+    if (onPageChange) {
+      onPageChange('my-page')
+    } else {
+      // フォールバック: 直接URLハッシュを変更
+      window.location.hash = 'my-page'
     }
   }, [onPageChange])
 
@@ -65,14 +75,7 @@ export function Header({ onPageChange }: HeaderProps) {
                 </div>
                 <button 
                   className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 p-0 touch-manipulation"
-                  onClick={() => {
-                    if (onPageChange) {
-                      onPageChange('my-page')
-                    } else {
-                      // フォールバック: 直接URLハッシュを変更
-                      window.location.hash = 'my-page'
-                    }
-                  }}
+                  onClick={handleMyPageClick}
                   title="マイページ"
                 >
                   <User className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
@@ -108,4 +111,4 @@ export function Header({ onPageChange }: HeaderProps) {
       </div>
     </header>
   )
-}
+})

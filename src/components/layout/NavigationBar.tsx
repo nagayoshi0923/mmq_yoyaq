@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback, memo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
   Calendar, 
@@ -17,7 +17,7 @@ interface NavigationBarProps {
   onPageChange?: (pageId: string) => void
 }
 
-export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps) {
+export const NavigationBar = memo(function NavigationBar({ currentPage, onPageChange }: NavigationBarProps) {
   const { user } = useAuth()
   
   // 全タブ定義（定数なのでメモ化）
@@ -43,6 +43,19 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
     [allTabs, user]
   )
 
+  // 最適化: タブクリックハンドラをメモ化
+  const handleTabClick = useCallback((tabId: string, e: React.MouseEvent<HTMLAnchorElement>) => {
+    // 中クリック、Cmd+クリック、Ctrl+クリックの場合は通常のリンク動作
+    if (e.button === 1 || e.metaKey || e.ctrlKey) {
+      return
+    }
+    
+    if (onPageChange) {
+      e.preventDefault()
+      onPageChange(tabId)
+    }
+  }, [onPageChange])
+
   return (
     <nav className="border-b border-border bg-muted/30">
       <div className="mx-auto px-0 sm:px-2 md:px-4 lg:px-8 py-1.5 sm:py-2 md:py-3 max-w-full overflow-x-auto overflow-y-hidden">
@@ -55,17 +68,7 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
               <a
                 key={tab.id}
                 href={href}
-                onClick={(e) => {
-                  // 中クリック、Cmd+クリック、Ctrl+クリックの場合は通常のリンク動作
-                  if (e.button === 1 || e.metaKey || e.ctrlKey) {
-                    return
-                  }
-                  
-                  if (onPageChange) {
-                    e.preventDefault()
-                    onPageChange(tab.id)
-                  }
-                }}
+                onClick={(e) => handleTabClick(tab.id, e)}
                 className={`inline-flex flex-col items-center justify-center gap-0.5 sm:flex-row sm:gap-1 md:gap-2 px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-2.5 text-[10px] sm:text-xs md:text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-none min-w-[48px] sm:min-w-[56px] md:min-w-auto touch-manipulation ${
                   isActive 
                     ? 'text-foreground border-b-[2px] sm:border-b-[3px] border-primary bg-accent/50' 
@@ -83,4 +86,4 @@ export function NavigationBar({ currentPage, onPageChange }: NavigationBarProps)
       </div>
     </nav>
   )
-}
+})

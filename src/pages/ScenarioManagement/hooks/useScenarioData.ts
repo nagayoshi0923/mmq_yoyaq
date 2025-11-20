@@ -23,25 +23,18 @@ export function useScenarioData() {
       setError('')
       const data = await scenarioApi.getAll()
       
-      // 各シナリオの担当GM情報をリレーションテーブルから取得
-      const scenariosWithGMs = await Promise.all(
-        data.map(async (scenario) => {
-          try {
-            const assignments = await assignmentApi.getScenarioAssignments(scenario.id)
-            const assignedGMs = assignments.map(a => a.staff?.name).filter(Boolean)
-            return {
-              ...scenario,
-              available_gms: assignedGMs // リレーションテーブルから取得した担当GM名を設定
-            }
-          } catch (error) {
-            logger.error(`Error loading assignments for scenario ${scenario.id}:`, error)
-            return {
-              ...scenario,
-              available_gms: scenario.available_gms || [] // エラー時は既存の値を使用
-            }
-          }
-        })
-      )
+      // 最適化: N+1問題を回避（バッチ取得APIを使用）
+      const scenarioIds = data.map(s => s.id)
+      const gmMap = await assignmentApi.getBatchScenarioAssignments(scenarioIds).catch((error) => {
+        logger.error('Error loading batch assignments:', error)
+        return new Map<string, string[]>()
+      })
+      
+      // シナリオにGM情報をマージ
+      const scenariosWithGMs = data.map(scenario => ({
+        ...scenario,
+        available_gms: gmMap.get(scenario.id) || scenario.available_gms || []
+      }))
       
       setScenarios(scenariosWithGMs)
     } catch (err: unknown) {

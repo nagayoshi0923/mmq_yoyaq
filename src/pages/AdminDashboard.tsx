@@ -229,7 +229,8 @@ export function AdminDashboard() {
     }
   }, [currentPage])
 
-  const navigationTabs = [
+  // 最適化: navigationTabsをuseMemoでメモ化（毎回新しい配列が生成されるのを防ぐ）
+  const navigationTabs = React.useMemo(() => [
     { id: 'stores', label: '店舗', icon: Store, color: 'bg-blue-100 text-blue-800' },
     { id: 'schedule', label: 'スケジュール', icon: Calendar, color: 'bg-green-100 text-green-800' },
     { id: 'staff', label: 'スタッフ', icon: Users, color: 'bg-purple-100 text-purple-800' },
@@ -241,7 +242,7 @@ export function AdminDashboard() {
     { id: 'user-management', label: 'ユーザー', icon: UserCog, color: 'bg-violet-100 text-violet-800' },
     { id: 'sales', label: '売上', icon: TrendingUp, color: 'bg-emerald-100 text-emerald-800' },
     { id: 'settings', label: '設定', icon: Settings, color: 'bg-gray-100 text-gray-800' }
-  ]
+  ], [])
 
   // ログインページはAdminDashboardで表示しない（App.tsxで処理される）
   if (currentPage === 'login') {
