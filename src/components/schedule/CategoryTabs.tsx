@@ -15,17 +15,17 @@ export const CategoryTabs = memo(function CategoryTabs({
   onCategoryChange
 }: CategoryTabsProps) {
   return (
-    <div className="bg-card border rounded-lg p-2 sm:p-3 md:p-4">
-      <h3 className="flex flex-wrap items-center gap-1 sm:gap-2 text-sm sm:text-base">
+    <div className="bg-card border rounded-lg p-2 xs:p-2.5 sm:p-3 md:p-4">
+      <h3 className="flex flex-wrap items-center gap-1 xs:gap-1.5 sm:gap-2 text-xs xs:text-sm sm:text-base leading-tight">
         <span>公演カテゴリ</span>
-        <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
+        <span className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
           （中止: {categoryCounts.cancelled}件 / 警告: {categoryCounts.alerts}件）
         </span>
       </h3>
-      <Tabs value={selectedCategory} onValueChange={onCategoryChange} className="mt-2 sm:mt-3 md:mt-4">
-        <div className="overflow-x-auto -mx-2 sm:mx-0">
-          <TabsList className="grid grid-cols-6 w-max min-w-full sm:w-fit gap-0.5 sm:gap-1">
-            <TabsTrigger value="all" className="text-[10px] sm:text-xs md:text-sm px-1 sm:px-2 md:px-3 py-1 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap">
+      <Tabs value={selectedCategory} onValueChange={onCategoryChange} className="mt-1.5 xs:mt-2 sm:mt-3 md:mt-4">
+        <div className="overflow-x-auto -mx-2 xs:-mx-2.5 sm:mx-0">
+          <TabsList className="grid grid-cols-6 w-max min-w-full sm:w-fit gap-0.5 xs:gap-0.5 sm:gap-1">
+            <TabsTrigger value="all" className="text-[9px] xs:text-[10px] sm:text-xs md:text-sm px-0.5 xs:px-1 sm:px-2 md:px-3 py-0.5 xs:py-1 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap h-7 xs:h-8 sm:h-9">
               <span className="hidden sm:inline">すべて</span>
               <span className="sm:hidden">全</span>
               ({categoryCounts.all})

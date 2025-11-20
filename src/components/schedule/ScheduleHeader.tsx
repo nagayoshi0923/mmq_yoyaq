@@ -18,9 +18,9 @@ export const ScheduleHeader = memo(function ScheduleHeader({
   onImportClick
 }: ScheduleHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 mb-3 sm:mb-4">
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold truncate">月間スケジュール管理</h2>
+    <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2 xs:gap-3 sm:gap-4 mb-2.5 xs:mb-3 sm:mb-4">
+      <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 min-w-0 flex-1">
+        <h2 className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold truncate leading-tight">月間スケジュール管理</h2>
         {/* 更新中のインジケーター */}
         {isLoading && (
           <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1 flex-shrink-0">
@@ -29,7 +29,7 @@ export const ScheduleHeader = memo(function ScheduleHeader({
           </div>
         )}
       </div>
-      <div className="flex gap-1.5 sm:gap-2 items-center w-full sm:w-auto">
+      <div className="flex gap-1 xs:gap-1.5 sm:gap-2 items-center w-full xs:w-auto">
         {/* 月選択コントロール */}
         <MonthSwitcher
           value={currentDate}
@@ -44,10 +44,10 @@ export const ScheduleHeader = memo(function ScheduleHeader({
           variant="outline" 
           size="sm"
           onClick={onImportClick}
-          className="text-xs sm:text-sm flex-shrink-0"
+          className="text-[10px] xs:text-xs sm:text-sm flex-shrink-0 h-8 xs:h-9 sm:h-10"
         >
-          <span className="hidden sm:inline">インポート</span>
-          <span className="sm:hidden">入</span>
+          <span className="hidden xs:inline">インポート</span>
+          <span className="xs:hidden">入</span>
         </Button>
       </div>
     </div>
