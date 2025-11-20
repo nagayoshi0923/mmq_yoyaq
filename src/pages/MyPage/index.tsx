@@ -33,10 +33,10 @@ export default function MyPage() {
   }
 
   return (
-    <div className="flex">
+    <div className="flex flex-col md:flex-row min-h-screen">
       <Sidebar currentPage={currentSubPage} onPageChange={setCurrentSubPage} />
-      <div className="flex-1 p-8">
-        <div className="max-w-4xl">
+      <div className="flex-1 p-3 sm:p-4 md:p-8 bg-background overflow-y-auto pb-20 md:pb-0">
+        <div className="max-w-4xl mx-auto">
           {renderContent()}
         </div>
       </div>
