@@ -63,25 +63,23 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true)
+      const startTime = performance.now()
       
       // 初期表示パフォーマンス最適化: 最初の1ヶ月のみ取得
       // （ユーザーが操作で追加の月を読み込むようにする）
       const currentDate = new Date()
       const monthPromises = []
 
-      // 現在の月から1ヶ月先までの公演を取得（2ヶ月分）
-      // 将来的にはユーザーの操作で追加読み込み可能にする
-      for (let i = 0; i < 2; i++) {
-        const targetDate = new Date(currentDate)
-        targetDate.setMonth(currentDate.getMonth() + i)
-
-        const year = targetDate.getFullYear()
-        const month = targetDate.getMonth() + 1
-
-        monthPromises.push(scheduleApi.getByMonth(year, month))
-      }
+      // 現在の月のみ取得（1ヶ月分）- パフォーマンス最適化
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+      
+      const apiStartTime = performance.now()
+      monthPromises.push(scheduleApi.getByMonth(year, month))
+      logger.log(`⏱️ API呼び出し開始: ${((performance.now() - apiStartTime).toFixed(2))}ms`)
 
       // すべてのデータを並列取得（最適化: getPublic()を使用）
+      const fetchStartTime = performance.now()
       const [scenariosData, storesDataResult, ...monthResults] = await Promise.all([
         scenarioApi.getPublic(), // status='available'のみ、必要なフィールドのみ取得
         storeApi.getAll().catch((error) => {
@@ -90,9 +88,12 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         }),
         ...monthPromises
       ])
+      const fetchEndTime = performance.now()
+      logger.log(`⏱️ データ取得完了: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
       
       const storesData = storesDataResult || []
       const allEventsData = monthResults.flat()
+      logger.log(`📊 取得データ: シナリオ${scenariosData.length}件, 店舗${storesData.length}件, 公演${allEventsData.length}件`)
       
       // 予約可能な公演 + 確定貸切公演をフィルタリング
       const publicEvents = allEventsData.filter((event: any) => {
@@ -285,14 +286,29 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         }
       })
       
+      const processEndTime = performance.now()
+      logger.log(`⏱️ データ処理完了: ${((processEndTime - fetchEndTime) / 1000).toFixed(2)}秒`)
+      
       const scenarioList = Array.from(scenarioMap.values())
       
+      // データを先に設定
       setScenarios(scenarioList)
       setAllEvents(publicEvents) // カレンダー用に全公演データを保存
       setStores(storesData) // 店舗データを保存
       
+      const totalTime = performance.now() - startTime
       // パフォーマンスログ
       logger.log(`📊 予約サイトデータ取得完了: ${scenarioList.length}件のシナリオ, ${publicEvents.length}件の公演`)
+      logger.log(`⏱️ 総処理時間: ${(totalTime / 1000).toFixed(2)}秒`)
+      
+      // パフォーマンス最適化: ローディングを非同期で解除（レンダリングをブロックしない）
+      setTimeout(() => {
+        setIsLoading(false)
+      }, 0)
+      
+      if (totalTime > 3000) {
+        logger.warn(`⚠️ 処理時間が3秒を超えています: ${(totalTime / 1000).toFixed(2)}秒`)
+      }
 
       // デバッグ: データがない場合の警告
       if (scenarioList.length === 0) {
@@ -305,7 +321,6 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       }
     } catch (error) {
       logger.error('データの読み込みエラー:', error)
-    } finally {
       setIsLoading(false)
     }
   }, [])

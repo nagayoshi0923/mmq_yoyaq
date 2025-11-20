@@ -1,10 +1,57 @@
-import { memo } from 'react'
+import { memo, useState, useRef, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Clock, Users, Heart } from 'lucide-react'
 import { usePrefetch } from '@/hooks/usePrefetch'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
+
+// 画像コンポーネントをインライン化して最適化
+const LazyImage = ({ src, alt, className }: { src?: string, alt: string, className?: string }) => {
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [isInView, setIsInView] = useState(false)
+  const imgRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsInView(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '50px' }
+    )
+
+    if (imgRef.current) {
+      observer.observe(imgRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={imgRef} className={`relative w-full h-full bg-gray-200 ${className}`}>
+      {!isLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+          <div className="w-8 h-8 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+      {isInView && src ? (
+        <img
+          src={src}
+          alt={alt}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setIsLoaded(true)}
+          loading="lazy"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+          <span className="text-xs">{alt}</span>
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface ScenarioCardProps {
   scenario: ScenarioCardType
@@ -45,22 +92,10 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
     >
       {/* キービジュアル */}
       <div className="relative w-full aspect-[1/1.4] bg-gray-200 overflow-hidden flex items-center justify-center group">
-        <OptimizedImage
+        <LazyImage
           src={scenario.key_visual_url}
           alt={scenario.scenario_title}
-          className="w-full h-full object-cover"
-          responsive={true}
-          srcSetSizes={[300, 600, 900]}
-          breakpoints={{ mobile: 300, tablet: 400, desktop: 600 }}
-          useWebP={true}
-          quality={85}
-          fallback={
-            <div className="text-center px-4">
-              <div className="text-xl font-medium text-gray-400 leading-relaxed">
-                {scenario.scenario_title}
-              </div>
-            </div>
-          }
+          className="w-full h-full"
         />
         
         {/* お気に入りボタン */}
