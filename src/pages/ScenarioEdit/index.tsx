@@ -348,32 +348,32 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
         {/* メインコンテンツ */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* ヘッダー */}
-          <div className="flex items-center justify-between px-8 py-6 border-b shrink-0">
-            <div>
-              <h2 className="text-lg font-bold">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 md:px-8 py-3 sm:py-4 md:py-6 border-b shrink-0">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm sm:text-base md:text-lg font-bold break-words">
                 {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
               </h2>
               {formData.title && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">
                   {formData.title}
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               {showSaveSuccess && (
-                <div className="text-sm text-green-600 font-medium animate-in fade-in slide-in-from-right-1">
+                <div className="text-xs sm:text-sm text-green-600 font-medium animate-in fade-in slide-in-from-right-1">
                   ✓ 保存しました
                 </div>
               )}
-              <Button onClick={handleSave} disabled={scenarioMutation.isPending}>
-                <Save className="h-4 w-4 mr-2" />
+              <Button onClick={handleSave} disabled={scenarioMutation.isPending} className="text-xs sm:text-sm">
+                <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                 {scenarioMutation.isPending ? '保存中...' : '保存'}
               </Button>
             </div>
           </div>
 
           {/* コンテンツ */}
-          <div className="flex-1 overflow-y-auto px-8 py-6">
+          <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-8 py-3 sm:py-4 md:py-6">
             {renderContent()}
           </div>
         </div>
@@ -396,34 +396,34 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
         />
       }
       maxWidth="max-w-7xl"
-      containerPadding="px-[10px] py-6"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
       {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-bold">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm sm:text-base md:text-lg font-bold break-words">
             {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
           </h2>
           {formData.title && (
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">
               {formData.title}
             </p>
           )}
           {scenarioId && !formData.title && (
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">
               ID: {scenarioId}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {showSaveSuccess && (
-            <div className="text-sm text-green-600 font-medium animate-in fade-in slide-in-from-right-1">
+            <div className="text-xs sm:text-sm text-green-600 font-medium animate-in fade-in slide-in-from-right-1">
               ✓ 保存しました
             </div>
           )}
-          <Button onClick={handleSave} disabled={scenarioMutation.isPending}>
-            <Save className="h-4 w-4 mr-2" />
+          <Button onClick={handleSave} disabled={scenarioMutation.isPending} className="text-xs sm:text-sm">
+            <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
             {scenarioMutation.isPending ? '保存中...' : '保存'}
           </Button>
         </div>

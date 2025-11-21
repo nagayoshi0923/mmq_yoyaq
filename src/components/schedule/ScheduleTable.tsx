@@ -87,12 +87,12 @@ export function ScheduleTable({
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="border-r text-schedule-xs !p-0 !h-auto text-center">日付<br/><span className="sm:hidden text-xs">曜</span><span className="hidden sm:inline">曜日</span></TableHead>
-                <TableHead className="border-r text-schedule-xs !p-0 !h-auto text-center">会場</TableHead>
-                <TableHead className="border-r text-schedule-xs whitespace-nowrap !p-0 !h-auto text-center">午前<br className="hidden sm:block"/><span className="sm:hidden"> </span>(~12)</TableHead>
-                <TableHead className="border-r text-schedule-xs whitespace-nowrap !p-0 !h-auto text-center">午後<br className="hidden sm:block"/><span className="sm:hidden"> </span>(12-17)</TableHead>
-                <TableHead className="border-r text-schedule-xs whitespace-nowrap !p-0 !h-auto text-center">夜間<br className="hidden sm:block"/><span className="sm:hidden"> </span>(17~)</TableHead>
-                <TableHead className="text-schedule-xs !p-0 !h-auto text-center">メモ</TableHead>
+                <TableHead className="border-r text-[11px] md:text-xs !p-0 !h-auto text-center">日付<br/><span className="md:hidden text-[10px]">曜</span><span className="hidden md:inline">曜日</span></TableHead>
+                <TableHead className="border-r text-[11px] md:text-xs !p-0 !h-auto text-center">会場</TableHead>
+                <TableHead className="border-r text-[11px] md:text-xs whitespace-nowrap !p-0 !h-auto text-center">午前<br className="hidden md:block"/><span className="md:hidden"> </span>(~12)</TableHead>
+                <TableHead className="border-r text-[11px] md:text-xs whitespace-nowrap !p-0 !h-auto text-center">午後<br className="hidden md:block"/><span className="md:hidden"> </span>(12-17)</TableHead>
+                <TableHead className="border-r text-[11px] md:text-xs whitespace-nowrap !p-0 !h-auto text-center">夜間<br className="hidden md:block"/><span className="md:hidden"> </span>(17~)</TableHead>
+                <TableHead className="text-[11px] md:text-xs !p-0 !h-auto text-center">メモ</TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>
@@ -101,16 +101,16 @@ export function ScheduleTable({
                 <TableRow key={`${day.date}-${store.id}`} className="h-10 sm:h-12 md:h-14">
                   {/* 日付・曜日統合セル */}
                   {storeIndex === 0 ? (
-                    <TableCell className={`schedule-table-cell border-r text-schedule-xs !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
-                      <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-0">
+                    <TableCell className={`schedule-table-cell border-r text-[11px] md:text-xs !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
+                      <div className="flex flex-col items-center justify-center min-h-[40px] md:min-h-[48px] md:min-h-[56px] gap-0">
                         <span className="font-semibold">{day.displayDate}</span>
-                        <span className="text-xs">({day.dayOfWeek})</span>
+                        <span className="text-[10px] md:text-xs">({day.dayOfWeek})</span>
                       </div>
                     </TableCell>
                   ) : null}
                   
                   {/* 店舗セル */}
-                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-schedule-xs !p-0 leading-none text-center">
+                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-[11px] md:text-xs !p-0 leading-none text-center">
                     {store.short_name}
                   </TableCell>
                   

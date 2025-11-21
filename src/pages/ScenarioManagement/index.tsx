@@ -408,11 +408,12 @@ export function ScenarioManagement() {
           {useInfiniteScroll && hasMore && (
             <div 
               ref={loadMoreTriggerRef}
-              className="flex justify-center py-4"
+              className="flex justify-center py-3 sm:py-4"
             >
               <Button
                 variant="outline"
                 onClick={() => setDisplayCount(prev => Math.min(prev + 20, filteredAndSortedScenarios.length))}
+                className="text-xs sm:text-sm"
               >
                 さらに表示 ({displayedScenarios.length} / {filteredAndSortedScenarios.length})
               </Button>
@@ -421,7 +422,7 @@ export function ScenarioManagement() {
           
           {/* データ表示状況 */}
           {useInfiniteScroll && !hasMore && displayedScenarios.length > 0 && (
-            <div className="text-center py-4 text-sm text-muted-foreground">
+            <div className="text-center py-3 sm:py-4 text-xs sm:text-sm text-muted-foreground">
               {filteredAndSortedScenarios.length === allScenarios.length ? (
                 `全${allScenarios.length}件のシナリオを表示しています`
               ) : (

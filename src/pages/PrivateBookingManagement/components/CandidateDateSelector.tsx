@@ -61,8 +61,8 @@ export const CandidateDateSelector = ({
 }: CandidateDateSelectorProps) => {
   return (
     <div>
-      <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
-        <Calendar className="w-4 h-4" />
+      <h3 className="font-semibold mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-purple-800 text-sm sm:text-base">
+        <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
         開催日時を選択
       </h3>
       <div className="space-y-2">
@@ -80,7 +80,7 @@ export const CandidateDateSelector = ({
             <div
               key={candidate.order}
               onClick={() => !hasConflict && onSelectCandidate(candidate.order)}
-              className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
+              className={`flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded border-2 transition-all ${
                 hasConflict
                   ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
                   : isSelected
@@ -88,7 +88,7 @@ export const CandidateDateSelector = ({
                   : 'border-gray-200 bg-background hover:border-purple-300 cursor-pointer'
               }`}
             >
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+              <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                 hasConflict
                   ? 'border-red-500 bg-red-500'
                   : isSelected
@@ -96,21 +96,21 @@ export const CandidateDateSelector = ({
                   : 'border-gray-300'
               }`}>
                 {hasConflict ? (
-                  <XCircle className="w-4 h-4 text-white" />
+                  <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                 ) : isSelected ? (
-                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                 ) : null}
               </div>
-              <div className="flex-1">
-                <div className="font-medium">候補{candidate.order}</div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-xs sm:text-sm">候補{candidate.order}</div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-xs sm:text-sm text-muted-foreground mt-1">
                   <div className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    <span>{formatCandidateDate(candidate.date)}</span>
+                    <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                    <span className="break-words">{formatCandidateDate(candidate.date)}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{candidate.timeSlot} {candidate.startTime} - {candidate.endTime}</span>
+                    <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+                    <span className="break-words">{candidate.timeSlot} {candidate.startTime} - {candidate.endTime}</span>
                   </div>
                 </div>
                 {hasConflict && (

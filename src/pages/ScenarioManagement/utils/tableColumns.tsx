@@ -83,7 +83,7 @@ export function createScenarioColumns(
           <div className="flex items-center justify-center">
             {scenario.key_visual_url ? (
               <div 
-                className="relative w-10 h-12 bg-gray-200 rounded overflow-hidden group"
+                className="relative w-8 h-10 sm:w-10 sm:h-12 bg-gray-200 rounded overflow-hidden group"
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -98,14 +98,14 @@ export function createScenarioColumns(
                   useWebP={true}
                   quality={85}
                   fallback={
-                    <div className="w-full h-full flex items-center justify-center text-gray-400" style={{ fontSize: '7px' }}>
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-[7px] sm:text-xs">
                       No Image
                     </div>
                   }
                 />
                 {isDragging && (
                   <div className="absolute inset-0 bg-blue-500 bg-opacity-50 flex items-center justify-center">
-                    <Upload className="h-4 w-4 text-white" />
+                    <Upload className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                   </div>
                 )}
                 <button
@@ -119,12 +119,12 @@ export function createScenarioColumns(
                   className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                   title="画像を削除"
                 >
-                  <X className="h-2 w-2" />
+                  <X className="h-1.5 w-1.5 sm:h-2 sm:w-2" />
                 </button>
               </div>
             ) : (
               <div 
-                className={`relative w-10 h-12 border border-dashed rounded flex flex-col items-center justify-center cursor-pointer transition-colors ${
+                className={`relative w-8 h-10 sm:w-10 sm:h-12 border border-dashed rounded flex flex-col items-center justify-center cursor-pointer transition-colors ${
                   isDragging 
                     ? 'border-blue-500 bg-blue-100' 
                     : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'
@@ -138,7 +138,7 @@ export function createScenarioColumns(
                   input?.click()
                 }}
               >
-                <Upload className={`h-3 w-3 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
+                <Upload className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${isDragging ? 'text-blue-500' : 'text-gray-400'}`} />
                 <input
                   type="file"
                   accept="image/*"
@@ -160,7 +160,7 @@ export function createScenarioColumns(
       render: (scenario) => (
         <button
           onClick={() => actions.onEdit(scenario)}
-          className="font-medium text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
+          className="font-medium text-xs sm:text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
           title={scenario.title}
         >
           {scenario.title}
@@ -173,7 +173,7 @@ export function createScenarioColumns(
       width: 'w-32',
       sortable: true,
       render: (scenario) => (
-        <p className="text-sm truncate" title={scenario.author}>
+        <p className="text-xs sm:text-sm truncate" title={scenario.author}>
           {scenario.author}
         </p>
       )
@@ -184,8 +184,8 @@ export function createScenarioColumns(
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
-        <p className="text-sm flex items-center gap-1">
-          <Clock className="h-3 w-3" /> {formatDuration(scenario.duration)}
+        <p className="text-xs sm:text-sm flex items-center gap-1">
+          <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" /> <span>{formatDuration(scenario.duration)}</span>
         </p>
       )
     },
@@ -195,9 +195,9 @@ export function createScenarioColumns(
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
-        <p className="text-sm flex items-center gap-1">
-          <Users className="h-3 w-3" /> 
-          {formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}
+        <p className="text-xs sm:text-sm flex items-center gap-1">
+          <Users className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" /> 
+          <span>{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</span>
         </p>
       )
     }
@@ -213,17 +213,17 @@ export function createScenarioColumns(
         sortable: true,
         render: (scenario) => {
           if (!scenario.genre || scenario.genre.length === 0) {
-            return <span className="text-sm text-muted-foreground">未設定</span>
+            return <span className="text-[10px] md:text-sm text-muted-foreground">未設定</span>
           }
           return (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex gap-1 overflow-x-auto scrollbar-thin">
               {scenario.genre.slice(0, 2).map((g, i) => (
-                <Badge key={i} variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                <Badge key={i} variant="secondary" className="font-normal text-[10px] md:text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px] whitespace-nowrap flex-shrink-0">
                   {g}
                 </Badge>
               ))}
               {scenario.genre.length > 2 && (
-                <Badge variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                <Badge variant="secondary" className="font-normal text-[10px] md:text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px] whitespace-nowrap flex-shrink-0">
                   +{scenario.genre.length - 2}
                 </Badge>
               )}
@@ -239,16 +239,16 @@ export function createScenarioColumns(
         render: (scenario) => {
           const { displayed: displayedGMs, remaining: remainingGMs } = getDisplayGMs(scenario.available_gms || [])
           return (
-            <div className="text-sm">
+            <div className="text-[10px] md:text-sm">
               {displayedGMs.length > 0 ? (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex gap-1 overflow-x-auto scrollbar-thin">
                 {displayedGMs.map((gm, i) => (
-                  <Badge key={i} variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                  <Badge key={i} variant="secondary" className="font-normal text-[10px] md:text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px] whitespace-nowrap flex-shrink-0">
                     {gm}
                   </Badge>
                 ))}
                 {remainingGMs > 0 && (
-                  <Badge variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                  <Badge variant="secondary" className="font-normal text-[10px] md:text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px] whitespace-nowrap flex-shrink-0">
                     +{remainingGMs}
                   </Badge>
                 )}
@@ -270,11 +270,11 @@ export function createScenarioColumns(
         width: 'w-24',
         sortable: true,
         render: (scenario) => (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1">
             {[...Array(5)].map((_, i) => (
               <Star 
                 key={i} 
-                className={`h-3 w-3 ${i < getDifficultyStars(scenario.difficulty) ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} 
+                className={`h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0 ${i < getDifficultyStars(scenario.difficulty) ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} 
               />
             ))}
           </div>
@@ -293,7 +293,7 @@ export function createScenarioColumns(
           }
           
           return (
-            <div className="text-xs space-y-0.5">
+            <div className="text-[10px] sm:text-xs space-y-0.5">
               <p className="text-right">
                 通常: ¥{normalLicense.toLocaleString()}
               </p>
@@ -314,11 +314,11 @@ export function createScenarioColumns(
       header: '参加費',
       width: 'w-24',
       sortable: true,
-      render: (scenario) => (
-        <p className="text-sm text-right">
-          {formatParticipationFee(scenario.participation_fee || 0)}
-        </p>
-      )
+        render: (scenario) => (
+          <p className="text-xs sm:text-sm text-right">
+            {formatParticipationFee(scenario.participation_fee || 0)}
+          </p>
+        )
     },
     {
       key: 'status',
@@ -348,48 +348,39 @@ export function createScenarioColumns(
       render: (scenario) => {
         if (!scenario.genre || scenario.genre.length === 0) return null
         return (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex gap-1 overflow-x-auto scrollbar-thin">
               {scenario.genre.slice(0, 2).map((g, i) => (
-                <Badge key={i} variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                <Badge key={i} variant="secondary" className="font-normal text-[10px] md:text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px] whitespace-nowrap flex-shrink-0">
                   {g}
                 </Badge>
               ))}
               {scenario.genre.length > 2 && (
-                <Badge variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                <Badge variant="secondary" className="font-normal text-[10px] md:text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px] whitespace-nowrap flex-shrink-0">
                   +{scenario.genre.length - 2}
                 </Badge>
               )}
-          </div>
+            </div>
         )
       }
     })
   }
 
-  // アクション列
+  // アクション列（編集ボタンのみ）
   columns.push({
     key: 'actions',
-      header: 'アクション',
-    width: 'w-24',
+    header: '',
+    width: 'w-16',
     headerClassName: 'text-center',
     render: (scenario) => (
-      <div className="flex gap-1 justify-center">
+      <div className="flex justify-center">
         <Button 
           variant="ghost" 
           size="sm" 
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
           title="編集"
           onClick={() => actions.onEdit(scenario)}
         >
-          <Edit className="h-4 w-4" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-          title="削除"
-          onClick={() => actions.onDelete(scenario)}
-        >
-          <Trash2 className="h-4 w-4" />
+          <Edit className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
         </Button>
       </div>
     )

@@ -434,36 +434,39 @@ export function AlbumPage() {
                           </div>
                           
                           {/* プレイ履歴 */}
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             {group.plays.map((play, playIdx) => (
                               <div
                                 key={playIdx}
-                                className="bg-muted/30 px-3 py-2.5 rounded space-y-1.5"
+                                className="bg-muted/30 px-3 py-2 rounded"
                               >
-                                <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                    <span className="whitespace-nowrap font-medium">{formatDate(play.date)}</span>
+                                {/* メイン情報：日付と店舗 */}
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <Calendar className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                                    <span className="text-sm font-semibold text-foreground">{formatDate(play.date)}</span>
                                   </div>
-                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                    <span className="truncate">{play.venue}</span>
+                                  <div className="flex items-center gap-1 min-w-0 flex-1">
+                                    <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                                    <span className="text-sm text-foreground truncate">{play.venue}</span>
                                   </div>
                                 </div>
+                                
+                                {/* サブ情報：作者とGM */}
                                 {(play.author || play.gms.length > 0) && (
-                                  <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
                                     {play.author && (
-                                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <User className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                      <div className="flex items-center gap-1 flex-shrink-0">
+                                        <User className="h-3 w-3 flex-shrink-0" />
                                         <span className="whitespace-nowrap">{play.author}</span>
                                       </div>
                                     )}
                                     {play.gms.length > 0 && (
-                                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <span className="text-xs whitespace-nowrap">GM:</span>
-                                        <div className="flex gap-1.5 flex-wrap">
+                                      <div className="flex items-center gap-1 flex-shrink-0">
+                                        <span className="whitespace-nowrap">GM:</span>
+                                        <div className="flex gap-1 flex-wrap">
                                           {play.gms.map((gm, gmIdx) => (
-                                            <Badge key={gmIdx} variant="outline" className="text-xs whitespace-nowrap">
+                                            <Badge key={gmIdx} variant="outline" className="text-xs whitespace-nowrap px-1.5 py-0">
                                               {gm}
                                             </Badge>
                                           ))}

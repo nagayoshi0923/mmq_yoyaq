@@ -81,13 +81,13 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-4 pb-2 border-b">ゲーム情報</h3>
-      <div className="space-y-6">
+      <h3 className="text-sm sm:text-base md:text-lg font-semibold mb-3 sm:mb-4 pb-2 border-b">ゲーム情報</h3>
+      <div className="space-y-4 sm:space-y-6">
           {/* プレイ情報 */}
-          <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div>
-              <Label htmlFor="duration">所要時間（分）</Label>
+              <Label htmlFor="duration" className="text-xs sm:text-sm font-medium">所要時間（分）</Label>
               <Input
                 id="duration"
                 type="number"
@@ -95,10 +95,11 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
                 max="480"
                 value={formData.duration}
                 onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 120 }))}
+                className="mt-1.5 text-xs sm:text-sm"
               />
             </div>
             <div>
-              <Label htmlFor="player_count_min">最小人数</Label>
+              <Label htmlFor="player_count_min" className="text-xs sm:text-sm font-medium">最小人数</Label>
               <Input
                 id="player_count_min"
                 type="number"
@@ -106,10 +107,11 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
                 max="20"
                 value={formData.player_count_min}
                 onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseInt(e.target.value) || 4 }))}
+                className="mt-1.5 text-xs sm:text-sm"
               />
             </div>
             <div>
-              <Label htmlFor="player_count_max">最大人数</Label>
+              <Label htmlFor="player_count_max" className="text-xs sm:text-sm font-medium">最大人数</Label>
               <Input
                 id="player_count_max"
                 type="number"
@@ -117,11 +119,12 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
                 max="20"
                 value={formData.player_count_max}
                 onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseInt(e.target.value) || 8 }))}
+                className="mt-1.5 text-xs sm:text-sm"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <Label htmlFor="difficulty">難易度（1-5）</Label>
               <Input

@@ -6,6 +6,7 @@ import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import type { Column } from '@/components/patterns/table'
 import type { Staff, Store } from '@/types'
 import { getRoleBadges, getStoreColors, getStatusBadge } from './staffFormatters'
+import { TruncatedBadges } from './TruncatedBadges'
 
 interface StaffTableActions {
   onEdit: (member: Staff) => void
@@ -38,7 +39,7 @@ export function createStaffColumns(
       render: (staff) => (
         <button
           onClick={() => actions.onEdit(staff)}
-          className="flex items-center gap-2 w-full hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1 transition-colors text-left"
+          className="flex items-center gap-1.5 sm:gap-2 w-full hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1 transition-colors text-left"
         >
           <StaffAvatar
             name={staff.name}
@@ -47,9 +48,9 @@ export function createStaffColumns(
             size="sm"
           />
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-sm truncate leading-tight hover:text-blue-600">{staff.name}</h3>
+            <h3 className="font-medium text-xs sm:text-sm truncate leading-tight hover:text-blue-600">{staff.name}</h3>
             {!staff.user_id && (
-              <Badge size="sm" className="bg-amber-100 text-amber-800 text-xs mt-0.5">
+              <Badge size="sm" className="bg-amber-100 text-amber-800 text-[10px] sm:text-xs mt-0.5">
                 未紐付け
               </Badge>
             )}
@@ -129,28 +130,11 @@ export function createStaffColumns(
         return (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 overflow-hidden cursor-pointer">
-                <div className="flex gap-1 overflow-hidden">
-                  {staff.special_scenarios.slice(0, 4).map((scenarioId, index) => (
-                    <Badge 
-                      key={index} 
-                      size="sm" 
-                      variant="secondary" 
-                      className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0 bg-gray-100 border-0 rounded-[2px]"
-                    >
-                      {getScenarioName(scenarioId)}
-                    </Badge>
-                  ))}
-                </div>
-                {staff.special_scenarios.length > 4 && (
-                  <Badge 
-                    size="sm" 
-                    variant="secondary" 
-                    className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0 bg-gray-100 border-0 rounded-[2px]"
-                  >
-                    +{staff.special_scenarios.length - 4}
-                  </Badge>
-                )}
+              <div className="w-full min-w-0 cursor-pointer">
+                <TruncatedBadges
+                  items={staff.special_scenarios}
+                  getDisplayName={getScenarioName}
+                />
               </div>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs max-h-96 overflow-y-auto">
@@ -179,28 +163,11 @@ export function createStaffColumns(
         return (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 overflow-hidden cursor-pointer">
-                <div className="flex gap-1 overflow-hidden">
-                  {experiencedScenarios.slice(0, 4).map((scenarioId: string, index: number) => (
-                    <Badge 
-                      key={index} 
-                      size="sm" 
-                      variant="secondary" 
-                      className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0 bg-gray-100 border-0 rounded-[2px]"
-                    >
-                      {getScenarioName(scenarioId)}
-                    </Badge>
-                  ))}
-                </div>
-                {experiencedScenarios.length > 4 && (
-                  <Badge 
-                    size="sm" 
-                    variant="secondary" 
-                    className="font-normal text-xs px-1 py-0.5 whitespace-nowrap flex-shrink-0 bg-gray-100 border-0 rounded-[2px]"
-                  >
-                    +{experiencedScenarios.length - 4}
-                  </Badge>
-                )}
+              <div className="w-full min-w-0 cursor-pointer">
+                <TruncatedBadges
+                  items={experiencedScenarios}
+                  getDisplayName={getScenarioName}
+                />
               </div>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs max-h-96 overflow-y-auto">
@@ -222,7 +189,7 @@ export function createStaffColumns(
       width: 'w-32',
       align: 'center',
       render: (staff) => (
-        <div className="flex gap-1 justify-center">
+        <div className="flex gap-0.5 sm:gap-1 justify-center">
           {!staff.user_id ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -230,9 +197,9 @@ export function createStaffColumns(
                   variant="ghost" 
                   size="icon-sm"
                   onClick={() => onLink(staff)}
-                  className="h-7 w-7"
+                  className="h-6 w-6 sm:h-7 sm:w-7"
                 >
-                  <Link2 className="h-3.5 w-3.5" />
+                  <Link2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -246,9 +213,9 @@ export function createStaffColumns(
                   variant="ghost" 
                   size="icon-sm"
                   onClick={() => onUnlink(staff)}
-                  className="h-7 w-7 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                  className="h-6 w-6 sm:h-7 sm:w-7 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                 >
-                  <Unlink className="h-3.5 w-3.5" />
+                  <Unlink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -263,9 +230,9 @@ export function createStaffColumns(
                 variant="ghost" 
                 size="icon-sm"
                 onClick={() => onEdit(staff)}
-                className="h-7 w-7"
+                className="h-6 w-6 sm:h-7 sm:w-7"
               >
-                <Edit className="h-3.5 w-3.5" />
+                <Edit className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -279,9 +246,9 @@ export function createStaffColumns(
                 variant="ghost" 
                 size="icon-sm"
                 onClick={() => onDelete(staff)}
-                className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="h-6 w-6 sm:h-7 sm:w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>

@@ -117,12 +117,12 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-4 pb-2 border-b">基本情報</h3>
-      <div className="space-y-4">
+      <h3 className="text-sm sm:text-base md:text-lg font-semibold mb-3 sm:mb-4 pb-2 border-b">基本情報</h3>
+      <div className="space-y-3 sm:space-y-4">
           {/* キービジュアル + タイトル・作者 */}
-          <div className="flex gap-6">
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
             {/* キービジュアル */}
-            <div className="w-[150px] shrink-0">
+            <div className="w-full sm:w-[150px] shrink-0">
               {formData.key_visual_url ? (
                 <div className="relative group">
                   <OptimizedImage
@@ -164,19 +164,19 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
             </div>
 
             {/* タイトル・作者・カテゴリ */}
-            <div className="flex-1 flex flex-col justify-center space-y-4">
+            <div className="flex-1 flex flex-col justify-center space-y-3 sm:space-y-4">
               <div>
-                <Label htmlFor="title" className="text-sm font-medium">タイトル *</Label>
+                <Label htmlFor="title" className="text-xs sm:text-sm font-medium">タイトル *</Label>
                 <Input
                   id="title"
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                   required
-                  className="mt-1.5"
+                  className="mt-1.5 text-xs sm:text-sm"
                 />
               </div>
               <div>
-                <Label htmlFor="author" className="text-sm font-medium">作者 *</Label>
+                <Label htmlFor="author" className="text-xs sm:text-sm font-medium">作者 *</Label>
                 <MultiSelect
                   options={authorOptions}
                   selectedValues={formData.author ? [formData.author] : []}
@@ -197,28 +197,29 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
           </div>
 
               <div>
-                <Label htmlFor="description">説明</Label>
+                <Label htmlFor="description" className="text-xs sm:text-sm font-medium">説明</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={6}
                   placeholder="シナリオの詳細な説明を入力してください"
+                  className="mt-1.5 text-xs sm:text-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor="scenario_type">シナリオタイプ</Label>
+                <Label htmlFor="scenario_type" className="text-xs sm:text-sm font-medium">シナリオタイプ</Label>
                 <Select
                   value={formData.scenario_type || 'normal'}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, scenario_type: value as 'normal' | 'managed' }))}
                 >
-                  <SelectTrigger className="mt-1.5">
+                  <SelectTrigger className="mt-1.5 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="normal">通常シナリオ</SelectItem>
-                    <SelectItem value="managed">管理シナリオ</SelectItem>
+                    <SelectItem value="normal" className="text-xs sm:text-sm">通常シナリオ</SelectItem>
+                    <SelectItem value="managed" className="text-xs sm:text-sm">管理シナリオ</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -227,7 +228,7 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
               </div>
 
               <div>
-                <Label htmlFor="available_stores">公演可能店舗</Label>
+                <Label htmlFor="available_stores" className="text-xs sm:text-sm font-medium">公演可能店舗</Label>
                 <MultiSelect
                   options={storeOptions}
                   selectedValues={(formData.available_stores || []).map(storeId => {
@@ -253,16 +254,16 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
 
       {/* 作者追加ダイアログ */}
       <Dialog open={isAddAuthorDialogOpen} onOpenChange={setIsAddAuthorDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>新しい作者を追加</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-sm sm:text-base">新しい作者を追加</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               新しい作者名を入力してください
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
             <div>
-              <Label htmlFor="newAuthorName">作者名</Label>
+              <Label htmlFor="newAuthorName" className="text-xs sm:text-sm">作者名</Label>
               <Input
                 id="newAuthorName"
                 value={newAuthorName}
@@ -274,17 +275,18 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
                   }
                 }}
                 autoFocus
+                className="mt-1.5 text-xs sm:text-sm"
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => {
               setNewAuthorName('')
               setIsAddAuthorDialogOpen(false)
-            }}>
+            }} className="text-xs sm:text-sm">
               キャンセル
             </Button>
-            <Button onClick={handleAddAuthor}>
+            <Button onClick={handleAddAuthor} className="text-xs sm:text-sm">
               追加
             </Button>
           </DialogFooter>

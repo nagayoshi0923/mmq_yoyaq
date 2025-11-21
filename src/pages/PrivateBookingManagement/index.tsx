@@ -277,7 +277,7 @@ export function PrivateBookingManagement() {
             <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto" data-detail-section>
               <CardHeader className="sticky top-0 bg-background z-10 border-b p-3 sm:p-4 md:p-6">
                 <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-base sm:text-lg md:text-base break-words">リクエスト詳細 - {selectedRequest.scenario_title}</CardTitle>
+                  <CardTitle className="text-sm sm:text-base md:text-lg break-words">リクエスト詳細 - {selectedRequest.scenario_title}</CardTitle>
                   <button
                     onClick={() => {
                       setSelectedRequest(null)
@@ -294,7 +294,7 @@ export function PrivateBookingManagement() {
                   </button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4 sm:space-y-6 p-3 sm:p-4 md:p-6">
+              <CardContent className="space-y-3 sm:space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
               <CustomerInfo request={selectedRequest} />
               
               <CandidateDateSelector
@@ -307,13 +307,13 @@ export function PrivateBookingManagement() {
               />
 
               {/* 開催店舗の選択 */}
-              <div className="pt-6 border-t">
-                <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
-                  <MapPin className="w-4 h-4" />
+              <div className="pt-4 sm:pt-6 border-t">
+                <h3 className="font-semibold mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-purple-800 text-sm sm:text-base">
+                  <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                   開催店舗の選択
                 </h3>
                 <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full text-xs sm:text-sm">
                     <SelectValue placeholder="店舗を選択してください" />
                   </SelectTrigger>
                   <SelectContent>
@@ -342,6 +342,7 @@ export function PrivateBookingManagement() {
                           key={store.id} 
                           value={store.id}
                           disabled={isStoreDisabled}
+                          className="text-xs sm:text-sm"
                         >
                           {store.name}
                           {isRequested && ' (お客様希望)'}
@@ -363,18 +364,18 @@ export function PrivateBookingManagement() {
               {/* 顧客メモ */}
               {selectedRequest.notes && (
                 <div>
-                  <h3 className="font-semibold mb-3 text-purple-800">お客様からのメモ</h3>
-                  <div className="p-4 bg-background rounded-lg border">
-                    <p className="text-sm whitespace-pre-wrap">{selectedRequest.notes}</p>
+                  <h3 className="font-semibold mb-2 sm:mb-3 text-purple-800 text-sm sm:text-base">お客様からのメモ</h3>
+                  <div className="p-3 sm:p-4 bg-background rounded-lg border">
+                    <p className="text-xs sm:text-sm whitespace-pre-wrap break-words">{selectedRequest.notes}</p>
                   </div>
                 </div>
               )}
 
               {/* 担当GMの選択 */}
-              <div className="pt-6 border-t">
-                <h3 className="font-semibold mb-3 text-purple-800">担当GMを選択してください</h3>
+              <div className="pt-4 sm:pt-6 border-t">
+                <h3 className="font-semibold mb-2 sm:mb-3 text-purple-800 text-sm sm:text-base">担当GMを選択してください</h3>
                 <Select value={selectedGMId} onValueChange={setSelectedGMId}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full text-xs sm:text-sm">
                     <SelectValue placeholder="GMを選択してください" />
                   </SelectTrigger>
                   <SelectContent>
@@ -399,6 +400,7 @@ export function PrivateBookingManagement() {
                           key={gm.id} 
                           value={gm.id}
                           disabled={isGMDisabled}
+                          className="text-xs sm:text-sm"
                         >
                           {gm.name}
                           {isAvailable && ' (対応可能)'}
@@ -444,7 +446,7 @@ export function PrivateBookingManagement() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-2 sm:p-4">
             <Card className="w-full max-w-lg">
               <CardHeader className="p-3 sm:p-4 md:p-6">
-                <CardTitle className="text-base sm:text-lg md:text-base">貸切リクエストの却下</CardTitle>
+                <CardTitle className="text-sm sm:text-base md:text-lg">貸切リクエストの却下</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6">
                 <div>
