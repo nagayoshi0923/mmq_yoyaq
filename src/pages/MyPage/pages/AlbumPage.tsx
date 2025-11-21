@@ -15,6 +15,7 @@ interface PlayedScenario {
   gms: string[]
   scenario_id?: string
   key_visual_url?: string
+  author?: string
 }
 
 interface LikedScenario {
@@ -156,15 +157,17 @@ export function AlbumPage() {
             .eq('scenario', reservation.title)
             .maybeSingle()
 
-          // シナリオの画像を取得
+          // シナリオの画像と作者を取得
           let keyVisualUrl = null
+          let author = null
           if (reservation.scenario_id) {
             const { data: scenarioData } = await supabase
               .from('scenarios')
-              .select('key_visual_url')
+              .select('key_visual_url, author')
               .eq('id', reservation.scenario_id)
               .maybeSingle()
             keyVisualUrl = scenarioData?.key_visual_url
+            author = scenarioData?.author
           }
 
           if (!eventError && event) {
@@ -175,6 +178,7 @@ export function AlbumPage() {
               gms: event.gms || [],
               scenario_id: reservation.scenario_id || undefined,
               key_visual_url: keyVisualUrl,
+              author: author || undefined,
             })
           } else {
             // イベントが見つからない場合でも予約情報から追加
@@ -185,6 +189,7 @@ export function AlbumPage() {
               gms: [],
               scenario_id: reservation.scenario_id || undefined,
               key_visual_url: keyVisualUrl,
+              author: author || undefined,
             })
           }
         }
@@ -201,6 +206,12 @@ export function AlbumPage() {
   const formatDate = (date: string) => {
     const d = new Date(date)
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const cleanTitle = (title: string) => {
+    // タイトルから日付部分を削除
+    // 「 - 2025年11月6日(木)」のような形式を削除
+    return title.replace(/\s*-\s*\d{4}年\d{1,2}月\d{1,2}日\([月火水木金土日]\)/g, '').trim()
   }
 
   const getDifficultyLabel = (difficulty: number) => {
@@ -368,7 +379,7 @@ export function AlbumPage() {
 
                   return (
                     <div key={idx} className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-start gap-3 sm:gap-4 mb-3">
+                      <div className="flex items-start gap-3 sm:gap-4">
                         {/* シナリオ画像 */}
                         <div className="flex-shrink-0 w-12 sm:w-16 h-16 sm:h-20 bg-gray-200 rounded overflow-hidden">
                           {group.plays[0]?.key_visual_url ? (
@@ -395,14 +406,12 @@ export function AlbumPage() {
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-2 gap-2">
-                            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                              <h3 className="font-bold text-sm sm:text-base md:text-lg truncate">{group.scenario}</h3>
-                              <Badge variant="secondary" className="text-xs sm:text-sm flex-shrink-0">
-                                {group.count}回プレイ
-                              </Badge>
+                          {/* タイトルとアクション */}
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <div className="flex-1 min-w-0 pr-2">
+                              <h3 className="font-bold text-sm sm:text-base md:text-lg break-words">{cleanTitle(group.scenario)}</h3>
                             </div>
-                            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                            <div className="flex items-center gap-0.5 flex-shrink-0">
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -423,30 +432,44 @@ export function AlbumPage() {
                               </Button>
                             </div>
                           </div>
+                          
+                          {/* プレイ履歴 */}
                           <div className="space-y-2">
                             {group.plays.map((play, playIdx) => (
                               <div
                                 key={playIdx}
-                                className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground bg-muted/30 p-2 rounded"
+                                className="bg-muted/30 px-3 py-2.5 rounded space-y-1.5"
                               >
-                                <div className="flex items-center gap-1 sm:gap-2">
-                                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                  <span>{formatDate(play.date)}</span>
+                                <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                    <span className="whitespace-nowrap font-medium">{formatDate(play.date)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                    <span className="truncate">{play.venue}</span>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-1 sm:gap-2">
-                                  <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                  <span className="truncate">{play.venue}</span>
-                                </div>
-                                {play.gms.length > 0 && (
-                                  <div className="flex items-center gap-1 sm:gap-2">
-                                    <span className="text-xs">GM:</span>
-                                    <div className="flex gap-1 flex-wrap">
-                                      {play.gms.map((gm, gmIdx) => (
-                                        <Badge key={gmIdx} variant="outline" className="text-xs">
-                                          {gm}
-                                        </Badge>
-                                      ))}
-                                    </div>
+                                {(play.author || play.gms.length > 0) && (
+                                  <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
+                                    {play.author && (
+                                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                                        <User className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                        <span className="whitespace-nowrap">{play.author}</span>
+                                      </div>
+                                    )}
+                                    {play.gms.length > 0 && (
+                                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                                        <span className="text-xs whitespace-nowrap">GM:</span>
+                                        <div className="flex gap-1.5 flex-wrap">
+                                          {play.gms.map((gm, gmIdx) => (
+                                            <Badge key={gmIdx} variant="outline" className="text-xs whitespace-nowrap">
+                                              {gm}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -585,19 +608,42 @@ export function AlbumPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {Array.from(hiddenScenarios).map((scenarioName, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 border rounded-lg opacity-60">
-                  <span className="font-medium text-sm truncate">{scenarioName}</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleToggleHide(scenarioName)}
-                    className="text-xs sm:text-sm flex-shrink-0 ml-2"
-                  >
-                    表示する
-                  </Button>
-                </div>
-              ))}
+              {scenarioGroups
+                .filter(group => hiddenScenarios.has(group.scenario))
+                .map((group, idx) => {
+                  const scenarioId = group.plays[0]?.scenario_id
+                  const isLiked = scenarioId ? likedScenarios.has(scenarioId) : false
+
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-3 border rounded-lg opacity-60">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="font-medium text-sm truncate">{group.scenario}</span>
+                        <Badge variant="secondary" className="text-xs flex-shrink-0">
+                          {group.count}回プレイ
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleToggleLike(scenarioId)}
+                          className="hover:bg-yellow-50 h-8 w-8 sm:h-9 sm:w-9"
+                          title={isLiked ? '遊びたいリストから削除' : '遊びたいリストに追加'}
+                        >
+                          <Star className={`h-4 w-4 sm:h-5 sm:w-5 ${isLiked ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleHide(group.scenario)}
+                          className="text-xs sm:text-sm flex-shrink-0"
+                        >
+                          表示する
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
             </div>
           </CardContent>
         </Card>
