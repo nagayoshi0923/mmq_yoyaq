@@ -192,10 +192,10 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
       </div>
 
       {/* メインコンテンツ */}
-      <div className="container mx-auto max-w-7xl px-[10px] py-4">
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+      <div className="container mx-auto max-w-7xl px-[10px] py-4 xl:py-6">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 xl:gap-6">
           {/* メインエリア - 詳細情報 */}
-          <div className="xl:col-span-8 space-y-4">
+          <div className="xl:col-span-8 space-y-4 xl:space-y-6">
             <ScenarioHero scenario={scenario} events={events} />
             <BookingNotice 
               reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
@@ -205,22 +205,22 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
           {/* 右サイドバー - チケット購入 */}
           <div className="xl:col-span-4">
-            <div className="xl:sticky xl:top-[60px] space-y-4">
+            <div className="xl:sticky xl:top-[60px] space-y-4 xl:space-y-6">
               {/* タブ: 公演日程 / 貸切リクエスト */}
               <Tabs 
                 defaultValue="schedule" 
                 className="w-full" 
                 onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
               >
-                <TabsList className="grid w-full grid-cols-2 mb-3 md:mb-4 h-10">
-                  <TabsTrigger value="schedule" className="text-sm md:text-base">公演日程</TabsTrigger>
-                  <TabsTrigger value="private" className="text-sm md:text-base">貸切リクエスト</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 mb-3 md:mb-4 xl:mb-6 h-10 xl:h-14 p-1 xl:p-1.5">
+                  <TabsTrigger value="schedule" className="text-sm md:text-base xl:text-base px-3 xl:px-4 py-1.5 xl:py-2">公演日程</TabsTrigger>
+                  <TabsTrigger value="private" className="text-sm md:text-base xl:text-base px-3 xl:px-4 py-1.5 xl:py-2">貸切リクエスト</TabsTrigger>
                 </TabsList>
                 
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    <h3 className="font-bold mb-3 text-lg">日付を選択</h3>
+                    <h3 className="font-bold mb-3 xl:mb-4 text-lg xl:text-xl">日付を選択</h3>
                     <EventList
                       events={events}
                       selectedEventId={selectedEventId}
