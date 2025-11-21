@@ -43,23 +43,17 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         const monthResults = await Promise.all(monthPromises)
         const allEvents = monthResults.flat()
         
-        // 貸切申込可能日判定用：時間枠の空き判定には、通常公演と貸切公演の両方を含める
-        // 貸切公演も時間枠を占有するため、その時間枠は空いていない
+        // 貸切申込可能日判定用：スケジュール管理画面で表示される全てのイベントを含める
+        // スケジュール管理画面で空白のセルには公演がないという判定のため、
+        // カテゴリーフィルターに関係なく、全てのカテゴリのイベントを含める
+        // （ただし、キャンセルされたイベントは除外）
         const validEvents = allEvents.filter((event: any) => {
           // キャンセルされていない公演のみ
           if (event.is_cancelled) return false
           
-          // 通常公演（予約可能なもの）
-          if (event.category === 'open' && event.is_reservation_enabled !== false) {
-            return true
-          }
-          
-          // 貸切公演（時間枠を占有するため含める）
-          if (event.category === 'private' || event.is_private_booking) {
-            return true
-          }
-          
-          return false
+          // スケジュール管理画面で表示される全てのカテゴリを含める
+          // open, private, gmtest, testplay, offsite, venue_rental, venue_rental_free, package など
+          return true
         })
         
         // デバッグログ：11/22のイベントを確認
@@ -307,14 +301,23 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         
         // デバッグログ（11/22の場合のみ）
         if (isDebugTarget) {
-          console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}のイベント:`, storeEvents.map((e: any) => ({
-            date: e.date,
-            start_time: e.start_time,
-            end_time: e.end_time,
-            category: e.category,
-            is_cancelled: e.is_cancelled,
-            store_id: getEventStoreId(e)
-          })))
+          const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+          console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}のイベント（店舗選択時）:`, {
+            targetTimeSlot,
+            slotLabel: slot.label,
+            storeEvents: storeEvents.map((e: any) => ({
+              id: e.id,
+              date: e.date,
+              start_time: e.start_time,
+              end_time: e.end_time,
+              category: e.category,
+              is_cancelled: e.is_cancelled,
+              store_id: getEventStoreId(e),
+              eventTimeSlot: e.start_time ? getTimeSlot(e.start_time) : 'unknown',
+              matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
+            })),
+            storeEventsCount: storeEvents.length
+          })
         }
         
         // イベントがない場合は空いている
@@ -452,19 +455,41 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           })
         }
         
-        console.log(`[DEBUG] 店舗 ${storeId} (${storeIdToName[storeId] || '不明'}) の11/22${slot.label}のイベント（店舗未選択時）:`, storeEvents.map((e: any) => ({
-          date: e.date,
-          start_time: e.start_time,
-          end_time: e.end_time,
-          category: e.category,
-          is_cancelled: e.is_cancelled,
-          is_reservation_enabled: e.is_reservation_enabled,
-          venue: e.venue,
-          store_id: getEventStoreId(e),
-          store_name: getEventStoreId(e) ? storeIdToName[getEventStoreId(e)] : '不明',
-          scenario: e.scenario || e.scenarios?.title,
-          id: e.id
-        })))
+        const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+        if (storeId === '95ac6d74-56df-4cac-a67f-59fff9ab89b9' && slot.label === '夜') { // 別館②の夜の場合のみ
+          console.log(`[DEBUG] ⚠️⚠️⚠️ 別館②の夜のイベント詳細 ⚠️⚠️⚠️`)
+          storeEvents.forEach((e: any, index: number) => {
+            console.log(`[DEBUG] イベント ${index + 1}:`, {
+              id: e.id,
+              date: e.date,
+              start_time: e.start_time,
+              end_time: e.end_time,
+              category: e.category,
+              is_cancelled: e.is_cancelled,
+              store_id: getEventStoreId(e),
+              eventTimeSlot: e.start_time ? getTimeSlot(e.start_time) : 'unknown',
+              targetTimeSlot,
+              matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
+            })
+            console.log(`[DEBUG] イベント ${index + 1} の完全なデータ:`, e)
+          })
+        }
+        console.log(`[DEBUG] 店舗 ${storeId} (${storeIdToName[storeId] || '不明'}) の11/22${slot.label}のイベント（店舗未選択時）:`, {
+          targetTimeSlot,
+          slotLabel: slot.label,
+          storeEvents: storeEvents.map((e: any) => ({
+            id: e.id,
+            date: e.date,
+            start_time: e.start_time,
+            end_time: e.end_time,
+            category: e.category,
+            is_cancelled: e.is_cancelled,
+            store_id: getEventStoreId(e),
+            eventTimeSlot: e.start_time ? getTimeSlot(e.start_time) : 'unknown',
+            matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
+          })),
+          storeEventsCount: storeEvents.length
+        })
       }
       
       // イベントがない場合は空いている
