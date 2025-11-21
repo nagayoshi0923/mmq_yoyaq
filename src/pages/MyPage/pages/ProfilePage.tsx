@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { User, Building2 } from 'lucide-react'
+import { User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -26,20 +26,39 @@ export function ProfilePage() {
     }
   }, [user])
 
+  // デバッグ用ログ（フックのルールに従い、早期リターンの前に配置）
+  useEffect(() => {
+    logger.log('🔍 ProfilePage レンダリング状態:', {
+      loading,
+      hasUser: !!user,
+      hasStaffInfo: !!staffInfo,
+      userEmail: user?.email,
+      staffInfoEmail: staffInfo?.email
+    })
+  }, [loading, user, staffInfo])
+
   const fetchStaffInfo = async () => {
-    if (!user?.email) return
+    if (!user?.email) {
+      logger.log('⚠️ ユーザー情報なし、スタッフ情報取得をスキップ')
+      return
+    }
 
     setLoading(true)
     try {
+      logger.log('🔍 スタッフ情報取得開始:', user.email)
       const { data, error } = await supabase
         .from('staff')
         .select('*')
         .eq('email', user.email)
         .maybeSingle()
 
-      if (error) throw error
+      if (error) {
+        logger.error('❌ スタッフ情報取得エラー:', error)
+        throw error
+      }
 
       if (data) {
+        logger.log('✅ スタッフ情報取得成功:', { id: data.id, name: data.name, email: data.email })
         setStaffInfo(data)
         setFormData({
           name: data.name || '',
@@ -47,9 +66,13 @@ export function ProfilePage() {
           lineId: data.line_name || '',
           xAccount: data.x_account || '',
         })
+      } else {
+        logger.log('⚠️ スタッフ情報が見つかりませんでした:', user.email)
+        setStaffInfo(null)
       }
     } catch (error) {
       logger.error('スタッフ情報取得エラー:', error)
+      setStaffInfo(null)
     } finally {
       setLoading(false)
     }
@@ -95,17 +118,6 @@ export function ProfilePage() {
       </Card>
     )
   }
-
-  // デバッグ用ログ
-  useEffect(() => {
-    logger.log('🔍 ProfilePage レンダリング状態:', {
-      loading,
-      hasUser: !!user,
-      hasStaffInfo: !!staffInfo,
-      userEmail: user?.email,
-      staffInfoEmail: staffInfo?.email
-    })
-  }, [loading, user, staffInfo])
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -225,58 +237,6 @@ export function ProfilePage() {
         </Card>
       )}
 
-      {/* スタッフ情報詳細 */}
-      {staffInfo && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
-              <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
-              スタッフ情報
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label className="text-muted-foreground text-sm">担当店舗</Label>
-              <div className="mt-1">
-                {staffInfo.stores && staffInfo.stores.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {staffInfo.stores.map((store: string, idx: number) => (
-                      <span key={idx} className="px-2 py-1 bg-muted rounded text-xs sm:text-sm">
-                        {store}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground text-xs sm:text-sm">未設定</span>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-muted-foreground text-sm">担当可能シナリオ数</Label>
-              <div className="mt-1 font-medium text-sm">
-                {staffInfo.available_scenarios?.length || 0} シナリオ
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-muted-foreground text-sm">経験値</Label>
-              <div className="mt-1 font-medium text-sm">
-                {staffInfo.experience || 0} 回
-              </div>
-            </div>
-
-            {staffInfo.notes && (
-              <div>
-                <Label className="text-muted-foreground text-sm">メモ</Label>
-                <div className="mt-1 text-xs sm:text-sm whitespace-pre-wrap text-muted-foreground">
-                  {staffInfo.notes}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

@@ -4,7 +4,6 @@ import { ProfilePage } from './pages/ProfilePage'
 import { ReservationsPage } from './pages/ReservationsPage'
 import { PlayedScenariosPage } from './pages/PlayedScenariosPage'
 import { WantToPlayPage } from './pages/LikedScenariosPage'
-import { GmHistoryPage } from './pages/GmHistoryPage'
 import { AccountPage } from './pages/AccountPage'
 import { SettingsPage } from './pages/SettingsPage'
 
@@ -21,8 +20,6 @@ export default function MyPage() {
         return <PlayedScenariosPage />
       case 'want-to-play':
         return <WantToPlayPage />
-      case 'gm-history':
-        return <GmHistoryPage />
       case 'account':
         return <AccountPage />
       case 'settings':
