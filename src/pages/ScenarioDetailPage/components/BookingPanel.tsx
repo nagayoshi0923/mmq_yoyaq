@@ -33,9 +33,9 @@ export const BookingPanel = memo(function BookingPanel({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <span className="text-base">予約人数</span>
+              <span className="text-sm">予約人数</span>
               <select 
-                className="border rounded px-3 py-1.5 text-base touch-manipulation"
+                className="border rounded px-3 py-1.5 text-sm touch-manipulation"
                 value={participantCount}
                 onChange={(e) => onParticipantCountChange(Number(e.target.value))}
               >
@@ -64,11 +64,11 @@ export const BookingPanel = memo(function BookingPanel({
         <h3 className="font-bold mb-3 text-lg">料金</h3>
         <Card>
           <CardContent className="p-4 space-y-3">
-              <div className="flex justify-between items-center text-base">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">参加費（1名）</span>
                 <span>¥{participationFee.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between items-center text-base">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">人数</span>
                 <span>× {participantCount}名</span>
               </div>
