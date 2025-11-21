@@ -59,12 +59,6 @@ export const EventList = memo(function EventList({
             <div className="flex items-center gap-2 p-3 touch-manipulation">
               {/* 一番左：店舗 */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <div 
-                  className="flex-shrink-0 w-3 h-3 rounded-sm"
-                  style={{ 
-                    backgroundColor: event.store_color || '#9CA3AF'
-                  }}
-                />
                 <span 
                   className="text-sm whitespace-nowrap"
                   style={{ 
