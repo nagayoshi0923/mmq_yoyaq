@@ -75,23 +75,20 @@ export const EventList = memo(function EventList({
                 </span>
               </div>
               
-              {/* 左側：時間(上) + タイトル(下) */}
+              {/* 左側：日付+時間(上) + タイトル(下) */}
               <div className="flex flex-col gap-1 flex-1 min-w-0 justify-center">
-                {/* 時間 */}
-                <span className="font-bold text-base whitespace-nowrap">
-                  {formatTime(event.start_time)}〜
-                </span>
+                {/* 日付 + 時間（同じ行） */}
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-medium whitespace-nowrap">
+                    {month}/{day} <span className={`text-xs ${weekdayColor}`}>({weekday})</span>
+                  </span>
+                  <span className="font-bold text-base whitespace-nowrap">
+                    {formatTime(event.start_time)}〜
+                  </span>
+                </div>
                 {/* タイトル */}
                 <div className="text-sm text-muted-foreground truncate">
                   {event.scenario_title || scenarioTitle}
-                </div>
-              </div>
-              
-              {/* 中央：日付 */}
-              <div className="text-base whitespace-nowrap min-w-[50px] text-center flex-shrink-0 flex flex-col justify-center">
-                <div className="font-medium leading-tight">{month}/{day}</div>
-                <div className={`text-xs leading-tight ${weekdayColor}`}>
-                  ({weekday})
                 </div>
               </div>
               
