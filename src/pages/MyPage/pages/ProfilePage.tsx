@@ -90,7 +90,7 @@ export function ProfilePage() {
     return (
       <Card>
         <CardContent className="py-8">
-          <div className="text-center text-muted-foreground">読み込み中...</div>
+          <div className="text-center text-muted-foreground text-sm">読み込み中...</div>
         </CardContent>
       </Card>
     )
@@ -98,7 +98,38 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      {/* プロフィール編集 */}
+      {/* ユーザー基本情報 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+            <User className="h-4 w-4 sm:h-5 sm:w-5" />
+            ユーザー情報
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-muted-foreground text-sm">メールアドレス</Label>
+            <div className="mt-1 font-medium text-sm">{user?.email || '未設定'}</div>
+          </div>
+          {user?.name && (
+            <div>
+              <Label className="text-muted-foreground text-sm">名前</Label>
+              <div className="mt-1 font-medium text-sm">{user.name}</div>
+            </div>
+          )}
+          {user?.role && (
+            <div>
+              <Label className="text-muted-foreground text-sm">ロール</Label>
+              <div className="mt-1 font-medium text-sm">
+                {user.role === 'admin' ? '管理者' : 
+                 user.role === 'staff' ? 'スタッフ' : '顧客'}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* プロフィール編集（スタッフのみ） */}
       {staffInfo && (
         <Card>
           <CardHeader>
