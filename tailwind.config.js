@@ -30,19 +30,19 @@ export default {
           { lineHeight: '1.2' }
         ],                                          // バッジ用最小
         'sm': [
-          ['9px', '14px', '15px', '16px', '17px', '18px', '18px'],
+          ['9px', '9px', '10px', '11px', '12px', '13px', '13px'],
           { lineHeight: '1.3' }
         ],                                          // 小コンテンツ用
         'base': [
-          ['11px', '16px', '17px', '18px', '20px', '21px', '22px'],
+          ['11px', '11px', '12px', '13px', '15px', '16px', '17px'],
           { lineHeight: '1.4' }
         ],                                          // デフォルト用
         'lg': [
-          ['12px', '17px', '18px', '19px', '22px', '24px', '25px'],
+          ['12px', '12px', '13px', '14px', '17px', '19px', '20px'],
           { lineHeight: '1.5' }
         ],                                          // 大コンテンツ用
         'xl': [
-          ['13px', '18px', '19px', '21px', '24px', '26px', '28px'],
+          ['13px', '13px', '14px', '16px', '19px', '21px', '23px'],
           { lineHeight: '1.6' }
         ],                                          // 見出し用
         'schedule-xs': [
