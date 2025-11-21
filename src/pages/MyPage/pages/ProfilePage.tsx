@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
-import { User, Mail, Calendar as CalendarIcon, Phone, MapPin, MessageSquare } from 'lucide-react'
+import { User, Mail, Calendar as CalendarIcon, Phone, MapPin, MessageSquare, Lock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -15,6 +15,7 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [changingEmail, setChangingEmail] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
   const [customerInfo, setCustomerInfo] = useState<any>(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -25,6 +26,11 @@ export function ProfilePage() {
   })
   const [emailFormData, setEmailFormData] = useState({
     newEmail: '',
+  })
+  const [passwordFormData, setPasswordFormData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   })
 
   useEffect(() => {
@@ -176,6 +182,48 @@ export function ProfilePage() {
     }
   }
 
+  const handleChangePassword = async () => {
+    if (!passwordFormData.newPassword || !passwordFormData.confirmPassword) {
+      alert('新しいパスワードを入力してください')
+      return
+    }
+
+    if (passwordFormData.newPassword !== passwordFormData.confirmPassword) {
+      alert('新しいパスワードが一致しません')
+      return
+    }
+
+    if (passwordFormData.newPassword.length < 6) {
+      alert('パスワードは6文字以上にしてください')
+      return
+    }
+
+    if (!confirm('パスワードを変更しますか？')) {
+      return
+    }
+
+    setChangingPassword(true)
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordFormData.newPassword
+      })
+
+      if (error) throw error
+
+      alert('パスワードを変更しました')
+      setPasswordFormData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      })
+    } catch (error: any) {
+      logger.error('パスワード変更エラー:', error)
+      alert(error.message || 'パスワードの変更に失敗しました')
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
   const formatDate = (date: string) => {
     const d = new Date(date)
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
@@ -235,6 +283,42 @@ export function ProfilePage() {
             <p className="text-xs text-muted-foreground mt-1">
               確認メールが新しいメールアドレスに送信されます
             </p>
+          </div>
+
+          {/* パスワード変更 */}
+          <div>
+            <Label htmlFor="new-password" className="text-sm flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              パスワード変更
+            </Label>
+            <div className="mt-2 space-y-2">
+              <Input
+                id="new-password"
+                type="password"
+                value={passwordFormData.newPassword}
+                onChange={(e) => setPasswordFormData({ ...passwordFormData, newPassword: e.target.value })}
+                placeholder="新しいパスワード（6文字以上）"
+                className="text-sm"
+                disabled={changingPassword}
+              />
+              <Input
+                id="confirm-password"
+                type="password"
+                value={passwordFormData.confirmPassword}
+                onChange={(e) => setPasswordFormData({ ...passwordFormData, confirmPassword: e.target.value })}
+                placeholder="新しいパスワード（確認）"
+                className="text-sm"
+                disabled={changingPassword}
+              />
+              <Button
+                onClick={handleChangePassword}
+                disabled={changingPassword || !passwordFormData.newPassword || !passwordFormData.confirmPassword}
+                size="sm"
+                className="text-sm w-full sm:w-auto"
+              >
+                {changingPassword ? '変更中...' : 'パスワードを変更'}
+              </Button>
+            </div>
           </div>
 
           {user?.role && (
@@ -365,19 +449,6 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* セキュリティ情報 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm sm:text-base md:text-lg">セキュリティ</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="p-3 sm:p-4 bg-muted rounded-lg">
-            <div className="text-xs sm:text-sm text-muted-foreground">
-              パスワードの変更やアカウントの削除は、管理者にお問い合わせください。
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
