@@ -180,10 +180,10 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       <div className="container mx-auto max-w-7xl px-[10px] py-4 md:py-6">
         {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6 h-10 md:h-11">
-              <TabsTrigger value="lineup" className="text-sm md:text-base">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar" className="text-sm md:text-base">カレンダー</TabsTrigger>
-              <TabsTrigger value="list" className="text-sm md:text-base">リスト</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6 h-10 md:h-12 xl:h-14">
+              <TabsTrigger value="lineup" className="text-sm md:text-base xl:text-base">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-sm md:text-base xl:text-base">カレンダー</TabsTrigger>
+              <TabsTrigger value="list" className="text-sm md:text-base xl:text-base">リスト</TabsTrigger>
             </TabsList>
 
             {/* ラインナップ表示 */}
