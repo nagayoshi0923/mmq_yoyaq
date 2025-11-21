@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Images, Calendar, MapPin, Star, EyeOff } from 'lucide-react'
+import { Images, Calendar, MapPin, Star, EyeOff, Users, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -17,9 +17,30 @@ interface PlayedScenario {
   key_visual_url?: string
 }
 
+interface LikedScenario {
+  id: string
+  scenario_id: string
+  created_at: string
+  scenario: {
+    id: string
+    title: string
+    description: string
+    author: string
+    duration: number
+    player_count_min: number
+    player_count_max: number
+    difficulty: number
+    genre: string[]
+    rating: number
+    play_count: number
+    key_visual_url?: string
+  }
+}
+
 export function AlbumPage() {
   const { user } = useAuth()
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
+  const [likedScenariosList, setLikedScenariosList] = useState<LikedScenario[]>([])
   const [hiddenScenarios, setHiddenScenarios] = useState<Set<string>>(new Set())
   const [likedScenarios, setLikedScenarios] = useState<Set<string>>(new Set())
   const [customerId, setCustomerId] = useState<string | null>(null)
@@ -62,6 +83,48 @@ export function AlbumPage() {
 
       if (likes) {
         setLikedScenarios(new Set(likes.map(l => l.scenario_id)))
+      }
+
+      // いいねしたシナリオの詳細情報を取得
+      const { data: likesData, error: likesError } = await supabase
+        .from('scenario_likes')
+        .select('id, scenario_id, created_at')
+        .eq('customer_id', customer.id)
+        .order('created_at', { ascending: false })
+
+      if (!likesError && likesData && likesData.length > 0) {
+        const scenarioIds = likesData.map(like => like.scenario_id)
+        const { data: scenariosData, error: scenariosError } = await supabase
+          .from('scenarios')
+          .select('id, title, description, author, duration, player_count_min, player_count_max, difficulty, genre, rating, play_count, key_visual_url')
+          .in('id', scenarioIds)
+
+        if (!scenariosError && scenariosData) {
+          const combined = likesData.map(like => {
+            const scenario = scenariosData.find(s => s.id === like.scenario_id)
+            return {
+              id: like.id,
+              scenario_id: like.scenario_id,
+              created_at: like.created_at,
+              scenario: scenario || {
+                id: like.scenario_id,
+                title: '不明',
+                description: '',
+                author: '',
+                duration: 0,
+                player_count_min: 0,
+                player_count_max: 0,
+                difficulty: 0,
+                genre: [],
+                rating: 0,
+                play_count: 0,
+              }
+            }
+          })
+          setLikedScenariosList(combined)
+        }
+      } else {
+        setLikedScenariosList([])
       }
 
       // 予約を取得
@@ -138,6 +201,50 @@ export function AlbumPage() {
   const formatDate = (date: string) => {
     const d = new Date(date)
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const getDifficultyLabel = (difficulty: number) => {
+    switch (difficulty) {
+      case 1:
+        return '初級'
+      case 2:
+        return '中級'
+      case 3:
+        return '上級'
+      case 4:
+        return '最上級'
+      case 5:
+        return '超上級'
+      default:
+        return '不明'
+    }
+  }
+
+  const handleRemoveLike = async (likeId: string) => {
+    if (!customerId) return
+
+    try {
+      const { error } = await supabase
+        .from('scenario_likes')
+        .delete()
+        .eq('id', likeId)
+
+      if (error) throw error
+
+      // ローカルステートを更新
+      setLikedScenariosList((prev) => prev.filter((item) => item.id !== likeId))
+      const removed = likedScenariosList.find(item => item.id === likeId)
+      if (removed) {
+        setLikedScenarios(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(removed.scenario_id)
+          return newSet
+        })
+      }
+    } catch (error) {
+      logger.error('削除エラー:', error)
+      alert('削除に失敗しました')
+    }
   }
 
   const handleToggleLike = async (scenarioId: string | undefined) => {
@@ -217,7 +324,7 @@ export function AlbumPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* 統計 */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
             <div className="text-base sm:text-lg font-bold text-primary">{playedScenarios.length}</div>
@@ -228,6 +335,12 @@ export function AlbumPage() {
           <CardContent className="pt-4 sm:pt-6 text-center">
             <div className="text-base sm:text-lg font-bold text-primary">{scenarioGroups.length}</div>
             <div className="text-xs sm:text-sm text-muted-foreground mt-1">プレイしたシナリオ</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 sm:pt-6 text-center">
+            <div className="text-base sm:text-lg font-bold text-primary">{likedScenariosList.length}</div>
+            <div className="text-xs sm:text-sm text-muted-foreground mt-1">いいねしたシナリオ</div>
           </CardContent>
         </Card>
       </div>
@@ -344,6 +457,118 @@ export function AlbumPage() {
                     </div>
                   )
                 })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* いいねしたシナリオ */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+            <Star className="h-4 w-4 sm:h-5 sm:w-5 fill-yellow-400 text-yellow-400" />
+            いいねしたシナリオ ({likedScenariosList.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {likedScenariosList.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              いいねしたシナリオがありません
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {likedScenariosList.map((item) => (
+                <div
+                  key={item.id}
+                  className="border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-start gap-3 sm:gap-4 mb-3">
+                    {/* シナリオ画像 */}
+                    <div className="flex-shrink-0 w-12 sm:w-16 h-16 sm:h-20 bg-gray-200 rounded overflow-hidden">
+                      {item.scenario.key_visual_url ? (
+                        <OptimizedImage
+                          src={item.scenario.key_visual_url}
+                          alt={item.scenario.title}
+                          className="w-full h-full object-cover"
+                          responsive={true}
+                          srcSetSizes={[48, 64, 128]}
+                          breakpoints={{ mobile: 48, tablet: 64, desktop: 128 }}
+                          useWebP={true}
+                          quality={85}
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                              No Image
+                            </div>
+                          }
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                          No Image
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-2 gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-sm sm:text-base md:text-lg mb-1 truncate">{item.scenario.title}</h3>
+                          <p className="text-xs sm:text-sm text-muted-foreground mb-2">
+                            作者: {item.scenario.author}
+                          </p>
+                          {item.scenario.description && (
+                            <p className="text-xs sm:text-sm text-muted-foreground mb-3 line-clamp-2">
+                              {item.scenario.description}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveLike(item.id)}
+                          className="hover:bg-red-50 h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0"
+                          title="リストから削除"
+                        >
+                          <Star className="h-4 w-4 sm:h-5 sm:w-5 fill-yellow-400 text-yellow-400" />
+                        </Button>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm mb-3">
+                        <div className="flex items-center gap-1">
+                          <Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                          <span>
+                            {item.scenario.player_count_min}〜{item.scenario.player_count_max}人
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                          <span>{item.scenario.duration}分</span>
+                        </div>
+                        {item.scenario.rating > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3 w-3 sm:h-4 sm:w-4 fill-yellow-400 text-yellow-400" />
+                            <span>{item.scenario.rating.toFixed(1)}</span>
+                          </div>
+                        )}
+                        <Badge variant="secondary" className="text-xs">{getDifficultyLabel(item.scenario.difficulty)}</Badge>
+                      </div>
+
+                      {item.scenario.genre && item.scenario.genre.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {item.scenario.genre.map((g, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {g}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="text-xs text-muted-foreground">
+                        追加日: {formatDate(item.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>

@@ -255,7 +255,15 @@ export function ProfilePage() {
               <Mail className="h-4 w-4" />
               メールアドレス
             </Label>
-            <div className="mt-1 font-medium text-sm">{user?.email || '未設定'}</div>
+            <div className="mt-1">
+              {user?.email ? (
+                <div className="font-medium text-sm">{user.email}</div>
+              ) : (
+                <Badge variant="outline" className="text-xs !bg-gray-50 !text-gray-500 !border-gray-200">
+                  未設定
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* メールアドレス変更 */}
