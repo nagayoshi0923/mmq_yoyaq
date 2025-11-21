@@ -67,7 +67,7 @@ export const EventList = memo(function EventList({
                   </div>
                 </div>
                 
-                {/* 店舗カラーの正方形 + 店舗名 + 時間 */}
+                {/* 店舗カラーの正方形 + 店舗名 + タイトル */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <div 
@@ -84,12 +84,12 @@ export const EventList = memo(function EventList({
                     >
                       {event.store_short_name}
                     </span>
-                    <span className="font-bold text-base whitespace-nowrap">
-                      {formatTime(event.start_time)}〜
+                    <span className="text-sm text-muted-foreground truncate">
+                      {event.scenario_title || scenarioTitle}
                     </span>
                   </div>
-                  <div className="text-sm text-muted-foreground truncate">
-                    {event.scenario_title || scenarioTitle}
+                  <div className="font-bold text-base whitespace-nowrap">
+                    {formatTime(event.start_time)}〜
                   </div>
                 </div>
               </div>
