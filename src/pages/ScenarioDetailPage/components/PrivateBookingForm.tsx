@@ -49,8 +49,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   return (
     <div>
       {/* 店舗選択 */}
-      <div className="mb-3 sm:mb-4">
-        <label className="text-sm sm:text-base font-medium mb-1.5 sm:mb-2 block">店舗を選択</label>
+      <div className="mb-3">
+        <label className="text-sm font-medium mb-2 block">店舗を選択</label>
         <MultiSelect
           options={stores.map(store => ({
             id: store.id,
@@ -75,7 +75,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                 <Badge 
                   key={id} 
                   variant="secondary" 
-                  className="text-xs px-1.5 py-0 h-auto"
+                  className="text-sm px-2 py-0.5"
                 >
                   {store.short_name || store.name}
                 </Badge>
@@ -86,24 +86,24 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       </div>
       
       {/* 月切り替え */}
-      <div className="flex items-center justify-between mb-4 sm:mb-5">
+      <div className="flex items-center justify-between mb-4">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onMonthChange(-1)}
           disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
-          className="text-lg h-9"
+          className="text-sm h-9"
         >
           &lt; 前月
         </Button>
-        <h3 className="font-bold text-lg sm:text-base">
+        <h3 className="font-bold text-base">
           {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
         </h3>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onMonthChange(1)}
-          className="text-lg h-9"
+          className="text-sm h-9"
         >
           次月 &gt;
         </Button>
@@ -123,12 +123,12 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           
           return (
             <Card key={date}>
-              <CardContent className="p-3 sm:p-3.5">
-                <div className="flex items-center gap-2.5 sm:gap-3">
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
                   {/* 日付 */}
-                  <div className="font-semibold text-lg sm:text-base whitespace-nowrap min-w-[50px] text-center">
+                  <div className="font-semibold text-sm whitespace-nowrap min-w-[50px] text-center">
                     <div>{month}/{day}</div>
-                    <div className={`text-xs sm:text-sm ${weekdayColor}`}>
+                    <div className={`text-sm ${weekdayColor}`}>
                       ({weekday})
                     </div>
                   </div>
@@ -144,7 +144,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                           key={slot.label}
                           variant={isSelected ? "default" : "outline"}
                           size="sm"
-                          className={`flex-1 py-2.5 min-h-[52px] text-base px-1 ${
+                          className={`flex-1 py-2.5 min-h-[52px] text-sm px-1 ${
                             !isAvailable 
                               ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
                               : isSelected
