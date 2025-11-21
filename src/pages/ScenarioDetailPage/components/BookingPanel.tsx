@@ -29,13 +29,13 @@ export const BookingPanel = memo(function BookingPanel({
     <div className="space-y-4 sm:space-y-6">
       {/* 人数を選択 */}
       <div>
-        <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">人数を選択</h3>
+        <h3 className="font-bold mb-2 sm:mb-3 text-base">人数を選択</h3>
         <Card>
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-sm sm:text-base">予約人数</span>
+              <span className="font-medium text-base">予約人数</span>
               <select 
-                className="border rounded px-2 sm:px-3 py-1.5 text-xs sm:text-sm touch-manipulation"
+                className="border rounded px-2 sm:px-3 py-1.5 text-base touch-manipulation"
                 value={participantCount}
                 onChange={(e) => onParticipantCountChange(Number(e.target.value))}
               >
@@ -61,27 +61,27 @@ export const BookingPanel = memo(function BookingPanel({
 
       {/* 料金情報 */}
       <div>
-        <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">料金</h3>
+        <h3 className="font-bold mb-2 sm:mb-3 text-base">料金</h3>
         <Card>
           <CardContent className="p-3 sm:p-4">
             <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs sm:text-sm">
+              <div className="flex justify-between items-center text-base">
                 <span className="text-muted-foreground">参加費（1名）</span>
                 <span className="font-medium">
                   ¥{participationFee.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-xs sm:text-sm">
+              <div className="flex justify-between items-center text-base">
                 <span className="text-muted-foreground">人数</span>
                 <span className="font-medium">× {participantCount}名</span>
               </div>
               <div className="border-t pt-2 flex justify-between items-center">
-                <span className="font-bold text-sm sm:text-base">合計</span>
+                <span className="font-bold text-base">合計</span>
                 <span className="text-xl sm:text-2xl font-bold text-blue-600">
                   ¥{(participationFee * participantCount).toLocaleString()}
                 </span>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded p-2 sm:p-3 text-xs sm:text-sm text-blue-800">
+              <div className="bg-blue-50 border border-blue-200 rounded p-2 sm:p-3 text-sm text-blue-800">
                 <p className="font-medium mb-0.5 sm:mb-1">現地決済</p>
                 <p className="text-xs">当日会場にてお支払いください</p>
               </div>
@@ -92,7 +92,7 @@ export const BookingPanel = memo(function BookingPanel({
 
       {/* 予約確認ボタン */}
       <Button 
-        className="w-full bg-blue-600 text-white hover:bg-blue-700 h-11 sm:h-12 font-bold text-sm sm:text-base touch-manipulation"
+        className="w-full bg-blue-600 text-white hover:bg-blue-700 h-11 sm:h-12 font-bold text-base touch-manipulation"
         onClick={onBooking}
         disabled={!selectedEventId || !isLoggedIn}
       >

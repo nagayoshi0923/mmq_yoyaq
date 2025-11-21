@@ -49,17 +49,17 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1.5 sm:mb-2 md:mb-3 leading-tight">{scenario.scenario_title}</h1>
               
               <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
-                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-base">
                   <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="font-medium">{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</span>
                 </div>
                 
-                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-base">
                   <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="font-medium">{formatDuration(scenario.duration, 'minutes')}</span>
                 </div>
                 
-                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm">
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-base">
                   <span className="font-medium text-white">
                     {scenario.participation_fee ? `¥${scenario.participation_fee.toLocaleString()}〜` : '¥3,000〜'}
                   </span>
@@ -68,7 +68,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
             </div>
 
             {scenario.description && (
-              <p className="opacity-90 leading-relaxed text-sm sm:text-base">
+              <p className="opacity-90 leading-relaxed text-base">
                 {scenario.description}
               </p>
             )}

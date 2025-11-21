@@ -21,27 +21,27 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
     <div className="space-y-4 sm:space-y-6">
       {/* 貸切料金情報 */}
       <div>
-        <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">料金（目安）</h3>
+        <h3 className="font-bold mb-2 sm:mb-3 text-base">料金（目安）</h3>
         <Card>
           <CardContent className="p-3 sm:p-4">
             <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs sm:text-sm">
+              <div className="flex justify-between items-center text-base">
                 <span className="text-muted-foreground">参加費（1名）</span>
                 <span className="font-medium">
                   ¥{participationFee.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-xs sm:text-sm">
+              <div className="flex justify-between items-center text-base">
                 <span className="text-muted-foreground">最大人数</span>
                 <span className="font-medium">× {maxParticipants}名</span>
               </div>
               <div className="border-t pt-2 flex justify-between items-center">
-                <span className="font-bold text-sm sm:text-base">合計</span>
+                <span className="font-bold text-base">合計</span>
                 <span className="text-xl sm:text-2xl font-bold text-purple-600">
                   ¥{(participationFee * maxParticipants).toLocaleString()}
                 </span>
               </div>
-              <div className="bg-purple-50 border border-purple-200 rounded p-2 sm:p-3 text-xs sm:text-sm text-purple-800">
+              <div className="bg-purple-50 border border-purple-200 rounded p-2 sm:p-3 text-sm text-purple-800">
                 <p className="font-medium mb-0.5 sm:mb-1">貸切料金</p>
                 <p className="text-xs">詳細はリクエスト後にご相談</p>
               </div>
@@ -52,7 +52,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
 
       {/* 貸切リクエスト送信ボタン */}
       <Button 
-        className="w-full bg-purple-600 text-white hover:bg-purple-700 h-11 sm:h-12 font-bold text-xs sm:text-sm touch-manipulation"
+        className="w-full bg-purple-600 text-white hover:bg-purple-700 h-11 sm:h-12 font-bold text-base touch-manipulation"
         onClick={onRequestBooking}
         disabled={!isLoggedIn || selectedTimeSlotsCount === 0}
       >
