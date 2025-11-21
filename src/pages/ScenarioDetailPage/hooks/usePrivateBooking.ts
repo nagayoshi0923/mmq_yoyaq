@@ -202,6 +202,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         return eventDate === targetDate
       })
       
+      // 店舗ID→店舗名のマッピングを作成
+      const storeIdToName = stores.reduce((acc: Record<string, string>, store) => {
+        acc[store.id] = store.name || store.short_name || store.id
+        return acc
+      }, {})
+      
       console.log(`[DEBUG] checkTimeSlotAvailability 開始:`, {
         date,
         slot: slot.label,
@@ -210,6 +216,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         storeIds,
         allStoreEventsCount: allStoreEvents.length,
         storesCount: stores.length,
+        storeIdToName,
         allEventsOnDate: allEventsOnDate.map((e: any) => ({
           date: e.date,
           start_time: e.start_time,
@@ -217,7 +224,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           category: e.category,
           is_reservation_enabled: e.is_reservation_enabled,
           is_cancelled: e.is_cancelled,
-          store_id: getEventStoreId(e)
+          venue: e.venue,
+          store_id: getEventStoreId(e),
+          store_name: getEventStoreId(e) ? storeIdToName[getEventStoreId(e)] : '不明'
         }))
       })
     }
@@ -403,13 +412,24 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       })
       
       if (isDebugTarget) {
-        console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}のイベント（店舗未選択時）:`, storeEvents.map((e: any) => ({
+        // 店舗ID→店舗名のマッピングを作成
+        const storeIdToName = stores.reduce((acc: Record<string, string>, store) => {
+          acc[store.id] = store.name || store.short_name || store.id
+          return acc
+        }, {})
+        
+        console.log(`[DEBUG] 店舗 ${storeId} (${storeIdToName[storeId] || '不明'}) の11/22${slot.label}のイベント（店舗未選択時）:`, storeEvents.map((e: any) => ({
           date: e.date,
           start_time: e.start_time,
           end_time: e.end_time,
           category: e.category,
           is_cancelled: e.is_cancelled,
-          store_id: getEventStoreId(e)
+          is_reservation_enabled: e.is_reservation_enabled,
+          venue: e.venue,
+          store_id: getEventStoreId(e),
+          store_name: getEventStoreId(e) ? storeIdToName[getEventStoreId(e)] : '不明',
+          scenario: e.scenario || e.scenarios?.title,
+          id: e.id
         })))
       }
       
