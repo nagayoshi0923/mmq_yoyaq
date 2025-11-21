@@ -79,10 +79,10 @@ export const EventList = memo(function EventList({
               <div className="flex flex-col gap-1 flex-1 min-w-0 justify-center">
                 {/* 日付 + 時間（同じ行） */}
                 <div className="flex items-center gap-2">
-                  <span className="text-base font-medium whitespace-nowrap">
-                    {month}/{day} <span className={`text-xs ${weekdayColor}`}>({weekday})</span>
+                  <span className="text-sm whitespace-nowrap">
+                    {month}/{day} <span className={`text-sm ${weekdayColor}`}>({weekday})</span>
                   </span>
-                  <span className="font-bold text-base whitespace-nowrap">
+                  <span className="font-bold text-sm whitespace-nowrap">
                     {formatTime(event.start_time)}〜
                   </span>
                 </div>
@@ -100,7 +100,7 @@ export const EventList = memo(function EventList({
                   </Badge>
                 ) : (
                   <div className="text-right whitespace-nowrap">
-                    <div className="font-bold text-base">
+                    <div className="font-bold text-sm">
                       残り{event.available_seats}人
                     </div>
                   </div>
