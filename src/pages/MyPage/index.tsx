@@ -4,7 +4,6 @@ import { ProfilePage } from './pages/ProfilePage'
 import { ReservationsPage } from './pages/ReservationsPage'
 import { AlbumPage } from './pages/AlbumPage'
 import { WantToPlayPage } from './pages/LikedScenariosPage'
-import { AccountPage } from './pages/AccountPage'
 import { SettingsPage } from './pages/SettingsPage'
 
 export default function MyPage() {
@@ -20,8 +19,6 @@ export default function MyPage() {
         return <AlbumPage />
       case 'want-to-play':
         return <WantToPlayPage />
-      case 'account':
-        return <AccountPage />
       case 'settings':
         return <SettingsPage />
       default:

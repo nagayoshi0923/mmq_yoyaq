@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { User } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { User, Mail, Calendar as CalendarIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -12,12 +13,16 @@ export function ProfilePage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [changingEmail, setChangingEmail] = useState(false)
   const [staffInfo, setStaffInfo] = useState<any>(null)
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     lineId: '',
     xAccount: '',
+  })
+  const [emailFormData, setEmailFormData] = useState({
+    newEmail: '',
   })
 
   useEffect(() => {
@@ -109,6 +114,44 @@ export function ProfilePage() {
     }
   }
 
+  const handleChangeEmail = async () => {
+    if (!emailFormData.newEmail || !user?.email) {
+      alert('新しいメールアドレスを入力してください')
+      return
+    }
+
+    if (emailFormData.newEmail === user.email) {
+      alert('現在のメールアドレスと同じです')
+      return
+    }
+
+    if (!confirm(`メールアドレスを ${emailFormData.newEmail} に変更しますか？\n確認メールが送信されます。`)) {
+      return
+    }
+
+    setChangingEmail(true)
+    try {
+      const { error } = await supabase.auth.updateUser({
+        email: emailFormData.newEmail
+      })
+
+      if (error) throw error
+
+      alert('確認メールを送信しました。新しいメールアドレスで確認してください。')
+      setEmailFormData({ newEmail: '' })
+    } catch (error: any) {
+      logger.error('メールアドレス変更エラー:', error)
+      alert(error.message || 'メールアドレスの変更に失敗しました')
+    } finally {
+      setChangingEmail(false)
+    }
+  }
+
+  const formatDate = (date: string) => {
+    const d = new Date(date)
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  }
+
   if (loading) {
     return (
       <Card>
@@ -131,9 +174,40 @@ export function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label className="text-muted-foreground text-sm">メールアドレス</Label>
+            <Label htmlFor="current-email" className="text-sm flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              メールアドレス
+            </Label>
             <div className="mt-1 font-medium text-sm">{user?.email || '未設定'}</div>
           </div>
+
+          {/* メールアドレス変更 */}
+          <div>
+            <Label htmlFor="new-email" className="text-sm">メールアドレス変更</Label>
+            <div className="mt-2 flex gap-2">
+              <Input
+                id="new-email"
+                type="email"
+                value={emailFormData.newEmail}
+                onChange={(e) => setEmailFormData({ newEmail: e.target.value })}
+                placeholder="新しいメールアドレス"
+                className="text-sm flex-1"
+                disabled={changingEmail}
+              />
+              <Button
+                onClick={handleChangeEmail}
+                disabled={changingEmail || !emailFormData.newEmail}
+                size="sm"
+                className="text-sm"
+              >
+                {changingEmail ? '送信中...' : '変更'}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              確認メールが新しいメールアドレスに送信されます
+            </p>
+          </div>
+
           {user?.name && (
             <div>
               <Label className="text-muted-foreground text-sm">名前</Label>
@@ -143,12 +217,48 @@ export function ProfilePage() {
           {user?.role && (
             <div>
               <Label className="text-muted-foreground text-sm">ロール</Label>
-              <div className="mt-1 font-medium text-sm">
-                {user.role === 'admin' ? '管理者' : 
-                 user.role === 'staff' ? 'スタッフ' : '顧客'}
+              <div className="mt-1">
+                <Badge
+                  className={`text-xs sm:text-sm ${
+                    user.role === 'admin'
+                      ? 'bg-blue-100 text-blue-800'
+                      : user.role === 'staff'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-purple-100 text-purple-800'
+                  }`}
+                >
+                  {user.role === 'admin'
+                    ? '管理者'
+                    : user.role === 'staff'
+                    ? 'スタッフ'
+                    : '顧客'}
+                </Badge>
               </div>
             </div>
           )}
+          {user?.created_at && (
+            <div>
+              <Label className="text-muted-foreground text-sm flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                登録日
+              </Label>
+              <div className="mt-1 font-medium text-sm">{formatDate(user.created_at)}</div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* セキュリティ情報 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm sm:text-base md:text-lg">セキュリティ</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="p-3 sm:p-4 bg-muted rounded-lg">
+            <div className="text-xs sm:text-sm text-muted-foreground">
+              パスワードの変更やアカウントの削除は、管理者にお問い合わせください。
+            </div>
+          </div>
         </CardContent>
       </Card>
 
