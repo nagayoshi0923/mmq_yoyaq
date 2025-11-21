@@ -296,7 +296,7 @@ export function ReservationsPage() {
                         参加予定
                       </Badge>
                     </div>
-                    <div className="text-xs sm:text-sm text-muted-foreground">
+                    <div className="text-sm sm:text-base font-medium text-foreground">
                       {formatDateTime(reservation.requested_datetime)}
                     </div>
                   </div>
