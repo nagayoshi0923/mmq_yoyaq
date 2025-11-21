@@ -217,7 +217,7 @@ export function AlbumPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* 統計 */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
             <div className="text-base sm:text-lg font-bold text-primary">{playedScenarios.length}</div>
@@ -228,14 +228,6 @@ export function AlbumPage() {
           <CardContent className="pt-4 sm:pt-6 text-center">
             <div className="text-base sm:text-lg font-bold text-primary">{scenarioGroups.length}</div>
             <div className="text-xs sm:text-sm text-muted-foreground mt-1">プレイしたシナリオ</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 sm:pt-6 text-center">
-            <div className="text-base sm:text-lg font-bold text-primary">
-              {scenarioGroups.filter((g) => g.count > 1).length}
-            </div>
-            <div className="text-xs sm:text-sm text-muted-foreground mt-1">リピートシナリオ</div>
           </CardContent>
         </Card>
       </div>
