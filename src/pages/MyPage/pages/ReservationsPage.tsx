@@ -101,7 +101,7 @@ export function ReservationsPage() {
         if (storeIds.size > 0) {
           const { data: storesData, error: storesError } = await supabase
             .from('stores')
-            .select('id, name, address')
+            .select('id, name, address, color')
             .in('id', Array.from(storeIds))
           
           if (storesError) {
@@ -182,7 +182,8 @@ export function ReservationsPage() {
     if (reservation.store_id && stores[reservation.store_id]) {
       return {
         name: stores[reservation.store_id].name,
-        address: stores[reservation.store_id].address
+        address: stores[reservation.store_id].address,
+        color: stores[reservation.store_id].color
       }
     }
 
@@ -194,13 +195,15 @@ export function ReservationsPage() {
         if (stores[storeId]) {
           return {
             name: stores[storeId].name,
-            address: stores[storeId].address
+            address: stores[storeId].address,
+            color: stores[storeId].color
           }
         }
         // 店舗情報がまだ取得できていない場合、候補データから名前を取得
         return {
           name: candidateDatetimes.confirmedStore.storeName || '店舗未定',
-          address: ''
+          address: '',
+          color: undefined
         }
       }
 
@@ -210,12 +213,14 @@ export function ReservationsPage() {
         if (firstStore.storeId && stores[firstStore.storeId]) {
           return {
             name: stores[firstStore.storeId].name,
-            address: stores[firstStore.storeId].address
+            address: stores[firstStore.storeId].address,
+            color: stores[firstStore.storeId].color
           }
         }
         return {
           name: firstStore.storeName || '店舗未定',
-          address: ''
+          address: '',
+          color: undefined
         }
       }
     }
@@ -321,14 +326,19 @@ export function ReservationsPage() {
                     )}
                   </div>
                   {getStoreInfo(reservation) && (
-                    <div className="w-full text-xs sm:text-sm text-muted-foreground space-y-0.5 mt-2 pt-2 border-t">
+                    <div className="w-full text-xs sm:text-sm space-y-0.5 mt-2 pt-2 border-t">
                       <div className="text-xs sm:text-sm text-muted-foreground mb-1">会場</div>
                       <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3 flex-shrink-0" />
-                        <span className="font-medium">{getStoreInfo(reservation)?.name}</span>
+                        <MapPin className="h-3 w-3 flex-shrink-0" style={{ color: getStoreInfo(reservation)?.color || undefined }} />
+                        <span 
+                          className="font-medium"
+                          style={{ color: getStoreInfo(reservation)?.color || undefined }}
+                        >
+                          {getStoreInfo(reservation)?.name}
+                        </span>
                       </div>
                       {getStoreInfo(reservation)?.address && (
-                        <div className="pl-4 text-xs">{getStoreInfo(reservation)?.address}</div>
+                        <div className="pl-4 text-xs text-foreground">{getStoreInfo(reservation)?.address}</div>
                       )}
                     </div>
                   )}
