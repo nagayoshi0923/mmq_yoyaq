@@ -150,14 +150,14 @@ export function ReservationsPage() {
       {/* 参加予定の予約 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-blue-600" />
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+            <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
             参加予定の予約 ({upcomingReservations.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {upcomingReservations.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground text-sm">
               参加予定の予約はありません
             </div>
           ) : (
@@ -165,7 +165,7 @@ export function ReservationsPage() {
               {upcomingReservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-blue-50"
+                  className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-blue-50"
                 >
                   {/* シナリオ画像 */}
                   <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
@@ -192,30 +192,32 @@ export function ReservationsPage() {
                     )}
                   </div>
                   
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">{reservation.title}</span>
-                      <Badge variant="default" className="bg-blue-100 text-blue-800">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="font-medium text-sm sm:text-base truncate">{reservation.title}</span>
+                      <Badge variant="default" className="bg-blue-100 text-blue-800 text-xs">
                         <Clock className="h-3 w-3 mr-1" />
                         参加予定
                       </Badge>
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs sm:text-sm text-muted-foreground">
                       {formatDateTime(reservation.requested_datetime)}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm text-muted-foreground">参加人数</div>
-                    <div className="font-medium">{reservation.participant_count}名</div>
-                  </div>
-                  <div className="text-right ml-4">
-                    <div className="text-sm text-muted-foreground">金額</div>
-                    <div className="font-medium">{formatCurrency(reservation.final_price)}</div>
-                  </div>
-                  <div className="ml-4">
-                    <Badge className={getPaymentMethodBadgeColor(reservation.payment_method)}>
-                      {getPaymentMethodLabel(reservation.payment_method)}
-                    </Badge>
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full sm:w-auto">
+                    <div className="text-right sm:text-left">
+                      <div className="text-xs sm:text-sm text-muted-foreground">参加人数</div>
+                      <div className="font-medium text-sm">{reservation.participant_count}名</div>
+                    </div>
+                    <div className="text-right sm:text-left">
+                      <div className="text-xs sm:text-sm text-muted-foreground">金額</div>
+                      <div className="font-medium text-sm">{formatCurrency(reservation.final_price)}</div>
+                    </div>
+                    <div>
+                      <Badge className={`${getPaymentMethodBadgeColor(reservation.payment_method)} text-xs`}>
+                        {getPaymentMethodLabel(reservation.payment_method)}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -227,14 +229,14 @@ export function ReservationsPage() {
       {/* 参加済みの予約 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+            <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
             参加済みの予約 ({pastReservations.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {pastReservations.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground text-sm">
               参加済みの予約はありません
             </div>
           ) : (
@@ -242,7 +244,7 @@ export function ReservationsPage() {
               {pastReservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   {/* シナリオ画像 */}
                   <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
@@ -269,30 +271,32 @@ export function ReservationsPage() {
                     )}
                   </div>
                   
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">{reservation.title}</span>
-                      <Badge variant="secondary">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="font-medium text-sm sm:text-base truncate">{reservation.title}</span>
+                      <Badge variant="secondary" className="text-xs">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         参加済み
                       </Badge>
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs sm:text-sm text-muted-foreground">
                       {formatDateTime(reservation.requested_datetime)}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm text-muted-foreground">参加人数</div>
-                    <div className="font-medium">{reservation.participant_count}名</div>
-                  </div>
-                  <div className="text-right ml-4">
-                    <div className="text-sm text-muted-foreground">金額</div>
-                    <div className="font-medium">{formatCurrency(reservation.final_price)}</div>
-                  </div>
-                  <div className="ml-4">
-                    <Badge className={getPaymentMethodBadgeColor(reservation.payment_method)}>
-                      {getPaymentMethodLabel(reservation.payment_method)}
-                    </Badge>
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full sm:w-auto">
+                    <div className="text-right sm:text-left">
+                      <div className="text-xs sm:text-sm text-muted-foreground">参加人数</div>
+                      <div className="font-medium text-sm">{reservation.participant_count}名</div>
+                    </div>
+                    <div className="text-right sm:text-left">
+                      <div className="text-xs sm:text-sm text-muted-foreground">金額</div>
+                      <div className="font-medium text-sm">{formatCurrency(reservation.final_price)}</div>
+                    </div>
+                    <div>
+                      <Badge className={`${getPaymentMethodBadgeColor(reservation.payment_method)} text-xs`}>
+                        {getPaymentMethodLabel(reservation.payment_method)}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -305,8 +309,8 @@ export function ReservationsPage() {
       {cancelledReservations.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-muted-foreground" />
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               キャンセル済み ({cancelledReservations.length})
             </CardTitle>
           </CardHeader>
@@ -315,7 +319,7 @@ export function ReservationsPage() {
               {cancelledReservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors opacity-60"
+                  className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors opacity-60"
                 >
                   {/* シナリオ画像 */}
                   <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
@@ -342,27 +346,29 @@ export function ReservationsPage() {
                     )}
                   </div>
                   
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium line-through">{reservation.title}</span>
-                      <Badge variant="destructive">キャンセル</Badge>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="font-medium text-sm sm:text-base line-through truncate">{reservation.title}</span>
+                      <Badge variant="destructive" className="text-xs">キャンセル</Badge>
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs sm:text-sm text-muted-foreground">
                       {formatDateTime(reservation.requested_datetime)}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm text-muted-foreground">参加人数</div>
-                    <div className="font-medium">{reservation.participant_count}名</div>
-                  </div>
-                  <div className="text-right ml-4">
-                    <div className="text-sm text-muted-foreground">金額</div>
-                    <div className="font-medium">{formatCurrency(reservation.final_price)}</div>
-                  </div>
-                  <div className="ml-4">
-                    <Badge className={getPaymentMethodBadgeColor(reservation.payment_method)}>
-                      {getPaymentMethodLabel(reservation.payment_method)}
-                    </Badge>
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full sm:w-auto">
+                    <div className="text-right sm:text-left">
+                      <div className="text-xs sm:text-sm text-muted-foreground">参加人数</div>
+                      <div className="font-medium text-sm">{reservation.participant_count}名</div>
+                    </div>
+                    <div className="text-right sm:text-left">
+                      <div className="text-xs sm:text-sm text-muted-foreground">金額</div>
+                      <div className="font-medium text-sm">{formatCurrency(reservation.final_price)}</div>
+                    </div>
+                    <div>
+                      <Badge className={`${getPaymentMethodBadgeColor(reservation.payment_method)} text-xs`}>
+                        {getPaymentMethodLabel(reservation.payment_method)}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               ))}

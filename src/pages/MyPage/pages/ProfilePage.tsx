@@ -102,49 +102,53 @@ export function ProfilePage() {
       {staffInfo && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+              <User className="h-4 w-4 sm:h-5 sm:w-5" />
               プロフィール編集
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="name">名前 *</Label>
+              <Label htmlFor="name" className="text-sm">名前 *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="山田 太郎"
+                className="text-sm"
               />
             </div>
 
             <div>
-              <Label htmlFor="phone">電話番号</Label>
+              <Label htmlFor="phone" className="text-sm">電話番号</Label>
               <Input
                 id="phone"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="090-1234-5678"
+                className="text-sm"
               />
             </div>
 
             <div>
-              <Label htmlFor="lineId">LINE ID</Label>
+              <Label htmlFor="lineId" className="text-sm">LINE ID</Label>
               <Input
                 id="lineId"
                 value={formData.lineId}
                 onChange={(e) => setFormData({ ...formData, lineId: e.target.value })}
                 placeholder="@your_line_id"
+                className="text-sm"
               />
             </div>
 
             <div>
-              <Label htmlFor="xAccount">X (Twitter) アカウント</Label>
+              <Label htmlFor="xAccount" className="text-sm">X (Twitter) アカウント</Label>
               <Input
                 id="xAccount"
                 value={formData.xAccount}
                 onChange={(e) => setFormData({ ...formData, xAccount: e.target.value })}
                 placeholder="@your_twitter"
+                className="text-sm"
               />
             </div>
 
@@ -171,47 +175,47 @@ export function ProfilePage() {
       {staffInfo && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+              <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
               スタッフ情報
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label className="text-muted-foreground">担当店舗</Label>
+              <Label className="text-muted-foreground text-sm">担当店舗</Label>
               <div className="mt-1">
                 {staffInfo.stores && staffInfo.stores.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {staffInfo.stores.map((store: string, idx: number) => (
-                      <span key={idx} className="px-2 py-1 bg-muted rounded text-sm">
+                      <span key={idx} className="px-2 py-1 bg-muted rounded text-xs sm:text-sm">
                         {store}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <span className="text-muted-foreground text-sm">未設定</span>
+                  <span className="text-muted-foreground text-xs sm:text-sm">未設定</span>
                 )}
               </div>
             </div>
 
             <div>
-              <Label className="text-muted-foreground">担当可能シナリオ数</Label>
-              <div className="mt-1 font-medium">
+              <Label className="text-muted-foreground text-sm">担当可能シナリオ数</Label>
+              <div className="mt-1 font-medium text-sm">
                 {staffInfo.available_scenarios?.length || 0} シナリオ
               </div>
             </div>
 
             <div>
-              <Label className="text-muted-foreground">経験値</Label>
-              <div className="mt-1 font-medium">
+              <Label className="text-muted-foreground text-sm">経験値</Label>
+              <div className="mt-1 font-medium text-sm">
                 {staffInfo.experience || 0} 回
               </div>
             </div>
 
             {staffInfo.notes && (
               <div>
-                <Label className="text-muted-foreground">メモ</Label>
-                <div className="mt-1 text-sm whitespace-pre-wrap text-muted-foreground">
+                <Label className="text-muted-foreground text-sm">メモ</Label>
+                <div className="mt-1 text-xs sm:text-sm whitespace-pre-wrap text-muted-foreground">
                   {staffInfo.notes}
                 </div>
               </div>
