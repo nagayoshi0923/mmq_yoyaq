@@ -150,7 +150,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
               <Badge 
                 key={index} 
                 variant="secondary" 
-                className="text-sm px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
+                className="text-xs px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
               >
                 {genre}
               </Badge>
@@ -158,7 +158,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
             {scenario.genre.length > 3 && (
               <Badge 
                 variant="secondary" 
-                className="text-sm px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
+                className="text-xs px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
               >
                 +{scenario.genre.length - 3}
               </Badge>
@@ -177,7 +177,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
               return (
                 <div 
                   key={index} 
-                  className={`flex items-center gap-1 sm:gap-1.5 text-sm py-0.5 sm:py-1 px-1 sm:px-1.5 md:px-2 bg-gray-100 rounded-[3px] ${
+                  className={`flex items-center gap-1 sm:gap-1.5 text-xs py-0.5 sm:py-1 px-1 sm:px-1.5 md:px-2 bg-gray-100 rounded-[3px] ${
                     index === 0 ? 'mt-0.5 sm:mt-1' : ''
                   }`}
                 >
