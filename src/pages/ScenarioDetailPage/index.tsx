@@ -179,24 +179,23 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
       {/* 戻るボタン */}
       <div className="bg-background border-b sticky top-0 z-10">
-        <div className="container mx-auto max-w-7xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-1.5 xs:py-2">
+        <div className="container mx-auto max-w-7xl px-4 py-2">
           <Button
             variant="ghost"
             onClick={onClose}
-            className="flex items-center gap-0.5 xs:gap-1 sm:gap-1.5 hover:bg-accent h-8 xs:h-9 sm:h-10 px-1.5 xs:px-2 sm:px-3 touch-manipulation text-xs"
+            className="flex items-center gap-1 hover:bg-accent h-9 px-2 touch-manipulation text-sm"
           >
-            <ArrowLeft className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            <span className="hidden xs:inline">シナリオ一覧に戻る</span>
-            <span className="xs:hidden">戻</span>
+            <ArrowLeft className="w-4 h-4 flex-shrink-0" />
+            <span>シナリオ一覧に戻る</span>
           </Button>
         </div>
       </div>
 
       {/* メインコンテンツ */}
-      <div className="container mx-auto max-w-7xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-2.5 xs:py-3 sm:py-4 md:py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 xs:gap-3.5 sm:gap-4 md:gap-5 lg:gap-6">
+      <div className="container mx-auto max-w-7xl px-4 py-4">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
           {/* メインエリア - 詳細情報 */}
-          <div className="lg:col-span-8 space-y-3 sm:space-y-4 md:space-y-6">
+          <div className="xl:col-span-8 space-y-4">
             <ScenarioHero scenario={scenario} events={events} />
             <BookingNotice 
               reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
@@ -205,8 +204,8 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
           </div>
 
           {/* 右サイドバー - チケット購入 */}
-          <div className="lg:col-span-4">
-            <div className="lg:sticky lg:top-[60px] space-y-3 sm:space-y-4 md:space-y-6">
+          <div className="xl:col-span-4">
+            <div className="xl:sticky xl:top-[60px] space-y-4">
               {/* タブ: 公演日程 / 貸切リクエスト */}
               <Tabs 
                 defaultValue="schedule" 
@@ -221,7 +220,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    <h3 className="font-bold mb-3 md:mb-4 text-base md:text-lg">日付を選択</h3>
+                    <h3 className="font-bold mb-3 text-lg">日付を選択</h3>
                     <EventList
                       events={events}
                       selectedEventId={selectedEventId}
