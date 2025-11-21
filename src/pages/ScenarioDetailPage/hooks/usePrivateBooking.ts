@@ -127,7 +127,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           const eventStoreId = getEventStoreId(e)
           // eventStoreIdがnullの場合は無視（店舗情報が取得できないイベント）
           if (!eventStoreId) return false
-          return e.date === date && eventStoreId === storeId
+          
+          // 日付の比較（フォーマットを統一）
+          const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
+          const targetDate = date.split('T')[0]
+          
+          return eventDate === targetDate && eventStoreId === storeId
         })
         
         // イベントがない場合は空いている
@@ -139,6 +144,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           const eventEnd = event.end_time?.slice(0, 5) || '23:59'
           const slotStart = slot.startTime
           const slotEnd = slot.endTime
+          
+          // 時間の衝突判定：イベントの開始時刻がスロットの終了時刻より前、かつイベントの終了時刻がスロットの開始時刻より後
           return !(eventEnd <= slotStart || eventStart >= slotEnd)
         })
         
@@ -158,14 +165,19 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       return stores.length === 0
     }
     
-    // いずれかの店舗で空きがあればtrue
-    return availableStoreIdsArray.some(storeId => {
+    // 各店舗の空き状況をチェック
+    const storeAvailability = availableStoreIdsArray.map(storeId => {
       // その店舗のイベントをフィルタリング
       const storeEvents = allStoreEvents.filter((e: any) => {
         const eventStoreId = getEventStoreId(e)
         // eventStoreIdがnullの場合は無視（店舗情報が取得できないイベント）
         if (!eventStoreId) return false
-        return e.date === date && eventStoreId === storeId
+        
+        // 日付の比較（フォーマットを統一）
+        const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
+        const targetDate = date.split('T')[0]
+        
+        return eventDate === targetDate && eventStoreId === storeId
       })
       
       // イベントがない場合は空いている
@@ -177,11 +189,16 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         const eventEnd = event.end_time?.slice(0, 5) || '23:59'
         const slotStart = slot.startTime
         const slotEnd = slot.endTime
+        
+        // 時間の衝突判定：イベントの開始時刻がスロットの終了時刻より前、かつイベントの終了時刻がスロットの開始時刻より後
         return !(eventEnd <= slotStart || eventStart >= slotEnd)
       })
       
       return !hasConflict
     })
+    
+    // いずれかの店舗で空きがあればtrue
+    return storeAvailability.some(available => available === true)
   }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, stores])
 
   // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）
