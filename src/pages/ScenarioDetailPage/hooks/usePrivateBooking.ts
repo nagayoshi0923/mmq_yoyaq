@@ -170,26 +170,23 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         if (storeEvents.length === 0) return true
         
         // 時間枠の衝突をチェック
+        // イベントの開始時刻が時間枠の範囲内にあれば、その時間枠は埋まっている
         const hasConflict = storeEvents.some((event: any) => {
           const eventStart = event.start_time?.slice(0, 5) || '00:00'
-          const eventEnd = event.end_time?.slice(0, 5) || '23:59'
           const slotStart = slot.startTime
           const slotEnd = slot.endTime
           
           // デバッグログ（11/22の夜の場合のみ）
           if (date.includes('2025-11-22') && slot.label === '夜') {
-            console.log(`[DEBUG] 時間衝突チェック: イベント(${eventStart}-${eventEnd}) vs スロット(${slotStart}-${slotEnd})`, {
-              eventEndLessThanSlotStart: eventEnd < slotStart,
-              eventStartGreaterThanSlotEnd: eventStart > slotEnd,
-              hasConflict: !(eventEnd < slotStart || eventStart > slotEnd)
+            console.log(`[DEBUG] 時間衝突チェック: イベント開始時刻(${eventStart}) vs スロット(${slotStart}-${slotEnd})`, {
+              eventStartGreaterEqualSlotStart: eventStart >= slotStart,
+              eventStartLessThanSlotEnd: eventStart < slotEnd,
+              hasConflict: eventStart >= slotStart && eventStart < slotEnd
             })
           }
           
-          // 時間の衝突判定：イベントとスロットが重なっているかチェック
-          // イベントの終了時刻がスロットの開始時刻より前、またはイベントの開始時刻がスロットの終了時刻より後の場合は衝突なし
-          // それ以外（重なっている）場合は衝突あり
-          // 注意: 同じ時刻で終了と開始が重なる場合（例: 18:00で終わるイベントと18:00で始まるスロット）は衝突とみなす
-          return !(eventEnd < slotStart || eventStart > slotEnd)
+          // イベントの開始時刻が時間枠の範囲内（startTime <= eventStart < endTime）にあるかチェック
+          return eventStart >= slotStart && eventStart < slotEnd
         })
         
         const isAvailable = !hasConflict
@@ -267,22 +264,22 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       }
       
       // 時間枠の衝突をチェック
+      // イベントの開始時刻が時間枠の範囲内にあれば、その時間枠は埋まっている
       const hasConflict = storeEvents.some((event: any) => {
         const eventStart = event.start_time?.slice(0, 5) || '00:00'
-        const eventEnd = event.end_time?.slice(0, 5) || '23:59'
         const slotStart = slot.startTime
         const slotEnd = slot.endTime
         
-          if (isDebugTarget) {
-            console.log(`[DEBUG] 時間衝突チェック（店舗未選択時）: イベント(${eventStart}-${eventEnd}) vs スロット(${slotStart}-${slotEnd})`, {
-              eventEndLessThanSlotStart: eventEnd < slotStart,
-              eventStartGreaterThanSlotEnd: eventStart > slotEnd,
-              hasConflict: !(eventEnd < slotStart || eventStart > slotEnd)
-            })
-          }
+        if (isDebugTarget) {
+          console.log(`[DEBUG] 時間衝突チェック（店舗未選択時）: イベント開始時刻(${eventStart}) vs スロット(${slotStart}-${slotEnd})`, {
+            eventStartGreaterEqualSlotStart: eventStart >= slotStart,
+            eventStartLessThanSlotEnd: eventStart < slotEnd,
+            hasConflict: eventStart >= slotStart && eventStart < slotEnd
+          })
+        }
         
-        // 時間の衝突判定：イベントの開始時刻がスロットの終了時刻より前、かつイベントの終了時刻がスロットの開始時刻より後
-        return !(eventEnd <= slotStart || eventStart >= slotEnd)
+        // イベントの開始時刻が時間枠の範囲内（startTime <= eventStart < endTime）にあるかチェック
+        return eventStart >= slotStart && eventStart < slotEnd
       })
       
       const isAvailable = !hasConflict
