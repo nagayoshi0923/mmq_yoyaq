@@ -62,28 +62,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
             selectedStoreIds.length > 0 ? selectedStoreIds : undefined
           )
           newAvailabilityMap[key] = isAvailable
-          
-          // デバッグログ（11/22の夜の場合のみ）
-          if (date.includes('2025-11-22') && slot.label === '夜') {
-            console.log(`[DEBUG] PrivateBookingForm: ${key} の可用性 = ${isAvailable}`)
-          }
         })
       )
       
       await Promise.all(promises)
-      
-      // デバッグログ（11/22の夜の場合のみ）
-      const nightKey = availableDates.find(d => d.includes('2025-11-22')) && timeSlots.find(s => s.label === '夜')
-        ? `${availableDates.find(d => d.includes('2025-11-22'))}-夜`
-        : null
-      if (nightKey) {
-        console.log(`[DEBUG] PrivateBookingForm: availabilityMap更新後`, {
-          nightKey,
-          value: newAvailabilityMap[nightKey],
-          allKeys: Object.keys(newAvailabilityMap).filter(k => k.includes('2025-11-22'))
-        })
-      }
-      
       setAvailabilityMap(newAvailabilityMap)
     }
     
@@ -93,19 +75,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   // 時間枠の可用性を取得
   const getAvailability = (date: string, slot: TimeSlot): boolean => {
     const key = `${date}-${slot.label}`
-    const isAvailable = availabilityMap[key] ?? false
-    
-    // デバッグログ（11/22の夜の場合のみ）
-    if (date.includes('2025-11-22') && slot.label === '夜') {
-      console.log(`[DEBUG] PrivateBookingForm: getAvailability(${key}) = ${isAvailable}`, {
-        key,
-        availabilityMapValue: availabilityMap[key],
-        defaultValue: false
-      })
-    }
-    
     // まだ取得されていない場合は、デフォルトでfalse（安全側に倒す）
-    return isAvailable
+    return availabilityMap[key] ?? false
   }
 
 
