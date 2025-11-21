@@ -147,7 +147,7 @@ export function BookingConfirmation({
       </div>
 
       <div className="container mx-auto max-w-5xl px-[10px] py-4 xs:py-5 sm:py-6">
-        <h1 className="text-lg sm:text-lg md:text-lg font-bold mb-5 sm:mb-6 md:mb-8 leading-tight">予約確認</h1>
+        <h1 className="text-base sm:text-lg md:text-lg font-bold mb-4 sm:mb-6 md:mb-8 leading-tight">予約確認</h1>
 
         {error && (
           <Card className="mb-6 border-2 border-red-200 bg-red-50">
@@ -163,14 +163,14 @@ export function BookingConfirmation({
           <div className="lg:col-span-2 space-y-5 sm:space-y-6 md:space-y-8">
             {/* 公演情報 */}
             <div>
-              <h2 className="font-bold text-lg sm:text-base md:text-lg mb-3 sm:mb-4">公演情報</h2>
+              <h2 className="font-bold text-sm sm:text-base md:text-lg mb-3 sm:mb-4">公演情報</h2>
               <Card>
                 <CardContent className="p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
                   <div>
-                    <h3 className="font-bold text-base sm:text-lg md:text-lg mb-3 sm:mb-4">{scenarioTitle}</h3>
+                    <h3 className="font-bold text-sm sm:text-lg md:text-lg mb-3 sm:mb-4">{scenarioTitle}</h3>
                   </div>
 
-                  <div className="space-y-2 text-base">
+                  <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
                       <span className="font-medium">{formatDate(eventDate)}</span>
@@ -202,30 +202,30 @@ export function BookingConfirmation({
 
             {/* 参加人数 */}
             <div>
-              <h2 className="font-bold text-lg sm:text-base md:text-lg mb-3 sm:mb-4">参加人数</h2>
+              <h2 className="font-bold text-sm sm:text-base md:text-lg mb-3 sm:mb-4">参加人数</h2>
               <Card>
                 <CardContent className="p-4 sm:p-5 md:p-6">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-base">参加人数</span>
-                    <div className="flex items-center gap-3 sm:gap-4">
+                    <span className="font-medium text-sm">参加人数</span>
+                    <div className="flex items-center gap-2 sm:gap-4">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={decrementCount}
                         disabled={participantCount <= 1}
-                        className="text-base h-9"
+                        className="text-sm h-8 sm:h-9"
                       >
-                        <Minus className="w-4 h-4" />
+                        <Minus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </Button>
-                      <span className="font-bold text-lg sm:text-base w-16 text-center">{participantCount}名</span>
+                      <span className="font-bold text-sm sm:text-base w-12 sm:w-16 text-center">{participantCount}名</span>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={incrementCount}
                         disabled={participantCount >= availableSeats}
-                        className="text-base h-9"
+                        className="text-sm h-8 sm:h-9"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </Button>
                     </div>
                   </div>
@@ -235,50 +235,52 @@ export function BookingConfirmation({
 
             {/* お客様情報 */}
             <div>
-              <h2 className="font-bold text-lg sm:text-base md:text-lg mb-3 sm:mb-4">お客様情報</h2>
+              <h2 className="font-bold text-sm sm:text-base md:text-lg mb-3 sm:mb-4">お客様情報</h2>
               <Card>
                 <CardContent className="p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5">
                   <div>
-                    <label className="text-base font-medium mb-2 block">お名前 *</label>
+                    <label className="text-sm font-medium mb-2 block">お名前 *</label>
                     <Input
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder="山田 太郎"
                       required
+                      className="text-sm"
                     />
                   </div>
 
                   <div>
-                    <label className="text-base font-medium mb-2 block">メールアドレス *</label>
+                    <label className="text-sm font-medium mb-2 block">メールアドレス *</label>
                     <Input
                       type="email"
                       value={customerEmail}
                       onChange={(e) => setCustomerEmail(e.target.value)}
                       placeholder="example@example.com"
                       required
-                      className="text-base"
+                      className="text-sm"
                     />
                   </div>
 
                   <div>
-                    <label className="text-base font-medium mb-2 block">電話番号 *</label>
+                    <label className="text-sm font-medium mb-2 block">電話番号 *</label>
                     <Input
                       type="tel"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="090-1234-5678"
                       required
+                      className="text-sm"
                     />
                   </div>
 
                   <div>
-                    <label className="text-base font-medium mb-2 block">備考（任意）</label>
+                    <label className="text-sm font-medium mb-2 block">備考（任意）</label>
                     <Textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="ご要望などがあればご記入ください"
                       rows={3}
-                      className="text-base"
+                      className="text-sm"
                     />
                   </div>
                 </CardContent>
@@ -287,23 +289,23 @@ export function BookingConfirmation({
           </div>
 
           {/* 右側：料金サマリー */}
-          <div className="space-y-6 sm:space-y-7 md:space-y-8">
+          <div className="space-y-4 sm:space-y-7 md:space-y-8">
             <div>
-              <h2 className="font-bold text-lg sm:text-base md:text-lg mb-3 sm:mb-4">料金</h2>
+              <h2 className="font-bold text-sm sm:text-base md:text-lg mb-3 sm:mb-4">料金</h2>
               <Card>
                 <CardContent className="p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
-                  <div className="flex justify-between text-base">
+                  <div className="flex justify-between text-sm">
                     <span>参加費（1名）</span>
                     <span>¥{formatPrice(participationFee)}</span>
                   </div>
 
-                  <div className="flex justify-between text-base">
+                  <div className="flex justify-between text-sm">
                     <span>参加人数</span>
                     <span>{participantCount}名</span>
                   </div>
 
                   <div className="border-t pt-3 sm:pt-4">
-                    <div className="flex justify-between font-bold text-lg sm:text-base md:text-lg">
+                    <div className="flex justify-between font-bold text-sm sm:text-base md:text-lg">
                       <span>合計</span>
                       <span className="text-primary">¥{formatPrice(totalPrice)}</span>
                     </div>
@@ -312,7 +314,7 @@ export function BookingConfirmation({
                   <Button
                     onClick={onSubmit}
                     disabled={isSubmitting}
-                    className="w-full text-base"
+                    className="w-full text-sm sm:text-base h-10 sm:h-11"
                     size="lg"
                   >
                     {isSubmitting ? '予約処理中...' : '予約を確定する'}
@@ -322,9 +324,9 @@ export function BookingConfirmation({
             </div>
 
             <Card className="border-blue-200 bg-blue-50">
-              <CardContent className="p-4 sm:p-5 text-base text-blue-800 space-y-2">
+              <CardContent className="p-4 sm:p-5 text-sm sm:text-base text-blue-800 space-y-2">
                 <p className="font-medium">ご注意事項</p>
-                <ul className="list-disc list-inside space-y-1 text-sm">
+                <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm">
                   <li>予約確定後、確認メールが送信されます</li>
                   <li>当日の連絡先として電話番号が必要です</li>
                   <li>キャンセルポリシーをご確認ください</li>
