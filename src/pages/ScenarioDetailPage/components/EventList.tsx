@@ -57,8 +57,8 @@ export const EventList = memo(function EventList({
             }}
           >
             <div className="flex items-center gap-3 p-3 touch-manipulation min-h-[64px]">
-              {/* 左側：日付と店舗情報 */}
-              <div className="flex items-start gap-3 flex-1 min-w-0">
+              {/* 左側：日付と時間・店舗情報 */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
                 {/* 日付 */}
                 <div className="text-base whitespace-nowrap min-w-[50px] text-center flex-shrink-0">
                   <div className="font-medium">{month}/{day}</div>
@@ -67,35 +67,37 @@ export const EventList = memo(function EventList({
                   </div>
                 </div>
                 
-                {/* 店舗カラーの正方形 + 店舗名 + タイトル */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <div 
-                      className="flex-shrink-0 w-3 h-3 rounded-sm"
-                      style={{ 
-                        backgroundColor: event.store_color || '#9CA3AF'
-                      }}
-                    />
-                    <span 
-                      className="text-sm whitespace-nowrap"
-                      style={{ 
-                        color: event.store_color || '#6B7280'
-                      }}
-                    >
-                      {event.store_short_name}
-                    </span>
-                    <span className="text-sm text-muted-foreground truncate">
-                      {event.scenario_title || scenarioTitle}
-                    </span>
-                  </div>
-                  <div className="font-bold text-base whitespace-nowrap">
+                {/* 時間 + 店舗カラーの正方形 + 店舗名 */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="font-bold text-base whitespace-nowrap">
                     {formatTime(event.start_time)}〜
-                  </div>
+                  </span>
+                  <div 
+                    className="flex-shrink-0 w-3 h-3 rounded-sm"
+                    style={{ 
+                      backgroundColor: event.store_color || '#9CA3AF'
+                    }}
+                  />
+                  <span 
+                    className="text-sm whitespace-nowrap"
+                    style={{ 
+                      color: event.store_color || '#6B7280'
+                    }}
+                  >
+                    {event.store_short_name}
+                  </span>
                 </div>
               </div>
               
-              {/* 中央：残り人数 / 満席バッジ */}
-              <div className="flex items-center flex-shrink-0">
+              {/* 中央：タイトル（縦センタリング） */}
+              <div className="flex items-center flex-1 min-w-0">
+                <div className="text-sm text-muted-foreground truncate">
+                  {event.scenario_title || scenarioTitle}
+                </div>
+              </div>
+              
+              {/* 右側：残り人数 / 満席バッジ + ボタン */}
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {event.available_seats === 0 ? (
                   <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-sm px-2 py-1 whitespace-nowrap">
                     満席
@@ -107,19 +109,18 @@ export const EventList = memo(function EventList({
                     </div>
                   </div>
                 )}
+                
+                <Button
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  disabled={event.available_seats === 0}
+                  className={`min-w-[50px] whitespace-nowrap text-sm h-9 px-3 touch-manipulation ${
+                    isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
+                  }`}
+                >
+                  {event.available_seats === 0 ? '満席' : '選択'}
+                </Button>
               </div>
-              
-              {/* 右側：選択ボタン */}
-              <Button
-                variant={isSelected ? "default" : "outline"}
-                size="sm"
-                disabled={event.available_seats === 0}
-                className={`flex-shrink-0 min-w-[50px] whitespace-nowrap text-sm h-9 px-3 touch-manipulation ${
-                  isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
-                }`}
-              >
-                {event.available_seats === 0 ? '満席' : '選択'}
-              </Button>
             </div>
           </Card>
         )
