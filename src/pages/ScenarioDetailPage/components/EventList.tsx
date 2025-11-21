@@ -56,19 +56,22 @@ export const EventList = memo(function EventList({
               onEventSelect(isSelected ? null : event.event_id)
             }}
           >
-            <div className="p-3 touch-manipulation min-h-[64px]">
-              {/* 1行目：日付・曜日 + 店舗 + 残り人数 + ボタン */}
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {/* 日付・曜日 */}
-                  <div className="text-base font-medium whitespace-nowrap flex-shrink-0">
-                    {month}/{day} <span className={`text-sm ${weekdayColor}`}>({weekday})</span>
+            <div className="flex items-center gap-3 p-3 touch-manipulation min-h-[64px]">
+              {/* 左側：日付と店舗情報 */}
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                {/* 日付 */}
+                <div className="text-base whitespace-nowrap min-w-[50px] text-center flex-shrink-0">
+                  <div className="font-medium">{month}/{day}</div>
+                  <div className={`text-xs ${weekdayColor}`}>
+                    ({weekday})
                   </div>
-                  
-                  {/* 店舗名 */}
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                </div>
+                
+                {/* 店舗カラーの正方形 + 店舗名 + 時間 */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <div 
-                      className="w-3 h-3 rounded-sm flex-shrink-0"
+                      className="flex-shrink-0 w-3 h-3 rounded-sm"
                       style={{ 
                         backgroundColor: event.store_color || '#9CA3AF'
                       }}
@@ -81,43 +84,42 @@ export const EventList = memo(function EventList({
                     >
                       {event.store_short_name}
                     </span>
+                    <span className="font-bold text-base whitespace-nowrap">
+                      {formatTime(event.start_time)}〜
+                    </span>
                   </div>
-                </div>
-                
-                {/* 残り人数 + ボタン */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {event.available_seats === 0 ? (
-                    <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-sm px-2 py-1 whitespace-nowrap">
-                      満席
-                    </Badge>
-                  ) : (
-                    <div className="font-bold text-base whitespace-nowrap">
-                      残り{event.available_seats}人
-                    </div>
-                  )}
-                  
-                  <Button
-                    variant={isSelected ? "default" : "outline"}
-                    size="sm"
-                    disabled={event.available_seats === 0}
-                    className={`min-w-[50px] whitespace-nowrap text-sm h-9 px-3 touch-manipulation ${
-                      isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
-                    }`}
-                  >
-                    {event.available_seats === 0 ? '満席' : '選択'}
-                  </Button>
+                  <div className="text-sm text-muted-foreground truncate">
+                    {event.scenario_title || scenarioTitle}
+                  </div>
                 </div>
               </div>
               
-              {/* 2行目：時間 + シナリオ */}
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="font-bold text-base text-foreground whitespace-nowrap">
-                  {formatTime(event.start_time)}〜
-                </span>
-                <span className="truncate">
-                  {event.scenario_title || scenarioTitle}
-                </span>
+              {/* 中央：残り人数 / 満席バッジ */}
+              <div className="flex items-center flex-shrink-0">
+                {event.available_seats === 0 ? (
+                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-sm px-2 py-1 whitespace-nowrap">
+                    満席
+                  </Badge>
+                ) : (
+                  <div className="text-right whitespace-nowrap">
+                    <div className="font-bold text-base">
+                      残り{event.available_seats}人
+                    </div>
+                  </div>
+                )}
               </div>
+              
+              {/* 右側：選択ボタン */}
+              <Button
+                variant={isSelected ? "default" : "outline"}
+                size="sm"
+                disabled={event.available_seats === 0}
+                className={`flex-shrink-0 min-w-[50px] whitespace-nowrap text-sm h-9 px-3 touch-manipulation ${
+                  isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
+                }`}
+              >
+                {event.available_seats === 0 ? '満席' : '選択'}
+              </Button>
             </div>
           </Card>
         )
