@@ -97,14 +97,35 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
   const checkTimeSlotAvailability = useCallback((date: string, slot: TimeSlot, storeIds?: string[]): boolean => {
     const availableStoreIds = getAvailableStoreIds()
     
+    // デバッグログ（11/22の夜の場合のみ）
+    const isDebugTarget = date.includes('2025-11-22') && slot.label === '夜'
+    if (isDebugTarget) {
+      console.log(`[DEBUG] checkTimeSlotAvailability 開始:`, {
+        date,
+        slot: slot.label,
+        slotStart: slot.startTime,
+        slotEnd: slot.endTime,
+        storeIds,
+        allStoreEventsCount: allStoreEvents.length,
+        storesCount: stores.length
+      })
+    }
+    
     // 店舗データがまだ読み込まれていない場合は、とりあえずtrueを返す（後で再評価される）
-    if (stores.length === 0) return true
+    if (stores.length === 0) {
+      if (isDebugTarget) console.log(`[DEBUG] 店舗データ未読み込みのためtrueを返す`)
+      return true
+    }
     
     // allStoreEventsがまだ読み込まれていない場合は、とりあえずtrueを返す（後で再評価される）
     // ただし、選択された店舗がある場合は、より慎重に判定する
     if (allStoreEvents.length === 0) {
       // 店舗が選択されている場合は、イベントデータがないのでfalseを返す（安全側に倒す）
-      if (storeIds && storeIds.length > 0) return false
+      if (storeIds && storeIds.length > 0) {
+        if (isDebugTarget) console.log(`[DEBUG] イベントデータ未読み込み、店舗選択済みのためfalseを返す`)
+        return false
+      }
+      if (isDebugTarget) console.log(`[DEBUG] イベントデータ未読み込みのためtrueを返す`)
       return true
     }
     
@@ -135,6 +156,16 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           return eventDate === targetDate && eventStoreId === storeId
         })
         
+        // デバッグログ（11/22の夜の場合のみ）
+        if (date.includes('2025-11-22') && slot.label === '夜') {
+          console.log(`[DEBUG] 店舗 ${storeId} の11/22夜のイベント:`, storeEvents.map((e: any) => ({
+            date: e.date,
+            start_time: e.start_time,
+            end_time: e.end_time,
+            store_id: getEventStoreId(e)
+          })))
+        }
+        
         // イベントがない場合は空いている
         if (storeEvents.length === 0) return true
         
@@ -145,23 +176,63 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           const slotStart = slot.startTime
           const slotEnd = slot.endTime
           
-          // 時間の衝突判定：イベントの開始時刻がスロットの終了時刻より前、かつイベントの終了時刻がスロットの開始時刻より後
-          return !(eventEnd <= slotStart || eventStart >= slotEnd)
+          // デバッグログ（11/22の夜の場合のみ）
+          if (date.includes('2025-11-22') && slot.label === '夜') {
+            console.log(`[DEBUG] 時間衝突チェック: イベント(${eventStart}-${eventEnd}) vs スロット(${slotStart}-${slotEnd})`, {
+              eventEndLessThanSlotStart: eventEnd < slotStart,
+              eventStartGreaterThanSlotEnd: eventStart > slotEnd,
+              hasConflict: !(eventEnd < slotStart || eventStart > slotEnd)
+            })
+          }
+          
+          // 時間の衝突判定：イベントとスロットが重なっているかチェック
+          // イベントの終了時刻がスロットの開始時刻より前、またはイベントの開始時刻がスロットの終了時刻より後の場合は衝突なし
+          // それ以外（重なっている）場合は衝突あり
+          // 注意: 同じ時刻で終了と開始が重なる場合（例: 18:00で終わるイベントと18:00で始まるスロット）は衝突とみなす
+          return !(eventEnd < slotStart || eventStart > slotEnd)
         })
         
-        return !hasConflict
+        const isAvailable = !hasConflict
+        
+        // デバッグログ（11/22の夜の場合のみ）
+        if (date.includes('2025-11-22') && slot.label === '夜') {
+          console.log(`[DEBUG] 店舗 ${storeId} の11/22夜の空き状況:`, isAvailable)
+        }
+        
+        return isAvailable
       })
       
       // いずれかの店舗で空きがあればtrue
-      return storeAvailability.some(available => available === true)
+      const result = storeAvailability.some(available => available === true)
+      
+      // デバッグログ（11/22の夜の場合のみ）
+      if (date.includes('2025-11-22') && slot.label === '夜') {
+        console.log(`[DEBUG] 11/22夜の最終判定:`, {
+          date,
+          slot: slot.label,
+          storeIds: validStoreIds,
+          storeAvailability,
+          result
+        })
+      }
+      
+      return result
     }
     
     // 店舗が選択されていない場合：そのシナリオを公演可能な店舗のみを対象
     const availableStoreIdsArray = Array.from(availableStoreIds)
     
+    if (isDebugTarget) {
+      console.log(`[DEBUG] 店舗未選択の場合の処理:`, {
+        availableStoreIdsArray,
+        availableStoreIdsArrayLength: availableStoreIdsArray.length
+      })
+    }
+    
     // availableStoreIdsが空の場合は、storesが空（まだ読み込まれていない）か、何か問題がある
     if (availableStoreIdsArray.length === 0) {
       // storesが空の場合はまだ読み込まれていないので、とりあえずtrueを返す
+      if (isDebugTarget) console.log(`[DEBUG] availableStoreIdsが空のため、stores.length === 0 の結果を返す:`, stores.length === 0)
       return stores.length === 0
     }
     
@@ -180,8 +251,20 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         return eventDate === targetDate && eventStoreId === storeId
       })
       
+      if (isDebugTarget) {
+        console.log(`[DEBUG] 店舗 ${storeId} の11/22夜のイベント（店舗未選択時）:`, storeEvents.map((e: any) => ({
+          date: e.date,
+          start_time: e.start_time,
+          end_time: e.end_time,
+          store_id: getEventStoreId(e)
+        })))
+      }
+      
       // イベントがない場合は空いている
-      if (storeEvents.length === 0) return true
+      if (storeEvents.length === 0) {
+        if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22夜: イベントなしのため空きあり`)
+        return true
+      }
       
       // 時間枠の衝突をチェック
       const hasConflict = storeEvents.some((event: any) => {
@@ -190,15 +273,38 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         const slotStart = slot.startTime
         const slotEnd = slot.endTime
         
+          if (isDebugTarget) {
+            console.log(`[DEBUG] 時間衝突チェック（店舗未選択時）: イベント(${eventStart}-${eventEnd}) vs スロット(${slotStart}-${slotEnd})`, {
+              eventEndLessThanSlotStart: eventEnd < slotStart,
+              eventStartGreaterThanSlotEnd: eventStart > slotEnd,
+              hasConflict: !(eventEnd < slotStart || eventStart > slotEnd)
+            })
+          }
+        
         // 時間の衝突判定：イベントの開始時刻がスロットの終了時刻より前、かつイベントの終了時刻がスロットの開始時刻より後
         return !(eventEnd <= slotStart || eventStart >= slotEnd)
       })
       
-      return !hasConflict
+      const isAvailable = !hasConflict
+      if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22夜の空き状況（店舗未選択時）:`, isAvailable)
+      
+      return isAvailable
     })
     
     // いずれかの店舗で空きがあればtrue
-    return storeAvailability.some(available => available === true)
+    const result = storeAvailability.some(available => available === true)
+    
+    if (isDebugTarget) {
+      console.log(`[DEBUG] 11/22夜の最終判定（店舗未選択時）:`, {
+        date,
+        slot: slot.label,
+        availableStoreIdsArray,
+        storeAvailability,
+        result
+      })
+    }
+    
+    return result
   }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, stores])
 
   // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）
