@@ -291,7 +291,13 @@ export function ProfilePage() {
               <Lock className="h-4 w-4" />
               パスワード変更
             </Label>
-            <div className="mt-2 space-y-2">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleChangePassword()
+              }}
+              className="mt-2 space-y-2"
+            >
               <Input
                 id="new-password"
                 type="password"
@@ -300,6 +306,7 @@ export function ProfilePage() {
                 placeholder="新しいパスワード（6文字以上）"
                 className="text-sm"
                 disabled={changingPassword}
+                autoComplete="new-password"
               />
               <Input
                 id="confirm-password"
@@ -309,16 +316,17 @@ export function ProfilePage() {
                 placeholder="新しいパスワード（確認）"
                 className="text-sm"
                 disabled={changingPassword}
+                autoComplete="new-password"
               />
               <Button
-                onClick={handleChangePassword}
+                type="submit"
                 disabled={changingPassword || !passwordFormData.newPassword || !passwordFormData.confirmPassword}
                 size="sm"
                 className="text-sm w-full sm:w-auto"
               >
                 {changingPassword ? '変更中...' : 'パスワードを変更'}
               </Button>
-            </div>
+            </form>
           </div>
 
           {user?.role && (
