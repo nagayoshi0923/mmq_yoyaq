@@ -162,7 +162,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-        <div className="container mx-auto max-w-7xl px-4 md:px-6 xl:px-8 py-6 md:py-10 xl:py-12">
+        <div className="container mx-auto max-w-7xl px-[10px] py-6 md:py-10 xl:py-12">
           <h1 className="text-lg md:text-lg xl:text-lg font-bold mb-2 md:mb-3 leading-tight">Murder Mystery Quest</h1>
           <p className="text-sm md:text-base text-purple-100 leading-relaxed">
             リアルな謎解き体験。あなたは事件の真相を暴けるか？
@@ -172,12 +172,12 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       {/* 検索バー */}
       <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto max-w-7xl px-4 md:px-6 xl:px-8 py-2 md:py-3">
+        <div className="container mx-auto max-w-7xl px-[10px] py-2 md:py-3">
           <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-4 md:px-6 xl:px-8 py-4 md:py-6">
+      <div className="container mx-auto max-w-7xl px-[10px] py-4 md:py-6">
         {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6 h-10 md:h-11">

@@ -82,7 +82,7 @@ export function Settings() {
         />
       }
       maxWidth="max-w-[1600px]"
-      containerPadding="px-8 py-6"
+      containerPadding="px-[10px] py-6"
       stickyLayout={true}
     >
       <SettingsLayout 

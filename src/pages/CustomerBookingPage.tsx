@@ -299,7 +299,7 @@ export function CustomerBookingPage() {
       <Header />
       <NavigationBar currentPage="customer-booking" />
 
-      <div className="container mx-auto max-w-7xl px-8 py-6">
+      <div className="container mx-auto max-w-7xl px-[10px] py-6">
         <div className="space-y-6">
           {/* ヘッダー */}
           <div>

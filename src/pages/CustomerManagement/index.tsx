@@ -62,7 +62,7 @@ export default function CustomerManagement() {
         />
       }
       maxWidth="max-w-[1600px]"
-      containerPadding="px-2 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
       <main className="space-y-3 sm:space-y-4 md:space-y-6">

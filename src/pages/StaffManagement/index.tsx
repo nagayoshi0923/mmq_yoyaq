@@ -344,7 +344,7 @@ export function StaffManagement() {
       <AppLayout 
         currentPage="staff" 
         maxWidth="max-w-[1440px]"
-        containerPadding="px-2 sm:px-4 md:px-6 py-4 sm:py-6"
+        containerPadding="px-[10px] py-4 sm:py-6"
         className="mx-auto"
       >
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
