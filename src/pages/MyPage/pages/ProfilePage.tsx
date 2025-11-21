@@ -96,8 +96,19 @@ export function ProfilePage() {
     )
   }
 
+  // デバッグ用ログ
+  useEffect(() => {
+    logger.log('🔍 ProfilePage レンダリング状態:', {
+      loading,
+      hasUser: !!user,
+      hasStaffInfo: !!staffInfo,
+      userEmail: user?.email,
+      staffInfoEmail: staffInfo?.email
+    })
+  }, [loading, user, staffInfo])
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* ユーザー基本情報 */}
       <Card>
         <CardHeader>
@@ -128,6 +139,18 @@ export function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* スタッフ情報がない場合のメッセージ */}
+      {!loading && !staffInfo && user?.role !== 'customer' && (
+        <Card>
+          <CardContent className="py-6">
+            <div className="text-center text-muted-foreground text-sm">
+              スタッフ情報が見つかりませんでした。<br />
+              管理者に連絡してスタッフとして登録してください。
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* プロフィール編集（スタッフのみ） */}
       {staffInfo && (
