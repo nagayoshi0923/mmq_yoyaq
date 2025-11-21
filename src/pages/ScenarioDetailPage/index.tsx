@@ -179,7 +179,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
       {/* 戻るボタン */}
       <div className="bg-background border-b sticky top-0 z-10">
-        <div className="container mx-auto max-w-7xl px-3 xs:px-3.5 sm:px-6 py-1.5 xs:py-2">
+        <div className="container mx-auto max-w-7xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-1.5 xs:py-2">
           <Button
             variant="ghost"
             onClick={onClose}
@@ -193,7 +193,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
       </div>
 
       {/* メインコンテンツ */}
-      <div className="container mx-auto max-w-7xl px-3 xs:px-3.5 sm:px-6 py-2.5 xs:py-3 sm:py-4 md:py-6">
+      <div className="container mx-auto max-w-7xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-2.5 xs:py-3 sm:py-4 md:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 xs:gap-3.5 sm:gap-4 md:gap-5 lg:gap-6">
           {/* メインエリア - 詳細情報 */}
           <div className="lg:col-span-8 space-y-3 sm:space-y-4 md:space-y-6">
