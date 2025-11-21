@@ -435,11 +435,14 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
             is_reservation_enabled: e.is_reservation_enabled,
             venue: e.venue,
             store_id: e.store_id,
+            stores: e.stores,
             store_id_from_getter: getEventStoreId(e),
             store_name: getEventStoreId(e) ? storeIdToName[getEventStoreId(e)] : '不明',
             scenario: e.scenario || e.scenarios?.title,
-            full_event: e
+            scenario_id: e.scenario_id,
+            full_event: JSON.stringify(e, null, 2)
           })))
+          console.log(`[DEBUG] ⚠️ 別館②の朝のイベント（生データ）:`, storeEvents)
         }
         
         console.log(`[DEBUG] 店舗 ${storeId} (${storeIdToName[storeId] || '不明'}) の11/22${slot.label}のイベント（店舗未選択時）:`, storeEvents.map((e: any) => ({
