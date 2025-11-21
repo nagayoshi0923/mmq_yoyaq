@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Clock, CheckCircle } from 'lucide-react'
+import { Calendar, Clock, CheckCircle, MapPin } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import type { Reservation } from '@/types'
+import type { Store } from '@/types'
 
 export function ReservationsPage() {
   const { user } = useAuth()
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
   const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
+  const [stores, setStores] = useState<Record<string, Store>>({})
 
   useEffect(() => {
     if (user?.email) {
@@ -72,6 +74,46 @@ export function ReservationsPage() {
             setScenarioImages(imageMap)
           }
         }
+
+        // 店舗情報を取得
+        const storeIds = new Set<string>()
+        data.forEach(r => {
+          // 確定済み店舗ID
+          if (r.store_id) {
+            storeIds.add(r.store_id)
+          }
+          // 貸切予約の候補店舗
+          if (r.candidate_datetimes) {
+            const candidateDatetimes = r.candidate_datetimes as any
+            if (candidateDatetimes.confirmedStore?.storeId) {
+              storeIds.add(candidateDatetimes.confirmedStore.storeId)
+            }
+            if (candidateDatetimes.requestedStores) {
+              candidateDatetimes.requestedStores.forEach((store: any) => {
+                if (store.storeId) {
+                  storeIds.add(store.storeId)
+                }
+              })
+            }
+          }
+        })
+
+        if (storeIds.size > 0) {
+          const { data: storesData, error: storesError } = await supabase
+            .from('stores')
+            .select('id, name, address')
+            .in('id', Array.from(storeIds))
+          
+          if (storesError) {
+            logger.error('店舗情報取得エラー:', storesError)
+          } else if (storesData) {
+            const storeMap: Record<string, Store> = {}
+            storesData.forEach(store => {
+              storeMap[store.id] = store as Store
+            })
+            setStores(storeMap)
+          }
+        }
       }
     } catch (error) {
       logger.error('予約履歴取得エラー:', error)
@@ -125,6 +167,52 @@ export function ReservationsPage() {
       default:
         return 'bg-gray-100 text-gray-800'
     }
+  }
+
+  const getStoreInfo = (reservation: Reservation) => {
+    // 確定済み店舗
+    if (reservation.store_id && stores[reservation.store_id]) {
+      return {
+        name: stores[reservation.store_id].name,
+        address: stores[reservation.store_id].address
+      }
+    }
+
+    // 貸切予約の確定店舗
+    if (reservation.candidate_datetimes) {
+      const candidateDatetimes = reservation.candidate_datetimes as any
+      if (candidateDatetimes.confirmedStore?.storeId) {
+        const storeId = candidateDatetimes.confirmedStore.storeId
+        if (stores[storeId]) {
+          return {
+            name: stores[storeId].name,
+            address: stores[storeId].address
+          }
+        }
+        // 店舗情報がまだ取得できていない場合、候補データから名前を取得
+        return {
+          name: candidateDatetimes.confirmedStore.storeName || '店舗未定',
+          address: ''
+        }
+      }
+
+      // 希望店舗（確定前）
+      if (candidateDatetimes.requestedStores && candidateDatetimes.requestedStores.length > 0) {
+        const firstStore = candidateDatetimes.requestedStores[0]
+        if (firstStore.storeId && stores[firstStore.storeId]) {
+          return {
+            name: stores[firstStore.storeId].name,
+            address: stores[firstStore.storeId].address
+          }
+        }
+        return {
+          name: firstStore.storeName || '店舗未定',
+          address: ''
+        }
+      }
+    }
+
+    return null
   }
 
   if (loading) {
@@ -219,6 +307,17 @@ export function ReservationsPage() {
                       </Badge>
                     </div>
                   </div>
+                  {getStoreInfo(reservation) && (
+                    <div className="w-full text-xs sm:text-sm text-muted-foreground space-y-0.5 mt-2 pt-2 border-t">
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="font-medium">{getStoreInfo(reservation)?.name}</span>
+                      </div>
+                      {getStoreInfo(reservation)?.address && (
+                        <div className="pl-4 text-xs">{getStoreInfo(reservation)?.address}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
