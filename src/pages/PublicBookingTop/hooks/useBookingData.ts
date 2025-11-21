@@ -73,9 +73,9 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       // 現在の月のみ取得（1ヶ月分）- パフォーマンス最適化
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth() + 1
-      
+
       const apiStartTime = performance.now()
-      monthPromises.push(scheduleApi.getByMonth(year, month))
+        monthPromises.push(scheduleApi.getByMonth(year, month))
       logger.log(`⏱️ API呼び出し開始: ${((performance.now() - apiStartTime).toFixed(2))}ms`)
 
       // パフォーマンス最適化: 段階的データ取得

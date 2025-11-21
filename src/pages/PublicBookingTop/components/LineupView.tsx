@@ -58,7 +58,7 @@ export const LineupView = memo(function LineupView({
   // パフォーマンス最適化: 新着・直近公演も表示件数を制限
   const displayedNewScenarios = newScenarios.slice(0, 10)
   const displayedUpcomingScenarios = upcomingScenarios.slice(0, 10)
-
+  
   return (
     <div className="space-y-5 sm:space-y-6 md:space-y-8">
       {/* 新着公演セクション */}

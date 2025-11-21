@@ -45,21 +45,21 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
           {/* タイトル・基本情報 */}
           <div className="lg:col-span-8 space-y-3 sm:space-y-4 md:space-y-5">
             <div>
-              <p className="text-sm opacity-80 mb-2">{scenario.author}</p>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4 leading-tight">{scenario.scenario_title}</h1>
+              <p className="text-xs sm:text-sm opacity-80 mb-2">{scenario.author}</p>
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4 leading-tight">{scenario.scenario_title}</h1>
               
               <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
-                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-base">
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-sm sm:text-base">
                   <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="font-medium">{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</span>
                 </div>
                 
-                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-base">
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-sm sm:text-base">
                   <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="font-medium">{formatDuration(scenario.duration, 'minutes')}</span>
                 </div>
                 
-                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-base">
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-sm sm:text-base">
                   <span className="font-medium text-white">
                     {scenario.participation_fee ? `¥${scenario.participation_fee.toLocaleString()}〜` : '¥3,000〜'}
                   </span>
@@ -68,7 +68,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
             </div>
 
             {scenario.description && (
-              <p className="opacity-90 leading-relaxed text-base mt-3 sm:mt-4">
+              <p className="opacity-90 leading-relaxed text-sm sm:text-base mt-3 sm:mt-4">
                 {scenario.description}
               </p>
             )}

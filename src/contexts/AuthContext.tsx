@@ -165,39 +165,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         // パフォーマンス最適化: リトライなし、タイムアウト0.5秒で早期フォールバック
         const timeoutMs = 500
-        
-        const rolePromise = supabase
-          .from('users')
-          .select('role')
-          .eq('id', supabaseUser.id)
-          .maybeSingle()
+            
+            const rolePromise = supabase
+              .from('users')
+              .select('role')
+              .eq('id', supabaseUser.id)
+              .maybeSingle()
 
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('ロール取得タイムアウト')), timeoutMs)
-        )
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('ロール取得タイムアウト')), timeoutMs)
+            )
 
-        const result = await Promise.race([
-          rolePromise,
-          timeoutPromise
-        ]) as any
-        
-        // Supabaseのレスポンス形式を確認
-        if (result && (result.data !== undefined || result.error !== undefined)) {
+            const result = await Promise.race([
+              rolePromise,
+              timeoutPromise
+            ]) as any
+            
+            // Supabaseのレスポンス形式を確認
+            if (result && (result.data !== undefined || result.error !== undefined)) {
           const userData = result.data
           const roleError = result.error
-          
-          // エラーがある場合は詳細をログに記録
-          if (result.error) {
-            logger.warn('⚠️ ロール取得エラー:', result.error)
-            // RLSポリシーエラーの場合は特別に処理
-            if (result.error.message?.includes('permission') || result.error.message?.includes('RLS')) {
-              logger.warn('⚠️ RLSポリシーエラーの可能性があります。データベースのRLSポリシーを確認してください。')
-            }
-          }
-          
+              
+              // エラーがある場合は詳細をログに記録
+              if (result.error) {
+                logger.warn('⚠️ ロール取得エラー:', result.error)
+                // RLSポリシーエラーの場合は特別に処理
+                if (result.error.message?.includes('permission') || result.error.message?.includes('RLS')) {
+                  logger.warn('⚠️ RLSポリシーエラーの可能性があります。データベースのRLSポリシーを確認してください。')
+                }
+              }
+              
           if (userData?.role) {
-            role = userData.role as 'admin' | 'staff' | 'customer'
-            logger.log('✅ データベースからロール取得:', role)
+          role = userData.role as 'admin' | 'staff' | 'customer'
+          logger.log('✅ データベースからロール取得:', role)
           } else if (roleError) {
             throw roleError
           }
@@ -246,13 +246,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             .maybeSingle()
           
           Promise.resolve(staffPromise).then(({ data }) => {
-            if (data?.name) {
-              setStaffCache(prev => new Map(prev.set(supabaseUser.id, data.name)))
-              logger.log('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
-            }
+              if (data?.name) {
+                setStaffCache(prev => new Map(prev.set(supabaseUser.id, data.name)))
+                logger.log('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
+              }
           }).catch((error) => {
-            logger.log('📋 スタッフ情報の取得エラー（バックグラウンド）:', error)
-          })
+              logger.log('📋 スタッフ情報の取得エラー（バックグラウンド）:', error)
+            })
         }
       }
 

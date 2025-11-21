@@ -21,28 +21,28 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
     <div className="space-y-4 sm:space-y-6">
       {/* 貸切料金情報 */}
       <div>
-        <h3 className="font-bold mb-3 sm:mb-4 text-lg sm:text-xl">料金（目安）</h3>
+        <h3 className="font-bold mb-3 sm:mb-4 text-base sm:text-lg">料金（目安）</h3>
         <Card>
-          <CardContent className="p-4 sm:p-5 space-y-3">
-              <div className="flex justify-between items-center text-lg">
+          <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+              <div className="flex justify-between items-center text-sm sm:text-base">
                 <span className="text-muted-foreground">参加費（1名）</span>
                 <span className="font-medium">
                   ¥{participationFee.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-lg">
+              <div className="flex justify-between items-center text-sm sm:text-base">
                 <span className="text-muted-foreground">最大人数</span>
                 <span className="font-medium">× {maxParticipants}名</span>
               </div>
-              <div className="border-t pt-3 flex justify-between items-center">
-                <span className="font-bold text-lg">合計</span>
-                <span className="text-2xl sm:text-3xl font-bold text-purple-600">
+              <div className="border-t pt-2 sm:pt-3 flex justify-between items-center">
+                <span className="font-bold text-base sm:text-lg">合計</span>
+                <span className="text-xl sm:text-2xl font-bold text-purple-600">
                   ¥{(participationFee * maxParticipants).toLocaleString()}
                 </span>
               </div>
-              <div className="bg-purple-50 border border-purple-200 rounded p-3 sm:p-4 text-base text-purple-800">
-                <p className="font-medium mb-1">貸切料金</p>
-                <p className="text-sm">詳細はリクエスト後にご相談</p>
+              <div className="bg-purple-50 border border-purple-200 rounded p-2 sm:p-3 text-sm sm:text-base text-purple-800">
+                <p className="font-medium mb-0.5 sm:mb-1">貸切料金</p>
+                <p className="text-xs sm:text-sm">詳細はリクエスト後にご相談</p>
               </div>
           </CardContent>
         </Card>
@@ -50,7 +50,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
 
       {/* 貸切リクエスト送信ボタン */}
       <Button 
-        className="w-full bg-purple-600 text-white hover:bg-purple-700 h-12 sm:h-13 font-bold text-lg touch-manipulation"
+        className="w-full bg-purple-600 text-white hover:bg-purple-700 h-10 sm:h-11 font-bold text-sm sm:text-base touch-manipulation"
         onClick={onRequestBooking}
         disabled={!isLoggedIn || selectedTimeSlotsCount === 0}
       >

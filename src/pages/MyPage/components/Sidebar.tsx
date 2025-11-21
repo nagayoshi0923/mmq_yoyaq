@@ -22,27 +22,27 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
       <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-card p-3 md:p-4 space-y-1 md:space-y-2 md:border-r">
         <h2 className="font-semibold text-base md:text-lg mb-2 md:mb-4 px-3 hidden md:block">マイページ</h2>
         <nav className="space-y-1">
-          {menuItems.map((item) => {
-            const Icon = item.icon
-            const isActive = currentPage === item.id
+      {menuItems.map((item) => {
+        const Icon = item.icon
+        const isActive = currentPage === item.id
 
-            return (
-              <button
-                key={item.id}
-                onClick={() => onPageChange(item.id)}
+        return (
+          <button
+            key={item.id}
+            onClick={() => onPageChange(item.id)}
                 className={`w-full flex items-center gap-2 md:gap-3 px-2 md:px-3 py-1.5 md:py-2 rounded-lg transition-colors text-xs md:text-sm ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              >
+              isActive
+                ? 'bg-primary text-primary-foreground'
+                : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
                 <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
-                <span className="font-medium">{item.label}</span>
-              </button>
-            )
-          })}
+            <span className="font-medium">{item.label}</span>
+          </button>
+        )
+      })}
         </nav>
-      </aside>
+    </aside>
 
       {/* モバイルタブナビゲーション - 375px対応 */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card px-0 z-50 safe-area-inset-bottom">

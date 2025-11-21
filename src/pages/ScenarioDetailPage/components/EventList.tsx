@@ -56,20 +56,20 @@ export const EventList = memo(function EventList({
               onEventSelect(isSelected ? null : event.event_id)
             }}
           >
-            <div className="flex items-center gap-2 sm:gap-2.5 p-2.5 sm:p-3 touch-manipulation min-h-[64px]">
+            <div className="flex items-center gap-2 sm:gap-2.5 p-2 sm:p-2.5 touch-manipulation min-h-[56px] sm:min-h-[60px]">
               {/* 左側：日付と店舗情報 */}
               <div className="flex items-start gap-1.5 sm:gap-2 flex-1 min-w-0">
                 {/* 日付 */}
-                <div className="font-semibold text-lg sm:text-xl whitespace-nowrap min-w-[50px] text-center flex-shrink-0">
+                <div className="font-semibold text-sm sm:text-base whitespace-nowrap min-w-[45px] text-center flex-shrink-0">
                   <div>{month}/{day}</div>
-                  <div className={`text-xs sm:text-sm ${weekdayColor}`}>
+                  <div className={`text-xs ${weekdayColor}`}>
                     ({weekday})
                   </div>
                 </div>
                 
                 {/* 店舗カラーの正方形 + 店舗名 + 時間 */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1 sm:gap-1.5 mb-1.5 flex-wrap">
+                  <div className="flex items-center gap-1 sm:gap-1.5 mb-1 flex-wrap">
                     <div 
                       className="flex-shrink-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm"
                       style={{ 
@@ -77,32 +77,32 @@ export const EventList = memo(function EventList({
                       }}
                     />
                     <span 
-                      className="text-lg sm:text-xl font-medium whitespace-nowrap"
+                      className="text-sm sm:text-base font-medium whitespace-nowrap"
                       style={{ 
                         color: event.store_color || '#6B7280'
                       }}
                     >
                       {event.store_short_name}
                     </span>
-                    <span className="font-semibold text-lg sm:text-xl whitespace-nowrap">
+                    <span className="font-semibold text-sm sm:text-base whitespace-nowrap">
                       {formatTime(event.start_time)}〜
                     </span>
                   </div>
-                  <div className="text-sm text-muted-foreground truncate">
+                  <div className="text-xs sm:text-sm text-muted-foreground truncate">
                     {event.scenario_title || scenarioTitle}
                   </div>
                 </div>
               </div>
               
               {/* 中央：残り人数 / 満席バッジ */}
-              <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 {event.available_seats === 0 ? (
-                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-sm px-2 sm:px-2.5 py-1.5 whitespace-nowrap">
+                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-xs sm:text-sm px-1.5 sm:px-2 py-1 whitespace-nowrap">
                     満席
                   </Badge>
                 ) : (
                   <div className="text-right whitespace-nowrap">
-                    <div className="font-semibold text-lg sm:text-xl">
+                    <div className="font-semibold text-sm sm:text-base">
                       残り{event.available_seats}人
                     </div>
                   </div>
@@ -114,7 +114,7 @@ export const EventList = memo(function EventList({
                 variant={isSelected ? "default" : "outline"}
                 size="sm"
                 disabled={event.available_seats === 0}
-                className={`flex-shrink-0 min-w-[50px] whitespace-nowrap text-base h-9 px-2.5 touch-manipulation ${
+                className={`flex-shrink-0 min-w-[45px] whitespace-nowrap text-xs sm:text-sm h-8 sm:h-9 px-2 touch-manipulation ${
                   isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
                 }`}
               >

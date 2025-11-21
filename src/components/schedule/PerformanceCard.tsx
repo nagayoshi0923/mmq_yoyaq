@@ -170,20 +170,20 @@ function PerformanceCardBase({
       {/* 右上ステータス群 */}
       <div className="absolute top-0.5 right-0.5 flex gap-1 items-center">
         {/* 警告アイコン */}
-        {isIncomplete && (
+      {isIncomplete && (
           <AlertTriangle className="w-icon-md h-icon-md text-red-600 flex-shrink-0" />
         )}
-      </div>
+        </div>
 
       {/* 右下：公開状態ステータスバッジ（●形式） */}
       <div
         className={`absolute bottom-0.5 right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 transition-all cursor-pointer ${
-          event.is_private_request 
+            event.is_private_request 
             ? 'bg-green-400' 
-            : event.is_reservation_enabled 
+              : event.is_reservation_enabled 
               ? 'bg-green-400' 
               : 'bg-gray-400'
-        }`}
+          }`}
         title={
           event.is_private_request 
             ? '貸切公演は常に公開中です' 
@@ -191,13 +191,13 @@ function PerformanceCardBase({
               ? '予約サイトに公開中（クリックで非公開）' 
               : '予約サイトに非公開（クリックで公開）'
         }
-        onClick={(e) => {
-          e.stopPropagation();
-          // 貸切公演の場合はクリック不可
-          if (!event.is_private_request) {
-            onToggleReservation?.(event);
-          }
-        }}
+          onClick={(e) => {
+            e.stopPropagation();
+            // 貸切公演の場合はクリック不可
+            if (!event.is_private_request) {
+              onToggleReservation?.(event);
+            }
+          }}
       />
     </div>
   )
