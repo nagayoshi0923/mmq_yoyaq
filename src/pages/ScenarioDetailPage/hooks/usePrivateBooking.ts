@@ -42,13 +42,24 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         const monthResults = await Promise.all(monthPromises)
         const allEvents = monthResults.flat()
         
-        // 貸切申込可能日判定用：予約可能な通常公演のみをフィルタリング
-        // 貸切公演は既に確定しているので、空き判定の対象外
-        const validEvents = allEvents.filter((event: any) => 
-          !event.is_cancelled && 
-          event.category === 'open' &&
-          event.is_reservation_enabled !== false
-        )
+        // 貸切申込可能日判定用：時間枠の空き判定には、通常公演と貸切公演の両方を含める
+        // 貸切公演も時間枠を占有するため、その時間枠は空いていない
+        const validEvents = allEvents.filter((event: any) => {
+          // キャンセルされていない公演のみ
+          if (event.is_cancelled) return false
+          
+          // 通常公演（予約可能なもの）
+          if (event.category === 'open' && event.is_reservation_enabled !== false) {
+            return true
+          }
+          
+          // 貸切公演（時間枠を占有するため含める）
+          if (event.category === 'private' || event.is_private_booking) {
+            return true
+          }
+          
+          return false
+        })
         
         // デバッグログ：11/22のイベントを確認
         const eventsOn1122 = allEvents.filter((event: any) => {
