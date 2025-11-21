@@ -434,42 +434,41 @@ export function AlbumPage() {
                           </div>
                           
                           {/* プレイ履歴 */}
-                          <div className="space-y-2">
+                          <div className="space-y-1">
                             {group.plays.map((play, playIdx) => (
                               <div
                                 key={playIdx}
-                                className="bg-muted/30 px-3 py-2.5 rounded space-y-1.5"
+                                className="bg-muted/30 px-2.5 py-1.5 rounded flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs"
                               >
-                                <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                    <span className="whitespace-nowrap font-medium">{formatDate(play.date)}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                    <span className="truncate">{play.venue}</span>
-                                  </div>
+                                {/* 日付 */}
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                                  <span className="font-semibold text-foreground whitespace-nowrap">{formatDate(play.date)}</span>
                                 </div>
-                                {(play.author || play.gms.length > 0) && (
-                                  <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
-                                    {play.author && (
-                                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <User className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                                        <span className="whitespace-nowrap">{play.author}</span>
-                                      </div>
-                                    )}
-                                    {play.gms.length > 0 && (
-                                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <span className="text-xs whitespace-nowrap">GM:</span>
-                                        <div className="flex gap-1.5 flex-wrap">
-                                          {play.gms.map((gm, gmIdx) => (
-                                            <Badge key={gmIdx} variant="outline" className="text-xs whitespace-nowrap">
-                                              {gm}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
+                                
+                                {/* 店舗 */}
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                  <span className="text-foreground truncate">{play.venue}</span>
+                                </div>
+                                
+                                {/* 作者 */}
+                                {play.author && (
+                                  <div className="flex items-center gap-1 flex-shrink-0 text-muted-foreground">
+                                    <User className="h-3 w-3" />
+                                    <span className="whitespace-nowrap">{play.author}</span>
+                                  </div>
+                                )}
+                                
+                                {/* GM */}
+                                {play.gms.length > 0 && (
+                                  <div className="flex items-center gap-1 flex-shrink-0 text-muted-foreground">
+                                    <span className="whitespace-nowrap">GM:</span>
+                                    {play.gms.map((gm, gmIdx) => (
+                                      <Badge key={gmIdx} variant="outline" className="text-xs whitespace-nowrap px-1 py-0">
+                                        {gm}
+                                      </Badge>
+                                    ))}
                                   </div>
                                 )}
                               </div>
