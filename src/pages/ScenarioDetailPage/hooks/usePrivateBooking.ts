@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { getTimeSlot } from '@/utils/scheduleUtils' // 時間帯判定用
 import type { TimeSlot, EventSchedule } from '../utils/types'
 
 interface UsePrivateBookingProps {
@@ -119,12 +120,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     return new Set(validStores.map(s => s.id))
   }, [scenario, stores])
   
-  // 時間枠のラベル（朝/昼/夜）を順番（1, 2, 3）にマッピング
-  const getTimeSlotIndexFromLabel = useCallback((label: string): number => {
-    if (label === '朝') return 1
-    if (label === '昼') return 2
-    if (label === '夜') return 3
-    return 1 // デフォルト
+  // 時間枠のラベル（朝/昼/夜）を実際の時間帯（morning/afternoon/evening）にマッピング
+  const getTimeSlotFromLabel = useCallback((label: string): 'morning' | 'afternoon' | 'evening' => {
+    if (label === '朝') return 'morning'
+    if (label === '昼') return 'afternoon'
+    if (label === '夜') return 'evening'
+    return 'morning' // デフォルト
   }, [])
 
   // イベントの店舗IDを取得（store_id、stores.id、venueから店舗名で検索）
@@ -280,7 +281,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           return false
         }
         
-        // その店舗のイベントをフィルタリング
+        // その店舗のイベントをフィルタリング（スケジュール管理画面と同じロジック）
+        // スケジュール管理画面で表示されるイベントのみをチェック（空白セルには公演がない）
         const storeEvents = allStoreEvents.filter((e: any) => {
           const eventStoreId = getEventStoreId(e)
           // eventStoreIdがnullの場合は無視（店舗情報が取得できないイベント）
@@ -289,8 +291,18 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           // 日付の比較（フォーマットを統一）
           const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
           const targetDate = date.split('T')[0]
+          const dateMatch = eventDate === targetDate
           
-          return eventDate === targetDate && eventStoreId === storeId
+          // 店舗の一致
+          const venueMatch = eventStoreId === storeId
+          
+          // 時間帯の一致（スケジュール管理画面と同じロジック）
+          const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+          const eventTimeSlot = e.start_time ? getTimeSlot(e.start_time) : null
+          const timeSlotMatch = eventTimeSlot === targetTimeSlot
+          
+          // スケジュール管理画面で表示される条件：日付・店舗・時間帯が一致
+          return dateMatch && venueMatch && timeSlotMatch
         })
         
         // デバッグログ（11/22の場合のみ）
@@ -309,44 +321,27 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         if (storeEvents.length === 0) return true
         
         // 時間枠の衝突をチェック
-        // その日のその店舗の公演を開始時刻順に並べて、時間枠の順番（1番目=朝、2番目=昼、3番目=夜）で判定
-        const storeEventsSorted = [...storeEvents].sort((a: any, b: any) => {
-          const timeA = a.start_time?.slice(0, 5) || '00:00'
-          const timeB = b.start_time?.slice(0, 5) || '00:00'
-          return timeA.localeCompare(timeB)
-        })
-        
-        // スロットの時間枠の順番（1=朝、2=昼、3=夜）
-        const slotIndex = getTimeSlotIndexFromLabel(slot.label)
-        
-        // デバッグログ（11/22の場合のみ）
-        if (isDebugTarget) {
-          console.log(`[DEBUG] 時間衝突チェック: 店舗 ${storeId} の11/22${slot.label}の公演順序`, {
-            storeEventsSorted: storeEventsSorted.map((e: any, idx: number) => ({
-              index: idx + 1,
-              start_time: e.start_time,
-              category: e.category,
-              timeSlot: idx + 1 === 1 ? '朝' : idx + 1 === 2 ? '昼' : '夜'
-            })),
-            slotIndex,
-            slotLabel: slot.label,
-            storeEventsLength: storeEventsSorted.length,
-            hasConflict: storeEventsSorted.length >= slotIndex
-          })
-        }
-        
-        // スロットの順番に対応する公演が存在するかチェック
-        const hasConflict = storeEventsSorted.length >= slotIndex
+        // storeEventsは既にスケジュール管理画面と同じロジックでフィルタリングされているため、
+        // この時点でstoreEventsに含まれるイベントは、その時間枠に存在するイベント
+        // 同じセルに2個以上のイベントは発生させないため、1件でもあれば衝突
+        const hasConflict = storeEvents.length > 0
         
         const isAvailable = !hasConflict
         
         // デバッグログ（11/22の場合のみ）
         if (isDebugTarget) {
-          console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}の空き状況:`, {
-            isAvailable,
-            storeEventsLength: storeEvents.length,
-            slotIndex,
-            hasConflict: storeEventsSorted.length >= slotIndex
+          const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+          console.log(`[DEBUG] 時間衝突チェック: 店舗 ${storeId} の11/22${slot.label}の時間帯判定`, {
+            targetTimeSlot,
+            slotLabel: slot.label,
+            storeEvents: storeEvents.map((e: any) => ({
+              start_time: e.start_time,
+              eventTimeSlot: e.start_time ? getTimeSlot(e.start_time) : 'unknown',
+              category: e.category,
+              matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
+            })),
+            hasConflict,
+            isAvailable
           })
         }
         
@@ -403,18 +398,29 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         return false
       }
       
-      // その店舗のイベントをフィルタリング
-      const storeEvents = allStoreEvents.filter((e: any) => {
-        const eventStoreId = getEventStoreId(e)
-        // eventStoreIdがnullの場合は無視（店舗情報が取得できないイベント）
-        if (!eventStoreId) return false
-        
-        // 日付の比較（フォーマットを統一）
-        const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
-        const targetDate = date.split('T')[0]
-        
-        return eventDate === targetDate && eventStoreId === storeId
-      })
+              // その店舗のイベントをフィルタリング（スケジュール管理画面と同じロジック）
+              // スケジュール管理画面で表示されるイベントのみをチェック（空白セルには公演がない）
+              const storeEvents = allStoreEvents.filter((e: any) => {
+                const eventStoreId = getEventStoreId(e)
+                // eventStoreIdがnullの場合は無視（店舗情報が取得できないイベント）
+                if (!eventStoreId) return false
+                
+                // 日付の比較（フォーマットを統一）
+                const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
+                const targetDate = date.split('T')[0]
+                const dateMatch = eventDate === targetDate
+                
+                // 店舗の一致
+                const venueMatch = eventStoreId === storeId
+                
+                // 時間帯の一致（スケジュール管理画面と同じロジック）
+                const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+                const eventTimeSlot = e.start_time ? getTimeSlot(e.start_time) : null
+                const timeSlotMatch = eventTimeSlot === targetTimeSlot
+                
+                // スケジュール管理画面で表示される条件：日付・店舗・時間帯が一致
+                return dateMatch && venueMatch && timeSlotMatch
+              })
       
       if (isDebugTarget) {
         // 店舗ID→店舗名のマッピングを作成
@@ -425,24 +431,25 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         
         // 別館②の朝のイベントの詳細を特に詳しくログ出力
         if (storeId === '95ac6d74-56df-4cac-a67f-59fff9ab89b9' && slot.label === '朝') {
-          console.log(`[DEBUG] ⚠️ 別館②の朝のイベント詳細:`, storeEvents.map((e: any) => ({
-            id: e.id,
-            date: e.date,
-            start_time: e.start_time,
-            end_time: e.end_time,
-            category: e.category,
-            is_cancelled: e.is_cancelled,
-            is_reservation_enabled: e.is_reservation_enabled,
-            venue: e.venue,
-            store_id: e.store_id,
-            stores: e.stores,
-            store_id_from_getter: getEventStoreId(e),
-            store_name: getEventStoreId(e) ? storeIdToName[getEventStoreId(e)] : '不明',
-            scenario: e.scenario || e.scenarios?.title,
-            scenario_id: e.scenario_id,
-            full_event: JSON.stringify(e, null, 2)
-          })))
-          console.log(`[DEBUG] ⚠️ 別館②の朝のイベント（生データ）:`, storeEvents)
+          console.log(`[DEBUG] ⚠️⚠️⚠️ 別館②の朝のイベント詳細 ⚠️⚠️⚠️`)
+          storeEvents.forEach((e: any, index: number) => {
+            console.log(`[DEBUG] イベント ${index + 1}:`, {
+              id: e.id,
+              date: e.date,
+              start_time: e.start_time,
+              end_time: e.end_time,
+              category: e.category,
+              is_cancelled: e.is_cancelled,
+              is_reservation_enabled: e.is_reservation_enabled,
+              venue: e.venue,
+              store_id: e.store_id,
+              store_id_from_getter: getEventStoreId(e),
+              store_name: getEventStoreId(e) ? storeIdToName[getEventStoreId(e)] : '不明',
+              scenario: e.scenario || e.scenarios?.title,
+              scenario_id: e.scenario_id
+            })
+            console.log(`[DEBUG] イベント ${index + 1} の完全なデータ:`, e)
+          })
         }
         
         console.log(`[DEBUG] 店舗 ${storeId} (${storeIdToName[storeId] || '不明'}) の11/22${slot.label}のイベント（店舗未選択時）:`, storeEvents.map((e: any) => ({
@@ -467,41 +474,36 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       }
       
       // 時間枠の衝突をチェック
-      // その日のその店舗の公演を開始時刻順に並べて、時間枠の順番（1番目=朝、2番目=昼、3番目=夜）で判定
-      const storeEventsSorted = [...storeEvents].sort((a: any, b: any) => {
-        const timeA = a.start_time?.slice(0, 5) || '00:00'
-        const timeB = b.start_time?.slice(0, 5) || '00:00'
-        return timeA.localeCompare(timeB)
-      })
-      
-      // スロットの時間枠の順番（1=朝、2=昼、3=夜）
-      const slotIndex = getTimeSlotIndexFromLabel(slot.label)
+      // storeEventsは既にスケジュール管理画面と同じロジックでフィルタリングされているため、
+      // この時点でstoreEventsに含まれるイベントは、その時間枠に存在するイベント
+      // 同じセルに2個以上のイベントは発生させないため、1件でもあれば衝突
+      const hasConflict = storeEvents.length > 0
       
       if (isDebugTarget) {
-        console.log(`[DEBUG] 時間衝突チェック（店舗未選択時）: 店舗 ${storeId} の11/22${slot.label}の公演順序`, {
-          storeEventsSorted: storeEventsSorted.map((e: any, idx: number) => ({
-            index: idx + 1,
-            start_time: e.start_time,
-            category: e.category,
-            timeSlot: idx + 1 === 1 ? '朝' : idx + 1 === 2 ? '昼' : '夜'
-          })),
-          slotIndex,
+        const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+        console.log(`[DEBUG] 時間衝突チェック（店舗未選択時）: 店舗 ${storeId} の11/22${slot.label}の時間帯判定`, {
+          targetTimeSlot,
           slotLabel: slot.label,
-          storeEventsLength: storeEventsSorted.length,
-          hasConflict: storeEventsSorted.length >= slotIndex
+          storeEvents: storeEvents.map((e: any) => ({
+            start_time: e.start_time,
+            eventTimeSlot: e.start_time ? getTimeSlot(e.start_time) : 'unknown',
+            category: e.category,
+            matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
+          })),
+          hasConflict
         })
       }
       
-      // スロットの順番に対応する公演が存在するかチェック
-      const hasConflict = storeEventsSorted.length >= slotIndex
-      
       const isAvailable = !hasConflict
-      if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}の空き状況（店舗未選択時）:`, {
-        isAvailable,
-        storeEventsLength: storeEvents.length,
-        slotIndex,
-        hasConflict
-      })
+      if (isDebugTarget) {
+        const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+        console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}の空き状況（店舗未選択時）:`, {
+          isAvailable,
+          storeEventsLength: storeEvents.length,
+          targetTimeSlot,
+          hasConflict
+        })
+      }
       
       return isAvailable
     })
@@ -522,7 +524,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     }
     
     return result
-  }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, getTimeSlotIndexFromLabel, stores, isWithinBusinessHours])
+  }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, getTimeSlotFromLabel, stores, isWithinBusinessHours])
 
   // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）
   const generatePrivateDates = useCallback(() => {
