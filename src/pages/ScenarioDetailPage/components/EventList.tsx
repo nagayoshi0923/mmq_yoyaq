@@ -56,9 +56,9 @@ export const EventList = memo(function EventList({
               onEventSelect(isSelected ? null : event.event_id)
             }}
           >
-            <div className="flex items-center gap-3 p-3 touch-manipulation min-h-[64px]">
+            <div className="flex items-center gap-2 p-3 touch-manipulation">
               {/* 一番左：店舗 */}
-              <div className="flex items-center gap-1.5 flex-shrink-0 justify-center">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <div 
                   className="flex-shrink-0 w-3 h-3 rounded-sm"
                   style={{ 
@@ -76,7 +76,7 @@ export const EventList = memo(function EventList({
               </div>
               
               {/* 左側：日付+時間(上) + タイトル(下) */}
-              <div className="flex flex-col gap-1 flex-1 min-w-0 justify-center">
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
                 {/* 日付 + 時間（同じ行） */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm whitespace-nowrap">
