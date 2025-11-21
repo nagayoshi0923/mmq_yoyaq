@@ -47,19 +47,28 @@ export const useGMSelection = (allGMs: Staff[]) => {
 
       if (assignmentError) throw assignmentError
 
-      // GM回答データを取得
+      // GM回答データを取得（CORSエラー回避のため、クライアント側でフィルタリング）
       const { data: availableData, error: availableError } = await supabase
         .from('gm_availability_responses')
         .select('staff_id, available_candidates, notes, response_type, selected_candidate_index, gm_discord_id, gm_name')
         .eq('reservation_id', reservationId)
-        .in('response_type', ['available'])
         .not('response_type', 'is', null)
+
+      if (availableError) {
+        logger.error('GM回答データ取得エラー:', availableError)
+        throw availableError
+      }
+
+      // クライアント側でフィルタリング（response_type === 'available'のみ）
+      const filteredAvailableData = (availableData || []).filter(
+        (item: any) => item.response_type === 'available'
+      )
 
       logger.log('🔍 GM回答データ:', {
         reservationId,
-        availableDataCount: availableData?.length || 0,
-        availableData: availableData,
-        availableError: availableError
+        availableDataCount: filteredAvailableData?.length || 0,
+        availableData: filteredAvailableData,
+        originalCount: availableData?.length || 0
       })
 
       // 担当GMのIDリストを作成
@@ -78,7 +87,7 @@ export const useGMSelection = (allGMs: Staff[]) => {
         gm_name?: string
       }
 
-      ;(availableData || []).forEach((a: AvailabilityResponse) => {
+      ;(filteredAvailableData || []).forEach((a: AvailabilityResponse) => {
         if (a.staff_id) {
           // 通常のstaff_id経由の回答
           availableGMMap.set(a.staff_id, {
