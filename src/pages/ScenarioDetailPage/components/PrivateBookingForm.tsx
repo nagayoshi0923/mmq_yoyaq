@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,7 @@ interface PrivateBookingFormProps {
   timeSlots: TimeSlot[]
   selectedSlots: Array<{ date: string; slot: TimeSlot }>
   onTimeSlotToggle: (date: string, slot: TimeSlot) => void
-  checkTimeSlotAvailability: (date: string, slot: TimeSlot, storeIds?: string[]) => boolean
+  checkTimeSlotAvailability: (date: string, slot: TimeSlot, storeIds?: string[]) => Promise<boolean>
 }
 
 /**
@@ -38,11 +38,45 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   timeSlots,
   selectedSlots,
   onTimeSlotToggle,
-  checkTimeSlotAvailability,
-  events = []
+  checkTimeSlotAvailability
 }: PrivateBookingFormProps) {
+  // 各時間枠の可用性を管理する状態
+  const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
+  
   const isTimeSlotSelected = (date: string, slot: TimeSlot): boolean => {
     return selectedSlots.some(s => s.date === date && s.slot.label === slot.label)
+  }
+  
+  // 各時間枠の可用性を非同期で取得
+  useEffect(() => {
+    const updateAvailability = async () => {
+      const newAvailabilityMap: Record<string, boolean> = {}
+      
+      // 各日付・時間枠の可用性を並列で取得
+      const promises = availableDates.flatMap(date =>
+        timeSlots.map(async (slot) => {
+          const key = `${date}-${slot.label}`
+          const isAvailable = await checkTimeSlotAvailability(
+            date,
+            slot,
+            selectedStoreIds.length > 0 ? selectedStoreIds : undefined
+          )
+          newAvailabilityMap[key] = isAvailable
+        })
+      )
+      
+      await Promise.all(promises)
+      setAvailabilityMap(newAvailabilityMap)
+    }
+    
+    updateAvailability()
+  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability])
+  
+  // 時間枠の可用性を取得
+  const getAvailability = (date: string, slot: TimeSlot): boolean => {
+    const key = `${date}-${slot.label}`
+    // まだ取得されていない場合は、デフォルトでfalse（安全側に倒す）
+    return availabilityMap[key] ?? false
   }
 
 
@@ -136,7 +170,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                   {/* 時間枠ボタン */}
                   <div className="flex gap-1.5 flex-1">
                     {timeSlots.map((slot) => {
-                      const isAvailable = checkTimeSlotAvailability(date, slot, selectedStoreIds.length > 0 ? selectedStoreIds : undefined)
+                      const isAvailable = getAvailability(date, slot)
                       const isSelected = isTimeSlotSelected(date, slot)
                       
                       return (

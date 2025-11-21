@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 import type { TimeSlot, EventSchedule } from '../utils/types'
 
 interface UsePrivateBookingProps {
@@ -127,10 +128,57 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     return null
   }, [stores])
 
+  // 営業時間内かどうかをチェックする関数（スケジュール管理側の設定と同期）
+  const isWithinBusinessHours = useCallback(async (date: string, startTime: string, storeId: string): Promise<boolean> => {
+    try {
+      // 営業時間設定を取得
+      const { data, error } = await supabase
+        .from('business_hours_settings')
+        .select('opening_hours, holidays, time_restrictions')
+        .eq('store_id', storeId)
+        .maybeSingle()
+
+      if (error && error.code !== 'PGRST116') {
+        logger.error('営業時間設定取得エラー:', error)
+        return true // エラーの場合は制限しない
+      }
+
+      if (!data) return true // 設定がない場合は制限しない
+
+      // 休日チェック
+      if (data.holidays && data.holidays.includes(date)) {
+        return false
+      }
+
+      // 営業時間チェック
+      if (data.opening_hours) {
+        const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+        const dayName = dayNames[dayOfWeek]
+        
+        const dayHours = data.opening_hours[dayName]
+        if (!dayHours || !dayHours.is_open) {
+          return false
+        }
+
+        const eventTime = startTime.slice(0, 5) // HH:MM形式
+        if (eventTime < dayHours.open_time || eventTime > dayHours.close_time) {
+          return false
+        }
+      }
+
+      return true
+    } catch (error) {
+      logger.error('営業時間チェックエラー:', error)
+      return true // エラーの場合は制限しない
+    }
+  }, [])
+
   // 特定の日付と時間枠が空いているかチェック（店舗フィルター対応）
   // 全店舗のイベントを使用して判定（特定シナリオのイベントのみではない）
   // そのシナリオを公演可能な店舗のみを対象とする
-  const checkTimeSlotAvailability = useCallback((date: string, slot: TimeSlot, storeIds?: string[]): boolean => {
+  // スケジュール管理側の営業時間設定も考慮する（同期）
+  const checkTimeSlotAvailability = useCallback(async (date: string, slot: TimeSlot, storeIds?: string[]): Promise<boolean> => {
     const availableStoreIds = getAvailableStoreIds()
     
     // デバッグログ（11/22の夜の場合のみ）
@@ -193,8 +241,15 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       // 有効な店舗がない場合はfalse
       if (validStoreIds.length === 0) return false
       
-      // 各店舗の空き状況をチェック
-      const storeAvailability = validStoreIds.map(storeId => {
+      // 各店舗の空き状況をチェック（Promise.allで並列処理）
+      const storeAvailabilityPromises = validStoreIds.map(async (storeId) => {
+        // まず営業時間設定をチェック（スケジュール管理側と同期）
+        const withinBusinessHours = await isWithinBusinessHours(date, slot.startTime, storeId)
+        if (!withinBusinessHours) {
+          if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22夜: 営業時間外のため受付不可`)
+          return false
+        }
+        
         // その店舗のイベントをフィルタリング
         const storeEvents = allStoreEvents.filter((e: any) => {
           const eventStoreId = getEventStoreId(e)
@@ -258,6 +313,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         return isAvailable
       })
       
+      const storeAvailability = await Promise.all(storeAvailabilityPromises)
+      
       // いずれかの店舗で空きがあればtrue
       const result = storeAvailability.some(available => available === true)
       
@@ -292,8 +349,15 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       return stores.length === 0
     }
     
-    // 各店舗の空き状況をチェック
-    const storeAvailability = availableStoreIdsArray.map(storeId => {
+    // 各店舗の空き状況をチェック（Promise.allで並列処理）
+    const storeAvailabilityPromises = availableStoreIdsArray.map(async (storeId) => {
+      // まず営業時間設定をチェック（スケジュール管理側と同期）
+      const withinBusinessHours = await isWithinBusinessHours(date, slot.startTime, storeId)
+      if (!withinBusinessHours) {
+        if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22夜: 営業時間外のため受付不可（店舗未選択時）`)
+        return false
+      }
+      
       // その店舗のイベントをフィルタリング
       const storeEvents = allStoreEvents.filter((e: any) => {
         const eventStoreId = getEventStoreId(e)
@@ -354,6 +418,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       return isAvailable
     })
     
+    const storeAvailability = await Promise.all(storeAvailabilityPromises)
+    
     // いずれかの店舗で空きがあればtrue
     const result = storeAvailability.some(available => available === true)
     
@@ -368,7 +434,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     }
     
     return result
-  }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, getTimeSlotIndexFromLabel, stores])
+  }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, getTimeSlotIndexFromLabel, stores, isWithinBusinessHours])
 
   // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）
   const generatePrivateDates = useCallback(() => {
