@@ -277,7 +277,7 @@ export function PrivateBookingManagement() {
             <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto" data-detail-section>
               <CardHeader className="sticky top-0 bg-background z-10 border-b p-3 sm:p-4 md:p-6">
                 <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-base sm:text-lg md:text-xl break-words">リクエスト詳細 - {selectedRequest.scenario_title}</CardTitle>
+                  <CardTitle className="text-base sm:text-lg md:text-base break-words">リクエスト詳細 - {selectedRequest.scenario_title}</CardTitle>
                   <button
                     onClick={() => {
                       setSelectedRequest(null)
@@ -444,7 +444,7 @@ export function PrivateBookingManagement() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-2 sm:p-4">
             <Card className="w-full max-w-lg">
               <CardHeader className="p-3 sm:p-4 md:p-6">
-                <CardTitle className="text-base sm:text-lg md:text-xl">貸切リクエストの却下</CardTitle>
+                <CardTitle className="text-base sm:text-lg md:text-base">貸切リクエストの却下</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6">
                 <div>

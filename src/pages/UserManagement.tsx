@@ -172,7 +172,7 @@ export function UserManagement() {
   const UserCard = ({ userData }: { userData: User }) => (
     <Card className="mt-4 sm:mt-6">
       <CardHeader className="p-3 sm:p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-base">
           {getRoleIcon(userData.role)}
           <span className="break-words">{userData.email}</span>
         </CardTitle>
@@ -255,7 +255,7 @@ export function UserManagement() {
         <div></div>
       <Card>
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-base">
             <Search className="w-4 h-4 sm:w-5 sm:h-5" />
             メールアドレスで検索
           </CardTitle>
@@ -323,7 +323,7 @@ export function UserManagement() {
         <div className="mt-4 sm:mt-6 md:mt-8">
           <Card>
             <CardHeader className="p-3 sm:p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-base">
                 <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                 全ユーザー ({allUsers.length}人)
               </CardTitle>
@@ -401,7 +401,7 @@ export function UserManagement() {
       {/* 使い方の説明 */}
       <Card className="mt-4 sm:mt-6 md:mt-8 bg-blue-50 border-blue-200">
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="text-blue-900 text-base sm:text-lg md:text-xl">使い方</CardTitle>
+          <CardTitle className="text-blue-900 text-base sm:text-lg md:text-base">使い方</CardTitle>
         </CardHeader>
         <CardContent className="text-xs sm:text-sm text-blue-800 space-y-1 sm:space-y-2 p-3 sm:p-4 md:p-6 pt-0">
           <p>1. 上部の検索ボックスにメールアドレスを入力して検索</p>

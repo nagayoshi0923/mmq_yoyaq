@@ -93,7 +93,7 @@ export function PrivateBookingRequest({
           <Card className="border-2 border-purple-200 bg-purple-50">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-purple-600 mx-auto" />
-              <h2 className="text-2xl font-bold text-purple-800">貸切リクエストを受け付けました！</h2>
+              <h2 className="text-lg font-bold text-purple-800">貸切リクエストを受け付けました！</h2>
               <p className="text-purple-700">
                 リクエストありがとうございます。<br />
                 確認メールを {customerEmail} に送信しました。<br />
@@ -132,7 +132,7 @@ export function PrivateBookingRequest({
       </div>
 
       <div className="container mx-auto max-w-5xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-6">
-        <h1 className="text-3xl font-bold mb-6">貸切予約リクエスト</h1>
+        <h1 className="text-lg font-bold mb-6">貸切予約リクエスト</h1>
 
         {error && (
           <Card className="mb-6 border-2 border-red-200 bg-red-50">
@@ -152,7 +152,7 @@ export function PrivateBookingRequest({
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div>
-                    <h3 className="font-bold text-xl mb-2">{scenarioTitle}</h3>
+                    <h3 className="font-bold text-base mb-2">{scenarioTitle}</h3>
                     <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
                       貸切予約
                     </Badge>

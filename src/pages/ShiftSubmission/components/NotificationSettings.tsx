@@ -139,7 +139,7 @@ export function NotificationSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2">シフト募集通知設定</h1>
+        <h1 className="text-lg font-bold mb-2">シフト募集通知設定</h1>
         <p className="text-muted-foreground">
           Discord通知のタイミングと締切日を設定します
         </p>

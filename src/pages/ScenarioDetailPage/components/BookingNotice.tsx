@@ -12,7 +12,7 @@ export const BookingNotice = memo(function BookingNotice({
 }: BookingNoticeProps) {
   return (
     <div>
-      <h3 className="font-bold mb-3 sm:mb-4 text-lg sm:text-xl">注意事項</h3>
+      <h3 className="font-bold mb-3 sm:mb-4 text-lg sm:text-base">注意事項</h3>
       <Card>
         <CardContent className="p-3 sm:p-4 md:p-5">
           <ul className="space-y-2 sm:space-y-2.5 text-base text-muted-foreground">

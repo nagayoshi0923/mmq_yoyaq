@@ -141,25 +141,25 @@ export function ReservationManagement() {
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">総予約数</CardDescription>
-              <CardTitle className="text-xl sm:text-2xl md:text-3xl">{stats.total}</CardTitle>
+              <CardTitle className="text-base sm:text-lg md:text-lg">{stats.total}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">確定済み</CardDescription>
-              <CardTitle className="text-xl sm:text-2xl md:text-3xl text-green-600">{stats.confirmed}</CardTitle>
+              <CardTitle className="text-base sm:text-lg md:text-lg text-green-600">{stats.confirmed}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">保留中</CardDescription>
-              <CardTitle className="text-xl sm:text-2xl md:text-3xl text-yellow-600">{stats.pending}</CardTitle>
+              <CardTitle className="text-base sm:text-lg md:text-lg text-yellow-600">{stats.pending}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">未払い</CardDescription>
-              <CardTitle className="text-xl sm:text-2xl md:text-3xl text-red-600">{stats.unpaid}</CardTitle>
+              <CardTitle className="text-base sm:text-lg md:text-lg text-red-600">{stats.unpaid}</CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -169,7 +169,7 @@ export function ReservationManagement() {
           <CardHeader className="p-3 sm:p-4 md:p-6">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
-              <CardTitle className="text-base sm:text-lg md:text-xl">フィルター</CardTitle>
+              <CardTitle className="text-base sm:text-lg md:text-base">フィルター</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 md:p-6">
@@ -259,7 +259,7 @@ export function ReservationManagement() {
                             <Badge variant="outline" className="text-xs">貸切</Badge>
                           )}
                         </div>
-                        <h3 className="text-base sm:text-lg md:text-xl font-bold mb-2 break-words">{reservation.scenario_title}</h3>
+                        <h3 className="text-base sm:text-lg md:text-base font-bold mb-2 break-words">{reservation.scenario_title}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 sm:gap-x-6 gap-y-1 sm:gap-y-2 text-xs sm:text-sm">
                           <div className="flex items-center gap-1 sm:gap-2">
                             <User className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />

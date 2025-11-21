@@ -96,7 +96,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         >
           &lt; 前月
         </Button>
-        <h3 className="font-bold text-lg sm:text-xl">
+        <h3 className="font-bold text-lg sm:text-base">
           {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
         </h3>
         <Button
@@ -126,7 +126,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
               <CardContent className="p-3 sm:p-3.5">
                 <div className="flex items-center gap-2.5 sm:gap-3">
                   {/* 日付 */}
-                  <div className="font-semibold text-lg sm:text-xl whitespace-nowrap min-w-[50px] text-center">
+                  <div className="font-semibold text-lg sm:text-base whitespace-nowrap min-w-[50px] text-center">
                     <div>{month}/{day}</div>
                     <div className={`text-xs sm:text-sm ${weekdayColor}`}>
                       ({weekday})

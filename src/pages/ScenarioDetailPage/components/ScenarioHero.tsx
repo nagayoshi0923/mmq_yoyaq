@@ -34,7 +34,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
                 fallback={
                   <div className="w-full h-full flex items-center justify-center text-gray-400">
                     <div className="text-center p-8">
-                      <p className="font-bold text-2xl">{scenario.scenario_title}</p>
+                      <p className="font-bold text-lg">{scenario.scenario_title}</p>
                     </div>
                   </div>
                 }
@@ -46,7 +46,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
           <div className="lg:col-span-8 space-y-3 sm:space-y-4 md:space-y-5">
             <div>
               <p className="text-xs sm:text-sm opacity-80 mb-2">{scenario.author}</p>
-              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4 leading-tight">{scenario.scenario_title}</h1>
+              <h1 className="text-base sm:text-lg md:text-lg lg:text-lg font-bold mb-3 sm:mb-4 leading-tight">{scenario.scenario_title}</h1>
               
               <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
                 <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-sm sm:text-base">

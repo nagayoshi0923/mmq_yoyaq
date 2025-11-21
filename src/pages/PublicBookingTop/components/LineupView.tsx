@@ -60,20 +60,20 @@ export const LineupView = memo(function LineupView({
   const displayedUpcomingScenarios = upcomingScenarios.slice(0, 10)
   
   return (
-    <div className="space-y-5 sm:space-y-6 md:space-y-8">
+    <div className="space-y-6 md:space-y-8">
       {/* 新着公演セクション */}
       {displayedNewScenarios.length > 0 && (
         <section>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 sm:mb-3 md:mb-4 flex items-center gap-2 leading-tight">
+          <h2 className="text-lg md:text-base xl:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 leading-tight">
             <span>新着公演</span>
-            <Badge className="bg-red-600 text-white border-0 text-xs px-1 sm:px-1.5 md:px-2 py-0.5 rounded-sm flex-shrink-0">NEW</Badge>
+            <Badge className="bg-red-600 text-white border-0 text-xs md:text-sm px-1.5 md:px-2 py-0.5 rounded-sm flex-shrink-0">NEW</Badge>
             {newScenarios.length > 10 && (
-              <span className="text-xs sm:text-sm font-normal text-gray-500 ml-1 flex-shrink-0">
+              <span className="text-xs md:text-sm font-normal text-gray-500 ml-1 flex-shrink-0">
                 ({displayedNewScenarios.length} / {newScenarios.length})
               </span>
             )}
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 sm:gap-2 md:gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
             {displayedNewScenarios.map((scenario) => (
               <ScenarioCard 
                 key={scenario.scenario_id} 
@@ -90,15 +90,15 @@ export const LineupView = memo(function LineupView({
       {/* 直近公演セクション */}
       {displayedUpcomingScenarios.length > 0 && (
         <section>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 sm:mb-3 md:mb-4 leading-tight">
+          <h2 className="text-lg md:text-base xl:text-lg font-bold mb-3 md:mb-4 leading-tight">
             直近公演
             {upcomingScenarios.length > 10 && (
-              <span className="text-xs sm:text-sm font-normal text-gray-500 ml-1">
+              <span className="text-xs md:text-sm font-normal text-gray-500 ml-1">
                 ({displayedUpcomingScenarios.length} / {upcomingScenarios.length})
               </span>
             )}
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 sm:gap-2 md:gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
             {displayedUpcomingScenarios.map((scenario) => (
               <ScenarioCard 
                 key={scenario.scenario_id} 
@@ -115,7 +115,7 @@ export const LineupView = memo(function LineupView({
       {/* 全タイトルセクション */}
       {allScenarios.length > 0 ? (
         <section>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 sm:mb-3 md:mb-4 leading-tight">
+          <h2 className="text-lg sm:text-base md:text-lg font-bold mb-2 sm:mb-3 md:mb-4 leading-tight">
             全タイトル
             {allScenarios.length > INITIAL_DISPLAY_COUNT && (
               <span className="text-xs sm:text-sm font-normal text-gray-500 ml-1">

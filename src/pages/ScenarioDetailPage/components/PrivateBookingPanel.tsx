@@ -36,7 +36,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
               </div>
               <div className="border-t pt-2 sm:pt-3 flex justify-between items-center">
                 <span className="font-bold text-base sm:text-lg">合計</span>
-                <span className="text-xl sm:text-2xl font-bold text-purple-600">
+                <span className="text-base sm:text-lg font-bold text-purple-600">
                   ¥{(participationFee * maxParticipants).toLocaleString()}
                 </span>
               </div>

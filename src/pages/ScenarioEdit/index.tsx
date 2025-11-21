@@ -350,7 +350,7 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
           {/* ヘッダー */}
           <div className="flex items-center justify-between px-8 py-6 border-b shrink-0">
             <div>
-              <h2 className="text-2xl font-bold">
+              <h2 className="text-lg font-bold">
                 {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
               </h2>
               {formData.title && (
@@ -402,7 +402,7 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold">
+          <h2 className="text-lg font-bold">
             {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
           </h2>
           {formData.title && (

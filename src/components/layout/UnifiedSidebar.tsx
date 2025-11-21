@@ -40,7 +40,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
     <div className="w-72 bg-white flex-shrink-0 flex flex-col h-full">
       {/* ヘッダー */}
       <div className="p-6 border-b border-slate-200">
-        <h2 className="text-xl font-bold text-slate-800">
+        <h2 className="text-base font-bold text-slate-800">
           {title}
         </h2>
         {mode === 'edit' && editModeSubtitle && (

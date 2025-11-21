@@ -269,7 +269,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     return (
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
+          <h1 className="text-base sm:text-lg md:text-lg font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
         </div>
         <Card>
           <CardContent className="p-4 sm:p-6 md:p-8">
@@ -284,7 +284,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     <div className="space-y-3 sm:space-y-4 md:space-y-6">
       {/* ヘッダー：タイトルとエクスポートボタン */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
+        <h1 className="text-base sm:text-lg md:text-lg font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
         <ExportButtons salesData={salesData} />
       </div>
 

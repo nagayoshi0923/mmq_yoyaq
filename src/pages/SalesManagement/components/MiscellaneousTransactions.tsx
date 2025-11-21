@@ -210,7 +210,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     <div className="space-y-6">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">雑収支管理</h2>
+        <h2 className="text-lg font-bold">雑収支管理</h2>
       </div>
       
       {/* 月切り替え */}
@@ -234,7 +234,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-900">
+            <div className="text-lg font-bold text-green-900">
               {formatCurrency(totalIncome)}
             </div>
           </CardContent>
@@ -248,7 +248,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-900">
+            <div className="text-lg font-bold text-red-900">
               {formatCurrency(totalExpense)}
             </div>
           </CardContent>
@@ -261,7 +261,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
+            <div className={`text-lg font-bold ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
               {formatCurrency(netAmount)}
             </div>
           </CardContent>

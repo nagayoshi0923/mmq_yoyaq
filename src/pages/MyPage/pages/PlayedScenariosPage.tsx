@@ -220,19 +220,19 @@ export function PlayedScenariosPage() {
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold text-primary">{playedScenarios.length}</div>
+            <div className="text-lg font-bold text-primary">{playedScenarios.length}</div>
             <div className="text-sm text-muted-foreground mt-1">総プレイ回数</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold text-primary">{scenarioGroups.length}</div>
+            <div className="text-lg font-bold text-primary">{scenarioGroups.length}</div>
             <div className="text-sm text-muted-foreground mt-1">プレイしたシナリオ</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold text-primary">
+            <div className="text-lg font-bold text-primary">
               {scenarioGroups.filter((g) => g.count > 1).length}
             </div>
             <div className="text-sm text-muted-foreground mt-1">リピートシナリオ</div>

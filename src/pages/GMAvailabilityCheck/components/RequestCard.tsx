@@ -41,7 +41,7 @@ export function RequestCard({
       <CardHeader className="bg-purple-50 border-b">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-xl font-bold text-purple-900">
+            <CardTitle className="text-base font-bold text-purple-900">
               {request.scenario_title}
             </CardTitle>
             <div className="mt-2 space-y-1">

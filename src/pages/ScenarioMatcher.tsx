@@ -204,7 +204,7 @@ export function ScenarioMatcher() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
         <Card className="p-8">
-          <h1 className="text-2xl font-bold mb-4">🔗 シナリオマッチングツール</h1>
+          <h1 className="text-lg font-bold mb-4">🔗 シナリオマッチングツール</h1>
           <p className="text-gray-600 mb-6">
             スケジュール上のシナリオ名と、登録済みシナリオをマッチングします。
           </p>

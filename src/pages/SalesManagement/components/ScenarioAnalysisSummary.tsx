@@ -21,7 +21,7 @@ export const ScenarioAnalysisSummary: React.FC<ScenarioAnalysisSummaryProps> = (
           <BookOpen className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{totalScenarios}</div>
+          <div className="text-lg font-bold">{totalScenarios}</div>
           <p className="text-xs text-muted-foreground">
             期間内に公演されたシナリオ
           </p>
@@ -34,7 +34,7 @@ export const ScenarioAnalysisSummary: React.FC<ScenarioAnalysisSummaryProps> = (
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{totalEvents}</div>
+          <div className="text-lg font-bold">{totalEvents}</div>
           <p className="text-xs text-muted-foreground">
             期間内の全公演
           </p>
@@ -47,7 +47,7 @@ export const ScenarioAnalysisSummary: React.FC<ScenarioAnalysisSummaryProps> = (
           <BarChart3 className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{averageEventsPerScenario.toFixed(1)}</div>
+          <div className="text-lg font-bold">{averageEventsPerScenario.toFixed(1)}</div>
           <p className="text-xs text-muted-foreground">
             シナリオあたりの平均公演数
           </p>

@@ -263,7 +263,7 @@ export default function AuthorReport() {
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">作者レポート</h1>
+          <h1 className="text-base sm:text-lg md:text-lg font-bold">作者レポート</h1>
           <p className="text-muted-foreground text-xs sm:text-sm md:text-base">作者別の公演実績レポート</p>
         </div>
         <Button
@@ -279,7 +279,7 @@ export default function AuthorReport() {
       {/* フィルター */}
       <Card>
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-base">
             <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             フィルター
           </CardTitle>
@@ -341,7 +341,7 @@ export default function AuthorReport() {
         finalData.map(monthData => (
           <Card key={monthData.month}>
             <CardHeader className="p-3 sm:p-4 md:p-6">
-              <CardTitle className="text-base sm:text-lg md:text-xl">{monthData.month}</CardTitle>
+              <CardTitle className="text-base sm:text-lg md:text-base">{monthData.month}</CardTitle>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 md:p-6">
               {monthData.authors.length === 0 ? (

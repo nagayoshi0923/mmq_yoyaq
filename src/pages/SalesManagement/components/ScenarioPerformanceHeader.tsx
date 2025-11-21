@@ -30,7 +30,7 @@ export const ScenarioPerformanceHeader: React.FC<ScenarioPerformanceHeaderProps>
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">シナリオ分析</h1>
+        <h1 className="text-lg font-bold">シナリオ分析</h1>
         <div className="flex items-center gap-4">
           <Select value={period} onValueChange={onPeriodChange}>
             <SelectTrigger className="w-48">

@@ -355,7 +355,7 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-xl md:text-2xl font-bold">{staff.length}</p>
+                      <p className="text-lg sm:text-base md:text-lg font-bold">{staff.length}</p>
                       <p className="text-xs sm:text-sm text-muted-foreground">総スタッフ数</p>
                     </div>
                   </div>
@@ -367,7 +367,7 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-xl md:text-2xl font-bold">
+                      <p className="text-lg sm:text-base md:text-lg font-bold">
                         {staff.filter(s => s.status === 'active').length}
                       </p>
                       <p className="text-xs sm:text-sm text-muted-foreground">在籍中</p>
@@ -381,7 +381,7 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-xl md:text-2xl font-bold">
+                      <p className="text-lg sm:text-base md:text-lg font-bold">
                         {staff.filter(s => s.role && s.role.includes('GM')).length}
                       </p>
                       <p className="text-xs sm:text-sm text-muted-foreground">GM</p>
@@ -395,7 +395,7 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-xl md:text-2xl font-bold">
+                      <p className="text-lg sm:text-base md:text-lg font-bold">
                         {Math.round(staff.reduce((sum, s) => sum + s.experience, 0) / staff.length) || 0}
                       </p>
                       <p className="text-xs sm:text-sm text-muted-foreground">平均経験年数</p>

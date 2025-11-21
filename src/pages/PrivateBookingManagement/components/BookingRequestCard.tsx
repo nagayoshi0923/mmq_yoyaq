@@ -57,7 +57,7 @@ export const BookingRequestCard = ({
     <Card className={getCardClassName(request.status)}>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">{request.scenario_title}</CardTitle>
+          <CardTitle className="text-base">{request.scenario_title}</CardTitle>
           <StatusBadge status={request.status} />
         </div>
         <div className="text-sm text-muted-foreground space-y-1 mt-2">

@@ -197,7 +197,7 @@ export function ResetPassword() {
         <Card className="w-full max-w-md">
           <CardContent className="p-6 sm:p-8 text-center space-y-4 sm:space-y-6">
             <CheckCircle2 className="w-12 h-12 sm:w-16 sm:h-16 text-green-600 mx-auto" />
-            <h2 className="text-xl sm:text-2xl font-bold text-green-800">パスワードを変更しました</h2>
+            <h2 className="text-base sm:text-lg font-bold text-green-800">パスワードを変更しました</h2>
             <div className="space-y-2">
               <p className="text-sm sm:text-base text-muted-foreground">
                 新しいパスワードでログインできます。
@@ -224,7 +224,7 @@ export function ResetPassword() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:px-6 sm:py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-6">
-          <CardTitle className="text-xl sm:text-2xl">パスワードリセット</CardTitle>
+          <CardTitle className="text-base sm:text-lg">パスワードリセット</CardTitle>
           <CardDescription className="text-sm sm:text-base mt-2">新しいパスワードを設定してください</CardDescription>
         </CardHeader>
         <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">

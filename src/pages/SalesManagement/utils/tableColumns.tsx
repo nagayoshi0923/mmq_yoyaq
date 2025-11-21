@@ -46,7 +46,7 @@ export function createScenarioAnalysisColumns(data: ScenarioPerformance[]): Colu
       align: 'right',
       render: (scenario) => (
         <div className="text-right">
-          <div className="text-2xl font-bold">{scenario.events}</div>
+          <div className="text-lg font-bold">{scenario.events}</div>
           <div className="text-sm text-muted-foreground">公演</div>
         </div>
       )

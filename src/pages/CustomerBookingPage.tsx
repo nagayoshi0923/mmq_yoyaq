@@ -303,7 +303,7 @@ export function CustomerBookingPage() {
         <div className="space-y-6">
           {/* ヘッダー */}
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">公演予約</h1>
+            <h1 className="text-lg font-bold tracking-tight">公演予約</h1>
             <p className="text-muted-foreground mt-1">
               予約可能な公演から選んで予約できます
             </p>
@@ -399,7 +399,7 @@ export function CustomerBookingPage() {
                       {/* 公演情報 */}
                       <div className="md:col-span-6 space-y-2">
                         <div>
-                          <h3 className="text-xl font-bold mb-1">
+                          <h3 className="text-base font-bold mb-1">
                             {event.scenario_title}
                           </h3>
                           {event.scenario_description && (
@@ -438,7 +438,7 @@ export function CustomerBookingPage() {
                       <div className="md:col-span-3 flex flex-col items-end justify-center gap-3">
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">参加費</p>
-                          <p className="text-2xl font-bold text-primary">
+                          <p className="text-lg font-bold text-primary">
                             ¥{event.participation_fee.toLocaleString()}
                           </p>
                           <p className="text-xs text-muted-foreground">/ 1名</p>

@@ -36,7 +36,7 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-lg sm:text-xl md:text-2xl font-bold">{stats.totalScenarios}</p>
+              <p className="text-lg sm:text-base md:text-lg font-bold">{stats.totalScenarios}</p>
               <p className="text-xs sm:text-sm text-muted-foreground">総シナリオ数</p>
             </div>
           </div>
@@ -48,7 +48,7 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Play className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-lg sm:text-xl md:text-2xl font-bold">{stats.availableScenarios}</p>
+              <p className="text-lg sm:text-base md:text-lg font-bold">{stats.availableScenarios}</p>
               <p className="text-xs sm:text-sm text-muted-foreground">利用可能</p>
             </div>
           </div>
@@ -60,7 +60,7 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-lg sm:text-xl md:text-2xl font-bold">¥{stats.totalLicenseAmount.toLocaleString()}</p>
+              <p className="text-lg sm:text-base md:text-lg font-bold">¥{stats.totalLicenseAmount.toLocaleString()}</p>
               <p className="text-xs sm:text-sm text-muted-foreground">総ライセンス料</p>
             </div>
           </div>
@@ -72,7 +72,7 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-lg sm:text-xl md:text-2xl font-bold">{stats.avgPlayers}名</p>
+              <p className="text-lg sm:text-base md:text-lg font-bold">{stats.avgPlayers}名</p>
               <p className="text-xs sm:text-sm text-muted-foreground">平均プレイヤー数</p>
             </div>
           </div>
