@@ -100,18 +100,23 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
   }, [])
 
   // そのシナリオを公演可能な店舗IDを取得（シナリオのavailable_stores設定から）
+  // オフィス（ownership_type='office'）は貸切リクエストの対象外
   const getAvailableStoreIds = useCallback((): Set<string> => {
+    // オフィスを除外した店舗リスト
+    const validStores = stores.filter(s => s.ownership_type !== 'office')
+    
     // シナリオにavailable_storesが設定されている場合のみ、その店舗に限定
     if (scenario) {
       const availableStores = scenario.available_stores || scenario.available_stores_ids
       // 配列が存在し、かつ空でない場合のみ限定
       if (Array.isArray(availableStores) && availableStores.length > 0) {
-        return new Set(availableStores)
+        // オフィスを除外した上で、シナリオのavailable_storesと一致する店舗のみ
+        return new Set(availableStores.filter(id => validStores.some(s => s.id === id)))
       }
     }
     
-    // 設定されていない場合、または空配列の場合は全店舗を対象
-    return new Set(stores.map(s => s.id))
+    // 設定されていない場合、または空配列の場合は全店舗を対象（オフィス除く）
+    return new Set(validStores.map(s => s.id))
   }, [scenario, stores])
   
   // 時間枠のラベル（朝/昼/夜）を順番（1, 2, 3）にマッピング
@@ -417,6 +422,25 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           acc[store.id] = store.name || store.short_name || store.id
           return acc
         }, {})
+        
+        // 別館②の朝のイベントの詳細を特に詳しくログ出力
+        if (storeId === '95ac6d74-56df-4cac-a67f-59fff9ab89b9' && slot.label === '朝') {
+          console.log(`[DEBUG] ⚠️ 別館②の朝のイベント詳細:`, storeEvents.map((e: any) => ({
+            id: e.id,
+            date: e.date,
+            start_time: e.start_time,
+            end_time: e.end_time,
+            category: e.category,
+            is_cancelled: e.is_cancelled,
+            is_reservation_enabled: e.is_reservation_enabled,
+            venue: e.venue,
+            store_id: e.store_id,
+            store_id_from_getter: getEventStoreId(e),
+            store_name: getEventStoreId(e) ? storeIdToName[getEventStoreId(e)] : '不明',
+            scenario: e.scenario || e.scenarios?.title,
+            full_event: e
+          })))
+        }
         
         console.log(`[DEBUG] 店舗 ${storeId} (${storeIdToName[storeId] || '不明'}) の11/22${slot.label}のイベント（店舗未選択時）:`, storeEvents.map((e: any) => ({
           date: e.date,
