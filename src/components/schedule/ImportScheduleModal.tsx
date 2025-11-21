@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { supabase } from '@/lib/supabase'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import { getTimeSlot } from '@/utils/scheduleUtils'
 
 interface ImportScheduleModalProps {
   isOpen: boolean
@@ -215,7 +216,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
 
     try {
       const lines = scheduleText.trim().split('\n')
-      const events: Array<{ date: string; store_id: string; category: string; start_time: string; end_time: string; scenario?: string; gms?: string[] }> = []
+      const events: Array<{ date: string; venue: string; store_id: string | null; category: string; start_time: string; end_time: string; scenario?: string; gms?: string[] }> = []
       const errors: string[] = []
 
       let currentDate = ''
@@ -260,6 +261,31 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         } catch (err) {
           logger.error('削除処理エラー:', err)
           errors.push(`削除処理エラー: ${String(err)}`)
+        }
+      }
+      
+      // 🚨 CRITICAL: 既存削除OFFの場合、既存イベントを取得して重複チェック用に使用
+      let existingEvents: Array<{ date: string; store_id: string | null; start_time: string; is_cancelled: boolean }> = []
+      if (!replaceExisting && targetMonth) {
+        try {
+          const startDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-01`
+          const endDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-31`
+          
+          const { data, error: fetchError } = await supabase
+            .from('schedule_events')
+            .select('date, store_id, start_time, is_cancelled')
+            .gte('date', startDate)
+            .lte('date', endDate)
+          
+          if (fetchError) {
+            logger.error('既存データの取得エラー:', fetchError)
+            errors.push(`既存データの取得に失敗: ${fetchError.message}`)
+          } else {
+            existingEvents = data || []
+          }
+        } catch (err) {
+          logger.error('既存データ取得処理エラー:', err)
+          errors.push(`既存データ取得処理エラー: ${String(err)}`)
         }
       }
 
@@ -328,6 +354,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       // データベースに挿入
       let successCount = 0
       let failedCount = 0
+      let skippedCount = 0
 
       for (const event of events) {
         try {
@@ -343,6 +370,24 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             failedCount++
             errors.push(`${event.date} ${event.venue} - ${event.scenario}: 店舗が見つかりません（STORE_MAPPINGに"${event.venue}"が存在しません）`)
             continue
+          }
+
+          // 🚨 CRITICAL: 既存削除OFFの場合、重複チェック
+          if (!replaceExisting && event.store_id) {
+            const eventTimeSlot = getTimeSlot(event.start_time)
+            const hasConflict = existingEvents.some(existing => {
+              if (existing.is_cancelled) return false
+              if (existing.date !== event.date) return false
+              if (existing.store_id !== event.store_id) return false
+              const existingTimeSlot = getTimeSlot(existing.start_time)
+              return existingTimeSlot === eventTimeSlot
+            })
+            
+            if (hasConflict) {
+              skippedCount++
+              errors.push(`${event.date} ${event.venue} - ${event.scenario}: 同じセルに既存の公演があるためスキップしました`)
+              continue
+            }
           }
 
           const { error } = await supabase

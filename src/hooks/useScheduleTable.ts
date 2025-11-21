@@ -66,6 +66,7 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
 
   // コンテキストメニュー操作
   const contextMenuActions = useContextMenuActions({
+    events,
     stores,
     setEvents
   })
@@ -202,6 +203,7 @@ export function useScheduleTableModals(currentDate: Date) {
   })
 
   const contextMenuActions = useContextMenuActions({
+    events,
     stores,
     setEvents
   })
