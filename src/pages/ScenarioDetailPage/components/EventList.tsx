@@ -57,18 +57,18 @@ export const EventList = memo(function EventList({
             }}
           >
             <div className="flex items-center gap-3 p-3 touch-manipulation min-h-[64px]">
-              {/* 左側：日付と時間・店舗情報 */}
-              <div className="flex items-center gap-3 flex-shrink-0">
-                {/* 日付 */}
-                <div className="text-base whitespace-nowrap min-w-[50px] text-center flex-shrink-0 flex flex-col justify-center">
-                  <div className="font-medium">{month}/{day}</div>
-                  <div className={`text-xs ${weekdayColor}`}>
-                    ({weekday})
-                  </div>
+              {/* 左側：日付 */}
+              <div className="text-base whitespace-nowrap min-w-[50px] text-center flex-shrink-0 flex flex-col justify-center">
+                <div className="font-medium leading-tight">{month}/{day}</div>
+                <div className={`text-xs leading-tight ${weekdayColor}`}>
+                  ({weekday})
                 </div>
-                
-                {/* 時間 + 店舗カラーの正方形 + 店舗名（縦並び） */}
-                <div className="flex flex-col gap-1 flex-shrink-0 justify-center">
+              </div>
+              
+              {/* 中央：時間+店舗(上) + タイトル(下) */}
+              <div className="flex flex-col gap-1 flex-1 min-w-0 justify-center">
+                {/* 時間 + 店舗 */}
+                <div className="flex items-center gap-2">
                   <span className="font-bold text-base whitespace-nowrap">
                     {formatTime(event.start_time)}〜
                   </span>
@@ -89,10 +89,7 @@ export const EventList = memo(function EventList({
                     </span>
                   </div>
                 </div>
-              </div>
-              
-              {/* 中央：タイトル（縦センタリング） */}
-              <div className="flex items-center flex-1 min-w-0 px-2">
+                {/* タイトル */}
                 <div className="text-sm text-muted-foreground truncate">
                   {event.scenario_title || scenarioTitle}
                 </div>
