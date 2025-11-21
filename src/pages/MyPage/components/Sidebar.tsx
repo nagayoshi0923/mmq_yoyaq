@@ -1,4 +1,4 @@
-import { User, Calendar, Settings, Shield, Star, Play } from 'lucide-react'
+import { User, Calendar, Settings, Shield, Star, Images } from 'lucide-react'
 
 interface SidebarProps {
   currentPage: string
@@ -8,8 +8,8 @@ interface SidebarProps {
 const menuItems = [
   { id: 'profile', label: 'プロフィール', icon: User },
   { id: 'reservations', label: '予約履歴', icon: Calendar },
-  { id: 'played-scenarios', label: '遊んだシナリオ', icon: Play },
-  { id: 'want-to-play', label: '遊びたいシナリオ', icon: Star },
+  { id: 'album', label: 'アルバム', icon: Images },
+  { id: 'want-to-play', label: '遊びたい', icon: Star },
   { id: 'account', label: 'アカウント', icon: Shield },
   { id: 'settings', label: '設定', icon: Settings },
 ]
