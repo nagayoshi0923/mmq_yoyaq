@@ -20,11 +20,11 @@ export default {
         'full': '100%',
       },
       fontSize: {
-        // シンプルな4段階
-        'xs': ['12px', { lineHeight: '1.4' }],      // バッジ・補足
-        'sm': ['14px', { lineHeight: '1.5' }],      // 小テキスト
-        'base': ['16px', { lineHeight: '1.6' }],    // 本文（デフォルト）
-        'lg': ['20px', { lineHeight: '1.4' }],      // 見出し
+        // シンプルな4段階（全サイズ4px上げ）
+        'xs': ['16px', { lineHeight: '1.4' }],      // バッジ・補足
+        'sm': ['18px', { lineHeight: '1.5' }],      // 小テキスト
+        'base': ['22px', { lineHeight: '1.6' }],    // 本文（デフォルト、PC版基準）
+        'lg': ['26px', { lineHeight: '1.4' }],      // 見出し
       },
       colors: {
         border: "hsl(var(--border))",
