@@ -49,8 +49,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   return (
     <div>
       {/* 店舗選択 */}
-      <div className="mb-3">
-        <label className="text-base font-medium mb-1.5 block">店舗を選択</label>
+      <div className="mb-4 sm:mb-5">
+        <label className="text-lg font-medium mb-2 block">店舗を選択</label>
         <MultiSelect
           options={stores.map(store => ({
             id: store.id,
@@ -86,24 +86,24 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       </div>
       
       {/* 月切り替え */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4 sm:mb-5">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onMonthChange(-1)}
           disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
-          className="text-base"
+          className="text-lg h-9"
         >
           &lt; 前月
         </Button>
-        <h3 className="font-bold text-base">
+        <h3 className="font-bold text-lg sm:text-xl">
           {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
         </h3>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onMonthChange(1)}
-          className="text-base"
+          className="text-lg h-9"
         >
           次月 &gt;
         </Button>
@@ -123,18 +123,18 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           
           return (
             <Card key={date}>
-              <CardContent className="p-2.5">
-                <div className="flex items-center gap-2">
+              <CardContent className="p-3 sm:p-3.5">
+                <div className="flex items-center gap-2.5 sm:gap-3">
                   {/* 日付 */}
-                  <div className="font-semibold text-base whitespace-nowrap min-w-[45px] text-center">
+                  <div className="font-semibold text-lg sm:text-xl whitespace-nowrap min-w-[50px] text-center">
                     <div>{month}/{day}</div>
-                    <div className={`text-xs ${weekdayColor}`}>
+                    <div className={`text-xs sm:text-sm ${weekdayColor}`}>
                       ({weekday})
                     </div>
                   </div>
                   
                   {/* 時間枠ボタン */}
-                  <div className="flex gap-1 flex-1">
+                  <div className="flex gap-1.5 flex-1">
                     {timeSlots.map((slot) => {
                       const isAvailable = checkTimeSlotAvailability(date, slot, selectedStoreIds.length > 0 ? selectedStoreIds : undefined)
                       const isSelected = isTimeSlotSelected(date, slot)
@@ -144,7 +144,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                           key={slot.label}
                           variant={isSelected ? "default" : "outline"}
                           size="sm"
-                          className={`flex-1 py-2 min-h-[48px] text-sm px-1 ${
+                          className={`flex-1 py-2.5 min-h-[52px] text-base px-1 ${
                             !isAvailable 
                               ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
                               : isSelected

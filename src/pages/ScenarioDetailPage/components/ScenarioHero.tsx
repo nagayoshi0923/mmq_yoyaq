@@ -43,10 +43,10 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
           </div>
 
           {/* タイトル・基本情報 */}
-          <div className="lg:col-span-8 space-y-2 sm:space-y-3 md:space-y-4">
+          <div className="lg:col-span-8 space-y-3 sm:space-y-4 md:space-y-5">
             <div>
-              <p className="text-sm opacity-80 mb-1">{scenario.author}</p>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1.5 sm:mb-2 md:mb-3 leading-tight">{scenario.scenario_title}</h1>
+              <p className="text-sm opacity-80 mb-2">{scenario.author}</p>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4 leading-tight">{scenario.scenario_title}</h1>
               
               <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
                 <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-base">
@@ -68,12 +68,12 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
             </div>
 
             {scenario.description && (
-              <p className="opacity-90 leading-relaxed text-base">
+              <p className="opacity-90 leading-relaxed text-base mt-3 sm:mt-4">
                 {scenario.description}
               </p>
             )}
 
-            <div className="flex flex-wrap gap-1 sm:gap-1.5">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-3 sm:mt-4">
               {scenario.genre.map((g, i) => (
                 <Badge key={i} variant="outline" className="bg-white/20 text-white border-white/30 text-xs px-1.5 sm:px-2 py-0.5 rounded-sm">
                   {g}

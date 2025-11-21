@@ -213,15 +213,15 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 className="w-full" 
                 onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
               >
-                <TabsList className="grid w-full grid-cols-2 mb-3 sm:mb-4 h-9 sm:h-10">
-                  <TabsTrigger value="schedule" className="text-xs sm:text-sm">公演日程</TabsTrigger>
-                  <TabsTrigger value="private" className="text-xs sm:text-sm">貸切リクエスト</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 mb-3 sm:mb-4 h-10 sm:h-11">
+                  <TabsTrigger value="schedule" className="text-base sm:text-lg">公演日程</TabsTrigger>
+                  <TabsTrigger value="private" className="text-base sm:text-lg">貸切リクエスト</TabsTrigger>
                 </TabsList>
                 
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">日付を選択</h3>
+                    <h3 className="font-bold mb-2 sm:mb-3 text-lg sm:text-xl">日付を選択</h3>
                     <EventList
                       events={events}
                       selectedEventId={selectedEventId}

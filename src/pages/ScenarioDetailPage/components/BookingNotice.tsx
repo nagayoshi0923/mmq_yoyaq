@@ -12,10 +12,10 @@ export const BookingNotice = memo(function BookingNotice({
 }: BookingNoticeProps) {
   return (
     <div>
-      <h3 className="font-bold mb-2 sm:mb-3 text-base">注意事項</h3>
+      <h3 className="font-bold mb-3 sm:mb-4 text-lg sm:text-xl">注意事項</h3>
       <Card>
-        <CardContent className="p-3 sm:p-4">
-          <ul className="space-y-1.5 sm:space-y-2 text-sm text-muted-foreground">
+        <CardContent className="p-3 sm:p-4 md:p-5">
+          <ul className="space-y-2 sm:space-y-2.5 text-base text-muted-foreground">
             <li>• 予約は公演開始の{reservationDeadlineHours}時間前まで可能です</li>
             <li>• キャンセルは公演開始の24時間前まで無料で可能です</li>
             <li>• 遅刻された場合、入場をお断りする場合がございます</li>
