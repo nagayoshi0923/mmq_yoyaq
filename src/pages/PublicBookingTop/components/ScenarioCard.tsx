@@ -123,17 +123,17 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         </h3>
 
         {/* 人数・時間・参加費 */}
-        <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
-          <div className="flex items-center gap-0.5 sm:gap-1">
-            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+        <div className="flex items-center gap-1 sm:gap-1 text-xs text-gray-600 mt-0.5 sm:mt-0.5">
+          <div className="flex items-center gap-0.5">
+            <Users className="h-3 w-3" />
             <span>
               {scenario.player_count_min === scenario.player_count_max
                 ? `${scenario.player_count_max}人`
                 : `${scenario.player_count_min}~${scenario.player_count_max}人`}
             </span>
           </div>
-          <div className="flex items-center gap-0.5 sm:gap-1">
-            <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+          <div className="flex items-center gap-0.5">
+            <Clock className="h-3 w-3" />
             <span>{scenario.duration}分</span>
           </div>
           {scenario.participation_fee && (
