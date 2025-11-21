@@ -67,25 +67,27 @@ export const EventList = memo(function EventList({
                   </div>
                 </div>
                 
-                {/* 時間 + 店舗カラーの正方形 + 店舗名 */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                {/* 時間 + 店舗カラーの正方形 + 店舗名（縦並び） */}
+                <div className="flex flex-col gap-1 flex-shrink-0">
                   <span className="font-bold text-base whitespace-nowrap">
                     {formatTime(event.start_time)}〜
                   </span>
-                  <div 
-                    className="flex-shrink-0 w-3 h-3 rounded-sm"
-                    style={{ 
-                      backgroundColor: event.store_color || '#9CA3AF'
-                    }}
-                  />
-                  <span 
-                    className="text-sm whitespace-nowrap"
-                    style={{ 
-                      color: event.store_color || '#6B7280'
-                    }}
-                  >
-                    {event.store_short_name}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <div 
+                      className="flex-shrink-0 w-3 h-3 rounded-sm"
+                      style={{ 
+                        backgroundColor: event.store_color || '#9CA3AF'
+                      }}
+                    />
+                    <span 
+                      className="text-sm whitespace-nowrap"
+                      style={{ 
+                        color: event.store_color || '#6B7280'
+                      }}
+                    >
+                      {event.store_short_name}
+                    </span>
+                  </div>
                 </div>
               </div>
               
