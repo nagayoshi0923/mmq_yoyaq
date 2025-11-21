@@ -76,7 +76,7 @@ export const EventList = memo(function EventList({
                   <span className="text-sm whitespace-nowrap">
                     {month}/{day} <span className={`text-sm ${weekdayColor}`}>({weekday})</span>
                   </span>
-                  <span className="font-bold text-sm whitespace-nowrap">
+                  <span className="text-sm whitespace-nowrap">
                     {formatTime(event.start_time)}〜
                   </span>
                 </div>
