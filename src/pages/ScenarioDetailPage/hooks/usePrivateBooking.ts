@@ -100,13 +100,28 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     // 店舗データがまだ読み込まれていない場合は、とりあえずtrueを返す（後で再評価される）
     if (stores.length === 0) return true
     
-    // 店舗が選択されている場合
+    // allStoreEventsがまだ読み込まれていない場合は、とりあえずtrueを返す（後で再評価される）
+    // ただし、選択された店舗がある場合は、より慎重に判定する
+    if (allStoreEvents.length === 0) {
+      // 店舗が選択されている場合は、イベントデータがないのでfalseを返す（安全側に倒す）
+      if (storeIds && storeIds.length > 0) return false
+      return true
+    }
+    
+    // 店舗が選択されている場合：選択された店舗のいずれかで空きがあればtrue
     if (storeIds && storeIds.length > 0) {
-      return storeIds.some(storeId => {
-        // そのシナリオを公演可能な店舗かチェック
-        // availableStoreIdsが空の場合は全店舗対象なのでチェックしない
-        if (availableStoreIds.size > 0 && !availableStoreIds.has(storeId)) return false
-        
+      // 選択された店舗のうち、そのシナリオを公演可能な店舗のみをフィルタリング
+      const validStoreIds = storeIds.filter(storeId => {
+        // availableStoreIdsが空の場合は全店舗対象
+        if (availableStoreIds.size === 0) return true
+        return availableStoreIds.has(storeId)
+      })
+      
+      // 有効な店舗がない場合はfalse
+      if (validStoreIds.length === 0) return false
+      
+      // 各店舗の空き状況をチェック
+      const storeAvailability = validStoreIds.map(storeId => {
         // その店舗のイベントをフィルタリング
         const storeEvents = allStoreEvents.filter((e: any) => {
           const eventStoreId = getEventStoreId(e)
@@ -129,6 +144,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         
         return !hasConflict
       })
+      
+      // いずれかの店舗で空きがあればtrue
+      return storeAvailability.some(available => available === true)
     }
     
     // 店舗が選択されていない場合：そのシナリオを公演可能な店舗のみを対象
