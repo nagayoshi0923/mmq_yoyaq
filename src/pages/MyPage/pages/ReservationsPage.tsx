@@ -322,6 +322,7 @@ export function ReservationsPage() {
                   </div>
                   {getStoreInfo(reservation) && (
                     <div className="w-full text-xs sm:text-sm text-muted-foreground space-y-0.5 mt-2 pt-2 border-t">
+                      <div className="text-xs sm:text-sm text-muted-foreground mb-1">会場</div>
                       <div className="flex items-center gap-1">
                         <MapPin className="h-3 w-3 flex-shrink-0" />
                         <span className="font-medium">{getStoreInfo(reservation)?.name}</span>
