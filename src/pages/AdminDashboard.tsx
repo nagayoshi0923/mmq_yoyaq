@@ -435,7 +435,7 @@ export function AdminDashboard() {
         <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
       )}
 
-      <main className="container mx-auto max-w-7xl px-3 xs:px-3.5 sm:px-4 md:px-6 lg:px-8 py-2.5 xs:py-3 sm:py-4 md:py-6">
+      <main className="container mx-auto max-w-7xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-2.5 xs:py-3 sm:py-4 md:py-6">
         <div className="space-y-2.5 xs:space-y-3 sm:space-y-4 md:space-y-6">
           {/* 概要統計 */}
           <section>

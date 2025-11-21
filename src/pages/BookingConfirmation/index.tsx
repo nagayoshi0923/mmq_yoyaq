@@ -104,7 +104,7 @@ export function BookingConfirmation({
         <Header />
         <NavigationBar currentPage="customer-booking" />
         
-        <div className="container mx-auto max-w-3xl px-3 xs:px-4 sm:px-6 py-8 xs:py-10 sm:py-12">
+        <div className="container mx-auto max-w-3xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-8 xs:py-10 sm:py-12">
           <Card className="border-2 border-green-200 bg-green-50">
             <CardContent className="p-4 xs:p-6 sm:p-8 text-center space-y-4">
               <CheckCircle2 className="w-12 xs:w-14 sm:w-16 h-12 xs:h-14 sm:h-16 text-green-600 mx-auto" />
@@ -137,7 +137,7 @@ export function BookingConfirmation({
 
       {/* 戻るボタン */}
       <div className="bg-background border-b sticky top-0 z-10">
-        <div className="container mx-auto max-w-5xl px-3 xs:px-4 sm:px-6 py-1.5 xs:py-2">
+        <div className="container mx-auto max-w-5xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-1.5 xs:py-2">
           <Button variant="ghost" onClick={onBack} className="flex items-center gap-0.5 xs:gap-1 sm:gap-1.5 hover:bg-accent h-8 xs:h-9 sm:h-10 px-1.5 xs:px-2 sm:px-3 text-xs">
             <ArrowLeft className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5 flex-shrink-0" />
             <span className="hidden xs:inline">シナリオ詳細に戻る</span>
@@ -146,7 +146,7 @@ export function BookingConfirmation({
         </div>
       </div>
 
-      <div className="container mx-auto max-w-5xl px-3 xs:px-4 sm:px-6 py-4 xs:py-5 sm:py-6">
+      <div className="container mx-auto max-w-5xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-4 xs:py-5 sm:py-6">
         <h1 className="text-xl xs:text-2xl sm:text-3xl font-bold mb-4 xs:mb-5 sm:mb-6 leading-tight">予約確認</h1>
 
         {error && (

@@ -50,7 +50,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
     <div>
       {/* 店舗選択 */}
       <div className="mb-3">
-        <label className="text-sm font-medium mb-1.5 block">店舗を選択</label>
+        <label className="text-base font-medium mb-1.5 block">店舗を選択</label>
         <MultiSelect
           options={stores.map(store => ({
             id: store.id,
@@ -92,16 +92,18 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           size="sm"
           onClick={() => onMonthChange(-1)}
           disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
+          className="text-base"
         >
           &lt; 前月
         </Button>
-        <h3 className="font-bold">
+        <h3 className="font-bold text-base">
           {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
         </h3>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onMonthChange(1)}
+          className="text-base"
         >
           次月 &gt;
         </Button>
@@ -121,10 +123,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           
           return (
             <Card key={date}>
-              <CardContent className="p-2">
+              <CardContent className="p-2.5">
                 <div className="flex items-center gap-2">
                   {/* 日付 */}
-                  <div className="font-semibold text-sm whitespace-nowrap min-w-[45px] text-center">
+                  <div className="font-semibold text-base whitespace-nowrap min-w-[45px] text-center">
                     <div>{month}/{day}</div>
                     <div className={`text-xs ${weekdayColor}`}>
                       ({weekday})
@@ -142,7 +144,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                           key={slot.label}
                           variant={isSelected ? "default" : "outline"}
                           size="sm"
-                          className={`flex-1 py-1.5 min-h-[48px] text-xs px-1 ${
+                          className={`flex-1 py-2 min-h-[48px] text-sm px-1 ${
                             !isAvailable 
                               ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
                               : isSelected

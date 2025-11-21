@@ -89,7 +89,7 @@ export function PrivateBookingRequest({
         <Header />
         <NavigationBar currentPage="customer-booking" />
         
-        <div className="container mx-auto max-w-3xl px-6 py-12">
+        <div className="container mx-auto max-w-3xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-12">
           <Card className="border-2 border-purple-200 bg-purple-50">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-purple-600 mx-auto" />
@@ -123,7 +123,7 @@ export function PrivateBookingRequest({
 
       {/* 戻るボタン */}
       <div className="bg-background border-b">
-        <div className="container mx-auto max-w-5xl px-6 py-2">
+        <div className="container mx-auto max-w-5xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-2">
           <Button variant="ghost" onClick={onBack} className="flex items-center gap-1.5 hover:bg-accent h-8 px-2">
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm">シナリオ詳細に戻る</span>
@@ -131,7 +131,7 @@ export function PrivateBookingRequest({
         </div>
       </div>
 
-      <div className="container mx-auto max-w-5xl px-6 py-6">
+      <div className="container mx-auto max-w-5xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-6">
         <h1 className="text-3xl font-bold mb-6">貸切予約リクエスト</h1>
 
         {error && (
