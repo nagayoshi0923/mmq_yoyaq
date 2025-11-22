@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
@@ -266,12 +267,12 @@ export function UserManagement() {
         <CardContent className="p-3 sm:p-4 md:p-6">
           <form onSubmit={handleSearch} className="space-y-3 sm:space-y-4">
             <div className="flex flex-col sm:flex-row gap-2">
-              <input
+              <Input
                 type="email"
                 value={searchEmail}
                 onChange={(e) => setSearchEmail(e.target.value)}
                 placeholder="user@example.com"
-                className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring text-xs sm:text-sm"
+                className="flex-1 text-xs sm:text-sm"
                 disabled={loading}
               />
               <Button type="submit" disabled={loading} className="text-xs sm:text-sm">
