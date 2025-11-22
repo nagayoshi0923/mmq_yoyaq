@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
@@ -448,7 +449,7 @@ export function PrivateBookingManagement() {
               </CardHeader>
               <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6">
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">却下理由</label>
+                  <Label className="block text-xs sm:text-sm mb-1 sm:mb-2">却下理由</Label>
                   <Textarea
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
