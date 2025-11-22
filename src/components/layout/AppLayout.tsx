@@ -45,9 +45,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         
         {/* メインエリア */}
         <div className="flex-1 flex min-h-0">
-          {/* サイドバー（デスクトップのみ表示） */}
+          {/* サイドバー */}
           {sidebar && (
-            <div className="hidden lg:flex flex-col border-r overflow-y-auto">
+            <div className="border-r border-slate-200">
               {sidebar}
             </div>
           )}
@@ -59,9 +59,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             </div>
           </div>
         </div>
-        
-        {/* サイドバー（モバイル: ハンバーガーメニュー） */}
-        {sidebar}
       </div>
     )
   }
@@ -73,9 +70,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       <NavigationBar currentPage={currentPage} />
       
       <div className="flex">
-        {/* サイドバー（デスクトップのみ表示） */}
+        {/* サイドバー */}
         {sidebar && (
-          <div className="hidden lg:block">
+          <div className="border-r border-slate-200">
             {sidebar}
           </div>
         )}
@@ -87,9 +84,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </div>
         </div>
       </div>
-      
-      {/* サイドバー（モバイル: ハンバーガーメニュー） */}
-      {sidebar}
     </div>
   )
 }
