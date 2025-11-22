@@ -313,17 +313,17 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
             
             <input
               type="date"
-              className="border rounded px-1 py-0.5 w-[130px]"
+              className="form-date-input w-[130px]"
               value={item.startDate || ''}
-              onChange={e => updateItem(index, 'startDate', e.target.value)}
+              onChange={e => updateItem(originalIndex, 'startDate', e.target.value)}
               disabled={item.status === 'legacy'}
             />
             <span className="mx-1">〜</span>
             <input
               type="date"
-              className="border rounded px-1 py-0.5 w-[130px]"
+              className="form-date-input w-[130px]"
               value={item.endDate || ''}
-              onChange={e => updateItem(index, 'endDate', e.target.value)}
+              onChange={e => updateItem(originalIndex, 'endDate', e.target.value)}
               disabled={item.status === 'legacy'}
             />
             
