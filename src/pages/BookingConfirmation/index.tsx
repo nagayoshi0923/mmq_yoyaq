@@ -2,6 +2,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Minus, Plus } from 'lucide-react'
@@ -238,7 +239,7 @@ export function BookingConfirmation({
               <Card>
                 <CardContent className="p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">お名前 *</label>
+                    <Label className="text-sm mb-2 block">お名前 *</Label>
                     <Input
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
@@ -249,7 +250,7 @@ export function BookingConfirmation({
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-2 block">メールアドレス *</label>
+                    <Label className="text-sm mb-2 block">メールアドレス *</Label>
                     <Input
                       type="email"
                       value={customerEmail}
@@ -261,7 +262,7 @@ export function BookingConfirmation({
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-2 block">電話番号 *</label>
+                    <Label className="text-sm mb-2 block">電話番号 *</Label>
                     <Input
                       type="tel"
                       value={customerPhone}
@@ -273,7 +274,7 @@ export function BookingConfirmation({
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-2 block">備考（任意）</label>
+                    <Label className="text-sm mb-2 block">備考（任意）</Label>
                     <Textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
