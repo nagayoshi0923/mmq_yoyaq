@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -175,7 +176,7 @@ export function ReservationManagement() {
           <CardContent className="p-3 sm:p-4 md:p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               <div>
-                <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">検索</label>
+                <Label className="text-xs sm:text-sm mb-1 sm:mb-2 block">検索</Label>
                 <div className="relative">
                   <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
                   <Input
@@ -187,7 +188,7 @@ export function ReservationManagement() {
                 </div>
               </div>
               <div>
-                <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">ステータス</label>
+                <Label className="text-xs sm:text-sm mb-1 sm:mb-2 block">ステータス</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="text-xs sm:text-sm">
                     <SelectValue />
@@ -201,7 +202,7 @@ export function ReservationManagement() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">支払い状況</label>
+                <Label className="text-xs sm:text-sm mb-1 sm:mb-2 block">支払い状況</Label>
                 <Select value={paymentFilter} onValueChange={setPaymentFilter}>
                   <SelectTrigger className="text-xs sm:text-sm">
                     <SelectValue />
@@ -215,7 +216,7 @@ export function ReservationManagement() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">予約種別</label>
+                <Label className="text-xs sm:text-sm mb-1 sm:mb-2 block">予約種別</Label>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
                   <SelectTrigger className="text-xs sm:text-sm">
                     <SelectValue />
