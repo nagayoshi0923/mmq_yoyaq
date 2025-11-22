@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js'
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
+  isInitialized: boolean  // 初期認証が完了したか（タイムアウトではなく、実際に完了）
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
 }
@@ -27,6 +28,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)  // 認証完了フラグ
   const [staffCache, setStaffCache] = useState<Map<string, string>>(new Map())
   // 最新のユーザー情報を保持するためのref（クロージャー問題を回避）
   const userRef = React.useRef<AuthUser | null>(null)
@@ -57,9 +59,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const authEndTime = performance.now()
       console.log(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
       setLoading(false)
+      setIsInitialized(true)  // 認証完了をマーク
     }).catch(() => {
       clearTimeout(loadingTimeout)
       setLoading(false)
+      setIsInitialized(true)  // エラーでも完了とみなす
     })
 
     // 認証状態の変更を監視
@@ -78,6 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (session?.user && userRef.current && userRef.current.id === session.user.id) {
           logger.log('⏭️ 既に同じユーザーが設定されているためスキップ:', event)
           setLoading(false)
+          setIsInitialized(true)  // 認証完了をマーク
           return
         }
         
@@ -86,6 +91,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // トークンリフレッシュ時は、既存のユーザー情報があればロールを維持
           logger.log('🔄 トークンリフレッシュ検出、既存ロールを維持:', userRef.current.role)
           setLoading(false)
+          setIsInitialized(true)  // 認証完了をマーク
           return
         }
         
@@ -93,6 +99,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (event === 'INITIAL_SESSION' && userRef.current) {
           logger.log('⏭️ 初期セッションは既に処理済みのためスキップ')
           setLoading(false)
+          setIsInitialized(true)  // 認証完了をマーク
           return
         }
         
@@ -103,6 +110,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           userRef.current = null
         }
         setLoading(false)
+        setIsInitialized(true)  // 認証完了をマーク
       }
     )
 
@@ -349,6 +357,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value = {
     user,
     loading,
+    isInitialized,
     signIn,
     signOut,
   }

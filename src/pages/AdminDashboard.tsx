@@ -39,7 +39,7 @@ const AddDemoParticipants = lazy(() => import('./AddDemoParticipants').then(m =>
 const ScenarioMatcher = lazy(() => import('./ScenarioMatcher').then(m => ({ default: m.ScenarioMatcher })))
 
 export function AdminDashboard() {
-  const { user } = useAuth()
+  const { user, isInitialized } = useAuth()
 
   // 管理ツールのページ一覧（顧客がアクセスできないページ）
   const adminOnlyPages = [
@@ -112,15 +112,10 @@ export function AdminDashboard() {
 
   const [currentPage, setCurrentPage] = useState(() => {
     const hash = window.location.hash.slice(1)
-    // ログアウト状態または顧客アカウントの場合、デフォルトは予約サイト
-    if (!user || user.role === 'customer') {
-      if (!hash || hash.split('?')[0] === 'login' || hash.split('?')[0] === '') {
-        return 'customer-booking'
-      }
-    }
-    // ハッシュがない場合はダッシュボードを表示（ユーザーロールによる判定は後で行う）
+    // ⚠️ 初期化時はユーザー状態を参照せず、ハッシュをそのまま使用
+    // ユーザー状態によるリダイレクトはuseEffect内で処理
     if (!hash) return 'dashboard'
-    const { page } = parseHash(hash, user?.role)
+    const { page } = parseHash(hash, undefined)  // userRoleは渡さない
     return page
   })
   
@@ -149,7 +144,13 @@ export function AdminDashboard() {
   }, [])
 
   // ユーザーロールが確定したときに初回リダイレクト
+  // ⚠️ 重要: 認証完了後のみリダイレクト（早期表示時はリダイレクトしない）
   React.useEffect(() => {
+    // 認証が完了していない場合は何もしない（現在のページを維持）
+    if (!isInitialized) {
+      return
+    }
+
     // ログアウト状態または顧客アカウントの場合
     const isCustomerOrLoggedOut = !user || user.role === 'customer'
     
@@ -181,21 +182,24 @@ export function AdminDashboard() {
         // ダッシュボードはそのまま表示
       }
     }
-  }, [user, currentPage])
+  }, [user, currentPage, isInitialized])
 
   // ブラウザの戻る/進むボタンに対応
   React.useEffect(() => {
     const handleHashChange = () => {
       const { page, scenarioId } = parseHash(window.location.hash.slice(1), user?.role)
       
-      // ログアウト状態または顧客アカウントの場合、管理ツールのページへのアクセスを制限
-      const isCustomerOrLoggedOut = !user || user.role === 'customer'
-      const restrictedPages = ['dashboard', 'stores', 'staff', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'add-demo-participants', 'scenario-matcher']
-      if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
-        // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
-        setCurrentPage('customer-booking')
-        window.location.hash = 'customer-booking'
-        return
+      // ⚠️ 認証完了後のみリダイレクト判定を行う
+      if (isInitialized) {
+        // ログアウト状態または顧客アカウントの場合、管理ツールのページへのアクセスを制限
+        const isCustomerOrLoggedOut = !user || user.role === 'customer'
+        const restrictedPages = ['dashboard', 'stores', 'staff', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'add-demo-participants', 'scenario-matcher']
+        if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
+          // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+          setCurrentPage('customer-booking')
+          window.location.hash = 'customer-booking'
+          return
+        }
       }
       
       setCurrentPage(page)
@@ -204,7 +208,7 @@ export function AdminDashboard() {
 
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [user?.role, user])
+  }, [user?.role, user, isInitialized])
 
   // 統計情報を遅延ロード（ダッシュボード表示をブロックしない）
   const [stats, setStats] = React.useState({
