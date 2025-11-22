@@ -30,27 +30,22 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
     {
       key: 'date',
       header: '日付',
-      width: 'w-12 sm:w-16 md:w-20',
+      width: 'w-[50px] sm:w-16 md:w-20',
       sortable: false,
+      align: 'center',
       render: (row) => (
-        <p className="font-medium text-xs">{row.dayInfo.displayDate}</p>
-      )
-    },
-    {
-      key: 'dayOfWeek',
-      header: '曜日',
-      width: 'w-10 sm:w-12 md:w-16',
-      sortable: false,
-      render: (row) => (
-        <p className={`text-xs font-medium ${getDayOfWeekColor(row.dayInfo.dayOfWeek)}`}>
-          {row.dayInfo.dayOfWeek}
-        </p>
+        <div className="flex flex-col items-center">
+          <p className="font-medium text-xs leading-tight">{row.dayInfo.displayDate}</p>
+          <p className={`text-xs font-medium leading-tight ${getDayOfWeekColor(row.dayInfo.dayOfWeek)}`}>
+            {row.dayInfo.dayOfWeek}
+          </p>
+        </div>
       )
     },
     {
       key: 'morning',
       header: '午前',
-      width: undefined, // 均等に分割
+      width: 'w-[81px] sm:w-auto',
       sortable: false,
       align: 'center',
       renderHeader: () => (
@@ -80,21 +75,19 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
         </div>
       ),
       render: (row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.shiftData.morning}
-            onCheckedChange={(checked) =>
-              actions.onShiftChange(row.dayInfo.date, 'morning', checked as boolean)
-            }
-            className="h-4 w-4 sm:h-5 sm:w-5"
-          />
-        </div>
+        <Checkbox
+          checked={row.shiftData.morning}
+          onCheckedChange={(checked) =>
+            actions.onShiftChange(row.dayInfo.date, 'morning', checked as boolean)
+          }
+          className="h-4 w-4 sm:h-5 sm:w-5 mx-auto"
+        />
       )
     },
     {
       key: 'afternoon',
       header: '午後',
-      width: undefined, // 均等に分割
+      width: 'w-[81px] sm:w-auto',
       sortable: false,
       align: 'center',
       renderHeader: () => (
@@ -124,21 +117,19 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
         </div>
       ),
       render: (row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.shiftData.afternoon}
-            onCheckedChange={(checked) =>
-              actions.onShiftChange(row.dayInfo.date, 'afternoon', checked as boolean)
-            }
-            className="h-4 w-4 sm:h-5 sm:w-5"
-          />
-        </div>
+        <Checkbox
+          checked={row.shiftData.afternoon}
+          onCheckedChange={(checked) =>
+            actions.onShiftChange(row.dayInfo.date, 'afternoon', checked as boolean)
+          }
+          className="h-4 w-4 sm:h-5 sm:w-5 mx-auto"
+        />
       )
     },
     {
       key: 'evening',
       header: '夜間',
-      width: undefined, // 均等に分割
+      width: 'w-[81px] sm:w-auto',
       sortable: false,
       align: 'center',
       renderHeader: () => (
@@ -168,21 +159,19 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
         </div>
       ),
       render: (row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.shiftData.evening}
-            onCheckedChange={(checked) =>
-              actions.onShiftChange(row.dayInfo.date, 'evening', checked as boolean)
-            }
-            className="h-4 w-4 sm:h-5 sm:w-5"
-          />
-        </div>
+        <Checkbox
+          checked={row.shiftData.evening}
+          onCheckedChange={(checked) =>
+            actions.onShiftChange(row.dayInfo.date, 'evening', checked as boolean)
+          }
+          className="h-4 w-4 sm:h-5 sm:w-5 mx-auto"
+        />
       )
     },
     {
       key: 'all_day',
       header: '終日',
-      width: undefined, // 均等に分割
+      width: 'w-[81px] sm:w-auto',
       sortable: false,
       align: 'center',
       renderHeader: () => (
@@ -212,15 +201,13 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
         </div>
       ),
       render: (row) => (
-        <div className="flex justify-center">
-          <Checkbox
-            checked={row.shiftData.all_day}
-            onCheckedChange={(checked) =>
-              actions.onShiftChange(row.dayInfo.date, 'all_day', checked as boolean)
-            }
-            className="h-4 w-4 sm:h-5 sm:w-5"
-          />
-        </div>
+        <Checkbox
+          checked={row.shiftData.all_day}
+          onCheckedChange={(checked) =>
+            actions.onShiftChange(row.dayInfo.date, 'all_day', checked as boolean)
+          }
+          className="h-4 w-4 sm:h-5 sm:w-5 mx-auto"
+        />
       )
     }
   ]
