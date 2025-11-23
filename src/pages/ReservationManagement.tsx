@@ -135,7 +135,13 @@ export function ReservationManagement() {
       stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        <div></div>
+        {/* ページヘッダー */}
+        <div className="mb-6">
+          <h1>予約管理</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            予約の確認・検索・ステータス管理を行います
+          </p>
+        </div>
 
         {/* 統計サマリー */}
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
