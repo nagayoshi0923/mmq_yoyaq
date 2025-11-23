@@ -78,7 +78,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-blue-600 flex-shrink-0" />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-lg sm:text-base md:text-lg lg:text-lg text-blue-900 leading-tight">
+            <div className="text-base md:text-lg text-blue-900 leading-tight">
               {formatCurrency(totalRevenue)}
             </div>
             <p className="text-xs text-blue-700 mt-0.5 sm:mt-1 leading-tight">
@@ -93,7 +93,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-red-600 flex-shrink-0" />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-lg sm:text-base md:text-lg lg:text-lg text-red-900 leading-tight">
+            <div className="text-base md:text-lg text-red-900 leading-tight">
               {formatCurrency(totalExpenses)}
             </div>
             <p className="text-xs text-red-700 mt-0.5 sm:mt-1 leading-tight break-words">
@@ -108,7 +108,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <DollarSign className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 ${netProfit >= 0 ? 'text-green-600' : 'text-gray-600'} flex-shrink-0`} />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className={`text-lg sm:text-base md:text-lg lg:text-lg ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'} leading-tight`}>
+            <div className={`text-base md:text-lg ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'} leading-tight`}>
               {formatCurrency(netProfit)}
             </div>
             <p className={`text-xs mt-0.5 sm:mt-1 ${netProfit >= 0 ? 'text-green-700' : 'text-gray-700'} leading-tight`}>
