@@ -309,7 +309,7 @@ export function PrivateBookingManagement() {
 
               {/* 開催店舗の選択 */}
               <div className="pt-6 border-t">
-                <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
+                <h3 className="mb-3 flex items-center gap-2 text-purple-800">
                   <MapPin className="w-4 h-4" />
                   開催店舗の選択
                 </h3>
@@ -364,7 +364,7 @@ export function PrivateBookingManagement() {
               {/* 顧客メモ */}
               {selectedRequest.notes && (
                 <div>
-                  <h3 className="font-semibold mb-3 text-purple-800">お客様からのメモ</h3>
+                  <h3 className="mb-3 text-purple-800">お客様からのメモ</h3>
                   <div className="p-4 bg-background rounded-lg border">
                     <p className="text-sm whitespace-pre-wrap">{selectedRequest.notes}</p>
                   </div>
@@ -373,7 +373,7 @@ export function PrivateBookingManagement() {
 
               {/* 担当GMの選択 */}
               <div className="pt-6 border-t">
-                <h3 className="font-semibold mb-3 text-purple-800">担当GMを選択してください</h3>
+                <h3 className="mb-3 text-purple-800">担当GMを選択してください</h3>
                 <Select value={selectedGMId} onValueChange={setSelectedGMId}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="GMを選択してください" />

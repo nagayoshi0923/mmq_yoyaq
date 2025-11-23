@@ -255,7 +255,7 @@ export function ProfilePage() {
               <Mail className="h-4 w-4" />
               メールアドレス
             </Label>
-            <div className="mt-1 font-medium text-sm">{user?.email || ''}</div>
+            <div className="mt-1 text-sm">{user?.email || ''}</div>
           </div>
 
           {/* メールアドレス変更 */}
@@ -357,7 +357,7 @@ export function ProfilePage() {
                 <CalendarIcon className="h-4 w-4" />
                 登録日
               </Label>
-              <div className="mt-1 font-medium text-sm">{formatDate(user.created_at)}</div>
+              <div className="mt-1 text-sm">{formatDate(user.created_at)}</div>
             </div>
           )}
         </CardContent>

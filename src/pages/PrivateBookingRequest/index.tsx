@@ -94,7 +94,7 @@ export function PrivateBookingRequest({
           <Card className="border-2 border-purple-200 bg-purple-50">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-purple-600 mx-auto" />
-              <h2 className="text-lg font-bold text-purple-800">貸切リクエストを受け付けました！</h2>
+              <h2 className="text-lg text-purple-800">貸切リクエストを受け付けました！</h2>
               <p className="text-purple-700">
                 リクエストありがとうございます。<br />
                 確認メールを {customerEmail} に送信しました。<br />
@@ -133,7 +133,7 @@ export function PrivateBookingRequest({
       </div>
 
       <div className="container mx-auto max-w-5xl px-2 xs:px-2 sm:px-2 md:px-4 lg:px-6 xl:px-8 2xl:px-8 py-6">
-        <h1 className="text-lg font-bold mb-6">貸切予約リクエスト</h1>
+        <h1 className="text-lg mb-6">貸切予約リクエスト</h1>
 
         {error && (
           <Card className="mb-6 border-2 border-red-200 bg-red-50">
@@ -149,11 +149,11 @@ export function PrivateBookingRequest({
           <div className="lg:col-span-2 space-y-6">
             {/* シナリオ情報 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">シナリオ情報</h2>
+              <h2 className="text-lg mb-3">シナリオ情報</h2>
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div>
-                    <h3 className="font-bold text-base mb-2">{scenarioTitle}</h3>
+                    <h3 className="text-base mb-2">{scenarioTitle}</h3>
                     <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
                       貸切予約
                     </Badge>
@@ -171,7 +171,7 @@ export function PrivateBookingRequest({
 
             {/* 候補日時 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">候補日時（{selectedTimeSlots.length}件）</h2>
+              <h2 className="text-lg mb-3">候補日時（{selectedTimeSlots.length}件）</h2>
               <div className="space-y-2">
                 {selectedTimeSlots.map((slot, index) => (
                   <Card key={index}>
@@ -182,7 +182,7 @@ export function PrivateBookingRequest({
                             候補 {index + 1}
                           </Badge>
                           <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">{formatDate(slot.date)}</span>
+                          <span className="">{formatDate(slot.date)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4" />
@@ -197,7 +197,7 @@ export function PrivateBookingRequest({
 
             {/* 希望店舗 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">希望店舗</h2>
+              <h2 className="text-lg mb-3">希望店舗</h2>
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-2">
@@ -207,7 +207,7 @@ export function PrivateBookingRequest({
                         const store = stores.find(s => s.id === storeId)
                         return (
                           <div key={storeId} className="mb-2 last:mb-0">
-                            <p className="font-medium">{store?.name || ''}</p>
+                            <p className="">{store?.name || ''}</p>
                             {store?.address && (
                               <p className="text-muted-foreground text-xs">{store.address}</p>
                             )}
@@ -227,7 +227,7 @@ export function PrivateBookingRequest({
 
             {/* お客様情報 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">お客様情報</h2>
+              <h2 className="text-lg mb-3">お客様情報</h2>
               <Card>
                 <CardContent className="p-4 space-y-4">
                   <div>
@@ -279,7 +279,7 @@ export function PrivateBookingRequest({
           {/* 右側：料金サマリー */}
           <div className="space-y-6">
             <div>
-              <h2 className="font-bold text-lg mb-3">料金（目安）</h2>
+              <h2 className="text-lg mb-3">料金（目安）</h2>
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex justify-between text-sm">
@@ -293,7 +293,7 @@ export function PrivateBookingRequest({
                   </div>
 
                   <div className="border-t pt-3">
-                    <div className="flex justify-between font-bold text-lg">
+                    <div className="flex justify-between text-lg">
                       <span>合計（目安）</span>
                       <span className="text-purple-600">¥{totalPrice.toLocaleString()}</span>
                     </div>
@@ -316,7 +316,7 @@ export function PrivateBookingRequest({
 
             <Card className="border-purple-200 bg-purple-50">
               <CardContent className="p-4 text-sm text-purple-800 space-y-2">
-                <p className="font-medium">貸切予約について</p>
+                <p className="">貸切予約について</p>
                 <ul className="list-disc list-inside space-y-1 text-xs">
                   <li>ご希望の候補日時・店舗を確認後、折り返しご連絡します</li>
                   <li>開催可否は店舗の空き状況により決定されます</li>

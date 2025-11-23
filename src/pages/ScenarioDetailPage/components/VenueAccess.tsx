@@ -75,7 +75,7 @@ export const VenueAccess = memo(function VenueAccess({
 
   return (
     <div>
-      <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">
+      <h3 className="mb-2 sm:mb-3 text-sm sm:text-base">
         {mode === 'schedule' ? '会場アクセス' : '選択店舗'}
       </h3>
       <Card>
@@ -102,7 +102,7 @@ export const VenueAccess = memo(function VenueAccess({
               <div key={`${venue.name}-${index}`} className="space-y-1">
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: storeColor }} />
-                  <p className="font-bold text-sm sm:text-base" style={{ color: storeColor }}>
+                  <p className="text-sm sm:text-base" style={{ color: storeColor }}>
                     {venue.name}
                   </p>
                 </div>

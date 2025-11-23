@@ -118,7 +118,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         <p className="text-xs text-gray-500">{scenario.author}</p>
         
         {/* タイトル */}
-        <h3 className="font-bold text-sm sm:text-base truncate leading-tight mt-0.5 sm:mt-1">
+        <h3 className="text-sm sm:text-base truncate leading-tight mt-0.5 sm:mt-1">
           {scenario.scenario_title}
         </h3>
 
@@ -181,7 +181,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                     index === 0 ? 'mt-0.5 sm:mt-1' : ''
                   }`}
                 >
-                  <span className="font-medium text-gray-800">
+                  <span className="text-gray-800">
                     {dateInfo.date}
                     <span className={`ml-0.5 ${isSunday ? 'text-red-600' : isSaturday ? 'text-blue-600' : 'text-gray-600'}`}>
                       ({dateInfo.weekday})

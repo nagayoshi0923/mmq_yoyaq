@@ -421,7 +421,7 @@ export function AddDemoParticipants() {
       <div className="min-h-screen bg-gray-50 p-8">
         <div className="max-w-4xl mx-auto">
           <Card className="p-8">
-            <h1 className="text-lg font-bold mb-4">📋 デモ参加者追加ツール</h1>
+            <h1 className="text-lg mb-4">📋 デモ参加者追加ツール</h1>
             <p className="text-red-600 mb-6">
               ⚠️ このツールを使用するにはログインが必要です。
             </p>
@@ -444,7 +444,7 @@ export function AddDemoParticipants() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
         <Card className="p-8">
-          <h1 className="text-lg font-bold mb-4">📋 デモ参加者追加ツール</h1>
+          <h1 className="text-lg mb-4">📋 デモ参加者追加ツール</h1>
           <p className="text-gray-600 mb-6">
             今日以前の中止になっていない公演で、定員に達していない公演にデモ参加者を追加します。
           </p>

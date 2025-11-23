@@ -120,7 +120,7 @@ export function SetPassword() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm sm:text-base font-medium">新しいパスワード</Label>
+              <Label htmlFor="password" className="text-sm sm:text-base">新しいパスワード</Label>
               <Input
                 id="password"
                 type="password"
@@ -138,7 +138,7 @@ export function SetPassword() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm-password" className="text-sm sm:text-base font-medium">パスワード確認</Label>
+              <Label htmlFor="confirm-password" className="text-sm sm:text-base">パスワード確認</Label>
               <Input
                 id="confirm-password"
                 type="password"

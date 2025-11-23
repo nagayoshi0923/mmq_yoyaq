@@ -122,7 +122,7 @@ export const ListView = memo(function ListView({
             }`}>
               {isPrivateBooking ? (
                 <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                  <span className="text-gray-500 text-xs font-bold">MMQ</span>
+                  <span className="text-gray-500 text-xs">MMQ</span>
                 </div>
               ) : imageUrl ? (
                 <OptimizedImage
@@ -150,7 +150,7 @@ export const ListView = memo(function ListView({
 
             {/* 右カラム: 情報 */}
             <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
-              <div className="font-semibold text-sm leading-tight text-left" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+              <div className="text-sm leading-tight text-left" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                   {event.start_time?.slice(0, 5)}
                 </div>
               <div className={`text-sm font-medium leading-tight text-left truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
@@ -255,7 +255,7 @@ export const ListView = memo(function ListView({
                 {isFirstRowOfDate && (
                     <TableCell className={`hidden sm:table-cell schedule-table-cell border-r text-sm align-top w-24 ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={rowSpan}>
                       <div className="flex flex-col items-center">
-                        <div className="font-medium">{listViewMonth.getMonth() + 1}/{date}</div>
+                        <div className="">{listViewMonth.getMonth() + 1}/{date}</div>
                         <div className="text-sm">{dayOfWeek}</div>
                       </div>
                   </TableCell>
@@ -263,7 +263,7 @@ export const ListView = memo(function ListView({
 
                 {/* 店舗セル */}
                   <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-xs sm:text-sm" style={{ width: isMobile ? '10px' : '60px', minWidth: isMobile ? '10px' : '60px', maxWidth: isMobile ? '10px' : '60px', flexShrink: 0 }}>
-                    <div className="font-medium leading-tight whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: getColorFromName(store.color) }}>
+                    <div className="leading-tight whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: getColorFromName(store.color) }}>
                     {store.short_name || store.name}
                   </div>
                 </TableCell>

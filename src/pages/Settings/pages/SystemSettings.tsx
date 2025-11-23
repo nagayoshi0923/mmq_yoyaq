@@ -176,7 +176,7 @@ export function SystemSettings() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <SettingsIcon className="h-8 w-8 text-blue-600" />
-          <h1 className="text-lg font-bold">システム設定</h1>
+          <h1 className="text-lg">システム設定</h1>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />

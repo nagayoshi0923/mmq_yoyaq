@@ -34,7 +34,7 @@ export function BookingFilters({
       
       {/* 店舗フィルター */}
       <div className="flex items-center gap-2 sm:gap-4">
-        <label className="text-xs sm:text-sm font-medium whitespace-nowrap">店舗:</label>
+        <label className="text-xs sm:text-sm whitespace-nowrap">店舗:</label>
         <Select value={selectedStoreFilter} onValueChange={onStoreFilterChange}>
           <SelectTrigger className="w-full sm:w-48 text-sm">
             <SelectValue />

@@ -303,7 +303,7 @@ export function CustomerBookingPage() {
         <div className="space-y-6">
           {/* ヘッダー */}
           <div>
-            <h1 className="text-lg font-bold tracking-tight">公演予約</h1>
+            <h1 className="text-lg tracking-tight">公演予約</h1>
             <p className="text-muted-foreground mt-1">
               予約可能な公演から選んで予約できます
             </p>
@@ -383,11 +383,11 @@ export function CustomerBookingPage() {
                       <div className="md:col-span-3 flex flex-col items-start justify-center border-l-4 pl-4" style={{ borderColor: event.store_color || '#3B82F6' }}>
                         <div className="flex items-center gap-2 mb-2">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-bold text-lg">{formatDate(event.date)}</span>
+                          <span className="text-lg">{formatDate(event.date)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Clock className="w-4 h-4" />
-                          <span className="font-medium">
+                          <span className="">
                             {formatTime(event.start_time)} - {formatTime(event.end_time)}
                           </span>
                         </div>
@@ -399,7 +399,7 @@ export function CustomerBookingPage() {
                       {/* 公演情報 */}
                       <div className="md:col-span-6 space-y-2">
                         <div>
-                          <h3 className="text-base font-bold mb-1">
+                          <h3 className="text-base mb-1">
                             {event.scenario_title}
                           </h3>
                           {event.scenario_description && (
@@ -438,7 +438,7 @@ export function CustomerBookingPage() {
                       <div className="md:col-span-3 flex flex-col items-end justify-center gap-3">
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">参加費</p>
-                          <p className="text-lg font-bold text-primary">
+                          <p className="text-lg text-primary">
                             ¥{event.participation_fee.toLocaleString()}
                           </p>
                           <p className="text-xs text-muted-foreground">/ 1名</p>

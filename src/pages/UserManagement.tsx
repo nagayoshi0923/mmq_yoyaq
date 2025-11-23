@@ -48,7 +48,7 @@ export function UserManagement() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 text-red-800">
               <AlertCircle className="w-6 h-6" />
-              <p className="font-medium">この機能は管理者のみ利用可能です。</p>
+              <p className="">この機能は管理者のみ利用可能です。</p>
             </div>
           </CardContent>
         </Card>
@@ -340,7 +340,7 @@ export function UserManagement() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1 sm:gap-2 mb-1">
                           {getRoleIcon(userData.role)}
-                          <p className="font-medium truncate text-xs sm:text-sm md:text-base">{userData.email}</p>
+                          <p className="truncate text-xs sm:text-sm md:text-base">{userData.email}</p>
                         </div>
                         <p className="text-xs text-gray-500 truncate">ID: {userData.id}</p>
                       </div>
@@ -409,7 +409,7 @@ export function UserManagement() {
           <p>2. または「全ユーザーを表示」をクリックして一覧から選択</p>
           <p>3. ユーザーが見つかったら、適切なロールを選択</p>
           <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-300 space-y-1">
-            <p className="font-semibold">ロールの説明:</p>
+            <p className="">ロールの説明:</p>
             <p>• <strong>管理者</strong>: すべての機能にアクセス可能</p>
             <p>• <strong>スタッフ</strong>: スタッフ向け機能にアクセス可能</p>
             <p>• <strong>顧客</strong>: 予約など顧客向け機能のみ利用可能</p>

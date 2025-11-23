@@ -127,7 +127,7 @@ export function GeneralSettings() {
         <div className="flex items-center gap-3">
           <SettingsIcon className="h-8 w-8 text-blue-600" />
           <div>
-            <h1 className="text-lg font-bold">全体設定</h1>
+            <h1 className="text-lg">全体設定</h1>
             <p className="text-sm text-muted-foreground">システム全体の設定を管理します</p>
           </div>
         </div>
@@ -212,7 +212,7 @@ export function GeneralSettings() {
           </div>
 
           <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm font-medium text-blue-900 mb-2">設定例</p>
+            <p className="text-sm text-blue-900 mb-2">設定例</p>
             <p className="text-xs text-blue-700">
               開始日: {formData.shift_submission_start_day}日、
               締切日: {formData.shift_submission_end_day}日、

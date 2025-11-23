@@ -84,7 +84,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
     <div>
       {/* 店舗選択 */}
       <div className="mb-3">
-        <label className="text-sm font-medium mb-2 block">店舗を選択</label>
+        <label className="text-sm mb-2 block">店舗を選択</label>
         <MultiSelect
           options={stores.map(store => ({
             id: store.id,
@@ -130,7 +130,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         >
           &lt; 前月
         </Button>
-        <h3 className="font-bold text-base">
+        <h3 className="text-base">
           {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
         </h3>
         <Button
@@ -160,7 +160,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
               <CardContent className="p-3">
                 <div className="flex items-center gap-3">
                   {/* 日付 */}
-                  <div className="font-semibold text-sm whitespace-nowrap min-w-[50px] text-center">
+                  <div className="text-sm whitespace-nowrap min-w-[50px] text-center">
                     <div>{month}/{day}</div>
                     <div className={`text-sm ${weekdayColor}`}>
                       ({weekday})

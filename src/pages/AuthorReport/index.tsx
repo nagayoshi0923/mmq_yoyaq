@@ -263,7 +263,7 @@ export default function AuthorReport() {
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-base sm:text-lg md:text-lg font-bold">作者レポート</h1>
+          <h1 className="text-base sm:text-lg md:text-lg">作者レポート</h1>
           <p className="text-muted-foreground text-xs sm:text-sm md:text-base">作者別の公演実績レポート</p>
         </div>
         <Button
@@ -288,7 +288,7 @@ export default function AuthorReport() {
           <div className="space-y-3 sm:space-y-4">
             {/* 月選択 */}
             <div className="space-y-1 sm:space-y-2">
-              <label className="text-xs sm:text-sm font-medium">対象月</label>
+              <label className="text-xs sm:text-sm">対象月</label>
               <MonthSwitcher
                 value={currentDate}
                 onChange={setCurrentDate}
@@ -301,7 +301,7 @@ export default function AuthorReport() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {/* 店舗 */}
               <div className="space-y-1 sm:space-y-2">
-                <label className="text-xs sm:text-sm font-medium">店舗</label>
+                <label className="text-xs sm:text-sm">店舗</label>
                 <Select value={selectedStore} onValueChange={setSelectedStore}>
                   <SelectTrigger className="text-xs sm:text-sm">
                     <SelectValue />
@@ -314,7 +314,7 @@ export default function AuthorReport() {
 
               {/* 作者検索 */}
               <div className="space-y-1 sm:space-y-2">
-                <label className="text-xs sm:text-sm font-medium">作者検索</label>
+                <label className="text-xs sm:text-sm">作者検索</label>
                 <div className="relative">
                   <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                   <Input
@@ -382,7 +382,7 @@ export default function AuthorReport() {
                               </TableCell>
                               <TableCell className="p-2 sm:p-4">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-medium text-xs sm:text-sm">{author.author}</span>
+                                  <span className="text-xs sm:text-sm">{author.author}</span>
                                   {authors.get(author.author)?.email && (
                                     <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" title="メールアドレス設定済み" />
                                   )}
@@ -399,7 +399,7 @@ export default function AuthorReport() {
                               </TableCell>
                               <TableCell className="text-right p-2 sm:p-4 text-xs sm:text-sm">{author.totalEvents}回</TableCell>
                               <TableCell className="text-right p-2 sm:p-4 text-xs sm:text-sm hidden sm:table-cell">
-                                <span className="font-medium">¥{author.totalLicenseCost.toLocaleString()}</span>
+                                <span className="">¥{author.totalLicenseCost.toLocaleString()}</span>
                               </TableCell>
                               <TableCell className="text-right p-2 sm:p-4 text-xs sm:text-sm hidden md:table-cell">
                                 {Math.round(author.totalDuration / 60)}時間

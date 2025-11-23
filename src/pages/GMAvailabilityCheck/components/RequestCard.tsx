@@ -41,7 +41,7 @@ export function RequestCard({
       <CardHeader className="bg-purple-50 border-b">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-base font-bold text-purple-900">
+            <CardTitle className="text-base text-purple-900">
               {request.scenario_title}
             </CardTitle>
             <div className="mt-2 space-y-1">
@@ -99,12 +99,12 @@ export function RequestCard({
           <div className="mb-4">
             <div className="text-sm text-muted-foreground mb-1">開催予定店舗</div>
             {request.candidate_datetimes?.confirmedStore ? (
-              <div className="font-medium">{request.candidate_datetimes.confirmedStore.storeName}</div>
+              <div className="">{request.candidate_datetimes.confirmedStore.storeName}</div>
             ) : request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 ? (
               <>
                 <div className="flex gap-2 flex-wrap">
                   {request.candidate_datetimes?.requestedStores?.map((store: any, index: number) => (
-                    <span key={index} className="font-medium">
+                    <span key={index} className="">
                       {store.storeName}{index < (request.candidate_datetimes?.requestedStores?.length || 0) - 1 ? ' / ' : ''}
                     </span>
                   ))}
@@ -135,7 +135,7 @@ export function RequestCard({
           {(isConfirmed || isGMConfirmed) && request.candidate_datetimes?.confirmedStore && (
             <div className="p-3 rounded border bg-purple-50 border-purple-200">
               <div className="text-sm">
-                <span className="font-medium text-purple-800">開催店舗: </span>
+                <span className="text-purple-800">開催店舗: </span>
                 <span className="text-purple-900">{request.candidate_datetimes.confirmedStore.storeName}</span>
               </div>
             </div>
@@ -176,7 +176,7 @@ export function RequestCard({
             <div className="p-3 rounded border bg-blue-50 border-blue-200">
               <div className="flex items-center gap-2 text-sm">
                 <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                <span className="font-medium text-blue-800">
+                <span className="text-blue-800">
                   この予約は確定されました
                 </span>
               </div>
@@ -188,7 +188,7 @@ export function RequestCard({
             <div className="p-3 rounded border bg-orange-50 border-orange-200">
               <div className="flex items-center gap-2 text-sm">
                 <CheckCircle2 className="w-4 h-4 text-orange-600" />
-                <span className="font-medium text-orange-800">
+                <span className="text-orange-800">
                   GMの確認は完了しました。店側で最終的な開催日を決定します。
                 </span>
               </div>
@@ -206,14 +206,14 @@ export function RequestCard({
                 {request.response_status === 'available' ? (
                   <>
                     <CheckCircle2 className="w-4 h-4 text-green-600" />
-                    <span className="font-medium text-green-800">
+                    <span className="text-green-800">
                       回答済み：候補{request.available_candidates.join(', ')}が出勤可能
                     </span>
                   </>
                 ) : (
                   <>
                     <XCircle className="w-4 h-4 text-gray-600" />
-                    <span className="font-medium text-gray-800">
+                    <span className="text-gray-800">
                       回答済み：すべて出勤不可
                     </span>
                   </>
@@ -227,7 +227,7 @@ export function RequestCard({
             <div className="p-3 rounded border bg-yellow-50 border-yellow-200">
               <div className="flex items-center gap-2 text-sm">
                 <CheckCircle2 className="w-4 h-4 text-yellow-600" />
-                <span className="font-medium text-yellow-800">
+                <span className="text-yellow-800">
                   他のGMが既に回答しています。この予約は確定される可能性があります。
                 </span>
               </div>

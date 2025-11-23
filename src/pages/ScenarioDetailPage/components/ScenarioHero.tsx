@@ -34,7 +34,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
                 fallback={
                   <div className="w-full h-full flex items-center justify-center text-gray-400">
                     <div className="text-center p-8">
-                      <p className="font-bold text-lg">{scenario.scenario_title}</p>
+                      <p className="text-lg">{scenario.scenario_title}</p>
                     </div>
                   </div>
                 }
@@ -46,21 +46,21 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
           <div className="xl:col-span-8 space-y-3 xl:space-y-4">
             <div>
               <p className="text-xs sm:text-sm opacity-80 mb-2">{scenario.author}</p>
-              <h1 className="text-base sm:text-lg md:text-lg lg:text-lg font-bold mb-3 leading-tight">{scenario.scenario_title}</h1>
+              <h1 className="text-base sm:text-lg md:text-lg lg:text-lg mb-3 leading-tight">{scenario.scenario_title}</h1>
               
               <div className="flex flex-wrap gap-1.5 items-center">
                 <div className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-full text-sm sm:text-base">
                   <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="font-medium">{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</span>
+                  <span className="">{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</span>
                 </div>
                 
                 <div className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-full text-sm sm:text-base">
                   <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="font-medium">{formatDuration(scenario.duration, 'minutes')}</span>
+                  <span className="">{formatDuration(scenario.duration, 'minutes')}</span>
                 </div>
                 
                 <div className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-full text-sm sm:text-base">
-                  <span className="font-medium text-white">
+                  <span className="text-white">
                     {scenario.participation_fee ? `¥${scenario.participation_fee.toLocaleString()}〜` : '¥3,000〜'}
                   </span>
                 </div>

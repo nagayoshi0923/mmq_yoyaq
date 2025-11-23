@@ -313,7 +313,7 @@ export default function AuthorReport() {
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">作者レポート</h1>
+          <h1 className="text-3xl">作者レポート</h1>
           <p className="text-muted-foreground">作者別の公演実績レポート</p>
         </div>
       </div>
@@ -330,7 +330,7 @@ export default function AuthorReport() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* 年 */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">年</label>
+              <label className="text-sm">年</label>
               <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -345,7 +345,7 @@ export default function AuthorReport() {
 
             {/* 月 */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">月</label>
+              <label className="text-sm">月</label>
               <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -360,7 +360,7 @@ export default function AuthorReport() {
 
             {/* 店舗 */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">店舗</label>
+              <label className="text-sm">店舗</label>
               <Select value={selectedStore} onValueChange={setSelectedStore}>
                 <SelectTrigger>
                   <SelectValue />
@@ -373,7 +373,7 @@ export default function AuthorReport() {
 
             {/* 作者検索 */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">作者検索</label>
+              <label className="text-sm">作者検索</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -391,7 +391,7 @@ export default function AuthorReport() {
       {/* 月別作者データ */}
       {filteredMonthlyData.map((monthData) => (
         <div key={monthData.month} className="space-y-4">
-          <h2 className="text-2xl font-bold text-center">
+          <h2 className="text-2xl text-center">
             {selectedYear}年{selectedMonth}月
           </h2>
           
@@ -401,7 +401,7 @@ export default function AuthorReport() {
                 <CardContent className="p-4">
                   {/* 作者名とアクションボタン */}
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-semibold text-lg">{author.author}</h3>
+                    <h3 className="text-lg">{author.author}</h3>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
@@ -439,7 +439,7 @@ export default function AuthorReport() {
                       const isGMTest = scenario.isGMTest || false
                       return (
                         <div key={scenarioIndex} className="flex items-center justify-between text-sm py-0.5">
-                          <span className="font-medium">
+                          <span className="">
                             ├ {scenario.title}
                             {isGMTest && <span className="ml-1 text-xs text-orange-600 font-normal">（GMテスト）</span>}
                           </span>
@@ -456,7 +456,7 @@ export default function AuthorReport() {
                   
                   {/* ライセンス合計 */}
                   <div className="border-t pt-2 text-right">
-                    <span className="font-semibold">└─ ライセンス合計: ¥{author.totalLicenseCost.toLocaleString()}</span>
+                    <span className="">└─ ライセンス合計: ¥{author.totalLicenseCost.toLocaleString()}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -470,7 +470,7 @@ export default function AuthorReport() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <BarChart3 className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">データがありません</h3>
+            <h3 className="text-lg mb-2">データがありません</h3>
             <p className="text-muted-foreground text-center">
               選択した期間に公演データがありません。
             </p>

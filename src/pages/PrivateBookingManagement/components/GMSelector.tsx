@@ -39,7 +39,7 @@ export const GMSelector = ({
 
   return (
     <div>
-      <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
+      <h3 className="mb-3 flex items-center gap-2 text-purple-800">
         <Users className="w-4 h-4" />
         担当GMを選択
         {forceMode && (
@@ -94,7 +94,7 @@ export const GMSelector = ({
             return (
               <div className="mt-2 p-3 bg-green-50 rounded-lg border border-green-200">
                 <div className="text-sm text-green-800">
-                  <div className="font-medium">GM回答情報</div>
+                  <div className="">GM回答情報</div>
                   <div>対応可能な候補: 候補{selectedGM.available_candidates.map(idx => idx + 1).join(', ')}</div>
                   {selectedGM.notes && (
                     <div className="mt-1 text-xs">メモ: {selectedGM.notes}</div>

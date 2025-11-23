@@ -94,7 +94,7 @@ export const EventList = memo(function EventList({
                   </Badge>
                 ) : (
                   <div className="text-right whitespace-nowrap">
-                    <div className="font-bold text-sm">
+                    <div className="text-sm">
                       残り{event.available_seats}人
                     </div>
                   </div>

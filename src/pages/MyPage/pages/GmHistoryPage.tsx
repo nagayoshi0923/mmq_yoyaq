@@ -120,7 +120,7 @@ export function GmHistoryPage() {
                   key={idx}
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  <span className="font-medium">{item.scenario}</span>
+                  <span className="">{item.scenario}</span>
                   <Badge variant="secondary" className="text-base">
                     {item.count}回
                   </Badge>
@@ -138,17 +138,17 @@ export function GmHistoryPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center p-4 bg-muted rounded-lg">
-              <div className="text-lg font-bold text-primary">
+              <div className="text-lg text-primary">
                 {playedScenarios.reduce((sum, item) => sum + item.count, 0)}
               </div>
               <div className="text-sm text-muted-foreground mt-1">総公演数</div>
             </div>
             <div className="text-center p-4 bg-muted rounded-lg">
-              <div className="text-lg font-bold text-primary">{playedScenarios.length}</div>
+              <div className="text-lg text-primary">{playedScenarios.length}</div>
               <div className="text-sm text-muted-foreground mt-1">担当シナリオ数</div>
             </div>
             <div className="text-center p-4 bg-muted rounded-lg">
-              <div className="text-lg font-bold text-primary">
+              <div className="text-lg text-primary">
                 {staffInfo.experience || 0}
               </div>
               <div className="text-sm text-muted-foreground mt-1">経験値</div>

@@ -441,21 +441,21 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400">
             <div className="text-center p-4">
-              <p className="font-bold text-lg">{scenario.scenario_title}</p>
+              <p className="text-lg">{scenario.scenario_title}</p>
             </div>
           </div>
         )}
         {/* NEW バッジ */}
         {scenario.is_new && (
           <div className="absolute top-1.5 left-1.5">
-            <Badge className="bg-red-100 text-red-800 border-red-200 font-bold text-xs px-1.5 py-0 rounded-sm">NEW</Badge>
+            <Badge className="bg-red-100 text-red-800 border-red-200 text-xs px-1.5 py-0 rounded-sm">NEW</Badge>
           </div>
         )}
       </div>
       
       <CardContent className="p-1 flex-1 flex flex-col">
         <div className="text-xs text-muted-foreground">{scenario.author}</div>
-        <h3 className="font-bold text-sm line-clamp-2 mb-0.5">
+        <h3 className="text-sm line-clamp-2 mb-0.5">
           {scenario.scenario_title}
         </h3>
         
@@ -474,7 +474,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         {scenario.store_name && (
           <div className="flex items-center gap-0.5 text-xs mb-1">
             <MapPin className="w-3 h-3" />
-            <span className="font-medium" style={{ color: scenario.store_color }}>
+            <span className="" style={{ color: scenario.store_color }}>
               {scenario.store_name}
             </span>
           </div>
@@ -513,7 +513,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       {/* メインビジュアル */}
       <div className="relative bg-blue-50 border-b-2 border-blue-200 py-12">
         <div className="container mx-auto max-w-7xl px-6 text-center">
-          <h1 className="text-4xl font-bold mb-2 text-blue-800">今日はどの事件を解く？</h1>
+          <h1 className="text-4xl mb-2 text-blue-800">今日はどの事件を解く？</h1>
           <p className="text-lg text-blue-700">真実を追い求めるあなたのためのマーダーミステリーポータルサイト</p>
         </div>
       </div>
@@ -551,7 +551,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             {/* 新着公演セクション */}
             {getNewScenarios().length > 0 && (
               <section>
-                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                <h2 className="text-2xl mb-4 flex items-center gap-2">
                   <span>新着公演</span>
                   <Badge className="bg-red-600 text-white border-0 text-xs px-2 py-0.5 rounded-sm">NEW</Badge>
                 </h2>
@@ -566,7 +566,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             {/* 直近公演セクション */}
             {getUpcomingScenarios().length > 0 && (
               <section>
-                <h2 className="text-2xl font-bold mb-4">直近公演</h2>
+                <h2 className="text-2xl mb-4">直近公演</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {getUpcomingScenarios().map((scenario) => (
                     <ScenarioCard key={scenario.scenario_id} scenario={scenario} onClick={handleCardClick} />
@@ -578,7 +578,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             {/* 全タイトルセクション */}
             {getAllScenarios().length > 0 ? (
               <section>
-                <h2 className="text-2xl font-bold mb-4">全タイトル</h2>
+                <h2 className="text-2xl mb-4">全タイトル</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {getAllScenarios().map((scenario) => (
                     <ScenarioCard key={scenario.scenario_id} scenario={scenario} onClick={handleCardClick} />
@@ -602,7 +602,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                 >
                   ← 前月
                 </button>
-                <h2 className="text-2xl font-bold">
+                <h2 className="text-2xl">
                   {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
                 </h2>
                 <button
@@ -709,14 +709,14 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                 <div className="flex items-start gap-0">
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between">
-                                      <div className="font-semibold truncate text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                      <div className="truncate text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                         {event.start_time?.slice(0, 5)} {storeName}
                                       </div>
                                       <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
                                         {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                       </div>
                                     </div>
-                                    <div className="text-[11px] font-medium text-gray-800 leading-tight truncate">
+                                    <div className="text-[11px] text-gray-800 leading-tight truncate">
                                       {event.scenario || event.scenarios?.title}
                                     </div>
                                   </div>
@@ -741,7 +741,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
               <div className="space-y-4">
                 {/* 月ナビゲーション */}
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">
+                  <h2 className="text-2xl">
                     {listViewMonth.getFullYear()}年{listViewMonth.getMonth() + 1}月
                   </h2>
                   <div className="flex gap-2">
@@ -762,7 +762,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
                 {/* 店舗フィルター */}
                 <div className="flex items-center gap-4">
-                  <label className="text-sm font-medium">店舗:</label>
+                  <label className="text-sm">店舗:</label>
                   <Select value={selectedStoreFilter} onValueChange={setSelectedStoreFilter}>
                     <SelectTrigger className="w-48">
                       <SelectValue />
@@ -830,7 +830,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                           
                           {/* 店舗セル */}
                           <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-sm">
-                            <div className="font-medium" style={{ color: getColorFromName(store.color) }}>
+                            <div className="" style={{ color: getColorFromName(store.color) }}>
                               {store.short_name || store.name}
                             </div>
                           </TableCell>
@@ -894,14 +894,14 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                       {/* 右カラム: 情報 */}
                                       <div className="flex flex-col gap-0 flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
-                                          <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                          <div className="text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                             {event.start_time?.slice(0, 5)}
                                           </div>
                                           <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
                                             {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
-                                        <div className="text-[11px] font-medium leading-tight text-left text-gray-800">
+                                        <div className="text-[11px] leading-tight text-left text-gray-800">
                                           {event.scenario || event.scenarios?.title}
                                         </div>
                                       </div>
@@ -970,14 +970,14 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                       {/* 右カラム: 情報 */}
                                       <div className="flex flex-col gap-0 flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
-                                          <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                          <div className="text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                             {event.start_time?.slice(0, 5)}
                                           </div>
                                           <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
                                             {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
-                                        <div className="text-[11px] font-medium leading-tight text-left text-gray-800">
+                                        <div className="text-[11px] leading-tight text-left text-gray-800">
                                           {event.scenario || event.scenarios?.title}
                                         </div>
                                       </div>
@@ -1046,14 +1046,14 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                       {/* 右カラム: 情報 */}
                                       <div className="flex flex-col gap-0 flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
-                                          <div className="font-semibold text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                          <div className="text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                             {event.start_time?.slice(0, 5)}
                                           </div>
                                           <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
                                             {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
-                                        <div className="text-[11px] font-medium leading-tight text-left text-gray-800">
+                                        <div className="text-[11px] leading-tight text-left text-gray-800">
                                           {event.scenario || event.scenarios?.title}
                                         </div>
                                       </div>

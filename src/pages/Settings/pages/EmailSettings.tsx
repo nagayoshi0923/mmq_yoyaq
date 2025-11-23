@@ -347,7 +347,7 @@ export function EmailSettings() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Mail className="h-8 w-8 text-blue-600" />
-          <h1 className="text-lg font-bold">メール設定</h1>
+          <h1 className="text-lg">メール設定</h1>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
@@ -571,7 +571,7 @@ export function EmailSettings() {
                       {/* テンプレート編集 */}
                       <div className="border-t pt-4">
                         <div className="flex items-center justify-between mb-2">
-                          <Label className="text-sm font-medium">メールテンプレート</Label>
+                          <Label className="text-sm">メールテンプレート</Label>
                           <Button
                             type="button"
                             variant="outline"

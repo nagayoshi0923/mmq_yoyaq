@@ -297,7 +297,7 @@ export function BookingConfirmation({
           <Card className="border-2 border-green-200 bg-green-50">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
-              <h2 className="text-2xl font-bold text-green-800">予約が完了しました！</h2>
+              <h2 className="text-2xl text-green-800">予約が完了しました！</h2>
               <p className="text-green-700">
                 ご予約ありがとうございます。<br />
                 確認メールを {customerEmail} に送信しました。
@@ -337,7 +337,7 @@ export function BookingConfirmation({
       </div>
 
       <div className="container mx-auto max-w-5xl px-6 py-6">
-        <h1 className="text-3xl font-bold mb-6">予約確認</h1>
+        <h1 className="text-3xl mb-6">予約確認</h1>
 
         {error && (
           <Card className="mb-6 border-2 border-red-200 bg-red-50">
@@ -353,17 +353,17 @@ export function BookingConfirmation({
           <div className="lg:col-span-2 space-y-6">
             {/* 公演情報 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">公演情報</h2>
+              <h2 className="text-lg mb-3">公演情報</h2>
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div>
-                    <h3 className="font-bold text-xl mb-2">{scenarioTitle}</h3>
+                    <h3 className="text-xl mb-2">{scenarioTitle}</h3>
                   </div>
 
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">{formatDate(eventDate)}</span>
+                      <span className="">{formatDate(eventDate)}</span>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -374,7 +374,7 @@ export function BookingConfirmation({
                     <div className="flex items-start gap-2">
                       <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
                       <div>
-                        <p className="font-medium" style={{ color: storeColor }}>{storeName}</p>
+                        <p className="" style={{ color: storeColor }}>{storeName}</p>
                         {storeAddress && (
                           <p className="text-muted-foreground text-xs">{storeAddress}</p>
                         )}
@@ -387,12 +387,12 @@ export function BookingConfirmation({
 
             {/* 参加人数 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">参加人数</h2>
+              <h2 className="text-lg mb-3">参加人数</h2>
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium mb-1">予約人数</p>
+                      <p className="mb-1">予約人数</p>
                       <p className="text-sm text-muted-foreground">
                         残り{availableSeats}席
                       </p>
@@ -415,11 +415,11 @@ export function BookingConfirmation({
 
             {/* お客様情報 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">お客様情報</h2>
+              <h2 className="text-lg mb-3">お客様情報</h2>
               <Card>
                 <CardContent className="p-4 space-y-4">
                   <div>
-                    <label className="text-sm font-medium mb-1.5 block">
+                    <label className="text-sm mb-1.5 block">
                       お名前 <span className="text-red-500">*</span>
                     </label>
                     <Input 
@@ -431,7 +431,7 @@ export function BookingConfirmation({
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium mb-1.5 block">
+                    <label className="text-sm mb-1.5 block">
                       メールアドレス <span className="text-red-500">*</span>
                     </label>
                     <Input 
@@ -447,7 +447,7 @@ export function BookingConfirmation({
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium mb-1.5 block">
+                    <label className="text-sm mb-1.5 block">
                       電話番号 <span className="text-red-500">*</span>
                     </label>
                     <Input 
@@ -460,7 +460,7 @@ export function BookingConfirmation({
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium mb-1.5 block">
+                    <label className="text-sm mb-1.5 block">
                       備考（任意）
                     </label>
                     <Textarea 
@@ -485,7 +485,7 @@ export function BookingConfirmation({
           {/* 右側：料金サマリー */}
           <div className="lg:col-span-1">
             <div className="sticky top-4 space-y-4">
-              <h2 className="font-bold text-lg">料金</h2>
+              <h2 className="text-lg">料金</h2>
               
               <Card>
                 <CardContent className="p-4 space-y-3">
@@ -499,7 +499,7 @@ export function BookingConfirmation({
                     <span>× {participantCount}名</span>
                   </div>
                   
-                  <div className="border-t pt-3 flex justify-between font-bold text-lg">
+                  <div className="border-t pt-3 flex justify-between text-lg">
                     <span>合計</span>
                     <span className="text-blue-600">
                       ¥{(participationFee * participantCount).toLocaleString()}
@@ -507,7 +507,7 @@ export function BookingConfirmation({
                   </div>
                   
                   <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-                    <p className="font-medium mb-1">現地決済</p>
+                    <p className="mb-1">現地決済</p>
                     <p className="text-xs">当日会場にてお支払いください</p>
                   </div>
                 </CardContent>
@@ -523,7 +523,7 @@ export function BookingConfirmation({
 
               {user ? (
                 <Button
-                  className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700"
+                  className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
                 >
@@ -531,7 +531,7 @@ export function BookingConfirmation({
                 </Button>
               ) : (
                 <Button
-                  className="w-full h-12 text-lg font-bold"
+                  className="w-full h-12 text-lg"
                   onClick={() => window.location.hash = 'login'}
                 >
                   ログインして予約する

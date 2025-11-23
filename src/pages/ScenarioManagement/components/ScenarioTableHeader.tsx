@@ -32,7 +32,7 @@ export const ScenarioTableHeader: React.FC<ScenarioTableHeaderProps> = ({
             currentField={sortState.field}
             currentDirection={sortState.direction}
             onSort={onSort}
-            className="flex-shrink-0 w-40 px-3 py-2 border-r font-medium text-sm"
+            className="flex-shrink-0 w-40 px-3 py-2 border-r text-sm"
           >
             タイトル
           </SortableTableHeader>
@@ -41,7 +41,7 @@ export const ScenarioTableHeader: React.FC<ScenarioTableHeaderProps> = ({
             currentField={sortState.field}
             currentDirection={sortState.direction}
             onSort={onSort}
-            className="flex-shrink-0 w-32 px-3 py-2 border-r font-medium text-sm"
+            className="flex-shrink-0 w-32 px-3 py-2 border-r text-sm"
           >
             作者
           </SortableTableHeader>
@@ -50,7 +50,7 @@ export const ScenarioTableHeader: React.FC<ScenarioTableHeaderProps> = ({
             currentField={sortState.field}
             currentDirection={sortState.direction}
             onSort={onSort}
-            className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm"
+            className="flex-shrink-0 w-24 px-3 py-2 border-r text-sm"
           >
             所要時間
           </SortableTableHeader>
@@ -59,7 +59,7 @@ export const ScenarioTableHeader: React.FC<ScenarioTableHeaderProps> = ({
             currentField={sortState.field}
             currentDirection={sortState.direction}
             onSort={onSort}
-            className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm"
+            className="flex-shrink-0 w-24 px-3 py-2 border-r text-sm"
           >
             人数
           </SortableTableHeader>
@@ -69,7 +69,7 @@ export const ScenarioTableHeader: React.FC<ScenarioTableHeaderProps> = ({
               currentField={sortState.field}
               currentDirection={sortState.direction}
               onSort={onSort}
-              className="flex-shrink-0 w-96 px-3 py-2 border-r font-medium text-sm"
+              className="flex-shrink-0 w-96 px-3 py-2 border-r text-sm"
             >
               担当GM
             </SortableTableHeader>
@@ -81,7 +81,7 @@ export const ScenarioTableHeader: React.FC<ScenarioTableHeaderProps> = ({
                 currentField={sortState.field}
                 currentDirection={sortState.direction}
                 onSort={onSort}
-                className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm"
+                className="flex-shrink-0 w-24 px-3 py-2 border-r text-sm"
               >
                 難易度
               </SortableTableHeader>
@@ -90,7 +90,7 @@ export const ScenarioTableHeader: React.FC<ScenarioTableHeaderProps> = ({
                 currentField={sortState.field}
                 currentDirection={sortState.direction}
                 onSort={onSort}
-                className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm"
+                className="flex-shrink-0 w-28 px-3 py-2 border-r text-sm"
               >
                 ライセンス料
               </SortableTableHeader>
@@ -101,7 +101,7 @@ export const ScenarioTableHeader: React.FC<ScenarioTableHeaderProps> = ({
             currentField={sortState.field}
             currentDirection={sortState.direction}
             onSort={onSort}
-            className="flex-shrink-0 w-24 px-3 py-2 border-r font-medium text-sm"
+            className="flex-shrink-0 w-24 px-3 py-2 border-r text-sm"
           >
             参加費
           </SortableTableHeader>
@@ -110,14 +110,14 @@ export const ScenarioTableHeader: React.FC<ScenarioTableHeaderProps> = ({
             currentField={sortState.field}
             currentDirection={sortState.direction}
             onSort={onSort}
-            className="flex-shrink-0 w-28 px-3 py-2 border-r font-medium text-sm"
+            className="flex-shrink-0 w-28 px-3 py-2 border-r text-sm"
           >
             ステータス
           </SortableTableHeader>
           {displayMode === 'detailed' && (
-            <div className="flex-1 px-3 py-2 border-r font-medium text-sm min-w-0">ジャンル</div>
+            <div className="flex-1 px-3 py-2 border-r text-sm min-w-0">ジャンル</div>
           )}
-          <div className="flex-shrink-0 w-24 px-3 py-2 font-medium text-sm text-center">アクション</div>
+          <div className="flex-shrink-0 w-24 px-3 py-2 text-sm text-center">アクション</div>
         </div>
       </CardContent>
     </Card>

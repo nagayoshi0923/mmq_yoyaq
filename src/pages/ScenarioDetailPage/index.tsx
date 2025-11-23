@@ -220,7 +220,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    <h3 className="font-bold mb-3 xl:mb-4 text-lg xl:text-xl">日付を選択</h3>
+                    <h3 className="mb-3 xl:mb-4 text-lg xl:text-xl">日付を選択</h3>
                     <EventList
                       events={events}
                       selectedEventId={selectedEventId}
@@ -248,7 +248,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                   {/* 選択された時間枠の表示 */}
                   {selectedTimeSlots.length > 0 && (
                     <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-purple-50 border border-purple-200 rounded">
-                      <div className="text-xs sm:text-sm font-medium text-purple-900 mb-1.5 sm:mb-2">
+                      <div className="text-xs sm:text-sm text-purple-900 mb-1.5 sm:mb-2">
                         選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                       </div>
                       <div className="space-y-1">

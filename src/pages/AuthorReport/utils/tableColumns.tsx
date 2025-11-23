@@ -51,7 +51,7 @@ export function createAuthorColumns(
       sortable: true,
       width: 'flex-1',
       render: (author) => (
-        <span className="font-medium">{author.author}</span>
+        <span className="">{author.author}</span>
       )
     },
     {
@@ -69,7 +69,7 @@ export function createAuthorColumns(
       width: 'w-32',
       align: 'right',
       render: (author) => (
-        <span className="font-medium">¥{author.totalLicenseCost.toLocaleString()}</span>
+        <span className="">¥{author.totalLicenseCost.toLocaleString()}</span>
       )
     },
     {
@@ -131,7 +131,7 @@ export function renderExpandedRow(
 ) {
   return (
     <div className="py-4 px-6 space-y-2 bg-muted/30">
-      <h4 className="font-semibold mb-3">シナリオ別詳細</h4>
+      <h4 className="mb-3">シナリオ別詳細</h4>
       <Table>
         <TableHeader>
           <TableRow>

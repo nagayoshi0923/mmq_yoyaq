@@ -197,12 +197,12 @@ export function ResetPassword() {
         <Card className="w-full max-w-md">
           <CardContent className="p-6 sm:p-8 text-center space-y-4 sm:space-y-6">
             <CheckCircle2 className="w-12 h-12 sm:w-16 sm:h-16 text-green-600 mx-auto" />
-            <h2 className="text-base sm:text-lg font-bold text-green-800">パスワードを変更しました</h2>
+            <h2 className="text-base sm:text-lg text-green-800">パスワードを変更しました</h2>
             <div className="space-y-2">
               <p className="text-sm sm:text-base text-muted-foreground">
                 新しいパスワードでログインできます。
               </p>
-              <p className="text-base sm:text-lg font-semibold text-primary">
+              <p className="text-base sm:text-lg text-primary">
                 {countdown}秒後にログイン画面に移動します...
               </p>
             </div>
@@ -230,7 +230,7 @@ export function ResetPassword() {
         <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             <div className="space-y-2">
-              <label htmlFor="newPassword" className="block text-sm sm:text-base font-medium">
+              <label htmlFor="newPassword" className="block text-sm sm:text-base">
                 新しいパスワード
               </label>
               <Input
@@ -247,7 +247,7 @@ export function ResetPassword() {
             </div>
             
             <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="block text-sm sm:text-base font-medium">
+              <label htmlFor="confirmPassword" className="block text-sm sm:text-base">
                 パスワード（確認）
               </label>
               <Input

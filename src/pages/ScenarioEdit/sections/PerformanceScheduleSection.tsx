@@ -124,7 +124,7 @@ export function PerformanceScheduleSection({
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm font-medium min-w-[120px] text-center">
+              <span className="text-sm min-w-[120px] text-center">
                 {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月
               </span>
               <Button
@@ -141,7 +141,7 @@ export function PerformanceScheduleSection({
           {totalPerformances > 0 ? (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-sm text-blue-800">
-                この月は <span className="font-bold text-lg">{totalPerformances}</span> 公演予定があります
+                この月は <span className="text-lg">{totalPerformances}</span> 公演予定があります
               </p>
             </div>
           ) : (

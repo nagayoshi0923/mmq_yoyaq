@@ -260,7 +260,7 @@ export function ReservationManagement() {
                             <Badge variant="outline" className="text-xs">貸切</Badge>
                           )}
                         </div>
-                        <h3 className="text-base sm:text-lg md:text-base font-bold mb-2 break-words">{reservation.scenario_title}</h3>
+                        <h3 className="text-base sm:text-lg md:text-base mb-2 break-words">{reservation.scenario_title}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 sm:gap-x-6 gap-y-1 sm:gap-y-2 text-xs sm:text-sm">
                           <div className="flex items-center gap-1 sm:gap-2">
                             <User className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
@@ -296,7 +296,7 @@ export function ReservationManagement() {
                       <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t space-y-2 sm:space-y-3 text-xs sm:text-sm">
                         {reservation.reservation_source === 'web_private' && reservation.candidate_datetimes && (
                           <div>
-                            <span className="font-medium">候補日時：</span>
+                            <span className="">候補日時：</span>
                             <ul className="mt-1 ml-4 list-disc">
                               {extractCandidateDates(reservation.candidate_datetimes).map((date, i) => (
                                 <li key={i}>{date}</li>
@@ -306,7 +306,7 @@ export function ReservationManagement() {
                         )}
                         {reservation.customer_notes && (
                           <div>
-                            <span className="font-medium">備考：</span>
+                            <span className="">備考：</span>
                             <p className="mt-1">{reservation.customer_notes}</p>
                           </div>
                         )}

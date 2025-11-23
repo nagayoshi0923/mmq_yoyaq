@@ -18,7 +18,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
     <>
       {/* デスクトップサイドバー */}
       <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-card p-3 md:p-4 space-y-1 md:space-y-2 md:border-r">
-        <h2 className="font-semibold text-base md:text-lg mb-2 md:mb-4 px-3 hidden md:block">マイページ</h2>
+        <h2 className="text-base md:text-lg mb-2 md:mb-4 px-3 hidden md:block">マイページ</h2>
         <nav className="space-y-1">
       {menuItems.map((item) => {
         const Icon = item.icon
@@ -35,7 +35,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
             }`}
           >
                 <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
-            <span className="font-medium">{item.label}</span>
+            <span className="">{item.label}</span>
           </button>
         )
       })}

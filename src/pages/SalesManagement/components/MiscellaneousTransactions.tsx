@@ -210,7 +210,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     <div className="space-y-6">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">雑収支管理</h2>
+        <h2 className="text-lg">雑収支管理</h2>
       </div>
       
       {/* 月切り替え */}
@@ -228,13 +228,13 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-green-600" />
               収入合計
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold text-green-900">
+            <div className="text-lg text-green-900">
               {formatCurrency(totalIncome)}
             </div>
           </CardContent>
@@ -242,13 +242,13 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
         
         <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
               <TrendingDown className="h-4 w-4 text-red-600" />
               支出合計
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold text-red-900">
+            <div className="text-lg text-red-900">
               {formatCurrency(totalExpense)}
             </div>
           </CardContent>
@@ -417,7 +417,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                           {transaction.type === 'income' ? '収入' : '支出'}
                         </span>
                       </div>
-                      <div className="font-medium">
+                      <div className="">
                         {transaction.category}
                       </div>
                       <div className={`text-lg font-bold ${

@@ -81,7 +81,7 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-4 pb-2 border-b">ゲーム情報</h3>
+      <h3 className="text-lg mb-4 pb-2 border-b">ゲーム情報</h3>
       <div className="space-y-6">
           {/* プレイ情報 */}
           <div className="space-y-4">

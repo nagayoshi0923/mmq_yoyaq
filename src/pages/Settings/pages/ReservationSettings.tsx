@@ -179,7 +179,7 @@ export function ReservationSettings() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Ticket className="h-8 w-8 text-blue-600" />
-          <h1 className="text-lg font-bold">予約設定</h1>
+          <h1 className="text-lg">予約設定</h1>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
@@ -378,7 +378,7 @@ export function ReservationSettings() {
           </Button>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
-            <p className="text-sm text-blue-800 font-medium mb-2">💡 設定例</p>
+            <p className="text-sm text-blue-800 mb-2">💡 設定例</p>
             <ul className="text-xs text-blue-700 space-y-1">
               <li>• 168時間前（1週間前）まで: 0% → 無料キャンセル</li>
               <li>• 72時間前（3日前）まで: 30% → 料金の30%を請求</li>

@@ -157,7 +157,7 @@ export const CalendarView = memo(function CalendarView({
                         <div className="flex items-start gap-0">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-0.5">
-                              <div className="font-semibold truncate text-sm leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                              <div className="truncate text-sm leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                                 {event.start_time?.slice(0, 5)} {storeName}
                               </div>
                               <div className={`text-sm font-medium leading-tight flex-shrink-0 ml-0.5 ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>

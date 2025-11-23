@@ -139,7 +139,7 @@ export function NotificationSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-bold mb-2">シフト募集通知設定</h1>
+        <h1 className="text-lg mb-2">シフト募集通知設定</h1>
         <p className="text-muted-foreground">
           Discord通知のタイミングと締切日を設定します
         </p>
@@ -167,7 +167,7 @@ export function NotificationSettings() {
             />
             <Label
               htmlFor="enabled"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
               シフト募集通知を有効にする
             </Label>

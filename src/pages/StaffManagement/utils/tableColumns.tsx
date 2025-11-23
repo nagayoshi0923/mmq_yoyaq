@@ -47,7 +47,7 @@ export function createStaffColumns(
             size="sm"
           />
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-sm truncate leading-tight hover:text-blue-600">{staff.name}</h3>
+            <h3 className="text-sm truncate leading-tight hover:text-blue-600">{staff.name}</h3>
             {!staff.user_id && (
               <Badge size="sm" className="bg-amber-100 text-amber-800 text-xs mt-0.5">
                 未紐付け
@@ -155,7 +155,7 @@ export function createStaffColumns(
             </TooltipTrigger>
             <TooltipContent className="max-w-xs max-h-96 overflow-y-auto">
               <div className="space-y-1">
-                <p className="font-medium text-xs">GM可能シナリオ（全{staff.special_scenarios.length}件）:</p>
+                <p className="text-xs">GM可能シナリオ（全{staff.special_scenarios.length}件）:</p>
                 {staff.special_scenarios.map((scenarioId, index) => (
                   <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
                 ))}
@@ -205,7 +205,7 @@ export function createStaffColumns(
             </TooltipTrigger>
             <TooltipContent className="max-w-xs max-h-96 overflow-y-auto">
               <div className="space-y-1">
-                <p className="font-medium text-xs">体験済みシナリオ（全{experiencedScenarios.length}件）:</p>
+                <p className="text-xs">体験済みシナリオ（全{experiencedScenarios.length}件）:</p>
                 {experiencedScenarios.map((scenarioId: string, index: number) => (
                   <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
                 ))}

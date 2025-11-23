@@ -25,7 +25,7 @@ export const StoreSelector = ({
 }: StoreSelectorProps) => {
   return (
     <div>
-      <h3 className="font-semibold mb-3 flex items-center gap-2 text-purple-800">
+      <h3 className="mb-3 flex items-center gap-2 text-purple-800">
         <MapPin className="w-4 h-4" />
         開催店舗を選択
       </h3>

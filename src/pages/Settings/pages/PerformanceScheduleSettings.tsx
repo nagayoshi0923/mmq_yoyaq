@@ -197,7 +197,7 @@ export function PerformanceScheduleSettings() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Calendar className="h-8 w-8 text-blue-600" />
-          <h1 className="text-lg font-bold">公演スケジュール設定</h1>
+          <h1 className="text-lg">公演スケジュール設定</h1>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
@@ -242,7 +242,7 @@ export function PerformanceScheduleSettings() {
         <CardContent className="space-y-4">
           {formData.performance_times.map((time, index) => (
             <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
-              <div className="w-8 h-8 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center font-bold">
+              <div className="w-8 h-8 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center">
                 {index + 1}
               </div>
               <div className="flex-1 grid grid-cols-2 gap-4">

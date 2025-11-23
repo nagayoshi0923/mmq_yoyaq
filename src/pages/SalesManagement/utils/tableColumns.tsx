@@ -24,7 +24,7 @@ export function createScenarioAnalysisColumns(data: ScenarioPerformance[]): Colu
           s.id === scenario.id && (s.category || 'open') === (scenario.category || 'open')
         )
         return (
-          <div className="w-8 h-8 mx-auto rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+          <div className="w-8 h-8 mx-auto rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm">
             {index + 1}
           </div>
         )
@@ -35,7 +35,7 @@ export function createScenarioAnalysisColumns(data: ScenarioPerformance[]): Colu
       header: 'シナリオ名',
       sortable: true,
       render: (scenario) => (
-        <div className="font-medium">{scenario.title}</div>
+        <div className="">{scenario.title}</div>
       )
     },
     {
@@ -46,7 +46,7 @@ export function createScenarioAnalysisColumns(data: ScenarioPerformance[]): Colu
       align: 'right',
       render: (scenario) => (
         <div className="text-right">
-          <div className="text-lg font-bold">{scenario.events}</div>
+          <div className="text-lg">{scenario.events}</div>
           <div className="text-sm text-muted-foreground">公演</div>
         </div>
       )

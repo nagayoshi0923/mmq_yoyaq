@@ -36,7 +36,7 @@ export function CandidateSelector({
 }: CandidateSelectorProps) {
   return (
     <div>
-      <p className="text-sm font-medium mb-3 text-purple-800">
+      <p className="text-sm mb-3 text-purple-800">
         {isConfirmed ? '確定した候補日時' : isGMConfirmed ? '選択した候補日時（店側確認待ち）' : '以下の候補から出勤可能な日時を選択してください（複数選択可）'}
       </p>
       <div className="space-y-2">
@@ -78,7 +78,7 @@ export function CandidateSelector({
                   )}
                   <div className="flex items-center gap-2 text-sm">
                     <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">{formatDate(candidate.date)}</span>
+                    <span className="">{formatDate(candidate.date)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="w-4 h-4 text-muted-foreground" />

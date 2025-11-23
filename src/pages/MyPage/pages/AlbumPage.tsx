@@ -338,19 +338,19 @@ export function AlbumPage() {
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
-            <div className="text-base sm:text-lg font-bold text-primary">{playedScenarios.length}</div>
+            <div className="text-base sm:text-lg text-primary">{playedScenarios.length}</div>
             <div className="text-xs sm:text-sm text-muted-foreground mt-1">総プレイ回数</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
-            <div className="text-base sm:text-lg font-bold text-primary">{scenarioGroups.length}</div>
+            <div className="text-base sm:text-lg text-primary">{scenarioGroups.length}</div>
             <div className="text-xs sm:text-sm text-muted-foreground mt-1">プレイしたシナリオ</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
-            <div className="text-base sm:text-lg font-bold text-primary">{likedScenariosList.length}</div>
+            <div className="text-base sm:text-lg text-primary">{likedScenariosList.length}</div>
             <div className="text-xs sm:text-sm text-muted-foreground mt-1">いいねしたシナリオ</div>
           </CardContent>
         </Card>
@@ -409,7 +409,7 @@ export function AlbumPage() {
                           {/* タイトルとアクション */}
                           <div className="flex items-center justify-between gap-2 mb-3">
                             <div className="flex-1 min-w-0 pr-2">
-                              <h3 className="font-bold text-sm sm:text-base md:text-lg break-words">{cleanTitle(group.scenario)}</h3>
+                              <h3 className="text-sm sm:text-base md:text-lg break-words">{cleanTitle(group.scenario)}</h3>
                             </div>
                             <div className="flex items-center gap-0.5 flex-shrink-0">
                               <Button
@@ -443,7 +443,7 @@ export function AlbumPage() {
                                 {/* 日付 */}
                                 <div className="flex items-center gap-1 flex-shrink-0">
                                   <Calendar className="h-3 w-3 text-muted-foreground" />
-                                  <span className="font-semibold text-foreground whitespace-nowrap">{formatDate(play.date)}</span>
+                                  <span className="text-foreground whitespace-nowrap">{formatDate(play.date)}</span>
                                 </div>
                                 
                                 {/* 店舗 */}
@@ -533,7 +533,7 @@ export function AlbumPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-2 gap-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-sm sm:text-base md:text-lg mb-1 truncate">{item.scenario.title}</h3>
+                          <h3 className="text-sm sm:text-base md:text-lg mb-1 truncate">{item.scenario.title}</h3>
                           <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                             作者: {item.scenario.author}
                           </p>
@@ -616,7 +616,7 @@ export function AlbumPage() {
                   return (
                     <div key={idx} className="flex items-center justify-between p-3 border rounded-lg opacity-60">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className="font-medium text-sm truncate">{group.scenario}</span>
+                        <span className="text-sm truncate">{group.scenario}</span>
                         <Badge variant="secondary" className="text-xs flex-shrink-0">
                           {group.count}回プレイ
                         </Badge>

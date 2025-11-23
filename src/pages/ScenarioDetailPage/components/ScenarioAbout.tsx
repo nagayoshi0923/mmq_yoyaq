@@ -12,7 +12,7 @@ interface ScenarioAboutProps {
 export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioAboutProps) {
   return (
     <div>
-      <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">ABOUT</h3>
+      <h3 className="mb-2 sm:mb-3 text-sm sm:text-base">ABOUT</h3>
       <Card>
         <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
           {/* 概要（基本情報） */}

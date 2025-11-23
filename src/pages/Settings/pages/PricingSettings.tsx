@@ -189,7 +189,7 @@ export function PricingSettings() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <DollarSign className="h-8 w-8 text-blue-600" />
-          <h1 className="text-lg font-bold">料金設定</h1>
+          <h1 className="text-lg">料金設定</h1>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
@@ -257,7 +257,7 @@ export function PricingSettings() {
               {formData.time_based_pricing.map((pricing, index) => (
                 <div key={index} className="flex items-center justify-between p-3 border rounded">
                   <div className="flex items-center gap-4">
-                    <span className="font-medium w-32">{pricing.time_slot}</span>
+                    <span className="w-32">{pricing.time_slot}</span>
                     <span className="text-muted-foreground">¥{pricing.price.toLocaleString()}</span>
                   </div>
                   <Button

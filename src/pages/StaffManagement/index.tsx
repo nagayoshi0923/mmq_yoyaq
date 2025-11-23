@@ -355,7 +355,7 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-base md:text-lg font-bold">{staff.length}</p>
+                      <p className="text-lg sm:text-base md:text-lg">{staff.length}</p>
                       <p className="text-xs sm:text-sm text-muted-foreground">総スタッフ数</p>
                     </div>
                   </div>
@@ -367,7 +367,7 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-base md:text-lg font-bold">
+                      <p className="text-lg sm:text-base md:text-lg">
                         {staff.filter(s => s.status === 'active').length}
                       </p>
                       <p className="text-xs sm:text-sm text-muted-foreground">在籍中</p>
@@ -381,7 +381,7 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-base md:text-lg font-bold">
+                      <p className="text-lg sm:text-base md:text-lg">
                         {staff.filter(s => s.role && s.role.includes('GM')).length}
                       </p>
                       <p className="text-xs sm:text-sm text-muted-foreground">GM</p>
@@ -395,7 +395,7 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-base md:text-lg font-bold">
+                      <p className="text-lg sm:text-base md:text-lg">
                         {Math.round(staff.reduce((sum, s) => sum + s.experience, 0) / staff.length) || 0}
                       </p>
                       <p className="text-xs sm:text-sm text-muted-foreground">平均経験年数</p>
@@ -577,12 +577,12 @@ export function StaffManagement() {
                         <div className="flex items-start gap-2 p-4 bg-green-50 border border-green-200 rounded-md">
                           <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-green-900">ユーザーが選択されました</p>
+                            <p className="text-sm text-green-900">ユーザーが選択されました</p>
                             <p className="text-sm text-green-700 mt-1">
-                              <span className="font-medium">メール:</span> {searchedUser.email}
+                              <span className="">メール:</span> {searchedUser.email}
                             </p>
                             <p className="text-sm text-green-700">
-                              <span className="font-medium">現在のロール:</span> {searchedUser.role}
+                              <span className="">現在のロール:</span> {searchedUser.role}
                             </p>
                           </div>
                         </div>

@@ -171,7 +171,7 @@ export function UserSearchCombobox({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="font-medium truncate">{user.email}</span>
+                        <span className="truncate">{user.email}</span>
                       </div>
                       <div className="mt-1">
                         <span className={cn(

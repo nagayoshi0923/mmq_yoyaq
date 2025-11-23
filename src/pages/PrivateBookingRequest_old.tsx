@@ -263,7 +263,7 @@ export function PrivateBookingRequest({
           <Card className="border-2 border-purple-200 bg-purple-50">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-purple-600 mx-auto" />
-              <h2 className="text-2xl font-bold text-purple-800">貸切リクエストを受け付けました！</h2>
+              <h2 className="text-2xl text-purple-800">貸切リクエストを受け付けました！</h2>
               <p className="text-purple-700">
                 リクエストありがとうございます。<br />
                 確認メールを {customerEmail} に送信しました。<br />
@@ -304,7 +304,7 @@ export function PrivateBookingRequest({
       </div>
 
       <div className="container mx-auto max-w-5xl px-6 py-6">
-        <h1 className="text-3xl font-bold mb-2">貸切リクエスト確認</h1>
+        <h1 className="text-3xl mb-2">貸切リクエスト確認</h1>
         <p className="text-muted-foreground mb-6">候補日時を確認し、お客様情報を入力してください</p>
 
         {error && (
@@ -321,10 +321,10 @@ export function PrivateBookingRequest({
           <div className="lg:col-span-2 space-y-6">
             {/* シナリオ情報 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">シナリオ情報</h2>
+              <h2 className="text-lg mb-3">シナリオ情報</h2>
               <Card>
                 <CardContent className="p-4">
-                  <h3 className="font-bold text-xl mb-2">{scenarioTitle}</h3>
+                  <h3 className="text-xl mb-2">{scenarioTitle}</h3>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Users className="w-4 h-4" />
                     <span>最大{maxParticipants}名</span>
@@ -335,7 +335,7 @@ export function PrivateBookingRequest({
 
             {/* 希望店舗 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">希望店舗</h2>
+              <h2 className="text-lg mb-3">希望店舗</h2>
               <Card>
                 <CardContent className="p-4">
                   <div className="flex flex-wrap gap-2">
@@ -360,7 +360,7 @@ export function PrivateBookingRequest({
 
             {/* 候補日時 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">候補日時</h2>
+              <h2 className="text-lg mb-3">候補日時</h2>
               <Card>
                 <CardContent className="p-4">
                   <div className="bg-purple-50 border border-purple-200 rounded p-3 mb-3">
@@ -386,7 +386,7 @@ export function PrivateBookingRequest({
                           </Badge>
                           <div className="flex items-center gap-2 text-sm">
                             <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium">
+                            <span className="">
                               {month}月{day}日({weekday})
                             </span>
                           </div>
@@ -406,11 +406,11 @@ export function PrivateBookingRequest({
 
             {/* お客様情報 */}
             <div>
-              <h2 className="font-bold text-lg mb-3">お客様情報</h2>
+              <h2 className="text-lg mb-3">お客様情報</h2>
               <Card>
                 <CardContent className="p-4 space-y-4">
                   <div>
-                    <label className="text-sm font-medium mb-1.5 block">
+                    <label className="text-sm mb-1.5 block">
                       お名前 <span className="text-red-500">*</span>
                     </label>
                     <Input 
@@ -422,7 +422,7 @@ export function PrivateBookingRequest({
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium mb-1.5 block">
+                    <label className="text-sm mb-1.5 block">
                       メールアドレス <span className="text-red-500">*</span>
                     </label>
                     <Input 
@@ -438,7 +438,7 @@ export function PrivateBookingRequest({
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium mb-1.5 block">
+                    <label className="text-sm mb-1.5 block">
                       電話番号 <span className="text-red-500">*</span>
                     </label>
                     <Input 
@@ -451,7 +451,7 @@ export function PrivateBookingRequest({
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium mb-1.5 block">
+                    <label className="text-sm mb-1.5 block">
                       ご要望・備考（任意）
                     </label>
                     <Textarea 
@@ -476,7 +476,7 @@ export function PrivateBookingRequest({
           {/* 右側：料金サマリー */}
           <div className="lg:col-span-1">
             <div className="sticky top-4 space-y-4">
-              <h2 className="font-bold text-lg">料金（目安）</h2>
+              <h2 className="text-lg">料金（目安）</h2>
               
               <Card>
                 <CardContent className="p-4 space-y-3">
@@ -490,7 +490,7 @@ export function PrivateBookingRequest({
                     <span>× {maxParticipants}名</span>
                   </div>
                   
-                  <div className="border-t pt-3 flex justify-between font-bold text-lg">
+                  <div className="border-t pt-3 flex justify-between text-lg">
                     <span>合計</span>
                     <span className="text-purple-600">
                       ¥{(participationFee * maxParticipants).toLocaleString()}
@@ -498,7 +498,7 @@ export function PrivateBookingRequest({
                   </div>
                   
                   <div className="bg-purple-50 border border-purple-200 rounded p-3 text-sm text-purple-800">
-                    <p className="font-medium mb-1">貸切料金</p>
+                    <p className="mb-1">貸切料金</p>
                     <p className="text-xs">詳細はリクエスト後にご相談させていただきます</p>
                   </div>
                 </CardContent>
@@ -514,7 +514,7 @@ export function PrivateBookingRequest({
 
               {user ? (
                 <Button
-                  className="w-full h-12 text-lg font-bold bg-purple-600 hover:bg-purple-700"
+                  className="w-full h-12 text-lg bg-purple-600 hover:bg-purple-700"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
                 >
@@ -522,7 +522,7 @@ export function PrivateBookingRequest({
                 </Button>
               ) : (
                 <Button
-                  className="w-full h-12 text-lg font-bold"
+                  className="w-full h-12 text-lg"
                   onClick={() => window.location.hash = 'login'}
                 >
                   ログインして貸切リクエスト

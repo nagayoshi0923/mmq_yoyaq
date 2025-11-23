@@ -160,7 +160,7 @@ export function createScenarioColumns(
       render: (scenario) => (
         <button
           onClick={() => actions.onEdit(scenario)}
-          className="font-medium text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
+          className="text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
           title={scenario.title}
         >
           {scenario.title}
