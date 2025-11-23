@@ -14,7 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { staffApi } from '@/lib/api'
 import type { Staff } from '@/types'
 import { 
-  Users, Clock, Shield, CheckCircle2
+  Users, Clock, Shield, CheckCircle2, Plus
 } from 'lucide-react'
 
 // 分離されたフック
