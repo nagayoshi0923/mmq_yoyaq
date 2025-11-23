@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { Calendar, Search, CheckCircle, Settings, Clock, User, DollarSign, Filter, ChevronDown, ChevronUp } from 'lucide-react'
 
@@ -135,17 +136,10 @@ export function ReservationManagement() {
       stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        {/* ページヘッダー */}
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-            <div className="flex-1">
-              <h1>予約管理</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                予約の確認・検索・ステータス管理を行います
-              </p>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="予約管理"
+          description="予約の確認・検索・ステータス管理を行います"
+        />
 
         {/* 統計サマリー */}
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">

@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { useShiftData } from './hooks/useShiftData'
@@ -113,25 +114,17 @@ export function ShiftSubmission() {
       stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        {/* ページヘッダー */}
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-            <div className="flex-1">
-              <h1>シフト提出 - {formatMonthYear()}</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                出勤可能な時間帯にチェックを入れてください
-              </p>
-            </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <MonthSwitcher
-                value={currentDate}
-                onChange={setCurrentDate}
-                showToday
-                quickJump
-              />
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title={`シフト提出 - ${formatMonthYear()}`}
+          description="出勤可能な時間帯にチェックを入れてください"
+        >
+          <MonthSwitcher
+            value={currentDate}
+            onChange={setCurrentDate}
+            showToday
+            quickJump
+          />
+        </PageHeader>
 
         {/* シフト提出期間の案内・警告 */}
         {globalSettings && (

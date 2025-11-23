@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { CheckCircle, Clock, Calendar, Settings } from 'lucide-react'
 
@@ -109,17 +110,10 @@ export function GMAvailabilityCheck() {
       stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        {/* ページヘッダー */}
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-            <div className="flex-1">
-              <h1>GM可否確認</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                貸切予約のGM可否を確認・回答します
-              </p>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="GM可否確認"
+          description="貸切予約のGM可否を確認・回答します"
+        />
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')} className="w-full">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
