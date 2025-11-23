@@ -128,23 +128,30 @@ function PerformanceCardBase({
             </Badge>
           )}
           
-          {/* 貸切リクエストの場合は何も表示しない（【貸切確定】は別の場所で表示される） */}
-          {event.is_private_request ? null : (
-            <>
-              {/* 予約者数バッジ */}
-              {!event.is_cancelled && (
-                <Badge size="sm" className={`font-normal text-xs px-1 py-0 h-4 whitespace-nowrap ${
-                  reservationCount >= maxCapacity 
-                    ? 'bg-red-100 text-red-800' 
-                    : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
-                }`}>
-                  {reservationCount < maxCapacity && (
-                    <Users className="w-3 h-3 mr-0.5 flex-shrink-0" />
-                  )}
-                  <span>{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
-                </Badge>
-              )}
-            </>
+          {/* 公開状況バッジ */}
+          {!event.is_cancelled && (
+            <div
+              className={`w-4 h-4 rounded-full flex-shrink-0 transition-all cursor-pointer ${
+                event.is_private_request 
+                  ? 'bg-green-400' 
+                  : event.is_reservation_enabled 
+                    ? 'bg-green-400' 
+                    : 'bg-gray-400'
+              }`}
+              title={
+                event.is_private_request 
+                  ? '貸切公演は常に公開中です' 
+                  : event.is_reservation_enabled 
+                    ? '予約サイトに公開中（クリックで非公開）' 
+                    : '予約サイトに非公開（クリックで公開）'
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!event.is_private_request) {
+                  onToggleReservation?.(event);
+                }
+              }}
+            />
           )}
         </div>
       </div>
@@ -169,35 +176,26 @@ function PerformanceCardBase({
       {/* 右上ステータス群 */}
       <div className="absolute top-1 right-1 flex gap-1 items-center">
         {/* 警告アイコン */}
-      {isIncomplete && (
+        {isIncomplete && (
           <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
         )}
-        </div>
+      </div>
 
-      {/* 右下：公開状態ステータスバッジ（●形式） */}
-      <div
-        className={`absolute bottom-0.5 right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 transition-all cursor-pointer ${
-            event.is_private_request 
-            ? 'bg-green-400' 
-              : event.is_reservation_enabled 
-              ? 'bg-green-400' 
-              : 'bg-gray-400'
-          }`}
-        title={
-          event.is_private_request 
-            ? '貸切公演は常に公開中です' 
-            : event.is_reservation_enabled 
-              ? '予約サイトに公開中（クリックで非公開）' 
-              : '予約サイトに非公開（クリックで公開）'
-        }
-          onClick={(e) => {
-            e.stopPropagation();
-            // 貸切公演の場合はクリック不可
-            if (!event.is_private_request) {
-              onToggleReservation?.(event);
-            }
-          }}
-      />
+      {/* 右下：予約者数バッジ */}
+      {!event.is_cancelled && !event.is_private_request && (
+        <div className="absolute bottom-0.5 right-0.5">
+          <Badge size="sm" className={`font-normal text-xs px-1 py-0 h-4 whitespace-nowrap ${
+            reservationCount >= maxCapacity 
+              ? 'bg-red-100 text-red-800' 
+              : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
+          }`}>
+            {reservationCount < maxCapacity && (
+              <Users className="w-3 h-3 mr-0.5 flex-shrink-0" />
+            )}
+            <span>{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
+          </Badge>
+        </div>
+      )}
     </div>
   )
 }
