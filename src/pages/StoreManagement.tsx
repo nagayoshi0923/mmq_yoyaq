@@ -152,7 +152,7 @@ export function StoreManagement() {
         <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
           <div className="space-y-3 sm:space-y-4 md:space-y-6">
             <div className="flex items-center justify-between gap-2">
-              <h1 className="text-lg sm:text-base md:text-lg">店舗管理</h1>
+              <h1 className="text-base md:text-lg">店舗管理</h1>
               <Button disabled size="sm" className="text-xs sm:text-sm">
                 <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">新規店舗</span>
@@ -235,7 +235,7 @@ export function StoreManagement() {
                 <span className="hidden sm:inline">戻る</span>
               </Button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-base md:text-lg truncate">店舗管理</h1>
+                <h1 className="text-base md:text-lg truncate">店舗管理</h1>
                 <p className="text-xs sm:text-sm text-muted-foreground truncate">
                   Queens Waltz 全{stores.length}店舗の管理
                 </p>
@@ -259,7 +259,7 @@ export function StoreManagement() {
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <StoreIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-lg sm:text-base md:text-lg truncate">{stores.length}</p>
+                    <p className="text-base md:text-lg truncate">{stores.length}</p>
                     <p className="text-xs text-muted-foreground truncate">総店舗数</p>
                   </div>
                 </div>
@@ -271,7 +271,7 @@ export function StoreManagement() {
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-lg sm:text-base md:text-lg truncate">{totalCapacity}名</p>
+                    <p className="text-base md:text-lg truncate">{totalCapacity}名</p>
                     <p className="text-xs text-muted-foreground truncate">総収容人数</p>
                   </div>
                 </div>
@@ -283,7 +283,7 @@ export function StoreManagement() {
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <DoorOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-lg sm:text-base md:text-lg truncate">{totalRooms}室</p>
+                    <p className="text-base md:text-lg truncate">{totalRooms}室</p>
                     <p className="text-xs text-muted-foreground truncate">総部屋数</p>
                   </div>
                 </div>
@@ -295,7 +295,7 @@ export function StoreManagement() {
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <Building className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-lg sm:text-base md:text-lg truncate">{activeStores}</p>
+                    <p className="text-base md:text-lg truncate">{activeStores}</p>
                     <p className="text-xs text-muted-foreground truncate">営業中店舗</p>
                   </div>
                 </div>
