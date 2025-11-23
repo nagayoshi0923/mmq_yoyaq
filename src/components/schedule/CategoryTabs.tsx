@@ -1,7 +1,7 @@
 // スケジュールカテゴリのタブ
 
 import { memo } from 'react'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
 
 interface CategoryTabsProps {
   selectedCategory: string
@@ -9,43 +9,50 @@ interface CategoryTabsProps {
   onCategoryChange: (category: string) => void
 }
 
+const categories = [
+  { id: 'all', label: '全て', color: 'bg-slate-100 text-slate-800 hover:bg-slate-200 border-slate-200' },
+  { id: 'open', label: 'オープン', color: 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' },
+  { id: 'private', label: '貸切', color: 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200' },
+  { id: 'gmtest', label: 'GMテスト', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200' },
+  { id: 'testplay', label: 'テスト', color: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200' },
+  { id: 'trip', label: '出張', color: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200' },
+]
+
 export const CategoryTabs = memo(function CategoryTabs({
   selectedCategory,
   categoryCounts,
   onCategoryChange
 }: CategoryTabsProps) {
   return (
-    <div className="bg-card border rounded-lg p-2 xs:p-2.5 sm:p-3 md:p-4">
-      <h3 className="flex flex-wrap items-center gap-2">
-        <span>公演カテゴリ</span>
-        <span className="text-sm text-muted-foreground whitespace-nowrap">
-          （中止: {categoryCounts.cancelled}件 / 警告: {categoryCounts.alerts}件）
-        </span>
-      </h3>
-      <Tabs value={selectedCategory} onValueChange={onCategoryChange} className="mt-3">
-        <div className="overflow-x-auto -mx-2 sm:mx-0">
-          <TabsList className="grid grid-cols-6 w-max min-w-full sm:w-fit gap-1">
-            <TabsTrigger value="all" className="px-2 md:px-3 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap">
-              全({categoryCounts.all})
-            </TabsTrigger>
-            <TabsTrigger value="open" className="px-2 md:px-3 py-1.5 bg-blue-100 text-blue-800 data-[state=active]:bg-blue-200 data-[state=active]:text-blue-900 whitespace-nowrap">
-              オープン({categoryCounts.open})
-            </TabsTrigger>
-            <TabsTrigger value="private" className="px-2 md:px-3 py-1.5 bg-purple-100 text-purple-800 data-[state=active]:bg-purple-200 data-[state=active]:text-purple-900 whitespace-nowrap">
-              貸切({categoryCounts.private})
-            </TabsTrigger>
-            <TabsTrigger value="gmtest" className="px-2 md:px-3 py-1.5 bg-orange-100 text-orange-800 data-[state=active]:bg-orange-200 data-[state=active]:text-orange-900 whitespace-nowrap">
-              GMテスト({categoryCounts.gmtest})
-            </TabsTrigger>
-            <TabsTrigger value="testplay" className="px-2 md:px-3 py-1.5 bg-yellow-100 text-yellow-800 data-[state=active]:bg-yellow-200 data-[state=active]:text-yellow-900 whitespace-nowrap">
-              テスト({categoryCounts.testplay})
-            </TabsTrigger>
-            <TabsTrigger value="trip" className="px-2 md:px-3 py-1.5 bg-green-100 text-green-800 data-[state=active]:bg-green-200 data-[state=active]:text-green-900 whitespace-nowrap">
-              出張({categoryCounts.trip})
-            </TabsTrigger>
-          </TabsList>
+    <div className="bg-card border rounded-lg p-3">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm">公演カテゴリ</h3>
+        <div className="text-xs text-muted-foreground">
+          中止: {categoryCounts.cancelled} / 警告: {categoryCounts.alerts}
         </div>
-      </Tabs>
+      </div>
+      
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+        {categories.map(category => (
+          <button
+            key={category.id}
+            onClick={() => onCategoryChange(category.id)}
+            className={`
+              relative flex flex-col items-center gap-0.5 p-2 rounded-md border transition-all text-xs
+              ${category.color}
+              ${selectedCategory === category.id 
+                ? 'ring-2 ring-primary shadow-sm' 
+                : 'hover:shadow-sm'
+              }
+            `}
+          >
+            <span className="font-medium truncate w-full text-center">{category.label}</span>
+            <span className="text-xs opacity-75">
+              {categoryCounts[category.id] || 0}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 })
