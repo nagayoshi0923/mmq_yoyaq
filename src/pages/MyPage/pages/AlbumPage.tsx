@@ -338,19 +338,19 @@ export function AlbumPage() {
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
-            <div className="text-base sm:text-lg text-primary">{playedScenarios.length}</div>
+            <div className="text-lg text-primary">{playedScenarios.length}</div>
             <div className="text-xs text-muted-foreground mt-1">総プレイ回数</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
-            <div className="text-base sm:text-lg text-primary">{scenarioGroups.length}</div>
+            <div className="text-lg text-primary">{scenarioGroups.length}</div>
             <div className="text-xs text-muted-foreground mt-1">プレイしたシナリオ</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
-            <div className="text-base sm:text-lg text-primary">{likedScenariosList.length}</div>
+            <div className="text-lg text-primary">{likedScenariosList.length}</div>
             <div className="text-xs text-muted-foreground mt-1">いいねしたシナリオ</div>
           </CardContent>
         </Card>
@@ -359,7 +359,7 @@ export function AlbumPage() {
       {/* シナリオリスト */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Images className="h-4 w-4 sm:h-5 sm:w-5" />
             アルバム
           </CardTitle>
@@ -409,7 +409,7 @@ export function AlbumPage() {
                           {/* タイトルとアクション */}
                           <div className="flex items-center justify-between gap-2 mb-3">
                             <div className="flex-1 min-w-0 pr-2">
-                              <h3 className="text-sm md:text-base break-words">{cleanTitle(group.scenario)}</h3>
+                              <h3 className="text-base break-words">{cleanTitle(group.scenario)}</h3>
                             </div>
                             <div className="flex items-center gap-0.5 flex-shrink-0">
                               <Button
@@ -487,7 +487,7 @@ export function AlbumPage() {
       {/* いいねしたシナリオ */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Star className="h-4 w-4 sm:h-5 sm:w-5 fill-yellow-400 text-yellow-400" />
             いいねしたシナリオ ({likedScenariosList.length})
           </CardTitle>
@@ -533,7 +533,7 @@ export function AlbumPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-2 gap-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-sm md:text-base mb-1 truncate">{item.scenario.title}</h3>
+                          <h3 className="text-base mb-1 truncate">{item.scenario.title}</h3>
                           <p className="text-xs text-muted-foreground mb-2">
                             作者: {item.scenario.author}
                           </p>
@@ -600,7 +600,7 @@ export function AlbumPage() {
       {hiddenScenarios.size > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+            <CardTitle className="flex items-center gap-2 text-base">
               <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               非表示のシナリオ ({hiddenScenarios.size})
             </CardTitle>

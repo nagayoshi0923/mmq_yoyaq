@@ -244,7 +244,7 @@ export function ProfilePage() {
       {/* ユーザー基本情報 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+          <CardTitle className="flex items-center gap-2 text-base">
             <User className="h-4 w-4 sm:h-5 sm:w-5" />
             ユーザー情報
           </CardTitle>
@@ -366,7 +366,7 @@ export function ProfilePage() {
       {/* プロフィール編集 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+          <CardTitle className="flex items-center gap-2 text-base">
             <User className="h-4 w-4 sm:h-5 sm:w-5" />
             プロフィール編集
           </CardTitle>

@@ -227,7 +227,7 @@ export function StoreManagement() {
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base sm:text-lg">
+                        <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-lg">
                           <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0 ${colors.dot}`}></div>
                           <span className="truncate">{store.name}</span>
                         </CardTitle>
@@ -286,11 +286,11 @@ export function StoreManagement() {
                     <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 pt-2 border-t border-border">
                       <div>
                         <p className="text-xs text-muted-foreground">収容人数</p>
-                        <p className="text-base sm:text-lg">{store.capacity}名</p>
+                        <p className="text-lg">{store.capacity}名</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">部屋数</p>
-                        <p className="text-base sm:text-lg">{store.rooms}室</p>
+                        <p className="text-lg">{store.rooms}室</p>
                       </div>
                     </div>
 

@@ -278,7 +278,7 @@ export const MobileResponsiveTable = memo(function MobileResponsiveTable<T>({
         {visibleColumns.map((column) => (
           <div
             key={column.key}
-            className={`flex-shrink-0 ${column.width || 'w-32'} px-2 sm:px-3 py-2 border-r border-gray-300 font-medium text-[10px] sm:text-xs md:text-sm ${
+            className={`flex-shrink-0 ${column.width || 'w-32'} px-2 sm:px-3 py-2 border-r border-gray-300 font-medium text-[10px] sm:text-xs ${
               column.sortable ? 'cursor-pointer hover:bg-gray-200' : ''
             } ${column.headerClassName || ''}`}
             onClick={() => handleHeaderClick(column)}
@@ -306,7 +306,7 @@ export const MobileResponsiveTable = memo(function MobileResponsiveTable<T>({
               {visibleColumns.map((column) => (
                 <div
                   key={column.key}
-                  className={`flex-shrink-0 ${column.width || 'w-32'} px-2 sm:px-3 py-2 border-r border-gray-200 text-[10px] sm:text-xs md:text-sm ${column.cellClassName || ''}`}
+                  className={`flex-shrink-0 ${column.width || 'w-32'} px-2 sm:px-3 py-2 border-r border-gray-200 text-[10px] sm:text-xs ${column.cellClassName || ''}`}
                 >
                   {column.render(item)}
                 </div>

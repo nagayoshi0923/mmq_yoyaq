@@ -69,7 +69,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
                 key={tab.id}
                 href={href}
                 onClick={(e) => handleTabClick(tab.id, e)}
-                className={`inline-flex flex-col items-center justify-center gap-0.5 sm:flex-row sm:gap-1 md:gap-2 px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-2.5 text-[10px] sm:text-xs md:text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-none min-w-[48px] sm:min-w-[56px] md:min-w-auto touch-manipulation ${
+                className={`inline-flex flex-col items-center justify-center gap-0.5 sm:flex-row sm:gap-1 md:gap-2 px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-2.5 text-[10px] sm:text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-none min-w-[48px] sm:min-w-[56px] md:min-w-auto touch-manipulation ${
                   isActive 
                     ? 'text-foreground border-b-[2px] sm:border-b-[3px] border-primary bg-accent/50' 
                     : 'text-muted-foreground hover:text-foreground'

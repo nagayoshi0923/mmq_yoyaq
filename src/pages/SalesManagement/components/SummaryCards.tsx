@@ -128,7 +128,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm md:text-base text-orange-600 mb-1 sm:mb-2">
+            <div className="text-base text-orange-600 mb-1 sm:mb-2">
               {formatCurrency(totalVariableCost)}
             </div>
             <div className="text-sm space-y-0.5 sm:space-y-1">
@@ -150,7 +150,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm md:text-base text-red-600">
+            <div className="text-base text-red-600">
               {formatCurrency(totalLicenseCost)}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
@@ -167,7 +167,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm md:text-base text-orange-600 mb-1">
+            <div className="text-base text-orange-600 mb-1">
               {formatCurrency(totalProductionCost + totalPropsCost)}
             </div>
             {(productionCostBreakdown.length > 0 || propsCostBreakdown.length > 0) && (
@@ -202,7 +202,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm md:text-base text-purple-600">
+            <div className="text-base text-purple-600">
               {formatCurrency(totalFixedCost)}
             </div>
             {fixedCostBreakdown.length > 0 && (

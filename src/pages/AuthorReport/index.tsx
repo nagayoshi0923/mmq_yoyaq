@@ -263,8 +263,8 @@ export default function AuthorReport() {
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-base sm:text-lg md:text-lg">作者レポート</h1>
-          <p className="text-muted-foreground text-xs sm:text-sm md:text-base">作者別の公演実績レポート</p>
+          <h1 className="text-lg md:text-lg">作者レポート</h1>
+          <p className="text-muted-foreground text-xs sm:text-base">作者別の公演実績レポート</p>
         </div>
         <Button
           onClick={handleBatchSend}

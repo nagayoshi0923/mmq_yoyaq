@@ -345,7 +345,7 @@ export function UserManagement() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1 sm:gap-2 mb-1">
                           {getRoleIcon(userData.role)}
-                          <p className="truncate text-xs sm:text-sm md:text-base">{userData.email}</p>
+                          <p className="truncate text-xs sm:text-base">{userData.email}</p>
                         </div>
                         <p className="text-xs text-gray-500 truncate">ID: {userData.id}</p>
                       </div>

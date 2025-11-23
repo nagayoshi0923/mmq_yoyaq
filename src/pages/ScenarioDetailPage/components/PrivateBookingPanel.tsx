@@ -21,7 +21,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
     <div className="space-y-4 sm:space-y-6">
       {/* 貸切料金情報 */}
       <div>
-        <h3 className="mb-3 sm:mb-4 text-base sm:text-lg">料金（目安）</h3>
+        <h3 className="mb-3 sm:mb-4 text-lg">料金（目安）</h3>
         <Card>
           <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
               <div className="flex justify-between items-center text-sm sm:text-base">
@@ -35,8 +35,8 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
                 <span className="">× {maxParticipants}名</span>
               </div>
               <div className="border-t pt-2 sm:pt-3 flex justify-between items-center">
-                <span className="text-base sm:text-lg">合計</span>
-                <span className="text-base sm:text-lg text-purple-600">
+                <span className="text-lg">合計</span>
+                <span className="text-lg text-purple-600">
                   ¥{(participationFee * maxParticipants).toLocaleString()}
                 </span>
               </div>

@@ -28,7 +28,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
           <button
             key={item.id}
             onClick={() => onPageChange(item.id)}
-                className={`w-full flex items-center gap-2 md:gap-3 px-2 md:px-3 py-1.5 md:py-2 rounded-lg transition-colors text-xs md:text-sm ${
+                className={`w-full flex items-center gap-2 md:gap-3 px-2 md:px-3 py-1.5 md:py-2 rounded-lg transition-colors text-xs ${
               isActive
                 ? 'bg-primary text-primary-foreground'
                 : 'hover:bg-muted text-muted-foreground hover:text-foreground'

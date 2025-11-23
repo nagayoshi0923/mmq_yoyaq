@@ -146,25 +146,25 @@ export function ReservationManagement() {
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">総予約数</CardDescription>
-              <CardTitle className="text-base sm:text-lg md:text-lg">{stats.total}</CardTitle>
+              <CardTitle className="text-lg md:text-lg">{stats.total}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">確定済み</CardDescription>
-              <CardTitle className="text-base sm:text-lg md:text-lg text-green-600">{stats.confirmed}</CardTitle>
+              <CardTitle className="text-lg md:text-lg text-green-600">{stats.confirmed}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">保留中</CardDescription>
-              <CardTitle className="text-base sm:text-lg md:text-lg text-yellow-600">{stats.pending}</CardTitle>
+              <CardTitle className="text-lg md:text-lg text-yellow-600">{stats.pending}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">未払い</CardDescription>
-              <CardTitle className="text-base sm:text-lg md:text-lg text-red-600">{stats.unpaid}</CardTitle>
+              <CardTitle className="text-lg md:text-lg text-red-600">{stats.unpaid}</CardTitle>
             </CardHeader>
           </Card>
         </div>

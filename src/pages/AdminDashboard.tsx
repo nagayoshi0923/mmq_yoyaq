@@ -447,7 +447,7 @@ export function AdminDashboard() {
             <div className="grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3 md:gap-4 mt-2 xs:mt-3 sm:mt-4">
               <Card>
                 <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm md:text-base">
+                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base">
                     <Store className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">店舗数</span>
                   </CardTitle>
@@ -460,7 +460,7 @@ export function AdminDashboard() {
 
               <Card>
                 <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm md:text-base">
+                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base">
                     <BookOpen className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">公演数</span>
                   </CardTitle>
@@ -473,7 +473,7 @@ export function AdminDashboard() {
 
               <Card>
                 <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm md:text-base">
+                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base">
                     <Calendar className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">今月の予約</span>
                   </CardTitle>
@@ -486,7 +486,7 @@ export function AdminDashboard() {
 
               <Card>
                 <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm md:text-base">
+                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base">
                     <TrendingUp className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">今月の売上</span>
                   </CardTitle>
@@ -514,7 +514,7 @@ export function AdminDashboard() {
                         onClick={() => handlePageChange(tab.id)}
                   >
                     <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-                      <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm md:text-base">
+                      <CardTitle className="flex items-center gap-1 sm:gap-2 text-base">
                         <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                         <span className="truncate">{tab.label}</span>
                       </CardTitle>

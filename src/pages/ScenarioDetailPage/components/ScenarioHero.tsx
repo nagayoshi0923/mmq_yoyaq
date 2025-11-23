@@ -46,7 +46,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
           <div className="xl:col-span-8 space-y-3 xl:space-y-4">
             <div>
               <p className="text-xs sm:text-sm opacity-80 mb-2">{scenario.author}</p>
-              <h1 className="text-base sm:text-lg md:text-lg lg:text-lg mb-3">{scenario.scenario_title}</h1>
+              <h1 className="text-lg md:text-lg lg:text-lg mb-3">{scenario.scenario_title}</h1>
               
               <div className="flex flex-wrap gap-1.5 items-center">
                 <div className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-full text-sm sm:text-base">

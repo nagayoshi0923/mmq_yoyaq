@@ -66,9 +66,9 @@ export const LineupView = memo(function LineupView({
         <section>
           <h2 className="text-lg md:text-base xl:text-lg mb-3 md:mb-4 flex items-center gap-2">
             <span>新着公演</span>
-            <Badge className="bg-red-600 text-white border-0 text-xs md:text-sm px-1.5 md:px-2 py-0.5 rounded-sm flex-shrink-0">NEW</Badge>
+            <Badge className="bg-red-600 text-white border-0 text-xs px-1.5 md:px-2 py-0.5 rounded-sm flex-shrink-0">NEW</Badge>
             {newScenarios.length > 10 && (
-              <span className="text-xs md:text-sm font-normal text-gray-500 ml-1 flex-shrink-0">
+              <span className="text-xs font-normal text-gray-500 ml-1 flex-shrink-0">
                 ({displayedNewScenarios.length} / {newScenarios.length})
               </span>
             )}
@@ -93,7 +93,7 @@ export const LineupView = memo(function LineupView({
           <h2 className="text-lg md:text-base xl:text-lg mb-3 md:mb-4">
             直近公演
             {upcomingScenarios.length > 10 && (
-              <span className="text-xs md:text-sm font-normal text-gray-500 ml-1">
+              <span className="text-xs font-normal text-gray-500 ml-1">
                 ({displayedUpcomingScenarios.length} / {upcomingScenarios.length})
               </span>
             )}

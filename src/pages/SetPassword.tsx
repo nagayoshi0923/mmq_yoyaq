@@ -80,7 +80,7 @@ export function SetPassword() {
             <div className="flex justify-center mb-3 sm:mb-4">
               <CheckCircle className="h-12 w-12 sm:h-16 sm:w-16 text-green-600" />
             </div>
-            <CardTitle className="text-center text-base sm:text-lg">パスワードの設定が完了しました！</CardTitle>
+            <CardTitle className="text-center text-lg">パスワードの設定が完了しました！</CardTitle>
             <CardDescription className="text-center text-sm sm:text-base mt-2">
               3秒後にログイン画面に移動します...
             </CardDescription>
@@ -105,7 +105,7 @@ export function SetPassword() {
           <div className="flex justify-center mb-3 sm:mb-4">
             <Lock className="h-10 w-10 sm:h-12 sm:w-12 text-blue-600" />
           </div>
-          <CardTitle className="text-center text-base sm:text-lg">パスワードを設定</CardTitle>
+          <CardTitle className="text-center text-lg">パスワードを設定</CardTitle>
           <CardDescription className="text-center text-sm sm:text-base mt-2">
             新しいパスワードを設定してアカウントをアクティブ化します
           </CardDescription>
