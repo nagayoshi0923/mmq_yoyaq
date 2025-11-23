@@ -188,7 +188,7 @@ export function StoreManagement() {
         
         <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
           <div className="space-y-3 sm:space-y-4 md:space-y-6">
-            <h1 className="text-lg sm:text-base md:text-lg">店舗管理</h1>
+            <h1 className="text-base md:text-lg">店舗管理</h1>
             <Card className="border-red-200 bg-red-50">
               <CardContent className="pt-4 sm:pt-6">
                 <div className="flex items-center gap-2 text-red-800 text-sm sm:text-base">
