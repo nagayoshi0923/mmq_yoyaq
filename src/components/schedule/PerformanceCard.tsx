@@ -107,7 +107,7 @@ function PerformanceCardBase({
         e.dataTransfer.setData('application/json', JSON.stringify(event))
       }}
       onContextMenu={handleContextMenu}
-      className={`p-0.5 sm:p-1 border-l-2 sm:border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-schedule-base relative ${
+      className={`p-1 border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow relative ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
           : 'cursor-move'
@@ -116,14 +116,14 @@ function PerformanceCardBase({
       onClick={() => onClick?.(event)}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
-      <div className="flex items-center justify-between mb-0 gap-0.5">
-        <span className={`font-mono text-schedule-base leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className="flex items-center justify-between mb-0.5 gap-1">
+        <span className={`font-mono text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
-        <div className="flex items-center gap-0.5 flex-shrink-0 min-w-0">
+        <div className="flex items-center gap-1 flex-shrink-0 min-w-0">
           {/* 中止バッジ */}
           {event.is_cancelled && (
-            <Badge variant="cancelled" size="sm" className="font-normal text-badge px-0 py-0 h-3 sm:h-4 whitespace-nowrap">
+            <Badge variant="cancelled" size="sm" className="font-normal text-xs px-1 py-0 h-4 whitespace-nowrap">
               中止
             </Badge>
           )}
@@ -133,16 +133,15 @@ function PerformanceCardBase({
             <>
               {/* 予約者数バッジ */}
               {!event.is_cancelled && (
-                <Badge size="sm" className={`font-normal text-xs px-0 py-0 h-3 sm:h-4 whitespace-nowrap ${
+                <Badge size="sm" className={`font-normal text-xs px-1 py-0 h-4 whitespace-nowrap ${
                   reservationCount >= maxCapacity 
                     ? 'bg-red-100 text-red-800' 
                     : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
                 }`}>
                   {reservationCount < maxCapacity && (
-                    <Users className="w-icon-sm h-icon-sm mr-0.5 flex-shrink-0" />
+                    <Users className="w-3 h-3 mr-0.5 flex-shrink-0" />
                   )}
-                  <span className="hidden sm:inline">{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
-                  <span className="sm:hidden">{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
+                  <span>{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
                 </Badge>
               )}
             </>
@@ -151,27 +150,27 @@ function PerformanceCardBase({
       </div>
       
       {/* シナリオタイトル */}
-      <div className={`font-medium line-clamp-2 mb-0 text-schedule-base leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`font-medium line-clamp-2 mb-0.5 text-xs leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.scenario || '未定'}
       </div>
       
       {/* GM情報 */}
-      <div className={`text-schedule-base mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         GM: {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
       </div>
       
       {/* ノート情報 */}
       {event.notes && (
-        <div className={`text-schedule-sm truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+        <div className={`text-xs truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.notes}
         </div>
       )}
 
       {/* 右上ステータス群 */}
-      <div className="absolute top-0.5 right-0.5 flex gap-1 items-center">
+      <div className="absolute top-1 right-1 flex gap-1 items-center">
         {/* 警告アイコン */}
       {isIncomplete && (
-          <AlertTriangle className="w-icon-md h-icon-md text-red-600 flex-shrink-0" />
+          <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
         )}
         </div>
 
