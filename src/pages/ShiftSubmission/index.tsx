@@ -113,20 +113,24 @@ export function ShiftSubmission() {
       stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        {/* ヘッダー */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-base md:text-lg">シフト提出 - {formatMonthYear()}</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              出勤可能な時間帯にチェックを入れてください
-            </p>
+        {/* ページヘッダー */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+            <div className="flex-1">
+              <h1>シフト提出 - {formatMonthYear()}</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                出勤可能な時間帯にチェックを入れてください
+              </p>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <MonthSwitcher
+                value={currentDate}
+                onChange={setCurrentDate}
+                showToday
+                quickJump
+              />
+            </div>
           </div>
-          <MonthSwitcher
-            value={currentDate}
-            onChange={setCurrentDate}
-            showToday
-            quickJump
-          />
         </div>
 
         {/* シフト提出期間の案内・警告 */}

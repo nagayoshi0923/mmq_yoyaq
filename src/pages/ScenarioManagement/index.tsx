@@ -314,15 +314,16 @@ export function ScenarioManagement() {
       className="mx-auto"
     >
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          {/* ヘッダー */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-base md:text-lg">シナリオ管理</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                全{allScenarios.length}本のシナリオを管理
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {/* ページヘッダー */}
+          <div className="mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+              <div className="flex-1">
+                <h1>シナリオ管理</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  全{allScenarios.length}本のシナリオを管理
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
               <CsvImportExport
                 data={allScenarios}
                 onImport={handleImport}

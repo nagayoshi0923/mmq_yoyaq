@@ -137,10 +137,14 @@ export function ReservationManagement() {
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
         {/* ページヘッダー */}
         <div className="mb-6">
-          <h1>予約管理</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            予約の確認・検索・ステータス管理を行います
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+            <div className="flex-1">
+              <h1>予約管理</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                予約の確認・検索・ステータス管理を行います
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* 統計サマリー */}

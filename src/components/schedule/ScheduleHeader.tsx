@@ -19,8 +19,7 @@ export const ScheduleHeader = memo(function ScheduleHeader({
 }: ScheduleHeaderProps) {
   return (
     <div className="mb-6">
-      {/* タイトルと説明 */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <h1>スケジュール管理</h1>
@@ -36,7 +35,7 @@ export const ScheduleHeader = memo(function ScheduleHeader({
             公演スケジュールの登録・編集・管理を行います
           </p>
         </div>
-        <div className="flex gap-2 items-center flex-shrink-0">
+        <div className="flex gap-2 flex-shrink-0">
           {/* 月選択コントロール */}
           <MonthSwitcher
             value={currentDate}

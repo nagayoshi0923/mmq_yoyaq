@@ -67,15 +67,16 @@ export default function CustomerManagement() {
     >
       <main className="space-y-3 sm:space-y-4 md:space-y-6">
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          {/* ヘッダー */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-base md:text-lg">顧客管理</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                全{customers.length}名の顧客を管理
-              </p>
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
+          {/* ページヘッダー */}
+          <div className="mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+              <div className="flex-1">
+                <h1>顧客管理</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  全{customers.length}名の顧客を管理
+                </p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
               <Button onClick={() => {
                 setSelectedCustomer(null)
                 setIsEditModalOpen(true)
@@ -86,6 +87,7 @@ export default function CustomerManagement() {
               </Button>
             </div>
           </div>
+        </div>
 
       {/* 検索バー */}
       <Card>

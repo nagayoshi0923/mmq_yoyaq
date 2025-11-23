@@ -255,10 +255,14 @@ export function UserManagement() {
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
         {/* ページヘッダー */}
         <div className="mb-6">
-          <h1>ユーザー管理</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            ユーザーの検索・ロール管理を行います
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+            <div className="flex-1">
+              <h1>ユーザー管理</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                ユーザーの検索・ロール管理を行います
+              </p>
+            </div>
+          </div>
         </div>
 
       <Card>
