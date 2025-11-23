@@ -19,7 +19,6 @@ import {
   Mail, 
   Users,
   Building,
-  ArrowLeft,
   CalendarDays,
   DoorOpen
 } from 'lucide-react'
@@ -222,34 +221,25 @@ export function StoreManagement() {
       
       <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          {/* ヘッダー */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => window.history.back()}
-                className="h-7 w-7 sm:h-8 sm:w-auto p-0 sm:px-3 sm:py-2 flex-shrink-0"
-              >
-                <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-2" />
-                <span className="hidden sm:inline">戻る</span>
-              </Button>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-base md:text-lg truncate">店舗管理</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground truncate">
+          {/* ページヘッダー */}
+          <div className="mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+              <div className="flex-1">
+                <h1>店舗管理</h1>
+                <p className="text-sm text-muted-foreground mt-1">
                   Queens Waltz 全{stores.length}店舗の管理
                 </p>
               </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <Button 
+                  onClick={() => openEditModal(null)}
+                  size="sm"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  新規店舗
+                </Button>
+              </div>
             </div>
-            <Button 
-              onClick={() => openEditModal(null)}
-              size="sm"
-              className="w-full sm:w-auto text-xs sm:text-sm"
-            >
-              <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-              <span className="hidden sm:inline">新規店舗</span>
-              <span className="sm:hidden">新規</span>
-            </Button>
           </div>
 
           {/* 統計情報 */}
