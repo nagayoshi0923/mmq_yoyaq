@@ -222,7 +222,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <XCircle className="h-8 w-8 text-red-600" />
-          <h1 className="text-lg">キャンセル設定</h1>
+          <h1>キャンセル設定</h1>
         </div>
         <Button onClick={handleSave} disabled={saving || !storeId}>
           <Save className="h-4 w-4 mr-2" />

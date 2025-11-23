@@ -127,7 +127,7 @@ export function GeneralSettings() {
         <div className="flex items-center gap-3">
           <SettingsIcon className="h-8 w-8 text-blue-600" />
           <div>
-            <h1 className="text-lg">全体設定</h1>
+            <h1>全体設定</h1>
             <p className="text-xs text-muted-foreground">システム全体の設定を管理します</p>
           </div>
         </div>

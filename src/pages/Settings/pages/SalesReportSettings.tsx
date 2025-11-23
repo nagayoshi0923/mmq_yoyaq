@@ -181,7 +181,7 @@ export function SalesReportSettings() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <FileText className="h-8 w-8 text-blue-600" />
-          <h1 className="text-lg">売上・レポート設定</h1>
+          <h1>売上・レポート設定</h1>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
