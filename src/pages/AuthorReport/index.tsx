@@ -261,11 +261,10 @@ export default function AuthorReport() {
         />
       )}
       {/* ヘッダー */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1>作者レポート</h1>
-          <p className="text-muted-foreground text-sm">作者別の公演実績レポート</p>
-        </div>
+      <PageHeader
+        title="作者レポート"
+        description="作者別の公演実績レポート"
+      >
         <Button
           onClick={handleBatchSend}
           disabled={isSendingBatch || loading || finalData.length === 0}
@@ -274,7 +273,7 @@ export default function AuthorReport() {
           <MailCheck className="h-4 w-4" />
           {isSendingBatch ? '送信中...' : '一括メール送信'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* フィルター */}
       <Card>
