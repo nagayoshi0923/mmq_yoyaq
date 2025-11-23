@@ -443,7 +443,7 @@ export function AdminDashboard() {
         <div className="space-y-2.5 xs:space-y-3 sm:space-y-4 md:space-y-6">
           {/* 概要統計 */}
           <section>
-            <h2 className="text-base md:text-lg leading-tight">概要</h2>
+            <h2 className="text-base md:text-lg">概要</h2>
             <div className="grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3 md:gap-4 mt-2 xs:mt-3 sm:mt-4">
               <Card>
                 <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">

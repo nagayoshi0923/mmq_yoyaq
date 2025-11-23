@@ -78,10 +78,10 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-blue-600 flex-shrink-0" />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-base md:text-lg text-blue-900 leading-tight">
+            <div className="text-base md:text-lg text-blue-900">
               {formatCurrency(totalRevenue)}
             </div>
-            <p className="text-xs text-blue-700 mt-0.5 sm:mt-1 leading-tight">
+            <p className="text-xs text-blue-700 mt-0.5 sm:mt-1">
               {totalEvents}公演<span className="hidden sm:inline"> • </span><br className="sm:hidden" />平均 {formatCurrency(averageRevenue)}
             </p>
           </CardContent>
@@ -93,10 +93,10 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-red-600 flex-shrink-0" />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-base md:text-lg text-red-900 leading-tight">
+            <div className="text-base md:text-lg text-red-900">
               {formatCurrency(totalExpenses)}
             </div>
-            <p className="text-xs text-red-700 mt-0.5 sm:mt-1 leading-tight break-words">
+            <p className="text-xs text-red-700 mt-0.5 sm:mt-1 break-words">
               変動費 {formatCurrency(totalVariableCost)}<span className="hidden sm:inline"> + </span><br className="sm:hidden" />固定費 {formatCurrency(totalFixedCost)}
             </p>
           </CardContent>
@@ -108,10 +108,10 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <DollarSign className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 ${netProfit >= 0 ? 'text-green-600' : 'text-gray-600'} flex-shrink-0`} />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className={`text-base md:text-lg ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'} leading-tight`}>
+            <div className={`text-base md:text-lg ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'}`}>
               {formatCurrency(netProfit)}
             </div>
-            <p className={`text-xs mt-0.5 sm:mt-1 ${netProfit >= 0 ? 'text-green-700' : 'text-gray-700'} leading-tight`}>
+            <p className={`text-xs mt-0.5 sm:mt-1 ${netProfit >= 0 ? 'text-green-700' : 'text-gray-700'}`}>
               利益率 {totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}%
             </p>
           </CardContent>
@@ -128,7 +128,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm md:text-base text-orange-600 mb-1 sm:mb-2 leading-tight">
+            <div className="text-sm md:text-base text-orange-600 mb-1 sm:mb-2">
               {formatCurrency(totalVariableCost)}
             </div>
             <div className="text-xs space-y-0.5 sm:space-y-1">
@@ -150,10 +150,10 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm md:text-base text-red-600 leading-tight">
+            <div className="text-sm md:text-base text-red-600">
               {formatCurrency(totalLicenseCost)}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1 leading-tight">
+            <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
               作者への支払い
             </p>
           </CardContent>
@@ -167,7 +167,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm md:text-base text-orange-600 mb-1 leading-tight">
+            <div className="text-sm md:text-base text-orange-600 mb-1">
               {formatCurrency(totalProductionCost + totalPropsCost)}
             </div>
             {(productionCostBreakdown.length > 0 || propsCostBreakdown.length > 0) && (
@@ -187,7 +187,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
               </div>
             )}
             {productionCostBreakdown.length === 0 && propsCostBreakdown.length === 0 && (
-              <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1 leading-tight">
+              <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
                 制作費なし
               </p>
             )}
@@ -202,7 +202,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm md:text-base text-purple-600 leading-tight">
+            <div className="text-sm md:text-base text-purple-600">
               {formatCurrency(totalFixedCost)}
             </div>
             {fixedCostBreakdown.length > 0 && (
