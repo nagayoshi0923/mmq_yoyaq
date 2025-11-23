@@ -247,7 +247,7 @@ export const MobileResponsiveTable = memo(function MobileResponsiveTable<T>({
                     <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-3 pt-3 border-t border-gray-100">
                       {secondaryCols.map((column) => (
                         <div key={column.key}>
-                          <div className="text-[10px] sm:text-xs text-gray-500 font-medium">
+                          <div className="text-xs sm:text-xs text-gray-500 font-medium">
                             {column.header}
                           </div>
                           <div className="text-xs sm:text-sm text-gray-700 mt-0.5">
@@ -278,7 +278,7 @@ export const MobileResponsiveTable = memo(function MobileResponsiveTable<T>({
         {visibleColumns.map((column) => (
           <div
             key={column.key}
-            className={`flex-shrink-0 ${column.width || 'w-32'} px-2 sm:px-3 py-2 border-r border-gray-300 font-medium text-[10px] sm:text-xs ${
+            className={`flex-shrink-0 ${column.width || 'w-32'} px-2 sm:px-3 py-2 border-r border-gray-300 font-medium text-xs sm:text-xs ${
               column.sortable ? 'cursor-pointer hover:bg-gray-200' : ''
             } ${column.headerClassName || ''}`}
             onClick={() => handleHeaderClick(column)}
@@ -306,7 +306,7 @@ export const MobileResponsiveTable = memo(function MobileResponsiveTable<T>({
               {visibleColumns.map((column) => (
                 <div
                   key={column.key}
-                  className={`flex-shrink-0 ${column.width || 'w-32'} px-2 sm:px-3 py-2 border-r border-gray-200 text-[10px] sm:text-xs ${column.cellClassName || ''}`}
+                  className={`flex-shrink-0 ${column.width || 'w-32'} px-2 sm:px-3 py-2 border-r border-gray-200 text-xs sm:text-xs ${column.cellClassName || ''}`}
                 >
                   {column.render(item)}
                 </div>

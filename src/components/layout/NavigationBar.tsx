@@ -69,7 +69,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
                 key={tab.id}
                 href={href}
                 onClick={(e) => handleTabClick(tab.id, e)}
-                className={`inline-flex flex-col items-center justify-center gap-0.5 sm:flex-row sm:gap-1 md:gap-2 px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-2.5 text-[10px] sm:text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-none min-w-[48px] sm:min-w-[56px] md:min-w-auto touch-manipulation ${
+                className={`inline-flex flex-col items-center justify-center gap-0.5 sm:flex-row sm:gap-1 md:gap-2 px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-2.5 text-xs sm:text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-none min-w-[48px] sm:min-w-[56px] md:min-w-auto touch-manipulation ${
                   isActive 
                     ? 'text-foreground border-b-[2px] sm:border-b-[3px] border-primary bg-accent/50' 
                     : 'text-muted-foreground hover:text-foreground'
@@ -78,7 +78,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
               >
                 <Icon className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5 flex-shrink-0" />
                 <span className="hidden md:inline whitespace-nowrap">{tab.label}</span>
-                <span className="md:hidden text-[9px] sm:text-[10px] leading-tight text-center">{tab.label.length > 3 ? tab.label.slice(0, 3) : tab.label}</span>
+                <span className="md:hidden text-[9px] sm:text-xs leading-tight text-center">{tab.label.length > 3 ? tab.label.slice(0, 3) : tab.label}</span>
               </a>
             )
           })}

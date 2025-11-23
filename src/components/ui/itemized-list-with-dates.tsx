@@ -174,7 +174,7 @@ export function ItemizedListWithDates({
                       {showDateRange && (
                         <div className="relative">
                           {/* 期間表示（2カラムにまたがる） */}
-                          <div className="absolute -top-5 left-0 right-0 text-[10px] leading-tight text-muted-foreground whitespace-nowrap">
+                          <div className="absolute -top-5 left-0 right-0 text-xs leading-tight text-muted-foreground whitespace-nowrap">
                             {(item.startDate || item.endDate) ? (
                               <>
                                 {item.startDate && !item.endDate && `${item.startDate.replace(/-/g, '/')}~`}

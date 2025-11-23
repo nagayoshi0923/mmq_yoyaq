@@ -63,7 +63,7 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                     {user?.staffName || user?.name}
                   </span>
                   <Badge className={
-                    `text-[10px] sm:text-xs px-1 sm:px-1.5 md:px-2 py-0.5 ${
+                    `text-xs sm:text-xs px-1 sm:px-1.5 md:px-2 py-0.5 ${
                       user?.role === 'admin' ? 'bg-blue-100 text-blue-800' :
                       user?.role === 'staff' ? 'bg-green-100 text-green-800' :
                       'bg-purple-100 text-purple-800'

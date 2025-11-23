@@ -159,7 +159,7 @@ export function SingleDatePopover({
             {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
               <div
                 key={day}
-                className={`text-center text-[10px] font-medium py-1 ${
+                className={`text-center text-xs font-medium py-1 ${
                   index === 0 ? 'text-red-500' : index === 6 ? 'text-blue-500' : 'text-muted-foreground'
                 }`}
               >
@@ -186,7 +186,7 @@ export function SingleDatePopover({
                   key={day}
                   type="button"
                   variant="ghost"
-                  className={`aspect-square p-0 text-[11px] h-7 w-7 ${
+                  className={`aspect-square p-0 text-xs h-7 w-7 ${
                     selected
                       ? 'bg-primary text-primary-foreground font-semibold hover:bg-primary/90'
                       : ''
@@ -201,7 +201,7 @@ export function SingleDatePopover({
 
           {/* プレビュー */}
           {tempDate && (
-            <div className="rounded border bg-muted/30 px-2 py-1.5 text-[10px] text-center">
+            <div className="rounded border bg-muted/30 px-2 py-1.5 text-xs text-center">
               {new Date(tempDate + 'T00:00:00').toLocaleDateString('ja-JP', {
                 year: 'numeric',
                 month: 'long',
