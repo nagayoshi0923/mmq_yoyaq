@@ -225,6 +225,14 @@ export function PrivateBookingManagement() {
       stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
+        {/* ページヘッダー */}
+        <div className="mb-6">
+          <h1>貸切予約管理</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            貸切予約リクエストの承認・却下・店舗調整を行います
+          </p>
+        </div>
+
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')}>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
             <TabsList className="w-full sm:w-auto">
