@@ -447,7 +447,7 @@ export function PrivateBookingManagement() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-2 sm:p-4">
             <Card className="w-full max-w-lg">
               <CardHeader className="p-3 sm:p-4 md:p-6">
-                <CardTitle className="text-base md:text-lg">貸切リクエストの却下</CardTitle>
+                <CardTitle>貸切リクエストの却下</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6">
                 <div>

@@ -174,7 +174,7 @@ export function ReservationManagement() {
           <CardHeader className="p-3 sm:p-4 md:p-6">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
-              <CardTitle className="text-base md:text-lg">フィルター</CardTitle>
+              <CardTitle>フィルター</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 md:p-6">

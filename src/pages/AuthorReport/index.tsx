@@ -341,7 +341,7 @@ export default function AuthorReport() {
         finalData.map(monthData => (
           <Card key={monthData.month}>
             <CardHeader className="p-3 sm:p-4 md:p-6">
-              <CardTitle className="text-base md:text-lg">{monthData.month}</CardTitle>
+              <CardTitle className="text-lg">{monthData.month}</CardTitle>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 md:p-6">
               {monthData.authors.length === 0 ? (

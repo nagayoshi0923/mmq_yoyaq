@@ -443,7 +443,7 @@ export function AdminDashboard() {
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
           {/* 概要統計 */}
           <section>
-            <h2 className="text-base md:text-lg">概要</h2>
+            <h2>概要</h2>
             <div className="grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3 md:gap-4 mt-2 xs:mt-3 sm:mt-4">
               <Card>
                 <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
@@ -453,7 +453,7 @@ export function AdminDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
-                  <div className="text-base md:text-lg">{stats.stores}</div>
+                  <div className="text-lg">{stats.stores}</div>
                   <p className="text-muted-foreground text-xs">店舗運営中</p>
                 </CardContent>
               </Card>
@@ -466,7 +466,7 @@ export function AdminDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
-                  <div className="text-base md:text-lg">{stats.performances}</div>
+                  <div className="text-lg">{stats.performances}</div>
                   <p className="text-muted-foreground text-xs">シナリオ登録済み</p>
                 </CardContent>
               </Card>
@@ -479,7 +479,7 @@ export function AdminDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
-                  <div className="text-base md:text-lg">{stats.reservations}</div>
+                  <div className="text-lg">{stats.reservations}</div>
                   <p className="text-muted-foreground text-xs">件の予約</p>
                 </CardContent>
               </Card>
@@ -492,7 +492,7 @@ export function AdminDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
-                  <div className="text-base md:text-lg">
+                  <div className="text-lg">
                     ¥{stats.revenue.toLocaleString()}
                   </div>
                   <p className="text-muted-foreground text-xs">前月比 +12%</p>
@@ -503,7 +503,7 @@ export function AdminDashboard() {
 
           {/* ナビゲーションタブ */}
           <section>
-            <h2 className="text-base md:text-lg">機能メニュー</h2>
+            <h2>機能メニュー</h2>
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 md:gap-4 mt-3 sm:mt-4">
               {navigationTabs.map((tab) => {
                 const Icon = tab.icon
@@ -540,10 +540,10 @@ export function AdminDashboard() {
 
           {/* 最近の活動 */}
           <section>
-            <h2 className="text-base md:text-lg">最近の活動</h2>
+            <h2>最近の活動</h2>
             <Card className="mt-3 sm:mt-4">
               <CardHeader className="p-3 sm:p-4 md:p-6">
-                <CardTitle className="text-base md:text-lg">システム活動ログ</CardTitle>
+                <CardTitle>システム活動ログ</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">最新の予約・変更・キャンセル情報</CardDescription>
               </CardHeader>
               <CardContent className="p-3 sm:p-4 md:p-6">

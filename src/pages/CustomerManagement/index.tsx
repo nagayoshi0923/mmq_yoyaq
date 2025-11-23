@@ -99,7 +99,7 @@ export default function CustomerManagement() {
       {/* 顧客一覧 */}
       <Card>
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="text-base md:text-lg">顧客一覧 ({filteredCustomers.length}件)</CardTitle>
+          <CardTitle>顧客一覧 ({filteredCustomers.length}件)</CardTitle>
         </CardHeader>
         <CardContent className="p-3 sm:p-4 md:p-6">
           {loading ? (
