@@ -150,13 +150,21 @@ export function StoreManagement() {
         
         <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
           <div className="space-y-3 sm:space-y-4 md:space-y-6">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-base md:text-lg">店舗管理</h1>
-              <Button disabled size="sm" className="text-xs sm:text-sm">
-                <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">新規店舗</span>
-                <span className="sm:hidden">新規</span>
-              </Button>
+            <div className="mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                <div className="flex-1">
+                  <h1>店舗管理</h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Queens Waltz の店舗を管理
+                  </p>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <Button disabled size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    新規店舗
+                  </Button>
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               {[...Array(4)].map((_, i) => (
@@ -187,7 +195,16 @@ export function StoreManagement() {
         
         <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
           <div className="space-y-3 sm:space-y-4 md:space-y-6">
-            <h1 className="text-base md:text-lg">店舗管理</h1>
+            <div className="mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                <div className="flex-1">
+                  <h1>店舗管理</h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Queens Waltz の店舗を管理
+                  </p>
+                </div>
+              </div>
+            </div>
             <Card className="border-red-200 bg-red-50">
               <CardContent className="pt-4 sm:pt-6">
                 <div className="flex items-center gap-2 text-red-800 text-sm sm:text-base">
