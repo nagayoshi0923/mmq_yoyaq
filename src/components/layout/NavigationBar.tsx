@@ -78,7 +78,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
               >
                 <Icon className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5 flex-shrink-0" />
                 <span className="hidden md:inline whitespace-nowrap">{tab.label}</span>
-                <span className="md:hidden text-[9px] sm:text-xs leading-tight text-center">{tab.label.length > 3 ? tab.label.slice(0, 3) : tab.label}</span>
+                <span className="md:hidden text-xs sm:text-xs leading-tight text-center">{tab.label.length > 3 ? tab.label.slice(0, 3) : tab.label}</span>
               </a>
             )
           })}
