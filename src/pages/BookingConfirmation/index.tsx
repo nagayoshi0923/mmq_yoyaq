@@ -163,7 +163,7 @@ export function BookingConfirmation({
           <div className="lg:col-span-2 space-y-5 sm:space-y-6 md:space-y-8">
             {/* 公演情報 */}
             <div>
-              <h2 className="text-sm sm:text-base md:text-lg mb-3 sm:mb-4">公演情報</h2>
+              <h2 className="text-sm md:text-base mb-3 sm:mb-4">公演情報</h2>
               <Card>
                 <CardContent className="p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
                   <div>
@@ -202,7 +202,7 @@ export function BookingConfirmation({
 
             {/* 参加人数 */}
             <div>
-              <h2 className="text-sm sm:text-base md:text-lg mb-3 sm:mb-4">参加人数</h2>
+              <h2 className="text-sm md:text-base mb-3 sm:mb-4">参加人数</h2>
               <Card>
                 <CardContent className="p-4 sm:p-5 md:p-6">
                   <div className="flex items-center justify-between">
@@ -235,7 +235,7 @@ export function BookingConfirmation({
 
             {/* お客様情報 */}
             <div>
-              <h2 className="text-sm sm:text-base md:text-lg mb-3 sm:mb-4">お客様情報</h2>
+              <h2 className="text-sm md:text-base mb-3 sm:mb-4">お客様情報</h2>
               <Card>
                 <CardContent className="p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5">
                   <div>
@@ -291,7 +291,7 @@ export function BookingConfirmation({
           {/* 右側：料金サマリー */}
           <div className="space-y-4 sm:space-y-7 md:space-y-8">
             <div>
-              <h2 className="text-sm sm:text-base md:text-lg mb-3 sm:mb-4">料金</h2>
+              <h2 className="text-sm md:text-base mb-3 sm:mb-4">料金</h2>
               <Card>
                 <CardContent className="p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
                   <div className="flex justify-between text-sm">
@@ -305,7 +305,7 @@ export function BookingConfirmation({
                   </div>
 
                   <div className="border-t pt-3 sm:pt-4">
-                    <div className="flex justify-between text-sm sm:text-base md:text-lg">
+                    <div className="flex justify-between text-sm md:text-base">
                       <span>合計</span>
                       <span className="text-primary">¥{formatPrice(totalPrice)}</span>
                     </div>
