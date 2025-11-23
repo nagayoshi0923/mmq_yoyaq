@@ -199,7 +199,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                   )}
                   {/* 空席がある場合は残席数を表示、満席の場合は何も表示しない */}
                   {event.available_seats !== undefined && event.available_seats > 0 && (
-                    <span className={`text-xs font-medium ml-auto flex-shrink-0 ${
+                    <span className={`text-xs ml-auto flex-shrink-0 ${
                       event.available_seats <= 2 
                         ? 'text-orange-600' 
                         : 'text-gray-600'

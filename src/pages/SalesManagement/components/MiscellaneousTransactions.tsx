@@ -256,7 +256,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
         
         <Card className={`bg-gradient-to-br border-2 ${netAmount >= 0 ? 'from-blue-50 to-blue-100 border-blue-300' : 'from-gray-50 to-gray-100 border-gray-300'}`}>
           <CardHeader className="pb-3">
-            <CardTitle className={`text-sm font-medium ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
+            <CardTitle className={`text-sm ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
               差額
             </CardTitle>
           </CardHeader>
@@ -409,7 +409,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                         {transaction.date}
                       </div>
                       <div>
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs ${
                           transaction.type === 'income' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'

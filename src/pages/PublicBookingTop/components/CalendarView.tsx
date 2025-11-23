@@ -67,7 +67,7 @@ export const CalendarView = memo(function CalendarView({
           {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
             <div 
               key={day} 
-              className={`text-center py-2 sm:py-3 text-xs sm:text-sm font-medium ${
+              className={`text-center py-2 sm:py-3 text-xs sm:text-sm ${
                 index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : ''
               }`}
             >
@@ -93,7 +93,7 @@ export const CalendarView = memo(function CalendarView({
               >
                 {/* 日付 */}
                 <div 
-                  className={`text-xs font-medium p-0.5 sm:p-1 pb-0.5 flex-shrink-0 flex items-center justify-between ${
+                  className={`text-xs p-0.5 sm:p-1 pb-0.5 flex-shrink-0 flex items-center justify-between ${
                     !day.isCurrentMonth 
                       ? 'text-muted-foreground' 
                       : isSunday 
@@ -160,11 +160,11 @@ export const CalendarView = memo(function CalendarView({
                               <div className="truncate text-sm leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                                 {event.start_time?.slice(0, 5)} {storeName}
                               </div>
-                              <div className={`text-sm font-medium leading-tight flex-shrink-0 ml-0.5 ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+                              <div className={`text-sm leading-tight flex-shrink-0 ml-0.5 ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
                                 {isPrivateBooking ? '貸切' : isFull ? '満' : `${available}`}
                               </div>
                             </div>
-                            <div className={`text-sm font-medium leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+                            <div className={`text-sm leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
                               {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
                             </div>
                           </div>

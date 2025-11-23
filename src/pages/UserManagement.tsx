@@ -185,7 +185,7 @@ export function UserManagement() {
         <div className="space-y-3 sm:space-y-4">
           <div>
             <p className="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">現在のロール</p>
-            <span className={`inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium border ${getRoleBadgeColor(userData.role)}`}>
+            <span className={`inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm border ${getRoleBadgeColor(userData.role)}`}>
               {getRoleIcon(userData.role)}
               {getRoleLabel(userData.role)}
             </span>
@@ -345,7 +345,7 @@ export function UserManagement() {
                         <p className="text-xs text-gray-500 truncate">ID: {userData.id}</p>
                       </div>
                       <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                        <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium border whitespace-nowrap ${getRoleBadgeColor(userData.role)}`}>
+                        <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs border whitespace-nowrap ${getRoleBadgeColor(userData.role)}`}>
                           {getRoleLabel(userData.role)}
                         </span>
                         <div className="flex gap-0.5 sm:gap-1">

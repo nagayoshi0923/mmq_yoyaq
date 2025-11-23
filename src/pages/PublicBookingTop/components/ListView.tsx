@@ -153,10 +153,10 @@ export const ListView = memo(function ListView({
               <div className="text-sm leading-tight text-left" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                   {event.start_time?.slice(0, 5)}
                 </div>
-              <div className={`text-sm font-medium leading-tight text-left truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+              <div className={`text-sm leading-tight text-left truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
                 {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
               </div>
-              <div className={`text-sm font-medium leading-tight text-right ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+              <div className={`text-sm leading-tight text-right ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
                 {isPrivateBooking ? `残り0人` : isFull ? '満席' : `残り${available}人`}
               </div>
             </div>
@@ -244,7 +244,7 @@ export const ListView = memo(function ListView({
                 {/* モバイル用：日付行（全幅） */}
                 {isFirstRowOfDate && (
                   <TableRow className="sm:hidden bg-muted/30">
-                    <TableCell colSpan={4} className={`text-left px-2 py-1.5 text-xs font-medium ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`}>
+                    <TableCell colSpan={4} className={`text-left px-2 py-1.5 text-xs ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`}>
                       {listViewMonth.getMonth() + 1}/{date} ({dayOfWeek})
                   </TableCell>
                   </TableRow>

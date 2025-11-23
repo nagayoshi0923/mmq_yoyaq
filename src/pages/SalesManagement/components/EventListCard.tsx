@@ -158,7 +158,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">純利益</p>
-                    <p className={`font-bold ${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(event.net_profit)}
                     </p>
                   </div>
@@ -238,7 +238,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
                   </div>
                   <div className="min-w-[80px]">
                     <p className="text-xs text-muted-foreground">純利益</p>
-                    <p className={`font-bold ${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(event.net_profit)}
                     </p>
                   </div>
@@ -265,7 +265,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
           </div>
           <div>
             <p className="text-xs sm:text-sm text-muted-foreground">総純利益</p>
-            <p className={`font-bold ${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <p className={`${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(totals.profit)}
             </p>
           </div>
