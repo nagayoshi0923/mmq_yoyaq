@@ -347,6 +347,7 @@ export function ScenarioManagement() {
               </Button>
             </div>
           </div>
+        </div>
 
           {/* エラー表示 */}
           {error && (
