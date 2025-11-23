@@ -109,8 +109,12 @@ export function GMAvailabilityCheck() {
       stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        <div className="flex justify-between items-center mb-3 sm:mb-4 md:mb-6">
-          <div></div>
+        {/* ページヘッダー */}
+        <div className="mb-6">
+          <h1>GM可否確認</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            貸切予約のGM可否を確認・回答します
+          </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')} className="w-full">
