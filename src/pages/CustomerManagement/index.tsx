@@ -67,17 +67,25 @@ export default function CustomerManagement() {
     >
       <main className="space-y-3 sm:space-y-4 md:space-y-6">
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          <div className="flex items-center justify-between">
-            <div></div>
-        <Button onClick={() => {
-          setSelectedCustomer(null)
-          setIsEditModalOpen(true)
-        }} className="text-xs sm:text-sm" size="sm">
-          <UserPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">新規顧客</span>
-          <span className="sm:hidden">新規</span>
-        </Button>
-      </div>
+          {/* ヘッダー */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base md:text-lg">顧客管理</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                全{customers.length}名の顧客を管理
+              </p>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button onClick={() => {
+                setSelectedCustomer(null)
+                setIsEditModalOpen(true)
+              }} className="flex-1 sm:flex-none text-xs sm:text-sm" size="sm">
+                <UserPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">新規顧客</span>
+                <span className="sm:hidden">新規</span>
+              </Button>
+            </div>
+          </div>
 
       {/* 検索バー */}
       <Card>
