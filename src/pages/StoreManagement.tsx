@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StoreEditModal } from '@/components/modals/StoreEditModal'
 import { storeApi } from '@/lib/api'
@@ -334,6 +333,6 @@ export function StoreManagement() {
         onSave={handleSaveStore}
         onDelete={handleDeleteStore}
       />
-    </div>
+    </AppLayout>
   )
 }
