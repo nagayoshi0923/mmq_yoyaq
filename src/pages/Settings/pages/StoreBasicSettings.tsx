@@ -139,29 +139,6 @@ export function StoreBasicSettings() {
         </Button>
       </PageHeader>
 
-      {/* 店舗選択 */}
-      {stores.length > 1 && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <Label className="w-32">編集する店舗</Label>
-              <Select value={selectedStoreId} onValueChange={handleStoreChange}>
-                <SelectTrigger className="w-64">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {stores.map(store => (
-                    <SelectItem key={store.id} value={store.id}>
-                      {store.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* 基本情報 */}
       <Card>
         <CardHeader>
