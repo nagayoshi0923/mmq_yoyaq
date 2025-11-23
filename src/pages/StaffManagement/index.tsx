@@ -348,6 +348,23 @@ export function StaffManagement() {
         className="mx-auto"
       >
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
+            {/* ヘッダー */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-base md:text-lg">スタッフ管理</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  全{staff.length}名のスタッフを管理
+                </p>
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button onClick={handleAddStaff} size="sm" className="flex-1 sm:flex-none text-xs sm:text-sm">
+                  <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                  <span className="hidden sm:inline">新規スタッフ</span>
+                  <span className="sm:hidden">新規</span>
+                </Button>
+              </div>
+            </div>
+
             {/* 統計情報 */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               <Card>
