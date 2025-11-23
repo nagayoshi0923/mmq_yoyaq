@@ -18,7 +18,7 @@ export const ScheduleHeader = memo(function ScheduleHeader({
   onImportClick
 }: ScheduleHeaderProps) {
   return (
-    <div className="mb-6">
+    <div>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2">
