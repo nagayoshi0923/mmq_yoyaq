@@ -3,6 +3,7 @@
 import { memo } from 'react'
 import { Button } from '@/components/ui/button'
 import { MonthSwitcher } from '@/components/patterns/calendar'
+import { Upload } from 'lucide-react'
 
 interface ScheduleHeaderProps {
   currentDate: Date
@@ -50,8 +51,10 @@ export const ScheduleHeader = memo(function ScheduleHeader({
             variant="outline" 
             size="sm"
             onClick={onImportClick}
+            className="px-2"
+            title="インポート"
           >
-            インポート
+            <Upload className="h-4 w-4" />
           </Button>
         </div>
       </div>
