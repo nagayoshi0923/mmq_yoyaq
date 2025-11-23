@@ -348,23 +348,15 @@ export function StaffManagement() {
         className="mx-auto"
       >
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
-            {/* ページヘッダー */}
-            <div className="mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-                <div className="flex-1">
-                  <h1>スタッフ管理</h1>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    全{staff.length}名のスタッフを管理
-                  </p>
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                <Button onClick={() => openEditModal(null as any)} size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  新規スタッフ
-                </Button>
-              </div>
-            </div>
-          </div>
+            <PageHeader
+              title="スタッフ管理"
+              description={`全${staff.length}名のスタッフを管理`}
+            >
+              <Button onClick={() => openEditModal(null as any)} size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                新規スタッフ
+              </Button>
+            </PageHeader>
 
             {/* 統計情報 */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">

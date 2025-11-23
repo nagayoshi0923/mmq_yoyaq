@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { Users, UserPlus, Search, Settings } from 'lucide-react'
 
@@ -67,26 +68,18 @@ export default function CustomerManagement() {
     >
       <main className="space-y-3 sm:space-y-4 md:space-y-6">
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          {/* ページヘッダー */}
-          <div className="mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-              <div className="flex-1">
-                <h1>顧客管理</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  全{customers.length}名の顧客を管理
-                </p>
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-              <Button onClick={() => {
-                setSelectedCustomer(null)
-                setIsEditModalOpen(true)
-              }} size="sm">
-                <UserPlus className="mr-2 h-4 w-4" />
-                新規顧客
-              </Button>
-            </div>
-          </div>
-        </div>
+          <PageHeader
+            title="顧客管理"
+            description={`全${customers.length}名の顧客を管理`}
+          >
+            <Button onClick={() => {
+              setSelectedCustomer(null)
+              setIsEditModalOpen(true)
+            }} size="sm">
+              <UserPlus className="mr-2 h-4 w-4" />
+              新規顧客
+            </Button>
+          </PageHeader>
 
       {/* 検索バー */}
       <Card>

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import type { Scenario } from '@/types'
 import { 
   Plus, 
@@ -314,40 +315,32 @@ export function ScenarioManagement() {
       className="mx-auto"
     >
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          {/* ページヘッダー */}
-          <div className="mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-              <div className="flex-1">
-                <h1>シナリオ管理</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  全{allScenarios.length}本のシナリオを管理
-                </p>
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-              <CsvImportExport
-                data={allScenarios}
-                onImport={handleImport}
-                isImporting={isImporting}
-                exportFilename="scenarios"
-                headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
-                rowMapper={(s) => [
-                  s.title,
-                  s.author,
-                  s.description || '',
-                  s.duration.toString(),
-                  s.player_count_min.toString(),
-                  s.player_count_max?.toString() || s.player_count_min.toString(),
-                  s.difficulty?.toString() || '3',
-                  s.participation_fee?.toString() || '3000'
-                ]}
-              />
-              <Button onClick={handleNewScenario} size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                新規シナリオ
-              </Button>
-            </div>
-          </div>
-        </div>
+          <PageHeader
+            title="シナリオ管理"
+            description={`全${allScenarios.length}本のシナリオを管理`}
+          >
+            <CsvImportExport
+              data={allScenarios}
+              onImport={handleImport}
+              isImporting={isImporting}
+              exportFilename="scenarios"
+              headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
+              rowMapper={(s) => [
+                s.title,
+                s.author,
+                s.description || '',
+                s.duration.toString(),
+                s.player_count_min.toString(),
+                s.player_count_max?.toString() || s.player_count_min.toString(),
+                s.difficulty?.toString() || '3',
+                s.participation_fee?.toString() || '3000'
+              ]}
+            />
+            <Button onClick={handleNewScenario} size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              新規シナリオ
+            </Button>
+          </PageHeader>
 
           {/* エラー表示 */}
           {error && (
