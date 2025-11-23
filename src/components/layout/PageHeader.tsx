@@ -3,8 +3,9 @@ import { ReactNode } from 'react'
 interface PageHeaderProps {
   /**
    * ページタイトル（h1に表示）
+   * 文字列またはReactNode（更新中インジケーターなど）
    */
-  title: string
+  title: ReactNode
   /**
    * ページの説明文
    */

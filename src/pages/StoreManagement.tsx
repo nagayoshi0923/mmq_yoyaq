@@ -143,102 +143,17 @@ export function StoreManagement() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="stores" />
-        
-        <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
-          <div className="space-y-3 sm:space-y-4 md:space-y-6">
-            <div className="mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-                <div className="flex-1">
-                  <h1>店舗管理</h1>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Queens Waltz の店舗を管理
-                  </p>
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <Button disabled size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    新規店舗
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-              {[...Array(4)].map((_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardHeader>
-                    <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2 mt-2"></div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="stores" />
-        
-        <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
-          <div className="space-y-3 sm:space-y-4 md:space-y-6">
-            <div className="mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-                <div className="flex-1">
-                  <h1>店舗管理</h1>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Queens Waltz の店舗を管理
-                  </p>
-                </div>
-              </div>
-            </div>
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="pt-4 sm:pt-6">
-                <div className="flex items-center gap-2 text-red-800 text-sm sm:text-base">
-                  <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-                  <p className="break-words">{error}</p>
-                </div>
-                <Button 
-                  onClick={() => setError('')} 
-                  className="mt-3 sm:mt-4"
-                  variant="outline"
-                  size="sm"
-                >
-                  再読み込み
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   const totalCapacity = stores.reduce((sum, store) => sum + (store.capacity || 0), 0)
   const totalRooms = stores.reduce((sum, store) => sum + (store.rooms || 0), 0)
   const activeStores = stores.filter(store => store.status === 'active').length
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="stores" />
-      
-      <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
-        <div className="space-y-3 sm:space-y-4 md:space-y-6">
+    <AppLayout
+      currentPage="stores"
+      maxWidth="max-w-7xl"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+    >
+      <div className="space-y-3 sm:space-y-4 md:space-y-6">
           <PageHeader
             title="店舗管理"
             description={`Queens Waltz 全${stores.length}店舗の管理`}
