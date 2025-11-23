@@ -445,7 +445,7 @@ export default function AuthorReport() {
                           </span>
                           <span className="text-muted-foreground text-xs whitespace-nowrap ml-4">
                             {scenario.events}回 × ¥{scenario.licenseAmountPerEvent.toLocaleString()} = 
-                            <span className={`ml-1 font-semibold ${isGMTest ? "text-orange-600" : "text-gray-900"}`}>
+                            <span className={`ml-1 ${isGMTest ? "text-orange-600" : "text-gray-900"}`}>
                               ¥{scenario.licenseCost.toLocaleString()}
                             </span>
                           </span>

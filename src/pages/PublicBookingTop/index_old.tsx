@@ -638,7 +638,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                   {['月', '火', '水', '木', '金', '土', '日'].map((day, index) => (
                     <div 
                       key={day} 
-                      className={`text-center py-3 font-medium ${
+                      className={`text-center py-3 ${
                         index === 5 ? 'text-blue-600' : index === 6 ? 'text-red-600' : ''
                       }`}
                     >
@@ -664,7 +664,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                       >
                         {/* 日付 */}
                         <div 
-                          className={`text-xs font-medium p-1 pb-0.5 flex-shrink-0 flex items-center justify-between ${
+                          className={`text-xs p-1 pb-0.5 flex-shrink-0 flex items-center justify-between ${
                             !day.isCurrentMonth 
                               ? 'text-muted-foreground' 
                               : isSunday 
@@ -712,7 +712,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                       <div className="truncate text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                         {event.start_time?.slice(0, 5)} {storeName}
                                       </div>
-                                      <div className={`text-[11px] font-medium leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                      <div className={`text-[11px] leading-tight flex-shrink-0 ml-1 ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
                                         {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                       </div>
                                     </div>
@@ -897,7 +897,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                           <div className="text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                             {event.start_time?.slice(0, 5)}
                                           </div>
-                                          <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                          <div className={`text-[11px] leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
                                             {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
@@ -973,7 +973,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                           <div className="text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                             {event.start_time?.slice(0, 5)}
                                           </div>
-                                          <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                          <div className={`text-[11px] leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
                                             {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>
@@ -1049,7 +1049,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                                           <div className="text-[11px] leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                             {event.start_time?.slice(0, 5)}
                                           </div>
-                                          <div className={`text-[11px] font-medium leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                          <div className={`text-[11px] leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
                                             {event.is_private_booking ? '貸切' : isFull ? '満席' : `残${available}席`}
                                           </div>
                                         </div>

@@ -261,7 +261,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-lg font-bold ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
+            <div className={`text-lg ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
               {formatCurrency(netAmount)}
             </div>
           </CardContent>
@@ -420,7 +420,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                       <div className="">
                         {transaction.category}
                       </div>
-                      <div className={`text-lg font-bold ${
+                      <div className={`text-lg ${
                         transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {formatCurrency(transaction.amount)}
