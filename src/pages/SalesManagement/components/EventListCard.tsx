@@ -55,7 +55,7 @@ const CATEGORY_STYLES: Record<
 const SectionHeader: React.FC<{ subtitle?: string }> = ({ subtitle }) => (
   <div className="flex items-center gap-2">
     <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-    <h2 className="text-base sm:text-lg md:text-base">実施公演リスト</h2>
+    <h2 className="text-base md:text-lg">実施公演リスト</h2>
     {subtitle && <span className="text-xs text-muted-foreground">({subtitle})</span>}
   </div>
 )

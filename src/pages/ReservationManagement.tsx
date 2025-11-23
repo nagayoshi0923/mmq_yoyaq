@@ -170,7 +170,7 @@ export function ReservationManagement() {
           <CardHeader className="p-3 sm:p-4 md:p-6">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
-              <CardTitle className="text-base sm:text-lg md:text-base">フィルター</CardTitle>
+              <CardTitle className="text-base md:text-lg">フィルター</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 md:p-6">
@@ -260,7 +260,7 @@ export function ReservationManagement() {
                             <Badge variant="outline" className="text-xs">貸切</Badge>
                           )}
                         </div>
-                        <h3 className="text-base sm:text-lg md:text-base mb-2 break-words">{reservation.scenario_title}</h3>
+                        <h3 className="text-base md:text-lg mb-2 break-words">{reservation.scenario_title}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 sm:gap-x-6 gap-y-1 sm:gap-y-2 text-xs sm:text-sm">
                           <div className="flex items-center gap-1 sm:gap-2">
                             <User className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />

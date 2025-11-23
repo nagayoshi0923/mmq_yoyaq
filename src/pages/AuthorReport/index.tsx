@@ -279,7 +279,7 @@ export default function AuthorReport() {
       {/* フィルター */}
       <Card>
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-base">
+          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
             <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             フィルター
           </CardTitle>
@@ -341,7 +341,7 @@ export default function AuthorReport() {
         finalData.map(monthData => (
           <Card key={monthData.month}>
             <CardHeader className="p-3 sm:p-4 md:p-6">
-              <CardTitle className="text-base sm:text-lg md:text-base">{monthData.month}</CardTitle>
+              <CardTitle className="text-base md:text-lg">{monthData.month}</CardTitle>
             </CardHeader>
             <CardContent className="p-3 sm:p-4 md:p-6">
               {monthData.authors.length === 0 ? (
