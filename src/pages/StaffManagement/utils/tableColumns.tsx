@@ -47,7 +47,7 @@ export function createStaffColumns(
             size="sm"
           />
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm truncate leading-tight hover:text-blue-600">{staff.name}</h3>
+            <h3 className="text-sm truncate hover:text-blue-600">{staff.name}</h3>
             {!staff.user_id && (
               <Badge size="sm" className="bg-amber-100 text-amber-800 text-xs mt-0.5">
                 未紐付け

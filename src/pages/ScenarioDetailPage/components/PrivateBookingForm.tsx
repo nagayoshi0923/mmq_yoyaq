@@ -189,9 +189,9 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                           onClick={() => onTimeSlotToggle(date, slot)}
                         >
                           <div className="flex flex-col items-center justify-center min-h-[32px]">
-                            <span className="whitespace-nowrap leading-tight">{slot.label}</span>
+                            <span className="whitespace-nowrap">{slot.label}</span>
                             {/* 時間帯の開始時間を表示 */}
-                            <span className="text-xs mt-0.5 leading-tight opacity-80">
+                            <span className="text-xs mt-0.5 opacity-80">
                               {slot.startTime}
                             </span>
                             <div className="h-3 mt-0.5 flex items-center justify-center">

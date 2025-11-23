@@ -35,8 +35,8 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
       align: 'center',
       render: (row) => (
         <div className="flex flex-col items-center">
-          <p className="text-xs leading-tight">{row.dayInfo.displayDate}</p>
-          <p className={`text-xs leading-tight ${getDayOfWeekColor(row.dayInfo.dayOfWeek)}`}>
+          <p className="text-xs">{row.dayInfo.displayDate}</p>
+          <p className={`text-xs ${getDayOfWeekColor(row.dayInfo.dayOfWeek)}`}>
             {row.dayInfo.dayOfWeek}
           </p>
         </div>

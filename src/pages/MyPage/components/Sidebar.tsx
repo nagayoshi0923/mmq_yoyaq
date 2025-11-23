@@ -61,7 +61,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                 title={item.label}
               >
                 <Icon className="h-3.5 xs:h-4 w-3.5 xs:w-4 flex-shrink-0" />
-                <span className="text-xs leading-tight text-center truncate">{item.label}</span>
+                <span className="text-xs text-center truncate">{item.label}</span>
               </button>
             )
           })}
