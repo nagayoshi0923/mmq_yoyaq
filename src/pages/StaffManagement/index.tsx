@@ -357,7 +357,7 @@ export function StaffManagement() {
                 </p>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
-                <Button onClick={handleAddStaff} size="sm" className="flex-1 sm:flex-none text-xs sm:text-sm">
+                <Button onClick={() => openEditModal(null as any)} size="sm" className="flex-1 sm:flex-none text-xs sm:text-sm">
                   <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                   <span className="hidden sm:inline">新規スタッフ</span>
                   <span className="sm:hidden">新規</span>
