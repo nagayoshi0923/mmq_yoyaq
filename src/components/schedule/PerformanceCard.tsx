@@ -131,7 +131,7 @@ function PerformanceCardBase({
           {/* 公開状況バッジ */}
           {!event.is_cancelled && (
             <div
-              className={`w-4 h-4 rounded-full flex-shrink-0 transition-all cursor-pointer ${
+              className={`w-2 h-2 rounded-full flex-shrink-0 transition-all cursor-pointer ${
                 event.is_private_request 
                   ? 'bg-green-400' 
                   : event.is_reservation_enabled 
