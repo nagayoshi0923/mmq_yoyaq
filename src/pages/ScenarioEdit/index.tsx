@@ -396,7 +396,7 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
         />
       }
       maxWidth="max-w-7xl"
-      containerPadding="px-[10px] py-6"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
       {/* ヘッダー */}

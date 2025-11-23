@@ -91,7 +91,7 @@ export function ScheduleManager() {
     <AppLayout
       currentPage="schedule" 
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-2.5 xs:py-3 sm:py-4"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       className="mx-auto"
     >
       <div>

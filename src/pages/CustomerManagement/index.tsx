@@ -80,10 +80,9 @@ export default function CustomerManagement() {
               <Button onClick={() => {
                 setSelectedCustomer(null)
                 setIsEditModalOpen(true)
-              }} className="flex-1 sm:flex-none text-xs sm:text-sm" size="sm">
-                <UserPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">新規顧客</span>
-                <span className="sm:hidden">新規</span>
+              }} size="sm">
+                <UserPlus className="mr-2 h-4 w-4" />
+                新規顧客
               </Button>
             </div>
           </div>

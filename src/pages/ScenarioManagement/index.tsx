@@ -310,7 +310,7 @@ export function ScenarioManagement() {
     <AppLayout
       currentPage="scenarios"
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-4 sm:py-6 md:py-8"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       className="mx-auto"
     >
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
@@ -323,7 +323,7 @@ export function ScenarioManagement() {
                   全{allScenarios.length}本のシナリオを管理
                 </p>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+              <div className="flex gap-2 flex-shrink-0">
               <CsvImportExport
                 data={allScenarios}
                 onImport={handleImport}
@@ -341,10 +341,9 @@ export function ScenarioManagement() {
                   s.participation_fee?.toString() || '3000'
                 ]}
               />
-              <Button onClick={handleNewScenario} size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
-                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                <span className="hidden sm:inline">新規シナリオ</span>
-                <span className="sm:hidden">新規</span>
+              <Button onClick={handleNewScenario} size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                新規シナリオ
               </Button>
             </div>
           </div>
