@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { StoreEditModal } from '@/components/modals/StoreEditModal'
 import { storeApi } from '@/lib/api'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -238,26 +239,18 @@ export function StoreManagement() {
       
       <div className="container mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6 max-w-full overflow-hidden">
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          {/* ページヘッダー */}
-          <div className="mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-              <div className="flex-1">
-                <h1>店舗管理</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Queens Waltz 全{stores.length}店舗の管理
-                </p>
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <Button 
-                  onClick={() => openEditModal(null)}
-                  size="sm"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  新規店舗
-                </Button>
-              </div>
-            </div>
-          </div>
+          <PageHeader
+            title="店舗管理"
+            description={`Queens Waltz 全${stores.length}店舗の管理`}
+          >
+            <Button 
+              onClick={() => openEditModal(null)}
+              size="sm"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              新規店舗
+            </Button>
+          </PageHeader>
 
           {/* 統計情報 */}
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
