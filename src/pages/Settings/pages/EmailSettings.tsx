@@ -345,16 +345,15 @@ export function EmailSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Mail className="h-8 w-8 text-blue-600" />
-          <h1>メール設定</h1>
-        </div>
+      <PageHeader
+        title="メール設定"
+        description="メールテンプレートと送信設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* 会社情報 */}
       <Card>

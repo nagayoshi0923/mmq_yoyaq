@@ -145,16 +145,15 @@ export function StaffSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="h-8 w-8 text-blue-600" />
-          <h1>スタッフ設定</h1>
-        </div>
+      <PageHeader
+        title="スタッフ設定"
+        description="スタッフの権限と報酬設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* GM報酬デフォルト値 */}
       <Card>

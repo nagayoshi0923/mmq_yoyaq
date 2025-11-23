@@ -124,19 +124,15 @@ export function GeneralSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <SettingsIcon className="h-8 w-8 text-blue-600" />
-          <div>
-            <h1>全体設定</h1>
-            <p className="text-xs text-muted-foreground">システム全体の設定を管理します</p>
-          </div>
-        </div>
+      <PageHeader
+        title="全体設定"
+        description="システム全体の基本設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* シフト提出期間設定 */}
       <Card>

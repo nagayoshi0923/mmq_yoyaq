@@ -146,16 +146,15 @@ export function CustomerSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Award className="h-8 w-8 text-blue-600" />
-          <h1>顧客管理設定</h1>
-        </div>
+      <PageHeader
+        title="顧客管理設定"
+        description="顧客情報と会員管理設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* 会員ランク制度 */}
       <Card>

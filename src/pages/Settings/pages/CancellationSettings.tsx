@@ -220,16 +220,15 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <XCircle className="h-8 w-8 text-red-600" />
-          <h1>キャンセル設定</h1>
-        </div>
-        <Button onClick={handleSave} disabled={saving || !storeId}>
+      <PageHeader
+        title="キャンセル設定"
+        description="キャンセルポリシーと手数料設定"
+      >
+        <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {!storeId && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
