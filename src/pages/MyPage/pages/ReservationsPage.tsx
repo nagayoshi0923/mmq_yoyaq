@@ -251,7 +251,7 @@ export function ReservationsPage() {
       {/* 参加予定の予約 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+          <CardTitle className="flex items-center gap-2 text-sm md:text-base">
             <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
             参加予定の予約 ({upcomingReservations.length})
           </CardTitle>
@@ -352,7 +352,7 @@ export function ReservationsPage() {
       {/* 参加済みの予約 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+          <CardTitle className="flex items-center gap-2 text-sm md:text-base">
             <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
             参加済みの予約 ({pastReservations.length})
           </CardTitle>
@@ -434,7 +434,7 @@ export function ReservationsPage() {
       {cancelledReservations.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+            <CardTitle className="flex items-center gap-2 text-sm md:text-base">
               <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               キャンセル済み ({cancelledReservations.length})
             </CardTitle>
