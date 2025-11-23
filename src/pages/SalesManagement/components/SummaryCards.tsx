@@ -128,7 +128,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm sm:text-base md:text-lg lg:text-base text-orange-600 mb-1 sm:mb-2 leading-tight">
+            <div className="text-sm md:text-base text-orange-600 mb-1 sm:mb-2 leading-tight">
               {formatCurrency(totalVariableCost)}
             </div>
             <div className="text-xs space-y-0.5 sm:space-y-1">
@@ -150,7 +150,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm sm:text-base md:text-lg lg:text-base text-red-600 leading-tight">
+            <div className="text-sm md:text-base text-red-600 leading-tight">
               {formatCurrency(totalLicenseCost)}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1 leading-tight">
@@ -167,7 +167,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm sm:text-base md:text-lg lg:text-base text-orange-600 mb-1 leading-tight">
+            <div className="text-sm md:text-base text-orange-600 mb-1 leading-tight">
               {formatCurrency(totalProductionCost + totalPropsCost)}
             </div>
             {(productionCostBreakdown.length > 0 || propsCostBreakdown.length > 0) && (
@@ -202,7 +202,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm sm:text-base md:text-lg lg:text-base text-purple-600 leading-tight">
+            <div className="text-sm md:text-base text-purple-600 leading-tight">
               {formatCurrency(totalFixedCost)}
             </div>
             {fixedCostBreakdown.length > 0 && (
