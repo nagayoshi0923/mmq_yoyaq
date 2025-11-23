@@ -192,7 +192,7 @@ export function NotificationSettings() {
               通知日
             </Label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">毎月</span>
+              <span className="text-xs text-muted-foreground">毎月</span>
               <Input
                 id="notification-day"
                 type="number"
@@ -204,10 +204,10 @@ export function NotificationSettings() {
                 }
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日</span>
+              <span className="text-xs text-muted-foreground">日</span>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             例: 25日に設定すると、毎月25日に翌月のシフト募集通知が送信されます
           </p>
         </CardContent>
@@ -230,7 +230,7 @@ export function NotificationSettings() {
               締切日
             </Label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">毎月</span>
+              <span className="text-xs text-muted-foreground">毎月</span>
               <Input
                 id="deadline-day"
                 type="number"
@@ -242,10 +242,10 @@ export function NotificationSettings() {
                 }
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日 23:59まで</span>
+              <span className="text-xs text-muted-foreground">日 23:59まで</span>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             例: 25日に設定すると、翌月のシフトは毎月25日 23:59が締切になります
           </p>
         </CardContent>
@@ -268,7 +268,7 @@ export function NotificationSettings() {
               リマインダー日数
             </Label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">締切</span>
+              <span className="text-xs text-muted-foreground">締切</span>
               <Input
                 id="reminder-days"
                 type="number"
@@ -280,10 +280,10 @@ export function NotificationSettings() {
                 }
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日前</span>
+              <span className="text-xs text-muted-foreground">日前</span>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             例: 3日に設定すると、締切3日前に未提出者へリマインダーが送信されます
           </p>
         </CardContent>
@@ -301,7 +301,7 @@ export function NotificationSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             シフト募集通知は、各スタッフの個別Discordチャンネルに自動送信されます。<br />
             スタッフ管理ページで各スタッフのDiscordチャンネルIDを設定してください。
           </p>
@@ -320,7 +320,7 @@ export function NotificationSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-xs text-muted-foreground mb-4">
             各スタッフのDiscordチャンネルに翌月のシフト募集通知を送信します。<br />
             実際の通知内容を確認できます。
           </p>

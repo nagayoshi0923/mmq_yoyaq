@@ -107,7 +107,7 @@ export const VenueAccess = memo(function VenueAccess({
                   </p>
                 </div>
                 {/* 住所を常に表示（デバッグ用） */}
-                <p className="text-xs sm:text-sm text-muted-foreground pl-5 sm:pl-5.5">
+                <p className="text-xs text-muted-foreground pl-5 sm:pl-5.5">
                   {venue.address || '(住所データなし)'}
                 </p>
               </div>

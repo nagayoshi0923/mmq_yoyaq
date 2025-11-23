@@ -50,7 +50,7 @@ export const GMSelector = ({
       </h3>
       
       {!forceMode && availableGMs.length === 0 && (
-        <div className="text-sm text-muted-foreground mb-2">
+        <div className="text-xs text-muted-foreground mb-2">
           担当可能なGMが見つかりませんでした
         </div>
       )}

@@ -153,7 +153,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <div className="text-sm md:text-base text-red-600">
               {formatCurrency(totalLicenseCost)}
             </div>
-            <p className="text-sm text-muted-foreground mt-0.5 sm:mt-1">
+            <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
               作者への支払い
             </p>
           </CardContent>
@@ -171,7 +171,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
               {formatCurrency(totalProductionCost + totalPropsCost)}
             </div>
             {(productionCostBreakdown.length > 0 || propsCostBreakdown.length > 0) && (
-              <div className="text-sm text-muted-foreground space-y-0.5 max-h-16 sm:max-h-20 md:max-h-24 overflow-y-auto">
+              <div className="text-xs text-muted-foreground space-y-0.5 max-h-16 sm:max-h-20 md:max-h-24 overflow-y-auto">
                 {productionCostBreakdown.map((item, index) => (
                   <div key={`prod-${index}`} className="flex justify-between gap-1 py-0.5">
                     <span className="truncate text-xs">{item.scenario} / {item.item}</span>
@@ -187,7 +187,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
               </div>
             )}
             {productionCostBreakdown.length === 0 && propsCostBreakdown.length === 0 && (
-              <p className="text-sm text-muted-foreground mt-0.5 sm:mt-1">
+              <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
                 制作費なし
               </p>
             )}
@@ -206,7 +206,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
               {formatCurrency(totalFixedCost)}
             </div>
             {fixedCostBreakdown.length > 0 && (
-              <div className="text-sm text-muted-foreground mt-0.5 sm:mt-1 space-y-0.5 max-h-12 overflow-y-auto">
+              <div className="text-xs text-muted-foreground mt-0.5 sm:mt-1 space-y-0.5 max-h-12 overflow-y-auto">
                 {(() => {
                   // 項目ごとに合計を計算
                   const itemTotals = fixedCostBreakdown.reduce((acc, item) => {

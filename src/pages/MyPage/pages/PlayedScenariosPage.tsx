@@ -221,13 +221,13 @@ export function PlayedScenariosPage() {
         <Card>
           <CardContent className="pt-6 text-center">
             <div className="text-lg text-primary">{playedScenarios.length}</div>
-            <div className="text-sm text-muted-foreground mt-1">総プレイ回数</div>
+            <div className="text-xs text-muted-foreground mt-1">総プレイ回数</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
             <div className="text-lg text-primary">{scenarioGroups.length}</div>
-            <div className="text-sm text-muted-foreground mt-1">プレイしたシナリオ</div>
+            <div className="text-xs text-muted-foreground mt-1">プレイしたシナリオ</div>
           </CardContent>
         </Card>
         <Card>
@@ -235,7 +235,7 @@ export function PlayedScenariosPage() {
             <div className="text-lg text-primary">
               {scenarioGroups.filter((g) => g.count > 1).length}
             </div>
-            <div className="text-sm text-muted-foreground mt-1">リピートシナリオ</div>
+            <div className="text-xs text-muted-foreground mt-1">リピートシナリオ</div>
           </CardContent>
         </Card>
       </div>
@@ -322,7 +322,7 @@ export function PlayedScenariosPage() {
                     {group.plays.map((play, playIdx) => (
                       <div
                         key={playIdx}
-                        className="flex items-center gap-4 text-sm text-muted-foreground bg-muted/30 p-2 rounded"
+                        className="flex items-center gap-4 text-xs text-muted-foreground bg-muted/30 p-2 rounded"
                       >
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4" />

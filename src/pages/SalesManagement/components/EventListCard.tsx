@@ -252,19 +252,19 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
       <footer className="border-t pt-3 sm:pt-4">
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 text-center text-sm">
           <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">総売上</p>
+            <p className="text-xs text-muted-foreground">総売上</p>
             <p className="text-green-600">{formatCurrency(totals.revenue)}</p>
           </div>
           <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">総ライセンス</p>
+            <p className="text-xs text-muted-foreground">総ライセンス</p>
             <p className="text-red-600">{formatCurrency(totals.license)}</p>
           </div>
           <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">総GM給与</p>
+            <p className="text-xs text-muted-foreground">総GM給与</p>
             <p className="text-red-600">{formatCurrency(totals.gm)}</p>
           </div>
           <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">総純利益</p>
+            <p className="text-xs text-muted-foreground">総純利益</p>
             <p className={`${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(totals.profit)}
             </p>

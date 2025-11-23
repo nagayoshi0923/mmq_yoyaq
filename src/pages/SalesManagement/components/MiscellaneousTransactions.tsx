@@ -405,7 +405,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                 return (
                   <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                     <div className="flex-1 grid grid-cols-7 gap-4 items-center">
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {transaction.date}
                       </div>
                       <div>
@@ -425,13 +425,13 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                       }`}>
                         {formatCurrency(transaction.amount)}
                       </div>
-                      <div className="text-sm text-muted-foreground truncate">
+                      <div className="text-xs text-muted-foreground truncate">
                         {scenario ? scenario.title : '-'}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {store ? store.short_name : '全社'}
                       </div>
-                      <div className="text-sm text-muted-foreground truncate">
+                      <div className="text-xs text-muted-foreground truncate">
                         {transaction.description || '-'}
                       </div>
                     </div>

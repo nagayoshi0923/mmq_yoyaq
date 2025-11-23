@@ -1585,7 +1585,7 @@ export function PerformanceModal({
                               return reservation.customer_notes || '顧客名なし'
                             })()}
                           </span>
-                          <span className="text-sm text-muted-foreground flex-shrink-0 w-[60px]">
+                          <span className="text-xs text-muted-foreground flex-shrink-0 w-[60px]">
                             {reservation.participant_count ? `${reservation.participant_count}名` : '-'}
                           </span>
                           <Badge 
@@ -1600,7 +1600,7 @@ export function PerformanceModal({
                              reservation.payment_method === 'online' ? '事前決済' : 
                              '未設定'}
                           </Badge>
-                          <span className="text-sm text-muted-foreground w-[140px]">
+                          <span className="text-xs text-muted-foreground w-[140px]">
                             {reservation.created_at ? new Date(reservation.created_at).toLocaleString('ja-JP', {
                               month: '2-digit',
                               day: '2-digit',
@@ -1712,7 +1712,7 @@ export function PerformanceModal({
               />
             </div>
 
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               <p className="font-medium mb-1">送信先:</p>
               <ul className="list-disc list-inside space-y-1">
                 {reservations

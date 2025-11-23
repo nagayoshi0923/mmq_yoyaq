@@ -20,7 +20,7 @@ export function NotesInput({
     return (
       <div className="bg-muted/50 rounded p-3">
         <div className="text-sm mb-1">メモ</div>
-        <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+        <div className="text-xs text-muted-foreground whitespace-pre-wrap">
           {value}
         </div>
       </div>

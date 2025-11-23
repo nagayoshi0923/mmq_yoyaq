@@ -47,7 +47,7 @@ export function createScenarioAnalysisColumns(data: ScenarioPerformance[]): Colu
       render: (scenario) => (
         <div className="text-right">
           <div className="text-lg">{scenario.events}</div>
-          <div className="text-sm text-muted-foreground">公演</div>
+          <div className="text-xs text-muted-foreground">公演</div>
         </div>
       )
     }

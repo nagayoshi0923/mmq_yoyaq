@@ -173,7 +173,7 @@ export function StaffSettings() {
                   min="0"
                   step="100"
                 />
-                <span className="text-sm text-muted-foreground">円</span>
+                <span className="text-xs text-muted-foreground">円</span>
               </div>
             </div>
             <div>
@@ -186,7 +186,7 @@ export function StaffSettings() {
                   min="0"
                   step="100"
                 />
-                <span className="text-sm text-muted-foreground">円</span>
+                <span className="text-xs text-muted-foreground">円</span>
               </div>
             </div>
           </div>
@@ -203,7 +203,7 @@ export function StaffSettings() {
           <div className="flex items-center gap-4">
             <Label className="w-32">提出期限</Label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">公演日の</span>
+              <span className="text-xs text-muted-foreground">公演日の</span>
               <Input
                 type="number"
                 value={formData.shift_deadline_days}
@@ -212,7 +212,7 @@ export function StaffSettings() {
                 max="90"
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日前まで</span>
+              <span className="text-xs text-muted-foreground">日前まで</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2 ml-36">
@@ -263,7 +263,7 @@ export function StaffSettings() {
                 max="365"
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日間</span>
+              <span className="text-xs text-muted-foreground">日間</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2 ml-36">

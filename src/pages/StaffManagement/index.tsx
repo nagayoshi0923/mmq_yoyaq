@@ -367,7 +367,7 @@ export function StaffManagement() {
                     <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
                       <p className="text-base md:text-lg">{staff.length}</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">総スタッフ数</p>
+                      <p className="text-xs text-muted-foreground">総スタッフ数</p>
                     </div>
                   </div>
                 </CardContent>
@@ -381,7 +381,7 @@ export function StaffManagement() {
                       <p className="text-base md:text-lg">
                         {staff.filter(s => s.status === 'active').length}
                       </p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">在籍中</p>
+                      <p className="text-xs text-muted-foreground">在籍中</p>
                     </div>
                   </div>
                 </CardContent>
@@ -395,7 +395,7 @@ export function StaffManagement() {
                       <p className="text-base md:text-lg">
                         {staff.filter(s => s.role && s.role.includes('GM')).length}
                       </p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">GM</p>
+                      <p className="text-xs text-muted-foreground">GM</p>
                     </div>
                   </div>
                 </CardContent>
@@ -409,7 +409,7 @@ export function StaffManagement() {
                       <p className="text-base md:text-lg">
                         {Math.round(staff.reduce((sum, s) => sum + s.experience, 0) / staff.length) || 0}
                       </p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">平均経験年数</p>
+                      <p className="text-xs text-muted-foreground">平均経験年数</p>
                     </div>
                   </div>
                 </CardContent>

@@ -48,14 +48,14 @@ const RankingCardsBase: React.FC<RankingCardsProps> = ({
                   </div>
                   <div>
                     <div className="">{store.name}</div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {store.events}回の公演
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="">{formatCurrency(store.revenue)}</div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     純利益 {formatCurrency(store.netProfit)}
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -86,14 +86,14 @@ const RankingCardsBase: React.FC<RankingCardsProps> = ({
                   </div>
                   <div>
                     <div className="">{scenario.title}</div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {scenario.events}回の公演
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="">{formatCurrency(scenario.revenue)}</div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     純利益 {formatCurrency(scenario.netProfit)}
                   </div>
                   <div className="text-xs text-muted-foreground">

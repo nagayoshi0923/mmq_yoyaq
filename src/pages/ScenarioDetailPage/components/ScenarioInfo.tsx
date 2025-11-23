@@ -67,7 +67,7 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
           {/* ジャンル */}
           {scenario.genre && scenario.genre.length > 0 && (
             <div>
-              <div className="text-sm text-muted-foreground mb-2">ジャンル</div>
+              <div className="text-xs text-muted-foreground mb-2">ジャンル</div>
               <div className="flex flex-wrap gap-2">
                 {scenario.genre.map((g, i) => (
                   <Badge key={i} variant="secondary" className="bg-gray-100 border-0 rounded-[2px] font-normal">{g}</Badge>
@@ -78,7 +78,7 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
 
           {/* 作者 */}
           <div>
-            <div className="text-sm text-muted-foreground mb-1">作者</div>
+            <div className="text-xs text-muted-foreground mb-1">作者</div>
             <div className="">{scenario.author}</div>
           </div>
 
@@ -86,7 +86,7 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
           {scenario.synopsis && (
             <div>
               <div className="text-sm mb-2">あらすじ</div>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{scenario.synopsis}</p>
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap">{scenario.synopsis}</p>
             </div>
           )}
 

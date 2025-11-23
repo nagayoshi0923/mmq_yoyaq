@@ -97,7 +97,7 @@ export function RequestCard({
         <div className="space-y-4">
           {/* 開催予定店舗 */}
           <div className="mb-4">
-            <div className="text-sm text-muted-foreground mb-1">開催予定店舗</div>
+            <div className="text-xs text-muted-foreground mb-1">開催予定店舗</div>
             {request.candidate_datetimes?.confirmedStore ? (
               <div className="">{request.candidate_datetimes.confirmedStore.storeName}</div>
             ) : request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 ? (

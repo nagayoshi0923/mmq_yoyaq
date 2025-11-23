@@ -371,7 +371,7 @@ export function CustomerBookingPage() {
             </Card>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {filteredEvents.length}件の公演が見つかりました
               </p>
               
@@ -403,14 +403,14 @@ export function CustomerBookingPage() {
                             {event.scenario_title}
                           </h3>
                           {event.scenario_description && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
+                            <p className="text-xs text-muted-foreground line-clamp-2">
                               {event.scenario_description}
                             </p>
                           )}
                         </div>
                         
                         <div className="flex flex-wrap gap-2 items-center">
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <MapPin className="w-4 h-4" />
                             <span>{event.store_name}</span>
                           </div>
@@ -437,7 +437,7 @@ export function CustomerBookingPage() {
                       {/* 料金・予約ボタン */}
                       <div className="md:col-span-3 flex flex-col items-end justify-center gap-3">
                         <div className="text-right">
-                          <p className="text-sm text-muted-foreground">参加費</p>
+                          <p className="text-xs text-muted-foreground">参加費</p>
                           <p className="text-lg text-primary">
                             ¥{event.participation_fee.toLocaleString()}
                           </p>

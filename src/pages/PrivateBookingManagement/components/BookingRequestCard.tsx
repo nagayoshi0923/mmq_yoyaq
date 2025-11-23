@@ -60,7 +60,7 @@ export const BookingRequestCard = ({
           <CardTitle className="text-base">{request.scenario_title}</CardTitle>
           <StatusBadge status={request.status} />
         </div>
-        <div className="text-sm text-muted-foreground space-y-1 mt-2">
+        <div className="text-xs text-muted-foreground space-y-1 mt-2">
           <div>予約番号: {request.reservation_number}</div>
           <div className="flex items-center gap-2">
             <span>申込日時: {formatDateTime(request.created_at)}</span>

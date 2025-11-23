@@ -71,7 +71,7 @@ export function PrivateBookingScenarioSelect() {
         {/* 戻るボタン */}
         <button
           onClick={() => window.history.back()}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           戻る
@@ -85,7 +85,7 @@ export function PrivateBookingScenarioSelect() {
             {/* 選択された日時情報 */}
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <h3 className="text-sm">選択された日時</h3>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 <p>日付: {preselectedDate}</p>
                 <p>時間帯: {slotLabels[preselectedSlot] || preselectedSlot}</p>
               </div>
@@ -100,11 +100,11 @@ export function PrivateBookingScenarioSelect() {
                 </SelectTrigger>
                 <SelectContent>
                   {loading ? (
-                    <div className="p-2 text-center text-sm text-muted-foreground">
+                    <div className="p-2 text-center text-xs text-muted-foreground">
                       読み込み中...
                     </div>
                   ) : scenarios.length === 0 ? (
-                    <div className="p-2 text-center text-sm text-muted-foreground">
+                    <div className="p-2 text-center text-xs text-muted-foreground">
                       シナリオがありません
                     </div>
                   ) : (
@@ -145,14 +145,14 @@ export function PrivateBookingScenarioSelect() {
                   <div className="p-4 space-y-3">
                     <div>
                       <h3 className="text-lg mb-1">{scenario.title}</h3>
-                      <p className="text-sm text-muted-foreground">作者: {scenario.author}</p>
+                      <p className="text-xs text-muted-foreground">作者: {scenario.author}</p>
                     </div>
                     
                     {/* あらすじ */}
                     {scenario.synopsis && (
                       <div>
                         <h4 className="text-sm mb-1">あらすじ</h4>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
+                        <p className="text-xs text-muted-foreground leading-relaxed">
                           {scenario.synopsis}
                         </p>
                       </div>

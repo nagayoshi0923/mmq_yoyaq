@@ -81,7 +81,7 @@ export const EventList = memo(function EventList({
                   </span>
                 </div>
                 {/* タイトル */}
-                <div className="text-sm text-muted-foreground truncate">
+                <div className="text-xs text-muted-foreground truncate">
                   {event.scenario_title || scenarioTitle}
                 </div>
               </div>

@@ -184,7 +184,7 @@ export function PrivateBookingRequest({
                           <Calendar className="w-4 h-4 text-muted-foreground" />
                           <span className="">{formatDate(slot.date)}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Clock className="w-4 h-4" />
                           <span>{slot.slot.label} {slot.slot.startTime} - {slot.slot.endTime}</span>
                         </div>

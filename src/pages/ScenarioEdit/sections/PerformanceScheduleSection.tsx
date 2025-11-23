@@ -112,7 +112,7 @@ export function PerformanceScheduleSection({
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>公演予定</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 「{formData.title}」の公演スケジュール
               </p>
             </div>

@@ -376,7 +376,7 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
               <div className="space-y-4">
                 <div>
                   <h3 className="text-lg font-semibold mb-2">固定費</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <p className="text-xs text-muted-foreground mb-4">
                     家賃、光熱費など店舗運営に必要な固定費を設定できます。<br />
                     開始日・終了日を設定しない場合は、現行設定（使用中）として扱われます。
                   </p>

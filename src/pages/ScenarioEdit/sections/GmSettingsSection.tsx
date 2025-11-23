@@ -93,7 +93,7 @@ export function GmSettingsSection({
                 value={formData.gm_count}
                 onChange={(e) => setFormData(prev => ({ ...prev, gm_count: parseInt(e.target.value) || 1 }))}
               />
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 この公演に必要なGMの人数
               </p>
             </div>

@@ -128,7 +128,7 @@ export function GeneralSettings() {
           <SettingsIcon className="h-8 w-8 text-blue-600" />
           <div>
             <h1 className="text-lg">全体設定</h1>
-            <p className="text-sm text-muted-foreground">システム全体の設定を管理します</p>
+            <p className="text-xs text-muted-foreground">システム全体の設定を管理します</p>
           </div>
         </div>
         <Button onClick={handleSave} disabled={saving}>
@@ -151,7 +151,7 @@ export function GeneralSettings() {
             <div className="space-y-2">
               <Label htmlFor="shift_submission_start_day">提出開始日</Label>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">毎月</span>
+                <span className="text-xs text-muted-foreground">毎月</span>
                 <Input
                   id="shift_submission_start_day"
                   type="number"
@@ -164,7 +164,7 @@ export function GeneralSettings() {
                   }))}
                   className="w-20"
                 />
-                <span className="text-sm text-muted-foreground">日から</span>
+                <span className="text-xs text-muted-foreground">日から</span>
               </div>
               <p className="text-xs text-muted-foreground">シフト提出を開始できる日</p>
             </div>
@@ -172,7 +172,7 @@ export function GeneralSettings() {
             <div className="space-y-2">
               <Label htmlFor="shift_submission_end_day">提出締切日</Label>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">毎月</span>
+                <span className="text-xs text-muted-foreground">毎月</span>
                 <Input
                   id="shift_submission_end_day"
                   type="number"
@@ -185,7 +185,7 @@ export function GeneralSettings() {
                   }))}
                   className="w-20"
                 />
-                <span className="text-sm text-muted-foreground">日まで</span>
+                <span className="text-xs text-muted-foreground">日まで</span>
               </div>
               <p className="text-xs text-muted-foreground">シフト提出の締切日</p>
             </div>
@@ -205,7 +205,7 @@ export function GeneralSettings() {
                   }))}
                   className="w-20"
                 />
-                <span className="text-sm text-muted-foreground">ヶ月先</span>
+                <span className="text-xs text-muted-foreground">ヶ月先</span>
               </div>
               <p className="text-xs text-muted-foreground">提出するシフトの対象月</p>
             </div>
@@ -248,7 +248,7 @@ export function GeneralSettings() {
           <div className="flex items-center justify-between p-4 border rounded-lg">
             <div className="space-y-0.5">
               <Label htmlFor="maintenance_mode">メンテナンスモード</Label>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 有効にすると、管理者以外はシステムにアクセスできなくなります
               </p>
             </div>
@@ -286,7 +286,7 @@ export function GeneralSettings() {
           <div className="flex items-center justify-between p-4 border rounded-lg">
             <div className="space-y-0.5">
               <Label htmlFor="enable_email_notifications">メール通知</Label>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 予約確認、リマインダーなどのメール通知を有効化
               </p>
             </div>
@@ -300,7 +300,7 @@ export function GeneralSettings() {
           <div className="flex items-center justify-between p-4 border rounded-lg">
             <div className="space-y-0.5">
               <Label htmlFor="enable_discord_notifications">Discord通知</Label>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 予約やシフト変更のDiscord通知を有効化
               </p>
             </div>

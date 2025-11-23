@@ -103,7 +103,7 @@ export const CandidateDateSelector = ({
               </div>
               <div className="flex-1">
                 <div className="">候補{candidate.order}</div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
                     <span>{formatCandidateDate(candidate.date)}</span>

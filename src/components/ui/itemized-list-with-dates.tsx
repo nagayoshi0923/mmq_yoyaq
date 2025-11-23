@@ -283,7 +283,7 @@ export function ItemizedListWithDates({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full mx-4 border">
             <h3 className="text-lg font-semibold mb-2">削除の確認</h3>
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-xs text-muted-foreground mb-6">
               この項目を削除してもよろしいですか？この操作は取り消せません。
             </p>
             <div className="flex gap-3 justify-end">

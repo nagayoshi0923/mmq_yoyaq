@@ -141,17 +141,17 @@ export function GmHistoryPage() {
               <div className="text-lg text-primary">
                 {playedScenarios.reduce((sum, item) => sum + item.count, 0)}
               </div>
-              <div className="text-sm text-muted-foreground mt-1">総公演数</div>
+              <div className="text-xs text-muted-foreground mt-1">総公演数</div>
             </div>
             <div className="text-center p-4 bg-muted rounded-lg">
               <div className="text-lg text-primary">{playedScenarios.length}</div>
-              <div className="text-sm text-muted-foreground mt-1">担当シナリオ数</div>
+              <div className="text-xs text-muted-foreground mt-1">担当シナリオ数</div>
             </div>
             <div className="text-center p-4 bg-muted rounded-lg">
               <div className="text-lg text-primary">
                 {staffInfo.experience || 0}
               </div>
-              <div className="text-sm text-muted-foreground mt-1">経験値</div>
+              <div className="text-xs text-muted-foreground mt-1">経験値</div>
             </div>
           </div>
         </CardContent>

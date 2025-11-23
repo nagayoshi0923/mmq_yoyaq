@@ -486,7 +486,7 @@ export function EmailSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="reminder_enabled">リマインドメールを送信する</Label>
-              <p className="text-sm text-muted-foreground">予約者にリマインドメールを送信します</p>
+              <p className="text-xs text-muted-foreground">予約者にリマインドメールを送信します</p>
             </div>
             <input
               id="reminder_enabled"

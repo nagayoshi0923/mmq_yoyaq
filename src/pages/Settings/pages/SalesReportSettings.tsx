@@ -199,7 +199,7 @@ export function SalesReportSettings() {
           <div className="flex items-center gap-4">
             <Label className="w-32">締日</Label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">毎月</span>
+              <span className="text-xs text-muted-foreground">毎月</span>
               <Input
                 type="number"
                 value={formData.closing_day}
@@ -208,7 +208,7 @@ export function SalesReportSettings() {
                 max="31"
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日</span>
+              <span className="text-xs text-muted-foreground">日</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2 ml-36">
@@ -227,7 +227,7 @@ export function SalesReportSettings() {
           <div className="flex items-center gap-4">
             <Label className="w-32">送信日</Label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">毎月</span>
+              <span className="text-xs text-muted-foreground">毎月</span>
               <Input
                 type="number"
                 value={formData.author_report_day}
@@ -236,7 +236,7 @@ export function SalesReportSettings() {
                 max="31"
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日</span>
+              <span className="text-xs text-muted-foreground">日</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2 ml-36">

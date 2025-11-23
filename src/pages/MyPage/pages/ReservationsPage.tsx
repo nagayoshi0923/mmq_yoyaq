@@ -302,7 +302,7 @@ export function ReservationsPage() {
                       </Badge>
                     </div>
                     <div className="space-y-0.5">
-                      <div className="text-xs sm:text-sm text-muted-foreground">参加予定日時</div>
+                      <div className="text-xs text-muted-foreground">参加予定日時</div>
                       <div className="text-sm sm:text-base text-foreground">
                         {formatDateTime(reservation.requested_datetime)}
                       </div>
@@ -310,11 +310,11 @@ export function ReservationsPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full sm:w-auto">
                     <div className="text-right sm:text-left">
-                      <div className="text-xs sm:text-sm text-muted-foreground">参加人数</div>
+                      <div className="text-xs text-muted-foreground">参加人数</div>
                       <div className="text-sm">{reservation.participant_count}名</div>
                     </div>
                     <div className="text-right sm:text-left">
-                      <div className="text-xs sm:text-sm text-muted-foreground">金額</div>
+                      <div className="text-xs text-muted-foreground">金額</div>
                       <div className="text-sm">{formatCurrency(reservation.final_price)}</div>
                     </div>
                     {reservation.payment_method && (
@@ -327,7 +327,7 @@ export function ReservationsPage() {
                   </div>
                   {getStoreInfo(reservation) && (
                     <div className="w-full text-xs sm:text-sm space-y-0.5 mt-2 pt-2 border-t">
-                      <div className="text-xs sm:text-sm text-muted-foreground mb-1">会場</div>
+                      <div className="text-xs text-muted-foreground mb-1">会場</div>
                       <div className="flex items-center gap-1">
                         <MapPin className="h-3 w-3 flex-shrink-0" style={{ color: getStoreInfo(reservation)?.color || undefined }} />
                         <span 
@@ -402,17 +402,17 @@ export function ReservationsPage() {
                         参加済み
                       </Badge>
                     </div>
-                    <div className="text-xs sm:text-sm text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {formatDateTime(reservation.requested_datetime)}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full sm:w-auto">
                     <div className="text-right sm:text-left">
-                      <div className="text-xs sm:text-sm text-muted-foreground">参加人数</div>
+                      <div className="text-xs text-muted-foreground">参加人数</div>
                       <div className="text-sm">{reservation.participant_count}名</div>
                     </div>
                     <div className="text-right sm:text-left">
-                      <div className="text-xs sm:text-sm text-muted-foreground">金額</div>
+                      <div className="text-xs text-muted-foreground">金額</div>
                       <div className="text-sm">{formatCurrency(reservation.final_price)}</div>
                     </div>
                     {reservation.payment_method && (
@@ -476,17 +476,17 @@ export function ReservationsPage() {
                       <span className="text-sm sm:text-base line-through truncate">{formatTitle(reservation.title)}</span>
                       <Badge variant="destructive" className="text-xs">キャンセル</Badge>
                     </div>
-                    <div className="text-xs sm:text-sm text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {formatDateTime(reservation.requested_datetime)}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full sm:w-auto">
                     <div className="text-right sm:text-left">
-                      <div className="text-xs sm:text-sm text-muted-foreground">参加人数</div>
+                      <div className="text-xs text-muted-foreground">参加人数</div>
                       <div className="text-sm">{reservation.participant_count}名</div>
                     </div>
                     <div className="text-right sm:text-left">
-                      <div className="text-xs sm:text-sm text-muted-foreground">金額</div>
+                      <div className="text-xs text-muted-foreground">金額</div>
                       <div className="text-sm">{formatCurrency(reservation.final_price)}</div>
                     </div>
                     {reservation.payment_method && (

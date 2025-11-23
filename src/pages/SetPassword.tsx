@@ -132,7 +132,7 @@ export function SetPassword() {
                 disabled={loading}
                 className="text-sm sm:text-base"
               />
-              <p className="text-xs sm:text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 パスワードは6文字以上で設定してください
               </p>
             </div>

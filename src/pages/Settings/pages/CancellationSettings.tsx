@@ -337,7 +337,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                         max="100"
                         className="text-sm"
                       />
-                      <span className="text-sm text-muted-foreground">%</span>
+                      <span className="text-xs text-muted-foreground">%</span>
                     </div>
                   </div>
                   <div className="col-span-5">

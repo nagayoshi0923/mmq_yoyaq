@@ -50,7 +50,7 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
             >
               MMQ
             </h1>
-            <p className="hidden sm:inline text-xs sm:text-sm text-muted-foreground leading-none whitespace-nowrap">
+            <p className="hidden sm:inline text-xs sm:text-xs text-muted-foreground leading-none whitespace-nowrap">
               マーダーミステリー店舗管理
             </p>
           </div>

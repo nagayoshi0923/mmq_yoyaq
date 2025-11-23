@@ -305,7 +305,7 @@ export function BusinessHoursSettings() {
                 <div key={index} className="flex items-center justify-between p-3 border rounded">
                   <div>
                     <span className="">{day.date}</span>
-                    {day.note && <span className="text-sm text-muted-foreground ml-2">- {day.note}</span>}
+                    {day.note && <span className="text-xs text-muted-foreground ml-2">- {day.note}</span>}
                   </div>
                   <Button
                     variant="ghost"
@@ -351,7 +351,7 @@ export function BusinessHoursSettings() {
                 <div key={index} className="flex items-center justify-between p-3 border rounded">
                   <div>
                     <span className="">{day.date}</span>
-                    {day.note && <span className="text-sm text-muted-foreground ml-2">- {day.note}</span>}
+                    {day.note && <span className="text-xs text-muted-foreground ml-2">- {day.note}</span>}
                   </div>
                   <Button
                     variant="ghost"

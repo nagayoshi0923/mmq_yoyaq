@@ -53,7 +53,7 @@ export const ScenarioPerformanceHeader: React.FC<ScenarioPerformanceHeaderProps>
       </div>
 
       {/* 期間表示 */}
-      <div className="text-sm text-muted-foreground">
+      <div className="text-xs text-muted-foreground">
         期間: {dateRange.startDate} ～ {dateRange.endDate}
       </div>
 

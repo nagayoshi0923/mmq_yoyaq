@@ -216,7 +216,7 @@ export function PricingSettings() {
                 step="100"
                 className="w-32"
               />
-              <span className="text-sm text-muted-foreground">円</span>
+              <span className="text-xs text-muted-foreground">円</span>
             </div>
           </div>
         </CardContent>
@@ -245,7 +245,7 @@ export function PricingSettings() {
                 className="w-32"
                 step="100"
               />
-              <span className="text-sm text-muted-foreground">円</span>
+              <span className="text-xs text-muted-foreground">円</span>
             </div>
             <Button onClick={addTimePricing} variant="outline">
               <Plus className="h-4 w-4" />
@@ -329,7 +329,7 @@ export function PricingSettings() {
                     min="0"
                     step="100"
                   />
-                  <span className="text-sm text-muted-foreground">円</span>
+                  <span className="text-xs text-muted-foreground">円</span>
                 </div>
               </div>
             </div>
@@ -392,7 +392,7 @@ export function PricingSettings() {
                     min="0"
                     step="100"
                   />
-                  <span className="text-sm text-muted-foreground">円</span>
+                  <span className="text-xs text-muted-foreground">円</span>
                 </div>
               </div>
             </div>
@@ -441,7 +441,7 @@ export function PricingSettings() {
                   min="0"
                   step="100"
                 />
-                <span className="text-sm text-muted-foreground">円</span>
+                <span className="text-xs text-muted-foreground">円</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 期限を過ぎたキャンセルで発生する料金

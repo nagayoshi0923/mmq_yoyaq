@@ -339,19 +339,19 @@ export function AlbumPage() {
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
             <div className="text-base sm:text-lg text-primary">{playedScenarios.length}</div>
-            <div className="text-xs sm:text-sm text-muted-foreground mt-1">総プレイ回数</div>
+            <div className="text-xs text-muted-foreground mt-1">総プレイ回数</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
             <div className="text-base sm:text-lg text-primary">{scenarioGroups.length}</div>
-            <div className="text-xs sm:text-sm text-muted-foreground mt-1">プレイしたシナリオ</div>
+            <div className="text-xs text-muted-foreground mt-1">プレイしたシナリオ</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 sm:pt-6 text-center">
             <div className="text-base sm:text-lg text-primary">{likedScenariosList.length}</div>
-            <div className="text-xs sm:text-sm text-muted-foreground mt-1">いいねしたシナリオ</div>
+            <div className="text-xs text-muted-foreground mt-1">いいねしたシナリオ</div>
           </CardContent>
         </Card>
       </div>
@@ -534,11 +534,11 @@ export function AlbumPage() {
                       <div className="flex items-start justify-between mb-2 gap-2">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-sm md:text-base mb-1 truncate">{item.scenario.title}</h3>
-                          <p className="text-xs sm:text-sm text-muted-foreground mb-2">
+                          <p className="text-xs text-muted-foreground mb-2">
                             作者: {item.scenario.author}
                           </p>
                           {item.scenario.description && (
-                            <p className="text-xs sm:text-sm text-muted-foreground mb-3 line-clamp-2">
+                            <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
                               {item.scenario.description}
                             </p>
                           )}

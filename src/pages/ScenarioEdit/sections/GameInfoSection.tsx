@@ -132,7 +132,7 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
                 value={formData.difficulty}
                 onChange={(e) => setFormData(prev => ({ ...prev, difficulty: parseInt(e.target.value) || 3 }))}
               />
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 1: 初心者向け / 5: 上級者向け
               </p>
             </div>

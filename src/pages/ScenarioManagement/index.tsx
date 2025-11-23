@@ -421,7 +421,7 @@ export function ScenarioManagement() {
           
           {/* データ表示状況 */}
           {useInfiniteScroll && !hasMore && displayedScenarios.length > 0 && (
-            <div className="text-center py-4 text-sm text-muted-foreground">
+            <div className="text-center py-4 text-xs text-muted-foreground">
               {filteredAndSortedScenarios.length === allScenarios.length ? (
                 `全${allScenarios.length}件のシナリオを表示しています`
               ) : (

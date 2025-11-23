@@ -354,7 +354,7 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
                 {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
               </h2>
               {formData.title && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {formData.title}
                 </p>
               )}
@@ -406,12 +406,12 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
             {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
           </h2>
           {formData.title && (
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {formData.title}
             </p>
           )}
           {scenarioId && !formData.title && (
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               ID: {scenarioId}
             </p>
           )}

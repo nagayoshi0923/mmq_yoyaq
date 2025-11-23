@@ -399,7 +399,7 @@ export function ReservationSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="require_phone_verification">電話番号認証を要求</Label>
-              <p className="text-sm text-muted-foreground">予約時に電話番号の認証を必須にします</p>
+              <p className="text-xs text-muted-foreground">予約時に電話番号の認証を必須にします</p>
             </div>
             <Switch
               id="require_phone_verification"

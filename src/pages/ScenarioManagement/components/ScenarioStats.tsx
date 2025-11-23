@@ -37,7 +37,7 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
             <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-base md:text-lg">{stats.totalScenarios}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">総シナリオ数</p>
+              <p className="text-xs text-muted-foreground">総シナリオ数</p>
             </div>
           </div>
         </CardContent>
@@ -49,7 +49,7 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
             <Play className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-base md:text-lg">{stats.availableScenarios}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">利用可能</p>
+              <p className="text-xs text-muted-foreground">利用可能</p>
             </div>
           </div>
         </CardContent>
@@ -61,7 +61,7 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
             <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-base md:text-lg">¥{stats.totalLicenseAmount.toLocaleString()}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">総ライセンス料</p>
+              <p className="text-xs text-muted-foreground">総ライセンス料</p>
             </div>
           </div>
         </CardContent>
@@ -73,7 +73,7 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
             <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-base md:text-lg">{stats.avgPlayers}名</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">平均プレイヤー数</p>
+              <p className="text-xs text-muted-foreground">平均プレイヤー数</p>
             </div>
           </div>
         </CardContent>

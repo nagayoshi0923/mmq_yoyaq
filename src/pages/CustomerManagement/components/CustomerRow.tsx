@@ -61,7 +61,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
       {/* メイン行（高さ60px） */}
       <div className="grid grid-cols-12 gap-4 px-4 items-center h-[60px] hover:bg-muted/50 transition-colors">
         <div className="col-span-2 truncate">{customer.name}</div>
-        <div className="col-span-2 text-sm text-muted-foreground truncate flex items-center gap-2">
+        <div className="col-span-2 text-xs text-muted-foreground truncate flex items-center gap-2">
           {customer.email ? (
             <>
               <Mail className="h-3 w-3" />
@@ -71,7 +71,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
             <span className="text-muted-foreground/50">未登録</span>
           )}
         </div>
-        <div className="col-span-2 text-sm text-muted-foreground truncate flex items-center gap-2">
+        <div className="col-span-2 text-xs text-muted-foreground truncate flex items-center gap-2">
           {customer.phone ? (
             <>
               <Phone className="h-3 w-3" />
@@ -87,7 +87,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
         <div className="col-span-2 text-right">
           {formatCurrency(customer.total_spent)}
         </div>
-        <div className="col-span-2 text-sm text-muted-foreground">
+        <div className="col-span-2 text-xs text-muted-foreground">
           {formatDate(customer.last_visit)}
         </div>
         <div className="col-span-1 flex items-center justify-center gap-1">
@@ -124,7 +124,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
             </div>
             <div>
               <h4 className="mb-2">メモ</h4>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap">
                 {customer.notes || 'メモなし'}
               </p>
             </div>
@@ -134,26 +134,26 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
           <div>
             <h4 className="mb-2">予約履歴 ({reservations.length}件)</h4>
             {loading ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">読み込み中...</div>
+              <div className="text-center py-4 text-xs text-muted-foreground">読み込み中...</div>
             ) : reservations.length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">予約履歴がありません</div>
+              <div className="text-center py-4 text-xs text-muted-foreground">予約履歴がありません</div>
             ) : (
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
                 {reservations.map((reservation) => (
                   <div key={reservation.id} className="flex items-center justify-between p-3 bg-background rounded-lg border">
                     <div className="flex-1">
                       <div className="">{reservation.title}</div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {formatDateTime(reservation.requested_datetime)}
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <div className="text-sm text-muted-foreground">参加人数</div>
+                        <div className="text-xs text-muted-foreground">参加人数</div>
                         <div className="">{reservation.participant_count}名</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm text-muted-foreground">金額</div>
+                        <div className="text-xs text-muted-foreground">金額</div>
                         <div className="">{formatCurrency(reservation.final_price)}</div>
                       </div>
                       <Badge

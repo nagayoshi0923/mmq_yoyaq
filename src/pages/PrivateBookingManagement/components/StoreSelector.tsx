@@ -31,7 +31,7 @@ export const StoreSelector = ({
       </h3>
       
       {requestedStores && requestedStores.length > 0 && (
-        <div className="text-sm text-muted-foreground mb-2">
+        <div className="text-xs text-muted-foreground mb-2">
           顧客希望店舗: {requestedStores.map(s => s.storeName).join(', ')}
         </div>
       )}

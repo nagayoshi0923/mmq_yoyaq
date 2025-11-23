@@ -175,7 +175,7 @@ export function MultiSelect({
           >
             {sortedOptions.length === 0 && (
               <div className="px-4 py-3 text-center">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {emptyText || (searchTerm ? 'スタッフが見つかりません' : 'スタッフがいません')}
                 </p>
               </div>

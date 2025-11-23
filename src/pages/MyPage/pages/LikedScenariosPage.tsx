@@ -211,11 +211,11 @@ export function WantToPlayPage() {
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
                           <h3 className="text-lg mb-1">{item.scenario.title}</h3>
-                          <p className="text-sm text-muted-foreground mb-2">
+                          <p className="text-xs text-muted-foreground mb-2">
                             作者: {item.scenario.author}
                           </p>
                           {item.scenario.description && (
-                            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                            <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
                               {item.scenario.description}
                             </p>
                           )}

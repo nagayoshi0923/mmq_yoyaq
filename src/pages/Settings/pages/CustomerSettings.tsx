@@ -244,7 +244,7 @@ export function CustomerSettings() {
                     min="1"
                     max="100"
                   />
-                  <span className="text-sm text-muted-foreground">回</span>
+                  <span className="text-xs text-muted-foreground">回</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {formData.repeat_customer_discount.visits}回目以降の来店で割引適用
@@ -268,7 +268,7 @@ export function CustomerSettings() {
                     min="0"
                     step="100"
                   />
-                  <span className="text-sm text-muted-foreground">円</span>
+                  <span className="text-xs text-muted-foreground">円</span>
                 </div>
               </div>
             </div>
