@@ -440,7 +440,7 @@ export function AdminDashboard() {
       )}
 
       <main className="container mx-auto max-w-7xl px-[10px] py-2.5 xs:py-3 sm:py-4 md:py-6">
-        <div className="space-y-2.5 xs:space-y-3 sm:space-y-4 md:space-y-6">
+        <div className="space-y-3 sm:space-y-4 md:space-y-6">
           {/* 概要統計 */}
           <section>
             <h2 className="text-base md:text-lg">概要</h2>
