@@ -163,7 +163,7 @@ function PerformanceCardBase({
       
       {/* GM情報 */}
       <div className={`text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
-        GM: {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
+        {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
       </div>
       
       {/* ノート情報 */}
