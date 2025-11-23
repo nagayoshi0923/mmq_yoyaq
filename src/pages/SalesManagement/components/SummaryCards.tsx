@@ -74,14 +74,14 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
       <div className="grid gap-2 sm:gap-2 md:gap-3 lg:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-xs text-blue-900">総売上</CardTitle>
+            <CardTitle className="text-sm text-blue-900">総売上</CardTitle>
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-blue-600 flex-shrink-0" />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
             <div className="text-base md:text-lg text-blue-900">
               {formatCurrency(totalRevenue)}
             </div>
-            <p className="text-xs text-blue-700 mt-0.5 sm:mt-1">
+            <p className="text-sm text-blue-700 mt-0.5 sm:mt-1">
               {totalEvents}公演<span className="hidden sm:inline"> • </span><br className="sm:hidden" />平均 {formatCurrency(averageRevenue)}
             </p>
           </CardContent>
@@ -89,14 +89,14 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
         <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-xs text-red-900">支出合計</CardTitle>
+            <CardTitle className="text-sm text-red-900">支出合計</CardTitle>
             <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-red-600 flex-shrink-0" />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
             <div className="text-base md:text-lg text-red-900">
               {formatCurrency(totalExpenses)}
             </div>
-            <p className="text-xs text-red-700 mt-0.5 sm:mt-1 break-words">
+            <p className="text-sm text-red-700 mt-0.5 sm:mt-1 break-words">
               変動費 {formatCurrency(totalVariableCost)}<span className="hidden sm:inline"> + </span><br className="sm:hidden" />固定費 {formatCurrency(totalFixedCost)}
             </p>
           </CardContent>
@@ -153,7 +153,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <div className="text-sm md:text-base text-red-600">
               {formatCurrency(totalLicenseCost)}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
+            <p className="text-sm text-muted-foreground mt-0.5 sm:mt-1">
               作者への支払い
             </p>
           </CardContent>
@@ -171,7 +171,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
               {formatCurrency(totalProductionCost + totalPropsCost)}
             </div>
             {(productionCostBreakdown.length > 0 || propsCostBreakdown.length > 0) && (
-              <div className="text-xs text-muted-foreground space-y-0.5 max-h-16 sm:max-h-20 md:max-h-24 overflow-y-auto">
+              <div className="text-sm text-muted-foreground space-y-0.5 max-h-16 sm:max-h-20 md:max-h-24 overflow-y-auto">
                 {productionCostBreakdown.map((item, index) => (
                   <div key={`prod-${index}`} className="flex justify-between gap-1 py-0.5">
                     <span className="truncate text-xs">{item.scenario} / {item.item}</span>
@@ -187,7 +187,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
               </div>
             )}
             {productionCostBreakdown.length === 0 && propsCostBreakdown.length === 0 && (
-              <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
+              <p className="text-sm text-muted-foreground mt-0.5 sm:mt-1">
                 制作費なし
               </p>
             )}
@@ -206,7 +206,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
               {formatCurrency(totalFixedCost)}
             </div>
             {fixedCostBreakdown.length > 0 && (
-              <div className="text-xs text-muted-foreground mt-0.5 sm:mt-1 space-y-0.5 max-h-12 overflow-y-auto">
+              <div className="text-sm text-muted-foreground mt-0.5 sm:mt-1 space-y-0.5 max-h-12 overflow-y-auto">
                 {(() => {
                   // 項目ごとに合計を計算
                   const itemTotals = fixedCostBreakdown.reduce((acc, item) => {
