@@ -115,8 +115,8 @@ export function ShiftSubmission() {
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
         {/* ヘッダー */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-          <div>
-            <h2 className="text-base md:text-lg">シフト提出 - {formatMonthYear()}</h2>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base md:text-lg">シフト提出 - {formatMonthYear()}</h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               出勤可能な時間帯にチェックを入れてください
             </p>

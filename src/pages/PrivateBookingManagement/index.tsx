@@ -225,10 +225,6 @@ export function PrivateBookingManagement() {
       stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        <div className="flex justify-between items-center mb-3 sm:mb-4 md:mb-6">
-          <div></div>
-        </div>
-
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')}>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
             <TabsList className="w-full sm:w-auto">

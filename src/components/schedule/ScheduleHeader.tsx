@@ -20,7 +20,7 @@ export const ScheduleHeader = memo(function ScheduleHeader({
   return (
     <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2 xs:gap-3 sm:gap-4 mb-2.5 xs:mb-3 sm:mb-4">
       <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 min-w-0 flex-1">
-        <h2 className="text-base xs:text-lg sm:text-base md:text-lg font-bold truncate leading-tight">月間スケジュール管理</h2>
+        <h1 className="text-base md:text-lg truncate">月間スケジュール管理</h1>
         {/* 更新中のインジケーター */}
         {isLoading && (
           <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1 flex-shrink-0">
