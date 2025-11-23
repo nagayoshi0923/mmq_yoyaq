@@ -122,7 +122,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
       <div className="grid gap-2 sm:gap-2 md:gap-3 lg:gap-4 grid-cols-2 sm:grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-xs flex items-center gap-1">
+            <CardTitle className="text-sm flex items-center gap-1">
               <CreditCard className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-orange-600 flex-shrink-0" />
               <span className="truncate">変動費</span>
             </CardTitle>
@@ -131,7 +131,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <div className="text-sm md:text-base text-orange-600 mb-1 sm:mb-2">
               {formatCurrency(totalVariableCost)}
             </div>
-            <div className="text-xs space-y-0.5 sm:space-y-1">
+            <div className="text-sm space-y-0.5 sm:space-y-1">
               {variableCostBreakdown.map((item, index) => (
                 <div key={index} className="flex justify-between items-center py-0.5 border-b border-gray-100 last:border-0">
                   <span className="text-muted-foreground truncate text-xs">{item.category}</span>
@@ -144,7 +144,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-xs flex items-center gap-1">
+            <CardTitle className="text-sm flex items-center gap-1">
               <BookOpen className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-red-600 flex-shrink-0" />
               <span className="truncate">ライセンス</span>
             </CardTitle>
@@ -161,7 +161,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-xs flex items-center gap-1">
+            <CardTitle className="text-sm flex items-center gap-1">
               <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-orange-600 flex-shrink-0" />
               <span className="truncate">制作費</span>
             </CardTitle>
@@ -196,7 +196,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-xs flex items-center gap-1">
+            <CardTitle className="text-sm flex items-center gap-1">
               <Store className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-purple-600 flex-shrink-0" />
               <span className="truncate">固定費</span>
             </CardTitle>
