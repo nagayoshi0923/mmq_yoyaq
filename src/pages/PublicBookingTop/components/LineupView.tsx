@@ -115,7 +115,7 @@ export const LineupView = memo(function LineupView({
       {/* 全タイトルセクション */}
       {allScenarios.length > 0 ? (
         <section>
-          <h2 className="text-lg sm:text-base md:text-lg mb-2 sm:mb-3 md:mb-4 leading-tight">
+          <h2 className="text-base md:text-lg mb-2 sm:mb-3 md:mb-4 leading-tight">
             全タイトル
             {allScenarios.length > INITIAL_DISPLAY_COUNT && (
               <span className="text-xs sm:text-sm font-normal text-gray-500 ml-1">
