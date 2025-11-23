@@ -18,37 +18,43 @@ export const ScheduleHeader = memo(function ScheduleHeader({
   onImportClick
 }: ScheduleHeaderProps) {
   return (
-    <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-2 xs:gap-3 sm:gap-4 mb-2.5 xs:mb-3 sm:mb-4">
-      <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 min-w-0 flex-1">
-        <h1 className="text-base md:text-lg truncate">月間スケジュール管理</h1>
-        {/* 更新中のインジケーター */}
-        {isLoading && (
-          <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1 flex-shrink-0">
-            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
-            <span className="hidden sm:inline">更新中...</span>
+    <div className="mb-6">
+      {/* タイトルと説明 */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h1>スケジュール管理</h1>
+            {/* 更新中のインジケーター */}
+            {isLoading && (
+              <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                <span className="hidden sm:inline">更新中...</span>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <div className="flex gap-1 xs:gap-1.5 sm:gap-2 items-center w-full xs:w-auto">
-        {/* 月選択コントロール */}
-        <MonthSwitcher
-          value={currentDate}
-          onChange={onDateChange}
-          showToday
-          quickJump
-          enableKeyboard
-        />
-        
-        {/* インポートボタン */}
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={onImportClick}
-          className="text-[10px] xs:text-xs sm:text-sm flex-shrink-0 h-8 xs:h-9 sm:h-10"
-        >
-          <span className="hidden xs:inline">インポート</span>
-          <span className="xs:hidden">入</span>
-        </Button>
+          <p className="text-sm text-muted-foreground mt-1">
+            公演スケジュールの登録・編集・管理を行います
+          </p>
+        </div>
+        <div className="flex gap-2 items-center flex-shrink-0">
+          {/* 月選択コントロール */}
+          <MonthSwitcher
+            value={currentDate}
+            onChange={onDateChange}
+            showToday
+            quickJump
+            enableKeyboard
+          />
+          
+          {/* インポートボタン */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={onImportClick}
+          >
+            インポート
+          </Button>
+        </div>
       </div>
     </div>
   )
