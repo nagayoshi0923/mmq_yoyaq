@@ -61,7 +61,7 @@ export const CandidateDateSelector = ({
 }: CandidateDateSelectorProps) => {
   return (
     <div>
-      <h3 className="mb-3 flex items-center gap-2 text-purple-800">
+      <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-purple-800">
         <Calendar className="w-4 h-4" />
         開催日時を選択
       </h3>

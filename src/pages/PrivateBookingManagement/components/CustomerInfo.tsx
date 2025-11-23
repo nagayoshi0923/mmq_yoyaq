@@ -15,11 +15,11 @@ interface CustomerInfoProps {
 export const CustomerInfo = ({ request }: CustomerInfoProps) => {
   return (
     <div>
-      <h3 className="mb-3 flex items-center gap-2 text-purple-800">
+      <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-purple-800">
         <Users className="w-4 h-4" />
         顧客情報
       </h3>
-      <div className="space-y-2 text-sm p-4 bg-background rounded-lg border">
+      <div className="space-y-2 text-sm p-3 bg-background rounded-lg border">
         <div className="flex items-center gap-2">
           <span className="min-w-[80px]">お名前:</span>
           <span>{request.customer_name}</span>

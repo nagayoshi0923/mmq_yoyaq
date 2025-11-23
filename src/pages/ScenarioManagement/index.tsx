@@ -358,7 +358,7 @@ export function ScenarioManagement() {
           <ScenarioStats scenarios={allScenarios} />
 
           {/* 検索・フィルター */}
-          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 sm:gap-3 md:gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
             <ScenarioFilters
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}

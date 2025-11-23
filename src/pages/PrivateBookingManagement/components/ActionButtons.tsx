@@ -18,31 +18,34 @@ export const ActionButtons = ({
   disabled
 }: ActionButtonsProps) => {
   return (
-    <div className="flex gap-3 pt-6 border-t">
+    <div className="flex gap-2">
       <Button
         variant="outline"
-        className="flex-1"
+        className="flex-1 text-sm"
         onClick={onCancel}
+        size="sm"
       >
         キャンセル
       </Button>
       <Button
         variant="destructive"
-        className="flex-1"
+        className="flex-1 text-sm"
         onClick={onReject}
         disabled={disabled}
+        size="sm"
       >
-        <XCircle className="w-4 h-4 mr-2" />
-        却下する
+        <XCircle className="w-4 h-4 mr-1.5" />
+        却下
       </Button>
       <Button
         variant="default"
-        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-sm"
         onClick={onApprove}
         disabled={disabled}
+        size="sm"
       >
-        <CheckCircle2 className="w-4 h-4 mr-2" />
-        承認する
+        <CheckCircle2 className="w-4 h-4 mr-1.5" />
+        承認
       </Button>
     </div>
   )

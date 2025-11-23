@@ -100,7 +100,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
                   key={item.id}
                   onClick={() => onTabChange(item.id)}
                   className={cn(
-                    'w-full text-left px-4 py-3 rounded-md transition-all duration-200',
+                    'w-full text-left px-4 py-2 rounded-md transition-all duration-200',
                     'flex items-center gap-3',
                     'group',
                     isActive
@@ -114,16 +114,11 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
                   )} />
                   <div className="flex-1 min-w-0">
                     <div className={cn(
-                      'text-sm font-medium',
+                      'text-xs font-medium',
                       isActive ? 'text-blue-700' : 'text-slate-700 group-hover:text-slate-900'
                     )}>
                       {item.label}
                     </div>
-                    {item.description && (
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {item.description}
-                      </div>
-                    )}
                   </div>
                 </button>
               )
@@ -191,7 +186,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
                   key={item.id}
                   onClick={() => handleMenuItemClick(item.id)}
                   className={cn(
-                    'w-full text-left px-4 py-3 rounded-md transition-all duration-200',
+                    'w-full text-left px-4 py-2 rounded-md transition-all duration-200',
                     'flex items-center gap-3',
                     'group',
                     isActive
@@ -205,16 +200,11 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
                   )} />
                   <div className="flex-1 min-w-0">
                     <div className={cn(
-                      'text-sm font-medium',
+                      'text-xs font-medium',
                       isActive ? 'text-blue-700' : 'text-slate-700 group-hover:text-slate-900'
                     )}>
                       {item.label}
                     </div>
-                    {item.description && (
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {item.description}
-                      </div>
-                    )}
                   </div>
                 </button>
               )

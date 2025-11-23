@@ -178,7 +178,7 @@ export function ReservationManagement() {
             </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 md:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <Label className="text-xs sm:text-sm mb-1 sm:mb-2 block">検索</Label>
                 <div className="relative">

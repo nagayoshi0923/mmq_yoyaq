@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Calendar, Clock, Users, CheckCircle2, XCircle } from 'lucide-react'
+import { Calendar, Clock, CheckCircle2, XCircle } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
-import { formatDate, formatDateTime, getElapsedTime, getCardClassName } from '../utils/bookingFormatters'
+import { formatDate, formatDateTime, getElapsedTime, getElapsedDays, getCardClassName } from '../utils/bookingFormatters'
 
 interface Candidate {
   order: number
@@ -53,6 +53,9 @@ export const BookingRequestCard = ({
   onSelectRequest,
   showActionButton = false
 }: BookingRequestCardProps) => {
+  const elapsedDays = getElapsedDays(request.created_at)
+  const elapsedTimeColor = elapsedDays >= 3 ? 'text-red-600 font-medium' : 'text-purple-600'
+  
   return (
     <Card className={getCardClassName(request.status)}>
       <CardHeader>
@@ -64,10 +67,9 @@ export const BookingRequestCard = ({
           <div>予約番号: {request.reservation_number}</div>
           <div className="flex items-center gap-2">
             <span>申込日時: {formatDateTime(request.created_at)}</span>
-            <span className="text-orange-600">({getElapsedTime(request.created_at)})</span>
+            <span className={elapsedTimeColor}>({getElapsedTime(request.created_at)})</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
+          <div>
             お客様: {request.customer_name} ({request.participant_count}名)
           </div>
           {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
@@ -81,24 +83,24 @@ export const BookingRequestCard = ({
             </div>
           )}
           {(!request.candidate_datetimes?.requestedStores || request.candidate_datetimes.requestedStores.length === 0) && (
-            <div className="text-blue-600 text-sm">
+            <div className="text-purple-600 text-sm">
               希望店舗: 全ての店舗（顧客希望）
             </div>
           )}
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* GM回答表示 */}
           {request.gm_responses && request.gm_responses.length > 0 && (
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <h4 className="text-blue-900 mb-2">GM回答状況</h4>
+            <div className="bg-purple-50 p-3 rounded-lg">
+              <h4 className="text-sm font-medium text-purple-900 mb-2">GM回答状況</h4>
               <div className="space-y-1">
                 {request.gm_responses.map((response, index) => (
-                  <div key={index} className="text-sm text-blue-800">
+                  <div key={index} className="text-sm text-purple-800">
                     {response.gm_name || 'GM名不明'}: {response.response_type === 'available' ? '✅ 出勤可能' : '❌ 出勤不可'}
                     {response.available_candidates && response.available_candidates.length > 0 && (
-                      <span className="ml-2 text-blue-600">
+                      <span className="ml-2 text-purple-600">
                         (候補{response.available_candidates.map((idx) => idx + 1).join(', ')})
                       </span>
                     )}
@@ -110,7 +112,7 @@ export const BookingRequestCard = ({
 
           {/* 候補日時表示 */}
           <div>
-            <p className="text-sm mb-3 text-purple-800">
+            <p className="text-sm font-medium mb-2 text-purple-800">
               {request.status === 'confirmed' ? '確定した候補日時' : 
                (request.status === 'gm_confirmed' || request.status === 'pending_store') ? 'GMが選択した候補日時（店舗確認待ち）' : 
                'リクエストされた候補日時'}

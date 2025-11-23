@@ -4,6 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
@@ -11,10 +13,10 @@ import { Calendar, CheckCircle, Clock, Settings, MapPin } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const PRIVATE_BOOKING_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'booking-list', label: '貸切確認一覧', icon: Calendar, description: 'すべての貸切予約を表示' },
-  { id: 'pending', label: '承認待ち', icon: Clock, description: '承認待ち予約' },
-  { id: 'approved', label: '承認済み', icon: CheckCircle, description: '承認済み予約' },
-  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+  { id: 'booking-list', label: '貸切確認一覧', icon: Calendar },
+  { id: 'pending', label: '承認待ち', icon: Clock },
+  { id: 'approved', label: '承認済み', icon: CheckCircle },
+  { id: 'settings', label: '設定', icon: Settings }
 ]
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -225,21 +227,21 @@ export function PrivateBookingManagement() {
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      <div className="space-y-3 sm:space-y-4 md:space-y-6">
+      <div className="space-y-4">
         <PageHeader
           title="貸切予約管理"
           description="貸切予約リクエストの承認・却下・店舗調整を行います"
         />
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')}>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
             <TabsList className="w-full sm:w-auto">
-              <TabsTrigger value="pending" className="text-xs sm:text-sm">店舗確認待ち ({pendingRequests.length})</TabsTrigger>
-              <TabsTrigger value="all" className="text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
+              <TabsTrigger value="pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">店舗確認待ち ({pendingRequests.length})</TabsTrigger>
+              <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
             </TabsList>
             
             {activeTab === 'pending' && (
-              <div className="flex-shrink-0">
+              <div className="w-full sm:w-auto flex justify-center sm:justify-end">
                 <MonthSwitcher
                   value={currentDate}
                   onChange={setCurrentDate}
@@ -255,12 +257,12 @@ export function PrivateBookingManagement() {
 
             {filteredRequests.length === 0 ? (
               <Card>
-                <CardContent className="py-8 sm:py-12 text-center text-muted-foreground text-xs sm:text-sm p-3 sm:p-4 md:p-6">
+                <CardContent className="py-8 text-center text-muted-foreground text-sm">
                   該当するリクエストがありません
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 gap-3">
                 {filteredRequests.map(req => (
                   <BookingRequestCard
                     key={req.id}
@@ -275,29 +277,23 @@ export function PrivateBookingManagement() {
         </Tabs>
 
         {/* 選択されたリクエストの詳細モーダル */}
-        {selectedRequest && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto" data-detail-section>
-              <CardHeader className="sticky top-0 bg-background z-10 border-b p-3 sm:p-4 md:p-6">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="text-base md:text-lg break-words">リクエスト詳細 - {selectedRequest.scenario_title}</CardTitle>
-                  <button
-                    onClick={() => {
-                      setSelectedRequest(null)
-                      setSelectedGMId('')
-                      setSelectedStoreId('')
-                      setSelectedCandidateOrder(null)
-                    }}
-                    className="p-1 sm:p-2 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
-                    aria-label="閉じる"
-                  >
-                    <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4 sm:space-y-6 p-3 sm:p-4 md:p-6">
+        <Dialog 
+          open={!!selectedRequest} 
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedRequest(null)
+              setSelectedGMId('')
+              setSelectedStoreId('')
+              setSelectedCandidateOrder(null)
+            }
+          }}
+        >
+          <DialogContent size="lg" className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg pr-6">リクエスト詳細 - {selectedRequest?.scenario_title}</DialogTitle>
+            </DialogHeader>
+            {selectedRequest && (
+              <div className="space-y-3">
               <CustomerInfo request={selectedRequest} />
               
               <CandidateDateSelector
@@ -310,13 +306,13 @@ export function PrivateBookingManagement() {
               />
 
               {/* 開催店舗の選択 */}
-              <div className="pt-6 border-t">
-                <h3 className="mb-3 flex items-center gap-2 text-purple-800">
+              <div className="pt-3 border-t">
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-purple-800">
                   <MapPin className="w-4 h-4" />
                   開催店舗の選択
                 </h3>
                 <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full text-sm">
                     <SelectValue placeholder="店舗を選択してください" />
                   </SelectTrigger>
                   <SelectContent>
@@ -366,18 +362,18 @@ export function PrivateBookingManagement() {
               {/* 顧客メモ */}
               {selectedRequest.notes && (
                 <div>
-                  <h3 className="mb-3 text-purple-800">お客様からのメモ</h3>
-                  <div className="p-4 bg-background rounded-lg border">
+                  <h3 className="mb-2 text-sm font-medium text-purple-800">お客様からのメモ</h3>
+                  <div className="p-3 bg-background rounded-lg border">
                     <p className="text-sm whitespace-pre-wrap">{selectedRequest.notes}</p>
                   </div>
                 </div>
               )}
 
               {/* 担当GMの選択 */}
-              <div className="pt-6 border-t">
-                <h3 className="mb-3 text-purple-800">担当GMを選択してください</h3>
+              <div className="pt-3 border-t">
+                <h3 className="mb-2 text-sm font-medium text-purple-800">担当GMを選択してください</h3>
                 <Select value={selectedGMId} onValueChange={setSelectedGMId}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full text-sm">
                     <SelectValue placeholder="GMを選択してください" />
                   </SelectTrigger>
                   <SelectContent>
@@ -419,67 +415,67 @@ export function PrivateBookingManagement() {
                 )}
               </div>
 
-              <ActionButtons
-                onApprove={() => handleApprove(
-                  selectedRequest.id,
-                  selectedRequest,
-                  selectedGMId,
-                  selectedStoreId,
-                  selectedCandidateOrder,
-                  stores
-                )}
-                onReject={() => handleRejectClick(selectedRequest.id)}
-                onCancel={() => {
-                  setSelectedRequest(null)
-                  setSelectedGMId('')
-                  setSelectedStoreId('')
-                  setSelectedCandidateOrder(null)
-                }}
-                disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder}
-              />
-            </CardContent>
-          </Card>
-          </div>
-        )}
+              <div className="pt-3 border-t">
+                <ActionButtons
+                  onApprove={() => handleApprove(
+                    selectedRequest.id,
+                    selectedRequest,
+                    selectedGMId,
+                    selectedStoreId,
+                    selectedCandidateOrder,
+                    stores
+                  )}
+                  onReject={() => handleRejectClick(selectedRequest.id)}
+                  onCancel={() => {
+                    setSelectedRequest(null)
+                    setSelectedGMId('')
+                    setSelectedStoreId('')
+                    setSelectedCandidateOrder(null)
+                  }}
+                  disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder}
+                />
+              </div>
+            </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* 却下ダイアログ */}
-        {showRejectDialog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-2 sm:p-4">
-            <Card className="w-full max-w-lg">
-              <CardHeader className="p-3 sm:p-4 md:p-6">
-                <CardTitle>貸切リクエストの却下</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6">
-                <div>
-                  <Label className="block text-xs sm:text-sm mb-1 sm:mb-2">却下理由</Label>
-                  <Textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    rows={6}
-                    placeholder="却下理由を入力してください"
-                    className="text-xs sm:text-sm"
-                  />
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                  <button
-                    onClick={handleRejectCancel}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 border rounded hover:bg-gray-100 text-xs sm:text-sm"
-                    disabled={submitting}
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    onClick={() => handleRejectConfirm(selectedRequest)}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs sm:text-sm"
-                    disabled={submitting || !rejectionReason.trim()}
-                  >
-                    {submitting ? '処理中...' : '却下する'}
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <Dialog open={showRejectDialog} onOpenChange={(open) => !open && handleRejectCancel()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>貸切リクエストの却下</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label className="block text-sm mb-2">却下理由</Label>
+                <Textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  rows={6}
+                  placeholder="却下理由を入力してください"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={handleRejectCancel}
+                disabled={submitting}
+              >
+                キャンセル
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleRejectConfirm(selectedRequest)}
+                disabled={submitting || !rejectionReason.trim()}
+              >
+                {submitting ? '処理中...' : '却下する'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   )

@@ -10,9 +10,11 @@ const SALES_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'scenario-performance', label: 'シナリオ別', icon: BarChart, description: 'シナリオ別売上' },
   { id: 'misc-transactions', label: '雑収支管理', icon: FileText, description: '公演外の収支を管理' },
   { id: 'franchise-sales', label: 'フランチャイズ', icon: Store, description: 'FC店舗の売上' },
-  { id: 'author-report', label: '作者別レポート', icon: FileText, description: '作者別売上レポート' }
+  { id: 'author-report', label: '作者別レポート', icon: FileText, description: '作者別売上レポート' },
+  { id: 'salary-calculation', label: '給与計算', icon: FileText, description: 'スタッフ給与計算' }
 ]
 import AuthorReport from '../AuthorReport/index'
+import SalaryCalculation from '../SalaryCalculation/index'
 import { useSalesData } from './hooks/useSalesData'
 import { SalesOverview } from './components/SalesOverview'
 import { ScenarioPerformance } from './components/ScenarioPerformance'
@@ -155,6 +157,8 @@ const SalesManagement: React.FC = () => {
         )
       case 'author-report':
         return <AuthorReport />
+      case 'salary-calculation':
+        return <SalaryCalculation />
       default:
     return (
           <SalesOverview

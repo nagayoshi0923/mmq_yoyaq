@@ -296,7 +296,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       <div className="flex flex-col gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           {/* 月切り替え */}
-          <div className="flex-shrink-0">
+          <div className="w-full sm:w-auto flex justify-center sm:justify-start">
             <MonthSwitcher
               value={currentMonth}
               onChange={setCurrentMonth}

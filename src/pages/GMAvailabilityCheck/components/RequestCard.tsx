@@ -1,9 +1,9 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Users, MapPin, CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import type { GMRequest } from '../hooks/useGMRequests'
-import { getElapsedTime } from '../utils/gmFormatters'
+import { getElapsedTime, getElapsedDays } from '../utils/gmFormatters'
 import { CandidateSelector } from './CandidateSelector'
 import { NotesInput } from './NotesInput'
 
@@ -35,6 +35,8 @@ export function RequestCard({
   const isConfirmed = request.reservation_status === 'confirmed'
   const isGMConfirmed = request.reservation_status === 'gm_confirmed'
   const elapsedTime = getElapsedTime(request.created_at)
+  const elapsedDays = getElapsedDays(request.created_at)
+  const elapsedTimeColor = elapsedDays >= 3 ? 'text-red-600 font-medium' : 'text-purple-600'
 
   return (
     <Card className="shadow-none">
@@ -44,14 +46,9 @@ export function RequestCard({
             <CardTitle className="text-base text-purple-900">
               {request.scenario_title}
             </CardTitle>
-            <div className="mt-2 space-y-1">
-              <div className="flex items-center gap-2 text-sm text-purple-700">
-                <Users className="w-4 h-4" />
-                <span>お客様: {request.customer_name}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-purple-700">
-                <span>予約番号: {request.reservation_number}</span>
-              </div>
+            <div className="mt-2 space-y-1 text-xs text-purple-700">
+              <div>お客様: {request.customer_name}</div>
+              <div>予約番号: {request.reservation_number}</div>
             </div>
             {request.candidate_datetimes?.requestedStores && request.candidate_datetimes.requestedStores.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap mt-2">
@@ -69,13 +66,13 @@ export function RequestCard({
               variant="secondary"
               className={
                 isConfirmed
-                  ? 'bg-blue-100 text-blue-800'
+                  ? 'bg-green-100 text-green-800'
                   : isGMConfirmed
-                    ? 'bg-orange-100 text-orange-800'
+                    ? 'bg-purple-100 text-purple-800'
                     : isResponded
                       ? 'bg-green-100 text-green-800'
                       : request.has_other_gm_response
-                        ? 'bg-yellow-100 text-yellow-800'
+                        ? 'bg-purple-100 text-purple-800'
                         : 'bg-purple-100 text-purple-800'
               }
             >
@@ -89,12 +86,12 @@ export function RequestCard({
                       ? '他GM回答済み'
                       : '未回答'}
             </Badge>
-            <span className="text-xs text-muted-foreground">{elapsedTime}の申込</span>
+            <span className={`text-xs ${elapsedTimeColor}`}>{elapsedTime}の申込</span>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-6">
-        <div className="space-y-4">
+      <CardContent className="pt-4">
+        <div className="space-y-3">
           {/* 開催予定店舗 */}
           <div className="mb-4">
             <div className="text-xs text-muted-foreground mb-1">開催予定店舗</div>
@@ -150,33 +147,35 @@ export function RequestCard({
 
           {/* ボタン */}
           {!isResponded && !isConfirmed && !isGMConfirmed && (
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <Button
                 variant="outline"
-                className="flex-1 border-red-200 hover:bg-red-50"
+                className="flex-1 border-red-200 hover:bg-red-50 text-sm"
                 onClick={() => onSubmit(true)}
                 disabled={submitting}
+                size="sm"
               >
-                <XCircle className="w-4 h-4 mr-2" />
-                すべて出勤不可
+                <XCircle className="w-4 h-4 mr-1.5" />
+                すべて不可
               </Button>
               <Button
-                className="flex-1 bg-purple-600 hover:bg-purple-700"
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-sm"
                 onClick={() => onSubmit(false)}
                 disabled={submitting || selectedCandidates.length === 0}
+                size="sm"
               >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                {submitting ? '送信中...' : '回答を送信'}
+                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                {submitting ? '送信中...' : '回答送信'}
               </Button>
             </div>
           )}
 
           {/* 確定済みの表示 */}
           {isConfirmed && (
-            <div className="p-3 rounded border bg-blue-50 border-blue-200">
+            <div className="p-3 rounded border bg-green-50 border-green-200">
               <div className="flex items-center gap-2 text-sm">
-                <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                <span className="text-blue-800">
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <span className="text-green-800">
                   この予約は確定されました
                 </span>
               </div>
@@ -185,10 +184,10 @@ export function RequestCard({
           
           {/* GM確認済み（店側確認待ち）の表示 */}
           {isGMConfirmed && (
-            <div className="p-3 rounded border bg-orange-50 border-orange-200">
+            <div className="p-3 rounded border bg-purple-50 border-purple-200">
               <div className="flex items-center gap-2 text-sm">
-                <CheckCircle2 className="w-4 h-4 text-orange-600" />
-                <span className="text-orange-800">
+                <CheckCircle2 className="w-4 h-4 text-purple-600" />
+                <span className="text-purple-800">
                   GMの確認は完了しました。店側で最終的な開催日を決定します。
                 </span>
               </div>
@@ -224,10 +223,10 @@ export function RequestCard({
 
           {/* 他GMが回答済みの警告 */}
           {!isResponded && request.has_other_gm_response && (
-            <div className="p-3 rounded border bg-yellow-50 border-yellow-200">
+            <div className="p-3 rounded border bg-purple-50 border-purple-200">
               <div className="flex items-center gap-2 text-sm">
-                <CheckCircle2 className="w-4 h-4 text-yellow-600" />
-                <span className="text-yellow-800">
+                <CheckCircle2 className="w-4 h-4 text-purple-600" />
+                <span className="text-purple-800">
                   他のGMが既に回答しています。この予約は確定される可能性があります。
                 </span>
               </div>

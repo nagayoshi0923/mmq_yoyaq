@@ -25,6 +25,16 @@ export const getElapsedTime = (createdAt: string): string => {
 }
 
 /**
+ * 申込からの経過日数を取得
+ */
+export const getElapsedDays = (createdAt: string): number => {
+  const now = new Date()
+  const created = new Date(createdAt)
+  const diffMs = now.getTime() - created.getTime()
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+}
+
+/**
  * 日時をフォーマット
  */
 export const formatDateTime = (dateString: string): string => {
@@ -77,10 +87,10 @@ export const getCardClassName = (status: string): string => {
   switch (status) {
     case 'pending':
     case 'pending_gm':
-      return 'border-yellow-200 bg-yellow-50/30'
+      return 'border-purple-200 bg-purple-50/30'
     case 'gm_confirmed':
     case 'pending_store':
-      return 'border-orange-200 bg-orange-50/30'
+      return 'border-purple-200 bg-purple-50/30'
     case 'confirmed':
       return 'border-green-200 bg-green-50/30'
     case 'cancelled':
