@@ -118,7 +118,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
         <p className="text-xs text-gray-500">{scenario.author}</p>
         
         {/* タイトル */}
-        <h3 className="text-sm sm:text-base truncate leading-tight mt-0.5 sm:mt-1">
+        <h3 className="text-sm sm:text-base truncate mt-0.5 sm:mt-1">
           {scenario.scenario_title}
         </h3>
 

@@ -163,7 +163,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
         <div className="container mx-auto max-w-7xl px-[10px] py-6 md:py-10 xl:py-12">
-          <h1 className="text-lg md:text-lg xl:text-lg mb-2 md:mb-3 leading-tight">Murder Mystery Quest</h1>
+          <h1 className="text-lg md:text-lg xl:text-lg mb-2 md:mb-3">Murder Mystery Quest</h1>
           <p className="text-sm md:text-base text-purple-100 leading-relaxed">
             リアルな謎解き体験。あなたは事件の真相を暴けるか？
           </p>
