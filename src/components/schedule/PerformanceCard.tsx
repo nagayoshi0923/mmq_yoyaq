@@ -133,7 +133,7 @@ function PerformanceCardBase({
             <>
               {/* 予約者数バッジ */}
               {!event.is_cancelled && (
-                <Badge size="sm" className={`font-normal text-schedule-xs px-0 py-0 h-3 sm:h-4 whitespace-nowrap ${
+                <Badge size="sm" className={`font-normal text-xs px-0 py-0 h-3 sm:h-4 whitespace-nowrap ${
                   reservationCount >= maxCapacity 
                     ? 'bg-red-100 text-red-800' 
                     : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
