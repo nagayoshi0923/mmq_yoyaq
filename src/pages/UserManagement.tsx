@@ -253,7 +253,14 @@ export function UserManagement() {
       stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        <div></div>
+        {/* ページヘッダー */}
+        <div className="mb-6">
+          <h1>ユーザー管理</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            ユーザーの検索・ロール管理を行います
+          </p>
+        </div>
+
       <Card>
         <CardHeader className="p-3 sm:p-4 md:p-6">
           <CardTitle className="flex items-center gap-2 text-base md:text-lg">
