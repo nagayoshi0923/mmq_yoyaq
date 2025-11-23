@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { DatePicker } from '@/components/ui/date-picker'
+import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { X, ChevronDown, ChevronUp, Mail, ExternalLink } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { AutocompleteInput } from '@/components/ui/autocomplete-input'
@@ -20,7 +20,6 @@ import { supabase } from '@/lib/supabase'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import { logger } from '@/utils/logger'
-import { format } from 'date-fns'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -1063,12 +1062,10 @@ export function PerformanceModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="date">日付</Label>
-              <DatePicker
-                date={formData.date ? new Date(formData.date + 'T00:00:00') : undefined}
+              <SingleDatePopover
+                date={formData.date}
                 onDateChange={(date) => {
-                  if (date) {
-                    setFormData((prev: any) => ({ ...prev, date: format(date, 'yyyy-MM-dd') }))
-                  }
+                  setFormData((prev: any) => ({ ...prev, date: date || '' }))
                 }}
                 placeholder="日付を選択してください"
               />
