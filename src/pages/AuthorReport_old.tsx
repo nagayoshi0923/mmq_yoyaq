@@ -313,7 +313,7 @@ export default function AuthorReport() {
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl">作者レポート</h1>
+          <h1>作者レポート</h1>
           <p className="text-muted-foreground">作者別の公演実績レポート</p>
         </div>
       </div>
