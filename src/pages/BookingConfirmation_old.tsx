@@ -297,7 +297,7 @@ export function BookingConfirmation({
           <Card className="border-2 border-green-200 bg-green-50">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
-              <h2 className="text-2xl text-green-800">予約が完了しました！</h2>
+              <h2 className="text-green-800">予約が完了しました！</h2>
               <p className="text-green-700">
                 ご予約ありがとうございます。<br />
                 確認メールを {customerEmail} に送信しました。
@@ -337,7 +337,7 @@ export function BookingConfirmation({
       </div>
 
       <div className="container mx-auto max-w-5xl px-6 py-6">
-        <h1 className="text-3xl mb-6">予約確認</h1>
+        <h1 className="mb-6">予約確認</h1>
 
         {error && (
           <Card className="mb-6 border-2 border-red-200 bg-red-50">

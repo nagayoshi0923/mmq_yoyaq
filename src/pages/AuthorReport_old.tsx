@@ -391,7 +391,7 @@ export default function AuthorReport() {
       {/* 月別作者データ */}
       {filteredMonthlyData.map((monthData) => (
         <div key={monthData.month} className="space-y-4">
-          <h2 className="text-2xl text-center">
+          <h2 className="text-center">
             {selectedYear}年{selectedMonth}月
           </h2>
           

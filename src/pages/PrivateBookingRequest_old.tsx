@@ -263,7 +263,7 @@ export function PrivateBookingRequest({
           <Card className="border-2 border-purple-200 bg-purple-50">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-purple-600 mx-auto" />
-              <h2 className="text-2xl text-purple-800">貸切リクエストを受け付けました！</h2>
+              <h2 className="text-purple-800">貸切リクエストを受け付けました！</h2>
               <p className="text-purple-700">
                 リクエストありがとうございます。<br />
                 確認メールを {customerEmail} に送信しました。<br />
@@ -304,7 +304,7 @@ export function PrivateBookingRequest({
       </div>
 
       <div className="container mx-auto max-w-5xl px-6 py-6">
-        <h1 className="text-3xl mb-2">貸切リクエスト確認</h1>
+        <h1 className="mb-2">貸切リクエスト確認</h1>
         <p className="text-muted-foreground mb-6">候補日時を確認し、お客様情報を入力してください</p>
 
         {error && (
