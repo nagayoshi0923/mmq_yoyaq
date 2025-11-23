@@ -513,7 +513,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       {/* メインビジュアル */}
       <div className="relative bg-blue-50 border-b-2 border-blue-200 py-12">
         <div className="container mx-auto max-w-7xl px-6 text-center">
-          <h1 className="text-4xl mb-2 text-blue-800">今日はどの事件を解く？</h1>
+          <h1 className="mb-2 text-blue-800">今日はどの事件を解く？</h1>
           <p className="text-lg text-blue-700">真実を追い求めるあなたのためのマーダーミステリーポータルサイト</p>
         </div>
       </div>
@@ -551,7 +551,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             {/* 新着公演セクション */}
             {getNewScenarios().length > 0 && (
               <section>
-                <h2 className="text-2xl mb-4 flex items-center gap-2">
+                <h2 className="mb-4 flex items-center gap-2">
                   <span>新着公演</span>
                   <Badge className="bg-red-600 text-white border-0 text-xs px-2 py-0.5 rounded-sm">NEW</Badge>
                 </h2>
@@ -566,7 +566,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             {/* 直近公演セクション */}
             {getUpcomingScenarios().length > 0 && (
               <section>
-                <h2 className="text-2xl mb-4">直近公演</h2>
+                <h2 className="mb-4">直近公演</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {getUpcomingScenarios().map((scenario) => (
                     <ScenarioCard key={scenario.scenario_id} scenario={scenario} onClick={handleCardClick} />
@@ -578,7 +578,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
             {/* 全タイトルセクション */}
             {getAllScenarios().length > 0 ? (
               <section>
-                <h2 className="text-2xl mb-4">全タイトル</h2>
+                <h2 className="mb-4">全タイトル</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {getAllScenarios().map((scenario) => (
                     <ScenarioCard key={scenario.scenario_id} scenario={scenario} onClick={handleCardClick} />
@@ -602,7 +602,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                 >
                   ← 前月
                 </button>
-                <h2 className="text-2xl">
+                <h2 className="">
                   {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
                 </h2>
                 <button
@@ -741,7 +741,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
               <div className="space-y-4">
                 {/* 月ナビゲーション */}
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl">
+                  <h2 className="">
                     {listViewMonth.getFullYear()}年{listViewMonth.getMonth() + 1}月
                   </h2>
                   <div className="flex gap-2">
