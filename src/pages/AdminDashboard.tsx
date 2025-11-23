@@ -447,7 +447,7 @@ export function AdminDashboard() {
             <div className="grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3 md:gap-4 mt-2 xs:mt-3 sm:mt-4">
               <Card>
                 <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 text-xs xs:text-sm sm:text-base md:text-lg leading-tight">
+                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm md:text-base">
                     <Store className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">店舗数</span>
                   </CardTitle>
@@ -460,7 +460,7 @@ export function AdminDashboard() {
 
               <Card>
                 <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 text-xs xs:text-sm sm:text-base md:text-lg leading-tight">
+                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm md:text-base">
                     <BookOpen className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">公演数</span>
                   </CardTitle>
@@ -473,7 +473,7 @@ export function AdminDashboard() {
 
               <Card>
                 <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 text-xs xs:text-sm sm:text-base md:text-lg leading-tight">
+                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm md:text-base">
                     <Calendar className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">今月の予約</span>
                   </CardTitle>
@@ -486,7 +486,7 @@ export function AdminDashboard() {
 
               <Card>
                 <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 text-xs xs:text-sm sm:text-base md:text-lg leading-tight">
+                  <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-sm md:text-base">
                     <TrendingUp className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">今月の売上</span>
                   </CardTitle>
@@ -514,7 +514,7 @@ export function AdminDashboard() {
                         onClick={() => handlePageChange(tab.id)}
                   >
                     <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-                      <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base md:text-lg">
+                      <CardTitle className="flex items-center gap-1 sm:gap-2 text-sm md:text-base">
                         <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                         <span className="truncate">{tab.label}</span>
                       </CardTitle>
@@ -543,7 +543,7 @@ export function AdminDashboard() {
             <h2 className="text-base md:text-lg">最近の活動</h2>
             <Card className="mt-3 sm:mt-4">
               <CardHeader className="p-3 sm:p-4 md:p-6">
-                <CardTitle className="text-base sm:text-lg md:text-base">システム活動ログ</CardTitle>
+                <CardTitle className="text-base md:text-lg">システム活動ログ</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">最新の予約・変更・キャンセル情報</CardDescription>
               </CardHeader>
               <CardContent className="p-3 sm:p-4 md:p-6">
