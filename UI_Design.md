@@ -547,7 +547,11 @@ const categoryConfig = {
 - 2025-11-23: GM確認ページを貸切確認ページと同様に再レイアウト（サイドバーdescription削除、スペーシングspace-y-4統一、RequestCardのUsersアイコン削除、カラーパレット統一：blue/orange/yellow→purple、経過時間3日以上で赤、ボタンtext-sm size-sm、pt-6→pt-4、space-y-4→space-y-3）
 - 2025-11-23: GM確認ページのカラーパレット最終統一（CandidateSelectorのorange系削除、確定済みgray→green、GM確認済みorange→purple。4色構成：purple=メイン、green=確定、red=エラー/満席、gray=回答済み）
 - 2025-11-23: GM確認ページのCandidateSelector簡素化（日付カード背景色削除、満席バッジ削除、候補バッジをgray統一、選択時のみborder-purple-500とbg-purple-50/30、満席はbg-red-50のみ）
-- 2025-11-23: CandidateSelectorの状態を明確化・整理（満席=赤背景、確定済み選択=緑枠+薄緑背景、GM確認済み選択=紫枠+薄紫背景、回答済み選択=紫枠+薄紫背景、編集可能選択中=紫枠+薄紫背景、編集可能未選択=灰枠+hover紫、その他未選択=灰枠+opacity-60）
+- 2025-11-23: CandidateSelectorの状態を明確化・整理（満席=赤背景+opacity-60、確定済み選択=緑枠+緑背景強調、確定済み未選択=灰色+opacity-60、GM確認済み選択=紫枠+薄紫背景、GM確認済み未選択=灰色+opacity-60、回答済み選択=紫枠+薄紫背景、回答済み未選択=灰色+opacity-60、編集可能選択中=紫枠+薄紫背景、編集可能未選択=灰枠+hover紫）
+- 2025-11-23: GM確認ページで確定済み・GM確認済み・回答済み状態では全候補を表示しつつ、selectedCandidatesとしてavailable_candidatesを渡すことで、選択された候補は強調表示・未選択候補は灰色disabledで表示するよう修正
+- 2025-11-23: 貸切リクエスト管理ページのCandidateDateSelectorに複数候補選択対応を追加（gmSelectedCandidates、isReadOnly、isConfirmedプロップス追加）。GM確認済み・確定済み状態では、GMのavailable_candidatesを使って選択された候補を表示し、未選択候補は灰色+opacity-60で表示。確定済みの場合は選択候補を緑色で強調表示。
+- 2025-11-23: 候補インデックスの不一致を修正（データベースのavailable_candidatesは0始まりだが、画面表示は1始まりの候補番号のため、.map(idx => idx + 1)で変換）
+- 2025-11-23: 貸切リクエスト管理ページでGMが未回答の候補も選択可能に変更。GMが回答した候補には「GM対応可」バッジを表示、未回答候補を選択した場合は「⚠️ GMが未回答の候補です」と警告表示。確定済み以外の状態では全候補が選択可能。
 
 ---
 

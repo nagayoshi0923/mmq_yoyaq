@@ -143,19 +143,29 @@ export function GMAvailabilityCheck() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {pendingRequests.map((request) => (
-                  <RequestCard
-                    key={request.id}
-                    request={request}
-                    selectedCandidates={selectedCandidates[request.id] || []}
-                    candidateAvailability={candidateAvailability[request.id] || {}}
-                    notes={notes[request.id] || ''}
-                    submitting={submitting === request.id}
-                    onToggleCandidate={(order) => toggleCandidate(request.id, order)}
-                    onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
-                    onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
-                  />
-                ))}
+                {pendingRequests.map((request) => {
+                  const isResponded = request.response_status === 'available' || request.response_status === 'all_unavailable'
+                  const isConfirmed = request.reservation_status === 'confirmed'
+                  const isGMConfirmed = request.reservation_status === 'gm_confirmed'
+                  
+                  return (
+                    <RequestCard
+                      key={request.id}
+                      request={request}
+                      selectedCandidates={
+                        (isResponded || isConfirmed || isGMConfirmed)
+                          ? (request.available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
+                          : selectedCandidates[request.id] || []
+                      }
+                      candidateAvailability={candidateAvailability[request.id] || {}}
+                      notes={notes[request.id] || ''}
+                      submitting={submitting === request.id}
+                      onToggleCandidate={(order) => toggleCandidate(request.id, order)}
+                      onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
+                      onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
+                    />
+                  )
+                })}
               </div>
             )}
           </TabsContent>
@@ -170,19 +180,29 @@ export function GMAvailabilityCheck() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {allRequests.map((request) => (
-                  <RequestCard
-                    key={request.id}
-                    request={request}
-                    selectedCandidates={selectedCandidates[request.id] || []}
-                    candidateAvailability={candidateAvailability[request.id] || {}}
-                    notes={notes[request.id] || ''}
-                    submitting={submitting === request.id}
-                    onToggleCandidate={(order) => toggleCandidate(request.id, order)}
-                    onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
-                    onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
-                  />
-                ))}
+                {allRequests.map((request) => {
+                  const isResponded = request.response_status === 'available' || request.response_status === 'all_unavailable'
+                  const isConfirmed = request.reservation_status === 'confirmed'
+                  const isGMConfirmed = request.reservation_status === 'gm_confirmed'
+                  
+                  return (
+                    <RequestCard
+                      key={request.id}
+                      request={request}
+                      selectedCandidates={
+                        (isResponded || isConfirmed || isGMConfirmed)
+                          ? (request.available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
+                          : selectedCandidates[request.id] || []
+                      }
+                      candidateAvailability={candidateAvailability[request.id] || {}}
+                      notes={notes[request.id] || ''}
+                      submitting={submitting === request.id}
+                      onToggleCandidate={(order) => toggleCandidate(request.id, order)}
+                      onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
+                      onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
+                    />
+                  )
+                })}
               </div>
             )}
           </TabsContent>

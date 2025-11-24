@@ -57,14 +57,23 @@ export function CandidateSelector({
             // 満席
             cardStyle = 'bg-red-50 border-red-200 cursor-not-allowed opacity-60'
           } else if (isConfirmed && isSelected) {
-            // 確定済み（選択された候補）
-            cardStyle = 'border-green-500 bg-green-50/30 cursor-default'
+            // 確定済み＋自分が選択した候補 → 強調表示
+            cardStyle = 'border-green-500 bg-green-50 cursor-default'
+          } else if (isConfirmed && !isSelected) {
+            // 確定済み＋自分が選択していない候補 → disabled（灰色）
+            cardStyle = 'bg-gray-50 border-gray-200 cursor-default opacity-60'
           } else if (isGMConfirmed && isSelected) {
-            // GM確認済み（選択された候補）
+            // GM確認済み＋自分が選択した候補
             cardStyle = 'border-purple-500 bg-purple-50/30 cursor-default'
+          } else if (isGMConfirmed && !isSelected) {
+            // GM確認済み＋自分が選択していない候補 → disabled（灰色）
+            cardStyle = 'bg-gray-50 border-gray-200 cursor-default opacity-60'
           } else if (isResponded && isSelected) {
-            // 回答済み（選択された候補）
+            // 回答済み＋自分が選択した候補
             cardStyle = 'border-purple-500 bg-purple-50/30 cursor-default'
+          } else if (isResponded && !isSelected) {
+            // 回答済み＋自分が選択していない候補 → disabled（灰色）
+            cardStyle = 'bg-gray-50 border-gray-200 cursor-default opacity-60'
           } else if (isSelected && canClick) {
             // 選択中（編集可能）
             cardStyle = 'border-purple-500 bg-purple-50/30 cursor-pointer'
@@ -72,8 +81,8 @@ export function CandidateSelector({
             // 未選択（編集可能）
             cardStyle = 'border-gray-200 hover:border-purple-300 cursor-pointer'
           } else {
-            // その他（確定済み・回答済みで未選択）
-            cardStyle = 'border-gray-200 cursor-default opacity-60'
+            // その他（予期しないケース）
+            cardStyle = 'border-gray-200 cursor-default'
           }
           
           return (
@@ -84,7 +93,7 @@ export function CandidateSelector({
             >
               <Checkbox
                 checked={isSelected}
-                disabled={isDisabled}
+                disabled={!canClick}
                 className="pointer-events-none"
               />
               <div className="flex-1">

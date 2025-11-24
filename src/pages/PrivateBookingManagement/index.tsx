@@ -303,6 +303,15 @@ export function PrivateBookingManagement() {
                 selectedStoreId={selectedStoreId}
                 selectedGMId={selectedGMId}
                 conflictInfo={conflictInfo}
+                gmSelectedCandidates={
+                  // GMが回答した候補を参考表示（紫色で表示）
+                  selectedRequest.gm_responses && 
+                  selectedRequest.gm_responses.length > 0
+                    ? (selectedRequest.gm_responses[0].available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
+                    : undefined
+                }
+                isReadOnly={selectedRequest.status === 'confirmed'} // 確定済みの場合のみ編集不可
+                isConfirmed={selectedRequest.status === 'confirmed'}
               />
 
               {/* 開催店舗の選択 */}

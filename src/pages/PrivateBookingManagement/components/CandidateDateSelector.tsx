@@ -46,6 +46,9 @@ interface CandidateDateSelectorProps {
   selectedGMId: string
   conflictInfo: ConflictInfo
   onSelectCandidate: (order: number) => void
+  gmSelectedCandidates?: number[] // GM確認済み・確定済みの場合の選択候補
+  isReadOnly?: boolean // 閲覧専用モード（GM確認済み・確定済み）
+  isConfirmed?: boolean // 確定済みフラグ（緑色表示用）
 }
 
 /**
@@ -57,7 +60,10 @@ export const CandidateDateSelector = ({
   selectedStoreId,
   selectedGMId,
   conflictInfo,
-  onSelectCandidate
+  onSelectCandidate,
+  gmSelectedCandidates,
+  isReadOnly = false,
+  isConfirmed = false
 }: CandidateDateSelectorProps) => {
   return (
     <div>
@@ -68,6 +74,8 @@ export const CandidateDateSelector = ({
       <div className="space-y-2">
         {candidates.map((candidate) => {
           const isSelected = selectedCandidateOrder === candidate.order
+          // GMが選択した候補かどうか
+          const isGMSelected = gmSelectedCandidates && gmSelectedCandidates.includes(candidate.order)
 
           // この日時に競合があるかチェック
           const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${candidate.date}-${candidate.timeSlot}` : null
@@ -76,13 +84,22 @@ export const CandidateDateSelector = ({
           const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
           const hasConflict = hasStoreConflict || hasGMConflict
 
+          // 閲覧専用モード（確定済み）で未選択の候補はdisabled表示
+          const isDisabledInReadOnlyMode = isReadOnly && !isSelected
+          // 確定済みかつ選択された候補は緑色で表示
+          const isConfirmedAndSelected = isConfirmed && isSelected
+
           return (
             <div
               key={candidate.order}
-              onClick={() => !hasConflict && onSelectCandidate(candidate.order)}
+              onClick={() => !hasConflict && !isReadOnly && onSelectCandidate(candidate.order)}
               className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
                 hasConflict
                   ? 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
+                  : isDisabledInReadOnlyMode
+                  ? 'bg-gray-50 border-gray-200 cursor-default opacity-60'
+                  : isConfirmedAndSelected
+                  ? 'border-green-500 bg-green-50 cursor-default'
                   : isSelected
                   ? 'border-purple-500 bg-purple-50 cursor-pointer'
                   : 'border-gray-200 bg-background hover:border-purple-300 cursor-pointer'
@@ -91,6 +108,8 @@ export const CandidateDateSelector = ({
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                 hasConflict
                   ? 'border-red-500 bg-red-500'
+                  : isConfirmedAndSelected
+                  ? 'border-green-500 bg-green-500'
                   : isSelected
                   ? 'border-purple-500 bg-purple-500'
                   : 'border-gray-300'
@@ -102,7 +121,12 @@ export const CandidateDateSelector = ({
                 ) : null}
               </div>
               <div className="flex-1">
-                <div className="">候補{candidate.order}</div>
+                <div className="flex items-center gap-2">
+                  <span>候補{candidate.order}</span>
+                  {isGMSelected && (
+                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">GM対応可</span>
+                  )}
+                </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
@@ -118,6 +142,11 @@ export const CandidateDateSelector = ({
                     {hasStoreConflict && '店舗に予定あり'}
                     {hasStoreConflict && hasGMConflict && ' / '}
                     {hasGMConflict && 'GMに予定あり'}
+                  </div>
+                )}
+                {isSelected && !isGMSelected && gmSelectedCandidates && gmSelectedCandidates.length > 0 && (
+                  <div className="text-xs text-orange-600 mt-1">
+                    ⚠️ GMが未回答の候補です
                   </div>
                 )}
               </div>
