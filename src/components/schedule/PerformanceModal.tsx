@@ -1553,24 +1553,23 @@ export function PerformanceModal({
                   const isLast = index === reservations.length - 1
                   return (
                     <div key={reservation.id} className={isLast ? '' : 'border-b'}>
-                      {/* メイン行 */}
-                      <div className="p-3 h-[60px] flex items-center justify-between">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-[40px] flex items-center justify-center">
-                            <Checkbox
-                              checked={selectedReservations.has(reservation.id)}
-                              onCheckedChange={(checked) => {
-                                const newSelected = new Set(selectedReservations)
-                                if (checked) {
-                                  newSelected.add(reservation.id)
-                                } else {
-                                  newSelected.delete(reservation.id)
-                                }
-                                setSelectedReservations(newSelected)
-                              }}
-                            />
-                          </div>
-                          <span className="font-medium truncate w-[100px]">
+                      {/* メイン行 - モバイル対応2行レイアウト */}
+                      <div className="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                        {/* 1行目: チェックボックス + 名前 + 人数 */}
+                        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                          <Checkbox
+                            checked={selectedReservations.has(reservation.id)}
+                            onCheckedChange={(checked) => {
+                              const newSelected = new Set(selectedReservations)
+                              if (checked) {
+                                newSelected.add(reservation.id)
+                              } else {
+                                newSelected.delete(reservation.id)
+                              }
+                              setSelectedReservations(newSelected)
+                            }}
+                          />
+                          <span className="font-medium truncate flex-1 min-w-0">
                             {(() => {
                               // 予約者名の優先順位: customer_name > customers.name > customer_notes
                               if (reservation.customer_name) {
@@ -1585,37 +1584,18 @@ export function PerformanceModal({
                               return reservation.customer_notes || '顧客名なし'
                             })()}
                           </span>
-                          <span className="text-xs text-muted-foreground flex-shrink-0 w-[60px]">
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
                             {reservation.participant_count ? `${reservation.participant_count}名` : '-'}
-                          </span>
-                          <Badge 
-                            variant={
-                              reservation.payment_method === 'onsite' ? 'outline' : 
-                              reservation.payment_method === 'online' ? 'default' : 
-                              'secondary'
-                            } 
-                            className="flex-shrink-0 w-[100px] justify-center"
-                          >
-                            {reservation.payment_method === 'onsite' ? '現地決済' : 
-                             reservation.payment_method === 'online' ? '事前決済' : 
-                             '未設定'}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground w-[140px]">
-                            {reservation.created_at ? new Date(reservation.created_at).toLocaleString('ja-JP', {
-                              month: '2-digit',
-                              day: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            }) : '-'}
                           </span>
                         </div>
                         
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* 2行目: 支払い方法 + ステータス + 詳細ボタン */}
+                        <div className="flex items-center gap-2 ml-6 sm:ml-0 flex-wrap">
                           <Select 
                             value={reservation.status} 
                             onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
                           >
-                            <SelectTrigger className="w-[100px] h-8">
+                            <SelectTrigger className="w-[80px] h-8 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1628,10 +1608,11 @@ export function PerformanceModal({
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-8 px-2 text-xs"
                             onClick={() => setExpandedReservation(isExpanded ? null : reservation.id)}
                           >
                             詳細
-                            {isExpanded ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />}
+                            {isExpanded ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
                           </Button>
                         </div>
                       </div>
