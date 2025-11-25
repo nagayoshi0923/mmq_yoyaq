@@ -117,28 +117,16 @@ export function useGlobalSettings() {
 
   /**
    * シフト編集が可能かどうかをチェック
-   * 対象月の一定期間前までは編集可能、それ以降は編集不可
+   * 編集期限は提出期限と同じ
    */
   const canEditShift = (targetDate: Date): { canEdit: boolean; message?: string } => {
-    if (!settings) {
-      return { canEdit: true }
-    }
-
-    const today = new Date()
-    const { shift_edit_deadline_days_before } = settings
+    // 編集期限は提出期限と同じロジックを使用
+    const submitCheck = canSubmitShift(targetDate)
     
-    // 対象月の初日
-    const targetMonthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1)
-    
-    // 編集期限日（対象月の初日からN日前）
-    const editDeadline = new Date(targetMonthStart)
-    editDeadline.setDate(editDeadline.getDate() - shift_edit_deadline_days_before)
-    
-    if (today > editDeadline) {
-      const targetMonthStr = `${targetDate.getFullYear()}年${targetDate.getMonth() + 1}月`
+    if (!submitCheck.canSubmit) {
       return {
         canEdit: false,
-        message: `${targetMonthStr}のシフトは編集期限を過ぎています。変更が必要な場合はシフト制作担当者に連絡してください。`
+        message: submitCheck.message || 'このシフトは編集できません。変更が必要な場合はシフト制作担当者に連絡してください。'
       }
     }
 
