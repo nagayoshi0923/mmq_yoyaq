@@ -112,7 +112,7 @@ export const CalendarView = memo(function CalendarView({
                 </div>
                 
                 {/* 公演リスト（スクロール可能） */}
-                <div className="relative space-y-0.5 px-0 pb-0 overflow-y-auto max-h-[60px] sm:max-h-[200px] md:max-h-[250px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <div className="relative space-y-1 px-0 pb-0 overflow-y-auto max-h-[170px] sm:max-h-[220px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {events.length === 0 ? (
                     <div className="p-1 sm:p-2">
                       <button
@@ -126,7 +126,7 @@ export const CalendarView = memo(function CalendarView({
                       </button>
                     </div>
                   ) : (
-                    events.slice(0, 3).map((event: any, idx: number) => {
+                    events.map((event: any, idx: number) => {
                     const available = (event.max_participants || 8) - (event.current_participants || 0)
                     const isFull = available === 0
                     const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
@@ -148,25 +148,25 @@ export const CalendarView = memo(function CalendarView({
                             if (scenario) onCardClick(scenario.scenario_id)
                           }
                         }}
-                        className={`text-xs p-0.5 sm:p-1 rounded-none transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
+                        className={`text-xs p-1 sm:p-1.5 rounded-none transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
                         style={{
                           borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
                           backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`)
                         }}
                       >
-                        <div className="flex items-start gap-0">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-0.5">
-                              <div className="text-xs sm:text-sm whitespace-nowrap" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
-                                {event.start_time?.slice(0, 5)} {storeName}
-                              </div>
-                              <div className={`text-xs sm:text-sm flex-shrink-0 ml-0.5 ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
-                                {isPrivateBooking ? '貸切' : isFull ? '満' : `${available}`}
-                              </div>
+                        <div className="space-y-0.5">
+                          {/* 1行目: 時間 + 店舗 + 人数 */}
+                          <div className="flex items-center justify-between gap-1">
+                            <div className="text-xs sm:text-sm leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                              {event.start_time?.slice(0, 5)} {storeName}
                             </div>
-                            <div className={`text-xs sm:text-sm whitespace-nowrap overflow-hidden ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
-                              {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
+                            <div className={`text-xs sm:text-sm flex-shrink-0 leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+                              {isPrivateBooking ? '貸切' : isFull ? '満席' : `残${available}`}
                             </div>
+                          </div>
+                          {/* 2行目: シナリオ */}
+                          <div className={`text-xs sm:text-sm leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+                            {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
                           </div>
                         </div>
                       </div>
