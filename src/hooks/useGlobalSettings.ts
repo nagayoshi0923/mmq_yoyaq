@@ -41,7 +41,13 @@ export function useGlobalSettings() {
         throw fetchError
       }
 
-      setSettings(data)
+      // shift_edit_deadline_days_beforeが未設定の場合はデフォルト値を設定
+      const settingsWithDefaults = {
+        ...data,
+        shift_edit_deadline_days_before: data.shift_edit_deadline_days_before || 7
+      }
+
+      setSettings(settingsWithDefaults)
     } catch (err) {
       logger.error('全体設定の取得に失敗:', err)
       setError(err as Error)
