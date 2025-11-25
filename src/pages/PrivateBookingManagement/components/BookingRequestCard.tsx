@@ -113,10 +113,16 @@ export const BookingRequestCard = ({
           {/* 候補日時表示 */}
           <div>
             <p className="text-sm font-medium mb-2 text-purple-800">
-              {request.status === 'confirmed' ? '確定した候補日時' : 
-               (request.status === 'gm_confirmed' || request.status === 'pending_store') ? 'GMが選択した候補日時（店舗確認待ち）' : 
-               'リクエストされた候補日時'}
+              お客様希望候補日時
+              {request.status === 'confirmed' ? '（確定済み）' : 
+               (request.status === 'gm_confirmed' || request.status === 'pending_store') ? '（GM回答済み・店舗確認待ち）' : 
+               ''}
             </p>
+            {(request.status === 'gm_confirmed' || request.status === 'pending_store' || request.status === 'confirmed') && (
+              <p className="text-xs text-purple-600 mb-2">
+                ✓ = GMが出勤可能と回答した日時
+              </p>
+            )}
             <div className="space-y-2">
               {request.candidate_datetimes?.candidates?.map((candidate) => (
                 <div

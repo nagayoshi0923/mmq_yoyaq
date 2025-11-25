@@ -38,13 +38,18 @@ export function CandidateSelector({
     <div>
       <p className="text-sm font-medium mb-2 text-purple-800">
         {isConfirmed 
-          ? '確定した候補日時' 
+          ? 'お客様希望候補日時（確定済み）' 
           : isGMConfirmed 
-            ? '選択した候補日時（店側確認待ち）' 
+            ? 'お客様希望候補日時（GM回答済み・店側確認待ち）' 
             : isResponded
-              ? '回答済みの候補日時'
-              : '以下の候補から出勤可能な日時を選択してください（複数選択可）'}
+              ? 'お客様希望候補日時（回答済み）'
+              : 'お客様希望候補日時（出勤可能な日時を選択）'}
       </p>
+      {(isGMConfirmed || isResponded) && selectedCandidates.length > 0 && (
+        <p className="text-xs text-purple-600 mb-2">
+          ✓ = 出勤可能と回答した日時
+        </p>
+      )}
       <div className="space-y-2">
         {candidates.map((candidate) => {
           const isSelected = selectedCandidates.includes(candidate.order)
