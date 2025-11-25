@@ -68,6 +68,30 @@ export function ShiftSubmission() {
   
   // シフト編集可能かチェック
   const editCheck = canEditShift(currentDate)
+  
+  // 提出可能な月の範囲を計算
+  const submissionRange = useMemo(() => {
+    if (!globalSettings) return null
+    
+    const today = new Date()
+    const currentDay = today.getDate()
+    const { shift_submission_end_day, shift_submission_target_months_ahead } = globalSettings
+    
+    let startMonthsAhead = shift_submission_target_months_ahead
+    if (currentDay > shift_submission_end_day) {
+      startMonthsAhead += 1
+    }
+    
+    const startMonth = new Date(today.getFullYear(), today.getMonth() + startMonthsAhead, 1)
+    const endMonth = new Date(today.getFullYear(), today.getMonth() + startMonthsAhead + 2, 1)
+    
+    const formatMonth = (date: Date) => `${date.getFullYear()}年${date.getMonth() + 1}月`
+    
+    return {
+      start: formatMonth(startMonth),
+      end: formatMonth(endMonth)
+    }
+  }, [globalSettings])
 
   // 対象月が変更されたら自動的に更新
   useEffect(() => {
@@ -154,8 +178,9 @@ export function ShiftSubmission() {
                     <div>
                       <strong>提出期間:</strong> 毎月{globalSettings.shift_submission_start_day}日〜
                       {globalSettings.shift_submission_end_day}日
-                      （{globalSettings.shift_submission_target_months_ahead}ヶ月先から
-                      {globalSettings.shift_submission_target_months_ahead + 2}ヶ月先までのシフトを提出可能）
+                      {submissionRange && (
+                        <> （現在は{submissionRange.start}〜{submissionRange.end}のシフトを提出可能）</>
+                      )}
                     </div>
                     <div>
                       <strong>編集期限:</strong> 各月の{globalSettings.shift_edit_deadline_days_before}日前まで編集可能
