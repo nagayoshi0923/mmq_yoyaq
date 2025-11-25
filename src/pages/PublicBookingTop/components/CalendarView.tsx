@@ -176,10 +176,6 @@ export const CalendarView = memo(function CalendarView({
                     )
                   })
                   )}
-                  {/* 下部グラデーション（スクロール可能な場合のみ表示） */}
-                  {events.length > 3 && (
-                    <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
-                  )}
                 </div>
               </div>
             )
