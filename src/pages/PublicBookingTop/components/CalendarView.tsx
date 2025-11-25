@@ -112,7 +112,7 @@ export const CalendarView = memo(function CalendarView({
                 </div>
                 
                 {/* 公演リスト（スクロール可能） */}
-                <div className="relative space-y-1 px-0 pb-0 overflow-y-auto max-h-[170px] sm:max-h-[220px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <div className="relative space-y-1 px-0 pb-0 overflow-y-auto max-h-[200px] sm:max-h-[250px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {events.length === 0 ? (
                     <div className="p-1 sm:p-2">
                       <button
@@ -155,18 +155,21 @@ export const CalendarView = memo(function CalendarView({
                         }}
                       >
                         <div className="space-y-0.5">
-                          {/* 1行目: 時間 + 店舗 */}
-                          <div className="flex items-center justify-between gap-1">
-                            <div className="text-xs leading-tight flex-1 min-w-0" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
-                              {event.start_time?.slice(0, 5)} {storeName}
-                            </div>
-                            <div className={`text-xs flex-shrink-0 leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
-                              {isPrivateBooking ? '貸切' : isFull ? '満席' : `残${available}人`}
-                            </div>
+                          {/* 1行目: 時間 */}
+                          <div className="text-xs leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                            {event.start_time?.slice(0, 5)}
                           </div>
-                          {/* 2行目: シナリオ */}
+                          {/* 2行目: 店舗 */}
+                          <div className="text-xs leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                            {storeName}
+                          </div>
+                          {/* 3行目: シナリオ */}
                           <div className={`text-xs leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
                             {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
+                          </div>
+                          {/* 4行目: 人数 */}
+                          <div className={`text-xs leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+                            {isPrivateBooking ? '貸切' : isFull ? '満席' : `残${available}人`}
                           </div>
                         </div>
                       </div>
