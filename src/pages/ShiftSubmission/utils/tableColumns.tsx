@@ -45,7 +45,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
     {
       key: 'morning',
       header: '午前',
-      width: 'w-[81px] sm:w-auto',
+      width: 'w-[81px] sm:w-32 md:w-36',
       sortable: false,
       align: 'center',
       renderHeader: () => (
@@ -87,7 +87,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
     {
       key: 'afternoon',
       header: '午後',
-      width: 'w-[81px] sm:w-auto',
+      width: 'w-[81px] sm:w-32 md:w-36',
       sortable: false,
       align: 'center',
       renderHeader: () => (
@@ -129,7 +129,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
     {
       key: 'evening',
       header: '夜間',
-      width: 'w-[81px] sm:w-auto',
+      width: 'w-[81px] sm:w-32 md:w-36',
       sortable: false,
       align: 'center',
       renderHeader: () => (
@@ -171,7 +171,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
     {
       key: 'all_day',
       header: '終日',
-      width: 'w-[81px] sm:w-auto',
+      width: 'w-[81px] sm:w-32 md:w-36',
       sortable: false,
       align: 'center',
       renderHeader: () => (
