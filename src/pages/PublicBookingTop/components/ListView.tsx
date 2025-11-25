@@ -113,7 +113,7 @@ export const ListView = memo(function ListView({
         >
           <div className="flex gap-0.5 sm:gap-2">
             {/* 左カラム: 画像 */}
-            <div className={`flex-shrink-0 w-[28px] h-[36px] sm:w-[46px] sm:h-[60px] overflow-hidden ${
+            <div className={`flex-shrink-0 w-[28px] sm:w-[46px] self-stretch overflow-hidden ${
               isPrivateBooking
                 ? 'bg-gray-300'
                 : imageUrl
