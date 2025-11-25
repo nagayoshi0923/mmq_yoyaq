@@ -207,7 +207,7 @@ export function ShiftSubmission() {
         )}
 
         {/* シフト提出ボタン（モバイル用・固定表示） */}
-        <div className="sm:hidden sticky top-0 z-50 bg-background pb-3">
+        <div className="sm:hidden sticky top-[44px] z-40 bg-background pb-3 -mb-3">
           <Button 
             onClick={handleSubmitShift} 
             disabled={loading || !actualSubmitCheck.canSubmit}
