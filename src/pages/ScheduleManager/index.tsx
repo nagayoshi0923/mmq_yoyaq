@@ -62,19 +62,18 @@ export function ScheduleManager() {
     )
   )
 
-  // GMリスト取得
+  // スタッフリスト取得
   useEffect(() => {
-    const fetchGMList = async () => {
+    const fetchStaffList = async () => {
       try {
         const staff = await staffApi.getAll()
-        // GMロールを持つスタッフのみフィルタリング
-        const gms = staff.filter(s => s.roles?.includes('gm'))
-        setGmList(gms)
+        // 全スタッフを表示（ロールでフィルタリングしない）
+        setGmList(staff)
       } catch (error) {
-        console.error('GMリストの取得に失敗しました:', error)
+        console.error('スタッフリストの取得に失敗しました:', error)
       }
     }
-    fetchGMList()
+    fetchStaffList()
   }, [])
 
   // カテゴリー＋GMフィルター適用版のgetEventsForSlot

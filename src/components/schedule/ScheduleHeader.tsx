@@ -45,17 +45,17 @@ export const ScheduleHeader = memo(function ScheduleHeader({
       title={titleContent}
       description="公演スケジュールの登録・編集・管理を行います"
     >
-      {/* GMフィルター */}
+      {/* スタッフフィルター */}
       {gmList.length > 0 && onGMChange && (
         <Select value={selectedGM} onValueChange={onGMChange}>
           <SelectTrigger className="w-32 sm:w-40">
-            <SelectValue placeholder="GM選択" />
+            <SelectValue placeholder="スタッフ選択" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全GM</SelectItem>
-            {gmList.map((gm) => (
-              <SelectItem key={gm.id} value={gm.id}>
-                {gm.display_name || gm.name}
+            <SelectItem value="all">全スタッフ</SelectItem>
+            {gmList.map((staff) => (
+              <SelectItem key={staff.id} value={staff.id}>
+                {staff.display_name || staff.name}
               </SelectItem>
             ))}
           </SelectContent>
