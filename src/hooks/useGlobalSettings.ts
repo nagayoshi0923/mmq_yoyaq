@@ -73,21 +73,18 @@ export function useGlobalSettings() {
     const today = new Date()
     const currentDay = today.getDate()
     
-    // 提出期間のチェック
-    const { shift_submission_start_day, shift_submission_end_day } = settings
+    const { shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead } = settings
     
-    if (currentDay < shift_submission_start_day) {
-      return {
-        canSubmit: false,
-        message: `シフト提出は毎月${shift_submission_start_day}日から可能です`
-      }
-    }
+    // 現在の提出期間を判定
+    // 例：1日〜15日は翌月、16日〜月末は翌々月
+    let currentPeriodMonthsAhead = shift_submission_target_months_ahead
     
     if (currentDay > shift_submission_end_day) {
-      return {
-        canSubmit: false,
-        message: `シフト提出期限（${shift_submission_end_day}日）を過ぎています`
-      }
+      // 提出期限を過ぎている場合は、次の提出期間に入っている
+      currentPeriodMonthsAhead += 1
+    } else if (currentDay < shift_submission_start_day) {
+      // まだ提出期間が始まっていない場合は、前の提出期間
+      currentPeriodMonthsAhead -= 1
     }
 
     // 対象月のチェック
@@ -95,7 +92,7 @@ export function useGlobalSettings() {
     const targetYear = targetDate.getFullYear()
     const expectedMonth = new Date(
       today.getFullYear(),
-      today.getMonth() + settings.shift_submission_target_months_ahead,
+      today.getMonth() + currentPeriodMonthsAhead,
       1
     )
 
@@ -104,9 +101,12 @@ export function useGlobalSettings() {
       targetMonth !== expectedMonth.getMonth()
     ) {
       const expectedMonthStr = `${expectedMonth.getFullYear()}年${expectedMonth.getMonth() + 1}月`
+      const periodStart = shift_submission_start_day
+      const periodEnd = shift_submission_end_day
+      
       return {
         canSubmit: false,
-        message: `現在は${expectedMonthStr}のシフトのみ提出可能です`
+        message: `現在は${expectedMonthStr}のシフトのみ提出可能です（提出期間: 前月${periodStart}日〜前月${periodEnd}日）`
       }
     }
 
@@ -123,9 +123,20 @@ export function useGlobalSettings() {
     }
 
     const today = new Date()
+    const currentDay = today.getDate()
+    const { shift_submission_end_day, shift_submission_target_months_ahead } = settings
+    
+    // 現在の提出期間を判定
+    let currentPeriodMonthsAhead = shift_submission_target_months_ahead
+    
+    if (currentDay > shift_submission_end_day) {
+      // 提出期限を過ぎている場合は、次の提出期間に入っている
+      currentPeriodMonthsAhead += 1
+    }
+    
     return new Date(
       today.getFullYear(),
-      today.getMonth() + settings.shift_submission_target_months_ahead,
+      today.getMonth() + currentPeriodMonthsAhead,
       1
     )
   }
