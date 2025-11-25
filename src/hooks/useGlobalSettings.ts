@@ -117,20 +117,11 @@ export function useGlobalSettings() {
 
   /**
    * シフト編集が可能かどうかをチェック
-   * 編集期限は提出期限と同じ
+   * 編集期限 = ボタン有効期限（対象月の前月10日まで）
    */
   const canEditShift = (targetDate: Date): { canEdit: boolean; message?: string } => {
-    // 編集期限は提出期限と同じロジックを使用
-    const submitCheck = canSubmitShift(targetDate)
-    
-    if (!submitCheck.canSubmit) {
-      return {
-        canEdit: false,
-        message: submitCheck.message || 'このシフトは編集できません。変更が必要な場合はシフト制作担当者に連絡してください。'
-      }
-    }
-
-    return { canEdit: true }
+    // 編集期限はボタン有効期限と同じ（対象月の前月10日まで）
+    return canActuallySubmitShift(targetDate)
   }
 
   /**
