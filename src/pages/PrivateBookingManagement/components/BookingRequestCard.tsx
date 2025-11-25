@@ -124,18 +124,25 @@ export const BookingRequestCard = ({
               </p>
             )}
             <div className="space-y-2">
-              {request.candidate_datetimes?.candidates?.map((candidate) => (
+              {request.candidate_datetimes?.candidates?.map((candidate) => {
+                // GMが回答した候補かどうかをチェック
+                const isGMSelected = request.gm_responses?.some(response => 
+                  response.response_type === 'available' && 
+                  response.available_candidates?.includes(candidate.order - 1) // 0始まりなので-1
+                )
+                
+                return (
                 <div
                   key={candidate.order}
                   className={`flex items-center gap-3 p-3 rounded border ${
-                    request.status === 'confirmed' ? 'bg-green-50 border-green-300' :
-                    (request.status === 'gm_confirmed' || request.status === 'pending_store') ? 'bg-purple-50 border-purple-300' :
+                    request.status === 'confirmed' && isGMSelected ? 'bg-green-50 border-green-300' :
+                    (request.status === 'gm_confirmed' || request.status === 'pending_store') && isGMSelected ? 'bg-purple-50 border-purple-300' :
                     'bg-gray-50 border-gray-300'
                   }`}
                 >
-                  {request.status === 'confirmed' ? (
+                  {request.status === 'confirmed' && isGMSelected ? (
                     <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  ) : (request.status === 'gm_confirmed' || request.status === 'pending_store') ? (
+                  ) : (request.status === 'gm_confirmed' || request.status === 'pending_store') && isGMSelected ? (
                     <CheckCircle2 className="w-5 h-5 text-purple-600" />
                   ) : (
                     <XCircle className="w-5 h-5 text-red-600" />
@@ -156,7 +163,8 @@ export const BookingRequestCard = ({
                     </div>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
