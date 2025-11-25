@@ -144,8 +144,10 @@ export const ListView = memo(function ListView({
                   }
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                  No Image
+                <div className="w-full h-full bg-gray-200 relative">
+                  <span className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">
+                    No Image
+                  </span>
                 </div>
               )}
             </div>
