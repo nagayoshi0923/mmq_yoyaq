@@ -89,35 +89,40 @@ export function ScheduleManager() {
       // スタッフフィルター
       if (selectedGM !== 'all') {
         events = events.filter(event => {
-          // デバッグ用ログ（本番環境では削除）
-          console.log('Event:', event.id, 'GM Assignments:', event.gm_assignments, 'GM ID:', event.gm_id, 'Selected GM:', selectedGM)
+          // 選択したスタッフのdisplay_nameまたはnameを取得
+          const selectedStaff = gmList.find(s => s.id === selectedGM)
+          const selectedStaffName = selectedStaff?.display_name || selectedStaff?.name
           
-          // gm_assignmentsがある場合
+          // gms配列（スタッフ名の配列）をチェック
+          if (event.gms && Array.isArray(event.gms) && event.gms.length > 0) {
+            // スタッフIDで直接マッチ、またはスタッフ名でマッチ
+            const hasStaff = event.gms.some(gm => {
+              return String(gm) === String(selectedGM) || 
+                     (selectedStaffName && String(gm) === selectedStaffName)
+            })
+            if (hasStaff) return true
+          }
+          
+          // gm_assignmentsがある場合（新しい構造）
           if (event.gm_assignments && Array.isArray(event.gm_assignments) && event.gm_assignments.length > 0) {
             const hasStaff = event.gm_assignments.some(gm => {
-              // staff_idが文字列または数値の場合に対応
               return String(gm.staff_id) === String(selectedGM)
             })
-            console.log('Has staff in assignments:', hasStaff)
-            return hasStaff
+            if (hasStaff) return true
           }
           
-          // gm_idがある場合
+          // gm_idがある場合（古い構造）
           if (event.gm_id) {
-            const match = String(event.gm_id) === String(selectedGM)
-            console.log('GM ID match:', match)
-            return match
+            if (String(event.gm_id) === String(selectedGM)) return true
           }
           
-          // どちらもない場合は表示しない
-          console.log('No GM data')
           return false
         })
       }
       
       return events
     }
-  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory, selectedGM])
+  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory, selectedGM, gmList])
 
   // カテゴリーフィルター適用版のpropsを作成
   const filteredScheduleTableProps = useMemo(() => ({
