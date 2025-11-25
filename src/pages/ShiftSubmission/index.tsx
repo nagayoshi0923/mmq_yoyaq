@@ -17,7 +17,7 @@ import type { DayInfo } from './types'
  */
 export function ShiftSubmission() {
   // 全体設定を取得
-  const { settings: globalSettings, canSubmitShift, canEditShift, getTargetMonth } = useGlobalSettings()
+  const { settings: globalSettings, canSubmitShift, canEditShift, canActuallySubmitShift, getTargetMonth } = useGlobalSettings()
   
   // 月選択（初期値は設定に基づいた対象月）
   const [currentDate, setCurrentDate] = useState(() => getTargetMonth())
@@ -63,11 +63,14 @@ export function ShiftSubmission() {
     setLoading
   })
 
-  // シフト提出可能かチェック
+  // シフト提出可能かチェック（警告表示用）
   const submissionCheck = canSubmitShift(currentDate)
   
   // シフト編集可能かチェック
   const editCheck = canEditShift(currentDate)
+  
+  // シフト提出ボタンを実際に押せるかチェック（期限後も10日まで可能）
+  const actualSubmitCheck = canActuallySubmitShift()
   
   // 提出可能な月の範囲を計算
   const submissionRange = useMemo(() => {
@@ -149,7 +152,7 @@ export function ShiftSubmission() {
           {/* PC・タブレット用提出ボタン */}
           <Button 
             onClick={handleSubmitShift} 
-            disabled={loading || !submissionCheck.canSubmit || !editCheck.canEdit}
+            disabled={loading || !actualSubmitCheck.canSubmit}
             size="sm"
             className="hidden sm:flex"
           >
@@ -177,7 +180,7 @@ export function ShiftSubmission() {
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      ※提出期限を過ぎた後の変更はシフト制作担当者に連絡してください
+                      ※期限を過ぎても10日まではシフト提出可能です
                     </div>
                   </>
                 ) : (
@@ -202,7 +205,7 @@ export function ShiftSubmission() {
         <div className="sm:hidden sticky top-0 z-50 bg-background pb-2 mb-2">
           <Button 
             onClick={handleSubmitShift} 
-            disabled={loading || !submissionCheck.canSubmit || !editCheck.canEdit}
+            disabled={loading || !actualSubmitCheck.canSubmit}
             size="sm"
             className="w-full text-xs shadow-lg"
           >

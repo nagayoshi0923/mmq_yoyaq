@@ -134,6 +134,29 @@ export function useGlobalSettings() {
   }
 
   /**
+   * シフト提出ボタンを実際に押せるかどうかをチェック
+   * 期限を過ぎても10日まではボタンを押せる
+   */
+  const canActuallySubmitShift = (): { canSubmit: boolean; message?: string } => {
+    if (!settings) {
+      return { canSubmit: true }
+    }
+
+    const today = new Date()
+    const currentDay = today.getDate()
+    
+    // 10日を過ぎている場合は提出不可
+    if (currentDay > 10) {
+      return {
+        canSubmit: false,
+        message: '提出期限を過ぎています。変更が必要な場合はシフト制作担当者に連絡してください。'
+      }
+    }
+
+    return { canSubmit: true }
+  }
+
+  /**
    * シフト提出可能な対象月を取得
    */
   const getTargetMonth = (): Date => {
@@ -167,6 +190,7 @@ export function useGlobalSettings() {
     error,
     canSubmitShift,
     canEditShift,
+    canActuallySubmitShift,
     getTargetMonth,
     refetch: fetchSettings
   }
