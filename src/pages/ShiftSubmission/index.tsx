@@ -179,7 +179,7 @@ export function ShiftSubmission() {
                       <strong>提出期間:</strong> 毎月{globalSettings.shift_submission_start_day}日〜
                       {globalSettings.shift_submission_end_day}日
                       {submissionRange && (
-                        <> （現在は{submissionRange.start}〜{submissionRange.end}のシフトを提出可能）</>
+                        <> （<span className="text-primary font-semibold">{submissionRange.start}〜{submissionRange.end}</span>のシフトを提出可能）</>
                       )}
                     </div>
                     <div>
