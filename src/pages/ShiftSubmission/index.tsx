@@ -182,10 +182,12 @@ export function ShiftSubmission() {
                         <> （<span className="text-blue-600 font-semibold">{submissionRange.start}〜{submissionRange.end}</span>のシフトを提出可能）</>
                       )}
                     </div>
-                    <div>
-                      <strong>編集期限:</strong> 各月の{globalSettings.shift_edit_deadline_days_before}日前まで編集可能
-                      （それ以降はシフト制作担当者に連絡）
-                    </div>
+                    {globalSettings.shift_edit_deadline_days_before > 0 && (
+                      <div>
+                        <strong>編集期限:</strong> 各月の{globalSettings.shift_edit_deadline_days_before}日前まで編集可能
+                        （それ以降はシフト制作担当者に連絡）
+                      </div>
+                    )}
                   </>
                 ) : (
                   submissionCheck.message
