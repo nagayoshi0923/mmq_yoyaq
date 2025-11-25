@@ -213,7 +213,7 @@ export function ShiftSubmission() {
         )}
 
         {/* シフト提出ボタン（モバイル用・固定表示） */}
-        <div className="sm:hidden sticky top-0 z-50 bg-background pb-2 mb-2">
+        <div className="sm:hidden sticky top-0 z-50 bg-background pb-3">
           <Button 
             onClick={handleSubmitShift} 
             disabled={loading || !actualSubmitCheck.canSubmit}
@@ -225,7 +225,7 @@ export function ShiftSubmission() {
         </div>
 
         {/* 月選択（テーブルの真上） */}
-        <div className="flex justify-center">
+        <div className="flex justify-center mb-3">
           <MonthSwitcher
             value={currentDate}
             onChange={setCurrentDate}
@@ -235,7 +235,7 @@ export function ShiftSubmission() {
         </div>
 
         {/* テーブル */}
-        <div className="relative">
+        <div className="relative mt-3 sm:mt-0">
           <TanStackDataTable
             data={tableData}
             columns={tableColumns}
