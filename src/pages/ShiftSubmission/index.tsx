@@ -27,6 +27,7 @@ export function ShiftSubmission() {
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
+    console.log('📆 月間日付リスト生成:', { year, month, daysInMonth, currentDate })
     
     const days: DayInfo[] = []
     for (let day = 1; day <= daysInMonth; day++) {
@@ -40,6 +41,7 @@ export function ShiftSubmission() {
       })
     }
     
+    console.log('📆 生成された日付リスト:', days.slice(0, 3).map(d => d.date))
     return days
   }, [currentDate])
   

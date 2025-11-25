@@ -60,6 +60,7 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
         
         // 月の日数を取得
         const daysInMonth = new Date(year, month + 1, 0).getDate()
+        console.log('📅 シフトデータ読み込み:', { year, month, monthForApi, daysInMonth })
         const newShiftData: Record<string, ShiftSubmission> = {}
         
         for (let day = 1; day <= daysInMonth; day++) {
