@@ -121,10 +121,10 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-6 h-10 md:h-12">
-              <TabsTrigger value="lineup" className="text-sm md:text-base px-3 md:px-4">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar" className="text-sm md:text-base px-3 md:px-4">カレンダー</TabsTrigger>
-              <TabsTrigger value="list" className="text-sm md:text-base px-3 md:px-4">リスト</TabsTrigger>
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-6 p-1">
+              <TabsTrigger value="lineup" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">カレンダー</TabsTrigger>
+              <TabsTrigger value="list" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">リスト</TabsTrigger>
             </TabsList>
 
             {/* ラインナップ表示 */}
