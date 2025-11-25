@@ -229,7 +229,7 @@ export function ShiftSubmission() {
         </div>
 
         {/* テーブル */}
-        <div className="relative mt-3 sm:mt-0">
+        <div className="relative mt-6 sm:mt-0">
           <TanStackDataTable
             data={tableData}
             columns={tableColumns}
