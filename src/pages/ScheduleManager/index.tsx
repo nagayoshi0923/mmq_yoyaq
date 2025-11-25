@@ -93,30 +93,16 @@ export function ScheduleManager() {
           const selectedStaff = gmList.find(s => s.id === selectedGM)
           const selectedStaffName = selectedStaff?.display_name || selectedStaff?.name
           
-          // gms配列（スタッフ名の配列）をチェック
-          if (event.gms && Array.isArray(event.gms) && event.gms.length > 0) {
-            // スタッフIDで直接マッチ、またはスタッフ名でマッチ
-            const hasStaff = event.gms.some(gm => {
-              return String(gm) === String(selectedGM) || 
-                     (selectedStaffName && String(gm) === selectedStaffName)
-            })
-            if (hasStaff) return true
+          // gms配列をチェック（schedule_eventsテーブルの実際の構造）
+          if (!event.gms || !Array.isArray(event.gms)) {
+            return false
           }
           
-          // gm_assignmentsがある場合（新しい構造）
-          if (event.gm_assignments && Array.isArray(event.gm_assignments) && event.gm_assignments.length > 0) {
-            const hasStaff = event.gm_assignments.some(gm => {
-              return String(gm.staff_id) === String(selectedGM)
-            })
-            if (hasStaff) return true
-          }
-          
-          // gm_idがある場合（古い構造）
-          if (event.gm_id) {
-            if (String(event.gm_id) === String(selectedGM)) return true
-          }
-          
-          return false
+          // スタッフIDまたは名前でマッチング
+          return event.gms.some(gm => 
+            String(gm) === String(selectedGM) || 
+            (selectedStaffName && String(gm) === selectedStaffName)
+          )
         })
       }
       
