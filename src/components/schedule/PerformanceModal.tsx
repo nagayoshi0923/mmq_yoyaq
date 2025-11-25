@@ -1520,8 +1520,8 @@ export function PerformanceModal({
                   </div>
                 )}
                 <div>
-                {/* ヘッダー */}
-                <div className="border rounded-t-lg bg-muted/30 p-3 h-[50px] flex items-center justify-between font-medium text-sm">
+                {/* ヘッダー - PC表示のみ */}
+                <div className="hidden sm:flex border rounded-t-lg bg-muted/30 p-3 h-[50px] items-center justify-between font-medium text-xs">
                   <div className="flex items-center gap-3 flex-1">
                     <div className="w-[40px] flex items-center justify-center">
                       <Checkbox
@@ -1535,15 +1535,32 @@ export function PerformanceModal({
                         }}
                       />
                     </div>
-                    <span className="w-[100px]">顧客名</span>
+                    <span className="flex-1">顧客名</span>
                     <span className="w-[60px]">人数</span>
-                    <span className="w-[100px]">支払い</span>
-                    <span className="w-[140px]">申し込み日時</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="w-[100px]">ステータス</span>
+                    <span className="w-[80px]">ステータス</span>
                     <span className="w-[80px]"></span>
                   </div>
+                </div>
+                {/* モバイル用ヘッダー */}
+                <div className="sm:hidden border rounded-t-lg bg-muted/30 p-3 flex items-center justify-between font-medium text-xs">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={selectedReservations.size === reservations.length && reservations.length > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedReservations(new Set(reservations.map(r => r.id)))
+                        } else {
+                          setSelectedReservations(new Set())
+                        }
+                      }}
+                    />
+                    <span>予約一覧</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {reservations.length}件
+                  </span>
                 </div>
                 
                 {/* データ行 */}
