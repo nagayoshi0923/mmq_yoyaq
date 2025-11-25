@@ -154,13 +154,13 @@ export const ListView = memo(function ListView({
 
             {/* 右カラム: 情報 */}
             <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
-              <div className="text-sm text-left" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+              <div className="text-xs sm:text-sm text-left leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                   {event.start_time?.slice(0, 5)}
                 </div>
-              <div className={`text-sm text-left truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+              <div className={`text-xs sm:text-sm text-left truncate leading-tight ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
                 {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
               </div>
-              <div className={`text-sm text-right ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+              <div className={`text-xs sm:text-sm text-right leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
                 {isPrivateBooking ? `残り0人` : isFull ? '満席' : `残り${available}人`}
               </div>
             </div>
