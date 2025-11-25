@@ -45,9 +45,9 @@ export function CandidateSelector({
               ? 'お客様希望候補日時（回答済み）'
               : 'お客様希望候補日時（出勤可能な日時を選択）'}
       </p>
-      {(isGMConfirmed || isResponded) && selectedCandidates.length > 0 && (
+      {(isGMConfirmed || isResponded || isConfirmed) && selectedCandidates.length > 0 && (
         <p className="text-xs text-purple-600 mb-2">
-          ✓ = 出勤可能と回答した日時
+          ✓ = GMが出勤可能と回答した日時
         </p>
       )}
       <div className="space-y-2">
