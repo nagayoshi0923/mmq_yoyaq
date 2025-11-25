@@ -181,9 +181,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6 h-10 md:h-12 xl:h-14">
-              <TabsTrigger value="lineup" className="text-base xl:text-base">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar" className="text-base xl:text-base">カレンダー</TabsTrigger>
-              <TabsTrigger value="list" className="text-base xl:text-base">リスト</TabsTrigger>
+              <TabsTrigger value="lineup" className="text-xs sm:text-sm md:text-base whitespace-nowrap">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-xs sm:text-sm md:text-base whitespace-nowrap">カレンダー</TabsTrigger>
+              <TabsTrigger value="list" className="text-xs sm:text-sm md:text-base whitespace-nowrap">リスト</TabsTrigger>
             </TabsList>
 
             {/* ラインナップ表示 */}
