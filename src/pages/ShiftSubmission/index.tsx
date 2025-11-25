@@ -69,8 +69,8 @@ export function ShiftSubmission() {
   // シフト編集可能かチェック
   const editCheck = canEditShift(currentDate)
   
-  // シフト提出ボタンを実際に押せるかチェック（期限後も10日まで可能）
-  const actualSubmitCheck = canActuallySubmitShift()
+  // シフト提出ボタンを実際に押せるかチェック（対象月の前月10日まで可能）
+  const actualSubmitCheck = canActuallySubmitShift(currentDate)
   
   // 提出可能な月の範囲を計算
   const submissionRange = useMemo(() => {
@@ -180,7 +180,7 @@ export function ShiftSubmission() {
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      ※期限を過ぎても10日まではシフト提出可能です
+                      ※提出期限を過ぎた後の変更はシフト制作担当者に連絡してください
                     </div>
                   </>
                 ) : (
