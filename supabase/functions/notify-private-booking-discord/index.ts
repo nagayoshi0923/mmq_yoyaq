@@ -146,20 +146,19 @@ async function sendDiscordNotification(channelId: string, booking: any) {
   messageContent += `**シナリオ：** ${scenarioTitle}\n`
   messageContent += `**参加人数：** ${booking.participant_count}名\n`
   messageContent += `**予約者：** ${booking.customer_name || '名前不明'}\n`
-  
-  // 候補日時の詳細リストを追加
-  messageContent += `\n**お客様希望候補日時：**\n`
-  candidates.forEach((candidate, index) => {
-    const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
-    messageContent += `**候補${index + 1}:** ${candidate.date}（${getDayOfWeek(candidate.date)}） ${timeSlot} ${candidate.startTime}-${candidate.endTime}\n`
-  })
-  messageContent += `\n出勤可能な候補を選択してください：`
 
-  // 候補日程をボタンとして表示（シンプルに候補番号のみ）
+  // 候補日程をボタンとして表示（日時詳細付き）
   const components = []
   const maxButtons = Math.min(candidates.length, 5) // 最大5個まで
   
   for (let i = 0; i < maxButtons; i++) {
+    const candidate = candidates[i]
+    const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
+    
+    // 月/日形式に変換（例: 2025-11-25 → 11/25）
+    const dateMatch = candidate.date.match(/\d{4}-(\d{2})-(\d{2})/)
+    const shortDate = dateMatch ? `${parseInt(dateMatch[1])}/${parseInt(dateMatch[2])}` : candidate.date
+    
     if (i % 5 === 0) {
       components.push({
         type: 1,
@@ -167,10 +166,13 @@ async function sendDiscordNotification(channelId: string, booking: any) {
       })
     }
     
+    // ボタンラベル: "候補1: 11/25 夜 18:00-21:00"
+    const buttonLabel = `候補${i + 1}: ${shortDate} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`
+    
     components[components.length - 1].components.push({
       type: 2,
       style: 3, // 緑色
-      label: `候補${i + 1}`,
+      label: buttonLabel.substring(0, 80), // Discord制限：80文字まで
       custom_id: `date_${i + 1}_${booking.id}`
     })
   }
