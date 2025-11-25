@@ -142,6 +142,9 @@ export function ScheduleManager() {
           isLoading={false}
           onDateChange={setCurrentDate}
           onImportClick={() => setIsImportModalOpen(true)}
+          gmList={gmList}
+          selectedGM={selectedGM}
+          onGMChange={setSelectedGM}
         />
 
         {/* カテゴリータブ */}
