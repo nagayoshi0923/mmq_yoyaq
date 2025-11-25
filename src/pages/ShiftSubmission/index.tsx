@@ -17,7 +17,7 @@ import type { DayInfo } from './types'
  */
 export function ShiftSubmission() {
   // 全体設定を取得
-  const { settings: globalSettings, canSubmitShift, getTargetMonth } = useGlobalSettings()
+  const { settings: globalSettings, canSubmitShift, canEditShift, getTargetMonth } = useGlobalSettings()
   
   // 月選択（初期値は設定に基づいた対象月）
   const [currentDate, setCurrentDate] = useState(() => getTargetMonth())
@@ -65,6 +65,9 @@ export function ShiftSubmission() {
 
   // シフト提出可能かチェック
   const submissionCheck = canSubmitShift(currentDate)
+  
+  // シフト編集可能かチェック
+  const editCheck = canEditShift(currentDate)
 
   // 対象月が変更されたら自動的に更新
   useEffect(() => {
@@ -100,9 +103,10 @@ export function ShiftSubmission() {
     () => createShiftColumns({
       onShiftChange: handleShiftChange,
       onSelectAll: handleSelectAll,
-      onDeselectAll: handleDeselectAll
+      onDeselectAll: handleDeselectAll,
+      disabled: !editCheck.canEdit // 編集期限を過ぎている場合は無効化
     }),
-    [handleShiftChange, handleSelectAll, handleDeselectAll]
+    [handleShiftChange, handleSelectAll, handleDeselectAll, editCheck.canEdit]
   )
 
   return (
@@ -127,7 +131,7 @@ export function ShiftSubmission() {
           {/* PC・タブレット用提出ボタン */}
           <Button 
             onClick={handleSubmitShift} 
-            disabled={loading || !submissionCheck.canSubmit}
+            disabled={loading || !submissionCheck.canSubmit || !editCheck.canEdit}
             size="sm"
             className="hidden sm:flex"
           >
@@ -137,31 +141,43 @@ export function ShiftSubmission() {
 
         {/* シフト提出期間の案内・警告 */}
         {globalSettings && (
-          <Alert variant={submissionCheck.canSubmit ? 'default' : 'destructive'}>
-            {submissionCheck.canSubmit ? (
-              <Info className="h-4 w-4" />
-            ) : (
-              <AlertCircle className="h-4 w-4" />
-            )}
-            <AlertDescription>
+          <>
+            <Alert variant={submissionCheck.canSubmit ? 'default' : 'destructive'}>
               {submissionCheck.canSubmit ? (
-                <>
-                  シフト提出期間: 毎月{globalSettings.shift_submission_start_day}日〜
-                  {globalSettings.shift_submission_end_day}日
-                  （{globalSettings.shift_submission_target_months_ahead}ヶ月先のシフトを提出）
-                </>
+                <Info className="h-4 w-4" />
               ) : (
-                submissionCheck.message
+                <AlertCircle className="h-4 w-4" />
               )}
-            </AlertDescription>
-          </Alert>
+              <AlertDescription>
+                {submissionCheck.canSubmit ? (
+                  <>
+                    シフト提出期間: 毎月{globalSettings.shift_submission_start_day}日〜
+                    {globalSettings.shift_submission_end_day}日
+                    （3ヶ月先までのシフトを提出可能）
+                  </>
+                ) : (
+                  submissionCheck.message
+                )}
+              </AlertDescription>
+            </Alert>
+            
+            {/* 編集期限の警告 */}
+            {!editCheck.canEdit && (
+              <Alert variant="warning">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {editCheck.message}
+                </AlertDescription>
+              </Alert>
+            )}
+          </>
         )}
 
         {/* シフト提出ボタン（モバイル用・固定表示） */}
         <div className="sm:hidden sticky top-0 z-50 bg-background pb-2 mb-2">
           <Button 
             onClick={handleSubmitShift} 
-            disabled={loading || !submissionCheck.canSubmit}
+            disabled={loading || !submissionCheck.canSubmit || !editCheck.canEdit}
             size="sm"
             className="w-full text-xs shadow-lg"
           >

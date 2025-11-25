@@ -20,6 +20,7 @@ export interface ShiftTableActions {
   onShiftChange: (date: string, slot: 'morning' | 'afternoon' | 'evening' | 'all_day', checked: boolean) => void
   onSelectAll: (slot: 'morning' | 'afternoon' | 'evening' | 'all_day') => void
   onDeselectAll: (slot: 'morning' | 'afternoon' | 'evening' | 'all_day') => void
+  disabled?: boolean // 編集不可フラグ
 }
 
 /**
@@ -80,6 +81,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
           onCheckedChange={(checked) =>
             actions.onShiftChange(row.dayInfo.date, 'morning', checked as boolean)
           }
+          disabled={actions.disabled}
           className="h-4 w-4 sm:h-5 sm:w-5 mx-auto"
         />
       )
@@ -122,6 +124,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
           onCheckedChange={(checked) =>
             actions.onShiftChange(row.dayInfo.date, 'afternoon', checked as boolean)
           }
+          disabled={actions.disabled}
           className="h-4 w-4 sm:h-5 sm:w-5 mx-auto"
         />
       )
@@ -164,6 +167,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
           onCheckedChange={(checked) =>
             actions.onShiftChange(row.dayInfo.date, 'evening', checked as boolean)
           }
+          disabled={actions.disabled}
           className="h-4 w-4 sm:h-5 sm:w-5 mx-auto"
         />
       )
@@ -206,6 +210,7 @@ export function createShiftColumns(actions: ShiftTableActions): Column<ShiftTabl
           onCheckedChange={(checked) =>
             actions.onShiftChange(row.dayInfo.date, 'all_day', checked as boolean)
           }
+          disabled={actions.disabled}
           className="h-4 w-4 sm:h-5 sm:w-5 mx-auto"
         />
       )
