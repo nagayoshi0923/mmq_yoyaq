@@ -89,7 +89,7 @@ export const CalendarView = memo(function CalendarView({
                 key={index}
                 className={`border-r border-b ${
                   !day.isCurrentMonth ? 'bg-muted/20' : ''
-                } flex flex-col min-h-[80px] sm:min-h-[120px]`}
+                } flex flex-col min-h-[110px] sm:min-h-[150px]`}
               >
                 {/* 日付 */}
                 <div 
@@ -157,7 +157,7 @@ export const CalendarView = memo(function CalendarView({
                         <div className="flex items-start gap-0">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-0.5">
-                              <div className="truncate text-xs sm:text-sm" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                              <div className="text-xs sm:text-sm whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                                 {event.start_time?.slice(0, 5)} {storeName}
                               </div>
                               <div className={`text-xs sm:text-sm flex-shrink-0 ml-0.5 ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
