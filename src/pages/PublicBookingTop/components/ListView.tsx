@@ -121,8 +121,8 @@ export const ListView = memo(function ListView({
                   : 'bg-gray-200'
             }`}>
               {isPrivateBooking ? (
-                <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                  <span className="text-gray-500 text-xs">MMQ</span>
+                <div className="w-full h-full bg-gray-300 relative">
+                  <span className="absolute inset-0 flex items-center justify-center text-gray-500 text-[10px] sm:text-xs font-medium">MMQ</span>
                 </div>
               ) : imageUrl ? (
                 <OptimizedImage
