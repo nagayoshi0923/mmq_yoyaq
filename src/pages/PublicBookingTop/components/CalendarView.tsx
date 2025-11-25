@@ -155,17 +155,17 @@ export const CalendarView = memo(function CalendarView({
                         }}
                       >
                         <div className="space-y-0.5">
-                          {/* 1行目: 時間 + 店舗 + 人数 */}
+                          {/* 1行目: 時間 + 店舗 */}
                           <div className="flex items-center justify-between gap-1">
-                            <div className="text-xs sm:text-sm leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                            <div className="text-xs leading-tight flex-1 min-w-0" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                               {event.start_time?.slice(0, 5)} {storeName}
                             </div>
-                            <div className={`text-xs sm:text-sm flex-shrink-0 leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
-                              {isPrivateBooking ? '貸切' : isFull ? '満席' : `残${available}`}
+                            <div className={`text-xs flex-shrink-0 leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+                              {isPrivateBooking ? '貸切' : isFull ? '満席' : `残${available}人`}
                             </div>
                           </div>
                           {/* 2行目: シナリオ */}
-                          <div className={`text-xs sm:text-sm leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+                          <div className={`text-xs leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
                             {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
                           </div>
                         </div>
