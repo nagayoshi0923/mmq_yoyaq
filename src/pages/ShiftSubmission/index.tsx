@@ -69,7 +69,7 @@ export function ShiftSubmission() {
   // シフト編集可能かチェック
   const editCheck = canEditShift(currentDate)
   
-  // シフト提出ボタンを実際に押せるかチェック（対象月の前月10日まで可能）
+  // シフト提出ボタンを実際に押せるかチェック（対象月の前月末日まで可能）
   const actualSubmitCheck = canActuallySubmitShift(currentDate)
   
   // 提出可能な月の範囲を計算
