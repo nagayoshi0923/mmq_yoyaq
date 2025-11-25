@@ -27,14 +27,6 @@ export function ShiftSubmission() {
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    console.log('📆 月間日付リスト生成:', { 
-      year, 
-      month, 
-      monthDisplay: month + 1,
-      daysInMonth, 
-      currentDate: currentDate.toISOString(),
-      計算: `new Date(${year}, ${month + 1}, 0).getDate() = ${daysInMonth}`
-    })
     
     const days: DayInfo[] = []
     for (let day = 1; day <= daysInMonth; day++) {
@@ -48,9 +40,6 @@ export function ShiftSubmission() {
       })
     }
     
-    console.log('📆 生成された日付リスト 件数:', days.length)
-    console.log('📆 最初の5日:', days.slice(0, 5).map(d => `${d.displayDate}(${d.dayOfWeek})`))
-    console.log('📆 最初の5日の完全データ:', days.slice(0, 5))
     return days
   }, [currentDate])
   
