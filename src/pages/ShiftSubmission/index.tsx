@@ -146,12 +146,6 @@ export function ShiftSubmission() {
           title={`シフト提出 - ${formatMonthYear()}`}
           description="出勤可能な時間帯にチェックを入れてください"
         >
-          <MonthSwitcher
-            value={currentDate}
-            onChange={setCurrentDate}
-            showToday
-            quickJump
-          />
           {/* PC・タブレット用提出ボタン */}
           <Button 
             onClick={handleSubmitShift} 
@@ -162,6 +156,16 @@ export function ShiftSubmission() {
             {loading ? '送信中...' : 'シフトを提出'}
           </Button>
         </PageHeader>
+        
+        {/* 月選択（全デバイスで表示） */}
+        <div className="flex justify-center">
+          <MonthSwitcher
+            value={currentDate}
+            onChange={setCurrentDate}
+            showToday
+            quickJump
+          />
+        </div>
 
         {/* シフト提出期間の案内・警告 */}
         {globalSettings && (
