@@ -148,12 +148,19 @@ export function ShiftSubmission() {
               ) : (
                 <AlertCircle className="h-4 w-4" />
               )}
-              <AlertDescription>
+              <AlertDescription className="space-y-1">
                 {submissionCheck.canSubmit ? (
                   <>
-                    シフト提出期間: 毎月{globalSettings.shift_submission_start_day}日〜
-                    {globalSettings.shift_submission_end_day}日
-                    （3ヶ月先までのシフトを提出可能）
+                    <div>
+                      <strong>提出期間:</strong> 毎月{globalSettings.shift_submission_start_day}日〜
+                      {globalSettings.shift_submission_end_day}日
+                      （{globalSettings.shift_submission_target_months_ahead}ヶ月先から
+                      {globalSettings.shift_submission_target_months_ahead + 2}ヶ月先までのシフトを提出可能）
+                    </div>
+                    <div>
+                      <strong>編集期限:</strong> 各月の{globalSettings.shift_edit_deadline_days_before}日前まで編集可能
+                      （それ以降はシフト制作担当者に連絡）
+                    </div>
                   </>
                 ) : (
                   submissionCheck.message
