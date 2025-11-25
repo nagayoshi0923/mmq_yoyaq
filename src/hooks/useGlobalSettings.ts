@@ -126,7 +126,7 @@ export function useGlobalSettings() {
 
   /**
    * シフト提出ボタンを実際に押せるかどうかをチェック
-   * 対象月の前月末日まではボタンを押せる
+   * 対象月の当月1日〜末日まではボタンを押せる
    */
   const canActuallySubmitShift = (targetDate: Date): { canSubmit: boolean; message?: string } => {
     if (!settings) {
@@ -134,14 +134,16 @@ export function useGlobalSettings() {
     }
 
     const today = new Date()
+    today.setHours(0, 0, 0, 0) // 日付のみで比較
     
-    // 対象月の前月末日を計算
-    const targetMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1)
-    // 対象月の1日の0時0分0秒から1ミリ秒引くと前月末日の23:59:59.999になる
-    const previousMonthEnd = new Date(targetMonth.getTime() - 1)
+    // 対象月の1日と末日を計算
+    const targetYear = targetDate.getFullYear()
+    const targetMonth = targetDate.getMonth()
+    const monthStart = new Date(targetYear, targetMonth, 1)
+    const monthEnd = new Date(targetYear, targetMonth + 1, 0) // 次の月の0日 = 当月末日
     
-    // 前月末日を過ぎている場合は提出不可
-    if (today > previousMonthEnd) {
+    // 対象月の期間内かチェック
+    if (today < monthStart || today > monthEnd) {
       return {
         canSubmit: false,
         message: '提出期限を過ぎています。変更が必要な場合はシフト制作担当者に連絡してください。'
