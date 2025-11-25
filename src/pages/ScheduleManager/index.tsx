@@ -76,7 +76,7 @@ export function ScheduleManager() {
     fetchStaffList()
   }, [])
 
-  // カテゴリー＋GMフィルター適用版のgetEventsForSlot
+  // カテゴリー＋スタッフフィルター適用版のgetEventsForSlot
   const filteredGetEventsForSlot = useMemo(() => {
     return (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
       let events = scheduleTableProps.dataProvider.getEventsForSlot(date, venue, timeSlot)
@@ -86,14 +86,32 @@ export function ScheduleManager() {
         events = events.filter(event => event.category === selectedCategory)
       }
       
-      // GMフィルター
+      // スタッフフィルター
       if (selectedGM !== 'all') {
         events = events.filter(event => {
-          // gm_assignmentsがある場合はそこから、ない場合はgm_idから判定
-          if (event.gm_assignments && Array.isArray(event.gm_assignments)) {
-            return event.gm_assignments.some(gm => gm.staff_id === selectedGM)
+          // デバッグ用ログ（本番環境では削除）
+          console.log('Event:', event.id, 'GM Assignments:', event.gm_assignments, 'GM ID:', event.gm_id, 'Selected GM:', selectedGM)
+          
+          // gm_assignmentsがある場合
+          if (event.gm_assignments && Array.isArray(event.gm_assignments) && event.gm_assignments.length > 0) {
+            const hasStaff = event.gm_assignments.some(gm => {
+              // staff_idが文字列または数値の場合に対応
+              return String(gm.staff_id) === String(selectedGM)
+            })
+            console.log('Has staff in assignments:', hasStaff)
+            return hasStaff
           }
-          return event.gm_id === selectedGM
+          
+          // gm_idがある場合
+          if (event.gm_id) {
+            const match = String(event.gm_id) === String(selectedGM)
+            console.log('GM ID match:', match)
+            return match
+          }
+          
+          // どちらもない場合は表示しない
+          console.log('No GM data')
+          return false
         })
       }
       
