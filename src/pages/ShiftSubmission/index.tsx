@@ -156,16 +156,6 @@ export function ShiftSubmission() {
             {loading ? '送信中...' : 'シフトを提出'}
           </Button>
         </PageHeader>
-        
-        {/* 月選択（全デバイスで表示） */}
-        <div className="flex justify-center">
-          <MonthSwitcher
-            value={currentDate}
-            onChange={setCurrentDate}
-            showToday
-            quickJump
-          />
-        </div>
 
         {/* シフト提出期間の案内・警告 */}
         {globalSettings && (
@@ -221,6 +211,16 @@ export function ShiftSubmission() {
           >
             {loading ? '送信中...' : 'シフトを提出'}
           </Button>
+        </div>
+
+        {/* 月選択（テーブルの真上） */}
+        <div className="flex justify-center">
+          <MonthSwitcher
+            value={currentDate}
+            onChange={setCurrentDate}
+            showToday
+            quickJump
+          />
         </div>
 
         {/* テーブル */}
