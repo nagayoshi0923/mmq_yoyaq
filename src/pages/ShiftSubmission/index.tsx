@@ -72,13 +72,6 @@ export function ShiftSubmission() {
   // シフト提出ボタンを実際に押せるかチェック（対象月の当月1日〜末日まで可能）
   const actualSubmitCheck = canActuallySubmitShift(currentDate)
   
-  // デバッグログ
-  console.log('🔍 シフト期限チェック:', {
-    currentDate: currentDate.toISOString(),
-    submissionCheck,
-    editCheck,
-    actualSubmitCheck
-  })
   
   // 提出可能な月の範囲を計算
   const submissionRange = useMemo(() => {
@@ -198,7 +191,7 @@ export function ShiftSubmission() {
             </Alert>
             
             {/* 編集期限の警告 */}
-            {!editCheck.canEdit && (
+            {!editCheck.canEdit && editCheck.message && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
