@@ -78,21 +78,21 @@ export function ScheduleTable({
     <div className="overflow-x-auto -mx-2 sm:mx-0">
       <Table className="table-fixed w-full border-collapse min-w-[406px] sm:min-w-[562px] md:min-w-[676px]">
             <colgroup>
-              <col />
-              <col />
-              <col />
-              <col />
-              <col />
-              <col />
+              <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
+              <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="border-r text-xs !p-0 !h-auto text-center !w-[48px] !min-w-[48px] !max-w-[48px]">日付<br/>曜日</TableHead>
-                <TableHead className="border-r text-xs !p-0 !h-auto text-center !w-[32px] !min-w-[32px] !max-w-[32px]">会場</TableHead>
-                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center !w-[160px] !min-w-[160px] !max-w-[160px]">午前<br/>(~12)</TableHead>
-                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center !w-[160px] !min-w-[160px] !max-w-[160px]">午後<br/>(12-17)</TableHead>
-                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center !w-[160px] !min-w-[160px] !max-w-[160px]">夜間<br/>(17~)</TableHead>
-                <TableHead className="text-xs !p-0 !h-auto text-center !w-[32px] !min-w-[32px] !max-w-[32px]">メモ</TableHead>
+                <TableHead className="border-r text-xs !p-0 !h-auto text-center">日付<br/>曜日</TableHead>
+                <TableHead className="border-r text-xs !p-0 !h-auto text-center">会場</TableHead>
+                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">午前<br/>(~12)</TableHead>
+                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">午後<br/>(12-17)</TableHead>
+                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">夜間<br/>(17~)</TableHead>
+                <TableHead className="text-xs !p-0 !h-auto text-center">メモ</TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>
