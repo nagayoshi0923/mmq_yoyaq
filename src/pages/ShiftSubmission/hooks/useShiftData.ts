@@ -119,7 +119,9 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
    * シフト変更ハンドラ
    */
   const handleShiftChange = (date: string, timeSlot: 'morning' | 'afternoon' | 'evening' | 'all_day', checked: boolean) => {
+    console.log('🔍 handleShiftChange called:', { date, timeSlot, checked })
     setShiftData(prev => {
+      console.log('🔍 Previous data for date:', prev[date])
       const newData = {
         ...prev,
         [date]: {
@@ -141,6 +143,7 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
           } : {})
         }
       }
+      console.log('🔍 New data for date:', newData[date])
       
       // localStorageに自動保存（下書き）
       if (currentStaffId) {
