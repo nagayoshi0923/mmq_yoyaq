@@ -118,7 +118,7 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
   }), [customCategoryConfig, customReservationBadgeClass])
 
   // モーダル関連の情報も含める
-  const { availableStaffByScenario } = useScheduleEvents(
+  const { availableStaffByScenario, allAvailableStaff } = useScheduleEvents(
     events,
     'all',
     scenarios,
@@ -144,6 +144,7 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         scenarios,
         staff,
         availableStaffByScenario,
+        allAvailableStaff,
         onParticipantChange: eventOperations.handleParticipantChange
       },
       conflictWarning: {

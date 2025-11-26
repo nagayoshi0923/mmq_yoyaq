@@ -72,15 +72,6 @@ export function useScheduleEvents(
     const key = `${date}-${timeSlot}`
     const availableStaff = shiftData[key] || []
 
-    console.log('🔍 availableStaffByScenario計算:', {
-      date,
-      timeSlot,
-      key,
-      shiftDataKeys: Object.keys(shiftData),
-      availableStaffCount: availableStaff.length,
-      availableStaffNames: availableStaff.map(s => s.name)
-    })
-
     const staffByScenario: Record<string, Staff[]> = {}
 
     for (const scenario of scenarios) {
@@ -96,9 +87,42 @@ export function useScheduleEvents(
     return staffByScenario
   }, [eventOperations.isPerformanceModalOpen, eventOperations.modalInitialData, eventOperations.editingEvent, shiftData, scenarios])
 
+  /**
+   * その日時に出勤している全GMを取得（シナリオ未選択時用）
+   */
+  const allAvailableStaff = useMemo(() => {
+    if (!eventOperations.isPerformanceModalOpen) {
+      return []
+    }
+
+    let date: string
+    let timeSlot: string
+
+    if (eventOperations.modalInitialData) {
+      date = eventOperations.modalInitialData.date
+      timeSlot = eventOperations.modalInitialData.timeSlot
+    } else if (eventOperations.editingEvent) {
+      date = eventOperations.editingEvent.date
+      const startHour = parseInt(eventOperations.editingEvent.start_time.split(':')[0])
+      if (startHour < 12) {
+        timeSlot = 'morning'
+      } else if (startHour < 17) {
+        timeSlot = 'afternoon'
+      } else {
+        timeSlot = 'evening'
+      }
+    } else {
+      return []
+    }
+
+    const key = `${date}-${timeSlot}`
+    return shiftData[key] || []
+  }, [eventOperations.isPerformanceModalOpen, eventOperations.modalInitialData, eventOperations.editingEvent, shiftData])
+
   return {
     getEventsForSlot,
-    availableStaffByScenario
+    availableStaffByScenario,
+    allAvailableStaff
   }
 }
 

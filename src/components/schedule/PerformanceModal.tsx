@@ -71,6 +71,7 @@ interface PerformanceModalProps {
   scenarios: Scenario[]
   staff: StaffType[]
   availableStaffByScenario?: Record<string, StaffType[]>  // シナリオごとの出勤可能GM
+  allAvailableStaff?: StaffType[]  // その日時に出勤している全GM
   onScenariosUpdate?: () => void  // シナリオ作成後の更新用コールバック
   onStaffUpdate?: () => void  // スタッフ作成後の更新用コールバック
   onParticipantChange?: (eventId: string, newCount: number) => void  // 参加者数変更時のコールバック
@@ -218,6 +219,7 @@ export function PerformanceModal({
   scenarios,
   staff,
   availableStaffByScenario = {},
+  allAvailableStaff = [],
   onScenariosUpdate,
   onStaffUpdate,
   onParticipantChange
@@ -1127,23 +1129,6 @@ export function PerformanceModal({
               <Label htmlFor="gms">GM</Label>
               <MultiSelect
                 options={(() => {
-                  // 全シナリオから出勤可能なGMをマージ（シナリオ未選択時のため）
-                  const allAvailableGMs = new Set<string>()
-                  
-                  console.log('🔍 availableStaffByScenario詳細:', {
-                    availableStaffByScenario,
-                    keys: Object.keys(availableStaffByScenario || {}),
-                    values: Object.values(availableStaffByScenario || {}).map(list => list.map(gm => ({ id: gm.id, name: gm.name })))
-                  })
-                  
-                  if (availableStaffByScenario) {
-                    Object.values(availableStaffByScenario).forEach(gmList => {
-                      gmList.forEach(gm => allAvailableGMs.add(gm.id))
-                    })
-                  }
-                  
-                  console.log('🔍 allAvailableGMs:', Array.from(allAvailableGMs))
-                  
                   const options = staff
                     .filter(s => s.status === 'active')
                     .map(staffMember => {
@@ -1161,7 +1146,8 @@ export function PerformanceModal({
                         const availableGMs = availableStaffByScenario?.[formData.scenario] || []
                         isAvailable = availableGMs.some(gm => gm.id === staffMember.id)
                       } else {
-                        isAvailable = allAvailableGMs.has(staffMember.id)
+                        // シナリオ未選択時は、その日時に出勤している全GMから判定
+                        isAvailable = allAvailableStaff.some(gm => gm.id === staffMember.id)
                       }
                       
                       // 表示情報を構築
@@ -1185,13 +1171,6 @@ export function PerformanceModal({
                       return a.name.localeCompare(b.name, 'ja')
                     })
                     .map(({ id, name, displayInfo }) => ({ id, name, displayInfo }))
-                  
-                  console.log('🔍 GM選択オプション:', {
-                    scenario: formData.scenario,
-                    allAvailableGMsCount: allAvailableGMs.size,
-                    availableStaffByScenario,
-                    options: options.slice(0, 3)
-                  })
                   
                   return options
                 })()}
@@ -1379,15 +1358,19 @@ export function PerformanceModal({
               <SelectContent>
                 {scenarios.map(scenario => {
                   // このシナリオで出勤可能なGMを取得
-                  const availableGMs = availableStaffByScenario?.[scenario.title] || []
+                  // シナリオに担当として紐付いている出勤可能なGMのみ
+                  const scenarioAvailableGMs = allAvailableStaff.filter(gm => {
+                    const specialScenarios = gm.special_scenarios || []
+                    return specialScenarios.includes(scenario.id) || specialScenarios.includes(scenario.title)
+                  })
                   
                   return (
                     <SelectItem key={scenario.id} value={scenario.title}>
                       <div className="flex items-center justify-between w-full gap-2">
                         <span>{scenario.title}</span>
-                        {availableGMs.length > 0 && (
+                        {scenarioAvailableGMs.length > 0 && (
                           <span className="text-xs text-muted-foreground ml-auto">
-                            {availableGMs.map(gm => gm.name).join(', ')}
+                            {scenarioAvailableGMs.map(gm => gm.name).join(', ')}
                           </span>
                         )}
                       </div>
