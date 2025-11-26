@@ -225,7 +225,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
       {/* 横スクロール可能なコンテナ */}
       <div className="overflow-x-auto overflow-y-hidden">
         {/* ヘッダー行 */}
-        <div className={stickyHeader ? 'sticky top-[44px] sm:top-0 z-40' : ''}>
+        <div className={stickyHeader ? 'sm:sticky sm:top-0 z-40' : ''}>
           <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-300 min-w-max">
             {table.getHeaderGroups().map((headerGroup) =>
               headerGroup.headers.map((header, headerIndex) => {
