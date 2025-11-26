@@ -54,13 +54,15 @@ export function ShiftSubmission() {
     currentStaffId,
     handleShiftChange,
     handleSelectAll,
-    handleDeselectAll
+    handleDeselectAll,
+    reloadShiftData
   } = useShiftData({ currentDate, monthDays })
   
   const { handleSubmitShift } = useShiftSubmit({
     currentStaffId,
     shiftData,
-    setLoading
+    setLoading,
+    reloadShiftData
   })
 
   // シフト提出可能かチェック（警告表示用）
@@ -127,19 +129,15 @@ export function ShiftSubmission() {
   }, [monthDays, shiftData, currentStaffId])
 
   // テーブル列定義（メモ化）
-  const tableColumns = useMemo(() => {
-    console.log('🔍 tableColumns disabled check:', { 
-      canEdit: editCheck.canEdit, 
-      disabled: !editCheck.canEdit,
-      editCheck 
-    })
-    return createShiftColumns({
+  const tableColumns = useMemo(
+    () => createShiftColumns({
       onShiftChange: handleShiftChange,
       onSelectAll: handleSelectAll,
       onDeselectAll: handleDeselectAll,
-      disabled: false // 一時的に強制的にfalse
-    })
-  }, [handleShiftChange, handleSelectAll, handleDeselectAll, editCheck.canEdit])
+      disabled: !editCheck.canEdit // 編集期限を過ぎている場合は無効化
+    }),
+    [handleShiftChange, handleSelectAll, handleDeselectAll, editCheck.canEdit]
+  )
 
   return (
     <AppLayout

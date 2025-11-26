@@ -7,12 +7,13 @@ interface UseShiftSubmitProps {
   currentStaffId: string
   shiftData: Record<string, ShiftSubmission>
   setLoading: (loading: boolean) => void
+  reloadShiftData: () => Promise<void>
 }
 
 /**
  * シフト送信処理フック
  */
-export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShiftSubmitProps) {
+export function useShiftSubmit({ currentStaffId, shiftData, setLoading, reloadShiftData }: UseShiftSubmitProps) {
   
   /**
    * シフト提出
@@ -156,6 +157,9 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
       
       const totalDays = shiftsToUpsert.length + shiftsToRemove.length
       alert(`シフトを更新しました。\n\n${monthDisplay}シフトを更新しました。\n（出勤可能: ${totalCheckedSlots}枠）\n\nスケジュール管理ページで確認できます。`)
+      
+      // DBから最新データを再取得
+      await reloadShiftData()
       
     } catch (error) {
       logger.error('シフト提出エラー:', error)
