@@ -71,10 +71,8 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) 
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           placeholder=""
-          className="w-full text-xs sm:text-xs md:text-xs p-0.5 resize-none border-gray-200 focus:border-gray-300 focus:ring-0"
+          className="w-full h-full text-xs lg:text-[10px] p-0.5 resize-none border-gray-200 focus:border-gray-300 focus:ring-0"
           style={{ 
-            minHeight: '40px', 
-            height: '40px',
             backgroundColor: '#F6F9FB',
             transition: 'background-color 0.2s ease'
           }}
@@ -82,10 +80,9 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) 
         />
       ) : (
         <div
-          className="w-full cursor-pointer rounded border border-input p-0.5 text-xs sm:text-xs md:text-xs text-gray-700 whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight"
+          className="w-full h-full cursor-pointer rounded border border-input p-0.5 text-xs lg:text-[10px] text-gray-700 whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight flex items-start"
           style={{ 
-            backgroundColor: '#F6F9FB', 
-            minHeight: '40px',
+            backgroundColor: '#F6F9FB',
             transition: 'background-color 0.2s ease'
           }}
           onClick={handleEdit}
