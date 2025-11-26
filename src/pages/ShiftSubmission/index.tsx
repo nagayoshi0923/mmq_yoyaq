@@ -189,16 +189,6 @@ export function ShiftSubmission() {
                 )}
               </AlertDescription>
             </Alert>
-            
-            {/* 編集期限の警告 */}
-            {!editCheck.canEdit && editCheck.message && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {editCheck.message}
-                </AlertDescription>
-              </Alert>
-            )}
           </>
         )}
 
