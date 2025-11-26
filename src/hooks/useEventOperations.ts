@@ -544,6 +544,26 @@ export function useEventOperations({
           return eventReservationId !== reservationId
         }))
       } else {
+        // 通常の公演を削除する前に、予約の有無をチェック
+        const { data: reservations, error: checkError } = await supabase
+          .from('reservations')
+          .select('id')
+          .eq('schedule_event_id', deletingEvent.id)
+        
+        if (checkError) {
+          logger.error('予約チェックエラー:', checkError)
+          throw new Error('予約情報の確認に失敗しました')
+        }
+        
+        if (reservations && reservations.length > 0) {
+          // 予約がある場合は削除を拒否
+          alert(`この公演には${reservations.length}件の予約が紐付いているため削除できません。\n\n代わりに「中止」機能を使用してください。\n中止にすると、予約者に通知され、公演は非表示になります。`)
+          setIsDeleteDialogOpen(false)
+          setDeletingEvent(null)
+          return
+        }
+        
+        // 予約がない場合のみ削除を実行
         await scheduleApi.delete(deletingEvent.id)
         setEvents(prev => prev.filter(event => event.id !== deletingEvent.id))
       }
@@ -552,7 +572,13 @@ export function useEventOperations({
       setDeletingEvent(null)
     } catch (error) {
       logger.error('公演削除エラー:', error)
-      alert('公演の削除に失敗しました')
+      
+      // エラーメッセージを詳細化
+      const errorMessage = error instanceof Error ? error.message : '公演の削除に失敗しました'
+      alert(errorMessage)
+      
+      setIsDeleteDialogOpen(false)
+      setDeletingEvent(null)
     }
   }, [deletingEvent, setEvents])
 
