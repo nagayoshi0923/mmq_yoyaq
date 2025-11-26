@@ -137,7 +137,7 @@ export function ShiftSubmission() {
       onShiftChange: handleShiftChange,
       onSelectAll: handleSelectAll,
       onDeselectAll: handleDeselectAll,
-      disabled: !editCheck.canEdit // 編集期限を過ぎている場合は無効化
+      disabled: false // 一時的に強制的にfalse
     })
   }, [handleShiftChange, handleSelectAll, handleDeselectAll, editCheck.canEdit])
 
