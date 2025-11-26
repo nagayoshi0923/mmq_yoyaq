@@ -42,25 +42,6 @@ interface PerformanceCardProps {
   onContextMenu?: (event: ScheduleEvent, x: number, y: number) => void
 }
 
-// カテゴリラベルの短縮表示（モバイル用）
-function getCategoryShortLabel(
-  category: string,
-  categoryConfig: PerformanceCardProps['categoryConfig']
-): string {
-  const label = categoryConfig[category as keyof typeof categoryConfig]?.label || category
-  const shortLabels: Record<string, string> = {
-    'オープン公演': 'オ',
-    '貸切公演': '貸',
-    'GMテスト': 'G',
-    'テストプレイ': 'テ',
-    '出張公演': '出',
-    '場所貸し': '場',
-    '場所貸無料': '無',
-    'パッケージ会': 'パ'
-  }
-  return shortLabels[label] || label.slice(0, 1)
-}
-
 function PerformanceCardBase({
   event,
   categoryConfig,
@@ -126,7 +107,7 @@ function PerformanceCardBase({
         e.dataTransfer.setData('application/json', JSON.stringify(event))
       }}
       onContextMenu={handleContextMenu}
-      className={`p-0.5 sm:p-1 border-l-2 sm:border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow text-[9px] sm:text-[10px] md:text-xs relative ${
+      className={`p-1 border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow relative ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
           : 'cursor-move'
@@ -135,100 +116,86 @@ function PerformanceCardBase({
       onClick={() => onClick?.(event)}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
-      <div className="flex items-center justify-between mb-0 gap-0.5">
-        <span className={`font-mono text-[9px] sm:text-[10px] md:text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className="flex items-center justify-between mb-0.5 gap-1">
+        <span className={`font-mono text-xs lg:text-[10px] leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
-        <div className="flex items-center gap-0.5 flex-shrink-0 min-w-0">
+        <div className="flex items-center gap-1 flex-shrink-0 min-w-0">
           {/* 中止バッジ */}
           {event.is_cancelled && (
-            <Badge variant="cancelled" size="sm" className="font-normal text-[7px] sm:text-[8px] md:text-[9px] px-0 py-0 h-3 sm:h-4 whitespace-nowrap">
+            <Badge variant="cancelled" size="sm" className="font-normal text-xs px-1 py-0 h-4 whitespace-nowrap">
               中止
             </Badge>
           )}
           
-          {/* 貸切リクエストの場合は何も表示しない（【貸切確定】は別の場所で表示される） */}
-          {event.is_private_request ? null : (
-            <>
-              {/* 予約者数バッジ */}
-              {!event.is_cancelled && (
-                <Badge size="sm" className={`font-normal text-[7px] sm:text-[8px] md:text-[9px] px-0 py-0 h-3 sm:h-4 whitespace-nowrap ${
-                  reservationCount >= maxCapacity 
-                    ? 'bg-red-100 text-red-800' 
-                    : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
-                }`}>
-                  <Users className="w-2 h-2 sm:w-2.5 sm:h-2.5 mr-0.5 flex-shrink-0" />
-                  <span className="hidden sm:inline">{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
-                  <span className="sm:hidden">{reservationCount >= maxCapacity ? '満' : `${reservationCount}/${maxCapacity}`}</span>
-                </Badge>
-              )}
-              
-              {/* カテゴリバッジ */}
-              <Badge variant="static" size="sm" className={`font-normal text-[7px] sm:text-[8px] md:text-[9px] px-0 py-0 h-3 sm:h-4 whitespace-nowrap overflow-hidden ${categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'} ${event.is_cancelled ? 'opacity-60' : ''}`}>
-                <span className="hidden sm:inline truncate">{categoryConfig[event.category as keyof typeof categoryConfig]?.label || event.category}</span>
-                <span className="sm:hidden">{getCategoryShortLabel(event.category, categoryConfig)}</span>
-              </Badge>
-            </>
+          {/* 公開状況バッジ */}
+          {!event.is_cancelled && (
+            <div
+              className={`w-2 h-2 rounded-full flex-shrink-0 transition-all cursor-pointer ${
+                event.is_private_request 
+                  ? 'bg-green-400' 
+                  : event.is_reservation_enabled 
+                    ? 'bg-green-400' 
+                    : 'bg-gray-400'
+              }`}
+              title={
+                event.is_private_request 
+                  ? '貸切公演は常に公開中です' 
+                  : event.is_reservation_enabled 
+                    ? '予約サイトに公開中（クリックで非公開）' 
+                    : '予約サイトに非公開（クリックで公開）'
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!event.is_private_request) {
+                  onToggleReservation?.(event);
+                }
+              }}
+            />
           )}
         </div>
       </div>
       
       {/* シナリオタイトル */}
-      <div className={`font-medium line-clamp-2 mb-0 text-[9px] sm:text-[10px] md:text-xs leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`font-medium line-clamp-2 mb-0.5 text-xs lg:text-[10px] leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.scenario || '未定'}
       </div>
       
       {/* GM情報 */}
-      <div className={`text-[9px] sm:text-[10px] md:text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
-        GM: {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
+      <div className={`text-xs lg:text-[10px] mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+        {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
       </div>
       
       {/* ノート情報 */}
       {event.notes && (
-        <div className={`text-[8px] sm:text-[9px] truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+        <div className={`text-xs lg:text-[10px] truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.notes}
         </div>
       )}
 
-      {/* 警告アイコン（右上） */}
-      {isIncomplete && (
-        <div className="absolute top-0.5 right-0.5">
-          <AlertTriangle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-600" />
+      {/* 右上ステータス群 */}
+      <div className="absolute top-1 right-1 flex gap-1 items-center">
+        {/* 警告アイコン */}
+        {isIncomplete && (
+          <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
+        )}
+      </div>
+
+      {/* 右下：予約者数バッジ */}
+      {!event.is_cancelled && !event.is_private_request && (
+        <div className="absolute bottom-0.5 right-0.5">
+          <Badge size="sm" className={`font-normal text-xs px-1 py-0 h-4 whitespace-nowrap ${
+            reservationCount >= maxCapacity 
+              ? 'bg-red-100 text-red-800' 
+              : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
+          }`}>
+            {reservationCount < maxCapacity && (
+              <Users className="w-3 h-3 mr-0.5 flex-shrink-0" />
+            )}
+            <span>{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
+          </Badge>
         </div>
       )}
-
-      {/* アクションボタン群（右下） */}
-      <div className="absolute bottom-0 right-0 flex gap-0.5">
-        {/* 予約サイト公開バッジ */}
-        <Badge
-          variant="outline"
-          size="sm"
-          className={`h-3 sm:h-4 px-0.5 sm:px-1 py-0 font-normal text-[8px] sm:text-[9px] transition-all ${
-            event.is_private_request 
-              ? 'bg-green-100 text-green-800 border-green-500 cursor-default' 
-              : event.is_reservation_enabled 
-                ? 'bg-green-100 text-green-800 border-green-500 cursor-pointer' 
-                : 'bg-gray-100 text-gray-600 border-gray-400 cursor-pointer'
-          }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            // 貸切公演の場合はクリック不可
-            if (!event.is_private_request) {
-              onToggleReservation?.(event);
-            }
-          }}
-          title={
-            event.is_private_request 
-              ? '貸切公演は常に公開中です' 
-              : event.is_reservation_enabled 
-                ? '予約サイトに公開中（クリックで非公開）' 
-                : '予約サイトに非公開（クリックで公開）'
-          }
-        >
-          <span className="hidden sm:inline">{event.is_reservation_enabled || event.is_private_request ? '公開中' : '公開前'}</span>
-          <span className="sm:hidden">{event.is_reservation_enabled || event.is_private_request ? '公開' : '前'}</span>
-        </Badge>
-      </div>
     </div>
   )
 }

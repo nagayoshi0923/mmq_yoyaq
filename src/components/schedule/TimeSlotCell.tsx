@@ -184,7 +184,7 @@ function TimeSlotCellBase({
                       color: textColor as string,
                       borderColor: (textColor as string) + '40'
                     }}
-                    className="text-[8px] px-0.5 py-0 h-3 sm:h-3.5 font-normal border"
+                    className="text-xs px-0.5 py-0 h-3 sm:h-3.5 font-normal border"
                   >
                     {staff.name.slice(0, 2)}
                   </Badge>

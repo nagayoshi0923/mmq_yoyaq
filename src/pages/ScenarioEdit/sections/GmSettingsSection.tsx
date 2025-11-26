@@ -77,11 +77,11 @@ export function GmSettingsSection({
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-4 pb-2 border-b">GM設定</h3>
+      <h3 className="text-lg mb-4 pb-2 border-b">GM設定</h3>
       <div className="space-y-6">
         {/* GM基本設定 */}
         <div>
-          <h4 className="text-sm font-medium mb-3">GM基本設定</h4>
+          <h4 className="text-sm mb-3">GM基本設定</h4>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="gm_count">必要GM数</Label>
@@ -93,7 +93,7 @@ export function GmSettingsSection({
                 value={formData.gm_count}
                 onChange={(e) => setFormData(prev => ({ ...prev, gm_count: parseInt(e.target.value) || 1 }))}
               />
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 この公演に必要なGMの人数
               </p>
             </div>

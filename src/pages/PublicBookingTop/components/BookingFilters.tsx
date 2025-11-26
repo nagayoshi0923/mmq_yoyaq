@@ -21,9 +21,9 @@ export function BookingFilters({
   stores
 }: BookingFiltersProps) {
   return (
-    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4 sm:mb-6">
       {/* 月ナビゲーション */}
-      <div className="flex-1 sm:flex-initial">
+      <div className="w-full sm:w-auto flex justify-center sm:justify-start">
         <MonthSwitcher
           value={currentMonth}
           onChange={onMonthChange}
@@ -33,8 +33,8 @@ export function BookingFilters({
       </div>
       
       {/* 店舗フィルター */}
-      <div className="flex items-center gap-2 sm:gap-4">
-        <label className="text-xs sm:text-sm font-medium whitespace-nowrap">店舗:</label>
+      <div className="flex items-center gap-2 justify-center sm:justify-end">
+        <label className="text-xs sm:text-sm whitespace-nowrap">店舗:</label>
         <Select value={selectedStoreFilter} onValueChange={onStoreFilterChange}>
           <SelectTrigger className="w-full sm:w-48 text-sm">
             <SelectValue />

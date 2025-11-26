@@ -61,7 +61,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       )
     case 'unused':
       return (
-        <Badge variant="outline" className={`text-xs bg-gray-50 text-gray-500 border-gray-200 ${className}`}>
+        <Badge variant="outline" className={`text-xs !bg-gray-50 !text-gray-500 !border-gray-200 ${className}`}>
           {label || '未設定'}
         </Badge>
       )

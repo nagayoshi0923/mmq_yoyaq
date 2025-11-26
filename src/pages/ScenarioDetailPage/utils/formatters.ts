@@ -25,9 +25,12 @@ export function formatParticipationFee(fee: number): string {
 }
 
 /**
- * プレイ時間を時間表記にフォーマット
+ * プレイ時間をフォーマット（デフォルトは時間表記）
  */
-export function formatDuration(durationMinutes: number): string {
+export function formatDuration(durationMinutes: number, format: 'hours' | 'minutes' = 'hours'): string {
+  if (format === 'minutes') {
+    return `${durationMinutes}分`
+  }
   const hours = durationMinutes / 60
   return hours % 1 === 0 ? `${Math.floor(hours)}時間` : `${hours.toFixed(1)}時間`
 }

@@ -1,10 +1,57 @@
-import { memo } from 'react'
+import { memo, useState, useRef, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { OptimizedImage } from '@/components/ui/optimized-image'
 import { Clock, Users, Heart } from 'lucide-react'
 import { usePrefetch } from '@/hooks/usePrefetch'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
+
+// 画像コンポーネントをインライン化して最適化
+const LazyImage = ({ src, alt, className }: { src?: string, alt: string, className?: string }) => {
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [isInView, setIsInView] = useState(false)
+  const imgRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsInView(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '50px' }
+    )
+
+    if (imgRef.current) {
+      observer.observe(imgRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={imgRef} className={`relative w-full h-full bg-gray-200 ${className}`}>
+      {!isLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+          <div className="w-8 h-8 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+      {isInView && src ? (
+        <img
+          src={src}
+          alt={alt}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setIsLoaded(true)}
+          loading="lazy"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+          <span className="text-xs">{alt}</span>
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface ScenarioCardProps {
   scenario: ScenarioCardType
@@ -45,22 +92,10 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
     >
       {/* キービジュアル */}
       <div className="relative w-full aspect-[1/1.4] bg-gray-200 overflow-hidden flex items-center justify-center group">
-        <OptimizedImage
+        <LazyImage
           src={scenario.key_visual_url}
           alt={scenario.scenario_title}
-          className="w-full h-full object-cover"
-          responsive={true}
-          srcSetSizes={[300, 600, 900]}
-          breakpoints={{ mobile: 300, tablet: 400, desktop: 600 }}
-          useWebP={true}
-          quality={85}
-          fallback={
-            <div className="text-center px-4">
-              <div className="text-xl font-medium text-gray-400 leading-relaxed">
-                {scenario.scenario_title}
-              </div>
-            </div>
-          }
+          className="w-full h-full"
         />
         
         {/* お気に入りボタン */}
@@ -80,27 +115,32 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
 
       <CardContent className="p-2 sm:p-2.5 md:p-3 space-y-0.5 sm:space-y-1 bg-white">
         {/* 著者 */}
-        <p className="text-[10px] sm:text-xs text-gray-500">{scenario.author}</p>
+        <p className="text-xs text-gray-500">{scenario.author}</p>
         
         {/* タイトル */}
-        <h3 className="font-bold text-sm sm:text-base truncate leading-tight mt-0.5 sm:mt-1">
+        <h3 className="text-sm sm:text-base truncate mt-0.5 sm:mt-1">
           {scenario.scenario_title}
         </h3>
 
-        {/* 人数・時間 */}
-        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
-          <div className="flex items-center gap-0.5 sm:gap-1">
-            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+        {/* 人数・時間・参加費 */}
+        <div className="flex items-center gap-1 sm:gap-1 text-xs text-gray-600 mt-0.5 sm:mt-0.5">
+          <div className="flex items-center gap-0.5">
+            <Users className="h-3 w-3" />
             <span>
               {scenario.player_count_min === scenario.player_count_max
                 ? `${scenario.player_count_max}人`
                 : `${scenario.player_count_min}~${scenario.player_count_max}人`}
             </span>
           </div>
-          <div className="flex items-center gap-0.5 sm:gap-1">
-            <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+          <div className="flex items-center gap-0.5">
+            <Clock className="h-3 w-3" />
             <span>{scenario.duration}分</span>
           </div>
+          {scenario.participation_fee && (
+            <div className="flex items-center gap-0.5 sm:gap-1">
+              <span>¥{scenario.participation_fee.toLocaleString()}〜</span>
+            </div>
+          )}
         </div>
 
         {/* ジャンル（カテゴリ） */}
@@ -110,7 +150,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
               <Badge 
                 key={index} 
                 variant="secondary" 
-                className="text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
+                className="text-xs px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
               >
                 {genre}
               </Badge>
@@ -118,7 +158,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
             {scenario.genre.length > 3 && (
               <Badge 
                 variant="secondary" 
-                className="text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
+                className="text-xs px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
               >
                 +{scenario.genre.length - 3}
               </Badge>
@@ -137,11 +177,11 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
               return (
                 <div 
                   key={index} 
-                  className={`flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs md:text-sm py-0.5 sm:py-1 px-1 sm:px-1.5 md:px-2 bg-gray-100 rounded-[3px] ${
+                  className={`flex items-center gap-1 sm:gap-1.5 text-xs py-0.5 sm:py-1 px-1 sm:px-1.5 md:px-2 bg-gray-100 rounded-[3px] ${
                     index === 0 ? 'mt-0.5 sm:mt-1' : ''
                   }`}
                 >
-                  <span className="font-medium text-gray-800">
+                  <span className="text-gray-800">
                     {dateInfo.date}
                     <span className={`ml-0.5 ${isSunday ? 'text-red-600' : isSaturday ? 'text-blue-600' : 'text-gray-600'}`}>
                       ({dateInfo.weekday})
@@ -153,13 +193,13 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                     )}
                   </span>
                   {event.store_name && (
-                    <span className="text-gray-500 text-[10px] sm:text-[11px] md:text-xs truncate">
+                    <span className="text-gray-500 text-xs truncate">
                       @ {event.store_name}
                     </span>
                   )}
                   {/* 空席がある場合は残席数を表示、満席の場合は何も表示しない */}
                   {event.available_seats !== undefined && event.available_seats > 0 && (
-                    <span className={`text-[10px] sm:text-[11px] md:text-xs font-medium ml-auto flex-shrink-0 ${
+                    <span className={`text-xs ml-auto flex-shrink-0 ${
                       event.available_seats <= 2 
                         ? 'text-orange-600' 
                         : 'text-gray-600'
@@ -171,7 +211,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
               )
             })}
             {scenario.total_events_count && scenario.total_events_count > 3 && (
-              <div className="text-[10px] sm:text-[11px] text-gray-400 pt-0.5">
+              <div className="text-xs text-gray-400 pt-0.5">
                 ...他 {scenario.total_events_count - 3}件
               </div>
             )}

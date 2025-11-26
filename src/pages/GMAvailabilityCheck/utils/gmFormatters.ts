@@ -34,6 +34,16 @@ export const getElapsedTime = (createdAt: string) => {
 }
 
 /**
+ * 申込からの経過日数を取得
+ */
+export const getElapsedDays = (createdAt: string): number => {
+  const now = new Date()
+  const created = new Date(createdAt)
+  const diffMs = now.getTime() - created.getTime()
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+}
+
+/**
  * 日時を「YYYY/MM/DD HH:MM」形式にフォーマット
  */
 export const formatDateTime = (dateString: string) => {

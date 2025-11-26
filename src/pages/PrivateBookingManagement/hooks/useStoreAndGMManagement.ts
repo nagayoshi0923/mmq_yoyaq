@@ -126,15 +126,23 @@ export function useStoreAndGMManagement() {
   // 利用可能なGMの読み込み
   const loadAvailableGMs = useCallback(async (reservationId: string) => {
     try {
+      // まず全てのレスポンスを取得してからフィルタリング
       const { data: responses, error } = await supabase
         .from('gm_availability_responses')
         .select('staff_id, gm_name, response_type, available_candidates, selected_candidate_index, notes')
         .eq('reservation_id', reservationId)
-        .in('response_type', ['available', 'unavailable'])
       
-      if (error) throw error
+      if (error) {
+        logger.error('GM可否情報取得エラー:', error)
+        throw error
+      }
 
-      const gmList = (responses || []).map(response => ({
+      // クライアント側でフィルタリング（CORSエラー回避のため）
+      const filteredResponses = (responses || []).filter(
+        (response: any) => response.response_type === 'available' || response.response_type === 'unavailable'
+      )
+
+      const gmList = filteredResponses.map((response: any) => ({
         gm_id: response.staff_id,
         gm_name: response.gm_name,
         response_type: response.response_type,
@@ -144,8 +152,10 @@ export function useStoreAndGMManagement() {
       }))
 
       setAvailableGMs(gmList)
-    } catch (error) {
+    } catch (error: any) {
       logger.error('GM可否情報取得エラー:', error)
+      // エラー時は空配列を設定してUIが壊れないようにする
+      setAvailableGMs([])
     }
   }, [])
 

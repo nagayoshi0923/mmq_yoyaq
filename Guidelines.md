@@ -125,34 +125,67 @@ GMテスト: オレンジ系（注意・研修を表現）
 
 ## タイポグラフィ
 
-### 重要な制約（Tailwind V4高度システム）
-- **フォントサイズ、ウェイト、行間のTailwindクラスは使用禁止**
-- globals.cssの基本タイポグラフィを使用（自動適用システム）
-- 明示的に指定が必要な場合のみオーバーライド
+### 基本原則
+- **レスポンシブ対応**: モバイル・タブレット・PCで最適な文字サイズを自動調整
+- **コンポーネント統一**: ウェイトは要素・コンポーネントで自動適用
+- **セマンティックHTML**: 見出しはh1-h3要素を使用
 
-### 自動適用の仕組み
+### 禁止クラス（統一感のため削除対象）
+```
+❌ font-bold, font-semibold, font-medium
+   → CardTitle, h2, h3等のコンポーネント/要素で自動適用される
+   
+❌ text-2xl, text-3xl, text-4xl, text-5xl
+   → h1, h2, h3等のセマンティックHTML要素を使用すべき
+   
+❌ leading-* (行間)
+   → デフォルト値で十分、特別な理由がない限り変更不要
+```
+
+### 許容クラス（レスポンシブ対応に必要）
+```
+✅ text-xs, text-sm, text-base, text-lg
+   → レスポンシブパターン専用: text-xs sm:text-sm md:text-base
+   → index.cssでPC版は自動的に4px拡大される
+   
+✅ text-muted-foreground, text-destructive等
+   → 色指定は許容（デザインシステムの一部）
+```
+
+### レスポンシブタイポグラフィの仕組み
 ```css
-/* globals.cssの高度な制約システム */
-:where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
-  /* text-*クラスを使わない限り、自動で美しいタイポグラフィが適用される */
+/* index.css - PC版で自動拡大 */
+@media (min-width: 1280px) {
+  .text-xs  { font-size: 16px !important; }  /* 12px → 16px */
+  .text-sm  { font-size: 18px !important; }  /* 14px → 18px */
+  .text-base{ font-size: 20px !important; }  /* 16px → 20px */
+  .text-lg  { font-size: 24px !important; }  /* 20px → 24px */
 }
 ```
 
-### CSS変数の活用
-```css
-/* 明示的にサイズ指定が必要な場合 */
-.custom-title {
-  font-size: var(--text-2xl);
-  font-weight: var(--font-weight-medium);
-}
+### 推奨パターン
+```jsx
+// ✅ 正しい: レスポンシブパターン
+<p className="text-xs sm:text-sm">説明文</p>
+<CardTitle className="text-base sm:text-lg">カードタイトル</CardTitle>
+
+// ✅ 正しい: セマンティックHTML
+<h2>セクションタイトル</h2>  {/* 自動でスタイル適用 */}
+
+// ❌ 間違い: ウェイトクラス使用
+<p className="font-bold">太字テキスト</p>
+
+// ❌ 間違い: 大きなサイズクラス
+<div className="text-3xl">大見出し</div>
 ```
 
-### 文字サイズ指針
-- h1: システムタイトル、メインヘッダー
-- h2: セクションタイトル、ページタイトル  
-- h3: サブセクション、カードタイトル
-- p: 本文、説明文
-- label: フォームラベル、項目名
+### 要素別デフォルトスタイル
+- **h1**: システムタイトル、メインヘッダー（最大サイズ）
+- **h2**: セクションタイトル、ページタイトル（中サイズ・セミボールド）
+- **h3**: サブセクション、カードタイトル（小サイズ・ミディアム）
+- **p**: 本文、説明文（通常ウェイト）
+- **label**: フォームラベル、項目名（ミディアムウェイト）
+- **CardTitle**: カード見出し（ミディアムウェイト・自動調整）
 
 ## コンポーネント設計
 

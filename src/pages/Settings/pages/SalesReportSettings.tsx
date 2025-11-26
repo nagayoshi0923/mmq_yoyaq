@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/PageHeader"
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -178,16 +179,15 @@ export function SalesReportSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <FileText className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold">売上・レポート設定</h1>
-        </div>
+      <PageHeader
+        title="売上・レポート設定"
+        description="売上集計と表示設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* 締日設定 */}
       <Card>
@@ -199,7 +199,7 @@ export function SalesReportSettings() {
           <div className="flex items-center gap-4">
             <Label className="w-32">締日</Label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">毎月</span>
+              <span className="text-xs text-muted-foreground">毎月</span>
               <Input
                 type="number"
                 value={formData.closing_day}
@@ -208,7 +208,7 @@ export function SalesReportSettings() {
                 max="31"
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日</span>
+              <span className="text-xs text-muted-foreground">日</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2 ml-36">
@@ -227,7 +227,7 @@ export function SalesReportSettings() {
           <div className="flex items-center gap-4">
             <Label className="w-32">送信日</Label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">毎月</span>
+              <span className="text-xs text-muted-foreground">毎月</span>
               <Input
                 type="number"
                 value={formData.author_report_day}
@@ -236,7 +236,7 @@ export function SalesReportSettings() {
                 max="31"
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日</span>
+              <span className="text-xs text-muted-foreground">日</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2 ml-36">
@@ -269,7 +269,7 @@ export function SalesReportSettings() {
             <div className="space-y-2">
               {formData.report_emails.map((email, index) => (
                 <div key={index} className="flex items-center justify-between p-3 border rounded">
-                  <span className="font-medium">{email}</span>
+                  <span className="">{email}</span>
                   <Button
                     variant="ghost"
                     size="sm"

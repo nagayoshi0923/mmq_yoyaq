@@ -71,7 +71,7 @@ export function PrivateBookingScenarioSelect() {
         {/* 戻るボタン */}
         <button
           onClick={() => window.history.back()}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           戻る
@@ -84,8 +84,8 @@ export function PrivateBookingScenarioSelect() {
           <CardContent className="space-y-6">
             {/* 選択された日時情報 */}
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-              <h3 className="font-semibold text-sm">選択された日時</h3>
-              <div className="text-sm text-muted-foreground">
+              <h3 className="text-sm">選択された日時</h3>
+              <div className="text-xs text-muted-foreground">
                 <p>日付: {preselectedDate}</p>
                 <p>時間帯: {slotLabels[preselectedSlot] || preselectedSlot}</p>
               </div>
@@ -93,18 +93,18 @@ export function PrivateBookingScenarioSelect() {
 
             {/* シナリオ選択 */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">シナリオを選択してください</label>
+              <label className="text-sm">シナリオを選択してください</label>
               <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
                 <SelectTrigger>
                   <SelectValue placeholder="シナリオを選択..." />
                 </SelectTrigger>
                 <SelectContent>
                   {loading ? (
-                    <div className="p-2 text-center text-sm text-muted-foreground">
+                    <div className="p-2 text-center text-xs text-muted-foreground">
                       読み込み中...
                     </div>
                   ) : scenarios.length === 0 ? (
-                    <div className="p-2 text-center text-sm text-muted-foreground">
+                    <div className="p-2 text-center text-xs text-muted-foreground">
                       シナリオがありません
                     </div>
                   ) : (
@@ -144,15 +144,15 @@ export function PrivateBookingScenarioSelect() {
                   {/* シナリオ情報 */}
                   <div className="p-4 space-y-3">
                     <div>
-                      <h3 className="font-bold text-lg mb-1">{scenario.title}</h3>
-                      <p className="text-sm text-muted-foreground">作者: {scenario.author}</p>
+                      <h3 className="text-lg mb-1">{scenario.title}</h3>
+                      <p className="text-xs text-muted-foreground">作者: {scenario.author}</p>
                     </div>
                     
                     {/* あらすじ */}
                     {scenario.synopsis && (
                       <div>
-                        <h4 className="text-sm font-semibold mb-1">あらすじ</h4>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
+                        <h4 className="text-sm mb-1">あらすじ</h4>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
                           {scenario.synopsis}
                         </p>
                       </div>
@@ -162,11 +162,11 @@ export function PrivateBookingScenarioSelect() {
                     <div className="grid grid-cols-2 gap-3 pt-2 border-t">
                       <div>
                         <div className="text-xs text-muted-foreground">所要時間</div>
-                        <div className="text-sm font-medium">{(scenario.duration / 60).toFixed(1)}時間</div>
+                        <div className="text-sm">{(scenario.duration / 60).toFixed(1)}時間</div>
                       </div>
                       <div>
                         <div className="text-xs text-muted-foreground">推奨人数</div>
-                        <div className="text-sm font-medium">{scenario.player_count_min}〜{scenario.player_count_max}名</div>
+                        <div className="text-sm">{scenario.player_count_min}〜{scenario.player_count_max}名</div>
                       </div>
                     </div>
                     

@@ -100,7 +100,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
         <div className="container mx-auto max-w-7xl px-6 py-12">
-          <h1 className="text-4xl font-bold mb-4">Murder Mystery Quest</h1>
+          <h1 className="text-lg mb-4">Murder Mystery Quest</h1>
           <p className="text-lg text-purple-100">
             リアルな謎解き体験。あなたは事件の真相を暴けるか？
           </p>
@@ -121,10 +121,10 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-6">
-              <TabsTrigger value="lineup">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar">カレンダー</TabsTrigger>
-              <TabsTrigger value="list">リスト</TabsTrigger>
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-6 p-1">
+              <TabsTrigger value="lineup" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">カレンダー</TabsTrigger>
+              <TabsTrigger value="list" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">リスト</TabsTrigger>
             </TabsList>
 
             {/* ラインナップ表示 */}

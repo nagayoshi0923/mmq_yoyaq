@@ -17,7 +17,7 @@ export function SettingsPage() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="email-notifications">メール通知</Label>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 予約確認やお知らせをメールで受け取る
               </div>
             </div>
@@ -27,7 +27,7 @@ export function SettingsPage() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="reservation-reminders">予約リマインダー</Label>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 予約日の前日にリマインダーを受け取る
               </div>
             </div>
@@ -37,7 +37,7 @@ export function SettingsPage() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="marketing-emails">マーケティングメール</Label>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 新作シナリオやキャンペーンのお知らせを受け取る
               </div>
             </div>
@@ -54,7 +54,7 @@ export function SettingsPage() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="dark-mode">ダークモード</Label>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 ダークテーマで表示する
               </div>
             </div>
@@ -69,7 +69,7 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="p-4 bg-muted rounded-lg">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               現在のバージョンでは日本語のみサポートしています。
             </div>
           </div>

@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Users } from 'lucide-react'
 import type { ScenarioDetail } from '../utils/types'
+import { formatDuration, formatPlayerCount } from '../utils/formatters'
 
 interface ScenarioAboutProps {
   scenario: ScenarioDetail
@@ -11,7 +12,7 @@ interface ScenarioAboutProps {
 export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioAboutProps) {
   return (
     <div>
-      <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">ABOUT</h3>
+      <h3 className="mb-2 sm:mb-3 text-sm sm:text-base">ABOUT</h3>
       <Card>
         <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
           {/* 概要（基本情報） */}
@@ -19,21 +20,21 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
             <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm flex-wrap">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
-                <span>{scenario.player_count_min}〜{scenario.player_count_max}人</span>
+                <span>{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</span>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
-                <span>{(scenario.duration / 60).toFixed(1)}時間</span>
+                <span>{formatDuration(scenario.duration, 'minutes')}</span>
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {scenario.genre.map((g, i) => (
-                <Badge key={i} variant="outline" className="text-[10px] sm:text-xs">
+                <Badge key={i} variant="outline" className="text-xs">
                   {g}
                 </Badge>
               ))}
               {scenario.has_pre_reading && (
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px] sm:text-xs">
+                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
                   事前読解あり
                 </Badge>
               )}

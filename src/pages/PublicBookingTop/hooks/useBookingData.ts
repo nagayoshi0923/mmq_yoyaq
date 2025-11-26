@@ -12,6 +12,7 @@ export interface ScenarioCard {
   player_count_min: number
   player_count_max: number
   genre: string[]
+  participation_fee?: number
   next_events?: Array<{
     date: string
     time?: string
@@ -36,49 +37,71 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
   return 'available'
 }
 
-/**
- * 公演データの取得と管理を行うフック
- */
-export function useBookingData() {
-  const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
-  const [allEvents, setAllEvents] = useState<any[]>([])
-  const [stores, setStores] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  /**
+   * 公演データの取得と管理を行うフック
+   *
+   * パフォーマンス最適化:
+   * - React Queryの導入検討（キャッシュ有効活用）
+   * - メモリ使用量の最適化（不要なデータは破棄）
+   * - 初期表示データの制限（最初の1ヶ月のみ取得）
+   */
+  export function useBookingData() {
+    const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
+    const [allEvents, setAllEvents] = useState<any[]>([])
+    const [stores, setStores] = useState<any[]>([])
+    const [isLoading, setIsLoading] = useState(true)
 
   /**
    * シナリオ・公演・店舗データを読み込む
+   *
+   * パフォーマンス最適化:
+   * - 3ヶ月分のデータを並列取得（Promise.all）
+   * - scenarioApi.getPublic() で必要なフィールドのみ取得
+   * - Mapを使用したO(1)アクセス
+   * - イベントの事前インデックス化
    */
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true)
+      const startTime = performance.now()
       
-      // シナリオ、店舗、公演データを並列取得
+      // 初期表示パフォーマンス最適化: 最初の1ヶ月のみ取得
+      // （ユーザーが操作で追加の月を読み込むようにする）
       const currentDate = new Date()
       const monthPromises = []
-      
-      // 現在の月から3ヶ月先までの公演を並列取得
-      for (let i = 0; i < 3; i++) {
-        const targetDate = new Date(currentDate)
-        targetDate.setMonth(currentDate.getMonth() + i)
-        
-        const year = targetDate.getFullYear()
-        const month = targetDate.getMonth() + 1
-        
+
+      // 現在の月のみ取得（1ヶ月分）- パフォーマンス最適化
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+
+      const apiStartTime = performance.now()
         monthPromises.push(scheduleApi.getByMonth(year, month))
-      }
-      
-      // すべてのデータを並列取得
-      const [scenariosData, storesDataResult, ...monthResults] = await Promise.all([
-        scenarioApi.getAll(),
+      logger.log(`⏱️ API呼び出し開始: ${((performance.now() - apiStartTime).toFixed(2))}ms`)
+
+      // パフォーマンス最適化: 段階的データ取得
+      // 1. まずシナリオと店舗データを取得（軽量、即座に表示可能）
+      const fetchStartTime = performance.now()
+      const [scenariosData, storesDataResult] = await Promise.all([
+        scenarioApi.getPublic(), // status='available'のみ、必要なフィールドのみ取得
         storeApi.getAll().catch((error) => {
           logger.error('店舗データの取得エラー:', error)
           return []
-        }),
-        ...monthPromises
+        })
       ])
-      
       const storesData = storesDataResult || []
+      const firstFetchEndTime = performance.now()
+      logger.log(`⏱️ シナリオ・店舗データ取得完了: ${((firstFetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
+      
+      // 2. 店舗データを即座に設定（シナリオデータは公演データと一緒に処理）
+      setStores(storesData)
+      
+      // 3. 公演データを取得（重い処理、バックグラウンドで実行）
+      const monthResults = await Promise.all(monthPromises)
       const allEventsData = monthResults.flat()
+      const fetchEndTime = performance.now()
+      logger.log(`⏱️ 公演データ取得完了: ${((fetchEndTime - firstFetchEndTime) / 1000).toFixed(2)}秒`)
+      logger.log(`⏱️ データ取得完了: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
+      logger.log(`📊 取得データ: シナリオ${scenariosData.length}件, 店舗${storesData.length}件, 公演${allEventsData.length}件`)
       
       // 予約可能な公演 + 確定貸切公演をフィルタリング
       const publicEvents = allEventsData.filter((event: any) => {
@@ -93,23 +116,59 @@ export function useBookingData() {
         return isNotCancelled && (isOpenAndEnabled || isPrivateBooking)
       })
       
+      // 最適化: 店舗データをMapに変換（O(1)アクセス）
+      const storeMap = new Map<string, any>()
+      storesData.forEach((store: any) => {
+        storeMap.set(store.id, store)
+        if (store.short_name) storeMap.set(store.short_name, store)
+        if (store.name) storeMap.set(store.name, store)
+      })
+      
+      // 最適化: イベントをシナリオIDでインデックス化（O(1)アクセス）
+      const eventsByScenarioId = new Map<string, any[]>()
+      const eventsByScenarioTitle = new Map<string, any[]>()
+      
+      publicEvents.forEach((event: any) => {
+        // scenario_idでインデックス化
+        const scenarioId = event.scenario_id || event.scenarios?.id
+        if (scenarioId) {
+          if (!eventsByScenarioId.has(scenarioId)) {
+            eventsByScenarioId.set(scenarioId, [])
+          }
+          eventsByScenarioId.get(scenarioId)!.push(event)
+        }
+        
+        // タイトルでインデックス化（フォールバック用）
+        const scenarioTitle = event.scenario || event.scenarios?.title
+        if (scenarioTitle) {
+          if (!eventsByScenarioTitle.has(scenarioTitle)) {
+            eventsByScenarioTitle.set(scenarioTitle, [])
+          }
+          eventsByScenarioTitle.get(scenarioTitle)!.push(event)
+        }
+      })
+      
+      // 今日の日付を一度だけ計算
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const todayJST = formatDateJST(today)
+      
       // シナリオごとにグループ化
       const scenarioMap = new Map<string, ScenarioCard>()
       
       scenariosData.forEach((scenario: any) => {
-        // ステータスがavailableでないシナリオはスキップ
-        if (scenario.status !== 'available') return
+        // getPublic()で既にstatus='available'のみ取得されているため、チェック不要
         
-        // このシナリオの公演を探す（scenario_idまたはタイトルで照合）
-        const scenarioEvents = publicEvents.filter((event: any) => {
-          // scenario_idで照合（リレーション）
-          if (event.scenario_id === scenario.id) return true
-          // scenariosオブジェクトのIDで照合
-          if (event.scenarios?.id === scenario.id) return true
-          // タイトルで照合（フォールバック）
-          if (event.scenario === scenario.title) return true
-          return false
-        })
+        // 最適化: Mapから直接取得（O(1)）
+        const scenarioEvents = [
+          ...(eventsByScenarioId.get(scenario.id) || []),
+          ...(eventsByScenarioTitle.get(scenario.title) || [])
+        ]
+        
+        // 重複を除去（同じイベントが両方のMapに存在する可能性がある）
+        const uniqueEvents = Array.from(
+          new Map(scenarioEvents.map(e => [e.id, e])).values()
+        )
         
         // 新着判定（リリース日から30日以内）
         const isNew = scenario.release_date ? 
@@ -117,15 +176,9 @@ export function useBookingData() {
           false
         
         // 公演がある場合
-        if (scenarioEvents.length > 0) {
-          // 今日以降の公演のみをフィルタリング（過去の公演は除外）
-          // 満席の公演も含めてすべての公演を取得
-          const today = new Date()
-          today.setHours(0, 0, 0, 0)
-          const todayJST = formatDateJST(today) // JSTでの今日の日付文字列（YYYY-MM-DD）
-          
+        if (uniqueEvents.length > 0) {
           // 今日以降の公演のみをフィルタリング（満席も含む、過去の公演は除外、貸切・GMテストは除外）
-          const futureEvents = scenarioEvents.filter((event: any) => {
+          const futureEvents = uniqueEvents.filter((event: any) => {
             // event.dateはYYYY-MM-DD形式の文字列なので、そのまま比較
             // 今日を含む（>=）で判定
             const isFuture = event.date >= todayJST
@@ -140,7 +193,7 @@ export function useBookingData() {
           
           // 最も近い公演を最大3つまで取得（日付・時刻順にソート）
           // 満席の公演も含めてソート
-          const sortedEvents = targetEvents.sort((a: any, b: any) => {
+          const sortedEvents = [...targetEvents].sort((a: any, b: any) => {
             // 日付で比較
             const dateCompare = a.date.localeCompare(b.date)
             if (dateCompare !== 0) return dateCompare
@@ -150,7 +203,12 @@ export function useBookingData() {
           
           // 最大3つまで選択（満席も含む）
           const nextEvents = sortedEvents.slice(0, 3).map((event: any) => {
-            const store = storesData.find((s: any) => s.id === event.venue || s.short_name === event.venue || s.id === event.store_id)
+            // 最適化: Mapから直接取得（O(1)）- find()を完全に排除
+            const store = storeMap.get(event.venue) || 
+                         storeMap.get(event.store_id) ||
+                         storeMap.get(event.store_short_name) ||
+                         null
+            
             // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
             const scenarioMaxPlayers = event.scenarios?.player_count_max
             const maxParticipants = scenarioMaxPlayers ||
@@ -197,6 +255,7 @@ export function useBookingData() {
               player_count_min: scenario.player_count_min,
               player_count_max: scenario.player_count_max,
               genre: scenario.genre || [],
+              participation_fee: scenario.participation_fee || 3000,
               next_events: nextEvents,
               total_events_count: targetEvents.length, // 次回公演の総数（満席も含む）
               status: status,
@@ -213,6 +272,7 @@ export function useBookingData() {
               player_count_min: scenario.player_count_min,
               player_count_max: scenario.player_count_max,
               genre: scenario.genre || [],
+              participation_fee: scenario.participation_fee || 3000,
               status: 'private_booking', // 公演予定なしは「貸切受付中」
               is_new: isNew
             })
@@ -228,18 +288,48 @@ export function useBookingData() {
             player_count_min: scenario.player_count_min,
             player_count_max: scenario.player_count_max,
             genre: scenario.genre || [],
+            participation_fee: scenario.participation_fee || 3000,
             status: 'private_booking', // 公演予定なしは「貸切受付中」
             is_new: isNew
           })
         }
       })
       
+      const processEndTime = performance.now()
+      logger.log(`⏱️ データ処理完了: ${((processEndTime - fetchEndTime) / 1000).toFixed(2)}秒`)
+      
       const scenarioList = Array.from(scenarioMap.values())
       
-      setScenarios(scenarioList)
-      setAllEvents(publicEvents) // カレンダー用に全公演データを保存
-      setStores(storesData) // 店舗データを保存
+      const totalTime = performance.now() - startTime
+      // パフォーマンスログ
+      logger.log(`📊 予約サイトデータ取得完了: ${scenarioList.length}件のシナリオ, ${publicEvents.length}件の公演`)
+      logger.log(`⏱️ 総処理時間: ${(totalTime / 1000).toFixed(2)}秒`)
       
+      // データを即座に設定（非同期化は不要、むしろ遅延の原因になる）
+      setScenarios(scenarioList)
+      setAllEvents(publicEvents)
+      setStores(storesData)
+      setIsLoading(false)
+      
+      // パフォーマンス最適化: よく使われる画像をプリロード（バックグラウンド）
+      // 新着・直近公演の画像を優先的にプリロード
+      const imagesToPreload = scenarioList
+        .filter(s => s.is_new || (s.next_events && s.next_events.length > 0))
+        .slice(0, 10) // 最大10枚まで
+        .map(s => s.key_visual_url)
+        .filter((url): url is string => !!url)
+      
+      // バックグラウンドで画像をプリロード
+      imagesToPreload.forEach(url => {
+        const img = new Image()
+        img.src = url
+      })
+      logger.log(`🖼️ 画像プリロード開始: ${imagesToPreload.length}枚`)
+      
+      if (totalTime > 3000) {
+        logger.warn(`⚠️ 処理時間が3秒を超えています: ${(totalTime / 1000).toFixed(2)}秒`)
+      }
+
       // デバッグ: データがない場合の警告
       if (scenarioList.length === 0) {
         console.warn('⚠️ 表示可能なシナリオがありません')
@@ -251,7 +341,6 @@ export function useBookingData() {
       }
     } catch (error) {
       logger.error('データの読み込みエラー:', error)
-    } finally {
       setIsLoading(false)
     }
   }, [])

@@ -141,19 +141,19 @@ export function AuthorLicenseEmailDialog({
 
               <div className="border-t pt-4 space-y-2">
                 <div className="text-sm">
-                  <span className="font-medium">作者:</span> {author.author}
+                  <span className="">作者:</span> {author.author}
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">対象月:</span> {year}年{month}月
+                  <span className="">対象月:</span> {year}年{month}月
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">総公演数:</span> {author.totalEvents}回
+                  <span className="">総公演数:</span> {author.totalEvents}回
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">総ライセンス料:</span> ¥{author.totalLicenseCost.toLocaleString()}
+                  <span className="">総ライセンス料:</span> ¥{author.totalLicenseCost.toLocaleString()}
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">シナリオ数:</span> {author.scenarios.length}件
+                  <span className="">シナリオ数:</span> {author.scenarios.length}件
                 </div>
               </div>
             </TabsContent>

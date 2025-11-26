@@ -55,7 +55,7 @@ const CATEGORY_STYLES: Record<
 const SectionHeader: React.FC<{ subtitle?: string }> = ({ subtitle }) => (
   <div className="flex items-center gap-2">
     <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-    <h2 className="text-base sm:text-lg md:text-xl font-semibold">実施公演リスト</h2>
+    <h2>実施公演リスト</h2>
     {subtitle && <span className="text-xs text-muted-foreground">({subtitle})</span>}
   </div>
 )
@@ -134,7 +134,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
 
                 <button
                   type="button"
-                  className="text-left font-semibold text-sm truncate hover:text-primary transition-colors"
+                  className="text-left text-sm truncate hover:text-primary transition-colors"
                   onClick={() => onEditEvent?.(event)}
                 >
                   {event.scenario_title}
@@ -154,21 +154,21 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
                 <div className="grid grid-cols-2 gap-2 border-t pt-2 text-sm">
                   <div>
                     <p className="text-xs text-muted-foreground">売上</p>
-                    <p className="font-bold text-green-600">{formatCurrency(event.revenue)}</p>
+                    <p className="text-green-600">{formatCurrency(event.revenue)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">純利益</p>
-                    <p className={`font-bold ${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(event.net_profit)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">ライセンス</p>
-                    <p className="font-bold text-red-600">{formatCurrency(event.license_cost)}</p>
+                    <p className="text-red-600">{formatCurrency(event.license_cost)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">GM給与</p>
-                    <p className="font-bold text-red-600">{formatCurrency(event.gm_cost)}</p>
+                    <p className="text-red-600">{formatCurrency(event.gm_cost)}</p>
                   </div>
                 </div>
               </div>
@@ -196,7 +196,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        className="text-left font-semibold text-sm truncate hover:text-primary transition-colors"
+                        className="text-left text-sm truncate hover:text-primary transition-colors"
                         onClick={() => onEditEvent?.(event)}
                       >
                         {event.scenario_title}
@@ -226,19 +226,19 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
                 <div className="flex items-center gap-6 text-right text-sm">
                   <div className="min-w-[80px]">
                     <p className="text-xs text-muted-foreground">売上</p>
-                    <p className="font-bold text-green-600">{formatCurrency(event.revenue)}</p>
+                    <p className="text-green-600">{formatCurrency(event.revenue)}</p>
                   </div>
                   <div className="min-w-[80px]">
                     <p className="text-xs text-muted-foreground">ライセンス</p>
-                    <p className="font-bold text-red-600">{formatCurrency(event.license_cost)}</p>
+                    <p className="text-red-600">{formatCurrency(event.license_cost)}</p>
                   </div>
                   <div className="min-w-[80px]">
                     <p className="text-xs text-muted-foreground">GM給与</p>
-                    <p className="font-bold text-red-600">{formatCurrency(event.gm_cost)}</p>
+                    <p className="text-red-600">{formatCurrency(event.gm_cost)}</p>
                   </div>
                   <div className="min-w-[80px]">
                     <p className="text-xs text-muted-foreground">純利益</p>
-                    <p className={`font-bold ${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(event.net_profit)}
                     </p>
                   </div>
@@ -252,20 +252,20 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
       <footer className="border-t pt-3 sm:pt-4">
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 text-center text-sm">
           <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">総売上</p>
-            <p className="font-bold text-green-600">{formatCurrency(totals.revenue)}</p>
+            <p className="text-xs text-muted-foreground">総売上</p>
+            <p className="text-green-600">{formatCurrency(totals.revenue)}</p>
           </div>
           <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">総ライセンス</p>
-            <p className="font-bold text-red-600">{formatCurrency(totals.license)}</p>
+            <p className="text-xs text-muted-foreground">総ライセンス</p>
+            <p className="text-red-600">{formatCurrency(totals.license)}</p>
           </div>
           <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">総GM給与</p>
-            <p className="font-bold text-red-600">{formatCurrency(totals.gm)}</p>
+            <p className="text-xs text-muted-foreground">総GM給与</p>
+            <p className="text-red-600">{formatCurrency(totals.gm)}</p>
           </div>
           <div>
-            <p className="text-xs sm:text-sm text-muted-foreground">総純利益</p>
-            <p className={`font-bold ${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <p className="text-xs text-muted-foreground">総純利益</p>
+            <p className={`${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(totals.profit)}
             </p>
           </div>

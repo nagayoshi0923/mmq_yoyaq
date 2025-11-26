@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { Calendar, Search, CheckCircle, Settings, Clock, User, DollarSign, Filter, ChevronDown, ChevronUp } from 'lucide-react'
 
@@ -129,37 +131,40 @@ export function ReservationManagement() {
           onTabChange={setActiveTab}
         />
       }
-      maxWidth="max-w-[1600px]"
-      containerPadding="px-2 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6"
+      maxWidth="max-w-[1440px]"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        <div></div>
+        <PageHeader
+          title="予約管理"
+          description="予約の確認・検索・ステータス管理を行います"
+        />
 
         {/* 統計サマリー */}
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">総予約数</CardDescription>
-              <CardTitle className="text-xl sm:text-2xl md:text-3xl">{stats.total}</CardTitle>
+              <CardTitle className="text-lg md:text-lg">{stats.total}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">確定済み</CardDescription>
-              <CardTitle className="text-xl sm:text-2xl md:text-3xl text-green-600">{stats.confirmed}</CardTitle>
+              <CardTitle className="text-lg md:text-lg text-green-600">{stats.confirmed}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">保留中</CardDescription>
-              <CardTitle className="text-xl sm:text-2xl md:text-3xl text-yellow-600">{stats.pending}</CardTitle>
+              <CardTitle className="text-lg md:text-lg text-yellow-600">{stats.pending}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2 p-3 sm:p-4 md:p-6">
               <CardDescription className="text-xs sm:text-sm">未払い</CardDescription>
-              <CardTitle className="text-xl sm:text-2xl md:text-3xl text-red-600">{stats.unpaid}</CardTitle>
+              <CardTitle className="text-lg md:text-lg text-red-600">{stats.unpaid}</CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -169,13 +174,13 @@ export function ReservationManagement() {
           <CardHeader className="p-3 sm:p-4 md:p-6">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
-              <CardTitle className="text-base sm:text-lg md:text-xl">フィルター</CardTitle>
+              <CardTitle>フィルター</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-4 md:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">検索</label>
+                <Label className="text-xs sm:text-sm mb-1 sm:mb-2 block">検索</Label>
                 <div className="relative">
                   <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
                   <Input
@@ -187,7 +192,7 @@ export function ReservationManagement() {
                 </div>
               </div>
               <div>
-                <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">ステータス</label>
+                <Label className="text-xs sm:text-sm mb-1 sm:mb-2 block">ステータス</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="text-xs sm:text-sm">
                     <SelectValue />
@@ -201,7 +206,7 @@ export function ReservationManagement() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">支払い状況</label>
+                <Label className="text-xs sm:text-sm mb-1 sm:mb-2 block">支払い状況</Label>
                 <Select value={paymentFilter} onValueChange={setPaymentFilter}>
                   <SelectTrigger className="text-xs sm:text-sm">
                     <SelectValue />
@@ -215,7 +220,7 @@ export function ReservationManagement() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 block">予約種別</label>
+                <Label className="text-xs sm:text-sm mb-1 sm:mb-2 block">予約種別</Label>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
                   <SelectTrigger className="text-xs sm:text-sm">
                     <SelectValue />
@@ -250,16 +255,16 @@ export function ReservationManagement() {
                     <div className="flex justify-between items-start mb-3 sm:mb-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1 sm:gap-2 mb-2 flex-wrap">
-                          <span className="font-mono text-[10px] sm:text-xs md:text-sm text-muted-foreground truncate">
+                          <span className="font-mono text-xs text-muted-foreground truncate">
                             #{reservation.reservation_number}
                           </span>
                           {getStatusBadge(reservation.status)}
                           {getPaymentBadge(reservation.payment_status || 'unpaid')}
                           {reservation.reservation_source === 'web_private' && (
-                            <Badge variant="outline" className="text-[10px] sm:text-xs">貸切</Badge>
+                            <Badge variant="outline" className="text-xs">貸切</Badge>
                           )}
                         </div>
-                        <h3 className="text-base sm:text-lg md:text-xl font-bold mb-2 break-words">{reservation.scenario_title}</h3>
+                        <h3 className="text-base md:text-lg mb-2 break-words">{reservation.scenario_title}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 sm:gap-x-6 gap-y-1 sm:gap-y-2 text-xs sm:text-sm">
                           <div className="flex items-center gap-1 sm:gap-2">
                             <User className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
@@ -295,7 +300,7 @@ export function ReservationManagement() {
                       <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t space-y-2 sm:space-y-3 text-xs sm:text-sm">
                         {reservation.reservation_source === 'web_private' && reservation.candidate_datetimes && (
                           <div>
-                            <span className="font-medium">候補日時：</span>
+                            <span className="">候補日時：</span>
                             <ul className="mt-1 ml-4 list-disc">
                               {extractCandidateDates(reservation.candidate_datetimes).map((date, i) => (
                                 <li key={i}>{date}</li>
@@ -305,7 +310,7 @@ export function ReservationManagement() {
                         )}
                         {reservation.customer_notes && (
                           <div>
-                            <span className="font-medium">備考：</span>
+                            <span className="">備考：</span>
                             <p className="mt-1">{reservation.customer_notes}</p>
                           </div>
                         )}

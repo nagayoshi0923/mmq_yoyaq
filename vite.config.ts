@@ -28,7 +28,20 @@ export default defineConfig({
         // ファイル名の形式を変更してMIMEタイプの問題を回避
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+        // 🚀 手動チャンク分割: 初期バンドルを軽量化
+        manualChunks: {
+          // ベンダーライブラリを分離（キャッシュ効率向上）
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-ui': ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-dropdown-menu', '@radix-ui/react-checkbox', '@radix-ui/react-tabs', '@radix-ui/react-alert-dialog', '@radix-ui/react-popover', '@radix-ui/react-avatar', '@radix-ui/react-label', '@radix-ui/react-tooltip'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-table': ['@tanstack/react-table'],
+          'vendor-utils': ['clsx', 'class-variance-authority'],
+          // 重い依存関係を分離
+          'vendor-chart': ['chart.js', 'react-chartjs-2'],
+          'vendor-xlsx': ['xlsx'],
+          // ページコンポーネントごとのチャンク（自動分割に任せる部分）
+        }
       }
     },
     // ソースマップを本番環境では無効化（パフォーマンス向上）

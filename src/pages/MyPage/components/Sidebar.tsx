@@ -1,4 +1,4 @@
-import { User, Calendar, BookOpen, Settings, Shield, Star, Play } from 'lucide-react'
+import { User, Calendar, Settings, Star, Images } from 'lucide-react'
 
 interface SidebarProps {
   currentPage: string
@@ -8,17 +8,18 @@ interface SidebarProps {
 const menuItems = [
   { id: 'profile', label: 'プロフィール', icon: User },
   { id: 'reservations', label: '予約履歴', icon: Calendar },
-  { id: 'played-scenarios', label: '遊んだシナリオ', icon: Play },
-  { id: 'want-to-play', label: '遊びたいシナリオ', icon: Star },
-  { id: 'gm-history', label: 'GM履歴', icon: BookOpen },
-  { id: 'account', label: 'アカウント', icon: Shield },
+  { id: 'album', label: 'アルバム', icon: Images },
+  { id: 'want-to-play', label: '遊びたい', icon: Star },
   { id: 'settings', label: '設定', icon: Settings },
 ]
 
 export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   return (
-    <aside className="w-64 border-r bg-card p-4 space-y-2">
-      <h2 className="font-semibold text-lg mb-4 px-3">マイページ</h2>
+    <>
+      {/* デスクトップサイドバー */}
+      <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-card p-3 md:p-4 space-y-1 md:space-y-2 md:border-r">
+        <h2 className="text-base md:text-lg mb-2 md:mb-4 px-3 hidden md:block">マイページ</h2>
+        <nav className="space-y-1">
       {menuItems.map((item) => {
         const Icon = item.icon
         const isActive = currentPage === item.id
@@ -27,18 +28,46 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
           <button
             key={item.id}
             onClick={() => onPageChange(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                className={`w-full flex items-center gap-2 md:gap-3 px-2 md:px-3 py-1.5 md:py-2 rounded-lg transition-colors text-xs ${
               isActive
                 ? 'bg-primary text-primary-foreground'
                 : 'hover:bg-muted text-muted-foreground hover:text-foreground'
             }`}
           >
-            <Icon className="h-5 w-5" />
-            <span className="font-medium">{item.label}</span>
+                <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+            <span className="">{item.label}</span>
           </button>
         )
       })}
+        </nav>
     </aside>
+
+      {/* モバイルタブナビゲーション - 375px対応 */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card px-0 z-50 safe-area-inset-bottom">
+        <div className="flex justify-between overflow-x-auto scrollbar-hide">
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            const isActive = currentPage === item.id
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => onPageChange(item.id)}
+                className={`flex-shrink-0 flex flex-col items-center justify-center gap-0.5 py-2 px-1 xs:px-1.5 min-w-[52px] xs:min-w-[56px] transition-colors ${
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title={item.label}
+              >
+                <Icon className="h-3.5 xs:h-4 w-3.5 xs:w-4 flex-shrink-0" />
+                <span className="text-xs text-center truncate">{item.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </>
   )
 }
 

@@ -117,7 +117,7 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-4 pb-2 border-b">基本情報</h3>
+      <h3 className="text-lg mb-4 pb-2 border-b">基本情報</h3>
       <div className="space-y-4">
           {/* キービジュアル + タイトル・作者 */}
           <div className="flex gap-6">
@@ -166,7 +166,7 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
             {/* タイトル・作者・カテゴリ */}
             <div className="flex-1 flex flex-col justify-center space-y-4">
               <div>
-                <Label htmlFor="title" className="text-sm font-medium">タイトル *</Label>
+                <Label htmlFor="title" className="text-sm">タイトル *</Label>
                 <Input
                   id="title"
                   value={formData.title}
@@ -176,7 +176,7 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
                 />
               </div>
               <div>
-                <Label htmlFor="author" className="text-sm font-medium">作者 *</Label>
+                <Label htmlFor="author" className="text-sm">作者 *</Label>
                 <MultiSelect
                   options={authorOptions}
                   selectedValues={formData.author ? [formData.author] : []}

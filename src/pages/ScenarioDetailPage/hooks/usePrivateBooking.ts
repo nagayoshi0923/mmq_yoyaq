@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
+import { getTimeSlot } from '@/utils/scheduleUtils' // 時間帯判定用
 import type { TimeSlot, EventSchedule } from '../utils/types'
 
 interface UsePrivateBookingProps {
@@ -41,13 +43,46 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         const monthResults = await Promise.all(monthPromises)
         const allEvents = monthResults.flat()
         
-        // 貸切申込可能日判定用：予約可能な通常公演のみをフィルタリング
-        // 貸切公演は既に確定しているので、空き判定の対象外
-        const validEvents = allEvents.filter((event: any) => 
-          !event.is_cancelled && 
-          event.category === 'open' &&
-          event.is_reservation_enabled !== false
-        )
+        // 貸切申込可能日判定用：スケジュール管理画面で表示される全てのイベントを含める
+        // スケジュール管理画面で空白のセルには公演がないという判定のため、
+        // カテゴリーフィルターに関係なく、全てのカテゴリのイベントを含める
+        // （ただし、キャンセルされたイベントは除外）
+        const validEvents = allEvents.filter((event: any) => {
+          // キャンセルされていない公演のみ
+          if (event.is_cancelled) return false
+          
+          // スケジュール管理画面で表示される全てのカテゴリを含める
+          // open, private, gmtest, testplay, offsite, venue_rental, venue_rental_free, package など
+          return true
+        })
+        
+        // デバッグログ：11/22のイベントを確認
+        const eventsOn1122 = allEvents.filter((event: any) => {
+          const eventDate = event.date ? (typeof event.date === 'string' ? event.date.split('T')[0] : event.date) : null
+          return eventDate === '2025-11-22'
+        })
+        const validEventsOn1122 = validEvents.filter((event: any) => {
+          const eventDate = event.date ? (typeof event.date === 'string' ? event.date.split('T')[0] : event.date) : null
+          return eventDate === '2025-11-22'
+        })
+        console.log(`[DEBUG] 11/22のイベント:`, {
+          allEventsCount: eventsOn1122.length,
+          validEventsCount: validEventsOn1122.length,
+          allEvents: eventsOn1122.map((e: any) => ({
+            date: e.date,
+            start_time: e.start_time,
+            category: e.category,
+            is_reservation_enabled: e.is_reservation_enabled,
+            is_cancelled: e.is_cancelled
+          })),
+          validEvents: validEventsOn1122.map((e: any) => ({
+            date: e.date,
+            start_time: e.start_time,
+            category: e.category,
+            is_reservation_enabled: e.is_reservation_enabled,
+            is_cancelled: e.is_cancelled
+          }))
+        })
         
         setAllStoreEvents(validEvents)
       } catch (error) {
@@ -60,71 +95,461 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
   }, [])
 
   // そのシナリオを公演可能な店舗IDを取得（シナリオのavailable_stores設定から）
+  // オフィス（ownership_type='office'）は貸切リクエストの対象外
   const getAvailableStoreIds = useCallback((): Set<string> => {
-    if (!scenario) return new Set()
+    // オフィスを除外した店舗リスト
+    const validStores = stores.filter(s => s.ownership_type !== 'office')
     
-    // シナリオにavailable_storesが設定されている場合
-    const availableStores = scenario.available_stores || scenario.available_stores_ids
-    if (Array.isArray(availableStores) && availableStores.length > 0) {
-      return new Set(availableStores)
+    // シナリオにavailable_storesが設定されている場合のみ、その店舗に限定
+    if (scenario) {
+      const availableStores = scenario.available_stores || scenario.available_stores_ids
+      // 配列が存在し、かつ空でない場合のみ限定
+      if (Array.isArray(availableStores) && availableStores.length > 0) {
+        // オフィスを除外した上で、シナリオのavailable_storesと一致する店舗のみ
+        return new Set(availableStores.filter(id => validStores.some(s => s.id === id)))
+      }
     }
     
-    // 設定されていない場合は全店舗を対象
-    return new Set(stores.map(s => s.id))
+    // 設定されていない場合、または空配列の場合は全店舗を対象（オフィス除く）
+    return new Set(validStores.map(s => s.id))
   }, [scenario, stores])
+  
+  // 時間枠のラベル（朝/昼/夜）を実際の時間帯（morning/afternoon/evening）にマッピング
+  const getTimeSlotFromLabel = useCallback((label: string): 'morning' | 'afternoon' | 'evening' => {
+    if (label === '朝') return 'morning'
+    if (label === '昼') return 'afternoon'
+    if (label === '夜') return 'evening'
+    return 'morning' // デフォルト
+  }, [])
+
+  // イベントの店舗IDを取得（store_id、stores.id、venueから店舗名で検索）
+  const getEventStoreId = useCallback((event: any): string | null => {
+    // 優先順位：store_id > stores.id > venue（店舗名で検索）
+    if (event.store_id) return event.store_id
+    if (event.stores?.id) return event.stores.id
+    if (event.venue) {
+      // venueが店舗ID（UUID）の場合
+      if (stores.some(s => s.id === event.venue)) {
+        return event.venue
+      }
+      // venueが店舗名の場合、stores配列から検索
+      const store = stores.find(s => s.name === event.venue || s.short_name === event.venue)
+      if (store) return store.id
+    }
+    return null
+  }, [stores])
+
+  // 営業時間内かどうかをチェックする関数（スケジュール管理側の設定と同期）
+  const isWithinBusinessHours = useCallback(async (date: string, startTime: string, storeId: string): Promise<boolean> => {
+    try {
+      // 営業時間設定を取得
+      const { data, error } = await supabase
+        .from('business_hours_settings')
+        .select('opening_hours, holidays, time_restrictions')
+        .eq('store_id', storeId)
+        .maybeSingle()
+
+      if (error && error.code !== 'PGRST116') {
+        logger.error('営業時間設定取得エラー:', error)
+        return true // エラーの場合は制限しない
+      }
+
+      if (!data) return true // 設定がない場合は制限しない
+
+      // 休日チェック
+      if (data.holidays && data.holidays.includes(date)) {
+        return false
+      }
+
+      // 営業時間チェック
+      if (data.opening_hours) {
+        const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+        const dayName = dayNames[dayOfWeek]
+        
+        const dayHours = data.opening_hours[dayName]
+        if (!dayHours || !dayHours.is_open) {
+          return false
+        }
+
+        const eventTime = startTime.slice(0, 5) // HH:MM形式
+        if (eventTime < dayHours.open_time || eventTime > dayHours.close_time) {
+          return false
+        }
+      }
+
+      return true
+    } catch (error) {
+      logger.error('営業時間チェックエラー:', error)
+      return true // エラーの場合は制限しない
+    }
+  }, [])
 
   // 特定の日付と時間枠が空いているかチェック（店舗フィルター対応）
   // 全店舗のイベントを使用して判定（特定シナリオのイベントのみではない）
   // そのシナリオを公演可能な店舗のみを対象とする
-  const checkTimeSlotAvailability = useCallback((date: string, slot: TimeSlot, storeIds?: string[]): boolean => {
+  // スケジュール管理側の営業時間設定も考慮する（同期）
+  const checkTimeSlotAvailability = useCallback(async (date: string, slot: TimeSlot, storeIds?: string[]): Promise<boolean> => {
     const availableStoreIds = getAvailableStoreIds()
     
-    // 店舗が選択されている場合
+    // デバッグログ（11/22の場合のみ）
+    const isDebugTarget = date.includes('2025-11-22')
+    if (isDebugTarget) {
+      // 11/22の全イベントを確認
+      const allEventsOnDate = allStoreEvents.filter((e: any) => {
+        const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
+        const targetDate = date.split('T')[0]
+        return eventDate === targetDate
+      })
+      
+      // 店舗ID→店舗名のマッピングを作成
+      const storeIdToName = stores.reduce((acc: Record<string, string>, store) => {
+        acc[store.id] = store.name || store.short_name || store.id
+        return acc
+      }, {})
+      
+      console.log(`[DEBUG] checkTimeSlotAvailability 開始:`, {
+        date,
+        slot: slot.label,
+        slotStart: slot.startTime,
+        slotEnd: slot.endTime,
+        storeIds,
+        allStoreEventsCount: allStoreEvents.length,
+        storesCount: stores.length,
+        storeIdToName,
+        allEventsOnDate: allEventsOnDate.map((e: any) => ({
+          date: e.date,
+          start_time: e.start_time,
+          end_time: e.end_time,
+          category: e.category,
+          is_reservation_enabled: e.is_reservation_enabled,
+          is_cancelled: e.is_cancelled,
+          venue: e.venue,
+          store_id: getEventStoreId(e),
+          store_name: getEventStoreId(e) ? storeIdToName[getEventStoreId(e)] : '不明'
+        }))
+      })
+    }
+    
+    // 店舗データがまだ読み込まれていない場合は、とりあえずtrueを返す（後で再評価される）
+    if (stores.length === 0) {
+      if (isDebugTarget) console.log(`[DEBUG] 店舗データ未読み込みのためtrueを返す`)
+      return true
+    }
+    
+    // allStoreEventsがまだ読み込まれていない場合は、とりあえずtrueを返す（後で再評価される）
+    // ただし、選択された店舗がある場合は、より慎重に判定する
+    if (allStoreEvents.length === 0) {
+      // 店舗が選択されている場合は、イベントデータがないのでfalseを返す（安全側に倒す）
+      if (storeIds && storeIds.length > 0) {
+        if (isDebugTarget) console.log(`[DEBUG] イベントデータ未読み込み、店舗選択済みのためfalseを返す`)
+        return false
+      }
+      if (isDebugTarget) console.log(`[DEBUG] イベントデータ未読み込みのためtrueを返す`)
+      return true
+    }
+    
+    // 店舗が選択されている場合：選択された店舗のいずれかで空きがあればtrue
     if (storeIds && storeIds.length > 0) {
-      return storeIds.some(storeId => {
-        // そのシナリオを公演可能な店舗かチェック
-        if (!availableStoreIds.has(storeId)) return false
+      // 選択された店舗のうち、そのシナリオを公演可能な店舗のみをフィルタリング
+      const validStoreIds = storeIds.filter(storeId => {
+        // availableStoreIdsが空の場合は全店舗対象
+        if (availableStoreIds.size === 0) return true
+        return availableStoreIds.has(storeId)
+      })
+      
+      // 有効な店舗がない場合はfalse
+      if (validStoreIds.length === 0) return false
+      
+      // 各店舗の空き状況をチェック（Promise.allで並列処理）
+      const storeAvailabilityPromises = validStoreIds.map(async (storeId) => {
+        // まず営業時間設定をチェック（スケジュール管理側と同期）
+        const withinBusinessHours = await isWithinBusinessHours(date, slot.startTime, storeId)
+        if (!withinBusinessHours) {
+          if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: 営業時間外のため受付不可`, {
+            date,
+            slot: slot.label,
+            startTime: slot.startTime,
+            storeId
+          })
+          return false
+        }
         
-        const storeEvents = allStoreEvents.filter((e: any) => 
-          e.date === date && 
-          (e.store_id === storeId || e.venue === storeId)
-        )
-        if (storeEvents.length === 0) return true
-        
-        const hasConflict = storeEvents.some((event: any) => {
-          const eventStart = event.start_time?.slice(0, 5) || '00:00'
-          const eventEnd = event.end_time?.slice(0, 5) || '23:59'
-          const slotStart = slot.startTime
-          const slotEnd = slot.endTime
-          return !(eventEnd <= slotStart || eventStart >= slotEnd)
+        // その店舗のイベントをフィルタリング（スケジュール管理画面と同じロジック）
+        // スケジュール管理画面で表示されるイベントのみをチェック（空白セルには公演がない）
+        const storeEvents = allStoreEvents.filter((e: any) => {
+          const eventStoreId = getEventStoreId(e)
+          // eventStoreIdがnullの場合は無視（店舗情報が取得できないイベント）
+          if (!eventStoreId) return false
+          
+          // 日付の比較（フォーマットを統一）
+          const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
+          const targetDate = date.split('T')[0]
+          const dateMatch = eventDate === targetDate
+          
+          // 店舗の一致
+          const venueMatch = eventStoreId === storeId
+          
+          // 時間帯の一致（スケジュール管理画面と同じロジック）
+          const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+          const eventTimeSlot = e.start_time ? getTimeSlot(e.start_time) : null
+          const timeSlotMatch = eventTimeSlot === targetTimeSlot
+          
+          // スケジュール管理画面で表示される条件：日付・店舗・時間帯が一致
+          return dateMatch && venueMatch && timeSlotMatch
         })
         
-        return !hasConflict
+        // デバッグログ（11/22の場合のみ）
+        if (isDebugTarget) {
+          const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+          console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}のイベント（店舗選択時）:`, {
+            targetTimeSlot,
+            slotLabel: slot.label,
+            storeEvents: storeEvents.map((e: any) => ({
+              id: e.id,
+              date: e.date,
+              start_time: e.start_time,
+              end_time: e.end_time,
+              category: e.category,
+              is_cancelled: e.is_cancelled,
+              store_id: getEventStoreId(e),
+              eventTimeSlot: e.start_time ? getTimeSlot(e.start_time) : 'unknown',
+              matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
+            })),
+            storeEventsCount: storeEvents.length
+          })
+        }
+        
+        // イベントがない場合は空いている
+        if (storeEvents.length === 0) return true
+        
+        // 時間枠の衝突をチェック
+        // storeEventsは既にスケジュール管理画面と同じロジックでフィルタリングされているため、
+        // この時点でstoreEventsに含まれるイベントは、その時間枠に存在するイベント
+        // 同じセルに2個以上のイベントは発生させないため、1件でもあれば衝突
+        const hasConflict = storeEvents.length > 0
+        
+        const isAvailable = !hasConflict
+        
+        // デバッグログ（11/22の場合のみ）
+        if (isDebugTarget) {
+          const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+          console.log(`[DEBUG] 時間衝突チェック: 店舗 ${storeId} の11/22${slot.label}の時間帯判定`, {
+            targetTimeSlot,
+            slotLabel: slot.label,
+            storeEvents: storeEvents.map((e: any) => ({
+              start_time: e.start_time,
+              eventTimeSlot: e.start_time ? getTimeSlot(e.start_time) : 'unknown',
+              category: e.category,
+              matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
+            })),
+            hasConflict,
+            isAvailable
+          })
+        }
+        
+        return isAvailable
       })
+      
+      const storeAvailability = await Promise.all(storeAvailabilityPromises)
+      
+      // いずれかの店舗で空きがあればtrue
+      const result = storeAvailability.some(available => available === true)
+      
+      // デバッグログ（11/22の場合のみ）
+      if (isDebugTarget) {
+        console.log(`[DEBUG] 11/22${slot.label}の最終判定:`, {
+          date,
+          slot: slot.label,
+          storeIds: validStoreIds,
+          storeAvailability,
+          result
+        })
+      }
+      
+      return result
     }
     
     // 店舗が選択されていない場合：そのシナリオを公演可能な店舗のみを対象
     const availableStoreIdsArray = Array.from(availableStoreIds)
-    if (availableStoreIdsArray.length === 0) return false
     
-    return availableStoreIdsArray.some(storeId => {
-      const storeEvents = allStoreEvents.filter((e: any) => 
-        e.date === date && 
-        (e.store_id === storeId || e.venue === storeId)
-      )
-      if (storeEvents.length === 0) return true
-      
-      const hasConflict = storeEvents.some((event: any) => {
-        const eventStart = event.start_time?.slice(0, 5) || '00:00'
-        const eventEnd = event.end_time?.slice(0, 5) || '23:59'
-        const slotStart = slot.startTime
-        const slotEnd = slot.endTime
-        return !(eventEnd <= slotStart || eventStart >= slotEnd)
+    if (isDebugTarget) {
+      console.log(`[DEBUG] 店舗未選択の場合の処理:`, {
+        availableStoreIdsArray,
+        availableStoreIdsArrayLength: availableStoreIdsArray.length
       })
+    }
+    
+    // availableStoreIdsが空の場合は、storesが空（まだ読み込まれていない）か、何か問題がある
+    if (availableStoreIdsArray.length === 0) {
+      // storesが空の場合はまだ読み込まれていないので、とりあえずtrueを返す
+      if (isDebugTarget) console.log(`[DEBUG] availableStoreIdsが空のため、stores.length === 0 の結果を返す:`, stores.length === 0)
+      return stores.length === 0
+    }
+    
+    // 各店舗の空き状況をチェック（Promise.allで並列処理）
+    const storeAvailabilityPromises = availableStoreIdsArray.map(async (storeId) => {
+      // まず営業時間設定をチェック（スケジュール管理側と同期）
+      const withinBusinessHours = await isWithinBusinessHours(date, slot.startTime, storeId)
+      if (!withinBusinessHours) {
+        if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: 営業時間外のため受付不可（店舗未選択時）`, {
+          date,
+          slot: slot.label,
+          startTime: slot.startTime,
+          storeId
+        })
+        return false
+      }
       
-      return !hasConflict
+              // その店舗のイベントをフィルタリング（スケジュール管理画面と同じロジック）
+              // スケジュール管理画面で表示されるイベントのみをチェック（空白セルには公演がない）
+              const storeEvents = allStoreEvents.filter((e: any) => {
+                const eventStoreId = getEventStoreId(e)
+                // eventStoreIdがnullの場合は無視（店舗情報が取得できないイベント）
+                if (!eventStoreId) return false
+                
+                // 日付の比較（フォーマットを統一）
+                const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
+                const targetDate = date.split('T')[0]
+                const dateMatch = eventDate === targetDate
+                
+                // 店舗の一致
+                const venueMatch = eventStoreId === storeId
+                
+                // 時間帯の一致（スケジュール管理画面と同じロジック）
+                const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+                const eventTimeSlot = e.start_time ? getTimeSlot(e.start_time) : null
+                const timeSlotMatch = eventTimeSlot === targetTimeSlot
+                
+                // スケジュール管理画面で表示される条件：日付・店舗・時間帯が一致
+                return dateMatch && venueMatch && timeSlotMatch
+              })
+      
+      if (isDebugTarget) {
+        // 店舗ID→店舗名のマッピングを作成
+        const storeIdToName = stores.reduce((acc: Record<string, string>, store) => {
+          acc[store.id] = store.name || store.short_name || store.id
+          return acc
+        }, {})
+        
+        // 別館②の朝のイベントの詳細を特に詳しくログ出力
+        if (storeId === '95ac6d74-56df-4cac-a67f-59fff9ab89b9' && slot.label === '朝') {
+          console.log(`[DEBUG] ⚠️⚠️⚠️ 別館②の朝のイベント詳細 ⚠️⚠️⚠️`)
+          storeEvents.forEach((e: any, index: number) => {
+            console.log(`[DEBUG] イベント ${index + 1}:`, {
+              id: e.id,
+              date: e.date,
+              start_time: e.start_time,
+              end_time: e.end_time,
+              category: e.category,
+              is_cancelled: e.is_cancelled,
+              is_reservation_enabled: e.is_reservation_enabled,
+              venue: e.venue,
+              store_id: e.store_id,
+              store_id_from_getter: getEventStoreId(e),
+              store_name: getEventStoreId(e) ? storeIdToName[getEventStoreId(e)] : '不明',
+              scenario: e.scenario || e.scenarios?.title,
+              scenario_id: e.scenario_id
+            })
+            console.log(`[DEBUG] イベント ${index + 1} の完全なデータ:`, e)
+          })
+        }
+        
+        const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+        if (storeId === '95ac6d74-56df-4cac-a67f-59fff9ab89b9' && slot.label === '夜') { // 別館②の夜の場合のみ
+          console.log(`[DEBUG] ⚠️⚠️⚠️ 別館②の夜のイベント詳細 ⚠️⚠️⚠️`)
+          storeEvents.forEach((e: any, index: number) => {
+            console.log(`[DEBUG] イベント ${index + 1}:`, {
+              id: e.id,
+              date: e.date,
+              start_time: e.start_time,
+              end_time: e.end_time,
+              category: e.category,
+              is_cancelled: e.is_cancelled,
+              store_id: getEventStoreId(e),
+              eventTimeSlot: e.start_time ? getTimeSlot(e.start_time) : 'unknown',
+              targetTimeSlot,
+              matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
+            })
+            console.log(`[DEBUG] イベント ${index + 1} の完全なデータ:`, e)
+          })
+        }
+        console.log(`[DEBUG] 店舗 ${storeId} (${storeIdToName[storeId] || '不明'}) の11/22${slot.label}のイベント（店舗未選択時）:`, {
+          targetTimeSlot,
+          slotLabel: slot.label,
+          storeEvents: storeEvents.map((e: any) => ({
+            id: e.id,
+            date: e.date,
+            start_time: e.start_time,
+            end_time: e.end_time,
+            category: e.category,
+            is_cancelled: e.is_cancelled,
+            store_id: getEventStoreId(e),
+            eventTimeSlot: e.start_time ? getTimeSlot(e.start_time) : 'unknown',
+            matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
+          })),
+          storeEventsCount: storeEvents.length
+        })
+      }
+      
+      // イベントがない場合は空いている
+      if (storeEvents.length === 0) {
+        if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: イベントなしのため空きあり`)
+        return true
+      }
+      
+      // 時間枠の衝突をチェック
+      // storeEventsは既にスケジュール管理画面と同じロジックでフィルタリングされているため、
+      // この時点でstoreEventsに含まれるイベントは、その時間枠に存在するイベント
+      // 同じセルに2個以上のイベントは発生させないため、1件でもあれば衝突
+      const hasConflict = storeEvents.length > 0
+      
+      if (isDebugTarget) {
+        const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+        console.log(`[DEBUG] 時間衝突チェック（店舗未選択時）: 店舗 ${storeId} の11/22${slot.label}の時間帯判定`, {
+          targetTimeSlot,
+          slotLabel: slot.label,
+          storeEvents: storeEvents.map((e: any) => ({
+            start_time: e.start_time,
+            eventTimeSlot: e.start_time ? getTimeSlot(e.start_time) : 'unknown',
+            category: e.category,
+            matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
+          })),
+          hasConflict
+        })
+      }
+      
+      const isAvailable = !hasConflict
+      if (isDebugTarget) {
+        const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+        console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}の空き状況（店舗未選択時）:`, {
+          isAvailable,
+          storeEventsLength: storeEvents.length,
+          targetTimeSlot,
+          hasConflict
+        })
+      }
+      
+      return isAvailable
     })
-  }, [allStoreEvents, getAvailableStoreIds])
+    
+    const storeAvailability = await Promise.all(storeAvailabilityPromises)
+    
+    // いずれかの店舗で空きがあればtrue
+    const result = storeAvailability.some(available => available === true)
+    
+    if (isDebugTarget) {
+      console.log(`[DEBUG] 11/22${slot.label}の最終判定（店舗未選択時）:`, {
+        date,
+        slot: slot.label,
+        availableStoreIdsArray,
+        storeAvailability,
+        result
+      })
+    }
+    
+    return result
+  }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, getTimeSlotFromLabel, stores, isWithinBusinessHours])
 
   // 貸切リクエスト用の日付リストを生成（指定月の1ヶ月分）
   const generatePrivateDates = useCallback(() => {

@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/PageHeader"
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -194,16 +195,15 @@ export function PerformanceScheduleSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Calendar className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold">公演スケジュール設定</h1>
-        </div>
+      <PageHeader
+        title="公演スケジュール設定"
+        description="スケジュール表示と運用設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* 公演回数 */}
       <Card>
@@ -242,7 +242,7 @@ export function PerformanceScheduleSettings() {
         <CardContent className="space-y-4">
           {formData.performance_times.map((time, index) => (
             <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
-              <div className="w-8 h-8 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center font-bold">
+              <div className="w-8 h-8 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center">
                 {index + 1}
               </div>
               <div className="flex-1 grid grid-cols-2 gap-4">

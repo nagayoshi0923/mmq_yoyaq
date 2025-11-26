@@ -225,7 +225,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
       {/* 横スクロール可能なコンテナ */}
       <div className="overflow-x-auto overflow-y-hidden">
         {/* ヘッダー行 */}
-        <div className={stickyHeader ? 'sticky top-[44px] sm:top-0 z-40' : ''}>
+        <div className={stickyHeader ? 'sm:sticky sm:top-0 z-40' : ''}>
           <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-300 min-w-max">
             {table.getHeaderGroups().map((headerGroup) =>
               headerGroup.headers.map((header, headerIndex) => {
@@ -239,7 +239,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                 return (
                   <div
                     key={header.id}
-                    className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-300' : ''} font-medium text-[10px] sm:text-xs md:text-sm ${alignClass} bg-gray-100 ${
+                    className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-300' : ''} font-medium text-xs sm:text-xs ${alignClass} bg-gray-100 ${
                       isSortable ? 'cursor-pointer hover:bg-gray-200' : ''
                     } ${meta?.headerClassName || ''} flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'} whitespace-nowrap`}
                     onClick={
@@ -284,7 +284,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                   return (
                     <div
                       key={cell.id}
-                      className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} text-[10px] sm:text-xs md:text-sm ${alignClass} ${
+                      className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} text-xs sm:text-xs ${alignClass} ${
                         meta?.cellClassName || ''
                       } flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'}`}
                     >

@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/PageHeader"
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -144,16 +145,15 @@ export function StaffSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold">スタッフ設定</h1>
-        </div>
+      <PageHeader
+        title="スタッフ設定"
+        description="スタッフの権限と報酬設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* GM報酬デフォルト値 */}
       <Card>
@@ -173,7 +173,7 @@ export function StaffSettings() {
                   min="0"
                   step="100"
                 />
-                <span className="text-sm text-muted-foreground">円</span>
+                <span className="text-xs text-muted-foreground">円</span>
               </div>
             </div>
             <div>
@@ -186,7 +186,7 @@ export function StaffSettings() {
                   min="0"
                   step="100"
                 />
-                <span className="text-sm text-muted-foreground">円</span>
+                <span className="text-xs text-muted-foreground">円</span>
               </div>
             </div>
           </div>
@@ -203,7 +203,7 @@ export function StaffSettings() {
           <div className="flex items-center gap-4">
             <Label className="w-32">提出期限</Label>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">公演日の</span>
+              <span className="text-xs text-muted-foreground">公演日の</span>
               <Input
                 type="number"
                 value={formData.shift_deadline_days}
@@ -212,7 +212,7 @@ export function StaffSettings() {
                 max="90"
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日前まで</span>
+              <span className="text-xs text-muted-foreground">日前まで</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2 ml-36">
@@ -263,7 +263,7 @@ export function StaffSettings() {
                 max="365"
                 className="w-20"
               />
-              <span className="text-sm text-muted-foreground">日間</span>
+              <span className="text-xs text-muted-foreground">日間</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2 ml-36">

@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { Ticket, Save } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 
@@ -176,16 +177,15 @@ export function ReservationSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Ticket className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold">予約設定</h1>
-        </div>
+      <PageHeader
+        title="予約設定"
+        description="予約の受付期間、キャンセル、通知などの設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* 予約期間設定 */}
       <Card>
@@ -378,7 +378,7 @@ export function ReservationSettings() {
           </Button>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
-            <p className="text-sm text-blue-800 font-medium mb-2">💡 設定例</p>
+            <p className="text-sm text-blue-800 mb-2">💡 設定例</p>
             <ul className="text-xs text-blue-700 space-y-1">
               <li>• 168時間前（1週間前）まで: 0% → 無料キャンセル</li>
               <li>• 72時間前（3日前）まで: 30% → 料金の30%を請求</li>
@@ -399,7 +399,7 @@ export function ReservationSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="require_phone_verification">電話番号認証を要求</Label>
-              <p className="text-sm text-muted-foreground">予約時に電話番号の認証を必須にします</p>
+              <p className="text-xs text-muted-foreground">予約時に電話番号の認証を必須にします</p>
             </div>
             <Switch
               id="require_phone_verification"

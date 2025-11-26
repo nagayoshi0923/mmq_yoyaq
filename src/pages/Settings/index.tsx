@@ -1,20 +1,25 @@
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { Settings as SettingsIcon, User, Bell, Shield, Database } from 'lucide-react'
-
-// サイドバーのメニュー項目定義
-const SETTINGS_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'general', label: '一般設定', icon: SettingsIcon, description: '基本設定' },
-  { id: 'profile', label: 'プロフィール', icon: User, description: 'ユーザー情報' },
-  { id: 'notifications', label: '通知設定', icon: Bell, description: '通知の設定' },
-  { id: 'security', label: 'セキュリティ', icon: Shield, description: 'セキュリティ設定' },
-  { id: 'data', label: 'データ管理', icon: Database, description: 'データのバックアップ' }
-]
+import { 
+  Settings as SettingsIcon, 
+  Building2, 
+  Clock, 
+  Calendar, 
+  Users, 
+  Mail, 
+  Bell, 
+  Database,
+  DollarSign,
+  FileText,
+  UserCog,
+  Shield
+} from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
 
 // 設定ページコンポーネント
+import { GeneralSettings } from './pages/GeneralSettings'
 import { StoreBasicSettings } from './pages/StoreBasicSettings'
 import { BusinessHoursSettings } from './pages/BusinessHoursSettings'
 import { PerformanceScheduleSettings } from './pages/PerformanceScheduleSettings'
@@ -29,11 +34,37 @@ import { EmailSettings } from './pages/EmailSettings'
 import { CustomerSettings } from './pages/CustomerSettings'
 import { DataManagementSettings } from './pages/DataManagementSettings'
 
+// サイドバーのメニュー項目定義（2025-11-22 更新: 全体設定追加）
+const SETTINGS_MENU_ITEMS: SidebarMenuItem[] = [
+  // 全体設定
+  { id: 'general', label: '全体設定', icon: SettingsIcon, description: 'システム全体の設定' },
+  
+  // 店舗別設定
+  { id: 'store-basic', label: '店舗基本設定', icon: Building2, description: '店舗情報' },
+  { id: 'business-hours', label: '営業時間', icon: Clock, description: '営業時間設定' },
+  { id: 'performance-schedule', label: '公演スケジュール', icon: Calendar, description: 'スケジュール設定' },
+  { id: 'reservation', label: '予約設定', icon: Users, description: '予約ルール' },
+  { id: 'pricing', label: '料金設定', icon: DollarSign, description: '料金体系' },
+  { id: 'staff', label: 'スタッフ設定', icon: UserCog, description: 'スタッフ管理' },
+  { id: 'email', label: 'メール設定', icon: Mail, description: 'メールテンプレート' },
+  { id: 'notifications', label: '通知設定', icon: Bell, description: '通知の設定' },
+  { id: 'system', label: 'システム設定', icon: Shield, description: 'システム設定' },
+  { id: 'data', label: 'データ管理', icon: Database, description: 'データ管理' }
+]
+
 export function Settings() {
-  const [activeTab, setActiveTab] = useSessionState('settingsActiveTab', 'store-basic')
+  const [activeTab, setActiveTab] = useSessionState('settingsActiveTab', 'general')
   const { selectedStoreId, handleStoreChange } = useSettingsStore()
 
+  // 全体設定ページかどうかを判定
+  const isGlobalSettings = activeTab === 'general'
+
   const renderContent = () => {
+    // 全体設定の場合は店舗IDを使用しない
+    if (isGlobalSettings) {
+      return <GeneralSettings />
+    }
+
     // 全店舗選択時は店舗IDを空文字列に
     const storeId = selectedStoreId === 'all' ? '' : selectedStoreId
     
@@ -65,7 +96,7 @@ export function Settings() {
       case 'data':
         return <DataManagementSettings storeId={storeId} />
       default:
-        return <StoreBasicSettings storeId={storeId} />
+        return <GeneralSettings />
     }
   }
 
@@ -81,13 +112,14 @@ export function Settings() {
           onTabChange={setActiveTab}
         />
       }
-      maxWidth="max-w-[1600px]"
-      containerPadding="px-8 py-6"
+      maxWidth="max-w-[1440px]"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
       <SettingsLayout 
         selectedStoreId={selectedStoreId}
         onStoreChange={handleStoreChange}
+        showStoreSelector={!isGlobalSettings}
       >
         {renderContent()}
       </SettingsLayout>

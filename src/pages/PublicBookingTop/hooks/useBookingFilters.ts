@@ -52,9 +52,10 @@ export function useBookingFilters(scenarios: ScenarioCard[], searchTerm: string)
 
   /**
    * 全シナリオ（タイトル順）
+   * 最適化: 元の配列を変更せずにソート（スプレッド演算子でコピー）
    */
   const allScenarios = useMemo(() => {
-    return filteredScenarios.sort((a, b) => 
+    return [...filteredScenarios].sort((a, b) => 
       a.scenario_title.localeCompare(b.scenario_title, 'ja')
     )
   }, [filteredScenarios])

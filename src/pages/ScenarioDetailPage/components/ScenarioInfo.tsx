@@ -34,7 +34,7 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
               <Clock className="h-4 w-4 text-muted-foreground" />
               <div>
                 <div className="text-xs text-muted-foreground">プレイ時間</div>
-                <div className="font-medium">{formatDuration(scenario.duration)}</div>
+                <div className="">{formatDuration(scenario.duration)}</div>
               </div>
             </div>
 
@@ -42,7 +42,7 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
               <Users className="h-4 w-4 text-muted-foreground" />
               <div>
                 <div className="text-xs text-muted-foreground">プレイ人数</div>
-                <div className="font-medium">{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</div>
+                <div className="">{formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}</div>
               </div>
             </div>
 
@@ -60,14 +60,14 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
 
             <div>
               <div className="text-xs text-muted-foreground">参加費</div>
-              <div className="font-medium text-lg">{formatParticipationFee(scenario.participation_fee)}</div>
+              <div className="text-lg">{formatParticipationFee(scenario.participation_fee)}</div>
             </div>
           </div>
 
           {/* ジャンル */}
           {scenario.genre && scenario.genre.length > 0 && (
             <div>
-              <div className="text-sm text-muted-foreground mb-2">ジャンル</div>
+              <div className="text-xs text-muted-foreground mb-2">ジャンル</div>
               <div className="flex flex-wrap gap-2">
                 {scenario.genre.map((g, i) => (
                   <Badge key={i} variant="secondary" className="bg-gray-100 border-0 rounded-[2px] font-normal">{g}</Badge>
@@ -78,22 +78,22 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
 
           {/* 作者 */}
           <div>
-            <div className="text-sm text-muted-foreground mb-1">作者</div>
-            <div className="font-medium">{scenario.author}</div>
+            <div className="text-xs text-muted-foreground mb-1">作者</div>
+            <div className="">{scenario.author}</div>
           </div>
 
           {/* あらすじ */}
           {scenario.synopsis && (
             <div>
-              <div className="text-sm font-medium mb-2">あらすじ</div>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{scenario.synopsis}</p>
+              <div className="text-sm mb-2">あらすじ</div>
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap">{scenario.synopsis}</p>
             </div>
           )}
 
           {/* 事前読み込み */}
           {scenario.has_pre_reading && (
             <div className="flex items-center gap-2 text-sm text-amber-600">
-              <span className="font-medium">📖 このシナリオには事前読み込みがあります</span>
+              <span className="">📖 このシナリオには事前読み込みがあります</span>
             </div>
           )}
 

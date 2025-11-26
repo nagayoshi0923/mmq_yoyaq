@@ -36,49 +36,79 @@ export function CandidateSelector({
 }: CandidateSelectorProps) {
   return (
     <div>
-      <p className="text-sm font-medium mb-3 text-purple-800">
-        {isConfirmed ? '確定した候補日時' : isGMConfirmed ? '選択した候補日時（店側確認待ち）' : '以下の候補から出勤可能な日時を選択してください（複数選択可）'}
+      <p className="text-sm font-medium mb-2 text-purple-800">
+        {isConfirmed 
+          ? 'お客様希望候補日時（確定済み）' 
+          : isGMConfirmed 
+            ? 'お客様希望候補日時（GM回答済み・店側確認待ち）' 
+            : isResponded
+              ? 'お客様希望候補日時（回答済み）'
+              : 'お客様希望候補日時（出勤可能な日時を選択）'}
       </p>
+      {(isGMConfirmed || isResponded || isConfirmed) && selectedCandidates.length > 0 && (
+        <p className="text-xs text-purple-600 mb-2">
+          ✓ = GMが出勤可能と回答した日時
+        </p>
+      )}
       <div className="space-y-2">
         {candidates.map((candidate) => {
           const isSelected = selectedCandidates.includes(candidate.order)
           const isAvailable = candidateAvailability[candidate.order] !== false
-          const isDisabled = isResponded || isConfirmed || isGMConfirmed || !isAvailable
+          const canClick = !isResponded && !isConfirmed && !isGMConfirmed && isAvailable
+          
+          // 状態に応じたスタイルを決定
+          let cardStyle = ''
+          if (!isAvailable) {
+            // 満席
+            cardStyle = 'bg-red-50 border-red-200 cursor-not-allowed opacity-60'
+          } else if (isConfirmed && isSelected) {
+            // 確定済み＋自分が選択した候補 → 強調表示
+            cardStyle = 'border-green-500 bg-green-50 cursor-default'
+          } else if (isConfirmed && !isSelected) {
+            // 確定済み＋自分が選択していない候補 → disabled（灰色）
+            cardStyle = 'bg-gray-50 border-gray-200 cursor-default opacity-60'
+          } else if (isGMConfirmed && isSelected) {
+            // GM確認済み＋自分が選択した候補
+            cardStyle = 'border-purple-500 bg-purple-50/30 cursor-default'
+          } else if (isGMConfirmed && !isSelected) {
+            // GM確認済み＋自分が選択していない候補 → disabled（灰色）
+            cardStyle = 'bg-gray-50 border-gray-200 cursor-default opacity-60'
+          } else if (isResponded && isSelected) {
+            // 回答済み＋自分が選択した候補
+            cardStyle = 'border-purple-500 bg-purple-50/30 cursor-default'
+          } else if (isResponded && !isSelected) {
+            // 回答済み＋自分が選択していない候補 → disabled（灰色）
+            cardStyle = 'bg-gray-50 border-gray-200 cursor-default opacity-60'
+          } else if (isSelected && canClick) {
+            // 選択中（編集可能）
+            cardStyle = 'border-purple-500 bg-purple-50/30 cursor-pointer'
+          } else if (canClick) {
+            // 未選択（編集可能）
+            cardStyle = 'border-gray-200 hover:border-purple-300 cursor-pointer'
+          } else {
+            // その他（予期しないケース）
+            cardStyle = 'border-gray-200 cursor-default'
+          }
           
           return (
             <div
               key={candidate.order}
-              className={`flex items-center gap-3 p-3 rounded border ${
-                !isAvailable
-                  ? 'bg-red-50 border-red-200 cursor-not-allowed opacity-60'
-                  : isConfirmed 
-                    ? 'bg-gray-50 border-gray-200 cursor-default'
-                    : isGMConfirmed
-                      ? 'bg-orange-50 border-orange-200 cursor-default'
-                      : isSelected 
-                        ? 'bg-purple-50 border-purple-300 cursor-pointer' 
-                        : 'bg-accent border-border hover:bg-accent/80 cursor-pointer'
-              }`}
-              onClick={() => !isDisabled && onToggle(candidate.order)}
+              className={`flex items-center gap-3 p-3 rounded border ${cardStyle}`}
+              onClick={() => canClick && onToggle(candidate.order)}
             >
               <Checkbox
                 checked={isSelected}
-                disabled={isDisabled}
+                disabled={!canClick}
                 className="pointer-events-none"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
+                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
                     候補{candidate.order}
                   </Badge>
-                  {!isAvailable && (
-                    <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-                      満席
-                    </Badge>
-                  )}
                   <div className="flex items-center gap-2 text-sm">
                     <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">{formatDate(candidate.date)}</span>
+                    <span className="">{formatDate(candidate.date)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="w-4 h-4 text-muted-foreground" />

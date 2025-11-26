@@ -50,7 +50,7 @@ export function MonthPickerPopover({
           type="button"
           variant="outline"
           size="sm"
-          className={`text-[10px] h-10 px-2 w-full justify-start ${buttonClassName}`}
+          className={`text-xs h-10 px-2 w-full justify-start ${buttonClassName}`}
         >
           <CalendarIcon className="h-3 w-3 mr-1" />
           {displayValue}

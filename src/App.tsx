@@ -14,6 +14,8 @@ const queryClient = new QueryClient({
       gcTime: 10 * 60 * 1000, // 10分間メモリ保持（旧cacheTime）
       retry: 1, // 失敗時1回リトライ
       refetchOnWindowFocus: true, // タブに戻ったら再取得
+      refetchOnMount: 'always', // マウント時に必ず再取得（ハードリフレッシュ対応）
+      refetchOnReconnect: true, // ネットワーク再接続時に再取得
     },
     mutations: {
       retry: 0, // ミューテーションはリトライしない
@@ -38,7 +40,7 @@ function AppContent() {
   }
 
   // 以下は通常のルーティング
-  const { user, loading } = useAuth()
+  const { user, loading, isInitialized } = useAuth()
   const [currentHash, setCurrentHash] = React.useState(() => window.location.hash.slice(1))
 
   React.useEffect(() => {
@@ -86,12 +88,16 @@ function AppContent() {
 
   // 未ログインまたは顧客アカウントの場合は予約サイトを表示
   // AdminDashboard内で管理ツールへのアクセスを制限する
+  // ⚠️ 重要: 認証完了後のみリダイレクト判定を行う（早期表示時はリダイレクトしない）
   if (!user || (user && user.role === 'customer')) {
-    // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
-    const adminPages = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings']
-    if (adminPages.some(page => currentHash.startsWith(page))) {
-      window.location.hash = 'customer-booking'
-      return <AdminDashboard />
+    // 認証完了後のみリダイレクト（認証中は現在のページを維持）
+    if (isInitialized) {
+      // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+      const adminPages = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings']
+      if (adminPages.some(page => currentHash.startsWith(page))) {
+        window.location.hash = 'customer-booking'
+        return <AdminDashboard />
+      }
     }
     return <AdminDashboard />
   }

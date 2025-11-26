@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js'
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
+  isInitialized: boolean  // 初期認証が完了したか（タイムアウトではなく、実際に完了）
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
 }
@@ -27,10 +28,12 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)  // 認証完了フラグ
   const [staffCache, setStaffCache] = useState<Map<string, string>>(new Map())
-  const [isProcessing, setIsProcessing] = useState(false)
   // 最新のユーザー情報を保持するためのref（クロージャー問題を回避）
   const userRef = React.useRef<AuthUser | null>(null)
+  // 認証処理中のフラグ（クロージャー問題を回避するためuseRefを使用）
+  const isProcessingRef = React.useRef<boolean>(false)
   
   // userが変更されたらrefも更新
   React.useEffect(() => {
@@ -38,18 +41,65 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [user])
 
   useEffect(() => {
-    // 初期認証状態の確認
-    getInitialSession()
+    const authStartTime = performance.now()
+    console.log('🚀 AuthContext 初期化開始:', new Date().toISOString())
+    
+    // パフォーマンス最適化: 認証処理を非ブロッキング化
+    // 0.3秒後にloadingをfalseにして、ページを表示開始
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.log('⏱️ 認証処理タイムアウト（0.3秒）、ページ表示を開始')
+        setLoading(false)
+      }
+    }, 300)
+    
+    // 初期認証状態の確認（バックグラウンドで実行）
+    getInitialSession().then(() => {
+      clearTimeout(loadingTimeout)
+      const authEndTime = performance.now()
+      console.log(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
+      setLoading(false)
+      setIsInitialized(true)  // 認証完了をマーク
+    }).catch(() => {
+      clearTimeout(loadingTimeout)
+      setLoading(false)
+      setIsInitialized(true)  // エラーでも完了とみなす
+    })
 
     // 認証状態の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        logger.log('🔄 認証状態変更:', event, session?.user?.email)
+        const eventStartTime = performance.now()
+        logger.log('🔄 認証状態変更:', event, session?.user?.email, `(経過時間: ${((eventStartTime - authStartTime) / 1000).toFixed(2)}秒)`)
+        
+        // 処理中の場合はスキップ（重複実行防止）
+        if (isProcessingRef.current) {
+          logger.log('⏭️ 認証処理中のためスキップ:', event)
+          return
+        }
+        
+        // 既に同じユーザーが設定されている場合はスキップ（重複実行防止）
+        if (session?.user && userRef.current && userRef.current.id === session.user.id) {
+          logger.log('⏭️ 既に同じユーザーが設定されているためスキップ:', event)
+          setLoading(false)
+          setIsInitialized(true)  // 認証完了をマーク
+          return
+        }
+        
         // TOKEN_REFRESHEDイベントの場合は、既存のユーザー情報を保持（ロールを維持）
         if (event === 'TOKEN_REFRESHED' && session?.user && userRef.current) {
           // トークンリフレッシュ時は、既存のユーザー情報があればロールを維持
           logger.log('🔄 トークンリフレッシュ検出、既存ロールを維持:', userRef.current.role)
           setLoading(false)
+          setIsInitialized(true)  // 認証完了をマーク
+          return
+        }
+        
+        // INITIAL_SESSIONイベントの場合は、getInitialSessionで処理済みの可能性があるためスキップ
+        if (event === 'INITIAL_SESSION' && userRef.current) {
+          logger.log('⏭️ 初期セッションは既に処理済みのためスキップ')
+          setLoading(false)
+          setIsInitialized(true)  // 認証完了をマーク
           return
         }
         
@@ -60,6 +110,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           userRef.current = null
         }
         setLoading(false)
+        setIsInitialized(true)  // 認証完了をマーク
       }
     )
 
@@ -69,9 +120,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   async function getInitialSession() {
+    const startTime = performance.now()
     logger.log('🚀 初期セッション取得開始')
     try {
+      const sessionStartTime = performance.now()
       const { data: { session }, error } = await supabase.auth.getSession()
+      const sessionEndTime = performance.now()
+      console.log(`⏱️ getSession 完了: ${((sessionEndTime - sessionStartTime) / 1000).toFixed(2)}秒`)
       
       if (error) {
         logger.error('❌ セッション取得エラー:', error)
@@ -87,20 +142,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       logger.error('❌ 初期セッション取得エラー:', error)
     } finally {
+      const endTime = performance.now()
       logger.log('✅ 初期セッション処理完了')
+      console.log(`⏱️ getInitialSession 総時間: ${((endTime - startTime) / 1000).toFixed(2)}秒`)
       setLoading(false)
     }
   }
 
   async function setUserFromSession(supabaseUser: User) {
     // 既に処理中の場合はスキップ（重複呼び出し防止）
-    if (isProcessing) {
+    if (isProcessingRef.current) {
       logger.log('⏭️ 処理中のためスキップ:', supabaseUser.email)
       return
     }
     
-    setIsProcessing(true)
+    const startTime = performance.now()
+    isProcessingRef.current = true
     logger.log('🔐 ユーザーセッション設定開始:', supabaseUser.email)
+    console.log(`⏱️ setUserFromSession 開始: ${supabaseUser.email} (${new Date().toISOString()})`)
     
     // 既存のユーザー情報を保持（エラー時のフォールバック用）
     // useStateのクロージャー問題を回避するため、refから取得
@@ -112,15 +171,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       logger.log('📊 usersテーブルからロール取得開始')
       try {
-        // タイムアウトを10秒に延長し、リトライロジックを追加
-        let userData: any = null
-        let roleError: any = null
-        const maxRetries = 2
-        
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-          try {
-            // タイムアウトを3秒に短縮（RLSポリシーの問題を早期検出）
-            const timeoutMs = 3000
+        // パフォーマンス最適化: リトライなし、タイムアウト0.5秒で早期フォールバック
+        const timeoutMs = 500
             
             const rolePromise = supabase
               .from('users')
@@ -139,8 +191,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             
             // Supabaseのレスポンス形式を確認
             if (result && (result.data !== undefined || result.error !== undefined)) {
-              userData = result.data
-              roleError = result.error
+          const userData = result.data
+          const roleError = result.error
               
               // エラーがある場合は詳細をログに記録
               if (result.error) {
@@ -151,51 +203,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 }
               }
               
-              break // 成功したらループを抜ける
-            }
-          } catch (error: any) {
-            if (attempt === maxRetries) {
-              roleError = error
-              logger.warn(`⚠️ ロール取得リトライ${attempt + 1}回目で失敗:`, error?.message)
-              
-              // タイムアウトエラーの場合は、RLSポリシーの問題を疑う
-              if (error?.message?.includes('タイムアウト')) {
-                logger.warn('⚠️ ロール取得がタイムアウトしました。RLSポリシーに無限再帰がある可能性があります。')
-                logger.warn('⚠️ database/fix_users_rls_timeout.sql を実行してRLSポリシーを修正してください。')
-              }
-            } else {
-              logger.log(`🔄 ロール取得リトライ${attempt + 1}回目...`)
-              // リトライ前に少し待機
-              await new Promise(resolve => setTimeout(resolve, 500))
-            }
-          }
-        }
-
-        if (roleError) {
-          logger.warn('⚠️ usersテーブルからのロール取得エラー:', roleError)
-          // 既存のユーザー情報がある場合は、そのロールを保持（エラー時もロールを維持）
-          if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
-            role = existingUser.role
-            logger.log('🔄 既存のロールを保持:', role)
-          } else {
-            // フォールバック: メールアドレスで判定（開発用）
-            const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
-            if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
-              role = 'admin'
-            } else if (supabaseUser.email?.includes('staff')) {
-              role = 'staff'
-            }
-            logger.log('🔄 フォールバック: メールアドレスからロール判定 ->', role)
-          }
-        } else if (userData?.role) {
+          if (userData?.role) {
           role = userData.role as 'admin' | 'staff' | 'customer'
           logger.log('✅ データベースからロール取得:', role)
-        } else {
-          // userDataがnullの場合（usersテーブルにレコードがない）
-          // 既存のユーザー情報がある場合は、そのロールを保持
-          if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
-            role = existingUser.role
-            logger.log('🔄 レコードなし、既存のロールを保持:', role)
+          } else if (roleError) {
+            throw roleError
           }
         }
       } catch (error: any) {
@@ -235,18 +247,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (role === 'staff' || role === 'admin') {
           logger.log('📋 スタッフ情報をバックグラウンドで取得開始')
           // 非同期で取得（await しない）
-          supabase
+          const staffPromise = supabase
             .from('staff')
             .select('name')
             .eq('user_id', supabaseUser.id)
             .maybeSingle()
-            .then(({ data }) => {
+          
+          Promise.resolve(staffPromise).then(({ data }) => {
               if (data?.name) {
                 setStaffCache(prev => new Map(prev.set(supabaseUser.id, data.name)))
                 logger.log('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
               }
-            })
-            .catch((error) => {
+          }).catch((error) => {
               logger.log('📋 スタッフ情報の取得エラー（バックグラウンド）:', error)
             })
         }
@@ -303,7 +315,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         userRef.current = fallbackUserData
       }
     } finally {
-      setIsProcessing(false)
+      const endTime = performance.now()
+      isProcessingRef.current = false
+      console.log(`⏱️ setUserFromSession 完了: ${supabaseUser.email} (${((endTime - startTime) / 1000).toFixed(2)}秒)`)
     }
   }
 
@@ -343,6 +357,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value = {
     user,
     loading,
+    isInitialized,
     signIn,
     signOut,
   }

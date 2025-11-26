@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/PageHeader"
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -344,16 +345,15 @@ export function EmailSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Mail className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold">メール設定</h1>
-        </div>
+      <PageHeader
+        title="メール設定"
+        description="メールテンプレートと送信設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* 会社情報 */}
       <Card>
@@ -486,7 +486,7 @@ export function EmailSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="reminder_enabled">リマインドメールを送信する</Label>
-              <p className="text-sm text-muted-foreground">予約者にリマインドメールを送信します</p>
+              <p className="text-xs text-muted-foreground">予約者にリマインドメールを送信します</p>
             </div>
             <input
               id="reminder_enabled"
@@ -571,7 +571,7 @@ export function EmailSettings() {
                       {/* テンプレート編集 */}
                       <div className="border-t pt-4">
                         <div className="flex items-center justify-between mb-2">
-                          <Label className="text-sm font-medium">メールテンプレート</Label>
+                          <Label className="text-sm">メールテンプレート</Label>
                           <Button
                             type="button"
                             variant="outline"

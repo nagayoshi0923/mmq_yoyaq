@@ -19,8 +19,8 @@ export function NotesInput({
   if (isResponded && value) {
     return (
       <div className="bg-muted/50 rounded p-3">
-        <div className="text-sm font-medium mb-1">メモ</div>
-        <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+        <div className="text-sm mb-1">メモ</div>
+        <div className="text-xs text-muted-foreground whitespace-pre-wrap">
           {value}
         </div>
       </div>
@@ -33,7 +33,7 @@ export function NotesInput({
 
   return (
     <div>
-      <label className="text-sm font-medium mb-1.5 block">
+      <label className="text-sm mb-1.5 block">
         メモ（任意）
       </label>
       <Textarea

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { Users, UserPlus, Search, Settings } from 'lucide-react'
 
@@ -61,23 +62,24 @@ export default function CustomerManagement() {
           onTabChange={setActiveTab}
         />
       }
-      maxWidth="max-w-[1600px]"
-      containerPadding="px-2 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6"
+      maxWidth="max-w-[1440px]"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
       <main className="space-y-3 sm:space-y-4 md:space-y-6">
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          <div className="flex items-center justify-between">
-            <div></div>
-        <Button onClick={() => {
-          setSelectedCustomer(null)
-          setIsEditModalOpen(true)
-        }} className="text-xs sm:text-sm" size="sm">
-          <UserPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">新規顧客</span>
-          <span className="sm:hidden">新規</span>
-        </Button>
-      </div>
+          <PageHeader
+            title="顧客管理"
+            description={`全${customers.length}名の顧客を管理`}
+          >
+            <Button onClick={() => {
+              setSelectedCustomer(null)
+              setIsEditModalOpen(true)
+            }} size="sm">
+              <UserPlus className="mr-2 h-4 w-4" />
+              新規顧客
+            </Button>
+          </PageHeader>
 
       {/* 検索バー */}
       <Card>
@@ -97,7 +99,7 @@ export default function CustomerManagement() {
       {/* 顧客一覧 */}
       <Card>
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="text-base sm:text-lg md:text-xl">顧客一覧 ({filteredCustomers.length}件)</CardTitle>
+          <CardTitle>顧客一覧 ({filteredCustomers.length}件)</CardTitle>
         </CardHeader>
         <CardContent className="p-3 sm:p-4 md:p-6">
           {loading ? (
@@ -109,7 +111,7 @@ export default function CustomerManagement() {
           ) : (
             <div className="space-y-2 overflow-x-auto">
               {/* テーブルヘッダー */}
-              <div className="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-muted/50 rounded-lg text-[10px] sm:text-xs md:text-sm font-medium min-w-max">
+              <div className="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-muted/50 rounded-lg text-xs min-w-max">
                 <div className="col-span-3 sm:col-span-2">顧客名</div>
                 <div className="col-span-3 sm:col-span-2 hidden sm:block">メールアドレス</div>
                 <div className="col-span-3 sm:col-span-2 hidden md:block">電話番号</div>

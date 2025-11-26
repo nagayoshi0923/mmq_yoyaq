@@ -140,7 +140,7 @@ export function DateRangePopover({
           type="button"
           variant="outline"
           size="sm"
-          className={`text-[10px] h-10 px-2 w-full justify-start ${buttonClassName}`}
+          className={`text-xs h-10 px-2 w-full justify-start ${buttonClassName}`}
         >
           <CalendarIcon className="h-3 w-3 mr-1" />
           {displayValue}
@@ -187,7 +187,7 @@ export function DateRangePopover({
             {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
               <div
                 key={day}
-                className={`text-center text-[10px] font-medium py-1 ${
+                className={`text-center text-xs font-medium py-1 ${
                   index === 0 ? 'text-red-500' : index === 6 ? 'text-blue-500' : 'text-muted-foreground'
                 }`}
               >
@@ -216,7 +216,7 @@ export function DateRangePopover({
                   key={day}
                   type="button"
                   variant="ghost"
-                  className={`aspect-square p-0 text-[11px] h-7 w-7 ${
+                  className={`aspect-square p-0 text-xs h-7 w-7 ${
                     isStart || isEnd
                       ? 'bg-primary text-primary-foreground font-semibold hover:bg-primary/90'
                       : inRange
@@ -233,7 +233,7 @@ export function DateRangePopover({
 
           {/* プレビュー */}
           {(tempStartDate || tempEndDate) && (
-            <div className="rounded border bg-muted/30 px-2 py-1.5 text-[10px] text-center">
+            <div className="rounded border bg-muted/30 px-2 py-1.5 text-xs text-center">
               {tempStartDate && !tempEndDate && `${tempStartDate}から`}
               {!tempStartDate && tempEndDate && `${tempEndDate}まで`}
               {tempStartDate && tempEndDate && `${tempStartDate} 〜 ${tempEndDate}`}

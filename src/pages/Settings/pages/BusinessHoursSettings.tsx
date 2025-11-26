@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/PageHeader"
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -207,16 +208,15 @@ export function BusinessHoursSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Clock className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold">営業時間設定</h1>
-        </div>
+      <PageHeader
+        title="営業時間設定"
+        description="店舗の営業時間と定休日設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* 基本営業時間 */}
       <Card>
@@ -265,7 +265,7 @@ export function BusinessHoursSettings() {
                 />
                 <label
                   htmlFor={day.value}
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                 >
                   {day.label}
                 </label>
@@ -304,8 +304,8 @@ export function BusinessHoursSettings() {
               {formData.special_open_days.map((day, index) => (
                 <div key={index} className="flex items-center justify-between p-3 border rounded">
                   <div>
-                    <span className="font-medium">{day.date}</span>
-                    {day.note && <span className="text-sm text-muted-foreground ml-2">- {day.note}</span>}
+                    <span className="">{day.date}</span>
+                    {day.note && <span className="text-xs text-muted-foreground ml-2">- {day.note}</span>}
                   </div>
                   <Button
                     variant="ghost"
@@ -350,8 +350,8 @@ export function BusinessHoursSettings() {
               {formData.special_closed_days.map((day, index) => (
                 <div key={index} className="flex items-center justify-between p-3 border rounded">
                   <div>
-                    <span className="font-medium">{day.date}</span>
-                    {day.note && <span className="text-sm text-muted-foreground ml-2">- {day.note}</span>}
+                    <span className="">{day.date}</span>
+                    {day.note && <span className="text-xs text-muted-foreground ml-2">- {day.note}</span>}
                   </div>
                   <Button
                     variant="ghost"

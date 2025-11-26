@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import type { Scenario } from '@/types'
 import { 
   Plus, 
@@ -310,37 +311,36 @@ export function ScenarioManagement() {
     <AppLayout
       currentPage="scenarios"
       maxWidth="max-w-[1440px]"
-      containerPadding="px-2 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       className="mx-auto"
     >
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          {/* ヘッダー */}
-          <div className="flex justify-end">
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <CsvImportExport
-                data={allScenarios}
-                onImport={handleImport}
-                isImporting={isImporting}
-                exportFilename="scenarios"
-                headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
-                rowMapper={(s) => [
-                  s.title,
-                  s.author,
-                  s.description || '',
-                  s.duration.toString(),
-                  s.player_count_min.toString(),
-                  s.player_count_max?.toString() || s.player_count_min.toString(),
-                  s.difficulty?.toString() || '3',
-                  s.participation_fee?.toString() || '3000'
-                ]}
-              />
-              <Button onClick={handleNewScenario} size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
-                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                <span className="hidden sm:inline">新規シナリオ</span>
-                <span className="sm:hidden">新規</span>
-              </Button>
-            </div>
-          </div>
+          <PageHeader
+            title="シナリオ管理"
+            description={`全${allScenarios.length}本のシナリオを管理`}
+          >
+            <CsvImportExport
+              data={allScenarios}
+              onImport={handleImport}
+              isImporting={isImporting}
+              exportFilename="scenarios"
+              headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
+              rowMapper={(s) => [
+                s.title,
+                s.author,
+                s.description || '',
+                s.duration.toString(),
+                s.player_count_min.toString(),
+                s.player_count_max?.toString() || s.player_count_min.toString(),
+                s.difficulty?.toString() || '3',
+                s.participation_fee?.toString() || '3000'
+              ]}
+            />
+            <Button onClick={handleNewScenario} size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              新規シナリオ
+            </Button>
+          </PageHeader>
 
           {/* エラー表示 */}
           {error && (
@@ -358,7 +358,7 @@ export function ScenarioManagement() {
           <ScenarioStats scenarios={allScenarios} />
 
           {/* 検索・フィルター */}
-          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 sm:gap-3 md:gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
             <ScenarioFilters
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
@@ -421,7 +421,7 @@ export function ScenarioManagement() {
           
           {/* データ表示状況 */}
           {useInfiniteScroll && !hasMore && displayedScenarios.length > 0 && (
-            <div className="text-center py-4 text-sm text-muted-foreground">
+            <div className="text-center py-4 text-xs text-muted-foreground">
               {filteredAndSortedScenarios.length === allScenarios.length ? (
                 `全${allScenarios.length}件のシナリオを表示しています`
               ) : (

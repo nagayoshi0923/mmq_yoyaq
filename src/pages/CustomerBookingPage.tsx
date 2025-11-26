@@ -299,11 +299,11 @@ export function CustomerBookingPage() {
       <Header />
       <NavigationBar currentPage="customer-booking" />
 
-      <div className="container mx-auto max-w-7xl px-8 py-6">
+      <div className="container mx-auto max-w-7xl px-[10px] py-6">
         <div className="space-y-6">
           {/* ヘッダー */}
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">公演予約</h1>
+            <h1 className="text-lg tracking-tight">公演予約</h1>
             <p className="text-muted-foreground mt-1">
               予約可能な公演から選んで予約できます
             </p>
@@ -315,7 +315,7 @@ export function CustomerBookingPage() {
               <CardTitle className="text-lg">公演を探す</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {/* 検索 */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -371,7 +371,7 @@ export function CustomerBookingPage() {
             </Card>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {filteredEvents.length}件の公演が見つかりました
               </p>
               
@@ -383,11 +383,11 @@ export function CustomerBookingPage() {
                       <div className="md:col-span-3 flex flex-col items-start justify-center border-l-4 pl-4" style={{ borderColor: event.store_color || '#3B82F6' }}>
                         <div className="flex items-center gap-2 mb-2">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-bold text-lg">{formatDate(event.date)}</span>
+                          <span className="text-lg">{formatDate(event.date)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Clock className="w-4 h-4" />
-                          <span className="font-medium">
+                          <span className="">
                             {formatTime(event.start_time)} - {formatTime(event.end_time)}
                           </span>
                         </div>
@@ -399,18 +399,18 @@ export function CustomerBookingPage() {
                       {/* 公演情報 */}
                       <div className="md:col-span-6 space-y-2">
                         <div>
-                          <h3 className="text-xl font-bold mb-1">
+                          <h3 className="text-base mb-1">
                             {event.scenario_title}
                           </h3>
                           {event.scenario_description && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
+                            <p className="text-xs text-muted-foreground line-clamp-2">
                               {event.scenario_description}
                             </p>
                           )}
                         </div>
                         
                         <div className="flex flex-wrap gap-2 items-center">
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <MapPin className="w-4 h-4" />
                             <span>{event.store_name}</span>
                           </div>
@@ -437,8 +437,8 @@ export function CustomerBookingPage() {
                       {/* 料金・予約ボタン */}
                       <div className="md:col-span-3 flex flex-col items-end justify-center gap-3">
                         <div className="text-right">
-                          <p className="text-sm text-muted-foreground">参加費</p>
-                          <p className="text-2xl font-bold text-primary">
+                          <p className="text-xs text-muted-foreground">参加費</p>
+                          <p className="text-lg text-primary">
                             ¥{event.participation_fee.toLocaleString()}
                           </p>
                           <p className="text-xs text-muted-foreground">/ 1名</p>

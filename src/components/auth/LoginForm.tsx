@@ -92,7 +92,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:px-6 sm:py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-6">
-          <CardTitle className="text-xl sm:text-2xl">
+          <CardTitle className="text-lg">
             {isSignUp ? 'アカウント作成' : 'Queens Waltz'}
           </CardTitle>
           <CardDescription className="text-sm sm:text-base mt-2">

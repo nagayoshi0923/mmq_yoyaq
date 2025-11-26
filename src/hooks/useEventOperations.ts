@@ -60,6 +60,7 @@ interface PerformanceData {
   is_reservation_enabled?: boolean
   is_private_request?: boolean
   reservation_id?: string
+  time_slot?: string | null // 時間帯（朝/昼/夜）
 }
 
 export function useEventOperations({
@@ -148,11 +149,49 @@ export function useEventOperations({
     setIsMoveOrCopyDialogOpen(true)
   }, [])
 
+  // 🚨 CRITICAL: 重複チェック関数（移動・複製・ペースト用）
+  const checkConflict = useCallback((date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', excludeEventId?: string): ScheduleEvent | null => {
+    const conflictingEvents = events.filter(event => {
+      // 除外するイベントIDがある場合は除外
+      if (excludeEventId && event.id === excludeEventId) {
+        return false
+      }
+      
+      const eventTimeSlot = getTimeSlot(event.start_time)
+      return event.date === date &&
+             event.venue === venue &&
+             eventTimeSlot === timeSlot &&
+             !event.is_cancelled
+    })
+    
+    return conflictingEvents.length > 0 ? conflictingEvents[0] : null
+  }, [events])
+
   // 公演を移動
   const handleMoveEvent = useCallback(async () => {
     if (!draggedEvent || !dropTarget) return
 
     try {
+      // 🚨 CRITICAL: 移動先の重複チェック
+      const conflict = checkConflict(dropTarget.date, dropTarget.venue, dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening', draggedEvent.id)
+      if (conflict) {
+        const timeSlotLabel = dropTarget.timeSlot === 'morning' ? '午前' : dropTarget.timeSlot === 'afternoon' ? '午後' : '夜間'
+        const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+        
+        if (!confirm(
+          `移動先の${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。\n` +
+          `既存の公演を削除して移動しますか？`
+        )) {
+          setDraggedEvent(null)
+          setDropTarget(null)
+          return
+        }
+        
+        // 既存公演を削除
+        await scheduleApi.delete(conflict.id)
+        setEvents(prev => prev.filter(e => e.id !== conflict.id))
+      }
+
       // 移動先の時間を計算
       const defaults = TIME_SLOT_DEFAULTS[dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening']
 
@@ -187,13 +226,33 @@ export function useEventOperations({
       logger.error('公演移動エラー:', error)
       alert('公演の移動に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents])
+  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict])
 
   // 公演を複製
   const handleCopyEvent = useCallback(async () => {
     if (!draggedEvent || !dropTarget) return
 
     try {
+      // 🚨 CRITICAL: 複製先の重複チェック
+      const conflict = checkConflict(dropTarget.date, dropTarget.venue, dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening')
+      if (conflict) {
+        const timeSlotLabel = dropTarget.timeSlot === 'morning' ? '午前' : dropTarget.timeSlot === 'afternoon' ? '午後' : '夜間'
+        const storeName = stores.find(s => s.id === dropTarget.venue)?.name || dropTarget.venue
+        
+        if (!confirm(
+          `複製先の${dropTarget.date} ${storeName} ${timeSlotLabel}には既に「${conflict.scenario}」の公演があります。\n` +
+          `既存の公演を削除して複製しますか？`
+        )) {
+          setDraggedEvent(null)
+          setDropTarget(null)
+          return
+        }
+        
+        // 既存公演を削除
+        await scheduleApi.delete(conflict.id)
+        setEvents(prev => prev.filter(e => e.id !== conflict.id))
+      }
+
       // 移動先の時間を計算
       const defaults = TIME_SLOT_DEFAULTS[dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening']
 
@@ -222,7 +281,7 @@ export function useEventOperations({
       logger.error('公演複製エラー:', error)
       alert('公演の複製に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents])
+  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict])
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData) => {

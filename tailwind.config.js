@@ -6,6 +6,26 @@ export default {
   ],
   theme: {
     extend: {
+      // ブレークポイント設定：シンプルな3段階
+      screens: {
+        'xs': '375px',   // モバイル（iPhone等）
+        'md': '768px',   // タブレット（iPad等）
+        'xl': '1280px',  // デスクトップ（PC）
+      },
+      spacing: {
+        'safe': 'max(0.75rem, env(safe-area-inset-left))',
+      },
+      // グローバルスペーシング拡張（ブレークポイント対応）
+      inset: {
+        'full': '100%',
+      },
+      fontSize: {
+        // シンプルな4段階（モバイル基準）
+        'xs': ['12px', { lineHeight: '1.4' }],      // バッジ・補足
+        'sm': ['14px', { lineHeight: '1.5' }],      // 小テキスト
+        'base': ['16px', { lineHeight: '1.6' }],    // 本文（デフォルト）
+        'lg': ['20px', { lineHeight: '1.4' }],      // 見出し
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -39,6 +59,13 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        // グローバルカラー（ステータス・バッジ用）
+        'status': {
+          'success': '#16a34a',      // 緑
+          'warning': '#ea580c',      // オレンジ
+          'error': '#dc2626',        // 赤
+          'info': '#0284c7',         // 青
         },
       },
       borderRadius: {

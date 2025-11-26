@@ -63,18 +63,16 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) 
   }
 
   return (
-    <TableCell className="schedule-table-cell p-0.5 align-top">
+    <TableCell className="schedule-table-cell !p-0 !align-top h-10 sm:h-12 md:h-14">
       {isEditing ? (
         <Textarea
           value={memo}
           onChange={(e) => handleMemoChange(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          placeholder=""
-          className="w-full text-[9px] sm:text-[10px] md:text-xs p-0.5 resize-none border-gray-200 focus:border-gray-300 focus:ring-0"
+          placeholder="memo"
+          className="w-full h-full text-xs lg:text-[10px] p-0.5 resize-none border-0 focus:border-0 focus:ring-0 rounded-none"
           style={{ 
-            minHeight: '40px', 
-            height: '40px',
             backgroundColor: '#F6F9FB',
             transition: 'background-color 0.2s ease'
           }}
@@ -82,15 +80,14 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) 
         />
       ) : (
         <div
-          className="w-full cursor-pointer rounded border border-input p-0.5 text-[9px] sm:text-[10px] md:text-xs text-gray-700 whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight"
+          className={`w-full h-full cursor-pointer p-0.5 text-xs lg:text-[10px] whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight flex items-start ${memo ? 'text-gray-700' : 'text-gray-300'}`}
           style={{ 
-            backgroundColor: '#F6F9FB', 
-            minHeight: '40px',
+            backgroundColor: '#F6F9FB',
             transition: 'background-color 0.2s ease'
           }}
           onClick={handleEdit}
         >
-          {memo || ''}
+          {memo || 'memo'}
         </div>
       )}
     </TableCell>

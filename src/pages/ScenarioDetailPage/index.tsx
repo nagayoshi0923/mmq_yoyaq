@@ -24,7 +24,6 @@ import { BookingPanel } from './components/BookingPanel'
 import { PrivateBookingPanel } from './components/PrivateBookingPanel'
 import { BookingNotice } from './components/BookingNotice'
 import { VenueAccess } from './components/VenueAccess'
-import { ScenarioAbout } from './components/ScenarioAbout'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -179,29 +178,25 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
       )}
 
       {/* 戻るボタン */}
-      <div className="bg-background border-b">
-        <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-2">
+      <div className="bg-background border-b sticky top-0 z-10">
+        <div className="container mx-auto max-w-7xl px-[10px] py-2">
           <Button
             variant="ghost"
             onClick={onClose}
-            className="flex items-center gap-1 sm:gap-1.5 hover:bg-accent h-8 sm:h-9 px-2 sm:px-3 touch-manipulation"
+            className="flex items-center gap-1 hover:bg-accent h-9 px-2 touch-manipulation text-sm"
           >
-            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="text-xs sm:text-sm">シナリオ一覧に戻る</span>
+            <ArrowLeft className="w-4 h-4 flex-shrink-0" />
+            <span>シナリオ一覧に戻る</span>
           </Button>
         </div>
       </div>
 
-      {/* ヒーローセクション */}
-      <ScenarioHero scenario={scenario} />
-
       {/* メインコンテンツ */}
-      <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-4 sm:py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-          {/* 左メインエリア - 詳細情報 */}
-          <div className="lg:col-span-8 space-y-4 sm:space-y-6">
-            <ScenarioAbout scenario={scenario} />
-            <VenueAccess events={events} />
+      <div className="container mx-auto max-w-7xl px-[10px] py-4 xl:py-6">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 xl:gap-6">
+          {/* メインエリア - 詳細情報 */}
+          <div className="xl:col-span-8 space-y-4 xl:space-y-6">
+            <ScenarioHero scenario={scenario} events={events} />
             <BookingNotice 
               reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
               hasPreReading={scenario.has_pre_reading}
@@ -209,23 +204,23 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
           </div>
 
           {/* 右サイドバー - チケット購入 */}
-          <div className="lg:col-span-4">
-            <div className="lg:sticky lg:top-4 space-y-4 sm:space-y-6">
+          <div className="xl:col-span-4">
+            <div className="xl:sticky xl:top-[60px] space-y-4 xl:space-y-6">
               {/* タブ: 公演日程 / 貸切リクエスト */}
               <Tabs 
                 defaultValue="schedule" 
                 className="w-full" 
                 onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
               >
-                <TabsList className="grid w-full grid-cols-2 mb-3 sm:mb-4 h-9 sm:h-10">
-                  <TabsTrigger value="schedule" className="text-xs sm:text-sm">公演日程</TabsTrigger>
-                  <TabsTrigger value="private" className="text-xs sm:text-sm">貸切リクエスト</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 mb-3 md:mb-4 xl:mb-6 h-10 xl:h-14 p-1 xl:p-1.5">
+                  <TabsTrigger value="schedule" className="text-base xl:text-base px-3 xl:px-4 py-1.5 xl:py-2">公演日程</TabsTrigger>
+                  <TabsTrigger value="private" className="text-base xl:text-base px-3 xl:px-4 py-1.5 xl:py-2">貸切リクエスト</TabsTrigger>
                 </TabsList>
                 
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    <h3 className="font-bold mb-2 sm:mb-3 text-sm sm:text-base">日付を選択</h3>
+                    <h3 className="mb-3 xl:mb-4 text-lg xl:text-xl">日付を選択</h3>
                     <EventList
                       events={events}
                       selectedEventId={selectedEventId}
@@ -253,7 +248,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                   {/* 選択された時間枠の表示 */}
                   {selectedTimeSlots.length > 0 && (
                     <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-purple-50 border border-purple-200 rounded">
-                      <div className="text-xs sm:text-sm font-medium text-purple-900 mb-1.5 sm:mb-2">
+                      <div className="text-xs sm:text-sm text-purple-900 mb-1.5 sm:mb-2">
                         選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                       </div>
                       <div className="space-y-1">
@@ -295,19 +290,30 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                     participationFee={scenario.participation_fee}
                     selectedEventId={selectedEventId}
                     isLoggedIn={!!user}
+                    events={events}
                     onParticipantCountChange={setParticipantCount}
                     onBooking={handleBooking}
                   />
                 )}
 
                 {activeTab === 'private' && (
-                  <PrivateBookingPanel
-                    participationFee={scenario.participation_fee}
-                    maxParticipants={scenario.player_count_max}
-                    selectedTimeSlotsCount={selectedTimeSlots.length}
-                    isLoggedIn={!!user}
-                    onRequestBooking={() => handlePrivateBookingRequest(!!user)}
-                  />
+                  <>
+                    {/* 選択店舗（選択した店舗がある場合のみ表示） */}
+                    {selectedStoreIds.length > 0 && (
+                      <VenueAccess
+                        selectedStoreIds={selectedStoreIds}
+                        stores={stores}
+                        mode="private"
+                      />
+                    )}
+                    <PrivateBookingPanel
+                      participationFee={scenario.participation_fee}
+                      maxParticipants={scenario.player_count_max}
+                      selectedTimeSlotsCount={selectedTimeSlots.length}
+                      isLoggedIn={!!user}
+                      onRequestBooking={() => handlePrivateBookingRequest(!!user)}
+                    />
+                  </>
                 )}
               </div>
             </div>

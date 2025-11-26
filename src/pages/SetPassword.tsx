@@ -80,7 +80,7 @@ export function SetPassword() {
             <div className="flex justify-center mb-3 sm:mb-4">
               <CheckCircle className="h-12 w-12 sm:h-16 sm:w-16 text-green-600" />
             </div>
-            <CardTitle className="text-center text-xl sm:text-2xl">パスワードの設定が完了しました！</CardTitle>
+            <CardTitle className="text-center text-lg">パスワードの設定が完了しました！</CardTitle>
             <CardDescription className="text-center text-sm sm:text-base mt-2">
               3秒後にログイン画面に移動します...
             </CardDescription>
@@ -105,7 +105,7 @@ export function SetPassword() {
           <div className="flex justify-center mb-3 sm:mb-4">
             <Lock className="h-10 w-10 sm:h-12 sm:w-12 text-blue-600" />
           </div>
-          <CardTitle className="text-center text-xl sm:text-2xl">パスワードを設定</CardTitle>
+          <CardTitle className="text-center text-lg">パスワードを設定</CardTitle>
           <CardDescription className="text-center text-sm sm:text-base mt-2">
             新しいパスワードを設定してアカウントをアクティブ化します
           </CardDescription>
@@ -120,7 +120,7 @@ export function SetPassword() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm sm:text-base font-medium">新しいパスワード</Label>
+              <Label htmlFor="password" className="text-sm sm:text-base">新しいパスワード</Label>
               <Input
                 id="password"
                 type="password"
@@ -132,13 +132,13 @@ export function SetPassword() {
                 disabled={loading}
                 className="text-sm sm:text-base"
               />
-              <p className="text-xs sm:text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 パスワードは6文字以上で設定してください
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm-password" className="text-sm sm:text-base font-medium">パスワード確認</Label>
+              <Label htmlFor="confirm-password" className="text-sm sm:text-base">パスワード確認</Label>
               <Input
                 id="confirm-password"
                 type="password"

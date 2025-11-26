@@ -125,7 +125,7 @@ export function SearchableSelect({
         >
           {filteredOptions.length === 0 ? (
             <div className="py-3 text-center">
-              <p className="text-sm text-muted-foreground">{emptyText}</p>
+              <p className="text-xs text-muted-foreground">{emptyText}</p>
               {allowCustomValue && searchTerm && (
                 <div className="mt-2">
                   <Button

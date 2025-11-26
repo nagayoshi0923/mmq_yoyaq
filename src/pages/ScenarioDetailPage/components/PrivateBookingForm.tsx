@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,7 @@ interface PrivateBookingFormProps {
   timeSlots: TimeSlot[]
   selectedSlots: Array<{ date: string; slot: TimeSlot }>
   onTimeSlotToggle: (date: string, slot: TimeSlot) => void
-  checkTimeSlotAvailability: (date: string, slot: TimeSlot, storeIds?: string[]) => boolean
+  checkTimeSlotAvailability: (date: string, slot: TimeSlot, storeIds?: string[]) => Promise<boolean>
 }
 
 /**
@@ -40,15 +40,51 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   onTimeSlotToggle,
   checkTimeSlotAvailability
 }: PrivateBookingFormProps) {
+  // 各時間枠の可用性を管理する状態
+  const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
+  
   const isTimeSlotSelected = (date: string, slot: TimeSlot): boolean => {
     return selectedSlots.some(s => s.date === date && s.slot.label === slot.label)
   }
+  
+  // 各時間枠の可用性を非同期で取得
+  useEffect(() => {
+    const updateAvailability = async () => {
+      const newAvailabilityMap: Record<string, boolean> = {}
+      
+      // 各日付・時間枠の可用性を並列で取得
+      const promises = availableDates.flatMap(date =>
+        timeSlots.map(async (slot) => {
+          const key = `${date}-${slot.label}`
+          const isAvailable = await checkTimeSlotAvailability(
+            date,
+            slot,
+            selectedStoreIds.length > 0 ? selectedStoreIds : undefined
+          )
+          newAvailabilityMap[key] = isAvailable
+        })
+      )
+      
+      await Promise.all(promises)
+      setAvailabilityMap(newAvailabilityMap)
+    }
+    
+    updateAvailability()
+  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability])
+  
+  // 時間枠の可用性を取得
+  const getAvailability = (date: string, slot: TimeSlot): boolean => {
+    const key = `${date}-${slot.label}`
+    // まだ取得されていない場合は、デフォルトでfalse（安全側に倒す）
+    return availabilityMap[key] ?? false
+  }
+
 
   return (
     <div>
       {/* 店舗選択 */}
       <div className="mb-3">
-        <label className="text-sm font-medium mb-1.5 block">店舗を選択</label>
+        <label className="text-sm mb-2 block">店舗を選択</label>
         <MultiSelect
           options={stores.map(store => ({
             id: store.id,
@@ -73,7 +109,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                 <Badge 
                   key={id} 
                   variant="secondary" 
-                  className="text-[10px] px-1.5 py-0 h-auto"
+                  className="text-sm px-2 py-0.5"
                 >
                   {store.short_name || store.name}
                 </Badge>
@@ -84,22 +120,24 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       </div>
       
       {/* 月切り替え */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onMonthChange(-1)}
           disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
+          className="text-sm h-9"
         >
           &lt; 前月
         </Button>
-        <h3 className="font-bold">
+        <h3 className="text-base">
           {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
         </h3>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onMonthChange(1)}
+          className="text-sm h-9"
         >
           次月 &gt;
         </Button>
@@ -119,20 +157,20 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           
           return (
             <Card key={date}>
-              <CardContent className="p-2">
-                <div className="flex items-center gap-2">
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
                   {/* 日付 */}
-                  <div className="font-semibold text-sm whitespace-nowrap min-w-[45px] text-center">
+                  <div className="text-sm whitespace-nowrap min-w-[50px] text-center">
                     <div>{month}/{day}</div>
-                    <div className={`text-xs ${weekdayColor}`}>
+                    <div className={`text-sm ${weekdayColor}`}>
                       ({weekday})
                     </div>
                   </div>
                   
                   {/* 時間枠ボタン */}
-                  <div className="flex gap-1 flex-1">
+                  <div className="flex gap-1.5 flex-1">
                     {timeSlots.map((slot) => {
-                      const isAvailable = checkTimeSlotAvailability(date, slot, selectedStoreIds.length > 0 ? selectedStoreIds : undefined)
+                      const isAvailable = getAvailability(date, slot)
                       const isSelected = isTimeSlotSelected(date, slot)
                       
                       return (
@@ -140,7 +178,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                           key={slot.label}
                           variant={isSelected ? "default" : "outline"}
                           size="sm"
-                          className={`flex-1 py-1.5 h-auto text-xs px-1 ${
+                          className={`flex-1 py-2.5 min-h-[52px] text-sm px-1 ${
                             !isAvailable 
                               ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
                               : isSelected
@@ -150,11 +188,17 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                           disabled={!isAvailable}
                           onClick={() => onTimeSlotToggle(date, slot)}
                         >
-                          <div className="flex flex-col items-center">
-                            <span className="whitespace-nowrap leading-tight">{slot.label}</span>
-                            {isSelected && (
-                              <CheckCircle2 className="w-3 h-3 mt-0.5" />
-                            )}
+                          <div className="flex flex-col items-center justify-center min-h-[32px]">
+                            <span className="whitespace-nowrap">{slot.label}</span>
+                            {/* 時間帯の開始時間を表示 */}
+                            <span className="text-xs mt-0.5 opacity-80">
+                              {slot.startTime}
+                            </span>
+                            <div className="h-3 mt-0.5 flex items-center justify-center">
+                              {isSelected && (
+                                <CheckCircle2 className="w-3 h-3" />
+                              )}
+                            </div>
                           </div>
                         </Button>
                       )

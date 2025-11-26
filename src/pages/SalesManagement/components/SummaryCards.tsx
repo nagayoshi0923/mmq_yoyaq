@@ -74,14 +74,14 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
       <div className="grid gap-2 sm:gap-2 md:gap-3 lg:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-blue-900">総売上</CardTitle>
+            <CardTitle className="text-sm text-blue-900">総売上</CardTitle>
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-blue-600 flex-shrink-0" />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-blue-900 leading-tight">
+            <div className="text-base md:text-lg text-blue-900">
               {formatCurrency(totalRevenue)}
             </div>
-            <p className="text-[10px] sm:text-xs md:text-sm text-blue-700 mt-0.5 sm:mt-1 leading-tight">
+            <p className="text-sm text-blue-700 mt-0.5 sm:mt-1">
               {totalEvents}公演<span className="hidden sm:inline"> • </span><br className="sm:hidden" />平均 {formatCurrency(averageRevenue)}
             </p>
           </CardContent>
@@ -89,14 +89,14 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
         <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-red-900">支出合計</CardTitle>
+            <CardTitle className="text-sm text-red-900">支出合計</CardTitle>
             <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-red-600 flex-shrink-0" />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-red-900 leading-tight">
+            <div className="text-base md:text-lg text-red-900">
               {formatCurrency(totalExpenses)}
             </div>
-            <p className="text-[10px] sm:text-xs md:text-sm text-red-700 mt-0.5 sm:mt-1 leading-tight break-words">
+            <p className="text-sm text-red-700 mt-0.5 sm:mt-1 break-words">
               変動費 {formatCurrency(totalVariableCost)}<span className="hidden sm:inline"> + </span><br className="sm:hidden" />固定費 {formatCurrency(totalFixedCost)}
             </p>
           </CardContent>
@@ -104,14 +104,14 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
         <Card className={`bg-gradient-to-br border-2 ${netProfit >= 0 ? 'from-green-50 to-green-100 border-green-300' : 'from-gray-50 to-gray-100 border-gray-300'} sm:col-span-2 md:col-span-1`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className={`text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'}`}>純利益</CardTitle>
+            <CardTitle className={`text-xs ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'}`}>純利益</CardTitle>
             <DollarSign className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 ${netProfit >= 0 ? 'text-green-600' : 'text-gray-600'} flex-shrink-0`} />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className={`text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'} leading-tight`}>
+            <div className={`text-base md:text-lg ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'}`}>
               {formatCurrency(netProfit)}
             </div>
-            <p className={`text-[10px] sm:text-xs md:text-sm mt-0.5 sm:mt-1 ${netProfit >= 0 ? 'text-green-700' : 'text-gray-700'} leading-tight`}>
+            <p className={`text-xs mt-0.5 sm:mt-1 ${netProfit >= 0 ? 'text-green-700' : 'text-gray-700'}`}>
               利益率 {totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}%
             </p>
           </CardContent>
@@ -122,20 +122,20 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
       <div className="grid gap-2 sm:gap-2 md:gap-3 lg:gap-4 grid-cols-2 sm:grid-cols-2 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1">
+            <CardTitle className="text-sm flex items-center gap-1">
               <CreditCard className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-orange-600 flex-shrink-0" />
               <span className="truncate">変動費</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-orange-600 mb-1 sm:mb-2 leading-tight">
+            <div className="text-base text-orange-600 mb-1 sm:mb-2">
               {formatCurrency(totalVariableCost)}
             </div>
-            <div className="text-[9px] sm:text-[10px] md:text-xs space-y-0.5 sm:space-y-1">
+            <div className="text-sm space-y-0.5 sm:space-y-1">
               {variableCostBreakdown.map((item, index) => (
                 <div key={index} className="flex justify-between items-center py-0.5 border-b border-gray-100 last:border-0">
-                  <span className="text-muted-foreground truncate text-[9px] sm:text-[10px]">{item.category}</span>
-                  <span className="font-medium flex-shrink-0 ml-1 text-[9px] sm:text-[10px]">{formatCurrency(item.amount)}</span>
+                  <span className="text-muted-foreground truncate text-xs">{item.category}</span>
+                  <span className="flex-shrink-0 ml-1 text-xs">{formatCurrency(item.amount)}</span>
                 </div>
               ))}
             </div>
@@ -144,16 +144,16 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1">
+            <CardTitle className="text-sm flex items-center gap-1">
               <BookOpen className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-red-600 flex-shrink-0" />
               <span className="truncate">ライセンス</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-red-600 leading-tight">
+            <div className="text-base text-red-600">
               {formatCurrency(totalLicenseCost)}
             </div>
-            <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground mt-0.5 sm:mt-1 leading-tight">
+            <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
               作者への支払い
             </p>
           </CardContent>
@@ -161,33 +161,33 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1">
+            <CardTitle className="text-sm flex items-center gap-1">
               <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-orange-600 flex-shrink-0" />
               <span className="truncate">制作費</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-orange-600 mb-1 leading-tight">
+            <div className="text-base text-orange-600 mb-1">
               {formatCurrency(totalProductionCost + totalPropsCost)}
             </div>
             {(productionCostBreakdown.length > 0 || propsCostBreakdown.length > 0) && (
-              <div className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground space-y-0.5 max-h-16 sm:max-h-20 md:max-h-24 overflow-y-auto">
+              <div className="text-xs text-muted-foreground space-y-0.5 max-h-16 sm:max-h-20 md:max-h-24 overflow-y-auto">
                 {productionCostBreakdown.map((item, index) => (
                   <div key={`prod-${index}`} className="flex justify-between gap-1 py-0.5">
-                    <span className="truncate text-[9px] sm:text-[10px]">{item.scenario} / {item.item}</span>
-                    <span className="whitespace-nowrap font-medium flex-shrink-0 text-[9px] sm:text-[10px]">{formatCurrency(item.amount)}</span>
+                    <span className="truncate text-xs">{item.scenario} / {item.item}</span>
+                    <span className="whitespace-nowrap flex-shrink-0 text-xs">{formatCurrency(item.amount)}</span>
                   </div>
                 ))}
                 {propsCostBreakdown.map((item, index) => (
                   <div key={`prop-${index}`} className="flex justify-between gap-1 py-0.5">
-                    <span className="truncate text-[9px] sm:text-[10px]">{item.scenario} / {item.item}</span>
-                    <span className="whitespace-nowrap font-medium flex-shrink-0 text-[9px] sm:text-[10px]">{formatCurrency(item.amount)}</span>
+                    <span className="truncate text-xs">{item.scenario} / {item.item}</span>
+                    <span className="whitespace-nowrap flex-shrink-0 text-xs">{formatCurrency(item.amount)}</span>
                   </div>
                 ))}
               </div>
             )}
             {productionCostBreakdown.length === 0 && propsCostBreakdown.length === 0 && (
-              <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground mt-0.5 sm:mt-1 leading-tight">
+              <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
                 制作費なし
               </p>
             )}
@@ -196,17 +196,17 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
 
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
-            <CardTitle className="text-[10px] sm:text-xs md:text-sm font-medium flex items-center gap-1">
+            <CardTitle className="text-sm flex items-center gap-1">
               <Store className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-purple-600 flex-shrink-0" />
               <span className="truncate">固定費</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
-            <div className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-purple-600 leading-tight">
+            <div className="text-base text-purple-600">
               {formatCurrency(totalFixedCost)}
             </div>
             {fixedCostBreakdown.length > 0 && (
-              <div className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground mt-0.5 sm:mt-1 space-y-0.5 max-h-12 overflow-y-auto">
+              <div className="text-xs text-muted-foreground mt-0.5 sm:mt-1 space-y-0.5 max-h-12 overflow-y-auto">
                 {(() => {
                   // 項目ごとに合計を計算
                   const itemTotals = fixedCostBreakdown.reduce((acc, item) => {
@@ -216,8 +216,8 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
                   
                   return Object.entries(itemTotals).map(([item, total], index) => (
                     <div key={index} className="flex justify-between gap-1">
-                      <span className="truncate text-[9px] sm:text-[10px]">{item}:</span>
-                      <span className="font-medium flex-shrink-0 text-[9px] sm:text-[10px]">{formatCurrency(total)}</span>
+                      <span className="truncate text-xs">{item}:</span>
+                      <span className="flex-shrink-0 text-xs">{formatCurrency(total)}</span>
                     </div>
                   ))
                 })()}

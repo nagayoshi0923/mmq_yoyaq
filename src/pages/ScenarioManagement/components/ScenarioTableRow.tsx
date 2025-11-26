@@ -37,7 +37,7 @@ export const ScenarioTableRow: React.FC<ScenarioTableRowProps> = ({
         <div className="flex items-center min-h-[60px]">
           {/* タイトル */}
           <div className="flex-shrink-0 w-40 px-3 py-2 border-r">
-            <p className="font-medium text-sm truncate" title={scenario.title}>
+            <p className="text-sm truncate" title={scenario.title}>
               {scenario.title}
             </p>
           </div>

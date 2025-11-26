@@ -1,6 +1,9 @@
 // React
 import { useState, useEffect, useMemo } from 'react'
 
+// API
+import { staffApi } from '@/lib/api'
+
 // Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { useScheduleTable } from '@/hooks/useScheduleTable'
@@ -8,6 +11,9 @@ import { useScheduleTable } from '@/hooks/useScheduleTable'
 // Custom Hooks (ScheduleManager専用)
 import { useCategoryFilter } from './hooks/useCategoryFilter'
 import { useMonthNavigation } from './hooks/useMonthNavigation'
+
+// Types
+import type { Staff } from '@/types'
 
 // Layout Components
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -34,6 +40,10 @@ export function ScheduleManager() {
   const scrollRestoration = useScrollRestoration({ pageKey: 'schedule', isLoading: false })
   const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
 
+  // GMリスト
+  const [gmList, setGmList] = useState<Staff[]>([])
+  const [selectedGM, setSelectedGM] = useState<string>('all')
+
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
 
@@ -52,14 +62,53 @@ export function ScheduleManager() {
     )
   )
 
-  // カテゴリーフィルター適用版のgetEventsForSlot
+  // スタッフリスト取得
+  useEffect(() => {
+    const fetchStaffList = async () => {
+      try {
+        const staff = await staffApi.getAll()
+        // 全スタッフを表示（ロールでフィルタリングしない）
+        setGmList(staff)
+      } catch (error) {
+        console.error('スタッフリストの取得に失敗しました:', error)
+      }
+    }
+    fetchStaffList()
+  }, [])
+
+  // カテゴリー＋スタッフフィルター適用版のgetEventsForSlot
   const filteredGetEventsForSlot = useMemo(() => {
     return (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
-      const events = scheduleTableProps.dataProvider.getEventsForSlot(date, venue, timeSlot)
-      if (selectedCategory === 'all') return events
-      return events.filter(event => event.category === selectedCategory)
+      let events = scheduleTableProps.dataProvider.getEventsForSlot(date, venue, timeSlot)
+      
+      // カテゴリーフィルター
+      if (selectedCategory !== 'all') {
+        events = events.filter(event => event.category === selectedCategory)
+      }
+      
+      // スタッフフィルター
+      if (selectedGM !== 'all') {
+        events = events.filter(event => {
+          // 選択したスタッフのdisplay_nameまたはnameを取得
+          const selectedStaff = gmList.find(s => s.id === selectedGM)
+          const selectedStaffName = selectedStaff?.display_name || selectedStaff?.name
+          
+          // gms配列をチェック（schedule_eventsテーブルの実際の構造）
+          if (!event.gms || !Array.isArray(event.gms)) {
+            return false
+          }
+          
+          // スタッフIDまたは名前でマッチング
+          return event.gms.some(gm => 
+            String(gm) === String(selectedGM) || 
+            (selectedStaffName && String(gm) === selectedStaffName)
+          )
+        })
+      }
+      
+      return events
     }
-  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory])
+  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory, selectedGM, gmList])
 
   // カテゴリーフィルター適用版のpropsを作成
   const filteredScheduleTableProps = useMemo(() => ({
@@ -91,16 +140,19 @@ export function ScheduleManager() {
     <AppLayout
       currentPage="schedule" 
       maxWidth="max-w-[1440px]"
-      containerPadding="px-2 sm:px-4 md:px-6 py-3 sm:py-4"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       className="mx-auto"
     >
-      <div>
+      <div className="space-y-6 max-w-[1280px] mx-auto">
         {/* ヘッダー */}
         <ScheduleHeader
           currentDate={currentDate}
           isLoading={false}
           onDateChange={setCurrentDate}
           onImportClick={() => setIsImportModalOpen(true)}
+          gmList={gmList}
+          selectedGM={selectedGM}
+          onGMChange={setSelectedGM}
         />
 
         {/* カテゴリータブ */}

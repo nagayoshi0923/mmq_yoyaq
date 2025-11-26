@@ -139,16 +139,16 @@ export function UserSearchCombobox({
           {/* 結果リスト */}
           <div className="max-h-[300px] overflow-auto">
             {isSearching ? (
-              <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+              <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 検索中...
               </div>
             ) : searchTerm.length < 2 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
+              <div className="py-6 text-center text-xs text-muted-foreground">
                 2文字以上入力してください
               </div>
             ) : users.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
+              <div className="py-6 text-center text-xs text-muted-foreground">
                 ユーザーが見つかりません
               </div>
             ) : (
@@ -171,7 +171,7 @@ export function UserSearchCombobox({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="font-medium truncate">{user.email}</span>
+                        <span className="truncate">{user.email}</span>
                       </div>
                       <div className="mt-1">
                         <span className={cn(

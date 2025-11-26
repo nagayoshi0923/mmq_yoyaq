@@ -82,7 +82,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
           <div className="space-y-6">
             {/* 基本情報 */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 pb-2 border-b">基本情報</h3>
+              <h3 className="text-lg mb-4 pb-2 border-b">基本情報</h3>
               <div className="space-y-4">
             <div>
               <Label htmlFor="name">名前 *</Label>
@@ -117,7 +117,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
 
             {/* 連絡先情報 */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 pb-2 border-b">連絡先情報</h3>
+              <h3 className="text-lg mb-4 pb-2 border-b">連絡先情報</h3>
               <div className="space-y-4">
             <div>
               <Label htmlFor="email">メールアドレス</Label>
@@ -182,7 +182,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
           <div className="space-y-6">
             {/* 役割・担当店舗 */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 pb-2 border-b">役割・担当店舗</h3>
+              <h3 className="text-lg mb-4 pb-2 border-b">役割・担当店舗</h3>
               <div className="space-y-4">
             <div>
               <Label>役割</Label>
@@ -224,7 +224,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
 
             {/* 備考 */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 pb-2 border-b">備考</h3>
+              <h3 className="text-lg mb-4 pb-2 border-b">備考</h3>
               <div>
             <Textarea
               value={formData.notes || ''}

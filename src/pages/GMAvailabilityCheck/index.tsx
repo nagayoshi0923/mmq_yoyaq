@@ -3,15 +3,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { CheckCircle, Clock, Calendar, Settings } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const GM_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'gm-list', label: 'GM確認一覧', icon: CheckCircle, description: 'すべてのGM確認を表示' },
-  { id: 'pending', label: '承認待ち', icon: Clock, description: '承認待ちGM' },
-  { id: 'schedule', label: 'スケジュール', icon: Calendar, description: 'GMスケジュール' },
-  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
+  { id: 'gm-list', label: 'GM確認一覧', icon: CheckCircle },
+  { id: 'pending', label: '承認待ち', icon: Clock },
+  { id: 'schedule', label: 'スケジュール', icon: Calendar },
+  { id: 'settings', label: '設定', icon: Settings }
 ]
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -104,23 +105,24 @@ export function GMAvailabilityCheck() {
           onTabChange={setSidebarActiveTab}
         />
       }
-      maxWidth="max-w-[1600px]"
-      containerPadding="px-2 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6"
+      maxWidth="max-w-[1440px]"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
-      <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        <div className="flex justify-between items-center mb-3 sm:mb-4 md:mb-6">
-          <div></div>
-        </div>
+      <div className="space-y-4">
+        <PageHeader
+          title="GM可否確認"
+          description="貸切予約のGM可否を確認・回答します"
+        />
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'all')} className="w-full">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
             <TabsList className="w-full sm:w-auto">
-              <TabsTrigger value="pending" className="text-xs sm:text-sm">未回答 ({pendingRequests.length})</TabsTrigger>
-              <TabsTrigger value="all" className="text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
+              <TabsTrigger value="pending" className="flex-1 sm:flex-initial text-xs sm:text-sm">未回答 ({pendingRequests.length})</TabsTrigger>
+              <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
             </TabsList>
             
-            <div className="flex-shrink-0">
+            <div className="w-full sm:w-auto flex justify-center sm:justify-end">
               <MonthSwitcher
                 value={currentDate}
                 onChange={setCurrentDate}
@@ -135,25 +137,35 @@ export function GMAvailabilityCheck() {
           <TabsContent value="pending" className="mt-0">
             {pendingRequests.length === 0 ? (
               <Card>
-                <CardContent className="py-8 sm:py-12 text-center text-muted-foreground text-xs sm:text-sm p-3 sm:p-4 md:p-6">
+                <CardContent className="py-8 text-center text-muted-foreground text-sm">
                   未回答のリクエストはありません
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3 sm:space-y-4">
-                {pendingRequests.map((request) => (
-                  <RequestCard
-                    key={request.id}
-                    request={request}
-                    selectedCandidates={selectedCandidates[request.id] || []}
-                    candidateAvailability={candidateAvailability[request.id] || {}}
-                    notes={notes[request.id] || ''}
-                    submitting={submitting === request.id}
-                    onToggleCandidate={(order) => toggleCandidate(request.id, order)}
-                    onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
-                    onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
-                  />
-                ))}
+              <div className="space-y-3">
+                {pendingRequests.map((request) => {
+                  const isResponded = request.response_status === 'available' || request.response_status === 'all_unavailable'
+                  const isConfirmed = request.reservation_status === 'confirmed'
+                  const isGMConfirmed = request.reservation_status === 'gm_confirmed'
+                  
+                  return (
+                    <RequestCard
+                      key={request.id}
+                      request={request}
+                      selectedCandidates={
+                        (isResponded || isConfirmed || isGMConfirmed)
+                          ? (request.available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
+                          : selectedCandidates[request.id] || []
+                      }
+                      candidateAvailability={candidateAvailability[request.id] || {}}
+                      notes={notes[request.id] || ''}
+                      submitting={submitting === request.id}
+                      onToggleCandidate={(order) => toggleCandidate(request.id, order)}
+                      onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
+                      onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
+                    />
+                  )
+                })}
               </div>
             )}
           </TabsContent>
@@ -162,25 +174,35 @@ export function GMAvailabilityCheck() {
           <TabsContent value="all" className="mt-0">
             {allRequests.length === 0 ? (
               <Card>
-                <CardContent className="py-8 sm:py-12 text-center text-muted-foreground text-xs sm:text-sm p-3 sm:p-4 md:p-6">
+                <CardContent className="py-8 text-center text-muted-foreground text-sm">
                   {formatMonthYear(currentDate)}のリクエストはありません
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3 sm:space-y-4">
-                {allRequests.map((request) => (
-                  <RequestCard
-                    key={request.id}
-                    request={request}
-                    selectedCandidates={selectedCandidates[request.id] || []}
-                    candidateAvailability={candidateAvailability[request.id] || {}}
-                    notes={notes[request.id] || ''}
-                    submitting={submitting === request.id}
-                    onToggleCandidate={(order) => toggleCandidate(request.id, order)}
-                    onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
-                    onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
-                  />
-                ))}
+              <div className="space-y-3">
+                {allRequests.map((request) => {
+                  const isResponded = request.response_status === 'available' || request.response_status === 'all_unavailable'
+                  const isConfirmed = request.reservation_status === 'confirmed'
+                  const isGMConfirmed = request.reservation_status === 'gm_confirmed'
+                  
+                  return (
+                    <RequestCard
+                      key={request.id}
+                      request={request}
+                      selectedCandidates={
+                        (isResponded || isConfirmed || isGMConfirmed)
+                          ? (request.available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
+                          : selectedCandidates[request.id] || []
+                      }
+                      candidateAvailability={candidateAvailability[request.id] || {}}
+                      notes={notes[request.id] || ''}
+                      submitting={submitting === request.id}
+                      onToggleCandidate={(order) => toggleCandidate(request.id, order)}
+                      onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
+                      onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
+                    />
+                  )
+                })}
               </div>
             )}
           </TabsContent>

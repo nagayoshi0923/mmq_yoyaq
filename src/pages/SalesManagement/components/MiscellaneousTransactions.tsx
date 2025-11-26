@@ -210,7 +210,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     <div className="space-y-6">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">雑収支管理</h2>
+        <h2 className="text-lg">雑収支管理</h2>
       </div>
       
       {/* 月切り替え */}
@@ -228,13 +228,13 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-green-600" />
               収入合計
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-900">
+            <div className="text-lg text-green-900">
               {formatCurrency(totalIncome)}
             </div>
           </CardContent>
@@ -242,13 +242,13 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
         
         <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
               <TrendingDown className="h-4 w-4 text-red-600" />
               支出合計
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-900">
+            <div className="text-lg text-red-900">
               {formatCurrency(totalExpense)}
             </div>
           </CardContent>
@@ -256,12 +256,12 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
         
         <Card className={`bg-gradient-to-br border-2 ${netAmount >= 0 ? 'from-blue-50 to-blue-100 border-blue-300' : 'from-gray-50 to-gray-100 border-gray-300'}`}>
           <CardHeader className="pb-3">
-            <CardTitle className={`text-sm font-medium ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
+            <CardTitle className={`text-sm ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
               差額
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
+            <div className={`text-lg ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
               {formatCurrency(netAmount)}
             </div>
           </CardContent>
@@ -405,11 +405,11 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                 return (
                   <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                     <div className="flex-1 grid grid-cols-7 gap-4 items-center">
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {transaction.date}
                       </div>
                       <div>
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs ${
                           transaction.type === 'income' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
@@ -417,21 +417,21 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                           {transaction.type === 'income' ? '収入' : '支出'}
                         </span>
                       </div>
-                      <div className="font-medium">
+                      <div className="">
                         {transaction.category}
                       </div>
-                      <div className={`text-lg font-bold ${
+                      <div className={`text-lg ${
                         transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {formatCurrency(transaction.amount)}
                       </div>
-                      <div className="text-sm text-muted-foreground truncate">
+                      <div className="text-xs text-muted-foreground truncate">
                         {scenario ? scenario.title : '-'}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {store ? store.short_name : '全社'}
                       </div>
-                      <div className="text-sm text-muted-foreground truncate">
+                      <div className="text-xs text-muted-foreground truncate">
                         {transaction.description || '-'}
                       </div>
                     </div>

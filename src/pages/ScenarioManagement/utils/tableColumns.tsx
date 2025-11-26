@@ -160,7 +160,7 @@ export function createScenarioColumns(
       render: (scenario) => (
         <button
           onClick={() => actions.onEdit(scenario)}
-          className="font-medium text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
+          className="text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
           title={scenario.title}
         >
           {scenario.title}
@@ -213,7 +213,7 @@ export function createScenarioColumns(
         sortable: true,
         render: (scenario) => {
           if (!scenario.genre || scenario.genre.length === 0) {
-            return <span className="text-sm text-muted-foreground">未設定</span>
+            return <span className="text-xs text-muted-foreground">未設定</span>
           }
           return (
             <div className="flex flex-wrap gap-1">

@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
 import { MonthSwitcher } from '@/components/patterns/calendar/MonthSwitcher'
 import { Settings } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { scenarioApi, staffApi, storeApi, scheduleApi } from '@/lib/api'
 import type { Staff, Scenario, Store } from '@/types'
 
@@ -268,9 +269,10 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   if (loading) {
     return (
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
-        </div>
+        <PageHeader
+        title={isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}
+        description="期間別の売上・予約実績と分析"
+      />
         <Card>
           <CardContent className="p-4 sm:p-6 md:p-8">
             <div className="text-center text-muted-foreground text-xs sm:text-sm">読み込み中...</div>
@@ -283,16 +285,18 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   return (
     <div className="space-y-3 sm:space-y-4 md:space-y-6">
       {/* ヘッダー：タイトルとエクスポートボタン */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</h1>
+      <PageHeader
+        title={isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}
+        description="期間別の売上・予約実績と分析"
+      >
         <ExportButtons salesData={salesData} />
-      </div>
+      </PageHeader>
 
       {/* 月切り替えと期間設定 */}
       <div className="flex flex-col gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4 md:mb-6">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           {/* 月切り替え */}
-          <div className="flex-shrink-0">
+          <div className="w-full sm:w-auto flex justify-center sm:justify-start">
             <MonthSwitcher
               value={currentMonth}
               onChange={setCurrentMonth}

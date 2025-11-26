@@ -8,13 +8,14 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { StaffEditForm } from './components/StaffEditForm'
 import { usePageState } from '@/hooks/usePageState'
 import { supabase } from '@/lib/supabase'
 import { staffApi } from '@/lib/api'
 import type { Staff } from '@/types'
 import { 
-  Users, Clock, Shield, CheckCircle2
+  Users, Clock, Shield, CheckCircle2, Plus
 } from 'lucide-react'
 
 // 分離されたフック
@@ -344,10 +345,20 @@ export function StaffManagement() {
       <AppLayout 
         currentPage="staff" 
         maxWidth="max-w-[1440px]"
-        containerPadding="px-2 sm:px-4 md:px-6 py-4 sm:py-6"
+        containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
         className="mx-auto"
       >
         <div className="space-y-3 sm:space-y-4 md:space-y-6">
+            <PageHeader
+              title="スタッフ管理"
+              description={`全${staff.length}名のスタッフを管理`}
+            >
+              <Button onClick={() => openEditModal(null as any)} size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                新規スタッフ
+              </Button>
+            </PageHeader>
+
             {/* 統計情報 */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               <Card>
@@ -355,8 +366,8 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-xl md:text-2xl font-bold">{staff.length}</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">総スタッフ数</p>
+                      <p className="text-lg">{staff.length}</p>
+                      <p className="text-xs text-muted-foreground">総スタッフ数</p>
                     </div>
                   </div>
                 </CardContent>
@@ -367,10 +378,10 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-xl md:text-2xl font-bold">
+                      <p className="text-lg">
                         {staff.filter(s => s.status === 'active').length}
                       </p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">在籍中</p>
+                      <p className="text-xs text-muted-foreground">在籍中</p>
                     </div>
                   </div>
                 </CardContent>
@@ -381,10 +392,10 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-xl md:text-2xl font-bold">
+                      <p className="text-lg">
                         {staff.filter(s => s.role && s.role.includes('GM')).length}
                       </p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">GM</p>
+                      <p className="text-xs text-muted-foreground">GM</p>
                     </div>
                   </div>
                 </CardContent>
@@ -395,10 +406,10 @@ export function StaffManagement() {
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-lg sm:text-xl md:text-2xl font-bold">
+                      <p className="text-lg">
                         {Math.round(staff.reduce((sum, s) => sum + s.experience, 0) / staff.length) || 0}
                       </p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">平均経験年数</p>
+                      <p className="text-xs text-muted-foreground">平均経験年数</p>
                     </div>
                   </div>
                 </CardContent>
@@ -577,12 +588,12 @@ export function StaffManagement() {
                         <div className="flex items-start gap-2 p-4 bg-green-50 border border-green-200 rounded-md">
                           <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-green-900">ユーザーが選択されました</p>
+                            <p className="text-sm text-green-900">ユーザーが選択されました</p>
                             <p className="text-sm text-green-700 mt-1">
-                              <span className="font-medium">メール:</span> {searchedUser.email}
+                              <span className="">メール:</span> {searchedUser.email}
                             </p>
                             <p className="text-sm text-green-700">
-                              <span className="font-medium">現在のロール:</span> {searchedUser.role}
+                              <span className="">現在のロール:</span> {searchedUser.role}
                             </p>
                           </div>
                         </div>

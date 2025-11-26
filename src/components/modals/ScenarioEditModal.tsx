@@ -1085,7 +1085,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
               {/* 担当GM */}
               <div className="mt-6">
                 <Label htmlFor="available_gms">担当GM</Label>
-                <div className="text-sm text-muted-foreground mb-2">
+                <div className="text-xs text-muted-foreground mb-2">
                   担当開始時期は自動的に記録されます
                 </div>
               {(() => {
@@ -1243,7 +1243,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 <div className="space-y-4">
                   <div>
                     <h4 className="font-medium text-gray-800">ライセンス報酬</h4>
-                    <p className="text-sm text-muted-foreground">作者に支払うライセンス料を設定します</p>
+                    <p className="text-xs text-muted-foreground">作者に支払うライセンス料を設定します</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -1261,7 +1261,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                           }))}
                           className="pr-8"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                           円
                         </span>
                       </div>
@@ -1281,7 +1281,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                           }))}
                           className="pr-8"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                           円
                         </span>
                       </div>

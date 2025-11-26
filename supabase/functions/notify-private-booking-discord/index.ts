@@ -110,6 +110,13 @@ async function sendNotificationToGMChannels(booking: any) {
   })
 }
 
+// 曜日を取得するヘルパー関数
+function getDayOfWeek(dateString: string): string {
+  const days = ['日', '月', '火', '水', '木', '金', '土']
+  const date = new Date(dateString + 'T00:00:00+09:00')
+  return days[date.getDay()]
+}
+
 // Discord通知を送信する関数
 async function sendDiscordNotification(channelId: string, booking: any) {
   // チャンネルIDが空の場合はエラー
@@ -140,13 +147,17 @@ async function sendDiscordNotification(channelId: string, booking: any) {
   messageContent += `**参加人数：** ${booking.participant_count}名\n`
   messageContent += `**予約者：** ${booking.customer_name || '名前不明'}\n`
 
-  // 候補日程をボタンとして直接表示
+  // 候補日程をボタンとして表示（日時詳細付き）
   const components = []
   const maxButtons = Math.min(candidates.length, 5) // 最大5個まで
   
   for (let i = 0; i < maxButtons; i++) {
     const candidate = candidates[i]
     const timeSlot = timeSlotMap[candidate.timeSlot] || candidate.timeSlot
+    
+    // 月/日形式に変換（例: 2025-11-25 → 11/25）
+    const dateMatch = candidate.date.match(/\d{4}-(\d{2})-(\d{2})/)
+    const shortDate = dateMatch ? `${parseInt(dateMatch[1])}/${parseInt(dateMatch[2])}` : candidate.date
     
     if (i % 5 === 0) {
       components.push({
@@ -155,7 +166,8 @@ async function sendDiscordNotification(channelId: string, booking: any) {
       })
     }
     
-    const buttonLabel = `候補${i + 1}\n${candidate.date} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`
+    // ボタンラベル: "候補1: 11/25 夜 18:00-21:00"
+    const buttonLabel = `候補${i + 1}: ${shortDate} ${timeSlot} ${candidate.startTime}-${candidate.endTime}`
     
     components[components.length - 1].components.push({
       type: 2,

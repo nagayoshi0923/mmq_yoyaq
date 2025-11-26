@@ -16,7 +16,7 @@ const SalesChartBase: React.FC<SalesChartProps> = ({
   return (
     <Card>
       <CardHeader className="p-2 sm:p-3 md:p-4 lg:p-6">
-        <CardTitle className="text-sm sm:text-base md:text-lg lg:text-xl">売上推移</CardTitle>
+        <CardTitle className="text-base">売上推移</CardTitle>
       </CardHeader>
       <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6">
         <div className="h-48 sm:h-64 md:h-80 lg:h-96">

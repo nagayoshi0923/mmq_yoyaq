@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { X, ChevronDown, ChevronUp, Mail, ExternalLink } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { AutocompleteInput } from '@/components/ui/autocomplete-input'
@@ -1061,22 +1062,13 @@ export function PerformanceModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="date">日付</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, date: e.target.value }))}
+              <SingleDatePopover
+                date={formData.date}
+                onDateChange={(date) => {
+                  setFormData((prev: any) => ({ ...prev, date: date || '' }))
+                }}
+                placeholder="日付を選択してください"
               />
-              {mode === 'edit' && formData.date && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  現在: {new Date(formData.date + 'T00:00:00').toLocaleDateString('ja-JP', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    weekday: 'short'
-                  })}
-                </p>
-              )}
             </div>
             <div>
               <Label htmlFor="venue">店舗</Label>
@@ -1528,8 +1520,8 @@ export function PerformanceModal({
                   </div>
                 )}
                 <div>
-                {/* ヘッダー */}
-                <div className="border rounded-t-lg bg-muted/30 p-3 h-[50px] flex items-center justify-between font-medium text-sm">
+                {/* ヘッダー - PC表示のみ */}
+                <div className="hidden sm:flex border rounded-t-lg bg-muted/30 p-3 h-[50px] items-center justify-between font-medium text-xs">
                   <div className="flex items-center gap-3 flex-1">
                     <div className="w-[40px] flex items-center justify-center">
                       <Checkbox
@@ -1543,15 +1535,32 @@ export function PerformanceModal({
                         }}
                       />
                     </div>
-                    <span className="w-[100px]">顧客名</span>
+                    <span className="flex-1">顧客名</span>
                     <span className="w-[60px]">人数</span>
-                    <span className="w-[100px]">支払い</span>
-                    <span className="w-[140px]">申し込み日時</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="w-[100px]">ステータス</span>
+                    <span className="w-[80px]">ステータス</span>
                     <span className="w-[80px]"></span>
                   </div>
+                </div>
+                {/* モバイル用ヘッダー */}
+                <div className="sm:hidden border rounded-t-lg bg-muted/30 p-3 flex items-center justify-between font-medium text-xs">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={selectedReservations.size === reservations.length && reservations.length > 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedReservations(new Set(reservations.map(r => r.id)))
+                        } else {
+                          setSelectedReservations(new Set())
+                        }
+                      }}
+                    />
+                    <span>予約一覧</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {reservations.length}件
+                  </span>
                 </div>
                 
                 {/* データ行 */}
@@ -1561,24 +1570,23 @@ export function PerformanceModal({
                   const isLast = index === reservations.length - 1
                   return (
                     <div key={reservation.id} className={isLast ? '' : 'border-b'}>
-                      {/* メイン行 */}
-                      <div className="p-3 h-[60px] flex items-center justify-between">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-[40px] flex items-center justify-center">
-                            <Checkbox
-                              checked={selectedReservations.has(reservation.id)}
-                              onCheckedChange={(checked) => {
-                                const newSelected = new Set(selectedReservations)
-                                if (checked) {
-                                  newSelected.add(reservation.id)
-                                } else {
-                                  newSelected.delete(reservation.id)
-                                }
-                                setSelectedReservations(newSelected)
-                              }}
-                            />
-                          </div>
-                          <span className="font-medium truncate w-[100px]">
+                      {/* メイン行 - モバイル対応2行レイアウト */}
+                      <div className="p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                        {/* 1行目: チェックボックス + 名前 + 人数 */}
+                        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                          <Checkbox
+                            checked={selectedReservations.has(reservation.id)}
+                            onCheckedChange={(checked) => {
+                              const newSelected = new Set(selectedReservations)
+                              if (checked) {
+                                newSelected.add(reservation.id)
+                              } else {
+                                newSelected.delete(reservation.id)
+                              }
+                              setSelectedReservations(newSelected)
+                            }}
+                          />
+                          <span className="font-medium truncate flex-1 min-w-0">
                             {(() => {
                               // 予約者名の優先順位: customer_name > customers.name > customer_notes
                               if (reservation.customer_name) {
@@ -1593,37 +1601,18 @@ export function PerformanceModal({
                               return reservation.customer_notes || '顧客名なし'
                             })()}
                           </span>
-                          <span className="text-sm text-muted-foreground flex-shrink-0 w-[60px]">
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
                             {reservation.participant_count ? `${reservation.participant_count}名` : '-'}
-                          </span>
-                          <Badge 
-                            variant={
-                              reservation.payment_method === 'onsite' ? 'outline' : 
-                              reservation.payment_method === 'online' ? 'default' : 
-                              'secondary'
-                            } 
-                            className="flex-shrink-0 w-[100px] justify-center"
-                          >
-                            {reservation.payment_method === 'onsite' ? '現地決済' : 
-                             reservation.payment_method === 'online' ? '事前決済' : 
-                             '未設定'}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground w-[140px]">
-                            {reservation.created_at ? new Date(reservation.created_at).toLocaleString('ja-JP', {
-                              month: '2-digit',
-                              day: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            }) : '-'}
                           </span>
                         </div>
                         
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* 2行目: 支払い方法 + ステータス + 詳細ボタン */}
+                        <div className="flex items-center gap-2 ml-6 sm:ml-0 flex-wrap">
                           <Select 
                             value={reservation.status} 
                             onValueChange={(value) => handleUpdateReservationStatus(reservation.id, value as Reservation['status'])}
                           >
-                            <SelectTrigger className="w-[100px] h-8">
+                            <SelectTrigger className="w-[80px] h-8 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1636,10 +1625,11 @@ export function PerformanceModal({
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-8 px-2 text-xs"
                             onClick={() => setExpandedReservation(isExpanded ? null : reservation.id)}
                           >
                             詳細
-                            {isExpanded ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />}
+                            {isExpanded ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
                           </Button>
                         </div>
                       </div>
@@ -1720,7 +1710,7 @@ export function PerformanceModal({
               />
             </div>
 
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               <p className="font-medium mb-1">送信先:</p>
               <ul className="list-disc list-inside space-y-1">
                 {reservations

@@ -78,49 +78,39 @@ export function ScheduleTable({
     <div className="overflow-x-auto -mx-2 sm:mx-0">
       <Table className="table-fixed w-full border-collapse min-w-[406px] sm:min-w-[562px] md:min-w-[676px]">
             <colgroup>
+              <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
               <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[14px] sm:w-[18px] md:w-[22px]" />
-              <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
-              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
-              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
-              <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[36px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[160px]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 !h-auto text-center">日付</TableHead>
-                <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 !h-auto text-center">曜日</TableHead>
-                <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 !h-auto text-center">会場</TableHead>
-                <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] whitespace-nowrap !p-0 !h-auto text-center">午前<br className="hidden sm:block"/><span className="sm:hidden"> </span>(~12)</TableHead>
-                <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] whitespace-nowrap !p-0 !h-auto text-center">午後<br className="hidden sm:block"/><span className="sm:hidden"> </span>(12-17)</TableHead>
-                <TableHead className="border-r text-[8px] sm:text-[9px] md:text-[10px] whitespace-nowrap !p-0 !h-auto text-center">夜間<br className="hidden sm:block"/><span className="sm:hidden"> </span>(17~)</TableHead>
-                <TableHead className="text-[8px] sm:text-[9px] md:text-[10px] !p-0 !h-auto text-center">メモ</TableHead>
+                <TableHead className="border-r text-xs !p-0 !h-auto text-center">日付<br/>曜日</TableHead>
+                <TableHead className="border-r text-xs !p-0 !h-auto text-center">会場</TableHead>
+                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">午前<br/>(~12)</TableHead>
+                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">午後<br/>(12-17)</TableHead>
+                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">夜間<br/>(17~)</TableHead>
+                <TableHead className="text-xs !p-0 !h-auto text-center">メモ</TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>
             {monthDays.map(day => {
               return stores.map((store, storeIndex) => (
                 <TableRow key={`${day.date}-${store.id}`} className="h-10 sm:h-12 md:h-14">
-                  {/* 日付セル */}
+                  {/* 日付・曜日統合セル */}
                   {storeIndex === 0 ? (
-                    <TableCell className="schedule-table-cell border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 leading-none text-center align-middle" rowSpan={stores.length}>
-                      <div className="flex items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px]">
-                        {day.displayDate}
-                      </div>
-                    </TableCell>
-                  ) : null}
-                  
-                  {/* 曜日セル */}
-                  {storeIndex === 0 ? (
-                    <TableCell className={`schedule-table-cell border-r text-[8px] sm:text-[9px] md:text-[10px] !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
-                      <div className="flex items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px]">
-                        {day.dayOfWeek}
+                    <TableCell className={`schedule-table-cell border-r text-schedule-xs !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={stores.length}>
+                      <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-0">
+                        <span className="font-semibold">{day.displayDate}</span>
+                        <span className="text-xs">({day.dayOfWeek})</span>
                       </div>
                     </TableCell>
                   ) : null}
                   
                   {/* 店舗セル */}
-                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-[8px] sm:text-[9px] md:text-[10px] !p-0 leading-none text-center">
+                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-schedule-xs !p-0 leading-none text-center">
                     {store.short_name}
                   </TableCell>
                   

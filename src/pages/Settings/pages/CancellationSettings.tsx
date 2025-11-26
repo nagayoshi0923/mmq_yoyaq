@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/PageHeader"
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -219,16 +220,15 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <XCircle className="h-8 w-8 text-red-600" />
-          <h1 className="text-3xl font-bold">キャンセル設定</h1>
-        </div>
-        <Button onClick={handleSave} disabled={saving || !storeId}>
+      <PageHeader
+        title="キャンセル設定"
+        description="キャンセルポリシーと手数料設定"
+      >
+        <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {!storeId && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -312,7 +312,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
               <div key={index} className="border rounded-lg p-4">
                 <div className="grid grid-cols-12 gap-4 items-start">
                   <div className="col-span-3">
-                    <Label className="text-sm font-medium">何時間前</Label>
+                    <Label className="text-sm">何時間前</Label>
                     <div className="mt-1">
                       <Input
                         type="number"
@@ -327,7 +327,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                     </div>
                   </div>
                   <div className="col-span-3">
-                    <Label className="text-sm font-medium">キャンセル料率</Label>
+                    <Label className="text-sm">キャンセル料率</Label>
                     <div className="mt-1 flex items-center gap-2">
                       <Input
                         type="number"
@@ -337,11 +337,11 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
                         max="100"
                         className="text-sm"
                       />
-                      <span className="text-sm text-muted-foreground">%</span>
+                      <span className="text-xs text-muted-foreground">%</span>
                     </div>
                   </div>
                   <div className="col-span-5">
-                    <Label className="text-sm font-medium">説明</Label>
+                    <Label className="text-sm">説明</Label>
                     <div className="mt-1">
                       <Input
                         type="text"
@@ -371,7 +371,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
           {/* プレビュー */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold mb-2">プレビュー</h4>
+            <h4 className="text-sm mb-2">プレビュー</h4>
             <pre className="text-xs text-gray-700 whitespace-pre-wrap">
               {getPreviewText()}
             </pre>
@@ -379,7 +379,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
           
           {/* ガイド */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800 font-medium mb-2">💡 設定のポイント</p>
+            <p className="text-sm text-blue-800 mb-2">💡 設定のポイント</p>
             <ul className="text-xs text-blue-700 space-y-1">
               <li>• 時間は公演開始からの逆算で設定します</li>
               <li>• 料金率は予約金額に対するパーセンテージです</li>

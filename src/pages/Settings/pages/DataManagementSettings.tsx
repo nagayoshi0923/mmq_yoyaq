@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/PageHeader"
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -151,16 +152,15 @@ export function DataManagementSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Database className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold">データ管理設定</h1>
-        </div>
+      <PageHeader
+        title="データ管理設定"
+        description="バックアップとデータ保持設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* バックアップ設定 */}
       <Card>

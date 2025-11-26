@@ -102,7 +102,7 @@ export function CostsPropsSection({ formData, setFormData }: CostsPropsSectionPr
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-4 pb-2 border-b">制作費・道具</h3>
+      <h3 className="text-lg mb-4 pb-2 border-b">制作費・道具</h3>
       <div className="space-y-6">
         {/* 制作費 */}
         <ItemizedListWithDates
@@ -122,7 +122,7 @@ export function CostsPropsSection({ formData, setFormData }: CostsPropsSectionPr
 
         {/* 制作費合計表示 */}
         {formData.production_costs.length > 0 && (
-          <div className="text-sm font-medium text-right">
+          <div className="text-sm text-right">
             合計: ¥{formData.production_costs.reduce((sum, cost) => sum + (cost.amount || 0), 0).toLocaleString()}
           </div>
         )}

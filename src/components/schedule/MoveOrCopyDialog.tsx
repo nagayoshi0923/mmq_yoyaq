@@ -41,16 +41,16 @@ export function MoveOrCopyDialog({ isOpen, onClose, onMove, onCopy, eventInfo }:
         <div className="space-y-4">
           <div className="bg-muted/50 p-4 rounded-md border">
             <div className="font-semibold mb-2">{eventInfo.scenario || 'シナリオ未定'}</div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               移動先: {eventInfo.date} {eventInfo.storeName} {eventInfo.timeSlot}
             </div>
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">移動：</span>元の公演を削除して移動先に配置します
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">複製：</span>元の公演は残し、移動先に新しい公演を作成します
             </p>
           </div>

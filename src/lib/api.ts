@@ -223,6 +223,19 @@ export const scenarioApi = {
     return data || []
   },
 
+  // 公開用シナリオを取得（status='available'のみ、必要なフィールドのみ）
+  async getPublic(): Promise<Partial<Scenario>[]> {
+    const { data, error } = await supabase
+      .from('scenarios')
+      .select('id, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type')
+      .eq('status', 'available')
+      .neq('scenario_type', 'gm_test') // GMテストを除外
+      .order('title', { ascending: true })
+    
+    if (error) throw error
+    return data || []
+  },
+
   // IDでシナリオを取得
   async getById(id: string): Promise<Scenario | null> {
     const { data, error } = await supabase
@@ -726,7 +739,8 @@ export const scheduleApi = {
           id,
           name,
           short_name,
-          color
+          color,
+          address
         ),
         scenarios:scenario_id (
           id,
@@ -741,23 +755,36 @@ export const scheduleApi = {
     
     if (error) throw error
     
-    // 各イベントの実際の参加者数を計算
-    const eventsWithActualParticipants = await Promise.all(scheduleEvents.map(async (event) => {
-      // このイベントの予約データを取得（貸切予約の場合はtimeSlotも取得）
-      const { data: reservations, error: reservationError } = await supabase
+    // 最適化: すべてのイベントIDの予約を一度に取得
+    const eventIds = scheduleEvents.map(e => e.id)
+    const reservationsMap = new Map<string, any[]>()
+    
+    if (eventIds.length > 0) {
+      const { data: allReservations, error: reservationError } = await supabase
         .from('reservations')
-        .select('participant_count, candidate_datetimes, reservation_source')
-        .eq('schedule_event_id', event.id)
+        .select('schedule_event_id, participant_count, candidate_datetimes, reservation_source')
+        .in('schedule_event_id', eventIds)
         .in('status', ['confirmed', 'pending', 'gm_confirmed'])
       
-      if (reservationError) {
-        console.error('予約データの取得に失敗:', reservationError)
-        return event
+      if (!reservationError && allReservations) {
+        // イベントIDごとにグループ化
+        allReservations.forEach(reservation => {
+          const eventId = reservation.schedule_event_id
+          if (!reservationsMap.has(eventId)) {
+            reservationsMap.set(eventId, [])
+          }
+          reservationsMap.get(eventId)!.push(reservation)
+        })
       }
+    }
+    
+    // 各イベントの実際の参加者数を計算
+    const eventsWithActualParticipants = scheduleEvents.map((event) => {
+      const reservations = reservationsMap.get(event.id) || []
       
       // 実際の参加者数を計算
-      const actualParticipants = reservations?.reduce((sum, reservation) => 
-        sum + (reservation.participant_count || 0), 0) || 0
+      const actualParticipants = reservations.reduce((sum, reservation) => 
+        sum + (reservation.participant_count || 0), 0)
       
       // 時間帯（timeSlot）を取得
       let timeSlot: string | undefined
@@ -769,7 +796,7 @@ export const scheduleApi = {
       } else if (event.category === 'private') {
         // 貸切予約の場合、schedule_event_idが紐付いている貸切予約からtimeSlotを取得
         isPrivateBooking = true
-        const privateReservation = reservations?.find(r => r.reservation_source === 'web_private')
+        const privateReservation = reservations.find(r => r.reservation_source === 'web_private')
         if (privateReservation?.candidate_datetimes?.candidates) {
           // 確定済みの候補を探す
           const confirmedCandidate = privateReservation.candidate_datetimes.candidates.find(
@@ -784,18 +811,19 @@ export const scheduleApi = {
         }
       }
       
-      // schedule_eventsのcurrent_participantsが実際の値と異なる場合は更新
+      // schedule_eventsのcurrent_participantsが実際の値と異なる場合は更新（非同期で実行、エラーは無視）
       if (event.current_participants !== actualParticipants) {
-        try {
-          await supabase
-            .from('schedule_events')
-            .update({ current_participants: actualParticipants })
-            .eq('id', event.id)
-          
-          console.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
-        } catch (error) {
-          console.error('参加者数の同期に失敗:', error)
-        }
+        // 非同期で更新（ブロックしない）
+        Promise.resolve(supabase
+          .from('schedule_events')
+          .update({ current_participants: actualParticipants })
+          .eq('id', event.id))
+          .then(() => {
+            console.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
+          })
+          .catch((error) => {
+            console.error('参加者数の同期に失敗:', error)
+          })
       }
       
       // max_participantsを設定: scenarios.player_count_maxを最優先に使用（常に最新の値）
@@ -817,7 +845,7 @@ export const scheduleApi = {
         is_private_booking: isPrivateBooking,
         ...(timeSlot && { timeSlot })
       }
-    }))
+    })
     
     // 確定した貸切公演を取得（schedule_event_idが紐付いていないもののみ）
     // schedule_event_idが紐付いているものは既にschedule_eventsから取得済みのため除外
@@ -840,7 +868,8 @@ export const scheduleApi = {
           id,
           name,
           short_name,
-          color
+          color,
+          address
         ),
         gm_availability_responses (
           staff_id,

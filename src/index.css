@@ -24,6 +24,9 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+    
+    /* MMQデザインシステム：統一入力エリア背景色 */
+    --input-bg: #F6F9FB;
   }
 
   .dark {
@@ -46,6 +49,9 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+    
+    /* ダークモード時の入力エリア背景色 */
+    --input-bg: 217.2 32.6% 17.5%;
   }
 }
 
@@ -58,6 +64,22 @@
   body {
     @apply bg-background text-foreground;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  
+  /* PC版（xl以上）で文字サイズを4px大きく */
+  @media (min-width: 1280px) {
+    .text-xs {
+      font-size: 16px !important;
+    }
+    .text-sm {
+      font-size: 18px !important;
+    }
+    .text-base {
+      font-size: 20px !important;
+    }
+    .text-lg {
+      font-size: 24px !important;
+    }
   }
 }
 
@@ -158,5 +180,36 @@
     padding: 0 !important;
     position: absolute !important;
     left: -9999px !important;
+  }
+}
+
+/* MMQデザインシステム：グローバルコンポーネントクラス */
+@layer components {
+  /* 統一入力エリア背景色 */
+  .input-bg {
+    background-color: var(--input-bg);
+  }
+  
+  /* フォームラベル統一スタイル */
+  .form-label {
+    @apply text-sm font-medium leading-none;
+  }
+  
+  /* 入力フィールド統一スタイル（生のHTML要素用） */
+  .form-input {
+    @apply flex h-10 w-full rounded-md border border-input px-3 py-2 text-sm;
+    @apply ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium;
+    @apply placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0;
+    @apply focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply touch-manipulation;
+    background-color: var(--input-bg);
+  }
+  
+  /* 日付入力フィールド統一スタイル */
+  .form-date-input {
+    @apply border rounded px-3 py-2 text-sm;
+    @apply focus:outline-none focus:ring-2 focus:ring-ring;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+    background-color: var(--input-bg);
   }
 }

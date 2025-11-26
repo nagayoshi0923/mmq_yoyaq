@@ -71,8 +71,18 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading }: UseShi
       
       logger.log('シフト提出成功:', { 保存: shiftsToUpsert.length, 削除: shiftsToRemove.length })
       
-      // Discord通知とGoogleスプレッドシート同期をバックグラウンドで実行（結果を待たない）
+      // localStorageの下書きを削除
       const firstShift = shiftsToSave[0] || shiftsToDelete[0]
+      if (firstShift) {
+        const date = new Date(firstShift.date)
+        const year = date.getFullYear()
+        const month = date.getMonth() + 1
+        const draftKey = `shift_draft_${currentStaffId}_${year}-${month}`
+        localStorage.removeItem(draftKey)
+        logger.log('下書きデータを削除:', draftKey)
+      }
+      
+      // Discord通知とGoogleスプレッドシート同期をバックグラウンドで実行（結果を待たない）
       if (firstShift) {
         const date = new Date(firstShift.date)
         const year = date.getFullYear()

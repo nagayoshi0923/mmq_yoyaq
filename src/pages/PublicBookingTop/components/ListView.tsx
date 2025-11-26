@@ -1,6 +1,8 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { memo, useState, useEffect } from 'react'
+import { memo, useState, useEffect, useMemo } from 'react'
+import React from 'react'
 import { BookingFilters } from './BookingFilters'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface ListViewData {
   date: number
@@ -46,12 +48,24 @@ export const ListView = memo(function ListView({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
+  const scenarioMap = useMemo(() => {
+    const map = new Map<string, any>()
+    scenarios.forEach(scenario => {
+      map.set(scenario.scenario_id, scenario)
+      if (scenario.scenario_title) {
+        map.set(scenario.scenario_title, scenario)
+      }
+    })
+    return map
+  }, [scenarios])
+
   const renderEventCell = (events: any[], store: any, timeSlot: string) => {
     if (events.length === 0) {
       return (
         <div className="p-1 sm:p-2">
           <button
-            className="w-full text-[9px] sm:text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+            className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
             onClick={() => {
               window.location.hash = `#private-booking-select?date=${timeSlot}&store=${store.id}&slot=${timeSlot}`
             }}
@@ -70,18 +84,21 @@ export const ListView = memo(function ListView({
       const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
       const storeColor = getColorFromName(store.color)
       
-      // シナリオ情報を取得
-      const scenario = scenarios.find((s: any) =>
-        s.scenario_id === event.scenario_id ||
-        s.scenario_title === event.scenario ||
-        s.scenario_id === event.scenarios?.id
-      )
+      // シナリオ情報を取得（最適化: Mapから直接取得）
+      const scenario = scenarioMap.get(event.scenario_id) || 
+                       scenarioMap.get(event.scenario) ||
+                       scenarioMap.get(event.scenarios?.id) ||
+                       scenarios.find((s: any) =>
+                         s.scenario_id === event.scenario_id ||
+                         s.scenario_title === event.scenario ||
+                         s.scenario_id === event.scenarios?.id
+                       )
       const imageUrl = scenario?.key_visual_url || event.scenarios?.image_url || event.scenarios?.key_visual_url
 
       return (
         <div
           key={idx}
-          className={`text-[9px] sm:text-xs transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
+          className={`text-xs transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
           style={{
             borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
             backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),
@@ -96,40 +113,54 @@ export const ListView = memo(function ListView({
         >
           <div className="flex gap-0.5 sm:gap-2">
             {/* 左カラム: 画像 */}
-            <div className={`flex-shrink-0 w-[28px] h-[36px] sm:w-[46px] sm:h-[60px] overflow-hidden ${
-              isPrivateBooking 
-                ? 'bg-gray-300' 
-                : imageUrl 
-                  ? 'bg-gray-200' 
+            <div className={`flex-shrink-0 w-[28px] sm:w-[46px] self-stretch overflow-hidden ${
+              isPrivateBooking
+                ? 'bg-gray-300'
+                : imageUrl
+                  ? 'bg-gray-200'
                   : 'bg-gray-200'
             }`}>
               {isPrivateBooking ? (
-                <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                  <span className="text-gray-500 text-[8px] sm:text-[10px] font-bold">MMQ</span>
+                <div className="w-full h-full bg-gray-300 relative">
+                  <span className="absolute inset-0 flex items-center justify-center text-gray-500 text-[10px] sm:text-xs font-medium">MMQ</span>
                 </div>
               ) : imageUrl ? (
-                <img
+                <OptimizedImage
                   src={imageUrl}
                   alt={event.scenario || scenario?.scenario_title || event.scenarios?.title || 'シナリオ画像'}
-                  loading="lazy"
+                  responsive={false}
+                  useWebP={true}
+                  quality={70}
+                  lazy={true}
+                  srcSetSizes={[50, 100]}
+                  breakpoints={{ mobile: 50, tablet: 75, desktop: 100 }}
                   className="w-full h-full object-cover"
+                  fallback={
+                    <div className="w-full h-full bg-gray-200 relative">
+                      <span className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">
+                        No Image
+                      </span>
+                    </div>
+                  }
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400 text-[7px] sm:text-xs">
-                  No Image
+                <div className="w-full h-full bg-gray-200 relative">
+                  <span className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">
+                    No Image
+                  </span>
                 </div>
               )}
             </div>
 
             {/* 右カラム: 情報 */}
             <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
-              <div className="font-semibold text-[10px] sm:text-[12px] md:text-[14px] leading-tight text-left" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
-                {event.start_time?.slice(0, 5)}
-              </div>
-              <div className={`text-[10px] sm:text-[12px] md:text-[14px] font-medium leading-tight text-left truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+              <div className="text-xs sm:text-sm text-left leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                  {event.start_time?.slice(0, 5)}
+                </div>
+              <div className={`text-xs sm:text-sm text-left truncate leading-tight ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
                 {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
               </div>
-              <div className={`text-[9px] sm:text-[11px] md:text-[13px] font-medium leading-tight text-right ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+              <div className={`text-xs sm:text-sm text-right leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
                 {isPrivateBooking ? `残り0人` : isFull ? '満席' : `残り${available}人`}
               </div>
             </div>
@@ -153,8 +184,8 @@ export const ListView = memo(function ListView({
       {/* リスト表示テーブル */}
       <div className="overflow-x-auto -mx-2 sm:mx-0">
         <Table className="sm:min-w-max" style={{ tableLayout: 'fixed', width: isMobile ? '100%' : 'auto' }}>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
+        <TableHeader>
+          <TableRow className="bg-muted/50">
               <TableHead className="hidden sm:table-cell w-24 border-r text-sm">日付</TableHead>
               <TableHead className="border-r text-xs sm:text-sm" style={{ width: isMobile ? '10px' : '60px', minWidth: isMobile ? '10px' : '60px', maxWidth: isMobile ? '10px' : '60px', flexShrink: 0 }}>
                 会場
@@ -171,8 +202,8 @@ export const ListView = memo(function ListView({
                 <span className="sm:hidden">夜間</span>
                 <span className="hidden sm:inline">夜間 (18:00~)</span>
               </TableHead>
-            </TableRow>
-          </TableHeader>
+          </TableRow>
+        </TableHeader>
         <TableBody>
           {listViewData.map(({ date, store }, index) => {
             const events = getEventsForDateStore(date, store.id)
@@ -213,33 +244,33 @@ export const ListView = memo(function ListView({
             const rowSpan = stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length
 
             return (
-              <>
+              <React.Fragment key={`${date}-${store.id}`}>
                 {/* モバイル用：日付行（全幅） */}
                 {isFirstRowOfDate && (
                   <TableRow className="sm:hidden bg-muted/30">
-                    <TableCell colSpan={4} className={`text-left px-2 py-1.5 text-xs font-medium ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`}>
+                    <TableCell colSpan={4} className={`text-left px-2 py-1.5 text-xs ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`}>
                       {listViewMonth.getMonth() + 1}/{date} ({dayOfWeek})
-                    </TableCell>
+                  </TableCell>
                   </TableRow>
                 )}
 
-                <TableRow key={`${date}-${store.id}`} className={isFirstRowOfDate && index !== 0 ? 'border-t-2 border-gray-300' : ''}>
+                <TableRow className={isFirstRowOfDate && index !== 0 ? 'border-t-2 border-gray-300' : ''}>
                   {/* 日付・曜日セル（統合）- デスクトップのみ表示 */}
-                  {isFirstRowOfDate && (
+                {isFirstRowOfDate && (
                     <TableCell className={`hidden sm:table-cell schedule-table-cell border-r text-sm align-top w-24 ${dayOfWeek === '日' ? 'text-red-600' : dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={rowSpan}>
                       <div className="flex flex-col items-center">
-                        <div className="font-medium">{listViewMonth.getMonth() + 1}/{date}</div>
-                        <div className="text-[11px]">{dayOfWeek}</div>
+                        <div className="">{listViewMonth.getMonth() + 1}/{date}</div>
+                        <div className="text-sm">{dayOfWeek}</div>
                       </div>
-                    </TableCell>
-                  )}
-
-                  {/* 店舗セル */}
-                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-xs sm:text-sm" style={{ width: isMobile ? '10px' : '60px', minWidth: isMobile ? '10px' : '60px', maxWidth: isMobile ? '10px' : '60px', flexShrink: 0 }}>
-                    <div className="font-medium leading-tight whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: getColorFromName(store.color) }}>
-                      {store.short_name || store.name}
-                    </div>
                   </TableCell>
+                )}
+
+                {/* 店舗セル */}
+                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-xs sm:text-sm" style={{ width: isMobile ? '10px' : '60px', minWidth: isMobile ? '10px' : '60px', maxWidth: isMobile ? '10px' : '60px', flexShrink: 0 }}>
+                    <div className=" whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: getColorFromName(store.color) }}>
+                    {store.short_name || store.name}
+                  </div>
+                </TableCell>
 
                 {/* 午前セル */}
                 <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
@@ -262,11 +293,11 @@ export const ListView = memo(function ListView({
                   </div>
                 </TableCell>
               </TableRow>
-              </>
+              </React.Fragment>
             )
           })}
         </TableBody>
-        </Table>
+      </Table>
       </div>
     </div>
   )

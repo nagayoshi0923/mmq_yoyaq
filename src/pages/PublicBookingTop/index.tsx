@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
@@ -56,21 +56,65 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const { isFavorite, toggleFavorite } = useFavorites()
   
   // フィルタリングフック
-  const { filteredScenarios, newScenarios, upcomingScenarios, allScenarios } = useBookingFilters(scenarios, searchTerm)
+  const { newScenarios, upcomingScenarios, allScenarios } = useBookingFilters(scenarios, searchTerm)
   
-  // お気に入りトグルハンドラ
-  const handleToggleFavorite = (scenarioId: string, e: React.MouseEvent) => {
+  // お気に入りトグルハンドラ（メモ化）
+  const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     toggleFavorite(scenarioId)
-  }
+  }, [toggleFavorite])
 
   // 初期データロード
   useEffect(() => {
-    loadData()
+    const pageLoadStart = performance.now()
+    console.log('🚀 PublicBookingTop ページロード開始:', new Date().toISOString())
+    console.log('📊 現在の状態:', {
+      scenariosCount: scenarios.length,
+      allEventsCount: allEvents.length,
+      storesCount: stores.length,
+      isLoading
+    })
+    
+    loadData().then(() => {
+      const loadEnd = performance.now()
+      console.log(`⏱️ PublicBookingTop データ取得完了: ${((loadEnd - pageLoadStart) / 1000).toFixed(2)}秒`)
+      console.log('📊 データ取得後の状態:', {
+        scenariosCount: scenarios.length,
+        allEventsCount: allEvents.length,
+        storesCount: stores.length
+      })
+      
+      // レンダリング完了を待つ（複数回チェック）
+      let checkCount = 0
+      const checkRender = () => {
+        checkCount++
+        const renderEnd = performance.now()
+        const elapsed = (renderEnd - pageLoadStart) / 1000
+        
+        // DOMが更新されているか確認
+        const hasContent = document.querySelector('[data-scenario-card]') || document.querySelector('.grid')
+        
+        if (hasContent || checkCount > 20) {
+          console.log(`⏱️ PublicBookingTop レンダリング完了: ${elapsed.toFixed(2)}秒 (チェック回数: ${checkCount})`)
+          console.log('📊 最終状態:', {
+            scenariosCount: scenarios.length,
+            allEventsCount: allEvents.length,
+            storesCount: stores.length,
+            hasContent: !!hasContent
+          })
+        } else {
+          setTimeout(checkRender, 100)
+        }
+      }
+      setTimeout(checkRender, 0)
+    }).catch((error) => {
+      console.error('❌ PublicBookingTop データ取得エラー:', error)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData])
 
-  // タブ変更時にURLハッシュを更新
-  const handleTabChange = (value: string) => {
+  // タブ変更時にURLハッシュを更新（メモ化）
+  const handleTabChange = useCallback((value: string) => {
     setActiveTab(value)
     if (value === 'calendar') {
       window.location.hash = 'customer-booking/calendar'
@@ -79,27 +123,27 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     } else {
       window.location.hash = 'customer-booking'
     }
-  }
+  }, [])
 
-  // シナリオカードクリック
-  const handleCardClick = (scenarioId: string) => {
+  // シナリオカードクリック（メモ化）
+  const handleCardClick = useCallback((scenarioId: string) => {
     if (onScenarioSelect) {
       onScenarioSelect(scenarioId)
     } else {
       window.location.hash = `scenario-detail/${scenarioId}`
     }
-  }
+  }, [onScenarioSelect])
 
-  // 店舗名取得
-  const getStoreName = (event: any): string => {
+  // 店舗名取得（メモ化）
+  const getStoreName = useCallback((event: any): string => {
     if (event.stores) {
       return event.stores.short_name || event.stores.name || '店舗不明'
     }
     return event.store_name || event.store_short_name || '店舗不明'
-  }
+  }, [])
 
-  // 店舗カラー取得
-  const getStoreColor = (event: any): string => {
+  // 店舗カラー取得（メモ化）
+  const getStoreColor = useCallback((event: any): string => {
     if (event.stores?.color) {
       return getColorFromName(event.stores.color)
     }
@@ -107,7 +151,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       return getColorFromName(event.store_color)
     }
     return '#4F46E5'
-  }
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">
@@ -118,9 +162,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-        <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-8 sm:py-12">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-4">Murder Mystery Quest</h1>
-          <p className="text-sm sm:text-base md:text-lg text-purple-100">
+        <div className="container mx-auto max-w-7xl px-[10px] py-6 md:py-10 xl:py-12">
+          <h1 className="text-lg md:text-lg xl:text-lg mb-2 md:mb-3">Murder Mystery Quest</h1>
+          <p className="text-base text-purple-100 leading-relaxed">
             リアルな謎解き体験。あなたは事件の真相を暴けるか？
           </p>
         </div>
@@ -128,22 +172,18 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
 
       {/* 検索バー */}
       <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-2 sm:py-3">
+        <div className="container mx-auto max-w-7xl px-[10px] py-2 md:py-3">
           <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-2.5 sm:px-6 py-4 sm:py-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <p className="text-sm sm:text-base text-muted-foreground">読み込み中...</p>
-          </div>
-        ) : (
+      <div className="container mx-auto max-w-7xl px-[10px] py-4 md:py-6">
+        {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-4 sm:mb-6 h-10 sm:h-11">
-              <TabsTrigger value="lineup" className="text-xs sm:text-sm">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar" className="text-xs sm:text-sm">カレンダー</TabsTrigger>
-              <TabsTrigger value="list" className="text-xs sm:text-sm">リスト</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6 p-1">
+              <TabsTrigger value="lineup" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">カレンダー</TabsTrigger>
+              <TabsTrigger value="list" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">リスト</TabsTrigger>
             </TabsList>
 
             {/* ラインナップ表示 */}
@@ -191,7 +231,6 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
               />
             </TabsContent>
           </Tabs>
-        )}
       </div>
     </div>
   )

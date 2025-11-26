@@ -52,17 +52,18 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
       setLoading(true)
       try {
         const year = currentDate.getFullYear()
-        const month = currentDate.getMonth() + 1
+        const month = currentDate.getMonth() // 0-11に変更
+        const monthForApi = month + 1 // API用は1-12
         
         // データベースから既存のシフトを取得
-        const existingShifts = await shiftApi.getStaffShifts(currentStaffId, year, month)
+        const existingShifts = await shiftApi.getStaffShifts(currentStaffId, year, monthForApi)
         
         // 月の日数を取得
-        const daysInMonth = new Date(year, month, 0).getDate()
+        const daysInMonth = new Date(year, month + 1, 0).getDate()
         const newShiftData: Record<string, ShiftSubmission> = {}
         
         for (let day = 1; day <= daysInMonth; day++) {
-          const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const dateString = `${year}-${String(monthForApi).padStart(2, '0')}-${String(day).padStart(2, '0')}`
           
           // 既存のシフトがあればそれを使用、なければデフォルト値
           const existingShift = existingShifts.find((s: ShiftSubmission) => s.date === dateString)
@@ -77,6 +78,29 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
             all_day: false,
             submitted_at: '',
             status: 'draft'
+          }
+        }
+        
+        // localStorageから下書きを復元（提出済みでない場合のみ）
+        const draftKey = `shift_draft_${currentStaffId}_${year}-${monthForApi}`
+        const draftData = localStorage.getItem(draftKey)
+        if (draftData) {
+          try {
+            const draft = JSON.parse(draftData)
+            // 下書きデータをマージ（提出済みでなければ下書きを優先）
+            Object.keys(draft).forEach(date => {
+              if (newShiftData[date] && newShiftData[date].status !== 'submitted') {
+                newShiftData[date] = {
+                  ...newShiftData[date],
+                  ...draft[date],
+                  id: newShiftData[date].id, // IDは保持
+                  staff_id: currentStaffId,
+                  date: date
+                }
+              }
+            })
+          } catch (e) {
+            console.error('下書きデータの復元に失敗:', e)
           }
         }
         
@@ -95,27 +119,39 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
    * シフト変更ハンドラ
    */
   const handleShiftChange = (date: string, timeSlot: 'morning' | 'afternoon' | 'evening' | 'all_day', checked: boolean) => {
-    setShiftData(prev => ({
-      ...prev,
-      [date]: {
-        ...prev[date],
-        [timeSlot]: checked,
-        // 終日がチェックされた場合、他の時間帯もチェック
-        ...(timeSlot === 'all_day' && checked ? {
-          morning: true,
-          afternoon: true,
-          evening: true
-        } : {}),
-        // 他の時間帯がすべてチェックされた場合、終日もチェック
-        ...(timeSlot !== 'all_day' ? {
-          all_day: timeSlot === 'morning' ? 
-            (checked && prev[date]?.afternoon && prev[date]?.evening) :
-            timeSlot === 'afternoon' ?
-            (checked && prev[date]?.morning && prev[date]?.evening) :
-            (checked && prev[date]?.morning && prev[date]?.afternoon)
-        } : {})
+    setShiftData(prev => {
+      const newData = {
+        ...prev,
+        [date]: {
+          ...prev[date],
+          [timeSlot]: checked,
+          // 終日がチェックされた場合、他の時間帯もチェック
+          ...(timeSlot === 'all_day' && checked ? {
+            morning: true,
+            afternoon: true,
+            evening: true
+          } : {}),
+          // 他の時間帯がすべてチェックされた場合、終日もチェック
+          ...(timeSlot !== 'all_day' ? {
+            all_day: timeSlot === 'morning' ? 
+              (checked && prev[date]?.afternoon && prev[date]?.evening) :
+              timeSlot === 'afternoon' ?
+              (checked && prev[date]?.morning && prev[date]?.evening) :
+              (checked && prev[date]?.morning && prev[date]?.afternoon)
+          } : {})
+        }
       }
-    }))
+      
+      // localStorageに自動保存（下書き）
+      if (currentStaffId) {
+        const year = currentDate.getFullYear()
+        const month = currentDate.getMonth() + 1
+        const key = `shift_draft_${currentStaffId}_${year}-${month}`
+        localStorage.setItem(key, JSON.stringify(newData))
+      }
+      
+      return newData
+    })
   }
 
   /**
@@ -138,6 +174,14 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
         }
       }
     })
+    
+    // localStorageに自動保存
+    if (currentStaffId) {
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+      const key = `shift_draft_${currentStaffId}_${year}-${month}`
+      localStorage.setItem(key, JSON.stringify(newShiftData))
+    }
     
     setShiftData(newShiftData)
   }
@@ -162,6 +206,14 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
         }
       }
     })
+    
+    // localStorageに自動保存
+    if (currentStaffId) {
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+      const key = `shift_draft_${currentStaffId}_${year}-${month}`
+      localStorage.setItem(key, JSON.stringify(newShiftData))
+    }
     
     setShiftData(newShiftData)
   }

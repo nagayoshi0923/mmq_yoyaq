@@ -48,78 +48,69 @@ export const EventList = memo(function EventList({
             key={event.event_id}
             className={`transition-all overflow-hidden ${
               event.available_seats === 0
-                ? 'opacity-50 cursor-not-allowed bg-gray-50 border border-gray-200'
-                : `cursor-pointer ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'hover:bg-accent border'}`
+                ? 'opacity-50 cursor-not-allowed bg-gray-50 border-2 border-gray-200'
+                : `cursor-pointer ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'hover:bg-accent border-2 border-gray-200'}`
             }`}
             onClick={() => {
               if (event.available_seats === 0) return
               onEventSelect(isSelected ? null : event.event_id)
             }}
           >
-            <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 touch-manipulation">
-              {/* 左側：日付と店舗情報 */}
-              <div className="flex items-start gap-1.5 sm:gap-2 flex-1 min-w-0">
-                {/* 日付 */}
-                <div className="font-semibold text-xs sm:text-sm whitespace-nowrap min-w-[45px] sm:min-w-[50px] text-center flex-shrink-0">
-                  <div>{month}/{day}</div>
-                  <div className={`text-[10px] sm:text-xs ${weekdayColor}`}>
-                    ({weekday})
-                  </div>
+            <div className="flex items-center gap-2 p-3 xl:p-4 touch-manipulation">
+              {/* 一番左：店舗 */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span 
+                  className="text-sm whitespace-nowrap"
+                  style={{ 
+                    color: event.store_color || '#6B7280'
+                  }}
+                >
+                  {event.store_short_name}
+                </span>
+              </div>
+              
+              {/* 左側：日付+時間(上) + タイトル(下) */}
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                {/* 日付 + 時間（同じ行） */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm whitespace-nowrap">
+                    {month}/{day} <span className={`text-sm ${weekdayColor}`}>({weekday})</span>
+                  </span>
+                  <span className="text-sm whitespace-nowrap">
+                    {formatTime(event.start_time)}〜
+                  </span>
                 </div>
-                
-                {/* 店舗カラーの正方形 + 店舗名 + 時間 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1 sm:gap-1.5 mb-0.5 flex-wrap">
-                    <div 
-                      className="flex-shrink-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm"
-                      style={{ 
-                        backgroundColor: event.store_color || '#9CA3AF'
-                      }}
-                    />
-                    <span 
-                      className="text-xs sm:text-sm font-medium whitespace-nowrap"
-                      style={{ 
-                        color: event.store_color || '#6B7280'
-                      }}
-                    >
-                      {event.store_short_name}
-                    </span>
-                    <span className="font-semibold text-xs sm:text-sm whitespace-nowrap">
-                      {formatTime(event.start_time)}〜
-                    </span>
-                  </div>
-                  <div className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                    {event.scenario_title || scenarioTitle}
-                  </div>
+                {/* タイトル */}
+                <div className="text-xs text-muted-foreground truncate">
+                  {event.scenario_title || scenarioTitle}
                 </div>
               </div>
               
-              {/* 中央：残り人数 / 満席バッジ */}
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {/* 右側：残り人数 / 満席バッジ + ボタン */}
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {event.available_seats === 0 ? (
-                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 whitespace-nowrap">
+                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-sm px-2 py-1 whitespace-nowrap">
                     満席
                   </Badge>
                 ) : (
                   <div className="text-right whitespace-nowrap">
-                    <div className="font-semibold text-xs sm:text-sm">
+                    <div className="text-sm">
                       残り{event.available_seats}人
                     </div>
                   </div>
                 )}
+                
+                <Button
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  disabled={event.available_seats === 0}
+                  className={`min-w-[50px] whitespace-nowrap text-sm h-9 px-3 touch-manipulation ${
+                    isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
+                  }`}
+                >
+                  {event.available_seats === 0 ? '満席' : '選択'}
+                </Button>
               </div>
-              
-              {/* 右側：選択ボタン */}
-              <Button
-                variant={isSelected ? "default" : "outline"}
-                size="sm"
-                disabled={event.available_seats === 0}
-                className={`flex-shrink-0 min-w-[50px] sm:min-w-[60px] whitespace-nowrap text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 touch-manipulation ${
-                  isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
-                }`}
-              >
-                {event.available_seats === 0 ? '満席' : '選択'}
-              </Button>
             </div>
           </Card>
         )

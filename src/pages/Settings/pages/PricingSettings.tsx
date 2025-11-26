@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/PageHeader"
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -186,16 +187,15 @@ export function PricingSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <DollarSign className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold">料金設定</h1>
-        </div>
+      <PageHeader
+        title="料金設定"
+        description="料金体系と割引設定"
+      >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? '保存中...' : '保存'}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* デフォルト参加費 */}
       <Card>
@@ -216,7 +216,7 @@ export function PricingSettings() {
                 step="100"
                 className="w-32"
               />
-              <span className="text-sm text-muted-foreground">円</span>
+              <span className="text-xs text-muted-foreground">円</span>
             </div>
           </div>
         </CardContent>
@@ -245,7 +245,7 @@ export function PricingSettings() {
                 className="w-32"
                 step="100"
               />
-              <span className="text-sm text-muted-foreground">円</span>
+              <span className="text-xs text-muted-foreground">円</span>
             </div>
             <Button onClick={addTimePricing} variant="outline">
               <Plus className="h-4 w-4" />
@@ -257,7 +257,7 @@ export function PricingSettings() {
               {formData.time_based_pricing.map((pricing, index) => (
                 <div key={index} className="flex items-center justify-between p-3 border rounded">
                   <div className="flex items-center gap-4">
-                    <span className="font-medium w-32">{pricing.time_slot}</span>
+                    <span className="w-32">{pricing.time_slot}</span>
                     <span className="text-muted-foreground">¥{pricing.price.toLocaleString()}</span>
                   </div>
                   <Button
@@ -329,7 +329,7 @@ export function PricingSettings() {
                     min="0"
                     step="100"
                   />
-                  <span className="text-sm text-muted-foreground">円</span>
+                  <span className="text-xs text-muted-foreground">円</span>
                 </div>
               </div>
             </div>
@@ -392,7 +392,7 @@ export function PricingSettings() {
                     min="0"
                     step="100"
                   />
-                  <span className="text-sm text-muted-foreground">円</span>
+                  <span className="text-xs text-muted-foreground">円</span>
                 </div>
               </div>
             </div>
@@ -441,7 +441,7 @@ export function PricingSettings() {
                   min="0"
                   step="100"
                 />
-                <span className="text-sm text-muted-foreground">円</span>
+                <span className="text-xs text-muted-foreground">円</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 期限を過ぎたキャンセルで発生する料金
