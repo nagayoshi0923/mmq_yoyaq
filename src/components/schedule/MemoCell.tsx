@@ -80,14 +80,14 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) 
         />
       ) : (
         <div
-          className="w-full h-full cursor-pointer p-0.5 text-xs lg:text-[10px] text-gray-700 whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight flex items-start"
+          className={`w-full h-full cursor-pointer p-0.5 text-xs lg:text-[10px] whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight flex items-start ${memo ? 'text-gray-700' : 'text-gray-400'}`}
           style={{ 
             backgroundColor: '#F6F9FB',
             transition: 'background-color 0.2s ease'
           }}
           onClick={handleEdit}
         >
-          {memo || ''}
+          {memo || 'memo'}
         </div>
       )}
     </TableCell>
