@@ -533,31 +533,31 @@ export function PerformanceModal({
           (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.email : cancellingReservation.customers?.email) : 
           null)
 
-      if (customerEmail && customerName) {
-        // イベント情報を取得
-        const eventDate = event.date || formData.date
-        const startTime = event.start_time || formData.start_time
-        const endTime = event.end_time || formData.end_time
-        const scenarioTitle = event.scenario || formData.scenario || cancellingReservation.title || ''
-        const storeName = formData.venue 
-          ? stores.find(s => s.id === formData.venue)?.name 
-          : event.venue 
-            ? stores.find(s => s.name === event.venue)?.name || event.venue
-            : ''
+      // イベント情報を取得
+      const eventDate = event.date || formData.date
+      const startTime = event.start_time || formData.start_time
+      const endTime = event.end_time || formData.end_time
+      const scenarioTitle = event.scenario || formData.scenario || cancellingReservation.title || ''
+      const storeName = formData.venue 
+        ? stores.find(s => s.id === formData.venue)?.name 
+        : event.venue 
+          ? stores.find(s => s.name === event.venue)?.name || event.venue
+          : ''
 
-        // キャンセル料を計算（24時間以内は100%）
-        let cancellationFee = 0
-        if (eventDate && startTime) {
-          try {
-            const eventDateTime = new Date(`${eventDate}T${startTime}`)
-            const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
-            cancellationFee = hoursUntilEvent < 24 ? (cancellingReservation.total_price || cancellingReservation.final_price || 0) : 0
-          } catch (dateError) {
-            logger.warn('日時計算エラー:', dateError)
-          }
+      // キャンセル料を計算（24時間以内は100%）
+      let cancellationFee = 0
+      if (eventDate && startTime) {
+        try {
+          const eventDateTime = new Date(`${eventDate}T${startTime}`)
+          const hoursUntilEvent = (eventDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+          cancellationFee = hoursUntilEvent < 24 ? (cancellingReservation.total_price || cancellingReservation.final_price || 0) : 0
+        } catch (dateError) {
+          logger.warn('日時計算エラー:', dateError)
         }
+      }
 
-        // メール内容を設定して確認モーダルを表示
+      if (customerEmail && customerName) {
+        // 顧客情報がある場合は、メール内容を設定して確認モーダルを表示
         setEmailContent({
           customerEmail,
           customerName,
@@ -575,12 +575,97 @@ export function PerformanceModal({
         setIsEmailConfirmOpen(true)
         setIsCancelDialogOpen(false)
       } else {
-        logger.warn('顧客情報が不足しているため、メールを送信できませんでした', { customerName, customerEmail })
-        alert('顧客情報が不足しているため、メールを送信できません')
+        // 顧客情報が不足している場合は、メール送信なしでキャンセル処理のみ実行
+        logger.warn('顧客情報が不足しているため、メールを送信せずにキャンセル処理のみ実行します', { customerName, customerEmail })
+        
+        // 直接キャンセル処理を実行（メール送信なし）
+        handleExecuteCancelWithoutEmail()
+        setIsCancelDialogOpen(false)
       }
     } catch (error) {
       logger.error('メール内容の準備エラー:', error)
       alert('メール内容の準備に失敗しました')
+    }
+  }
+
+  // メール送信なしでキャンセル処理のみを実行
+  const handleExecuteCancelWithoutEmail = async () => {
+    if (!cancellingReservation || !event) {
+      logger.error('キャンセル処理エラー: 必要な情報が不足しています', { cancellingReservation, event })
+      return
+    }
+
+    try {
+      logger.log('予約キャンセル処理開始（メール送信なし）:', { reservationId: cancellingReservation.id })
+      
+      // 予約をキャンセルに更新（cancelled_atも設定）
+      const cancelledAt = new Date().toISOString()
+      await reservationApi.update(cancellingReservation.id, {
+        status: 'cancelled',
+        cancelled_at: cancelledAt
+      })
+      logger.log('予約ステータス更新成功')
+
+      // ローカルステートを更新（キャンセルされた予約はリストから削除）
+      setReservations(prev => 
+        prev.filter(r => r.id !== cancellingReservation.id)
+      )
+      
+      // キャンセルされた予約が展開されている場合は閉じる
+      if (expandedReservation === cancellingReservation.id) {
+        setExpandedReservation(null)
+      }
+      
+      // キャンセルされた予約が選択されている場合は選択解除
+      setSelectedReservations(prev => {
+        const newSelected = new Set(prev)
+        newSelected.delete(cancellingReservation.id)
+        return newSelected
+      })
+
+      // schedule_eventsのcurrent_participantsを減らす
+      if (event.id && !event.id.startsWith('private-')) {
+        try {
+          const { data: eventData, error: eventError } = await supabase
+            .from('schedule_events')
+            .select('current_participants')
+            .eq('id', event.id)
+            .single()
+          
+          if (eventError) {
+            logger.error('schedule_events取得エラー:', eventError)
+          } else {
+            const currentCount = eventData?.current_participants || 0
+            const change = -cancellingReservation.participant_count
+            const newCount = Math.max(0, currentCount + change)
+            
+            const { error: updateError } = await supabase
+              .from('schedule_events')
+              .update({ current_participants: newCount })
+              .eq('id', event.id)
+            
+            if (updateError) {
+              logger.error('参加者数更新エラー:', updateError)
+            } else {
+              logger.log('参加者数更新成功:', { eventId: event.id, oldCount: currentCount, newCount })
+              if (onParticipantChange) {
+                onParticipantChange(event.id, newCount)
+              }
+            }
+          }
+        } catch (error) {
+          logger.error('参加者数の更新エラー:', error)
+        }
+      }
+
+      // 状態をリセット
+      setCancellingReservation(null)
+      
+      // 成功メッセージ
+      alert('予約をキャンセルしました。\n\n※ 顧客情報が不足しているため、キャンセル確認メールは送信されませんでした。\n必要に応じて手動で顧客に連絡してください。')
+    } catch (error) {
+      logger.error('予約キャンセルエラー:', error)
+      alert('予約のキャンセルに失敗しました')
     }
   }
 
