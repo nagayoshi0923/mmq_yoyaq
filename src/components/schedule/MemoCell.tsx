@@ -63,7 +63,7 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) 
   }
 
   return (
-    <TableCell className="schedule-table-cell p-0.5 align-top">
+    <TableCell className="schedule-table-cell !p-0 align-top h-full">
       {isEditing ? (
         <Textarea
           value={memo}
@@ -71,7 +71,7 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) 
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           placeholder=""
-          className="w-full h-full text-xs lg:text-[10px] p-0.5 resize-none border-gray-200 focus:border-gray-300 focus:ring-0"
+          className="w-full h-full text-xs lg:text-[10px] p-0.5 resize-none border-0 focus:border-0 focus:ring-0 rounded-none"
           style={{ 
             backgroundColor: '#F6F9FB',
             transition: 'background-color 0.2s ease'
@@ -80,7 +80,7 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) 
         />
       ) : (
         <div
-          className="w-full h-full cursor-pointer rounded border border-input p-0.5 text-xs lg:text-[10px] text-gray-700 whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight flex items-start"
+          className="w-full h-full cursor-pointer p-0.5 text-xs lg:text-[10px] text-gray-700 whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight flex items-start"
           style={{ 
             backgroundColor: '#F6F9FB',
             transition: 'background-color 0.2s ease'
