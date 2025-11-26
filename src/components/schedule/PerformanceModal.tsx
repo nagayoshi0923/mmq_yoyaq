@@ -1126,40 +1126,50 @@ export function PerformanceModal({
             <div>
               <Label htmlFor="gms">GM</Label>
               <MultiSelect
-                options={staff
-                  .filter(s => s.status === 'active')
-                  .map(staffMember => {
-                    // このシナリオの担当GMかチェック
-                    const isAssignedGM = formData.scenario && 
-                      (staffMember.special_scenarios?.includes(formData.scenario) ||
-                       scenarios.find(sc => sc.title === formData.scenario)?.id &&
-                       staffMember.special_scenarios?.includes(scenarios.find(sc => sc.title === formData.scenario)!.id))
-                    
-                    // 出勤可能かチェック
-                    const availableGMs = availableStaffByScenario?.[formData.scenario] || []
-                    const isAvailable = availableGMs.some(gm => gm.id === staffMember.id)
-                    
-                    // 表示情報を構築
-                    const displayParts: string[] = []
-                    if (isAvailable) displayParts.push('出勤可能')
-                    if (isAssignedGM) displayParts.push('担当GM')
-                    
-                    return {
-                      id: staffMember.id,
-                      name: staffMember.name,
-                      displayInfo: displayParts.length > 0 ? displayParts.join(' / ') : undefined,
-                      sortOrder: isAvailable ? 0 : isAssignedGM ? 1 : 2
-                    }
+                options={(() => {
+                  const options = staff
+                    .filter(s => s.status === 'active')
+                    .map(staffMember => {
+                      // このシナリオの担当GMかチェック
+                      const isAssignedGM = formData.scenario && 
+                        (staffMember.special_scenarios?.includes(formData.scenario) ||
+                         scenarios.find(sc => sc.title === formData.scenario)?.id &&
+                         staffMember.special_scenarios?.includes(scenarios.find(sc => sc.title === formData.scenario)!.id))
+                      
+                      // 出勤可能かチェック
+                      const availableGMs = availableStaffByScenario?.[formData.scenario] || []
+                      const isAvailable = availableGMs.some(gm => gm.id === staffMember.id)
+                      
+                      // 表示情報を構築
+                      const displayParts: string[] = []
+                      if (isAvailable) displayParts.push('出勤可能')
+                      if (isAssignedGM) displayParts.push('担当GM')
+                      
+                      return {
+                        id: staffMember.id,
+                        name: staffMember.name,
+                        displayInfo: displayParts.length > 0 ? displayParts.join(' / ') : undefined,
+                        sortOrder: isAvailable ? 0 : isAssignedGM ? 1 : 2
+                      }
+                    })
+                    .sort((a, b) => {
+                      // sortOrderで優先順位を決定
+                      if (a.sortOrder !== b.sortOrder) {
+                        return a.sortOrder - b.sortOrder
+                      }
+                      // 同じ優先順位の場合は名前順
+                      return a.name.localeCompare(b.name, 'ja')
+                    })
+                    .map(({ id, name, displayInfo }) => ({ id, name, displayInfo }))
+                  
+                  console.log('🔍 GM選択オプション:', {
+                    scenario: formData.scenario,
+                    availableStaffByScenario,
+                    options: options.slice(0, 3)
                   })
-                  .sort((a, b) => {
-                    // sortOrderで優先順位を決定
-                    if (a.sortOrder !== b.sortOrder) {
-                      return a.sortOrder - b.sortOrder
-                    }
-                    // 同じ優先順位の場合は名前順
-                    return a.name.localeCompare(b.name, 'ja')
-                  })
-                  .map(({ id, name, displayInfo }) => ({ id, name, displayInfo }))}
+                  
+                  return options
+                })()}
                 selectedValues={formData.gms}
                 onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
                 placeholder="GMを選択"
