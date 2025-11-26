@@ -72,6 +72,15 @@ export function useScheduleEvents(
     const key = `${date}-${timeSlot}`
     const availableStaff = shiftData[key] || []
 
+    console.log('🔍 availableStaffByScenario計算:', {
+      date,
+      timeSlot,
+      key,
+      shiftDataKeys: Object.keys(shiftData),
+      availableStaffCount: availableStaff.length,
+      availableStaffNames: availableStaff.map(s => s.name)
+    })
+
     const staffByScenario: Record<string, Staff[]> = {}
 
     for (const scenario of scenarios) {
