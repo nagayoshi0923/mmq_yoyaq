@@ -322,7 +322,6 @@ export function StoreManagement() {
               )
             })}
           </div>
-        </div>
       </div>
 
       {/* 編集モーダル */}
