@@ -69,18 +69,20 @@ export function MultiSelect({
       })
     : normalizedOptions
 
-  // 選択済みの項目を上に表示するようにソート
-  const sortedOptions = [...filteredOptions].sort((a, b) => {
-    const valueA = useIdAsValue ? a.id : a.name
-    const valueB = useIdAsValue ? b.id : b.name
+  // 選択済みの項目を上に表示するようにソート（元の順序は保持）
+  const sortedOptions = [...filteredOptions].map((option, index) => ({ option, index })).sort((a, b) => {
+    const valueA = useIdAsValue ? a.option.id : a.option.name
+    const valueB = useIdAsValue ? b.option.id : b.option.name
     const isSelectedA = (selectedValues || []).includes(valueA)
     const isSelectedB = (selectedValues || []).includes(valueB)
     
     // 選択済みを上に
     if (isSelectedA && !isSelectedB) return -1
     if (!isSelectedA && isSelectedB) return 1
-    return 0
-  })
+    
+    // 選択状態が同じ場合は元の順序を保持
+    return a.index - b.index
+  }).map(({ option }) => option)
 
   const handleToggleSelection = (value: string) => {
     const currentValues = selectedValues || []
