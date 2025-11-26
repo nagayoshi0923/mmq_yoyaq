@@ -62,7 +62,7 @@ export default function CustomerManagement() {
           onTabChange={setActiveTab}
         />
       }
-      maxWidth="max-w-[1600px]"
+      maxWidth="max-w-[1280px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >

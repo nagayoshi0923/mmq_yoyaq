@@ -395,7 +395,7 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
           editModeSubtitle={formData.title || '新規シナリオ'}
         />
       }
-      maxWidth="max-w-7xl"
+      maxWidth="max-w-[1280px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
