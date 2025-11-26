@@ -1148,23 +1148,18 @@ export function PerformanceModal({
                       id: staffMember.id,
                       name: staffMember.name,
                       displayInfo: displayParts.length > 0 ? displayParts.join(' / ') : undefined,
-                      isAvailable,
-                      isAssignedGM
+                      sortOrder: isAvailable ? 0 : isAssignedGM ? 1 : 2
                     }
                   })
                   .sort((a, b) => {
-                    // 優先順位: 出勤可能 > 担当GM > その他
-                    // 1. 出勤可能を最優先
-                    if (a.isAvailable && !b.isAvailable) return -1
-                    if (!a.isAvailable && b.isAvailable) return 1
-                    
-                    // 2. 出勤可能が同じ場合は、担当GMを優先
-                    if (a.isAssignedGM && !b.isAssignedGM) return -1
-                    if (!a.isAssignedGM && b.isAssignedGM) return 1
-                    
-                    // 3. 両方とも同じ条件の場合は名前順
+                    // sortOrderで優先順位を決定
+                    if (a.sortOrder !== b.sortOrder) {
+                      return a.sortOrder - b.sortOrder
+                    }
+                    // 同じ優先順位の場合は名前順
                     return a.name.localeCompare(b.name, 'ja')
-                  })}
+                  })
+                  .map(({ id, name, displayInfo }) => ({ id, name, displayInfo }))}
                 selectedValues={formData.gms}
                 onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
                 placeholder="GMを選択"
