@@ -86,9 +86,10 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
       revenue: acc.revenue + event.revenue,
       license: acc.license + event.license_cost,
       gm: acc.gm + event.gm_cost,
+      franchise: acc.franchise + 1000,
       profit: acc.profit + event.net_profit
     }),
-    { revenue: 0, license: 0, gm: 0, profit: 0 }
+    { revenue: 0, license: 0, gm: 0, franchise: 0, profit: 0 }
   )
 
   return (
@@ -151,16 +152,10 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 border-t pt-2 text-sm">
+                <div className="grid grid-cols-3 gap-2 border-t pt-2 text-sm">
                   <div>
                     <p className="text-xs text-muted-foreground">売上</p>
                     <p className="text-green-600">{formatCurrency(event.revenue)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">純利益</p>
-                    <p className={`${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatCurrency(event.net_profit)}
-                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">ライセンス</p>
@@ -169,6 +164,16 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
                   <div>
                     <p className="text-xs text-muted-foreground">GM給与</p>
                     <p className="text-red-600">{formatCurrency(event.gm_cost)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">FC料金</p>
+                    <p className="text-red-600">{formatCurrency(1000)}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">純利益</p>
+                    <p className={`${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(event.net_profit)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -237,6 +242,10 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
                     <p className="text-red-600">{formatCurrency(event.gm_cost)}</p>
                   </div>
                   <div className="min-w-[80px]">
+                    <p className="text-xs text-muted-foreground">FC料金</p>
+                    <p className="text-red-600">{formatCurrency(1000)}</p>
+                  </div>
+                  <div className="min-w-[80px]">
                     <p className="text-xs text-muted-foreground">純利益</p>
                     <p className={`${event.net_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(event.net_profit)}
@@ -250,7 +259,7 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
       </div>
 
       <footer className="border-t pt-3 sm:pt-4">
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 text-center text-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 text-center text-sm">
           <div>
             <p className="text-xs text-muted-foreground">総売上</p>
             <p className="text-green-600">{formatCurrency(totals.revenue)}</p>
@@ -262,6 +271,10 @@ const EventListCardBase: React.FC<EventListCardProps> = ({ events, loading = fal
           <div>
             <p className="text-xs text-muted-foreground">総GM給与</p>
             <p className="text-red-600">{formatCurrency(totals.gm)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">総FC料金</p>
+            <p className="text-red-600">{formatCurrency(totals.franchise)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">総純利益</p>
