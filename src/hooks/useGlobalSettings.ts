@@ -126,11 +126,47 @@ export function useGlobalSettings() {
 
   /**
    * シフト提出ボタンを実際に押せるかどうかをチェック
-   * 提出可能範囲と同じロジックを使用
+   * 提出期限の5日後まではボタンを有効にする（猶予期間）
    */
   const canActuallySubmitShift = (targetDate: Date): { canSubmit: boolean; message?: string } => {
-    // canSubmitShiftと同じロジックを使用
-    return canSubmitShift(targetDate)
+    if (!settings) {
+      return { canSubmit: true }
+    }
+
+    const today = new Date()
+    const currentDay = today.getDate()
+    
+    const { shift_submission_start_day, shift_submission_end_day, shift_submission_target_months_ahead } = settings
+    
+    // 現在の提出期間の開始月を判定
+    let currentPeriodStartMonth = shift_submission_target_months_ahead
+    
+    // 猶予期間を考慮（提出期限の5日後まで）
+    const graceDeadline = shift_submission_end_day + 5
+    
+    if (currentDay > graceDeadline) {
+      // 猶予期限を過ぎている場合は、次の提出期間に入っている
+      currentPeriodStartMonth += 1
+    } else if (currentDay < shift_submission_start_day) {
+      // まだ提出期間が始まっていない場合は、前の提出期間
+      currentPeriodStartMonth -= 1
+    }
+
+    // 提出可能な範囲：開始月から3ヶ月先まで
+    const minMonth = new Date(today.getFullYear(), today.getMonth() + currentPeriodStartMonth, 1)
+    const maxMonth = new Date(today.getFullYear(), today.getMonth() + currentPeriodStartMonth + 2, 1)
+    
+    const targetMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1)
+
+    // 範囲チェック
+    if (targetMonth < minMonth || targetMonth > maxMonth) {
+      return {
+        canSubmit: false,
+        message: '提出期限を過ぎています。変更が必要な場合はシフト制作担当者に連絡してください。'
+      }
+    }
+
+    return { canSubmit: true }
   }
 
   /**
