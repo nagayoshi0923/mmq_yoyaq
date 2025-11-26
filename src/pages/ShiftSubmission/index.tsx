@@ -109,7 +109,7 @@ export function ShiftSubmission() {
 
   // テーブル用のデータ変換
   const tableData: ShiftTableRow[] = useMemo(() => {
-    const data = monthDays.map((day) => ({
+    return monthDays.map((day) => ({
       dayInfo: day,
       shiftData: shiftData[day.date] || {
         id: '',
@@ -123,14 +123,6 @@ export function ShiftSubmission() {
         status: 'draft'
       }
     }))
-    console.log('🔍 tableData件数:', data.length)
-    console.log('🔍 最初の3行のdisplayDate:', data.slice(0, 3).map(d => d.dayInfo.displayDate))
-    console.log('🔍 最初の3行のday:', data.slice(0, 3).map(d => d.dayInfo.day))
-    console.log('🔍 最初の3行の完全データ:', data.slice(0, 3))
-    console.log('🔍 monthDays件数:', monthDays.length)
-    console.log('🔍 monthDaysの最初の3件のdisplayDate:', monthDays.slice(0, 3).map(d => d.displayDate))
-    console.log('🔍 monthDaysの最初の3件のday:', monthDays.slice(0, 3).map(d => d.day))
-    return data
   }, [monthDays, shiftData, currentStaffId])
 
   // テーブル列定義（メモ化）
