@@ -112,7 +112,7 @@ export function Settings() {
           onTabChange={setActiveTab}
         />
       }
-      maxWidth="max-w-[1280px]"
+      maxWidth="max-w-[1440px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
     >
