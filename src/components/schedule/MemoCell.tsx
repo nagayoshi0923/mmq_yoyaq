@@ -70,7 +70,7 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) 
           onChange={(e) => handleMemoChange(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          placeholder=""
+          placeholder="memo"
           className="w-full h-full text-xs lg:text-[10px] p-0.5 resize-none border-0 focus:border-0 focus:ring-0 rounded-none"
           style={{ 
             backgroundColor: '#F6F9FB',
