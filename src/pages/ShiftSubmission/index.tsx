@@ -201,13 +201,13 @@ export function ShiftSubmission() {
           </>
         )}
 
-        {/* シフト提出ボタン（モバイル用・固定表示） */}
-        <div className="sm:hidden sticky top-[44px] z-50 bg-background pb-3 pt-2">
+        {/* シフト提出ボタン（モバイル用） */}
+        <div className="sm:hidden pb-3">
           <Button 
             onClick={handleSubmitShift} 
             disabled={loading || !actualSubmitCheck.canSubmit}
             size="sm"
-            className="w-full text-xs shadow-lg"
+            className="w-full text-xs"
           >
             {loading ? '送信中...' : 'シフトを提出'}
           </Button>
