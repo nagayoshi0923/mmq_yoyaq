@@ -78,12 +78,12 @@ export function ScheduleTable({
     <div className="overflow-x-auto -mx-2 sm:mx-0">
       <Table className="table-fixed w-full border-collapse min-w-[406px] sm:min-w-[562px] md:min-w-[676px]">
             <colgroup>
-              <col className="w-[32px] sm:w-[40px] md:w-[48px] lg:w-[48px] xl:w-[48px]" />
-              <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[32px] xl:w-[32px]" />
-              <col className="w-[110px] sm:w-[150px] md:w-[200px] lg:w-[200px] xl:w-[200px]" />
-              <col className="w-[110px] sm:w-[150px] md:w-[200px] lg:w-[200px] xl:w-[200px]" />
-              <col className="w-[110px] sm:w-[150px] md:w-[200px] lg:w-[200px] xl:w-[200px]" />
-              <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[32px] xl:w-[32px]" />
+              <col style={{ width: 'clamp(32px, 5vw, 48px)' }} />
+              <col style={{ width: 'clamp(24px, 3vw, 32px)' }} />
+              <col style={{ width: 'clamp(110px, 15vw, 200px)' }} />
+              <col style={{ width: 'clamp(110px, 15vw, 200px)' }} />
+              <col style={{ width: 'clamp(110px, 15vw, 200px)' }} />
+              <col style={{ width: 'clamp(24px, 3vw, 32px)' }} />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50">
