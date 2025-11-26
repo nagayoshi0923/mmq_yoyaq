@@ -150,7 +150,7 @@ export function ShiftSubmission() {
       sidebar={undefined}
       maxWidth="max-w-[1600px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
-      stickyLayout={false}
+      stickyLayout={true}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
         <PageHeader
@@ -210,7 +210,7 @@ export function ShiftSubmission() {
         )}
 
         {/* シフト提出ボタン（モバイル用・固定表示） */}
-        <div className="sm:hidden sticky top-[44px] z-40 bg-background pb-3 -mb-3">
+        <div className="sm:hidden sticky top-[44px] z-50 bg-background pb-3 pt-2">
           <Button 
             onClick={handleSubmitShift} 
             disabled={loading || !actualSubmitCheck.canSubmit}
@@ -232,7 +232,7 @@ export function ShiftSubmission() {
         </div>
 
         {/* テーブル */}
-        <div className="relative mt-6 sm:mt-0">
+        <div className="relative">
           <TanStackDataTable
             data={tableData}
             columns={tableColumns}
