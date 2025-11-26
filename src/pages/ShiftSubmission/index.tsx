@@ -150,7 +150,7 @@ export function ShiftSubmission() {
       sidebar={undefined}
       maxWidth="max-w-[1600px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
-      stickyLayout={true}
+      stickyLayout={false}
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
         <PageHeader
