@@ -1135,18 +1135,34 @@ export function PerformanceModal({
                        scenarios.find(sc => sc.title === formData.scenario)?.id &&
                        staffMember.special_scenarios?.includes(scenarios.find(sc => sc.title === formData.scenario)!.id))
                     
+                    // 出勤可能かチェック
+                    const availableGMs = availableStaffByScenario?.[formData.scenario] || []
+                    const isAvailable = availableGMs.some(gm => gm.id === staffMember.id)
+                    
+                    // 表示情報を構築
+                    const displayParts: string[] = []
+                    if (isAvailable) displayParts.push('出勤可能')
+                    if (isAssignedGM) displayParts.push('担当GM')
+                    
                     return {
                       id: staffMember.id,
                       name: staffMember.name,
-                      displayInfo: isAssignedGM ? '担当GM' : undefined,
+                      displayInfo: displayParts.length > 0 ? displayParts.join(' / ') : undefined,
+                      isAvailable,
                       isAssignedGM
                     }
                   })
                   .sort((a, b) => {
-                    // 担当GMを上に表示
+                    // 優先順位: 出勤可能 > 担当GM > その他
+                    // 1. 出勤可能を最優先
+                    if (a.isAvailable && !b.isAvailable) return -1
+                    if (!a.isAvailable && b.isAvailable) return 1
+                    
+                    // 2. 出勤可能が同じ場合は、担当GMを優先
                     if (a.isAssignedGM && !b.isAssignedGM) return -1
                     if (!a.isAssignedGM && b.isAssignedGM) return 1
-                    // 両方とも担当GMまたは両方とも非担当GMの場合は名前順
+                    
+                    // 3. 両方とも同じ条件の場合は名前順
                     return a.name.localeCompare(b.name, 'ja')
                   })}
                 selectedValues={formData.gms}
@@ -1331,11 +1347,23 @@ export function PerformanceModal({
                 <SelectValue placeholder="シナリオを選択" />
               </SelectTrigger>
               <SelectContent>
-                {scenarios.map(scenario => (
-                  <SelectItem key={scenario.id} value={scenario.title}>
-                    {scenario.title}
-                  </SelectItem>
-                ))}
+                {scenarios.map(scenario => {
+                  // このシナリオで出勤可能なGMを取得
+                  const availableGMs = availableStaffByScenario?.[scenario.title] || []
+                  
+                  return (
+                    <SelectItem key={scenario.id} value={scenario.title}>
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span>{scenario.title}</span>
+                        {availableGMs.length > 0 && (
+                          <span className="text-xs text-muted-foreground ml-auto">
+                            {availableGMs.map(gm => gm.name).join(', ')}
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
             {formData.is_private_request && (
