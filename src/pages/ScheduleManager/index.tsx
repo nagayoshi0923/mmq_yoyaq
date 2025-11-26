@@ -143,7 +143,7 @@ export function ScheduleManager() {
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       className="mx-auto"
     >
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-[1440px] mx-auto">
         {/* ヘッダー */}
         <ScheduleHeader
           currentDate={currentDate}
