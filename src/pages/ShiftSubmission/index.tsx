@@ -224,7 +224,7 @@ export function ShiftSubmission() {
         </div>
 
         {/* テーブル */}
-        <div className="relative">
+        <div className="relative px-[10px]">
           <TanStackDataTable
             data={tableData}
             columns={tableColumns}
