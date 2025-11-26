@@ -1127,6 +1127,14 @@ export function PerformanceModal({
               <Label htmlFor="gms">GM</Label>
               <MultiSelect
                 options={(() => {
+                  // 全シナリオから出勤可能なGMをマージ（シナリオ未選択時のため）
+                  const allAvailableGMs = new Set<string>()
+                  if (availableStaffByScenario) {
+                    Object.values(availableStaffByScenario).forEach(gmList => {
+                      gmList.forEach(gm => allAvailableGMs.add(gm.id))
+                    })
+                  }
+                  
                   const options = staff
                     .filter(s => s.status === 'active')
                     .map(staffMember => {
@@ -1137,8 +1145,15 @@ export function PerformanceModal({
                          staffMember.special_scenarios?.includes(scenarios.find(sc => sc.title === formData.scenario)!.id))
                       
                       // 出勤可能かチェック
-                      const availableGMs = availableStaffByScenario?.[formData.scenario] || []
-                      const isAvailable = availableGMs.some(gm => gm.id === staffMember.id)
+                      // シナリオが選択されている場合: そのシナリオで出勤可能か
+                      // シナリオ未選択の場合: その日時に出勤しているか
+                      let isAvailable = false
+                      if (formData.scenario) {
+                        const availableGMs = availableStaffByScenario?.[formData.scenario] || []
+                        isAvailable = availableGMs.some(gm => gm.id === staffMember.id)
+                      } else {
+                        isAvailable = allAvailableGMs.has(staffMember.id)
+                      }
                       
                       // 表示情報を構築
                       const displayParts: string[] = []
@@ -1164,6 +1179,7 @@ export function PerformanceModal({
                   
                   console.log('🔍 GM選択オプション:', {
                     scenario: formData.scenario,
+                    allAvailableGMsCount: allAvailableGMs.size,
                     availableStaffByScenario,
                     options: options.slice(0, 3)
                   })
