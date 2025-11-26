@@ -87,12 +87,12 @@ export function ScheduleTable({
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="border-r text-xs !p-0 !h-auto text-center">日付<br/>曜日</TableHead>
-                <TableHead className="border-r text-xs !p-0 !h-auto text-center">会場</TableHead>
-                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">午前<br/>(~12)</TableHead>
-                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">午後<br/>(12-17)</TableHead>
-                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">夜間<br/>(17~)</TableHead>
-                <TableHead className="text-xs !p-0 !h-auto text-center">メモ</TableHead>
+                <TableHead className="border-r text-xs !p-0 !h-auto text-center" style={{ width: '48px' }}>日付<br/>曜日</TableHead>
+                <TableHead className="border-r text-xs !p-0 !h-auto text-center" style={{ width: '32px' }}>会場</TableHead>
+                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center" style={{ width: '200px' }}>午前<br/>(~12)</TableHead>
+                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center" style={{ width: '200px' }}>午後<br/>(12-17)</TableHead>
+                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center" style={{ width: '200px' }}>夜間<br/>(17~)</TableHead>
+                <TableHead className="text-xs !p-0 !h-auto text-center" style={{ width: '32px' }}>メモ</TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>
