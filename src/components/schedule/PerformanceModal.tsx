@@ -1499,39 +1499,6 @@ export function PerformanceModal({
               rows={3}
             />
           </div>
-
-          {/* 収支情報 */}
-          <div className="border-t pt-4 mt-4">
-            <h3 className="text-sm font-medium mb-3">収支情報</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-muted/30 rounded-lg p-3">
-                <div className="text-xs text-muted-foreground mb-1">フランチャイズ料金</div>
-                <div className="text-lg font-semibold">¥1,000</div>
-                <div className="text-xs text-muted-foreground mt-1">1公演あたりの固定費</div>
-              </div>
-              {(() => {
-                // 選択されているシナリオのGM報酬を計算
-                const selectedScenario = scenarios.find(s => s.title === formData.scenario)
-                if (!selectedScenario || !selectedScenario.gm_costs || selectedScenario.gm_costs.length === 0) {
-                  return null
-                }
-                
-                // GM人数分の報酬合計を計算
-                const gmCount = formData.gms.length
-                const totalReward = selectedScenario.gm_costs.reduce((sum, cost) => sum + (cost.reward || 0), 0) * gmCount
-                
-                return (
-                  <div className="bg-muted/30 rounded-lg p-3">
-                    <div className="text-xs text-muted-foreground mb-1">GM報酬</div>
-                    <div className="text-lg font-semibold">¥{totalReward.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      GM {gmCount}名 × {selectedScenario.gm_costs.length > 0 ? `¥${selectedScenario.gm_costs[0].reward.toLocaleString()}` : '¥0'}
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-          </div>
         </div>
 
         {/* アクションボタン */}

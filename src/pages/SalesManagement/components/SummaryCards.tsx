@@ -1,6 +1,6 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Calendar, TrendingUp, Store, BookOpen, CreditCard, Users, DollarSign } from 'lucide-react'
+import { Calendar, TrendingUp, Store, BookOpen, CreditCard, Users, DollarSign, Wrench } from 'lucide-react'
 
 interface Store {
   id: string
@@ -119,7 +119,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
       </div>
 
       {/* 第2行: 変動費内訳 */}
-      <div className="grid gap-2 sm:gap-2 md:gap-3 lg:gap-4 grid-cols-2 sm:grid-cols-2 md:grid-cols-4">
+      <div className="grid gap-2 sm:gap-2 md:gap-3 lg:gap-4 grid-cols-2 sm:grid-cols-2 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
             <CardTitle className="text-sm flex items-center gap-1">
@@ -145,6 +145,40 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
             <CardTitle className="text-sm flex items-center gap-1">
+              <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-green-600 flex-shrink-0" />
+              <span className="truncate">GM報酬</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
+            <div className="text-base text-green-600">
+              {formatCurrency(totalGmCost)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
+              GMへの支払い
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
+            <CardTitle className="text-sm flex items-center gap-1">
+              <Store className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-blue-600 flex-shrink-0" />
+              <span className="truncate">FC料金</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6 pt-0">
+            <div className="text-base text-blue-600">
+              {formatCurrency(totalEvents * 1000)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
+              {totalEvents}公演 × ¥1,000
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
+            <CardTitle className="text-sm flex items-center gap-1">
               <BookOpen className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-red-600 flex-shrink-0" />
               <span className="truncate">ライセンス</span>
             </CardTitle>
@@ -162,7 +196,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
             <CardTitle className="text-sm flex items-center gap-1">
-              <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-orange-600 flex-shrink-0" />
+              <Wrench className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-orange-600 flex-shrink-0" />
               <span className="truncate">制作費</span>
             </CardTitle>
           </CardHeader>
@@ -193,7 +227,10 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             )}
           </CardContent>
         </Card>
+      </div>
 
+      {/* 第3行: 固定費 */}
+      <div className="grid gap-2 sm:gap-2 md:gap-3 lg:gap-4 grid-cols-1">
         <Card>
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 lg:p-6">
             <CardTitle className="text-sm flex items-center gap-1">
