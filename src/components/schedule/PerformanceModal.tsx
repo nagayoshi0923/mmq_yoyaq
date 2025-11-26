@@ -1129,11 +1129,20 @@ export function PerformanceModal({
                 options={(() => {
                   // 全シナリオから出勤可能なGMをマージ（シナリオ未選択時のため）
                   const allAvailableGMs = new Set<string>()
+                  
+                  console.log('🔍 availableStaffByScenario詳細:', {
+                    availableStaffByScenario,
+                    keys: Object.keys(availableStaffByScenario || {}),
+                    values: Object.values(availableStaffByScenario || {}).map(list => list.map(gm => ({ id: gm.id, name: gm.name })))
+                  })
+                  
                   if (availableStaffByScenario) {
                     Object.values(availableStaffByScenario).forEach(gmList => {
                       gmList.forEach(gm => allAvailableGMs.add(gm.id))
                     })
                   }
+                  
+                  console.log('🔍 allAvailableGMs:', Array.from(allAvailableGMs))
                   
                   const options = staff
                     .filter(s => s.status === 'active')
