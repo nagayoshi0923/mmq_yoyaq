@@ -78,12 +78,12 @@ export function ScheduleTable({
     <div className="overflow-x-auto -mx-2 sm:mx-0">
       <Table className="table-fixed w-full border-collapse min-w-[406px] sm:min-w-[562px] md:min-w-[676px]">
             <colgroup>
-              <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
-              <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
-              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
-              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[230px]" />
-              <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[36px]" />
+              <col className="w-[32px] sm:w-[40px] md:w-[48px] lg:w-[56px]" />
+              <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[40px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[240px] xl:w-[280px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[240px] xl:w-[280px]" />
+              <col className="w-[110px] sm:w-[150px] md:w-[190px] lg:w-[240px] xl:w-[280px]" />
+              <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[40px] xl:w-[48px]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50">
