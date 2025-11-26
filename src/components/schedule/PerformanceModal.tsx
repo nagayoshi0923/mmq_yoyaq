@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { X, ChevronDown, ChevronUp, Mail, ExternalLink } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { AutocompleteInput } from '@/components/ui/autocomplete-input'
 import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
 import { StaffEditModal } from '@/components/modals/StaffEditModal'
@@ -1329,7 +1330,7 @@ export function PerformanceModal({
           {/* シナリオ */}
           <div>
             <Label htmlFor="scenario">シナリオタイトル</Label>
-            <Select
+            <SearchableSelect
               value={formData.scenario}
               onValueChange={(scenarioTitle) => {
                 const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
@@ -1351,34 +1352,27 @@ export function PerformanceModal({
                   }))
                 }
               }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="シナリオを選択" />
-              </SelectTrigger>
-              <SelectContent>
-                {scenarios.map(scenario => {
-                  // このシナリオで出勤可能なGMを取得
-                  // シナリオに担当として紐付いている出勤可能なGMのみ
-                  const scenarioAvailableGMs = allAvailableStaff.filter(gm => {
-                    const specialScenarios = gm.special_scenarios || []
-                    return specialScenarios.includes(scenario.id) || specialScenarios.includes(scenario.title)
-                  })
-                  
-                  return (
-                    <SelectItem key={scenario.id} value={scenario.title}>
-                      <div className="flex items-center justify-between w-full gap-2">
-                        <span>{scenario.title}</span>
-                        {scenarioAvailableGMs.length > 0 && (
-                          <span className="text-xs text-muted-foreground ml-auto">
-                            {scenarioAvailableGMs.map(gm => gm.name).join(', ')}
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
+              options={scenarios.map(scenario => {
+                // このシナリオで出勤可能なGMを取得
+                const scenarioAvailableGMs = allAvailableStaff.filter(gm => {
+                  const specialScenarios = gm.special_scenarios || []
+                  return specialScenarios.includes(scenario.id) || specialScenarios.includes(scenario.title)
+                })
+                
+                return {
+                  value: scenario.title,
+                  label: scenario.title,
+                  displayInfo: scenarioAvailableGMs.length > 0 
+                    ? scenarioAvailableGMs.map(gm => gm.name).join(', ')
+                    : undefined
+                }
+              })}
+              placeholder="シナリオを選択"
+              searchPlaceholder="シナリオ名で検索..."
+              emptyText="シナリオが見つかりません"
+              emptyActionLabel="+ シナリオを作成"
+              onEmptyAction={() => setIsScenarioDialogOpen(true)}
+            />
             {formData.is_private_request && (
               <p className="text-xs text-purple-600 mt-1">
                 ※ 貸切リクエストのシナリオは変更できません
