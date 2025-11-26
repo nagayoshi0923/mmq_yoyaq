@@ -83,7 +83,7 @@ export function ScheduleTable({
               <col className="w-[110px] sm:w-[150px] md:w-[190px]" />
               <col className="w-[110px] sm:w-[150px] md:w-[190px]" />
               <col className="w-[110px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
+              <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[48px]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50">
