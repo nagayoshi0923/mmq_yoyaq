@@ -127,15 +127,19 @@ export function ShiftSubmission() {
   }, [monthDays, shiftData, currentStaffId])
 
   // テーブル列定義（メモ化）
-  const tableColumns = useMemo(
-    () => createShiftColumns({
+  const tableColumns = useMemo(() => {
+    console.log('🔍 tableColumns disabled check:', { 
+      canEdit: editCheck.canEdit, 
+      disabled: !editCheck.canEdit,
+      editCheck 
+    })
+    return createShiftColumns({
       onShiftChange: handleShiftChange,
       onSelectAll: handleSelectAll,
       onDeselectAll: handleDeselectAll,
       disabled: !editCheck.canEdit // 編集期限を過ぎている場合は無効化
-    }),
-    [handleShiftChange, handleSelectAll, handleDeselectAll, editCheck.canEdit]
-  )
+    })
+  }, [handleShiftChange, handleSelectAll, handleDeselectAll, editCheck.canEdit])
 
   return (
     <AppLayout

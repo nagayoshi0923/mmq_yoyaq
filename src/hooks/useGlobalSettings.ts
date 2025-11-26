@@ -102,7 +102,19 @@ export function useGlobalSettings() {
     const targetMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1)
 
     // 範囲チェック
-    if (targetMonth < minMonth || targetMonth > maxMonth) {
+    const isOutOfRange = targetMonth < minMonth || targetMonth > maxMonth
+    console.log('🔍 canSubmitShift range check:', {
+      targetMonth: `${targetMonth.getFullYear()}/${targetMonth.getMonth() + 1}`,
+      minMonth: `${minMonth.getFullYear()}/${minMonth.getMonth() + 1}`,
+      maxMonth: `${maxMonth.getFullYear()}/${maxMonth.getMonth() + 1}`,
+      isOutOfRange,
+      currentDay,
+      shift_submission_start_day,
+      shift_submission_end_day,
+      currentPeriodStartMonth
+    })
+    
+    if (isOutOfRange) {
       const minMonthStr = `${minMonth.getFullYear()}年${minMonth.getMonth() + 1}月`
       const maxMonthStr = `${maxMonth.getFullYear()}年${maxMonth.getMonth() + 1}月`
       
@@ -117,11 +129,20 @@ export function useGlobalSettings() {
 
   /**
    * シフト編集が可能かどうかをチェック
-   * 編集期限 = ボタン有効期限（対象月の前月10日まで）
+   * 編集期限 = 提出期限と同じ（猶予期間は含まない）
    */
   const canEditShift = (targetDate: Date): { canEdit: boolean; message?: string } => {
-    // 編集期限はボタン有効期限と同じ（対象月の前月10日まで）
-    return canActuallySubmitShift(targetDate)
+    // 編集期限は提出期限と同じ
+    const result = canSubmitShift(targetDate)
+    console.log('🔍 canEditShift:', { 
+      targetDate: targetDate.toISOString(), 
+      canEdit: result.canSubmit,
+      message: result.message 
+    })
+    return {
+      canEdit: result.canSubmit,
+      message: result.message
+    }
   }
 
   /**
