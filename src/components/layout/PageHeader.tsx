@@ -51,7 +51,7 @@ export function PageHeader({
           </p>
         </div>
         {children && (
-          <div className="flex gap-2 flex-shrink-0 items-center justify-start sm:justify-end">
+          <div className="flex gap-2 flex-shrink-0 items-center justify-end">
             {children}
           </div>
         )}
