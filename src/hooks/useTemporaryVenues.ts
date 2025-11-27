@@ -1,7 +1,8 @@
 /**
- * 臨時会場管理フック
+ * 臨時会場管理フック（リファクタリング版）
  * 
  * レンタルスペースなど、特定の日付のみに追加される臨時会場を管理する
+ * 臨時1〜5を再利用し、日付ごとに表示/非表示を制御する
  */
 
 import { useState, useCallback, useEffect } from 'react'
@@ -9,10 +10,11 @@ import { supabase } from '@/lib/supabase'
 import type { Store } from '@/types'
 
 interface UseTemporaryVenuesReturn {
-  temporaryVenues: Store[]
-  getVenuesForDate: (date: string) => Store[]
-  addTemporaryVenue: (date: string) => Promise<void>
-  removeTemporaryVenue: (venueId: string) => Promise<void>
+  temporaryVenues: Store[]  // すべての臨時会場（臨時1〜5）
+  availableVenues: Store[]  // まだ予約されていない臨時会場
+  getVenuesForDate: (date: string) => Store[]  // 指定日付で使用される臨時会場
+  addTemporaryVenue: (date: string, venueId: string) => Promise<void>
+  removeTemporaryVenue: (date: string, venueId: string) => Promise<void>
   loading: boolean
 }
 
@@ -41,16 +43,23 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
     const loadTemporaryVenues = async () => {
       setLoading(true)
       try {
-        const { start, end } = getMonthRange(currentDate)
-        
+        // 臨時1〜5をすべて取得
         const { data, error } = await supabase
           .from('stores')
           .select('*')
           .eq('is_temporary', true)
-          .gte('temporary_date', start)
-          .lte('temporary_date', end)
+          .order('name', { ascending: true })
         
         if (error) throw error
+        
+        console.log('📍 臨時会場データ読み込み:', {
+          取得件数: data?.length || 0,
+          データ: data?.map(v => ({
+            id: v.id,
+            name: v.name,
+            temporary_dates: v.temporary_dates
+          }))
+        })
         
         setTemporaryVenues(data || [])
       } catch (error) {
@@ -64,8 +73,6 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
     loadTemporaryVenues()
 
     // Realtime購読（臨時会場のみ）
-    const { start, end } = getMonthRange(currentDate)
-    
     const channel = supabase
       .channel('temporary_venues_changes')
       .on(
@@ -74,8 +81,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
           event: '*',
           schema: 'public',
           table: 'stores'
-          // フィルターを削除: RLS と組み合わせるとフィルターが正しく動作しない可能性があるため
-          // クライアント側で is_temporary をチェック
+          // フィルターなし: クライアント側で is_temporary をチェック
         },
         (payload) => {
           // 臨時会場以外は無視
@@ -87,40 +93,24 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
           console.log('🔔 臨時会場Realtimeイベント受信:', {
             type: payload.eventType,
             venue: payload.new?.name || payload.old?.name,
-            date: payload.new?.temporary_date || payload.old?.temporary_date,
-            is_temporary: isTemporary
+            temporary_dates: payload.new?.temporary_dates || payload.old?.temporary_dates
           })
-          
-          // クライアント側で月フィルタリング
-          const isInCurrentMonth = (venue: any) => {
-            return venue.temporary_date >= start && venue.temporary_date <= end
-          }
 
           if (payload.eventType === 'INSERT' && payload.new) {
-            if (isInCurrentMonth(payload.new)) {
-              setTemporaryVenues(prev => {
-                // 重複チェック: 同じIDが既に存在するか
-                if (prev.some(v => v.id === payload.new.id)) {
-                  console.log('⏭️ 重複をスキップ:', payload.new.id)
-                  return prev
-                }
-                console.log('✅ Realtime: 臨時会場を追加:', payload.new.name)
-                return [...prev, payload.new as Store]
-              })
-            } else {
-              console.log('⏭️ 月外のためスキップ:', payload.new.temporary_date)
-            }
+            setTemporaryVenues(prev => {
+              // 重複チェック
+              if (prev.some(v => v.id === payload.new.id)) {
+                console.log('⏭️ 重複をスキップ:', payload.new.id)
+                return prev
+              }
+              console.log('✅ Realtime: 臨時会場を追加:', payload.new.name)
+              return [...prev, payload.new as Store].sort((a, b) => a.name.localeCompare(b.name))
+            })
           } else if (payload.eventType === 'UPDATE' && payload.new) {
-            if (isInCurrentMonth(payload.new)) {
-              setTemporaryVenues(prev => 
-                prev.map(v => v.id === payload.new.id ? payload.new as Store : v)
-              )
-              console.log('🔄 Realtime: 臨時会場を更新:', payload.new.name)
-            } else {
-              // 月外に移動した場合は削除
-              setTemporaryVenues(prev => prev.filter(v => v.id !== payload.new.id))
-              console.log('🗑️ Realtime: 月外に移動したため削除:', payload.new.name)
-            }
+            setTemporaryVenues(prev => 
+              prev.map(v => v.id === payload.new.id ? payload.new as Store : v)
+            )
+            console.log('🔄 Realtime: 臨時会場を更新:', payload.new.name)
           } else if (payload.eventType === 'DELETE' && payload.old) {
             setTemporaryVenues(prev => prev.filter(v => v.id !== payload.old.id))
             console.log('🗑️ Realtime: 臨時会場を削除:', payload.old.name)
@@ -143,105 +133,117 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
 
   // 特定の日付の臨時会場を取得
   const getVenuesForDate = useCallback((date: string) => {
-    return temporaryVenues.filter(venue => venue.temporary_date === date)
+    return temporaryVenues.filter(venue => {
+      const dates = venue.temporary_dates || []
+      return dates.includes(date)
+    })
   }, [temporaryVenues])
 
-  // 臨時会場を追加
-  const addTemporaryVenue = useCallback(async (date: string) => {
+  // まだ予約されていない臨時会場を取得
+  const availableVenues = temporaryVenues
+
+  // 臨時会場に日付を追加
+  const addTemporaryVenue = useCallback(async (date: string, venueId: string) => {
     try {
-      const existingVenuesForDate = temporaryVenues.filter(v => v.temporary_date === date)
-      const venueNumber = existingVenuesForDate.length + 1
-      
-      const newVenue = {
-        name: `臨時会場${venueNumber}`,
-        short_name: `臨時${venueNumber}`,
-        is_temporary: true,
-        temporary_date: date,
-        address: '',
-        phone_number: '',
-        email: '',
-        opening_date: date,
-        manager_name: '',
-        status: 'active' as const,
-        capacity: 8,
-        rooms: 1,
-        color: 'gray'
+      // 現在の temporary_dates を取得
+      const venue = temporaryVenues.find(v => v.id === venueId)
+      if (!venue) {
+        throw new Error('臨時会場が見つかりません')
       }
+
+      const currentDates = venue.temporary_dates || []
       
-      const { data, error } = await supabase
+      // 既に追加されているかチェック
+      if (currentDates.includes(date)) {
+        console.log('⏭️ 既に追加済み:', { venueId, date })
+        return
+      }
+
+      // 日付を追加
+      const newDates = [...currentDates, date].sort()
+
+      const { error } = await supabase
         .from('stores')
-        .insert([newVenue])
-        .select()
-        .single()
-      
+        .update({ temporary_dates: newDates })
+        .eq('id', venueId)
+
       if (error) throw error
-      
-      // 楽観的更新: すぐにUIに反映（Realtimeは遅延がある場合がある）
-      setTemporaryVenues(prev => {
-        // 重複チェック
-        if (prev.some(v => v.id === data.id)) {
-          return prev
-        }
-        return [...prev, data]
-      })
-      
-      console.log('✅ 臨時会場を追加しました:', data)
+
+      // 楽観的更新
+      setTemporaryVenues(prev =>
+        prev.map(v => v.id === venueId ? { ...v, temporary_dates: newDates } : v)
+      )
+
+      console.log('✅ 臨時会場に日付を追加:', { venue: venue.name, date })
     } catch (error) {
-      console.error('臨時会場の追加に失敗:', error)
+      console.error('臨時会場への日付追加に失敗:', error)
       alert('臨時会場の追加に失敗しました')
     }
   }, [temporaryVenues])
 
-  // 臨時会場を削除
-  const removeTemporaryVenue = useCallback(async (venueId: string) => {
+  // 臨時会場から日付を削除
+  const removeTemporaryVenue = useCallback(async (date: string, venueId: string) => {
     try {
-      console.log('🗑️ 臨時会場削除開始:', venueId)
-      
+      console.log('🗑️ 臨時会場から日付を削除開始:', { date, venueId })
+
+      // 現在の temporary_dates を取得
+      const venue = temporaryVenues.find(v => v.id === venueId)
+      if (!venue) {
+        throw new Error('臨時会場が見つかりません')
+      }
+
       // 削除前に公演が存在するかチェック
       const { data: events, error: checkError } = await supabase
         .from('schedule_events')
         .select('id')
         .eq('store_id', venueId)
+        .eq('date', date)
         .limit(1)
-      
+
       if (checkError) {
         console.error('公演チェックエラー:', checkError)
         throw checkError
       }
-      
+
       console.log('公演チェック結果:', { 公演数: events?.length || 0 })
-      
+
       if (events && events.length > 0) {
-        alert('この臨時会場には公演が登録されているため削除できません。先に公演を削除してください。')
+        alert('この日付には公演が登録されているため削除できません。先に公演を削除してください。')
         return
       }
-      
+
+      // 日付を削除
+      const currentDates = venue.temporary_dates || []
+      const newDates = currentDates.filter(d => d !== date)
+
       const { error } = await supabase
         .from('stores')
-        .delete()
+        .update({ temporary_dates: newDates })
         .eq('id', venueId)
-      
+
       if (error) {
         console.error('削除エラー:', error)
         throw error
       }
-      
-      // 楽観的更新: すぐにUIから削除
-      setTemporaryVenues(prev => prev.filter(v => v.id !== venueId))
-      
-      console.log('✅ 臨時会場を削除しました:', venueId)
+
+      // 楽観的更新
+      setTemporaryVenues(prev =>
+        prev.map(v => v.id === venueId ? { ...v, temporary_dates: newDates } : v)
+      )
+
+      console.log('✅ 臨時会場から日付を削除:', { venue: venue.name, date })
     } catch (error) {
-      console.error('臨時会場の削除に失敗:', error)
+      console.error('臨時会場からの日付削除に失敗:', error)
       alert('臨時会場の削除に失敗しました: ' + (error as any).message)
     }
-  }, [])
+  }, [temporaryVenues])
 
   return {
     temporaryVenues,
+    availableVenues,
     getVenuesForDate,
     addTemporaryVenue,
     removeTemporaryVenue,
     loading
   }
 }
-

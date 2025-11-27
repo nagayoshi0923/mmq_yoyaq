@@ -29,7 +29,8 @@ export interface Store {
   color: string
   fixed_costs?: StoreFixedCost[]
   is_temporary?: boolean  // 臨時会場フラグ
-  temporary_date?: string  // 臨時会場の有効日付（YYYY-MM-DD）
+  temporary_date?: string  // 【非推奨】temporary_dates を使用してください
+  temporary_dates?: string[]  // 臨時会場が使用される日付の配列（例: ["2025-11-01", "2025-11-05"]）
   created_at: string
   updated_at: string
 }

@@ -99,7 +99,10 @@ export function ScheduleTable({
           <TableBody>
             {monthDays.map(day => {
               // 通常の店舗と臨時会場を結合
-              const tempVenuesForDay = temporaryVenues.filter(v => v.temporary_date === day.date)
+              const tempVenuesForDay = temporaryVenues.filter(v => {
+                const dates = v.temporary_dates || []
+                return dates.includes(day.date)
+              })
               const allVenues = [...stores, ...tempVenuesForDay]
               
               return allVenues.map((venue, venueIndex) => {
