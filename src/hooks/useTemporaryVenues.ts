@@ -151,8 +151,16 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       
       if (error) throw error
       
-      // Realtimeで自動的に反映されるため、楽観的更新は不要
-      console.log('臨時会場を追加しました:', data)
+      // 楽観的更新: すぐにUIに反映（Realtimeは遅延がある場合がある）
+      setTemporaryVenues(prev => {
+        // 重複チェック
+        if (prev.some(v => v.id === data.id)) {
+          return prev
+        }
+        return [...prev, data]
+      })
+      
+      console.log('✅ 臨時会場を追加しました:', data)
     } catch (error) {
       console.error('臨時会場の追加に失敗:', error)
       alert('臨時会場の追加に失敗しました')
@@ -192,6 +200,9 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         console.error('削除エラー:', error)
         throw error
       }
+      
+      // 楽観的更新: すぐにUIから削除
+      setTemporaryVenues(prev => prev.filter(v => v.id !== venueId))
       
       console.log('✅ 臨時会場を削除しました:', venueId)
     } catch (error) {
