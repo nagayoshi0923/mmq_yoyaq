@@ -74,8 +74,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       const existingVenuesForDate = temporaryVenues.filter(v => v.temporary_date === date)
       const venueNumber = existingVenuesForDate.length + 1
       
-      const newVenue: Partial<Store> = {
-        id: `temp_${date}_${Date.now()}`,
+      const newVenue = {
         name: `臨時会場${venueNumber}`,
         short_name: `臨時${venueNumber}`,
         is_temporary: true,
@@ -85,7 +84,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         email: '',
         opening_date: date,
         manager_name: '',
-        status: 'active',
+        status: 'active' as const,
         capacity: 8,
         rooms: 1,
         color: 'gray'
