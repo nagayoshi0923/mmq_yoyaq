@@ -412,40 +412,44 @@ export function UserManagement() {
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'admin')}
                             disabled={loading || userData.role === 'admin'}
-                            className="flex items-center gap-1 text-xs"
+                            className="flex items-center gap-1 text-xs h-8 sm:h-auto sm:px-3 px-2"
+                            title="管理者に変更"
                           >
-                            <Shield className="w-4 h-4 text-red-600" />
-                            管理者
+                            <Shield className="w-4 h-4 sm:w-4 sm:h-4 text-red-600" />
+                            <span className="hidden sm:inline">管理者</span>
                           </Button>
                           <Button
                             variant={userData.role === 'staff' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'staff')}
                             disabled={loading || userData.role === 'staff'}
-                            className="flex items-center gap-1 text-xs"
+                            className="flex items-center gap-1 text-xs h-8 sm:h-auto sm:px-3 px-2"
+                            title="スタッフに変更"
                           >
-                            <UserCog className="w-4 h-4 text-blue-600" />
-                            スタッフ
+                            <UserCog className="w-4 h-4 sm:w-4 sm:h-4 text-blue-600" />
+                            <span className="hidden sm:inline">スタッフ</span>
                           </Button>
                           <Button
                             variant={userData.role === 'customer' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'customer')}
                             disabled={loading || userData.role === 'customer'}
-                            className="flex items-center gap-1 text-xs"
+                            className="flex items-center gap-1 text-xs h-8 sm:h-auto sm:px-3 px-2"
+                            title="顧客に変更"
                           >
-                            <UserIcon className="w-4 h-4 text-gray-600" />
-                            顧客
+                            <UserIcon className="w-4 h-4 sm:w-4 sm:h-4 text-gray-600" />
+                            <span className="hidden sm:inline">顧客</span>
                           </Button>
                           <Button
                             variant="destructive"
                             size="sm"
                             onClick={() => setUserToDelete(userData)}
                             disabled={loading}
-                            className="flex items-center gap-1 text-xs"
+                            className="flex items-center gap-1 text-xs h-8 sm:h-auto sm:px-3 px-2"
+                            title="削除"
                           >
-                            <Trash2 className="w-4 h-4" />
-                            削除
+                            <Trash2 className="w-4 h-4 sm:w-4 sm:h-4" />
+                            <span className="hidden sm:inline">削除</span>
                           </Button>
                         </div>
                       </div>
