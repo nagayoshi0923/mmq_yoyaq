@@ -114,15 +114,17 @@ export function ScheduleTable({
                 <TableRow key={`${day.date}-${venue.id}`} className="h-10 sm:h-12 md:h-14">
                   {/* 日付・曜日統合セル */}
                   {venueIndex === 0 ? (
-                    <TableCell className={`schedule-table-cell border-r text-schedule-xs !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={allVenues.length}>
-                      <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-1">
-                        <span className="font-semibold">{day.displayDate}</span>
-                        <span className="text-xs">({day.dayOfWeek})</span>
+                    <TableCell className={`schedule-table-cell border-r text-schedule-xs !p-1 leading-none text-center ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={allVenues.length}>
+                      <div className="flex flex-col items-center justify-between h-full min-h-[40px] sm:min-h-[48px] md:min-h-[56px]">
+                        <div className="flex flex-col items-center">
+                          <span className="font-semibold">{day.displayDate}</span>
+                          <span className="text-xs">({day.dayOfWeek})</span>
+                        </div>
                         {onAddTemporaryVenue && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5 mt-1"
+                            className="h-5 w-5"
                             onClick={() => onAddTemporaryVenue(day.date)}
                             title="臨時会場を追加"
                           >
