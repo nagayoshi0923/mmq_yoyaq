@@ -406,46 +406,46 @@ export function UserManagement() {
                         <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs border whitespace-nowrap ${getRoleBadgeColor(userData.role)}`}>
                           {getRoleLabel(userData.role)}
                         </span>
-                        <div className="flex gap-0.5 sm:gap-1 bg-red-100">
+                        <div className="flex gap-1 sm:gap-1.5">
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'admin')}
                             disabled={loading || userData.role === 'admin'}
-                            className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                            className="h-7 w-7 sm:h-8 sm:w-8 p-0 border"
                             title="管理者に変更"
                           >
-                            <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'staff')}
                             disabled={loading || userData.role === 'staff'}
-                            className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                            className="h-7 w-7 sm:h-8 sm:w-8 p-0 border"
                             title="スタッフに変更"
                           >
-                            <UserCog className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <UserCog className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'customer')}
                             disabled={loading || userData.role === 'customer'}
-                            className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                            className="h-7 w-7 sm:h-8 sm:w-8 p-0 border"
                             title="顧客に変更"
                           >
-                            <UserIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => setUserToDelete(userData)}
                             disabled={loading}
-                            className="h-6 w-6 sm:h-8 sm:w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="h-7 w-7 sm:h-8 sm:w-8 p-0 border border-red-300 text-red-600 hover:bg-red-50"
                             title="削除"
                           >
-                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </Button>
                         </div>
                       </div>
