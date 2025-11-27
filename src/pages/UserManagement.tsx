@@ -242,7 +242,7 @@ export function UserManagement() {
                 disabled={loading || userData.role === 'admin'}
                 className="flex items-center gap-1 text-xs sm:text-sm"
               >
-                <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
+                <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
                 管理者
               </Button>
               <Button
@@ -252,7 +252,7 @@ export function UserManagement() {
                 disabled={loading || userData.role === 'staff'}
                 className="flex items-center gap-1 text-xs sm:text-sm"
               >
-                <UserCog className="w-3 h-3 sm:w-4 sm:h-4" />
+                <UserCog className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 スタッフ
               </Button>
               <Button
@@ -262,7 +262,7 @@ export function UserManagement() {
                 disabled={loading || userData.role === 'customer'}
                 className="flex items-center gap-1 text-xs sm:text-sm"
               >
-                <UserIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                <UserIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
                 顧客
               </Button>
             </div>
@@ -276,7 +276,7 @@ export function UserManagement() {
               disabled={loading}
               className="w-full flex items-center justify-center gap-2 text-xs sm:text-sm"
             >
-              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+              <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
               ユーザーを削除
             </Button>
           </div>
