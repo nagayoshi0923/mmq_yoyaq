@@ -102,6 +102,15 @@ export function ScheduleTable({
               const tempVenuesForDay = temporaryVenues.filter(v => v.temporary_date === day.date)
               const allVenues = [...stores, ...tempVenuesForDay]
               
+              // デバッグログ
+              if (tempVenuesForDay.length > 0) {
+                console.log('臨時会場フィルタリング:', {
+                  date: day.date,
+                  tempVenuesForDay: tempVenuesForDay.map(v => ({ id: v.id, name: v.name, temporary_date: v.temporary_date })),
+                  allTemporaryVenues: temporaryVenues.map(v => ({ id: v.id, name: v.name, temporary_date: v.temporary_date }))
+                })
+              }
+              
               return allVenues.map((venue, venueIndex) => {
                 const isTemporary = venue.is_temporary === true
                 
