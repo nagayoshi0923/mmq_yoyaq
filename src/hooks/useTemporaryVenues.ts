@@ -51,6 +51,18 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
           .lte('temporary_date', end)
         
         if (error) throw error
+        
+        console.log('📍 臨時会場データ読み込み:', {
+          期間: { start, end },
+          取得件数: data?.length || 0,
+          データ: data?.map(v => ({
+            id: v.id,
+            name: v.name,
+            temporary_date: v.temporary_date,
+            is_temporary: v.is_temporary
+          }))
+        })
+        
         setTemporaryVenues(data || [])
       } catch (error) {
         console.error('臨時会場データの読み込みに失敗:', error)
@@ -161,6 +173,8 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
   // 臨時会場を削除
   const removeTemporaryVenue = useCallback(async (venueId: string) => {
     try {
+      console.log('🗑️ 臨時会場削除開始:', venueId)
+      
       // 削除前に公演が存在するかチェック
       const { data: events, error: checkError } = await supabase
         .from('schedule_events')
@@ -168,7 +182,12 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         .eq('store_id', venueId)
         .limit(1)
       
-      if (checkError) throw checkError
+      if (checkError) {
+        console.error('公演チェックエラー:', checkError)
+        throw checkError
+      }
+      
+      console.log('公演チェック結果:', { 公演数: events?.length || 0 })
       
       if (events && events.length > 0) {
         alert('この臨時会場には公演が登録されているため削除できません。先に公演を削除してください。')
@@ -180,13 +199,15 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         .delete()
         .eq('id', venueId)
       
-      if (error) throw error
+      if (error) {
+        console.error('削除エラー:', error)
+        throw error
+      }
       
-      // Realtimeで自動的に反映されるため、楽観的更新は不要
-      console.log('臨時会場を削除しました:', venueId)
+      console.log('✅ 臨時会場を削除しました:', venueId)
     } catch (error) {
       console.error('臨時会場の削除に失敗:', error)
-      alert('臨時会場の削除に失敗しました')
+      alert('臨時会場の削除に失敗しました: ' + (error as any).message)
     }
   }, [])
 
