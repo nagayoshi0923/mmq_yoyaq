@@ -278,7 +278,7 @@ export function ScheduleManager() {
                   }
                 ]),
                 {
-                  label: '削除',
+                  label: '公演を削除',
                   icon: <Trash2 className="w-4 h-4" />,
                   onClick: () => {
                     scheduleTableProps.eventHandlers.onDeletePerformance(event)
@@ -286,23 +286,17 @@ export function ScheduleManager() {
                   },
                   separator: true
                 },
-                {
-                  label: '臨時会場を追加',
-                  icon: <Plus className="w-4 h-4" />,
-                  onClick: () => {
-                    addTemporaryVenue(event.date)
-                    modals.contextMenu.setContextMenu(null)
+                // 臨時会場の場合のみ表示
+                ...(isTemporaryVenue ? [
+                  {
+                    label: '臨時会場を削除',
+                    icon: <Trash2 className="w-4 h-4" />,
+                    onClick: () => {
+                      removeTemporaryVenue(event.venue)
+                      modals.contextMenu.setContextMenu(null)
+                    }
                   }
-                },
-                {
-                  label: '臨時会場を削除',
-                  icon: <Trash2 className="w-4 h-4" />,
-                  onClick: () => {
-                    removeTemporaryVenue(event.venue)
-                    modals.contextMenu.setContextMenu(null)
-                  },
-                  disabled: !isTemporaryVenue
-                }
+                ] : [])
               ]
             })()
              : modals.contextMenu.contextMenu.type === 'cell' && modals.contextMenu.contextMenu.cellInfo ? (() => {
