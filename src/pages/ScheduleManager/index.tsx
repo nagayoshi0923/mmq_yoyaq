@@ -241,6 +241,13 @@ export function ScheduleManager() {
               const event = modals.contextMenu.contextMenu!.event!
               const isTemporaryVenue = temporaryVenues.some(v => v.id === event.venue)
               
+              // デバッグログ
+              console.log('コンテキストメニュー:', {
+                eventVenue: event.venue,
+                temporaryVenues: temporaryVenues.map(v => ({ id: v.id, name: v.name })),
+                isTemporaryVenue
+              })
+              
               return [
                 {
                   label: '編集',
