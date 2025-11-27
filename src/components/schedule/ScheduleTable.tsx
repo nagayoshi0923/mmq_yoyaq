@@ -19,8 +19,6 @@ export interface ScheduleTableViewConfig {
   monthDays: MonthDay[]
   stores: Array<{ id: string; name: string; short_name: string }>
   temporaryVenues?: Store[]
-  onAddTemporaryVenue?: (date: string) => Promise<void>
-  onRemoveTemporaryVenue?: (venueId: string) => Promise<void>
 }
 
 export interface ScheduleTableDataProvider {
@@ -62,7 +60,7 @@ export function ScheduleTable({
   eventHandlers,
   displayConfig
 }: ScheduleTableProps) {
-  const { currentDate, monthDays, stores, temporaryVenues = [], onAddTemporaryVenue, onRemoveTemporaryVenue } = viewConfig
+  const { currentDate, monthDays, stores, temporaryVenues = [] } = viewConfig
   const { getEventsForSlot, shiftData, getMemo, onSaveMemo } = dataProvider
   const {
     onAddPerformance,
@@ -114,10 +112,6 @@ export function ScheduleTable({
                     <TableCell 
                       className={`schedule-table-cell border-r text-schedule-xs !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} 
                       rowSpan={allVenues.length}
-                      onContextMenu={(e) => {
-                        e.preventDefault()
-                        onContextMenuCell(day.date, '', 'morning', e.clientX, e.clientY)
-                      }}
                     >
                       <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-0">
                         <span className="font-semibold">{day.displayDate}</span>
@@ -127,13 +121,7 @@ export function ScheduleTable({
                   ) : null}
                   
                   {/* 店舗セル */}
-                  <TableCell 
-                    className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-schedule-xs !p-0 leading-none text-center"
-                    onContextMenu={isTemporary ? (e) => {
-                      e.preventDefault()
-                      onContextMenuCell(day.date, venue.id, 'morning', e.clientX, e.clientY)
-                    } : undefined}
-                  >
+                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-schedule-xs !p-0 leading-none text-center">
                     {venue.short_name}
                   </TableCell>
                   

@@ -119,15 +119,13 @@ export function ScheduleManager() {
     ...scheduleTableProps,
     viewConfig: {
       ...scheduleTableProps.viewConfig,
-      temporaryVenues,
-      onAddTemporaryVenue: addTemporaryVenue,
-      onRemoveTemporaryVenue: removeTemporaryVenue
+      temporaryVenues
     },
     dataProvider: {
       ...scheduleTableProps.dataProvider,
       getEventsForSlot: filteredGetEventsForSlot
     }
-  }), [scheduleTableProps, filteredGetEventsForSlot, temporaryVenues, addTemporaryVenue, removeTemporaryVenue])
+  }), [scheduleTableProps, filteredGetEventsForSlot, temporaryVenues])
 
   // デモ参加者追加処理（削除済み - 別途スクリプトで実行）
 
@@ -284,45 +282,41 @@ export function ScheduleManager() {
                 },
                 separator: true
               }
-            ] : modals.contextMenu.contextMenu.type === 'cell' && modals.contextMenu.contextMenu.cellInfo ? (
-              // 日付セル（venueが空）の場合
-              modals.contextMenu.contextMenu.cellInfo.venue === '' ? [
+            ] : modals.contextMenu.contextMenu.type === 'cell' && modals.contextMenu.contextMenu.cellInfo ? (() => {
+              // すべてのセルで統一メニューを表示
+              const { date, venue } = modals.contextMenu.contextMenu!.cellInfo!
+              const isTemporaryVenue = venue && temporaryVenues.some(v => v.id === venue)
+              
+              return [
                 {
                   label: '臨時会場を追加',
                   icon: <Plus className="w-4 h-4" />,
                   onClick: () => {
-                    const { date } = modals.contextMenu.contextMenu!.cellInfo!
                     addTemporaryVenue(date)
                     modals.contextMenu.setContextMenu(null)
                   }
+                },
+                {
+                  label: '臨時会場を削除',
+                  icon: <Trash2 className="w-4 h-4" />,
+                  onClick: () => {
+                    removeTemporaryVenue(venue)
+                    modals.contextMenu.setContextMenu(null)
+                  },
+                  disabled: !isTemporaryVenue,
+                  separator: true
+                },
+                {
+                  label: 'ペースト',
+                  icon: <Clipboard className="w-4 h-4" />,
+                  onClick: () => {
+                    const { date, venue, timeSlot } = modals.contextMenu.contextMenu!.cellInfo!
+                    modals.contextMenu.handlePasteFromClipboard(date, venue, timeSlot)
+                  },
+                  disabled: !modals.contextMenu.clipboardEvent || venue === ''
                 }
-              ] : (() => {
-                // 臨時会場セルかチェック
-                const { venue } = modals.contextMenu.contextMenu!.cellInfo!
-                const isTemporaryVenue = temporaryVenues.some(v => v.id === venue)
-                
-                return [
-                  ...(isTemporaryVenue ? [{
-                    label: '臨時会場を削除',
-                    icon: <Trash2 className="w-4 h-4" />,
-                    onClick: () => {
-                      removeTemporaryVenue(venue)
-                      modals.contextMenu.setContextMenu(null)
-                    },
-                    separator: true
-                  }] : []),
-                  {
-                    label: 'ペースト',
-                    icon: <Clipboard className="w-4 h-4" />,
-                    onClick: () => {
-                      const { date, venue, timeSlot } = modals.contextMenu.contextMenu!.cellInfo!
-                      modals.contextMenu.handlePasteFromClipboard(date, venue, timeSlot)
-                    },
-                    disabled: !modals.contextMenu.clipboardEvent
-                  }
-                ]
-              })()
-            ) : []}
+              ]
+            })() : []}
           />
         )}
       </div>
