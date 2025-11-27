@@ -134,12 +134,12 @@ export function ScheduleTable({
                       </div>
                     </TableCell>
                   ) : isTemporary ? (
-                    <TableCell className="schedule-table-cell border-r text-schedule-xs !p-0 leading-none text-center">
+                    <TableCell className="schedule-table-cell border-r text-schedule-xs !p-0 leading-none text-center align-middle">
                       {onRemoveTemporaryVenue && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-5 w-5 text-red-600 hover:bg-red-50"
+                          className="h-full w-full text-red-600 hover:bg-red-50"
                           onClick={() => onRemoveTemporaryVenue(venue.id)}
                           title="臨時会場を削除"
                         >
@@ -151,7 +151,7 @@ export function ScheduleTable({
                   
                   {/* 店舗セル */}
                   <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-schedule-xs !p-0 leading-none text-center">
-                    {venue.short_name}
+                    {isTemporary ? '臨時' : venue.short_name}
                   </TableCell>
                   
                   {/* 午前セル */}
