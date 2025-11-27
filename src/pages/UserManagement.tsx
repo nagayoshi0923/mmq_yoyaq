@@ -402,11 +402,11 @@ export function UserManagement() {
                         </div>
                         <p className="text-xs text-gray-500 truncate">ID: {userData.id}</p>
                       </div>
-                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 min-w-[140px] sm:min-w-[180px]">
+                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                         <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs border whitespace-nowrap ${getRoleBadgeColor(userData.role)}`}>
                           {getRoleLabel(userData.role)}
                         </span>
-                        <div className="flex gap-0.5 sm:gap-1">
+                        <div className="flex gap-0.5 sm:gap-1 bg-red-100">
                           <Button
                             variant="ghost"
                             size="sm"
