@@ -138,9 +138,6 @@ export function ScheduleTable({
                   {/* 店舗セル */}
                   <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-schedule-xs !p-0 leading-none text-center">
                     <div className="flex items-center justify-center gap-1">
-                      {isTemporary && (
-                        <span className="text-xs text-orange-600">🔸</span>
-                      )}
                       <span>{venue.short_name}</span>
                       {isTemporary && onRemoveTemporaryVenue && (
                         <Button
