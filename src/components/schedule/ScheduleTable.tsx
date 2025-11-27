@@ -2,12 +2,11 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
 import type { ScheduleEvent } from '@/types/schedule'
-import type { Staff } from '@/types'
-import type { TemporaryVenue } from '@/hooks/useTemporaryVenues'
+import type { Staff, Store } from '@/types'
 
 interface MonthDay {
   date: string
@@ -21,9 +20,9 @@ export interface ScheduleTableViewConfig {
   currentDate: Date
   monthDays: MonthDay[]
   stores: Array<{ id: string; name: string; short_name: string }>
-  temporaryVenues?: TemporaryVenue[]
-  onAddTemporaryVenue?: (date: string) => void
-  onRemoveTemporaryVenue?: (venueId: string) => void
+  temporaryVenues?: Store[]
+  onAddTemporaryVenue?: (date: string) => Promise<void>
+  onRemoveTemporaryVenue?: (venueId: string) => Promise<void>
 }
 
 export interface ScheduleTableDataProvider {
@@ -104,11 +103,11 @@ export function ScheduleTable({
           <TableBody>
             {monthDays.map(day => {
               // 通常の店舗と臨時会場を結合
-              const tempVenuesForDay = temporaryVenues.filter(v => v.date === day.date)
+              const tempVenuesForDay = temporaryVenues.filter(v => v.temporary_date === day.date)
               const allVenues = [...stores, ...tempVenuesForDay]
               
               return allVenues.map((venue, venueIndex) => {
-                const isTemporary = venue.id.startsWith('temp_')
+                const isTemporary = venue.is_temporary === true
                 
                 return (
                 <TableRow key={`${day.date}-${venue.id}`} className="h-10 sm:h-12 md:h-14">
@@ -137,7 +136,20 @@ export function ScheduleTable({
                   
                   {/* 店舗セル */}
                   <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-schedule-xs !p-0 leading-none text-center">
-                    {isTemporary ? '臨時' : venue.short_name}
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{venue.short_name}</span>
+                      {isTemporary && onRemoveTemporaryVenue && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 text-red-600 hover:bg-red-50"
+                          onClick={() => onRemoveTemporaryVenue(venue.id)}
+                          title="臨時会場を削除"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                   
                   {/* 午前セル */}

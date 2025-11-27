@@ -5,93 +5,132 @@
  */
 
 import { useState, useCallback, useEffect } from 'react'
-
-export interface TemporaryVenue {
-  id: string
-  date: string
-  name: string
-  short_name: string
-  created_at: string
-}
+import { supabase } from '@/lib/supabase'
+import type { Store } from '@/types'
 
 interface UseTemporaryVenuesReturn {
-  temporaryVenues: TemporaryVenue[]
-  getVenuesForDate: (date: string) => TemporaryVenue[]
-  addTemporaryVenue: (date: string) => void
-  removeTemporaryVenue: (venueId: string) => void
+  temporaryVenues: Store[]
+  getVenuesForDate: (date: string) => Store[]
+  addTemporaryVenue: (date: string) => Promise<void>
+  removeTemporaryVenue: (venueId: string) => Promise<void>
+  loading: boolean
 }
 
 /**
- * 臨時会場を管理するフック
+ * 臨時会場を管理するフック（Supabase連携）
  */
 export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn {
-  const [temporaryVenues, setTemporaryVenues] = useState<TemporaryVenue[]>([])
+  const [temporaryVenues, setTemporaryVenues] = useState<Store[]>([])
+  const [loading, setLoading] = useState(false)
 
-  // localStorageのキーを生成（年月単位）
-  const getStorageKey = (date: Date) => {
+  // 月の開始日と終了日を取得
+  const getMonthRange = (date: Date) => {
     const year = date.getFullYear()
-    const month = date.getMonth() + 1
-    return `schedule_temporary_venues_${year}_${month}`
+    const month = date.getMonth()
+    const startDate = new Date(year, month, 1, 12, 0, 0, 0)
+    const endDate = new Date(year, month + 1, 0, 12, 0, 0, 0)
+    
+    return {
+      start: `${year}-${String(month + 1).padStart(2, '0')}-01`,
+      end: `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
+    }
   }
 
-  // localStorageから臨時会場を読み込む
+  // Supabaseから臨時会場を読み込む
   useEffect(() => {
-    const key = getStorageKey(currentDate)
-    const stored = localStorage.getItem(key)
-    if (stored) {
+    const loadTemporaryVenues = async () => {
+      setLoading(true)
       try {
-        const parsed = JSON.parse(stored)
-        setTemporaryVenues(parsed)
+        const { start, end } = getMonthRange(currentDate)
+        
+        const { data, error } = await supabase
+          .from('stores')
+          .select('*')
+          .eq('is_temporary', true)
+          .gte('temporary_date', start)
+          .lte('temporary_date', end)
+        
+        if (error) throw error
+        setTemporaryVenues(data || [])
       } catch (error) {
         console.error('臨時会場データの読み込みに失敗:', error)
         setTemporaryVenues([])
+      } finally {
+        setLoading(false)
       }
-    } else {
-      setTemporaryVenues([])
     }
-  }, [currentDate])
-
-  // localStorageに臨時会場を保存
-  const saveToStorage = useCallback((venues: TemporaryVenue[]) => {
-    const key = getStorageKey(currentDate)
-    localStorage.setItem(key, JSON.stringify(venues))
+    
+    loadTemporaryVenues()
   }, [currentDate])
 
   // 特定の日付の臨時会場を取得
   const getVenuesForDate = useCallback((date: string) => {
-    return temporaryVenues.filter(venue => venue.date === date)
+    return temporaryVenues.filter(venue => venue.temporary_date === date)
   }, [temporaryVenues])
 
   // 臨時会場を追加
-  const addTemporaryVenue = useCallback((date: string) => {
-    const existingVenuesForDate = temporaryVenues.filter(v => v.date === date)
-    const venueNumber = existingVenuesForDate.length + 1
-    
-    const newVenue: TemporaryVenue = {
-      id: `temp_${date}_${Date.now()}`,
-      date,
-      name: `臨時会場${venueNumber}`,
-      short_name: `臨時${venueNumber}`,
-      created_at: new Date().toISOString()
+  const addTemporaryVenue = useCallback(async (date: string) => {
+    try {
+      const existingVenuesForDate = temporaryVenues.filter(v => v.temporary_date === date)
+      const venueNumber = existingVenuesForDate.length + 1
+      
+      const newVenue: Partial<Store> = {
+        id: `temp_${date}_${Date.now()}`,
+        name: `臨時会場${venueNumber}`,
+        short_name: `臨時${venueNumber}`,
+        is_temporary: true,
+        temporary_date: date,
+        address: '',
+        phone_number: '',
+        email: '',
+        opening_date: date,
+        manager_name: '',
+        status: 'active',
+        capacity: 8,
+        rooms: 1,
+        color: 'gray'
+      }
+      
+      const { data, error } = await supabase
+        .from('stores')
+        .insert([newVenue])
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      if (data) {
+        setTemporaryVenues(prev => [...prev, data])
+      }
+    } catch (error) {
+      console.error('臨時会場の追加に失敗:', error)
+      alert('臨時会場の追加に失敗しました')
     }
-    
-    const newVenues = [...temporaryVenues, newVenue]
-    setTemporaryVenues(newVenues)
-    saveToStorage(newVenues)
-  }, [temporaryVenues, saveToStorage])
+  }, [temporaryVenues])
 
   // 臨時会場を削除
-  const removeTemporaryVenue = useCallback((venueId: string) => {
-    const newVenues = temporaryVenues.filter(v => v.id !== venueId)
-    setTemporaryVenues(newVenues)
-    saveToStorage(newVenues)
-  }, [temporaryVenues, saveToStorage])
+  const removeTemporaryVenue = useCallback(async (venueId: string) => {
+    try {
+      const { error } = await supabase
+        .from('stores')
+        .delete()
+        .eq('id', venueId)
+      
+      if (error) throw error
+      
+      setTemporaryVenues(prev => prev.filter(v => v.id !== venueId))
+    } catch (error) {
+      console.error('臨時会場の削除に失敗:', error)
+      alert('臨時会場の削除に失敗しました')
+    }
+  }, [])
 
   return {
     temporaryVenues,
     getVenuesForDate,
     addTemporaryVenue,
-    removeTemporaryVenue
+    removeTemporaryVenue,
+    loading
   }
 }
 

@@ -28,6 +28,8 @@ export interface Store {
   notes?: string
   color: string
   fixed_costs?: StoreFixedCost[]
+  is_temporary?: boolean  // 臨時会場フラグ
+  temporary_date?: string  // 臨時会場の有効日付（YYYY-MM-DD）
   created_at: string
   updated_at: string
 }

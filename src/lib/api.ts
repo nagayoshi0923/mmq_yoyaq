@@ -50,11 +50,12 @@ interface PaginatedResponse<T> {
 
 // 店舗関連のAPI
 export const storeApi = {
-  // 全店舗を取得
+  // 全店舗を取得（臨時会場を除外）
   async getAll(): Promise<Store[]> {
     const { data, error } = await supabase
       .from('stores')
       .select('*')
+      .or('is_temporary.is.null,is_temporary.eq.false')
     
     if (error) throw error
     
