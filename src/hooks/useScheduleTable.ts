@@ -147,6 +147,10 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         allAvailableStaff,
         onParticipantChange: eventOperations.handleParticipantChange
       },
+      // performance 用（コンテキストメニューから使用）
+      performance: {
+        handleOpenPerformanceModal: eventOperations.handleOpenPerformanceModal
+      },
       conflictWarning: {
         isOpen: eventOperations.isConflictWarningOpen,
         onClose: () => eventOperations.setIsConflictWarningOpen(false),
