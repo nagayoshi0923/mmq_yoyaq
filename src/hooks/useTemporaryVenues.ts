@@ -73,14 +73,22 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         {
           event: '*',
           schema: 'public',
-          table: 'stores',
-          filter: 'is_temporary=eq.true'
+          table: 'stores'
+          // フィルターを削除: RLS と組み合わせるとフィルターが正しく動作しない可能性があるため
+          // クライアント側で is_temporary をチェック
         },
         (payload) => {
+          // 臨時会場以外は無視
+          const isTemporary = payload.new?.is_temporary || payload.old?.is_temporary
+          if (!isTemporary) {
+            return
+          }
+          
           console.log('🔔 臨時会場Realtimeイベント受信:', {
             type: payload.eventType,
             venue: payload.new?.name || payload.old?.name,
-            date: payload.new?.temporary_date || payload.old?.temporary_date
+            date: payload.new?.temporary_date || payload.old?.temporary_date,
+            is_temporary: isTemporary
           })
           
           // クライアント側で月フィルタリング
