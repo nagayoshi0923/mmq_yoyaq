@@ -2,7 +2,7 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Plus, X } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
 import type { ScheduleEvent } from '@/types/schedule'
@@ -112,8 +112,8 @@ export function ScheduleTable({
                 
                 return (
                 <TableRow key={`${day.date}-${venue.id}`} className="h-10 sm:h-12 md:h-14">
-                  {/* 日付・曜日統合セル（通常の店舗）または×ボタンセル（臨時会場） */}
-                  {venueIndex === 0 && !isTemporary ? (
+                  {/* 日付・曜日統合セル */}
+                  {venueIndex === 0 ? (
                     <TableCell className={`schedule-table-cell border-r text-schedule-xs !p-1 leading-none text-center ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} rowSpan={allVenues.length}>
                       <div className="flex flex-col items-center justify-between h-full min-h-[40px] sm:min-h-[48px] md:min-h-[56px]">
                         <div className="flex flex-col items-center">
@@ -132,20 +132,6 @@ export function ScheduleTable({
                           </Button>
                         )}
                       </div>
-                    </TableCell>
-                  ) : isTemporary ? (
-                    <TableCell className="schedule-table-cell border-r text-schedule-xs !p-0 leading-none text-center align-middle">
-                      {onRemoveTemporaryVenue && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-full w-full text-red-600 hover:bg-red-50"
-                          onClick={() => onRemoveTemporaryVenue(venue.id)}
-                          title="臨時会場を削除"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
                     </TableCell>
                   ) : null}
                   
