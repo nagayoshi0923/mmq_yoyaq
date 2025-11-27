@@ -52,17 +52,6 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         
         if (error) throw error
         
-        console.log('📍 臨時会場データ読み込み:', {
-          期間: { start, end },
-          取得件数: data?.length || 0,
-          データ: data?.map(v => ({
-            id: v.id,
-            name: v.name,
-            temporary_date: v.temporary_date,
-            is_temporary: v.is_temporary
-          }))
-        })
-        
         setTemporaryVenues(data || [])
       } catch (error) {
         console.error('臨時会場データの読み込みに失敗:', error)

@@ -449,9 +449,9 @@ export function useScheduleData(currentDate: Date) {
         setStaffLoading(true)
         
         // 店舗・スタッフを並列で読み込み（シナリオはReact Queryが管理）
-        // includeTemporary: true で臨時会場も含める
+        // includeTemporary: false で通常の店舗のみ取得（臨時会場は useTemporaryVenues で管理）
         const [storeData, staffData] = await Promise.all([
-          storeApi.getAll(true).catch(err => {
+          storeApi.getAll(false).catch(err => {
             logger.error('店舗データの読み込みエラー:', err)
             return []
           }),
@@ -460,14 +460,6 @@ export function useScheduleData(currentDate: Date) {
             return []
           })
         ])
-        
-        // デバッグ: 全店舗データを確認
-        console.log('🏪 全店舗データ（useScheduleData）:', storeData.map(s => ({
-          id: s.id,
-          name: s.name,
-          is_temporary: s.is_temporary,
-          temporary_date: s.temporary_date
-        })))
         
         setStores(storeData)
         sessionStorage.setItem('scheduleStores', JSON.stringify(storeData))
