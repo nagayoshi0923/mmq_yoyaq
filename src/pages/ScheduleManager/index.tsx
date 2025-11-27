@@ -337,8 +337,14 @@ export function ScheduleManager() {
                   label: '公演を追加',
                   icon: <Edit className="w-4 h-4" />,
                   onClick: () => {
-                    modals.performance.handleOpenPerformanceModal(date, venue, timeSlot)
-                    modals.contextMenu.setContextMenu(null)
+                    console.log('🔵 公演を追加クリック:', { date, venue, timeSlot })
+                    console.log('🔵 modals.performance:', modals.performance)
+                    if (modals.performance && modals.performance.handleOpenPerformanceModal) {
+                      modals.performance.handleOpenPerformanceModal(date, venue, timeSlot)
+                      modals.contextMenu.setContextMenu(null)
+                    } else {
+                      console.error('❌ modals.performance.handleOpenPerformanceModal が見つかりません')
+                    }
                   },
                   separator: true
                 },
