@@ -98,16 +98,37 @@ export function ScheduleTable({
             </TableHeader>
           <TableBody>
             {monthDays.map(day => {
+              // デバッグ: 全体の臨時会場を確認（最初の日付のみ）
+              if (day.day === 1 && temporaryVenues.length > 0) {
+                console.log('🔍 ScheduleTable - 臨時会場全体:', temporaryVenues.map(v => ({
+                  id: v.id,
+                  name: v.name,
+                  temporary_date: v.temporary_date,
+                  temporary_date_type: typeof v.temporary_date
+                })))
+                console.log('🔍 ScheduleTable - day.date:', day.date, typeof day.date)
+              }
+              
               // 通常の店舗と臨時会場を結合
-              const tempVenuesForDay = temporaryVenues.filter(v => v.temporary_date === day.date)
+              const tempVenuesForDay = temporaryVenues.filter(v => {
+                const match = v.temporary_date === day.date
+                if (!match && day.day === 1) {
+                  console.log('🔍 フィルタリング不一致:', {
+                    venue: v.name,
+                    temporary_date: v.temporary_date,
+                    day_date: day.date,
+                    are_equal: v.temporary_date === day.date
+                  })
+                }
+                return match
+              })
               const allVenues = [...stores, ...tempVenuesForDay]
               
               // デバッグログ
               if (tempVenuesForDay.length > 0) {
-                console.log('臨時会場フィルタリング:', {
+                console.log('✅ 臨時会場フィルタリング成功:', {
                   date: day.date,
-                  tempVenuesForDay: tempVenuesForDay.map(v => ({ id: v.id, name: v.name, temporary_date: v.temporary_date })),
-                  allTemporaryVenues: temporaryVenues.map(v => ({ id: v.id, name: v.name, temporary_date: v.temporary_date }))
+                  tempVenuesForDay: tempVenuesForDay.map(v => ({ id: v.id, name: v.name, temporary_date: v.temporary_date }))
                 })
               }
               
