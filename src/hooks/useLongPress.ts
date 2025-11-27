@@ -66,10 +66,15 @@ export function useLongPress(
       onLongPress(touchStartPosRef.current.x, touchStartPosRef.current.y)
     }
     
-    // タイマーをキャンセル
+    // タイマーをキャンセル（フラグは少し遅延してクリア）
     clear()
-    isLongPressTriggeredRef.current = false
-    touchStartPosRef.current = null
+    
+    // onClick イベントが発火する前にフラグをクリアしないように、
+    // 少し遅延してからクリアする
+    setTimeout(() => {
+      isLongPressTriggeredRef.current = false
+      touchStartPosRef.current = null
+    }, 100)
   }, [clear, onLongPress])
 
   const onTouchCancel = useCallback(() => {

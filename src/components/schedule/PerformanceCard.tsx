@@ -107,6 +107,14 @@ function PerformanceCardBase({
     }
   })
 
+  // 長押し時は onClick をスキップ
+  const handleClick = () => {
+    if (longPressHandlers.isLongPressTriggered()) {
+      return // 長押しが成立していたら onClick をスキップ
+    }
+    onClick?.(event)
+  }
+
   return (
     <div
       draggable={!event.is_cancelled}
@@ -123,7 +131,7 @@ function PerformanceCardBase({
           : 'cursor-move'
       } ${categoryColors}`}
       style={{ margin: '0px' }}
-      onClick={() => onClick?.(event)}
+      onClick={handleClick}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
       <div className="flex items-center justify-between mb-0.5 gap-1">
