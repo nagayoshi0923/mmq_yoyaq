@@ -31,7 +31,7 @@ import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2 } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus } from 'lucide-react'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -286,13 +286,22 @@ export function ScheduleManager() {
               }
             ] : modals.contextMenu.contextMenu.type === 'cell' && modals.contextMenu.contextMenu.cellInfo ? [
               {
+                label: '臨時スペースを追加',
+                icon: <Plus className="w-4 h-4" />,
+                onClick: () => {
+                  const { date } = modals.contextMenu.contextMenu!.cellInfo!
+                  addTemporaryVenue(date)
+                }
+              },
+              {
                 label: 'ペースト',
                 icon: <Clipboard className="w-4 h-4" />,
                 onClick: () => {
                   const { date, venue, timeSlot } = modals.contextMenu.contextMenu!.cellInfo!
                   modals.contextMenu.handlePasteFromClipboard(date, venue, timeSlot)
                 },
-                disabled: !modals.contextMenu.clipboardEvent
+                disabled: !modals.contextMenu.clipboardEvent,
+                separator: true
               }
             ] : []}
           />
