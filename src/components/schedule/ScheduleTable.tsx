@@ -110,6 +110,7 @@ export function ScheduleTable({
               return allVenues.map((venue, venueIndex) => {
                 const isTemporary = 'created_at' in venue
                 
+                return (
                 <TableRow key={`${day.date}-${venue.id}`} className="h-10 sm:h-12 md:h-14">
                   {/* 日付・曜日統合セル */}
                   {venueIndex === 0 ? (
@@ -221,7 +222,7 @@ export function ScheduleTable({
                     onSave={onSaveMemo}
                   />
                 </TableRow>
-              )
+                )
               })
             })}
           </TableBody>
