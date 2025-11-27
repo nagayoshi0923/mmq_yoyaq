@@ -149,7 +149,7 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
       },
       // performance 用（コンテキストメニューから使用）
       performance: {
-        handleOpenPerformanceModal: eventOperations.handleOpenPerformanceModal
+        handleOpenPerformanceModal: eventOperations.handleAddPerformance
       },
       conflictWarning: {
         isOpen: eventOperations.isConflictWarningOpen,
