@@ -7,6 +7,7 @@ import { staffApi } from '@/lib/api'
 // Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { useScheduleTable } from '@/hooks/useScheduleTable'
+import { useTemporaryVenues } from '@/hooks/useTemporaryVenues'
 
 // Custom Hooks (ScheduleManager専用)
 import { useCategoryFilter } from './hooks/useCategoryFilter'
@@ -39,6 +40,9 @@ export function ScheduleManager() {
   // 月ナビゲーション
   const scrollRestoration = useScrollRestoration({ pageKey: 'schedule', isLoading: false })
   const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
+
+  // 臨時会場管理
+  const { temporaryVenues, addTemporaryVenue, removeTemporaryVenue } = useTemporaryVenues(currentDate)
 
   // GMリスト
   const [gmList, setGmList] = useState<Staff[]>([])
@@ -113,11 +117,17 @@ export function ScheduleManager() {
   // カテゴリーフィルター適用版のpropsを作成
   const filteredScheduleTableProps = useMemo(() => ({
     ...scheduleTableProps,
+    viewConfig: {
+      ...scheduleTableProps.viewConfig,
+      temporaryVenues,
+      onAddTemporaryVenue: addTemporaryVenue,
+      onRemoveTemporaryVenue: removeTemporaryVenue
+    },
     dataProvider: {
       ...scheduleTableProps.dataProvider,
       getEventsForSlot: filteredGetEventsForSlot
     }
-  }), [scheduleTableProps, filteredGetEventsForSlot])
+  }), [scheduleTableProps, filteredGetEventsForSlot, temporaryVenues, addTemporaryVenue, removeTemporaryVenue])
 
   // デモ参加者追加処理（削除済み - 別途スクリプトで実行）
 
