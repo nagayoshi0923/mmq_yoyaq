@@ -395,14 +395,14 @@ export function UserManagement() {
                 {allUsers.map((userData) => (
                   <div key={userData.id} className="border rounded-lg p-2 sm:p-3 md:p-4 hover:bg-gray-50 transition">
                     <div className="flex items-start justify-between gap-2 sm:gap-4">
-                      <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex-1 overflow-hidden">
                         <div className="flex items-center gap-1 sm:gap-2 mb-1">
                           {getRoleIcon(userData.role)}
                           <p className="truncate text-sm">{userData.email}</p>
                         </div>
                         <p className="text-xs text-gray-500 truncate">ID: {userData.id}</p>
                       </div>
-                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-2">
+                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 min-w-[140px] sm:min-w-[180px]">
                         <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs border whitespace-nowrap ${getRoleBadgeColor(userData.role)}`}>
                           {getRoleLabel(userData.role)}
                         </span>
