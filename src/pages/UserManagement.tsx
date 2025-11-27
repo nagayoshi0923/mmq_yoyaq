@@ -3,10 +3,11 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { Users, UserPlus, Shield, Settings, AlertCircle, Search, UserCog, User as UserIcon } from 'lucide-react'
+import { Users, UserPlus, Shield, Settings, AlertCircle, Search, UserCog, User as UserIcon, Trash2 } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const USER_MENU_ITEMS: SidebarMenuItem[] = [
@@ -15,7 +16,7 @@ const USER_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'roles', label: 'ロール管理', icon: Shield, description: 'ユーザーロール設定' },
   { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
 ]
-import { searchUserByEmail, getAllUsers, updateUserRole, type User } from '@/lib/userApi'
+import { searchUserByEmail, getAllUsers, updateUserRole, deleteUser, type User } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
 
 export function UserManagement() {
@@ -28,6 +29,7 @@ export function UserManagement() {
   const [message, setMessage] = useState('')
   const [showAllUsers, setShowAllUsers] = useState(false)
   const [activeTab, setActiveTab] = useState('user-list')
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
 
   // 管理者チェック
   if (!user || user.role !== 'admin') {
@@ -131,6 +133,37 @@ export function UserManagement() {
     }
   }
 
+  // ユーザーを削除
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return
+
+    setLoading(true)
+    setError('')
+    setMessage('')
+
+    try {
+      await deleteUser(userToDelete.id)
+      setMessage(`ユーザー ${userToDelete.email} を削除しました`)
+      
+      // 検索結果をクリア
+      if (searchResult && searchResult.id === userToDelete.id) {
+        setSearchResult(null)
+      }
+
+      // 全ユーザー一覧を表示中の場合は再読み込み
+      if (showAllUsers) {
+        await loadAllUsers()
+      }
+
+      setUserToDelete(null)
+    } catch (err: any) {
+      logger.error('ユーザー削除エラー:', err)
+      setError('ユーザーの削除に失敗しました: ' + (err.message || ''))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'admin':
@@ -228,7 +261,20 @@ export function UserManagement() {
             </div>
           </div>
 
-          <div className="pt-3 sm:pt-4 border-t text-xs text-gray-500">
+          <div className="pt-3 sm:pt-4 border-t">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setUserToDelete(userData)}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 text-xs sm:text-sm"
+            >
+              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+              ユーザーを削除
+            </Button>
+          </div>
+
+          <div className="pt-3 border-t text-xs text-gray-500">
             <p>作成日: {new Date(userData.created_at).toLocaleString('ja-JP')}</p>
             <p>更新日: {new Date(userData.updated_at).toLocaleString('ja-JP')}</p>
           </div>
@@ -384,6 +430,16 @@ export function UserManagement() {
                           >
                             <UserIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setUserToDelete(userData)}
+                            disabled={loading}
+                            className="h-6 w-6 sm:h-8 sm:w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="削除"
+                          >
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -422,6 +478,40 @@ export function UserManagement() {
         </CardContent>
       </Card>
       </div>
+
+      {/* 削除確認ダイアログ */}
+      <Dialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ユーザーを削除</DialogTitle>
+            <DialogDescription>
+              本当にこのユーザーを削除しますか？この操作は取り消せません。
+            </DialogDescription>
+          </DialogHeader>
+          {userToDelete && (
+            <div className="py-4">
+              <p className="text-sm"><strong>メールアドレス:</strong> {userToDelete.email}</p>
+              <p className="text-sm"><strong>ロール:</strong> {getRoleLabel(userToDelete.role)}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setUserToDelete(null)}
+              disabled={loading}
+            >
+              キャンセル
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={loading}
+            >
+              {loading ? '削除中...' : '削除する'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   )
 }

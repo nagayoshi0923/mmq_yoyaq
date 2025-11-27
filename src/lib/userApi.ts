@@ -93,3 +93,19 @@ export async function upsertUser(authUserId: string, email: string, role: 'admin
   return data as User
 }
 
+/**
+ * ユーザーを削除
+ * 注意: これは users テーブルからのみ削除します
+ * auth.users からの削除は Supabase Admin API が必要です
+ */
+export async function deleteUser(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .delete()
+    .eq('id', userId)
+
+  if (error) {
+    throw error
+  }
+}
+
