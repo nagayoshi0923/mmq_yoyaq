@@ -297,23 +297,18 @@ export function ScheduleManager() {
                   label: '臨時会場を追加',
                   icon: <Plus className="w-4 h-4" />,
                   onClick: () => {
-                    // 臨時会場を選択
-                    const venueOptions = availableVenues
-                      .map((v, i) => `${i + 1}. ${v.name}`)
-                      .join('\n')
+                    // その日付で既に使用されている臨時会場を確認
+                    const usedVenueIds = temporaryVenues
+                      .filter(v => v.temporary_dates?.includes(event.date))
+                      .map(v => v.id)
                     
-                    const selection = prompt(
-                      `追加する臨時会場を選択してください（1〜${availableVenues.length}）:\n\n${venueOptions}`
-                    )
+                    // まだ使用されていない最初の臨時会場を選択
+                    const nextVenue = availableVenues.find(v => !usedVenueIds.includes(v.id))
                     
-                    if (selection) {
-                      const index = parseInt(selection, 10) - 1
-                      if (index >= 0 && index < availableVenues.length) {
-                        const selectedVenue = availableVenues[index]
-                        addTemporaryVenue(event.date, selectedVenue.id)
-                      } else {
-                        alert('無効な選択です')
-                      }
+                    if (nextVenue) {
+                      addTemporaryVenue(event.date, nextVenue.id)
+                    } else {
+                      alert('すべての臨時会場が使用されています')
                     }
                     
                     modals.contextMenu.setContextMenu(null)
@@ -351,23 +346,18 @@ export function ScheduleManager() {
                   label: '臨時会場を追加',
                   icon: <Plus className="w-4 h-4" />,
                   onClick: () => {
-                    // 臨時会場を選択
-                    const venueOptions = availableVenues
-                      .map((v, i) => `${i + 1}. ${v.name}`)
-                      .join('\n')
+                    // その日付で既に使用されている臨時会場を確認
+                    const usedVenueIds = temporaryVenues
+                      .filter(v => v.temporary_dates?.includes(date))
+                      .map(v => v.id)
                     
-                    const selection = prompt(
-                      `追加する臨時会場を選択してください（1〜${availableVenues.length}）:\n\n${venueOptions}`
-                    )
+                    // まだ使用されていない最初の臨時会場を選択
+                    const nextVenue = availableVenues.find(v => !usedVenueIds.includes(v.id))
                     
-                    if (selection) {
-                      const index = parseInt(selection, 10) - 1
-                      if (index >= 0 && index < availableVenues.length) {
-                        const selectedVenue = availableVenues[index]
-                        addTemporaryVenue(date, selectedVenue.id)
-                      } else {
-                        alert('無効な選択です')
-                      }
+                    if (nextVenue) {
+                      addTemporaryVenue(date, nextVenue.id)
+                    } else {
+                      alert('すべての臨時会場が使用されています')
                     }
                     
                     modals.contextMenu.setContextMenu(null)
