@@ -17,30 +17,37 @@
 
 -- -----------------------------------------------------------------------------
 -- ヘルパー関数: 現在のユーザーの役割を取得
+-- SECURITY INVOKER を使用して、RLS ポリシーの無限ループを回避
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.get_user_role()
 RETURNS app_role AS $$
-  SELECT COALESCE(
-    (SELECT role FROM public.users WHERE id = auth.uid()),
-    'customer'::app_role
-  );
-$$ LANGUAGE SQL SECURITY DEFINER;
+  SELECT COALESCE(role, 'customer'::app_role)
+  FROM public.users
+  WHERE id = auth.uid()
+  LIMIT 1;
+$$ LANGUAGE SQL SECURITY INVOKER;
 
 -- -----------------------------------------------------------------------------
 -- ヘルパー関数: 管理者かどうか
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
-  SELECT get_user_role() = 'admin'::app_role;
-$$ LANGUAGE SQL SECURITY DEFINER;
+  SELECT COALESCE(
+    (SELECT role = 'admin'::app_role FROM public.users WHERE id = auth.uid() LIMIT 1),
+    false
+  );
+$$ LANGUAGE SQL SECURITY INVOKER;
 
 -- -----------------------------------------------------------------------------
 -- ヘルパー関数: スタッフかどうか
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.is_staff_or_admin()
 RETURNS BOOLEAN AS $$
-  SELECT get_user_role() IN ('staff'::app_role, 'admin'::app_role);
-$$ LANGUAGE SQL SECURITY DEFINER;
+  SELECT COALESCE(
+    (SELECT role IN ('staff'::app_role, 'admin'::app_role) FROM public.users WHERE id = auth.uid() LIMIT 1),
+    false
+  );
+$$ LANGUAGE SQL SECURITY INVOKER;
 
 -- =============================================================================
 -- 既存のポリシーを削除（競合を避けるため）
@@ -220,30 +227,26 @@ CREATE POLICY "staff_scenario_assignments_delete_admin" ON public.staff_scenario
 -- -----------------------------------------------------------------------------
 -- 5. users（ユーザー情報）
 -- 自分の情報のみ読み書き可能、admin はすべてアクセス可能
+-- 【重要】循環参照を避けるため、ヘルパー関数を使わずに直接判定
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "users_select_self_or_admin" ON public.users
+CREATE POLICY "users_select_self" ON public.users
   FOR SELECT
-  USING (
-    is_admin() OR
-    id = auth.uid()
-  );
+  USING (id = auth.uid());
 
-CREATE POLICY "users_insert_admin" ON public.users
+CREATE POLICY "users_insert_self" ON public.users
   FOR INSERT
-  WITH CHECK (is_admin() OR id = auth.uid());
+  WITH CHECK (id = auth.uid());
 
-CREATE POLICY "users_update_self_or_admin" ON public.users
+CREATE POLICY "users_update_self" ON public.users
   FOR UPDATE
-  USING (
-    is_admin() OR
-    id = auth.uid()
-  );
+  USING (id = auth.uid());
 
-CREATE POLICY "users_delete_admin" ON public.users
-  FOR DELETE
-  USING (is_admin());
+-- 削除は誰もできない（セキュリティ上、ユーザー削除は管理画面から）
+-- CREATE POLICY "users_delete_admin" ON public.users
+--   FOR DELETE
+--   USING (false);
 
 -- -----------------------------------------------------------------------------
 -- 6. customers（顧客情報）
