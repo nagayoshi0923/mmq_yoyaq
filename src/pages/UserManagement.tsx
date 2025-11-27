@@ -412,40 +412,40 @@ export function UserManagement() {
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'admin')}
                             disabled={loading || userData.role === 'admin'}
-                            className="h-7 w-7 sm:h-8 sm:w-8 p-0 border"
+                            className="h-8 w-8 p-1.5 border"
                             title="管理者に変更"
                           >
-                            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <Shield className="w-5 h-5 text-red-600" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'staff')}
                             disabled={loading || userData.role === 'staff'}
-                            className="h-7 w-7 sm:h-8 sm:w-8 p-0 border"
+                            className="h-8 w-8 p-1.5 border"
                             title="スタッフに変更"
                           >
-                            <UserCog className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <UserCog className="w-5 h-5 text-blue-600" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleRoleUpdate(userData.id, 'customer')}
                             disabled={loading || userData.role === 'customer'}
-                            className="h-7 w-7 sm:h-8 sm:w-8 p-0 border"
+                            className="h-8 w-8 p-1.5 border"
                             title="顧客に変更"
                           >
-                            <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <UserIcon className="w-5 h-5 text-gray-600" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setUserToDelete(userData)}
                             disabled={loading}
-                            className="h-7 w-7 sm:h-8 sm:w-8 p-0 border border-red-300 text-red-600 hover:bg-red-50"
+                            className="h-8 w-8 p-1.5 border-2 border-red-400 text-red-600 hover:bg-red-50"
                             title="削除"
                           >
-                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <Trash2 className="w-5 h-5" />
                           </Button>
                         </div>
                       </div>
