@@ -31,7 +31,7 @@ import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2 } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus } from 'lucide-react'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -284,17 +284,45 @@ export function ScheduleManager() {
                 },
                 separator: true
               }
-            ] : modals.contextMenu.contextMenu.type === 'cell' && modals.contextMenu.contextMenu.cellInfo ? [
-              {
-                label: 'ペースト',
-                icon: <Clipboard className="w-4 h-4" />,
-                onClick: () => {
-                  const { date, venue, timeSlot } = modals.contextMenu.contextMenu!.cellInfo!
-                  modals.contextMenu.handlePasteFromClipboard(date, venue, timeSlot)
-                },
-                disabled: !modals.contextMenu.clipboardEvent
-              }
-            ] : []}
+            ] : modals.contextMenu.contextMenu.type === 'cell' && modals.contextMenu.contextMenu.cellInfo ? (
+              // 日付セル（venueが空）の場合
+              modals.contextMenu.contextMenu.cellInfo.venue === '' ? [
+                {
+                  label: '臨時会場を追加',
+                  icon: <Plus className="w-4 h-4" />,
+                  onClick: () => {
+                    const { date } = modals.contextMenu.contextMenu!.cellInfo!
+                    addTemporaryVenue(date)
+                    modals.contextMenu.setContextMenu(null)
+                  }
+                }
+              ] : (() => {
+                // 臨時会場セルかチェック
+                const { venue } = modals.contextMenu.contextMenu!.cellInfo!
+                const isTemporaryVenue = temporaryVenues.some(v => v.id === venue)
+                
+                return [
+                  ...(isTemporaryVenue ? [{
+                    label: '臨時会場を削除',
+                    icon: <Trash2 className="w-4 h-4" />,
+                    onClick: () => {
+                      removeTemporaryVenue(venue)
+                      modals.contextMenu.setContextMenu(null)
+                    },
+                    separator: true
+                  }] : []),
+                  {
+                    label: 'ペースト',
+                    icon: <Clipboard className="w-4 h-4" />,
+                    onClick: () => {
+                      const { date, venue, timeSlot } = modals.contextMenu.contextMenu!.cellInfo!
+                      modals.contextMenu.handlePasteFromClipboard(date, venue, timeSlot)
+                    },
+                    disabled: !modals.contextMenu.clipboardEvent
+                  }
+                ]
+              })()
+            ) : []}
           />
         )}
       </div>
