@@ -120,7 +120,7 @@ export function createStaffColumns(
       key: 'special_scenarios',
       header: 'GM可能',
       sortable: true,
-      width: 'flex-1',
+      width: 'w-64 max-w-64',
       render: (staff) => {
         if (!staff.special_scenarios || staff.special_scenarios.length === 0) {
           return <span className="text-xs text-muted-foreground">-</span>
@@ -169,7 +169,7 @@ export function createStaffColumns(
       key: 'experienced_scenarios',
       header: '体験済み',
       sortable: true,
-      width: 'flex-1',
+      width: 'w-64 max-w-64',
       render: (staff) => {
         const experiencedScenarios = (staff as any).experienced_scenarios
         if (!experiencedScenarios || experiencedScenarios.length === 0) {
