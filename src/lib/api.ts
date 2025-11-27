@@ -50,18 +50,36 @@ interface PaginatedResponse<T> {
 
 // 店舗関連のAPI
 export const storeApi = {
-  // 全店舗を取得（臨時会場を除外）
-  async getAll(): Promise<Store[]> {
-    const { data, error } = await supabase
-      .from('stores')
-      .select('*')
-      .or('is_temporary.is.null,is_temporary.eq.false')
+  // 全店舗を取得
+  // @param includeTemporary - 臨時会場を含めるかどうか（デフォルト: false）
+  async getAll(includeTemporary: boolean = false): Promise<Store[]> {
+    let query = supabase.from('stores').select('*')
+    
+    // 臨時会場を除外する場合
+    if (!includeTemporary) {
+      query = query.or('is_temporary.is.null,is_temporary.eq.false')
+    }
+    
+    const { data, error } = await query
     
     if (error) throw error
     
     // 指定された順序で並び替え（店舗名で判定）
     const storeOrder = ['高田馬場店', '別館①', '別館②', '大久保店', '大塚店', '埼玉大宮店']
     const sortedData = (data || []).sort((a, b) => {
+      // 臨時会場は最後に配置
+      if (a.is_temporary && !b.is_temporary) return 1
+      if (!a.is_temporary && b.is_temporary) return -1
+      if (a.is_temporary && b.is_temporary) {
+        // 臨時会場同士は日付順、名前順
+        if (a.temporary_date && b.temporary_date) {
+          const dateCompare = a.temporary_date.localeCompare(b.temporary_date)
+          if (dateCompare !== 0) return dateCompare
+        }
+        return a.name.localeCompare(b.name, 'ja')
+      }
+      
+      // 通常の店舗同士
       const indexA = storeOrder.indexOf(a.name)
       const indexB = storeOrder.indexOf(b.name)
       // 両方が順序リストにある場合は順序に従う

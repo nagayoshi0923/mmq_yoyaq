@@ -341,18 +341,19 @@ export function useEventOperations({
     try {
       if (modalMode === 'add') {
         // 新規追加
-        const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
-        
-        // 店舗IDを取得
+        // performanceData.venueは店舗ID（UUID）
+        // 店舗の存在確認（通常の店舗 or 臨時会場）
         const { data: storeData, error: storeError } = await supabase
           .from('stores')
-          .select('id')
-          .eq('name', storeName)
+          .select('id, name')
+          .eq('id', performanceData.venue)
           .single()
         
         if (storeError || !storeData) {
-          throw new Error(`店舗「${storeName}」が見つかりません。先に店舗管理で店舗を追加してください。`)
+          throw new Error(`店舗ID「${performanceData.venue}」が見つかりません。先に店舗管理で店舗を追加してください。`)
         }
+        
+        const storeName = storeData.name
         
         // シナリオIDを取得
         let scenarioId = null
@@ -402,11 +403,12 @@ export function useEventOperations({
         
         // 貸切リクエストの場合は reservations テーブルを更新
         if (performanceData.is_private_request && performanceData.reservation_id) {
-          const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
+          // performanceData.venueは店舗ID（UUID）
+          // 店舗の存在確認（通常の店舗 or 臨時会場）
           const { data: storeData } = await supabase
             .from('stores')
-            .select('id')
-            .eq('name', storeName)
+            .select('id, name')
+            .eq('id', performanceData.venue)
             .single()
           
           const storeId = storeData?.id || performanceData.venue
