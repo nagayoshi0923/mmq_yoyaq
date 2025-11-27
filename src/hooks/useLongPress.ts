@@ -20,7 +20,6 @@ export function useLongPress(
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
-    isLongPressTriggeredRef.current = false
   }, [])
 
   const onTouchStart = useCallback(
@@ -34,15 +33,13 @@ export function useLongPress(
       
       isLongPressTriggeredRef.current = false
 
-      // 長押しタイマーを開始
+      // 長押しタイマーを開始（フラグのみ立てる）
       timerRef.current = setTimeout(() => {
-        if (touchStartPosRef.current) {
-          isLongPressTriggeredRef.current = true
-          onLongPress(touchStartPosRef.current.x, touchStartPosRef.current.y)
-        }
+        // 長押しが成立したらフラグを立てる（メニュー表示は onTouchEnd で行う）
+        isLongPressTriggeredRef.current = true
       }, delay)
     },
-    [onLongPress, delay]
+    [delay]
   )
 
   const onTouchMove = useCallback(
@@ -57,19 +54,29 @@ export function useLongPress(
       // 5px以上移動したらドラッグと判定してタイマーをキャンセル
       if (deltaX > 5 || deltaY > 5) {
         clear()
+        isLongPressTriggeredRef.current = false
       }
     },
     [clear]
   )
 
   const onTouchEnd = useCallback(() => {
-    // タッチ終了時にタイマーをキャンセル
+    // 長押しが成立していた場合、指を離した時にメニューを表示
+    if (isLongPressTriggeredRef.current && touchStartPosRef.current) {
+      onLongPress(touchStartPosRef.current.x, touchStartPosRef.current.y)
+    }
+    
+    // タイマーをキャンセル
     clear()
-  }, [clear])
+    isLongPressTriggeredRef.current = false
+    touchStartPosRef.current = null
+  }, [clear, onLongPress])
 
   const onTouchCancel = useCallback(() => {
     // タッチキャンセル時にタイマーをキャンセル
     clear()
+    isLongPressTriggeredRef.current = false
+    touchStartPosRef.current = null
   }, [clear])
 
   return {
