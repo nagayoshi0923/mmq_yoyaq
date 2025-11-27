@@ -307,10 +307,19 @@ export function ScheduleManager() {
             })()
              : modals.contextMenu.contextMenu.type === 'cell' && modals.contextMenu.contextMenu.cellInfo ? (() => {
               // すべてのセルで統一メニューを表示
-              const { date, venue } = modals.contextMenu.contextMenu!.cellInfo!
+              const { date, venue, timeSlot } = modals.contextMenu.contextMenu!.cellInfo!
               const isTemporaryVenue = venue && temporaryVenues.some(v => v.id === venue)
               
               return [
+                {
+                  label: '公演を追加',
+                  icon: <Edit className="w-4 h-4" />,
+                  onClick: () => {
+                    modals.performance.handleOpenPerformanceModal(date, venue, timeSlot)
+                    modals.contextMenu.setContextMenu(null)
+                  },
+                  separator: true
+                },
                 {
                   label: '臨時会場を追加',
                   icon: <Plus className="w-4 h-4" />,
