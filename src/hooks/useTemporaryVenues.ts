@@ -110,6 +110,20 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
   // 臨時会場を削除
   const removeTemporaryVenue = useCallback(async (venueId: string) => {
     try {
+      // 削除前に公演が存在するかチェック
+      const { data: events, error: checkError } = await supabase
+        .from('schedule_events')
+        .select('id')
+        .eq('store_id', venueId)
+        .limit(1)
+      
+      if (checkError) throw checkError
+      
+      if (events && events.length > 0) {
+        alert('この臨時会場には公演が登録されているため削除できません。先に公演を削除してください。')
+        return
+      }
+      
       const { error } = await supabase
         .from('stores')
         .delete()

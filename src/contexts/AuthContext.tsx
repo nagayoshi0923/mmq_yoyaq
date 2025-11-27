@@ -171,8 +171,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       logger.log('📊 usersテーブルからロール取得開始')
       try {
-        // パフォーマンス最適化: リトライなし、タイムアウト0.5秒で早期フォールバック
-        const timeoutMs = 500
+        // パフォーマンス最適化: リトライなし、タイムアウト1秒で早期フォールバック
+        // RLS有効化後はクエリが少し遅くなるため、タイムアウトを延長
+        const timeoutMs = 1000
             
             const rolePromise = supabase
               .from('users')
