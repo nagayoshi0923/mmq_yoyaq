@@ -18,7 +18,8 @@ export function ContextMenu({ x, y, onClose, items = [] }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    // マウスとタッチの両方に対応
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose()
       }
@@ -30,20 +31,27 @@ export function ContextMenu({ x, y, onClose, items = [] }: ContextMenuProps) {
       }
     }
 
+    // マウスとタッチの両方のイベントを監視
     document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
     document.addEventListener('keydown', handleEscape)
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
       document.removeEventListener('keydown', handleEscape)
     }
   }, [onClose])
+
+  // メニューの位置を画面内に収める
+  const adjustedX = Math.min(x, window.innerWidth - 180) // メニュー幅 + マージン
+  const adjustedY = Math.min(y, window.innerHeight - 200) // メニュー高さの概算 + マージン
 
   return (
     <div
       ref={menuRef}
       className="fixed bg-white shadow-lg rounded-md border border-gray-200 py-1 z-50 min-w-[160px]"
-      style={{ left: x, top: y }}
+      style={{ left: adjustedX, top: adjustedY }}
     >
       {items.map((item, index) => (
         <React.Fragment key={index}>
