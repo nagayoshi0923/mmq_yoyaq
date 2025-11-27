@@ -461,6 +461,14 @@ export function useScheduleData(currentDate: Date) {
           })
         ])
         
+        // デバッグ: 全店舗データを確認
+        console.log('🏪 全店舗データ（useScheduleData）:', storeData.map(s => ({
+          id: s.id,
+          name: s.name,
+          is_temporary: s.is_temporary,
+          temporary_date: s.temporary_date
+        })))
+        
         setStores(storeData)
         sessionStorage.setItem('scheduleStores', JSON.stringify(storeData))
         if (storeData.length > 0) {
