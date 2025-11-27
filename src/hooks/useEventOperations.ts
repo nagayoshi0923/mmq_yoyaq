@@ -124,16 +124,9 @@ export function useEventOperations({
     setModalInitialData(undefined)
     setEditingEvent(null)
     
-    // スケジュールデータを再読み込み（参加者数の更新を反映）
-    if (fetchSchedule) {
-      try {
-        await fetchSchedule()
-        logger.log('スケジュールデータを再読み込みしました')
-      } catch (error) {
-        logger.error('スケジュールデータの再読み込みに失敗:', error)
-      }
-    }
-  }, [fetchSchedule])
+    // 🔄 Realtime購読により自動同期されるため、手動でのfetchScheduleは不要
+    // 楽観的更新 + Realtime で二重更新を防ぎ、チカチカを解消
+  }, [])
 
   // ドラッグ&ドロップハンドラー
   const handleDrop = useCallback((droppedEvent: ScheduleEvent, targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => {

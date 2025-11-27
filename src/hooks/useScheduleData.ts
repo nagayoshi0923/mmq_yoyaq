@@ -857,6 +857,149 @@ export function useScheduleData(currentDate: Date) {
     }
   }
 
+  // リアルタイム購読（複数ユーザー対応）
+  useEffect(() => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth() + 1
+    const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
+    const monthEnd = `${year}-${String(month).padStart(2, '0')}-31`
+    
+    // schedule_events テーブルの変更を購読
+    const scheduleChannel = supabase
+      .channel('schedule_events_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE すべて
+          schema: 'public',
+          table: 'schedule_events'
+          // フィルターなし（すべての変更を受信し、クライアント側でフィルタリング）
+        },
+        async (payload) => {
+          // 現在表示中の月のイベントのみ処理
+          const eventDate = (payload.new as any)?.date || (payload.old as any)?.date
+          if (eventDate < monthStart || eventDate > monthEnd) {
+            logger.log('⏭️ Realtime: 対象外の月のため無視', eventDate)
+            return
+          }
+          
+          logger.log('📡 Realtime: schedule_events 変更検知', payload.eventType, eventDate)
+          
+          if (payload.eventType === 'INSERT') {
+            const newEvent = payload.new as any
+            
+            // シナリオ情報を取得
+            let scenarioTitle = newEvent.scenario || ''
+            if (newEvent.scenario_id) {
+              const scenario = scenarios.find(s => s.id === newEvent.scenario_id)
+              if (scenario) scenarioTitle = scenario.title
+            }
+            
+            const formattedEvent: ScheduleEvent = {
+              id: newEvent.id,
+              date: newEvent.date,
+              venue: newEvent.store_id,
+              scenario: scenarioTitle,
+              gms: newEvent.gms || [],
+              start_time: newEvent.start_time,
+              end_time: newEvent.end_time,
+              category: newEvent.category,
+              is_cancelled: newEvent.is_cancelled || false,
+              participant_count: newEvent.current_participants || 0,
+              max_participants: newEvent.capacity || 8,
+              notes: newEvent.notes || '',
+              is_reservation_enabled: newEvent.is_reservation_enabled || false
+            }
+            
+            setEvents(prev => {
+              // 重複チェック（既に楽観的更新で追加済みの場合はスキップ）
+              if (prev.some(e => e.id === formattedEvent.id)) {
+                logger.log('⏭️ Realtime: 既存のイベントのため追加をスキップ', formattedEvent.id)
+                return prev
+              }
+              logger.log('✅ Realtime: イベント追加', formattedEvent.id)
+              return [...prev, formattedEvent]
+            })
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedEvent = payload.new as any
+            
+            // シナリオ情報を取得
+            let scenarioTitle = updatedEvent.scenario || ''
+            if (updatedEvent.scenario_id) {
+              const scenario = scenarios.find(s => s.id === updatedEvent.scenario_id)
+              if (scenario) scenarioTitle = scenario.title
+            }
+            
+            const formattedEvent: ScheduleEvent = {
+              id: updatedEvent.id,
+              date: updatedEvent.date,
+              venue: updatedEvent.store_id,
+              scenario: scenarioTitle,
+              gms: updatedEvent.gms || [],
+              start_time: updatedEvent.start_time,
+              end_time: updatedEvent.end_time,
+              category: updatedEvent.category,
+              is_cancelled: updatedEvent.is_cancelled || false,
+              participant_count: updatedEvent.current_participants || 0,
+              max_participants: updatedEvent.capacity || 8,
+              notes: updatedEvent.notes || '',
+              is_reservation_enabled: updatedEvent.is_reservation_enabled || false
+            }
+            
+            setEvents(prev => {
+              const updated = prev.map(e => e.id === formattedEvent.id ? formattedEvent : e)
+              logger.log('🔄 Realtime: イベント更新', formattedEvent.id)
+              return updated
+            })
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id
+            setEvents(prev => {
+              const filtered = prev.filter(e => e.id !== deletedId)
+              logger.log('🗑️ Realtime: イベント削除', deletedId)
+              return filtered
+            })
+          }
+        }
+      )
+      .subscribe()
+
+    // reservations テーブルの変更を購読（貸切予約）
+    const reservationsChannel = supabase
+      .channel('reservations_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reservations'
+          // フィルターなし（すべての変更を受信）
+        },
+        async (payload) => {
+          const reservation = (payload.new || payload.old) as any
+          
+          // web_private かつ confirmed のみ処理
+          if (reservation?.reservation_source !== 'web_private' || reservation?.status !== 'confirmed') {
+            logger.log('⏭️ Realtime: 対象外の予約のため無視')
+            return
+          }
+          
+          logger.log('📡 Realtime: reservations 変更検知', payload.eventType)
+          
+          // 貸切予約が変更されたら、該当月のスケジュールを再取得
+          // （貸切予約は複雑なデータ構造のため、部分更新より全体再取得が確実）
+          await fetchSchedule()
+        }
+      )
+      .subscribe()
+
+    // クリーンアップ
+    return () => {
+      supabase.removeChannel(scheduleChannel)
+      supabase.removeChannel(reservationsChannel)
+      logger.log('🔌 Realtime: 購読解除')
+    }
+  }, [currentDate, scenarios]) // currentDate と scenarios が変わったら再購読
+
   return {
     events,
     setEvents,
