@@ -233,6 +233,10 @@ export function useScheduleTableModals(currentDate: Date) {
       availableStaffByScenario,
       onParticipantChange: eventOperations.handleParticipantChange
     },
+    // performance 用（コンテキストメニューから使用）
+    performance: {
+      handleOpenPerformanceModal: eventOperations.handleOpenPerformanceModal
+    },
     // ConflictWarningModal用
     conflictWarning: {
       isOpen: eventOperations.isConflictWarningOpen,
