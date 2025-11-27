@@ -42,7 +42,7 @@ export function ScheduleManager() {
   const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
 
   // 臨時会場管理
-  const { temporaryVenues, addTemporaryVenue, removeTemporaryVenue } = useTemporaryVenues(currentDate)
+  const { temporaryVenues, availableVenues, addTemporaryVenue, removeTemporaryVenue } = useTemporaryVenues(currentDate)
 
   // GMリスト
   const [gmList, setGmList] = useState<Staff[]>([])
@@ -297,7 +297,25 @@ export function ScheduleManager() {
                   label: '臨時会場を追加',
                   icon: <Plus className="w-4 h-4" />,
                   onClick: () => {
-                    addTemporaryVenue(event.date)
+                    // 臨時会場を選択
+                    const venueOptions = availableVenues
+                      .map((v, i) => `${i + 1}. ${v.name}`)
+                      .join('\n')
+                    
+                    const selection = prompt(
+                      `追加する臨時会場を選択してください（1〜${availableVenues.length}）:\n\n${venueOptions}`
+                    )
+                    
+                    if (selection) {
+                      const index = parseInt(selection, 10) - 1
+                      if (index >= 0 && index < availableVenues.length) {
+                        const selectedVenue = availableVenues[index]
+                        addTemporaryVenue(event.date, selectedVenue.id)
+                      } else {
+                        alert('無効な選択です')
+                      }
+                    }
+                    
                     modals.contextMenu.setContextMenu(null)
                   }
                 },
@@ -305,7 +323,9 @@ export function ScheduleManager() {
                   label: '臨時会場を削除',
                   icon: <Trash2 className="w-4 h-4" />,
                   onClick: () => {
-                    removeTemporaryVenue(event.venue)
+                    if (confirm(`${event.date}から臨時会場を削除しますか？`)) {
+                      removeTemporaryVenue(event.date, event.venue)
+                    }
                     modals.contextMenu.setContextMenu(null)
                   },
                   disabled: !isTemporaryVenue
@@ -331,7 +351,25 @@ export function ScheduleManager() {
                   label: '臨時会場を追加',
                   icon: <Plus className="w-4 h-4" />,
                   onClick: () => {
-                    addTemporaryVenue(date)
+                    // 臨時会場を選択
+                    const venueOptions = availableVenues
+                      .map((v, i) => `${i + 1}. ${v.name}`)
+                      .join('\n')
+                    
+                    const selection = prompt(
+                      `追加する臨時会場を選択してください（1〜${availableVenues.length}）:\n\n${venueOptions}`
+                    )
+                    
+                    if (selection) {
+                      const index = parseInt(selection, 10) - 1
+                      if (index >= 0 && index < availableVenues.length) {
+                        const selectedVenue = availableVenues[index]
+                        addTemporaryVenue(date, selectedVenue.id)
+                      } else {
+                        alert('無効な選択です')
+                      }
+                    }
+                    
                     modals.contextMenu.setContextMenu(null)
                   }
                 },
@@ -339,7 +377,9 @@ export function ScheduleManager() {
                   label: '臨時会場を削除',
                   icon: <Trash2 className="w-4 h-4" />,
                   onClick: () => {
-                    removeTemporaryVenue(venue)
+                    if (confirm(`${date}から臨時会場を削除しますか？`)) {
+                      removeTemporaryVenue(date, venue)
+                    }
                     modals.contextMenu.setContextMenu(null)
                   },
                   disabled: !isTemporaryVenue,
