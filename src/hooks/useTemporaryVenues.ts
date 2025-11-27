@@ -77,7 +77,11 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
           filter: 'is_temporary=eq.true'
         },
         (payload) => {
-          console.log('臨時会場Realtimeイベント:', payload)
+          console.log('🔔 臨時会場Realtimeイベント受信:', {
+            type: payload.eventType,
+            venue: payload.new?.name || payload.old?.name,
+            date: payload.new?.temporary_date || payload.old?.temporary_date
+          })
           
           // クライアント側で月フィルタリング
           const isInCurrentMonth = (venue: any) => {
@@ -89,27 +93,40 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
               setTemporaryVenues(prev => {
                 // 重複チェック: 同じIDが既に存在するか
                 if (prev.some(v => v.id === payload.new.id)) {
-                  console.log('重複をスキップ:', payload.new.id)
+                  console.log('⏭️ 重複をスキップ:', payload.new.id)
                   return prev
                 }
+                console.log('✅ Realtime: 臨時会場を追加:', payload.new.name)
                 return [...prev, payload.new as Store]
               })
+            } else {
+              console.log('⏭️ 月外のためスキップ:', payload.new.temporary_date)
             }
           } else if (payload.eventType === 'UPDATE' && payload.new) {
             if (isInCurrentMonth(payload.new)) {
               setTemporaryVenues(prev => 
                 prev.map(v => v.id === payload.new.id ? payload.new as Store : v)
               )
+              console.log('🔄 Realtime: 臨時会場を更新:', payload.new.name)
             } else {
               // 月外に移動した場合は削除
               setTemporaryVenues(prev => prev.filter(v => v.id !== payload.new.id))
+              console.log('🗑️ Realtime: 月外に移動したため削除:', payload.new.name)
             }
           } else if (payload.eventType === 'DELETE' && payload.old) {
             setTemporaryVenues(prev => prev.filter(v => v.id !== payload.old.id))
+            console.log('🗑️ Realtime: 臨時会場を削除:', payload.old.name)
           }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('📡 臨時会場Realtime購読状態:', status)
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ 臨時会場Realtime購読成功')
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ 臨時会場Realtime購読エラー')
+        }
+      })
 
     return () => {
       channel.unsubscribe()
