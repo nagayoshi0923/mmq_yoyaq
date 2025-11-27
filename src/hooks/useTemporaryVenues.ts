@@ -36,7 +36,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
     }
   }
 
-  // Supabaseから臨時会場を読み込む
+  // Supabaseから臨時会場を読み込む + Realtime購読
   useEffect(() => {
     const loadTemporaryVenues = async () => {
       setLoading(true)
@@ -61,6 +61,58 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
     }
     
     loadTemporaryVenues()
+
+    // Realtime購読（臨時会場のみ）
+    const { start, end } = getMonthRange(currentDate)
+    
+    const channel = supabase
+      .channel('temporary_venues_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stores',
+          filter: 'is_temporary=eq.true'
+        },
+        (payload) => {
+          console.log('臨時会場Realtimeイベント:', payload)
+          
+          // クライアント側で月フィルタリング
+          const isInCurrentMonth = (venue: any) => {
+            return venue.temporary_date >= start && venue.temporary_date <= end
+          }
+
+          if (payload.eventType === 'INSERT' && payload.new) {
+            if (isInCurrentMonth(payload.new)) {
+              setTemporaryVenues(prev => {
+                // 重複チェック: 同じIDが既に存在するか
+                if (prev.some(v => v.id === payload.new.id)) {
+                  console.log('重複をスキップ:', payload.new.id)
+                  return prev
+                }
+                return [...prev, payload.new as Store]
+              })
+            }
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            if (isInCurrentMonth(payload.new)) {
+              setTemporaryVenues(prev => 
+                prev.map(v => v.id === payload.new.id ? payload.new as Store : v)
+              )
+            } else {
+              // 月外に移動した場合は削除
+              setTemporaryVenues(prev => prev.filter(v => v.id !== payload.new.id))
+            }
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            setTemporaryVenues(prev => prev.filter(v => v.id !== payload.old.id))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      channel.unsubscribe()
+    }
   }, [currentDate])
 
   // 特定の日付の臨時会場を取得
@@ -98,9 +150,8 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       
       if (error) throw error
       
-      if (data) {
-        setTemporaryVenues(prev => [...prev, data])
-      }
+      // Realtimeで自動的に反映されるため、楽観的更新は不要
+      console.log('臨時会場を追加しました:', data)
     } catch (error) {
       console.error('臨時会場の追加に失敗:', error)
       alert('臨時会場の追加に失敗しました')
@@ -131,7 +182,8 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       
       if (error) throw error
       
-      setTemporaryVenues(prev => prev.filter(v => v.id !== venueId))
+      // Realtimeで自動的に反映されるため、楽観的更新は不要
+      console.log('臨時会場を削除しました:', venueId)
     } catch (error) {
       console.error('臨時会場の削除に失敗:', error)
       alert('臨時会場の削除に失敗しました')
