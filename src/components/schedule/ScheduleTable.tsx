@@ -108,7 +108,7 @@ export function ScheduleTable({
               const allVenues = [...stores, ...tempVenuesForDay]
               
               return allVenues.map((venue, venueIndex) => {
-                const isTemporary = 'created_at' in venue
+                const isTemporary = venue.id.startsWith('temp_')
                 
                 return (
                 <TableRow key={`${day.date}-${venue.id}`} className="h-10 sm:h-12 md:h-14">
