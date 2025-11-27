@@ -237,52 +237,75 @@ export function ScheduleManager() {
             x={modals.contextMenu.contextMenu.x}
             y={modals.contextMenu.contextMenu.y}
             onClose={() => modals.contextMenu.setContextMenu(null)}
-            items={modals.contextMenu.contextMenu.type === 'event' && modals.contextMenu.contextMenu.event ? [
-              {
-                label: '編集',
-                icon: <Edit className="w-4 h-4" />,
-                onClick: () => {
-                  scheduleTableProps.eventHandlers.onEditPerformance(modals.contextMenu.contextMenu!.event!)
-                  modals.contextMenu.setContextMenu(null)
-                }
-              },
-              {
-                label: 'コピー',
-                icon: <Copy className="w-4 h-4" />,
-                onClick: () => {
-                  modals.contextMenu.handleCopyToClipboard(modals.contextMenu.contextMenu!.event!)
-                },
-                separator: true
-              },
-              ...(modals.contextMenu.contextMenu.event.is_cancelled ? [
+            items={modals.contextMenu.contextMenu.type === 'event' && modals.contextMenu.contextMenu.event ? (() => {
+              const event = modals.contextMenu.contextMenu!.event!
+              const isTemporaryVenue = temporaryVenues.some(v => v.id === event.venue)
+              
+              return [
                 {
-                  label: '復活',
-                  icon: <RotateCcw className="w-4 h-4" />,
+                  label: '編集',
+                  icon: <Edit className="w-4 h-4" />,
                   onClick: () => {
-                    scheduleTableProps.eventHandlers.onUncancel(modals.contextMenu.contextMenu!.event!)
+                    scheduleTableProps.eventHandlers.onEditPerformance(event)
                     modals.contextMenu.setContextMenu(null)
                   }
-                }
-              ] : [
+                },
                 {
-                  label: '中止',
-                  icon: <Ban className="w-4 h-4" />,
+                  label: 'コピー',
+                  icon: <Copy className="w-4 h-4" />,
                   onClick: () => {
-                    scheduleTableProps.eventHandlers.onCancelConfirm(modals.contextMenu.contextMenu!.event!)
+                    modals.contextMenu.handleCopyToClipboard(event)
+                  },
+                  separator: true
+                },
+                ...(event.is_cancelled ? [
+                  {
+                    label: '復活',
+                    icon: <RotateCcw className="w-4 h-4" />,
+                    onClick: () => {
+                      scheduleTableProps.eventHandlers.onUncancel(event)
+                      modals.contextMenu.setContextMenu(null)
+                    }
+                  }
+                ] : [
+                  {
+                    label: '中止',
+                    icon: <Ban className="w-4 h-4" />,
+                    onClick: () => {
+                      scheduleTableProps.eventHandlers.onCancelConfirm(event)
+                      modals.contextMenu.setContextMenu(null)
+                    }
+                  }
+                ]),
+                {
+                  label: '削除',
+                  icon: <Trash2 className="w-4 h-4" />,
+                  onClick: () => {
+                    scheduleTableProps.eventHandlers.onDeletePerformance(event)
+                    modals.contextMenu.setContextMenu(null)
+                  },
+                  separator: true
+                },
+                {
+                  label: '臨時会場を追加',
+                  icon: <Plus className="w-4 h-4" />,
+                  onClick: () => {
+                    addTemporaryVenue(event.date)
                     modals.contextMenu.setContextMenu(null)
                   }
-                }
-              ]),
-              {
-                label: '削除',
-                icon: <Trash2 className="w-4 h-4" />,
-                onClick: () => {
-                  scheduleTableProps.eventHandlers.onDeletePerformance(modals.contextMenu.contextMenu!.event!)
-                  modals.contextMenu.setContextMenu(null)
                 },
-                separator: true
-              }
-            ] : modals.contextMenu.contextMenu.type === 'cell' && modals.contextMenu.contextMenu.cellInfo ? (() => {
+                {
+                  label: '臨時会場を削除',
+                  icon: <Trash2 className="w-4 h-4" />,
+                  onClick: () => {
+                    removeTemporaryVenue(event.venue)
+                    modals.contextMenu.setContextMenu(null)
+                  },
+                  disabled: !isTemporaryVenue
+                }
+              ]
+            })()
+             : modals.contextMenu.contextMenu.type === 'cell' && modals.contextMenu.contextMenu.cellInfo ? (() => {
               // すべてのセルで統一メニューを表示
               const { date, venue } = modals.contextMenu.contextMenu!.cellInfo!
               const isTemporaryVenue = venue && temporaryVenues.some(v => v.id === venue)
