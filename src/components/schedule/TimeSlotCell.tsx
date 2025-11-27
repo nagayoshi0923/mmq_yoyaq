@@ -5,6 +5,7 @@ import { EmptySlot } from './EmptySlot'
 import { Badge } from '@/components/ui/badge'
 import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
+import { useLongPress } from '@/hooks/useLongPress'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -138,6 +139,13 @@ function TimeSlotCellBase({
     }
   }
 
+  // 長押しでコンテキストメニューを表示（スマホ対応）
+  const longPressHandlers = useLongPress((x, y) => {
+    if (onContextMenuCell) {
+      onContextMenuCell(date, venue, timeSlot, x, y)
+    }
+  })
+
   return (
     <TableCell 
       className={`schedule-table-cell p-0 sm:p-0.5 border-r border-gray-200 transition-colors ${
@@ -147,6 +155,7 @@ function TimeSlotCellBase({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onContextMenu={handleContextMenu}
+      {...longPressHandlers}
     >
       {events.length > 0 ? (
         // 公演ありの場合: アバター非表示

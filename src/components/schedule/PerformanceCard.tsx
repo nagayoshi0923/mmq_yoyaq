@@ -2,6 +2,7 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Users, AlertTriangle } from 'lucide-react'
+import { useLongPress } from '@/hooks/useLongPress'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -98,6 +99,14 @@ function PerformanceCardBase({
     }
   }
 
+  // 長押しでコンテキストメニューを表示（スマホ対応）
+  // ドラッグ操作（onDragStart）と競合しないように、長押し判定は useLongPress で管理
+  const longPressHandlers = useLongPress((x, y) => {
+    if (onContextMenu) {
+      onContextMenu(event, x, y)
+    }
+  })
+
   return (
     <div
       draggable={!event.is_cancelled}
@@ -107,6 +116,7 @@ function PerformanceCardBase({
         e.dataTransfer.setData('application/json', JSON.stringify(event))
       }}
       onContextMenu={handleContextMenu}
+      {...longPressHandlers}
       className={`p-1 border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow relative ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
