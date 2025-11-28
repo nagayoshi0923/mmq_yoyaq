@@ -40,7 +40,7 @@ export const CategoryTabs = memo(function CategoryTabs({
               relative flex flex-col items-center justify-center gap-0.5 h-16 px-1 rounded-md transition-all focus:outline-none
               ${category.color}
               ${selectedCategory === category.id 
-                ? 'border-2 border-foreground shadow-sm' 
+                ? 'border-primary ring-1 ring-primary shadow-sm' 
                 : 'border hover:shadow-sm'
               }
             `}
