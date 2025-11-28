@@ -24,32 +24,35 @@ const queryClient = new QueryClient({
 })
 
 function AppContent() {
-  // 認証リンク（type=signup, type=recovery, type=invite）を最優先で処理
-  // user状態やloadingに関係なく、URLパラメータを優先
-  const fullUrl = window.location.href
-  const hasAuthToken = fullUrl.includes('access_token=')
-  const isSignupFlow = hasAuthToken && (fullUrl.includes('type=signup') || fullUrl.includes('type=invite'))
-  const isRecoveryFlow = hasAuthToken && (fullUrl.includes('type=recovery') || fullUrl.includes('reset-password'))
-  
-  // パスワード設定/リセットフローは最優先で表示（user状態に関係なく）
-  if (isSignupFlow) {
-    return <SetPassword />
-  }
-  if (isRecoveryFlow) {
-    return <ResetPassword />
-  }
-
-  // 以下は通常のルーティング
   const { user, loading, isInitialized } = useAuth()
-  const [currentHash, setCurrentHash] = React.useState(() => window.location.hash.slice(1))
+  const [rawHash, setRawHash] = React.useState(() => window.location.hash)
+
+  const parseHashPath = React.useCallback((hashValue: string) => {
+    if (!hashValue) return ''
+    const withoutHash = hashValue.startsWith('#') ? hashValue.substring(1) : hashValue
+    const [path] = withoutHash.split('?')
+    if (!path) return ''
+    return path.startsWith('/') ? path.substring(1) : path
+  }, [])
 
   React.useEffect(() => {
-    const handleHashChange = () => {
-      setCurrentHash(window.location.hash.slice(1))
-    }
+    const handleHashChange = () => setRawHash(window.location.hash)
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  const hashPath = parseHashPath(rawHash)
+  const combinedLocation = `${window.location.search}${rawHash}`
+  const hasInviteTokens = combinedLocation.includes('type=signup') || combinedLocation.includes('type=invite')
+  const hasRecoveryTokens = combinedLocation.includes('type=recovery')
+
+  if (hashPath === 'set-password' || hashPath === '/set-password' || hasInviteTokens) {
+    return <SetPassword />
+  }
+
+  if (hashPath === 'reset-password' || hashPath === '/reset-password' || hasRecoveryTokens) {
+    return <ResetPassword />
+  }
 
   if (loading) {
     return (
@@ -65,18 +68,8 @@ function AppContent() {
     )
   }
 
-  // パスワード設定ページ（招待メールから）- 念のため残す
-  if (currentHash.includes('type=invite') || currentHash.includes('type=signup')) {
-    return <SetPassword />
-  }
-
-  // パスワードリセットページ
-  if (currentHash.startsWith('reset-password') || currentHash.includes('type=recovery')) {
-    return <ResetPassword />
-  }
-
-  // ログインページを明示的に要求された場合（クエリパラメータを含む場合も考慮）
-  const hashWithoutQuery = currentHash.split('?')[0]
+  const normalizedHash = rawHash.startsWith('#') ? rawHash.substring(1) : rawHash
+  const hashWithoutQuery = normalizedHash.split('?')[0]
   if (hashWithoutQuery === 'login') {
     return <LoginForm />
   }
@@ -94,7 +87,7 @@ function AppContent() {
     if (isInitialized) {
       // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
       const adminPages = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings']
-      if (adminPages.some(page => currentHash.startsWith(page))) {
+      if (adminPages.some(page => normalizedHash.startsWith(page))) {
         window.location.hash = 'customer-booking'
         return <AdminDashboard />
       }

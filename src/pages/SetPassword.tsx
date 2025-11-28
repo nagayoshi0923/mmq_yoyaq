@@ -17,74 +17,88 @@ export function SetPassword() {
   const [sessionReady, setSessionReady] = useState(false)
 
   useEffect(() => {
-    // URLからトークンを取得してセッションを確立
+    const extractParam = (key: string) => {
+      const sources: string[] = []
+
+      if (window.location.search.length > 1) {
+        sources.push(window.location.search.substring(1))
+      }
+
+      const rawHash = window.location.hash.startsWith('#')
+        ? window.location.hash.substring(1)
+        : window.location.hash
+
+      if (rawHash) {
+        sources.push(rawHash)
+        const hashParts = rawHash.split('?')
+        if (hashParts.length > 1) {
+          // `/set-password?access_token=...` のような場合に備えてクエリ部分だけを追加
+          sources.push(hashParts.slice(1).join('?'))
+        }
+      }
+
+      for (const source of sources) {
+        if (!source) continue
+        const params = new URLSearchParams(source)
+        const value = params.get(key)
+        if (value) return value
+      }
+
+      return null
+    }
+
     const establishSession = async () => {
       try {
         logger.log('🔧 SetPassword: セッション確立開始')
-        
-        // URLからトークンを取得
-        const hash = window.location.hash.substring(1)
-        const searchParams = new URLSearchParams(window.location.search.substring(1))
-        const hashParams = new URLSearchParams(hash)
-        
-        const accessToken = hashParams.get('access_token') || searchParams.get('access_token')
-        const refreshToken = hashParams.get('refresh_token') || searchParams.get('refresh_token')
-        
-        logger.log('🔧 SetPassword: URL解析', {
-          hasAccessToken: !!accessToken,
-          hasRefreshToken: !!refreshToken
-        })
-
-        // 既存のセッションを確認
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
-        if (session && session.user) {
-          logger.log('✅ 既存のセッションが見つかりました:', session.user.email)
-          setSessionReady(true)
-          return
-        }
 
         if (sessionError) {
           logger.warn('⚠️ セッション取得エラー:', sessionError)
         }
 
-        // トークンがある場合、セッションを確立
-        if (accessToken && refreshToken) {
-          logger.log('🔧 URLからトークンを取得してセッションを確立します')
-          
-          const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          })
-          
-          if (setSessionError) {
-            logger.error('❌ セッション確立エラー:', setSessionError)
-            
-            if (setSessionError.message.includes('User from sub claim in JWT does not exist') || 
-                setSessionError.message.includes('JWT')) {
-              setError('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
-              return
-            }
-            
-            setError('セッションの確立に失敗しました。招待リンクの有効期限が切れている可能性があります。')
-            return
-          }
-          
-          if (sessionData.session && sessionData.session.user) {
-            logger.log('✅ セッションが確立されました:', sessionData.session.user.email)
-            setSessionReady(true)
-          } else {
-            logger.warn('⚠️ セッションデータがありません')
-            setError('セッションの確立に失敗しました。招待リンクをもう一度確認してください。')
-          }
-        } else {
-          // トークンがない場合
-          logger.warn('⚠️ トークンが見つかりません')
-          setError('無効な招待リンクです。もう一度招待メールを確認してください。')
+        if (session && session.user) {
+          logger.log('✅ 既存のセッションが見つかりました:', session.user.email)
+          setSessionReady(true)
+          setError('')
+          return
         }
+
+        const accessToken = extractParam('access_token')
+        const refreshToken = extractParam('refresh_token')
+        const type = extractParam('type')
+
+        logger.log('🔧 SetPassword: URL解析', {
+          hasAccessToken: !!accessToken,
+          hasRefreshToken: !!refreshToken,
+          type,
+        })
+
+        if (!accessToken || !refreshToken) {
+          setError('無効な招待リンクです。もう一度招待メールを確認してください。')
+          return
+        }
+
+        const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+
+        if (setSessionError || !sessionData.session?.user) {
+          logger.error('❌ セッション確立エラー:', setSessionError)
+          if (setSessionError?.message?.includes('User from sub claim')) {
+            setError('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
+          } else {
+            setError('セッションの確立に失敗しました。招待リンクの有効期限が切れている可能性があります。')
+          }
+          return
+        }
+
+        logger.log('✅ セッションが確立されました:', sessionData.session.user.email)
+        setSessionReady(true)
+        setError('')
       } catch (err: any) {
         logger.error('❌ セッション確立時の予期しないエラー:', err)
-        if (err.message && err.message.includes('User from sub claim')) {
+        if (err?.message?.includes('User from sub claim')) {
           setError('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
         } else {
           setError('セッションの確立に失敗しました。招待リンクの有効期限が切れている可能性があります。')
@@ -93,27 +107,6 @@ export function SetPassword() {
     }
 
     establishSession()
-
-    // 認証状態変更をリッスン
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      logger.log('🔧 SetPassword: onAuthStateChange', { event, hasSession: !!session, hasUser: !!session?.user })
-      
-      if (event === 'SIGNED_IN' && session && session.user) {
-        logger.log('✅ セッションが確立されました')
-        setSessionReady(true)
-        setError('') // エラーをクリア
-      } else if (event === 'SIGNED_OUT') {
-        logger.log('⚠️ ユーザーがサインアウトしました')
-        setSessionReady(false)
-      } else if (event === 'TOKEN_REFRESHED' && session && session.user) {
-        logger.log('✅ トークンがリフレッシュされました')
-        setSessionReady(true)
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
   }, [])
 
   const handleSetPassword = async (e: React.FormEvent) => {
