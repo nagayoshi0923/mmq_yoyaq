@@ -14,7 +14,10 @@ export function SetPassword() {
   const [success, setSuccess] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [sessionReady, setSessionReady] = useState(false)
+  const [tokens, setTokens] = useState<{ accessToken: string | null; refreshToken: string | null }>({
+    accessToken: null,
+    refreshToken: null,
+  })
 
   useEffect(() => {
     const extractParam = (key: string) => {
@@ -32,82 +35,37 @@ export function SetPassword() {
       return null
     }
 
-    const establishSession = async () => {
-      try {
-        logger.log('🔧 SetPassword: セッション確立開始')
-        const accessToken = extractParam('access_token')
-        const refreshToken = extractParam('refresh_token')
-        const type = extractParam('type')
+    // トークンを抽出して保存（セッション確立は行わない）
+    const accessToken = extractParam('access_token')
+    const refreshToken = extractParam('refresh_token')
 
-        logger.log('🔧 SetPassword: URL解析', {
-          hasAccessToken: !!accessToken,
-          hasRefreshToken: !!refreshToken,
-          type,
-        })
+    logger.log('🔧 SetPassword: URL解析', {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+    })
 
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-
-        if (sessionError) {
-          logger.warn('⚠️ セッション取得エラー:', sessionError)
-        }
-
-        if (!accessToken || !refreshToken) {
-          if (session?.user) {
-            logger.log('✅ 既存セッションを利用します:', session.user.email)
-            setSessionReady(true)
-            setError('')
-          } else {
-            setError('無効な招待リンクです。もう一度招待メールを確認してください。')
-          }
-          return
-        }
-
+    if (!accessToken || !refreshToken) {
+      // 既存セッションがあるか確認
+      supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
-          logger.log('🔄 既存セッションを破棄して新しいトークンを適用します')
-          await supabase.auth.signOut().catch((signOutError) => {
-            logger.warn('⚠️ 既存セッションのサインアウトに失敗しました:', signOutError)
-          })
-        }
-
-        const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        })
-
-        if (setSessionError || !sessionData.session?.user) {
-          logger.error('❌ セッション確立エラー:', setSessionError)
-          if (setSessionError?.message?.includes('User from sub claim')) {
-            setError('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
-          } else {
-            setError('セッションの確立に失敗しました。招待リンクの有効期限が切れている可能性があります。')
-          }
-          return
-        }
-
-        logger.log('✅ セッションが確立されました:', sessionData.session.user.email)
-        setSessionReady(true)
-        setError('')
-      } catch (err: any) {
-        logger.error('❌ セッション確立時の予期しないエラー:', err)
-        if (err?.message?.includes('User from sub claim')) {
-          setError('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
+          logger.log('✅ 既存セッションを利用します:', session.user.email)
+          setTokens({ accessToken: null, refreshToken: null })
+          setError('')
         } else {
-          setError('セッションの確立に失敗しました。招待リンクの有効期限が切れている可能性があります。')
+          setError('無効な招待リンクです。もう一度招待メールを確認してください。')
         }
-      }
+      })
+      return
     }
 
-    establishSession()
+    // トークンを保存（セッション確立はパスワード設定時に行う）
+    setTokens({ accessToken, refreshToken })
+    setError('')
   }, [])
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-
-    if (!sessionReady) {
-      setError('セッションの準備ができていません。少しお待ちください。')
-      return
-    }
 
     if (password.length < 6) {
       setError('パスワードは6文字以上で設定してください')
@@ -122,11 +80,40 @@ export function SetPassword() {
     setLoading(true)
 
     try {
-      // セッションを確認
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError || !session || !session.user) {
-        logger.error('セッション取得エラー:', sessionError)
+      // セッションを確認または確立
+      let session = (await supabase.auth.getSession()).data.session
+
+      // トークンがある場合はセッションを確立（この時点でリンクが使用済みになる）
+      if (tokens.accessToken && tokens.refreshToken) {
+        logger.log('🔧 SetPassword: セッション確立開始（パスワード設定時）')
+        
+        if (session?.user) {
+          logger.log('🔄 既存セッションを破棄して新しいトークンを適用します')
+          await supabase.auth.signOut().catch((signOutError) => {
+            logger.warn('⚠️ 既存セッションのサインアウトに失敗しました:', signOutError)
+          })
+        }
+
+        const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+        })
+
+        if (setSessionError || !sessionData.session?.user) {
+          logger.error('❌ セッション確立エラー:', setSessionError)
+          if (setSessionError?.message?.includes('User from sub claim')) {
+            throw new Error('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
+          } else {
+            throw new Error('セッションの確立に失敗しました。招待リンクの有効期限が切れている可能性があります。')
+          }
+        }
+
+        session = sessionData.session
+        logger.log('✅ セッションが確立されました:', session.user.email)
+      }
+
+      // セッションがない場合はエラー
+      if (!session || !session.user) {
         throw new Error('セッションが無効です。招待リンクをもう一度確認してください。')
       }
 
@@ -249,17 +236,12 @@ export function SetPassword() {
             <Button
               type="submit"
               className="w-full h-10 sm:h-11 text-sm sm:text-base"
-              disabled={loading || !sessionReady}
+              disabled={loading || (error !== '' && !tokens.accessToken && !tokens.refreshToken)}
             >
               {loading ? (
                 <>
                   <span className="animate-spin mr-2">⏳</span>
                   設定中...
-                </>
-              ) : !sessionReady ? (
-                <>
-                  <span className="animate-spin mr-2">⏳</span>
-                  準備中...
                 </>
               ) : (
                 <>
