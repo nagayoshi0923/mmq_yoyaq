@@ -350,7 +350,6 @@ interface PrivateRequestData {
     candidates: CandidateDateTime[]
   }
   scenarios?: { title: string; player_count_max: number }
-  gm_availability_responses?: GMAvailabilityResponse[]
 }
 
 export function useScheduleData(currentDate: Date) {
@@ -549,11 +548,6 @@ export function useScheduleData(currentDate: Date) {
             scenarios:scenario_id (
               title,
               player_count_max
-            ),
-            gm_availability_responses (
-              staff_id,
-              response_status,
-              staff:staff_id (name)
             )
           `)
           .eq('reservation_source', 'web_private')
@@ -577,14 +571,6 @@ export function useScheduleData(currentDate: Date) {
                 if (assignedGM) {
                   gmNames = [assignedGM.name]
                 }
-              }
-              
-              // staffから見つからなかった場合、gm_availability_responsesから取得
-              if (gmNames.length === 0 && request.gm_availability_responses) {
-                gmNames = request.gm_availability_responses
-                  ?.filter((r: GMAvailabilityResponse) => r.response_status === 'available')
-                  ?.map((r: GMAvailabilityResponse) => r.staff?.name)
-                  ?.filter((name): name is string => !!name) || []
               }
               
               // それでも見つからない場合
@@ -758,11 +744,6 @@ export function useScheduleData(currentDate: Date) {
           scenarios:scenario_id (
             title,
             player_count_max
-          ),
-          gm_availability_responses (
-            staff_id,
-            response_status,
-            staff:staff_id (name)
           )
         `)
         .eq('reservation_source', 'web_private')
@@ -784,13 +765,6 @@ export function useScheduleData(currentDate: Date) {
               if (assignedGM) {
                 gmNames = [assignedGM.name]
               }
-            }
-            
-            if (gmNames.length === 0 && request.gm_availability_responses) {
-              gmNames = request.gm_availability_responses
-                ?.filter((r: GMAvailabilityResponse) => r.response_status === 'available')
-                ?.map((r: GMAvailabilityResponse) => r.staff?.name)
-                ?.filter((name): name is string => !!name) || []
             }
             
             if (gmNames.length === 0) {
