@@ -28,11 +28,8 @@ export function useShiftData(
         const shiftMap: Record<string, Array<Staff & { timeSlot: string }>> = {}
         
         for (const shift of shifts) {
-          const shiftStaff = (shift as any).staff
-          if (!shiftStaff) continue
-          
           // staffステートから完全なスタッフデータ（special_scenariosを含む）を取得
-          const fullStaffData = staff.find(s => s.id === shiftStaff.id)
+          const fullStaffData = staff.find(s => s.id === shift.staff_id)
           if (!fullStaffData) continue
           
           const dateKey = shift.date

@@ -42,15 +42,7 @@ export const shiftApi = {
   async getByDate(date: string): Promise<ShiftSubmission[]> {
     const { data, error } = await supabase
       .from('shift_submissions')
-      .select(`
-        *,
-        staff:staff_id (
-          id,
-          name,
-          avatar_url,
-          avatar_color
-        )
-      `)
+      .select('*')
       .eq('date', date)
       .eq('status', 'submitted')
     
@@ -111,15 +103,7 @@ export const shiftApi = {
     
     const { data, error } = await supabase
       .from('shift_submissions')
-      .select(`
-        *,
-        staff:staff_id (
-          id,
-          name,
-          avatar_url,
-          avatar_color
-        )
-      `)
+      .select('*')
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date')
