@@ -80,17 +80,12 @@ export function SetPassword() {
     setLoading(true)
 
     try {
-      console.log('🔧 SetPassword: パスワード設定開始', {
-        hasTokens: !!(tokens.accessToken && tokens.refreshToken),
-        passwordLength: password.length,
-      })
       logger.log('🔧 SetPassword: パスワード設定開始', {
         hasTokens: !!(tokens.accessToken && tokens.refreshToken),
         passwordLength: password.length,
       })
 
       // セッションを確認または確立
-      console.log('🔧 SetPassword: セッション状態確認')
       // getSessionはAuthContextの初期化と競合する可能性があるため、
       // トークンがある場合は直接setSessionを試みる
       // トークンがない場合のみgetSessionで確認する
@@ -104,16 +99,10 @@ export function SetPassword() {
         // 既存セッションのサインアウトは行わない（AuthContextと競合するため）
         // 代わりに直接setSessionを呼ぶ
 
-        console.log('🔧 SetPassword: setSession呼び出し前')
         logger.log('🔧 SetPassword: setSession呼び出し前')
         const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
           access_token: tokens.accessToken,
           refresh_token: tokens.refreshToken,
-        })
-        console.log('🔧 SetPassword: setSession呼び出し後', {
-          hasError: !!setSessionError,
-          hasSession: !!sessionData?.session?.user,
-          errorMessage: setSessionError?.message,
         })
         logger.log('🔧 SetPassword: setSession呼び出し後', {
           hasError: !!setSessionError,
@@ -141,10 +130,10 @@ export function SetPassword() {
         logger.log('✅ セッションが確立されました:', session.user.email)
       } else {
         // トークンがない場合は既存セッションを確認
-        console.log('🔧 SetPassword: トークンなし、既存セッション確認')
+        logger.log('🔧 SetPassword: トークンなし、既存セッション確認')
         const { data } = await supabase.auth.getSession()
         session = data.session
-        console.log('🔧 SetPassword: 既存セッション確認完了', { hasSession: !!session?.user })
+        logger.log('🔧 SetPassword: 既存セッション確認完了', { hasSession: !!session?.user })
       }
 
       // セッションがない場合はエラー
@@ -153,15 +142,12 @@ export function SetPassword() {
         throw new Error('セッションが無効です。招待リンクをもう一度確認してください。')
       }
 
-      console.log('パスワード更新を開始:', { userId: session.user.id, email: session.user.email })
       logger.log('パスワード更新を開始:', { userId: session.user.id, email: session.user.email })
 
       // パスワードを更新
-      console.log('🔧 SetPassword: updateUser呼び出し前')
       const { error: updateError } = await supabase.auth.updateUser({
         password: password
       })
-      console.log('🔧 SetPassword: updateUser呼び出し後', { hasError: !!updateError, errorMessage: updateError?.message })
 
       if (updateError) {
         logger.error('パスワード更新エラー:', updateError)
@@ -185,15 +171,11 @@ export function SetPassword() {
       }, 3000)
 
     } catch (err: any) {
-      console.error('❌ Password set error:', err)
-      console.error('エラー詳細:', err)
       logger.error('Password set error:', err)
       const errorMessage = err?.message || 'パスワードの設定に失敗しました'
-      console.error('エラーメッセージ:', errorMessage)
       setError(errorMessage)
       setLoading(false) // エラー時も確実にローディングを解除
     } finally {
-      console.log('🔧 SetPassword: finallyブロック実行')
       setLoading(false)
     }
   }
