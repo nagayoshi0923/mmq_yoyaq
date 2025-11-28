@@ -1,5 +1,8 @@
 import { supabase } from './supabase'
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cznpcewciwywcqcxktba.supabase.co'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6bnBjZXdjaXd5d2NxY3hrdGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzMyMjAsImV4cCI6MjA3NDIwOTIyMH0.GBR1kO877s6iy1WmVXL4xY8wpsyAdmgsXKEQbm0MNLo'
+
 export interface User {
   id: string
   email: string
@@ -95,16 +98,32 @@ export async function upsertUser(authUserId: string, email: string, role: 'admin
 
 /**
  * ユーザーを削除
- * 注意: これは users テーブルからのみ削除します
- * auth.users からの削除は Supabase Admin API が必要です
+ * Edge Functionを使用して auth.users から削除します
+ * 外部キー制約により、public.users も自動的に削除されます（CASCADE）
  */
 export async function deleteUser(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from('users')
-    .delete()
-    .eq('id', userId)
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  if (!session) {
+    throw new Error('認証が必要です')
+  }
 
-  if (error) {
+  const response = await fetch(`${supabaseUrl}/functions/v1/delete-user`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': supabaseAnonKey
+    },
+    body: JSON.stringify({ userId })
+  })
+
+  const result = await response.json()
+
+  if (!response.ok || !result.success) {
+    const error = new Error(result.error || 'ユーザーの削除に失敗しました')
+    // @ts-ignore
+    error.code = result.code || response.status
     throw error
   }
 }

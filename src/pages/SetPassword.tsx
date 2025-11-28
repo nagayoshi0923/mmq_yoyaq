@@ -14,19 +14,110 @@ export function SetPassword() {
   const [success, setSuccess] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [sessionReady, setSessionReady] = useState(false)
 
   useEffect(() => {
-    // URLからトークンを取得して検証
-    const fullUrl = window.location.href
-    if (!fullUrl.includes('access_token=') || 
-        (!fullUrl.includes('type=signup') && !fullUrl.includes('type=invite'))) {
-      setError('無効な招待リンクです')
+    // URLのハッシュフラグメントまたはクエリパラメータからトークンを取得してセッションを確立
+    const setupSession = async () => {
+      try {
+        // まず、現在のセッションを確認（Supabaseが自動的にセッションを設定している可能性がある）
+        const { data: { session: existingSession }, error: sessionCheckError } = await supabase.auth.getSession()
+        
+        if (existingSession && !sessionCheckError) {
+          logger.log('既存のセッションが見つかりました')
+          setSessionReady(true)
+          return
+        }
+
+        // URLの形式: #access_token=...&refresh_token=...&type=invite
+        // または: ?access_token=...&refresh_token=...&type=invite
+        const fullUrl = window.location.href
+        const hash = window.location.hash.substring(1) // '#' を削除
+        const searchParams = window.location.search.substring(1) // '?' を削除
+        
+        logger.log('Full URL:', fullUrl)
+        logger.log('Hash:', hash)
+        logger.log('Search params:', searchParams)
+        
+        // ハッシュとクエリパラメータの両方を確認
+        let hashParams = new URLSearchParams(hash)
+        let searchParamsObj = new URLSearchParams(searchParams)
+        
+        // ハッシュにパラメータがない場合、クエリパラメータを確認
+        if (!hashParams.get('access_token') && searchParamsObj.get('access_token')) {
+          hashParams = searchParamsObj
+        }
+        
+        // URL全体から直接検索（fallback）
+        const urlMatch = fullUrl.match(/[#?]access_token=([^&]+).*refresh_token=([^&]+)/)
+        
+        let accessToken = hashParams.get('access_token')
+        let refreshToken = hashParams.get('refresh_token')
+        const type = hashParams.get('type')
+        
+        // URL全体からのマッチングで取得を試みる
+        if (!accessToken && urlMatch) {
+          accessToken = decodeURIComponent(urlMatch[1])
+          refreshToken = decodeURIComponent(urlMatch[2])
+        }
+        
+        logger.log('Access token:', accessToken ? 'Found' : 'Not found')
+        logger.log('Refresh token:', refreshToken ? 'Found' : 'Not found')
+        logger.log('Type:', type)
+        
+        // type=invite または type=signup の場合のみ許可
+        if (type && type !== 'invite' && type !== 'signup') {
+          setError('無効な招待リンクです。type=' + type)
+          return
+        }
+        
+        if (!accessToken || !refreshToken) {
+          // トークンが見つからない場合、Supabaseの認証フローを確認
+          logger.warn('トークンが見つかりません。Supabaseの認証フローを確認します。')
+          
+          // Supabaseが自動的にセッションを設定する可能性があるので、少し待ってから再確認
+          setTimeout(async () => {
+            const { data: { session: delayedSession } } = await supabase.auth.getSession()
+            if (delayedSession) {
+              logger.log('遅延セッション確認: セッションが見つかりました')
+              setSessionReady(true)
+            } else {
+              setError('無効な招待リンクです。もう一度招待メールを確認してください。')
+            }
+          }, 1000)
+          return
+        }
+
+        // セッションを設定
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        })
+
+        if (sessionError) {
+          logger.error('Session error:', sessionError)
+          setError('セッションの確立に失敗しました。もう一度お試しください。')
+          return
+        }
+
+        setSessionReady(true)
+      } catch (err) {
+        logger.error('Setup error:', err)
+        setError('エラーが発生しました。もう一度お試しください。')
+      }
     }
+
+    setupSession()
   }, [])
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!sessionReady) {
+      setError('セッションの準備ができていません。少しお待ちください。')
+      return
+    }
 
     // バリデーション
     if (password.length < 6) {
@@ -42,7 +133,7 @@ export function SetPassword() {
     setLoading(true)
 
     try {
-      // Supabaseのセッションを取得（招待リンクをクリックすると自動的にセッションが作成される）
+      // セッションを再確認
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
       if (sessionError || !session) {
@@ -61,7 +152,9 @@ export function SetPassword() {
       // 3秒後にログイン画面にリダイレクト
       setTimeout(() => {
         // セッションをクリアしてからログイン画面へ
-        window.location.href = '/#login'
+        supabase.auth.signOut().then(() => {
+          window.location.href = '/#login'
+        })
       }, 3000)
 
     } catch (err: any) {
@@ -155,12 +248,17 @@ export function SetPassword() {
             <Button
               type="submit"
               className="w-full h-10 sm:h-11 text-sm sm:text-base"
-              disabled={loading}
+              disabled={loading || !sessionReady}
             >
               {loading ? (
                 <>
                   <span className="animate-spin mr-2">⏳</span>
                   設定中...
+                </>
+              ) : !sessionReady ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  準備中...
                 </>
               ) : (
                 <>
