@@ -35,19 +35,6 @@ export function SetPassword() {
     const establishSession = async () => {
       try {
         logger.log('🔧 SetPassword: セッション確立開始')
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-
-        if (sessionError) {
-          logger.warn('⚠️ セッション取得エラー:', sessionError)
-        }
-
-        if (session && session.user) {
-          logger.log('✅ 既存のセッションが見つかりました:', session.user.email)
-          setSessionReady(true)
-          setError('')
-          return
-        }
-
         const accessToken = extractParam('access_token')
         const refreshToken = extractParam('refresh_token')
         const type = extractParam('type')
@@ -58,9 +45,28 @@ export function SetPassword() {
           type,
         })
 
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+        if (sessionError) {
+          logger.warn('⚠️ セッション取得エラー:', sessionError)
+        }
+
         if (!accessToken || !refreshToken) {
-          setError('無効な招待リンクです。もう一度招待メールを確認してください。')
+          if (session?.user) {
+            logger.log('✅ 既存セッションを利用します:', session.user.email)
+            setSessionReady(true)
+            setError('')
+          } else {
+            setError('無効な招待リンクです。もう一度招待メールを確認してください。')
+          }
           return
+        }
+
+        if (session?.user) {
+          logger.log('🔄 既存セッションを破棄して新しいトークンを適用します')
+          await supabase.auth.signOut().catch((signOutError) => {
+            logger.warn('⚠️ 既存セッションのサインアウトに失敗しました:', signOutError)
+          })
         }
 
         const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
