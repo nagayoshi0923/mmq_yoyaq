@@ -404,6 +404,15 @@ serve(async (req) => {
 
       inviteLink = inviteLinkData.properties.action_link
       console.log('✅ Invite link generated for new user:', inviteLink.substring(0, 50) + '...')
+      
+      // リンク生成後、ユーザーが確実に存在することを再確認（重要）
+      console.log('🔍 Verifying user exists after link generation...')
+      const { data: finalUserCheck, error: finalUserCheckError } = await supabase.auth.admin.getUserById(userId)
+      if (finalUserCheckError || !finalUserCheck || !finalUserCheck.user) {
+        console.error('❌ CRITICAL: User does not exist after link generation:', finalUserCheckError)
+        throw new Error(`User verification failed after link generation: ${finalUserCheckError?.message || 'User not found'}`)
+      }
+      console.log('✅ Final user verification passed:', finalUserCheck.user.id, finalUserCheck.user.email)
     }
 
     // 5. Resend APIで招待メールを送信
