@@ -738,11 +738,97 @@ export const staffApi = {
     await Promise.all(updatePromises)
 
     return updatedStaff
+  },
+
+  // ユーザーIDでスタッフを取得
+  async getByUserId(userId: string): Promise<Staff | null> {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle()
+    
+    if (error) {
+      if (error.code === 'PGRST116') return null
+      throw error
+    }
+    return data
   }
 }
 
 // 公演スケジュール関連のAPI
 export const scheduleApi = {
+  // 自分のスケジュールを取得（期間指定）
+  async getMySchedule(staffName: string, startDate: string, endDate: string) {
+    // 1. 通常公演を取得（gmsに名前が含まれるもの）
+    const { data: scheduleEvents, error } = await supabase
+      .from('schedule_events')
+      .select(`
+        *,
+        stores:store_id (
+          id,
+          name,
+          short_name,
+          color,
+          address
+        ),
+        scenarios:scenario_id (
+          id,
+          title,
+          player_count_max,
+          duration
+        )
+      `)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .contains('gms', [staffName])
+      .eq('is_cancelled', false)
+      .order('date', { ascending: true })
+      .order('start_time', { ascending: true })
+    
+    if (error) throw error
+    
+    // 2. イベントの参加者数を取得・計算
+    const eventIds = scheduleEvents.map(e => e.id)
+    const reservationsMap = new Map<string, any[]>()
+    
+    if (eventIds.length > 0) {
+      const { data: allReservations, error: reservationError } = await supabase
+        .from('reservations')
+        .select('schedule_event_id, participant_count, status')
+        .in('schedule_event_id', eventIds)
+        .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+      
+      if (!reservationError && allReservations) {
+        allReservations.forEach(reservation => {
+          const eventId = reservation.schedule_event_id
+          if (!reservationsMap.has(eventId)) {
+            reservationsMap.set(eventId, [])
+          }
+          reservationsMap.get(eventId)!.push(reservation)
+        })
+      }
+    }
+
+    const myEvents = scheduleEvents.map(event => {
+      const reservations = reservationsMap.get(event.id) || []
+      const actualParticipants = reservations.reduce((sum, r) => sum + (r.participant_count || 0), 0)
+      
+      const scenarioData = event.scenarios
+      const maxParticipants = scenarioData?.player_count_max || event.max_participants || event.capacity || 8
+
+      return {
+        ...event,
+        current_participants: actualParticipants,
+        max_participants: maxParticipants,
+        capacity: maxParticipants,
+        is_private_booking: false
+      }
+    })
+    
+    return myEvents
+  },
+
   // 指定月の公演を取得（通常公演 + 確定した貸切公演）
   async getByMonth(year: number, month: number) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`

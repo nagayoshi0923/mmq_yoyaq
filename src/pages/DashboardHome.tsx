@@ -1,23 +1,38 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { 
   Store, 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Users, 
   BookOpen, 
   TrendingUp,
   Clock,
   Settings,
-  UserCog
+  UserCog,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  AlertCircle
 } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { staffApi, scheduleApi } from '@/lib/api'
+import { format, addDays, startOfMonth, endOfMonth, isSameDay, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from 'date-fns'
+import { ja } from 'date-fns/locale'
 
 interface DashboardHomeProps {
   onPageChange: (pageId: string) => void
 }
 
 export function DashboardHome({ onPageChange }: DashboardHomeProps) {
-  // 統計情報を遅延ロード（ダッシュボード表示をブロックしない）
+  const { user } = useAuth()
+  const [mySchedule, setMySchedule] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [staffName, setStaffName] = useState('')
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+
+  // 統計情報を遅延ロード（管理者向け情報として残す）
   const [stats, setStats] = useState({
     stores: 0,
     performances: 0,
@@ -25,9 +40,41 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     revenue: 0
   })
 
-  // ダッシュボード表示時のみ統計を取得
+  // データ取得
   useEffect(() => {
-    // モックデータ（後でSupabaseから取得）
+    const fetchMyData = async () => {
+      if (!user?.id) return
+      
+      try {
+        setLoading(true)
+        // 1. スタッフ情報の取得
+        const staff = await staffApi.getByUserId(user.id)
+        if (!staff) {
+           console.log('スタッフ情報が見つかりません')
+           setLoading(false)
+           return
+        }
+        setStaffName(staff.name)
+
+        // 2. スケジュールの取得（表示中の月の前後を含める）
+        const startDate = format(startOfMonth(subMonths(currentMonth, 1)), 'yyyy-MM-dd')
+        const endDate = format(endOfMonth(addMonths(currentMonth, 1)), 'yyyy-MM-dd')
+        
+        const events = await scheduleApi.getMySchedule(staff.name, startDate, endDate)
+        setMySchedule(events)
+      } catch (error) {
+        console.error('データ取得エラー:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchMyData()
+  }, [user, currentMonth]) // 月が変わったら再取得
+
+  // 統計データ取得（管理者・スタッフ共通で表示しても良いが、優先度は下げる）
+  useEffect(() => {
+    // モックデータ
     setTimeout(() => {
       setStats({
         stores: 6,
@@ -35,116 +82,201 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         reservations: 128,
         revenue: 1250000
       })
-    }, 100) // 少し遅延させてUIを優先
+    }, 100)
   }, [])
 
-  // 最適化: navigationTabsをuseMemoでメモ化（毎回新しい配列が生成されるのを防ぐ）
+  // 直近の予定（今日・明日）
+  const upcomingEvents = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = addDays(today, 1)
+    const dayAfterTomorrow = addDays(today, 2)
+    
+    return mySchedule.filter(event => {
+      const eventDate = parseISO(event.date)
+      // 今日〜明後日までを表示（直近の予定がないと寂しいので少し広めに）
+      return eventDate >= today && eventDate < dayAfterTomorrow
+    }).sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date)
+      return a.start_time.localeCompare(b.start_time)
+    })
+  }, [mySchedule])
+
+  // カレンダー用の日付生成
+  const calendarDays = useMemo(() => {
+    const start = startOfMonth(currentMonth)
+    const end = endOfMonth(currentMonth)
+    const days = eachDayOfInterval({ start, end })
+    
+    // 月の開始日の曜日（0: 日曜日, 1: 月曜日...）
+    const startDay = getDay(start)
+    
+    // 前月の空白を埋めるためのプレースホルダー
+    const blanks = Array(startDay).fill(null)
+    
+    return [...blanks, ...days]
+  }, [currentMonth])
+
+  // その日のイベントを取得
+  const getEventsForDate = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd')
+    return mySchedule.filter(event => event.date === dateStr)
+  }
+
+  // ナビゲーションメニュー
   const navigationTabs = useMemo(() => [
-    { id: 'stores', label: '店舗', icon: Store, color: 'bg-blue-100 text-blue-800' },
-    { id: 'schedule', label: 'スケジュール', icon: Calendar, color: 'bg-green-100 text-green-800' },
-    { id: 'staff', label: 'スタッフ', icon: Users, color: 'bg-purple-100 text-purple-800' },
-    { id: 'scenarios', label: 'シナリオ', icon: BookOpen, color: 'bg-orange-100 text-orange-800' },
     { id: 'shift-submission', label: 'シフト提出', icon: Clock, color: 'bg-indigo-100 text-indigo-800' },
-    { id: 'customer-booking', label: '予約サイト', icon: Calendar, color: 'bg-teal-100 text-teal-800' },
-    { id: 'reservations', label: '予約管理', icon: Calendar, color: 'bg-red-100 text-red-800' },
-    { id: 'customers', label: '顧客', icon: Users, color: 'bg-amber-100 text-amber-800' },
-    { id: 'user-management', label: 'ユーザー', icon: UserCog, color: 'bg-violet-100 text-violet-800' },
-    { id: 'sales', label: '売上', icon: TrendingUp, color: 'bg-emerald-100 text-emerald-800' },
-    { id: 'settings', label: '設定', icon: Settings, color: 'bg-gray-100 text-gray-800' }
+    { id: 'schedule', label: 'スケジュール', icon: CalendarIcon, color: 'bg-green-100 text-green-800' },
+    { id: 'reservations', label: '予約管理', icon: CalendarIcon, color: 'bg-red-100 text-red-800' },
+    { id: 'scenarios', label: 'シナリオ', icon: BookOpen, color: 'bg-orange-100 text-orange-800' },
+    { id: 'staff', label: 'スタッフ', icon: Users, color: 'bg-purple-100 text-purple-800' },
+    { id: 'stores', label: '店舗', icon: Store, color: 'bg-blue-100 text-blue-800' },
   ], [])
 
   return (
-    <div className="space-y-3 sm:space-y-4 md:space-y-6">
-      {/* 概要統計 */}
+    <div className="space-y-6 pb-20">
+      {/* 1. 直近の出勤予定 */}
       <section>
-        <h2>概要</h2>
-        <div className="grid grid-cols-2 gap-2 xs:gap-2.5 sm:gap-3 md:gap-4 mt-2 xs:mt-3 sm:mt-4">
-          <Card>
-            <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-              <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base">
-                <Store className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-                <span className="truncate">店舗数</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
-              <div className="text-lg">{stats.stores}</div>
-              <p className="text-muted-foreground text-xs">店舗運営中</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-              <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base">
-                <BookOpen className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-                <span className="truncate">公演数</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
-              <div className="text-lg">{stats.performances}</div>
-              <p className="text-muted-foreground text-xs">シナリオ登録済み</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-              <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base">
-                <Calendar className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-                <span className="truncate">今月の予約</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
-              <div className="text-lg">{stats.reservations}</div>
-              <p className="text-muted-foreground text-xs">件の予約</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-1.5 xs:pb-2 sm:pb-3 p-2 xs:p-3 sm:p-4 md:p-6">
-              <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-base">
-                <TrendingUp className="h-3.5 w-3.5 xs:h-4 xs:w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-                <span className="truncate">今月の売上</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2 xs:p-3 sm:p-4 md:p-6 pt-1">
-              <div className="text-lg">
-                ¥{stats.revenue.toLocaleString()}
-              </div>
-              <p className="text-muted-foreground text-xs">前月比 +12%</p>
-            </CardContent>
-          </Card>
+        <div className="flex items-center gap-2 mb-3">
+          <Clock className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-bold">直近の出勤予定</h2>
         </div>
+        
+        {loading && staffName === '' ? (
+          <div className="p-4 text-center text-muted-foreground bg-accent/20 rounded-lg">読み込み中...</div>
+        ) : upcomingEvents.length > 0 ? (
+          <div className="space-y-3">
+            {upcomingEvents.map(event => (
+              <Card key={event.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold flex items-center gap-2">
+                        {format(parseISO(event.date), 'M月d日(EEE)', { locale: ja })}
+                        {isToday(parseISO(event.date)) && <Badge variant="destructive" className="text-xs">今日</Badge>}
+                      </span>
+                      <span className="text-muted-foreground text-sm flex items-center gap-1 mt-1">
+                        <Clock className="h-3 w-3" />
+                        {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
+                      </span>
+                    </div>
+                    <Badge variant={event.current_participants >= 1 ? "default" : "outline"}>
+                      予約: {event.current_participants}名
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="font-medium text-base">{event.scenarios?.title || event.scenario}</div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {event.stores?.name || event.venue}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="p-6 text-center text-muted-foreground bg-accent/10 rounded-lg border border-dashed border-border">
+            <p>直近の予定はありません</p>
+            <p className="text-xs mt-1">ゆっくり休んでください</p>
+          </div>
+        )}
       </section>
 
-      {/* ナビゲーションタブ */}
+      {/* 2. 今月のスケジュール（カレンダー） */}
       <section>
-        <h2>機能メニュー</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 md:gap-4 mt-3 sm:mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-bold">マイスケジュール</h2>
+          </div>
+          <div className="flex items-center gap-1 bg-accent/30 rounded-md p-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium w-20 text-center">
+              {format(currentMonth, 'yyyy年M月')}
+            </span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="p-3 sm:p-4">
+            {/* 曜日ヘッダー */}
+            <div className="grid grid-cols-7 mb-2 text-center text-xs text-muted-foreground font-medium">
+              <div className="text-red-500">日</div>
+              <div>月</div>
+              <div>火</div>
+              <div>水</div>
+              <div>木</div>
+              <div>金</div>
+              <div className="text-blue-500">土</div>
+            </div>
+            
+            {/* 日付グリッド */}
+            <div className="grid grid-cols-7 gap-1 sm:gap-2">
+              {calendarDays.map((day, index) => {
+                if (!day) return <div key={`blank-${index}`} className="aspect-square" />
+                
+                const dateStr = format(day, 'yyyy-MM-dd')
+                const dayEvents = getEventsForDate(day)
+                const hasEvent = dayEvents.length > 0
+                const isSelected = false // 選択状態の実装は後ほど
+                
+                return (
+                  <div 
+                    key={dateStr}
+                    className={`
+                      aspect-square rounded-md flex flex-col items-center justify-start pt-1 sm:pt-2 relative border cursor-pointer transition-colors
+                      ${isToday(day) ? 'bg-primary/5 border-primary font-bold' : 'border-transparent hover:bg-accent'}
+                      ${hasEvent ? 'bg-accent/30' : ''}
+                    `}
+                    onClick={() => {
+                      // 日付クリック時の処理（詳細表示など）
+                      if (hasEvent) {
+                        alert(`${format(day, 'M月d日')}のシフト:\n${dayEvents.map(e => `${e.start_time.slice(0, 5)} ${e.scenarios?.title || e.scenario}`).join('\n')}`)
+                      }
+                    }}
+                  >
+                    <span className={`text-xs sm:text-sm ${getDay(day) === 0 ? 'text-red-500' : getDay(day) === 6 ? 'text-blue-500' : ''}`}>
+                      {format(day, 'd')}
+                    </span>
+                    
+                    {/* イベントインジケーター */}
+                    <div className="flex flex-col gap-0.5 mt-1 w-full px-0.5">
+                      {dayEvents.map((e, i) => (
+                        <div key={i} className="h-1.5 w-full bg-primary/70 rounded-full" title={e.scenarios?.title} />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* 3. クイックリンク */}
+      <section>
+        <h2>クイックメニュー</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
           {navigationTabs.map((tab) => {
             const Icon = tab.icon
             return (
               <Card 
                 key={tab.id} 
-                className="hover:bg-accent cursor-pointer transition-colors"
-                    onClick={() => onPageChange(tab.id)}
+                className="hover:bg-accent cursor-pointer transition-colors hover:shadow-sm"
+                onClick={() => onPageChange(tab.id)}
               >
-                <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-4 md:p-6">
-                  <CardTitle className="flex items-center gap-1 sm:gap-2 text-base">
-                    <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span className="truncate">{tab.label}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
-                  <Badge className={`${tab.color} text-xs sm:text-sm`}>
-                    {tab.id === 'stores' && '6店舗'}
-                    {tab.id === 'schedule' && '今月128件'}
-                    {tab.id === 'staff' && '15名'}
-                    {tab.id === 'scenarios' && '42本'}
-                    {tab.id === 'reservations' && '新規3件'}
-                    {tab.id === 'customers' && '245名'}
-                    {tab.id === 'user-management' && 'ロール管理'}
-                    {tab.id === 'sales' && '¥1.25M'}
-                    {tab.id === 'settings' && '設定'}
-                  </Badge>
+                <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                  <div className={`p-2 rounded-full ${tab.color.split(' ')[0]} bg-opacity-20`}>
+                    <Icon className={`h-5 w-5 ${tab.color.split(' ')[1]}`} />
+                  </div>
+                  <span className="text-sm font-medium">{tab.label}</span>
                 </CardContent>
               </Card>
             )
@@ -152,47 +284,32 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         </div>
       </section>
 
-      {/* 最近の活動 */}
-      <section>
-        <h2>最近の活動</h2>
-        <Card className="mt-3 sm:mt-4">
-          <CardHeader className="p-3 sm:p-4 md:p-6">
-            <CardTitle>システム活動ログ</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">最新の予約・変更・キャンセル情報</CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 md:p-6">
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-border rounded-md">
-                <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm"><strong>新規予約</strong> - 高田馬場店「人狼村の悲劇」</p>
-                  <p className="text-muted-foreground text-xs">2024年12月25日 14:00-17:00 / 6名</p>
-                </div>
-                <Badge className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">5分前</Badge>
-              </div>
-
-              <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-border rounded-md">
-                <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm"><strong>貸切予約</strong> - 別館②「密室の謎」</p>
-                  <p className="text-muted-foreground text-xs">2024年12月26日 19:00-22:00 / 8名</p>
-                </div>
-                <Badge className="bg-purple-100 text-purple-800 text-xs flex-shrink-0">15分前</Badge>
-              </div>
-
-              <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-border rounded-md">
-                <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm"><strong>GMテスト</strong> - 大久保店「新シナリオ検証」</p>
-                  <p className="text-muted-foreground text-xs">2024年12月24日 10:00-13:00 / スタッフ4名</p>
-                </div>
-                <Badge className="bg-orange-100 text-orange-800 text-xs flex-shrink-0">1時間前</Badge>
-              </div>
+      {/* 4. 管理者向け統計情報（控えめに表示） */}
+      {user?.role === 'admin' && (
+        <section className="pt-4 border-t border-border">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium text-muted-foreground">管理者用データ</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="bg-muted/50 p-2 rounded text-center">
+              <div className="text-xs text-muted-foreground">今月の売上</div>
+              <div className="font-bold">¥{stats.revenue.toLocaleString()}</div>
             </div>
-          </CardContent>
-        </Card>
-      </section>
+            <div className="bg-muted/50 p-2 rounded text-center">
+              <div className="text-xs text-muted-foreground">予約件数</div>
+              <div className="font-bold">{stats.reservations}件</div>
+            </div>
+            <div className="bg-muted/50 p-2 rounded text-center">
+              <div className="text-xs text-muted-foreground">公演数</div>
+              <div className="font-bold">{stats.performances}回</div>
+            </div>
+            <div className="bg-muted/50 p-2 rounded text-center">
+              <div className="text-xs text-muted-foreground">稼働店舗</div>
+              <div className="font-bold">{stats.stores}店</div>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   )
 }
-
