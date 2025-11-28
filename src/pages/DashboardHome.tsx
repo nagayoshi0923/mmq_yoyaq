@@ -304,24 +304,22 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         </div>
       </section>
 
-      {/* 4. スタッフ向け統計情報（出勤数・給与概算）- 管理者以外に表示 */}
-      {user?.role !== 'admin' && (
-        <section className="pt-4 border-t border-border">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-medium text-muted-foreground">今月の実績（概算）</h2>
+      {/* 4. スタッフ向け統計情報（出勤数・給与概算）- 全員に表示 */}
+      <section className="pt-4 border-t border-border">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-medium text-muted-foreground">今月の実績（概算）</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-muted/50 p-3 rounded text-center">
+            <div className="text-xs text-muted-foreground mb-1">出勤回数</div>
+            <div className="font-bold text-xl">{myStats.count}回</div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-muted/50 p-3 rounded text-center">
-              <div className="text-xs text-muted-foreground mb-1">出勤回数</div>
-              <div className="font-bold text-xl">{myStats.count}回</div>
-            </div>
-            <div className="bg-muted/50 p-3 rounded text-center">
-              <div className="text-xs text-muted-foreground mb-1">報酬見込み</div>
-              <div className="font-bold text-xl">¥{myStats.salary.toLocaleString()}</div>
-            </div>
+          <div className="bg-muted/50 p-3 rounded text-center">
+            <div className="text-xs text-muted-foreground mb-1">報酬見込み</div>
+            <div className="font-bold text-xl">¥{myStats.salary.toLocaleString()}</div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* 5. 管理者向け統計情報（控えめに表示） */}
       {user?.role === 'admin' && (
