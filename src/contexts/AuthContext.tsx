@@ -104,7 +104,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         
         if (session?.user) {
-          await setUserFromSession(session.user)
+          // awaitせずに非同期で実行して、呼び出し元（setSessionなど）をブロックしないようにする
+          setUserFromSession(session.user).catch(err => {
+            logger.error('❌ setUserFromSession error (background):', err)
+          })
         } else {
           setUser(null)
           userRef.current = null

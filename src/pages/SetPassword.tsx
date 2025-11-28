@@ -90,21 +90,19 @@ export function SetPassword() {
       })
 
       // セッションを確認または確立
-      console.log('🔧 SetPassword: getSession呼び出し前')
-      let session = (await supabase.auth.getSession()).data.session
-      console.log('🔧 SetPassword: getSession呼び出し後', { hasSession: !!session?.user })
-      logger.log('🔧 SetPassword: 既存セッション確認', { hasSession: !!session?.user })
+      console.log('🔧 SetPassword: セッション状態確認')
+      // getSessionはAuthContextの初期化と競合する可能性があるため、
+      // トークンがある場合は直接setSessionを試みる
+      // トークンがない場合のみgetSessionで確認する
+
+      let session = null
 
       // トークンがある場合はセッションを確立（この時点でリンクが使用済みになる）
       if (tokens.accessToken && tokens.refreshToken) {
         logger.log('🔧 SetPassword: セッション確立開始（パスワード設定時）')
         
-        if (session?.user) {
-          logger.log('🔄 既存セッションを破棄して新しいトークンを適用します')
-          await supabase.auth.signOut().catch((signOutError) => {
-            logger.warn('⚠️ 既存セッションのサインアウトに失敗しました:', signOutError)
-          })
-        }
+        // 既存セッションのサインアウトは行わない（AuthContextと競合するため）
+        // 代わりに直接setSessionを呼ぶ
 
         console.log('🔧 SetPassword: setSession呼び出し前')
         logger.log('🔧 SetPassword: setSession呼び出し前')
@@ -141,6 +139,12 @@ export function SetPassword() {
 
         session = sessionData.session
         logger.log('✅ セッションが確立されました:', session.user.email)
+      } else {
+        // トークンがない場合は既存セッションを確認
+        console.log('🔧 SetPassword: トークンなし、既存セッション確認')
+        const { data } = await supabase.auth.getSession()
+        session = data.session
+        console.log('🔧 SetPassword: 既存セッション確認完了', { hasSession: !!session?.user })
       }
 
       // セッションがない場合はエラー
