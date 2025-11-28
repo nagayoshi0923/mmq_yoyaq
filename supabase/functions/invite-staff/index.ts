@@ -1,13 +1,24 @@
-// スタッフ招待機能
-// 管理者がスタッフを招待すると、自動的にユーザー作成 + スタッフレコード作成 + 招待メール送信
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const SITE_URL = (Deno.env.get('SITE_URL') || 'https://mmq-yoyaq.vercel.app').replace(/\/$/, '')
+const SET_PASSWORD_REDIRECT = `${SITE_URL}/#/set-password`
+const RESET_PASSWORD_REDIRECT = `${SITE_URL}/#/reset-password`
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+const baseHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+}
+
+const corsHeaders = {
+  ...baseHeaders,
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 interface InviteStaffRequest {
   email: string
@@ -22,560 +33,244 @@ interface InviteStaffRequest {
 }
 
 serve(async (req) => {
-  try {
-    // CORSヘッダー
-    if (req.method === 'OPTIONS') {
-      return new Response('ok', {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        },
-      })
-    }
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
-    const { email, name, phone, line_name, x_account, discord_id, discord_channel_id, role, stores }: InviteStaffRequest = await req.json()
+  try {
+    const payload: InviteStaffRequest = await req.json()
+    const email = payload.email?.trim()
+    const name = payload.name?.trim()
+
+    if (!email || !name) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'email と name は必須です' }),
+        { status: 400, headers: baseHeaders }
+      )
+    }
 
     console.log('📨 Staff invitation request:', { email, name })
 
-    // 1. 既存ユーザーを検索
-    const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers()
-    const existingUser = existingUsers?.users.find(u => u.email === email)
-    
+    const normalizedEmail = email.toLowerCase()
+    const { data: userList, error: listError } = await supabase.auth.admin.listUsers()
+    if (listError) {
+      throw new Error(`ユーザー一覧の取得に失敗しました: ${listError.message}`)
+    }
+
+    const existingUser = userList?.users.find((user) => user.email?.toLowerCase() === normalizedEmail)
     let userId: string
-    let existingStaffByEmail: any = null
-    
+    let isNewUser = false
+
     if (existingUser) {
-      // 既存ユーザーの場合
       userId = existingUser.id
-      console.log('✅ Existing user found:', userId)
-      
-      // メールアドレスでstaffレコードを検索（既存レコードの更新のため）
-      // 複数のレコードがある場合は最初の1つを使用
-      const { data: staffByEmailList, error: emailCheckError } = await supabase
-        .from('staff')
-        .select('id, user_id, email, phone, line_name, x_account, discord_id, discord_channel_id, role, stores')
-        .eq('email', email)
-        .limit(1)
-      
-      if (emailCheckError) {
-        console.warn('⚠️ Staff検索エラー:', emailCheckError)
-      }
-      
-      existingStaffByEmail = staffByEmailList && staffByEmailList.length > 0 ? staffByEmailList[0] : null
-      
-      if (existingStaffByEmail) {
-        if (existingStaffByEmail.user_id && existingStaffByEmail.user_id !== userId) {
-          // 別のユーザーに紐付いている場合でも、現在のユーザーに上書きして招待
-          console.log('⚠️ 既存のstaffレコードが別のユーザーに紐付いています。上書きして招待します:', existingStaffByEmail.id)
-        } else {
-          console.log('📝 既存のstaffレコードが見つかりました。更新してメールを再送信します:', existingStaffByEmail.id)
-        }
-      } else {
-        // 既存ユーザーだがstaffレコードがない場合
-        console.log('📝 既存ユーザーですが、staffレコードがありません。新規作成して招待します')
-      }
+      console.log('✅ Existing auth user found:', userId)
     } else {
-      // 新規ユーザーを作成（パスワード未設定、メール未確認状態）
-      console.log('📝 Creating new auth user:', email)
+      console.log('🆕 Creating auth user:', email)
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: email,
-        email_confirm: false, // メール確認が必要
-        password: crypto.randomUUID(), // 一時パスワード（使用不可）
+        email,
+        email_confirm: false,
+        password: crypto.randomUUID(),
         user_metadata: {
           full_name: name,
-          invited_as: 'staff'
-        }
+          invited_as: 'staff',
+        },
       })
 
-      if (authError) {
-        console.error('❌ Error creating auth user:', authError)
-        throw new Error(`Failed to create user: ${authError.message}`)
-      }
-
-      if (!authData || !authData.user || !authData.user.id) {
-        console.error('❌ Auth user creation returned invalid data:', authData)
-        throw new Error('Failed to create user: Invalid response from createUser')
+      if (authError || !authData?.user?.id) {
+        throw new Error(`Authユーザーの作成に失敗しました: ${authError?.message || 'unknown error'}`)
       }
 
       userId = authData.user.id
-      console.log('✅ Auth user created:', userId, 'email:', authData.user.email)
-      
-      // トリガーがusersテーブルにレコードを作成するまで待機（最大3秒）
-      let userRecordFound = false
-      let waitAttempts = 0
-      const maxWaitAttempts = 10
-      
-      while (!userRecordFound && waitAttempts < maxWaitAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 300)) // 300ms待機
-        
-        const { data: userRecord, error: userRecordError } = await supabase
-          .from('users')
-          .select('id, role')
-          .eq('id', userId)
-          .maybeSingle()
-        
-        if (userRecordError && userRecordError.code !== 'PGRST116') {
-          console.warn(`⚠️ User record check error (attempt ${waitAttempts + 1}):`, userRecordError)
-        }
-        
-        if (userRecord) {
-          console.log('✅ User record found in users table:', userRecord)
-          // ロールが正しく設定されているか確認
-          if (userRecord.role !== 'staff') {
-            console.warn(`⚠️ User role is '${userRecord.role}', updating to 'staff'`)
-            const { error: updateRoleError } = await supabase
-              .from('users')
-              .update({ role: 'staff', updated_at: new Date().toISOString() })
-              .eq('id', userId)
-            
-            if (updateRoleError) {
-              console.error('❌ Error updating user role:', updateRoleError)
-            } else {
-              console.log('✅ User role updated to staff')
-            }
-          }
-          userRecordFound = true
-          break
-        }
-        
-        waitAttempts++
-        console.log(`⏳ Waiting for trigger to create user record (attempt ${waitAttempts}/${maxWaitAttempts})...`)
-      }
-      
-      if (!userRecordFound) {
-        console.warn('⚠️ User record not found after waiting, creating manually...')
-        // トリガーが動作しなかった場合、手動で作成
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: userId,
-            email: email,
-            role: 'staff',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-        
-        if (insertError) {
-          console.error('❌ Error manually creating user record:', insertError)
-          // エラーでも続行（既に存在する可能性がある）
-        } else {
-          console.log('✅ User record created manually')
-        }
-      }
-      
-      // 新規ユーザーの場合も、メールアドレスで既存のstaffレコードを確認
-      // 複数のレコードがある場合は最初の1つを使用
-      const { data: staffByEmailNewList, error: emailCheckErrorNew } = await supabase
-        .from('staff')
-        .select('id, user_id, email, phone, line_name, x_account, discord_id, discord_channel_id, role, stores')
-        .eq('email', email)
-        .limit(1)
-      
-      if (emailCheckErrorNew) {
-        console.warn('⚠️ Staff検索エラー（新規ユーザー）:', emailCheckErrorNew)
-      }
-      
-      const staffByEmailNew = staffByEmailNewList && staffByEmailNewList.length > 0 ? staffByEmailNewList[0] : null
-      
-      if (staffByEmailNew && !staffByEmailNew.user_id) {
-        existingStaffByEmail = staffByEmailNew
-        console.log('⚠️ 新規ユーザーですが、既存のstaffレコード（user_id未設定）が見つかりました。更新します:', existingStaffByEmail.id)
-      }
+      isNewUser = true
+      console.log('✅ Auth user created:', userId)
     }
 
-    // 2. usersテーブルのレコードを確認（既存ユーザーの場合のみ）
-    if (existingUser) {
-      console.log('📝 Checking users table record for existing user')
-      const { data: currentUser, error: fetchError } = await supabase
-        .from('users')
-        .select('id, role, email')
-        .eq('id', userId)
-        .maybeSingle()
-      
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.warn('⚠️ User fetch error:', fetchError)
-      }
-      
-      // レコードが存在しない場合、作成する
-      if (!currentUser) {
-        console.log('📝 Users record not found for existing user, creating with staff role')
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: userId,
-            email: email,
-            role: 'staff',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-        
-        if (insertError) {
-          console.error('❌ Error inserting user record:', insertError)
-          throw new Error(`Failed to create user record: ${insertError.message}`)
-        }
-        console.log('✅ Users record created for existing user')
-      } else if (currentUser.role !== 'staff') {
-        // roleが'staff'でない場合、更新
-        console.log(`🔄 Updating user role from '${currentUser.role}' to 'staff'`)
-        const { error: updateRoleError } = await supabase
-          .from('users')
-          .update({ 
-            role: 'staff', 
-            email: email,
-            updated_at: new Date().toISOString() 
-          })
-          .eq('id', userId)
-
-        if (updateRoleError) {
-          console.error('❌ Error updating user role to staff:', updateRoleError)
-          throw new Error(`Failed to update user role: ${updateRoleError.message}`)
-        }
-        console.log('✅ User role updated to staff')
-      } else {
-        console.log('✅ User role is already set to staff')
-      }
+    const now = new Date().toISOString()
+    const userRecordPayload: Record<string, unknown> = {
+      id: userId,
+      email,
+      role: 'staff',
+      updated_at: now,
+    }
+    if (isNewUser) {
+      userRecordPayload.created_at = now
     }
 
-    // 3. staffテーブルにレコード作成または更新
-    let staffData: any
-    
-    // 既存のstaffレコードが見つかった場合、更新する（既に登録済みでも上書き）
-    if (existingStaffByEmail) {
-      // 既存のstaffレコードを更新
-      console.log('📝 既存のstaffレコードを更新:', existingStaffByEmail.id)
-      const { data: updatedStaff, error: updateError } = await supabase
-        .from('staff')
-        .update({
-          user_id: userId,
-          name: name,
-          email: email,
-          phone: phone || existingStaffByEmail.phone || '',
-          line_name: line_name || existingStaffByEmail.line_name || '',
-          x_account: x_account || existingStaffByEmail.x_account || '',
-          discord_id: discord_id || existingStaffByEmail.discord_id || '',
-          discord_channel_id: discord_channel_id || existingStaffByEmail.discord_channel_id || '',
-          role: role || existingStaffByEmail.role || ['gm'],
-          stores: stores || existingStaffByEmail.stores || [],
-          status: 'active',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingStaffByEmail.id)
-        .select()
-      
-      if (updateError) {
-        console.error('❌ Error updating staff record:', updateError)
-        throw new Error(`Failed to update staff record: ${updateError.message}`)
-      }
-      
-      if (!updatedStaff || updatedStaff.length === 0) {
-        throw new Error('Staff record update returned no data')
-      }
-      
-      staffData = Array.isArray(updatedStaff) ? updatedStaff[0] : updatedStaff
-      console.log('✅ Staff record updated:', staffData.id)
+    const { error: upsertUserError } = await supabase
+      .from('users')
+      .upsert(userRecordPayload, { onConflict: 'id' })
+
+    if (upsertUserError) {
+      throw new Error(`usersテーブルの更新に失敗しました: ${upsertUserError.message}`)
+    }
+
+    const staffFields = 'id, phone, line_name, x_account, discord_id, discord_channel_id, role, stores, status'
+    let staffRecord = null
+
+    const { data: staffByUser, error: staffByUserError } = await supabase
+      .from('staff')
+      .select(staffFields)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (staffByUserError && staffByUserError.code !== 'PGRST116') {
+      throw new Error(`staffテーブルの取得に失敗しました: ${staffByUserError.message}`)
+    }
+
+    if (staffByUser) {
+      staffRecord = staffByUser
     } else {
-      // 新規でstaffレコードを作成
-      const { data: newStaff, error: staffError } = await supabase
+      const { data: staffByEmail, error: staffByEmailError } = await supabase
+        .from('staff')
+        .select(staffFields)
+        .eq('email', email)
+        .maybeSingle()
+
+      if (staffByEmailError && staffByEmailError.code !== 'PGRST116') {
+        throw new Error(`staffテーブル（email検索）の取得に失敗しました: ${staffByEmailError.message}`)
+      }
+
+      if (staffByEmail) {
+        staffRecord = staffByEmail
+      }
+    }
+
+    let staffId: string
+    const staffPayload = {
+      user_id: userId,
+      name,
+      email,
+      phone: payload.phone ?? staffRecord?.phone ?? '',
+      line_name: payload.line_name ?? staffRecord?.line_name ?? '',
+      x_account: payload.x_account ?? staffRecord?.x_account ?? '',
+      discord_id: payload.discord_id ?? staffRecord?.discord_id ?? '',
+      discord_channel_id: payload.discord_channel_id ?? staffRecord?.discord_channel_id ?? '',
+      role: payload.role ?? staffRecord?.role ?? ['gm'],
+      stores: payload.stores ?? staffRecord?.stores ?? [],
+      status: staffRecord?.status ?? 'active',
+      updated_at: now,
+    }
+
+    if (staffRecord) {
+      const { data: updatedStaff, error: updateStaffError } = await supabase
+        .from('staff')
+        .update(staffPayload)
+        .eq('id', staffRecord.id)
+        .select('id')
+        .single()
+
+      if (updateStaffError) {
+        throw new Error(`スタッフ情報の更新に失敗しました: ${updateStaffError.message}`)
+      }
+
+      staffId = updatedStaff.id
+      console.log('📝 Staff record updated:', staffId)
+    } else {
+      const { data: insertedStaff, error: insertStaffError } = await supabase
         .from('staff')
         .insert({
-          user_id: userId,
-          name: name,
-          email: email,
-          phone: phone || '',
-          line_name: line_name || '',
-          x_account: x_account || '',
-          discord_id: discord_id || '',
-          discord_channel_id: discord_channel_id || '',
-          role: role || ['gm'],
-          stores: stores || [],
-          status: 'active',
+          ...staffPayload,
           experience: 0,
           availability: [],
           ng_days: [],
           notes: '',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          created_at: now,
         })
-        .select()
+        .select('id')
+        .single()
 
-      if (staffError) {
-        console.error('❌ Error creating staff record:', staffError)
-        // 新規ユーザーの場合のみ削除（既存ユーザーは削除しない）
-        if (!existingUser) {
-          await supabase.auth.admin.deleteUser(userId)
+      if (insertStaffError || !insertedStaff) {
+        if (isNewUser) {
+          await supabase.auth.admin.deleteUser(userId).catch(() => {
+            console.warn('⚠️ 作成失敗時のAuthユーザー削除に失敗しました')
+          })
         }
-        throw new Error(`Failed to create staff record: ${staffError.message}`)
+        throw new Error(`スタッフ情報の作成に失敗しました: ${insertStaffError?.message || 'unknown error'}`)
       }
-      
-      if (!newStaff || newStaff.length === 0) {
-        throw new Error('Staff record creation returned no data')
-      }
-      
-      staffData = Array.isArray(newStaff) ? newStaff[0] : newStaff
-      console.log('✅ Staff record created:', staffData.id)
+
+      staffId = insertedStaff.id
+      console.log('🆕 Staff record created:', staffId)
     }
 
-    // 4. パスワード設定/リセット用のリンクを生成
-    // 既存ユーザーの場合はrecovery、新規ユーザーの場合はinvite
-    let inviteLink: string
-    
-    if (existingUser) {
-      // 既存ユーザーの場合：recoveryタイプ（パスワードリセット）
-      console.log('📧 既存ユーザー: パスワードリセットリンクを生成（recoveryタイプ）')
-      const { data: recoveryLinkData, error: recoveryLinkError } = await supabase.auth.admin.generateLink({
-        type: 'recovery',
-        email: email,
-        options: {
-          redirectTo: 'https://mmq-yoyaq.vercel.app/#/reset-password'
-        }
-      })
-
-      if (recoveryLinkError) {
-        console.error('❌ Error generating recovery link:', recoveryLinkError)
-        throw new Error(`Failed to generate recovery link: ${recoveryLinkError.message}`)
-      }
-
-      inviteLink = recoveryLinkData.properties.action_link
-      console.log('✅ Recovery link generated for existing user')
-    } else {
-      // 新規ユーザーの場合：inviteタイプ（パスワード設定）
-      console.log('📧 新規ユーザー: 招待リンクを生成（inviteタイプ）')
-      
-      // ユーザーが確実に存在することを確認
-      const { data: userCheck, error: userCheckError } = await supabase.auth.admin.getUserById(userId)
-      
-      if (userCheckError || !userCheck || !userCheck.user) {
-        console.error('❌ User check error before generating link:', userCheckError)
-        throw new Error(`User does not exist: ${userCheckError?.message || 'User not found'}`)
-      }
-      
-      console.log('✅ User confirmed before generating link:', userCheck.user.id, userCheck.user.email)
-      
-      // 招待リンクを生成
-      console.log('🔗 Calling generateLink with type=invite for email:', email)
-      const { data: inviteLinkData, error: inviteLinkError } = await supabase.auth.admin.generateLink({
-        type: 'invite',
-        email: email,
-        options: {
-          redirectTo: 'https://mmq-yoyaq.vercel.app/#/set-password'
-        }
-      })
-
-      if (inviteLinkError) {
-        console.error('❌ Error generating invite link:', inviteLinkError)
-        throw new Error(`Failed to generate invite link: ${inviteLinkError.message}`)
-      }
-
-      if (!inviteLinkData || !inviteLinkData.properties || !inviteLinkData.properties.action_link) {
-        console.error('❌ Invalid invite link data:', inviteLinkData)
-        throw new Error('Failed to generate invite link: Invalid response')
-      }
-
-      inviteLink = inviteLinkData.properties.action_link
-      console.log('✅ Invite link generated for new user:', inviteLink.substring(0, 50) + '...')
-    }
-
-    // 5. Resend APIで招待メールを送信
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-    const SITE_URL = Deno.env.get('SITE_URL') || 'https://mmq-yoyaq.vercel.app'
-    // 送信元アドレスを設定（認証済みドメインを使用）
-    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'MMQ <noreply@mmq.game>'
-    
-    console.log('📧 メール送信設定:', { 
-      hasApiKey: !!RESEND_API_KEY, 
-      fromEmail,
-      to: email,
-      siteUrl: SITE_URL
+    const linkType = isNewUser ? 'invite' : 'recovery'
+    const redirectTo = isNewUser ? SET_PASSWORD_REDIRECT : RESET_PASSWORD_REDIRECT
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: linkType,
+      email,
+      options: { redirectTo },
     })
-    
-    if (!RESEND_API_KEY) {
-      console.error('❌ RESEND_API_KEY not set, skipping email')
-      // APIキーがない場合はエラーを返す（メール送信は必須）
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'メール送信サービスが設定されていません。管理者に連絡してください。',
-          data: {
-            user_id: userId,
-            staff_id: staffData.id,
-            email: email,
-            name: name
-          }
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          },
-          status: 500
-        }
-      )
+
+    if (linkError || !linkData?.properties?.action_link) {
+      throw new Error(`招待リンクの生成に失敗しました: ${linkError?.message || 'invalid response'}`)
     }
-    
-    // メール送信処理
+
+    const inviteLink = linkData.properties.action_link
+    console.log('🔗 Invitation link generated (type=%s)', linkType)
+
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'MMQ <noreply@mmq.game>'
     let emailSent = false
     let emailError: string | null = null
-    
-    try {
-      console.log('📨 メール送信開始:', { from: fromEmail, to: email })
-      const emailResponse = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [email],
-          subject: existingStaffByEmail && existingStaffByEmail.user_id 
-            ? '【MMQ】スタッフ招待メール（再送信）' 
-            : existingUser 
-              ? '【MMQ】スタッフアカウント登録完了' 
-              : '【MMQ】スタッフアカウント招待',
-            html: existingStaffByEmail && existingStaffByEmail.user_id
-              ? `<h2>【MMQ】スタッフ招待メール（再送信）</h2>
-              
-<p>こんにちは、${name}さん</p>
 
-<p>謎解きカフェ・バーMMQのスタッフ管理システムへの招待メールを再送信しました。</p>
+    if (!RESEND_API_KEY) {
+      emailError = 'RESEND_API_KEY が未設定のためメール送信をスキップしました'
+      console.warn(emailError)
+    } else {
+      const actionWord = isNewUser ? '設定' : 'リセット'
+      const emailSubject = isNewUser
+        ? '【MMQ】スタッフアカウント招待'
+        : '【MMQ】スタッフアカウント登録完了'
+      const introLine = isNewUser
+        ? 'スタッフ管理システムへのアカウントを発行しました。'
+        : 'スタッフ機能をご利用いただけるようになりました。'
 
-<p>既に登録済みのスタッフですが、下のリンクからパスワードを${existingUser ? 'リセット' : '設定'}して、スタッフページにアクセスできます。</p>
+      const html = `
+        <h2>${emailSubject}</h2>
+        <p>こんにちは、${name}さん</p>
+        <p>${introLine} 下のボタンからパスワードを${actionWord}してログインしてください。</p>
+        <p style="text-align:center;margin:24px 0;">
+          <a href="${inviteLink}" style="display:inline-block;padding:14px 28px;background:#4F46E5;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">
+            パスワードを${actionWord}する
+          </a>
+        </p>
+        <p style="font-size:12px;color:#666;">
+          リンクが開けない場合は次のURLをコピーしてください：<br />
+          <a href="${inviteLink}">${inviteLink}</a>
+        </p>
+        <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;" />
+        <p style="font-size:12px;color:#666;">
+          ※ このリンクは一定時間で無効になります。<br />
+          ※ 心当たりがない場合はこのメールを破棄してください。
+        </p>
+      `
 
-<p style="text-align: center; margin: 30px 0;">
-  <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードを${existingUser ? 'リセット' : '設定'}する</a>
-</p>
-
-<p style="font-size: 12px; color: #666;">
-  または、以下のリンクをコピーしてブラウザに貼り付けてください：<br>
-  <a href="${inviteLink}">${inviteLink}</a>
-</p>
-
-<h3>📋 スタッフとしてできること</h3>
-<ul>
-  <li>シフト提出</li>
-  <li>スケジュール確認</li>
-  <li>予約確認</li>
-</ul>
-
-<hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-
-<p style="color: #666; font-size: 12px;">
-  <strong>⚠️ 注意事項</strong><br>
-  • 既に登録済みのスタッフですが、招待メールを再送信しました<br>
-  • 心当たりがない場合は無視してください
-</p>`
-              : existingUser 
-                ? `<h2>【MMQ】スタッフアカウント登録完了</h2>
-              
-<p>こんにちは、${name}さん</p>
-
-<p>謎解きカフェ・バーMMQのスタッフ管理システムへの登録が完了しました。</p>
-
-<p>既存のアカウントでスタッフ機能が利用可能になりました。下のリンクからパスワードをリセットして、スタッフページにアクセスできます。</p>
-
-<p style="text-align: center; margin: 30px 0;">
-  <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードをリセットする</a>
-</p>
-
-<p style="font-size: 12px; color: #666;">
-  または、以下のリンクをコピーしてブラウザに貼り付けてください：<br>
-  <a href="${inviteLink}">${inviteLink}</a>
-</p>
-
-<h3>📋 スタッフとしてできること</h3>
-<ul>
-  <li>シフト提出</li>
-  <li>スケジュール確認</li>
-  <li>予約確認</li>
-</ul>
-
-<hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-
-<p style="color: #666; font-size: 12px;">
-  <strong>⚠️ 注意事項</strong><br>
-  • 既存のアカウントでスタッフ機能が利用可能になりました<br>
-  • 心当たりがない場合は無視してください
-</p>`
-              : `<h2>【MMQ】スタッフアカウントへようこそ！</h2>
-              
-<p>こんにちは、${name}さん</p>
-
-<p>謎解きカフェ・バーMMQのスタッフ管理システムにご招待します。</p>
-
-<h3>🔐 アカウント設定手順</h3>
-
-<ol>
-  <li>下のボタンをクリック</li>
-  <li>パスワードを設定（8文字以上）</li>
-  <li>ログインしてスタッフページにアクセス</li>
-</ol>
-
-<p style="text-align: center; margin: 30px 0;">
-  <a href="${inviteLink}" style="display: inline-block; padding: 16px 32px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">パスワードを設定する</a>
-</p>
-
-<p style="font-size: 12px; color: #666;">
-  または、以下のリンクをコピーしてブラウザに貼り付けてください：<br>
-  <a href="${inviteLink}">${inviteLink}</a>
-</p>
-
-<h3>📋 スタッフとしてできること</h3>
-<ul>
-  <li>シフト提出</li>
-  <li>スケジュール確認</li>
-  <li>予約確認</li>
-</ul>
-
-<hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-
-<p style="color: #666; font-size: 12px;">
-  <strong>⚠️ 注意事項</strong><br>
-  • このリンクは24時間で有効期限が切れます<br>
-  • 心当たりがない場合は無視してください<br>
-  • パスワードは誰にも教えないでください
-</p>`,
-        }),
-      })
-
-      if (!emailResponse.ok) {
-        const errorText = await emailResponse.text()
-        console.error('❌ Resend API error:', {
-          status: emailResponse.status,
-          statusText: emailResponse.statusText,
-          error: errorText
+      try {
+        const emailResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: fromEmail,
+            to: [email],
+            subject: emailSubject,
+            html,
+          }),
         })
-        
-        // エラーレスポンスをJSONとしてパースを試みる
-        let errorData: any
-        try {
-          errorData = JSON.parse(errorText)
-        } catch {
-          errorData = { message: errorText }
-        }
-        
-        console.error('❌ メール送信失敗の詳細:', JSON.stringify(errorData, null, 2))
-        emailError = `メール送信に失敗しました: ${errorData.message || errorText} (Status: ${emailResponse.status})`
-        throw new Error(emailError)
-      }
 
-      const emailData = await emailResponse.json()
-      console.log('✅ メール送信成功:', {
-        emailId: emailData.id,
-        to: email,
-        from: fromEmail
-      })
-      emailSent = true
-    } catch (emailErrorCaught: any) {
-      console.error('❌ メール送信エラー:', {
-        error: emailErrorCaught.message,
-        stack: emailErrorCaught.stack,
-        to: email,
-        from: fromEmail
-      })
-      emailError = emailErrorCaught.message || 'メール送信に失敗しました'
-      // メール送信失敗はエラーとしない（ユーザーとスタッフレコードは作成済み）
-      // ただし、レスポンスにはエラー情報を含める
+        if (!emailResponse.ok) {
+          emailError = `Resend API error (${emailResponse.status})`
+          const errorBody = await emailResponse.text()
+          console.error('❌ Resend error:', emailError, errorBody)
+        } else {
+          emailSent = true
+          console.log('✅ Invitation email sent')
+        }
+      } catch (err: any) {
+        emailError = err?.message || 'メール送信中に予期しないエラーが発生しました'
+        console.error('❌ Failed to send email:', emailError)
+      }
     }
 
     return new Response(
@@ -584,38 +279,24 @@ serve(async (req) => {
         message: 'Staff invited successfully',
         data: {
           user_id: userId,
-          staff_id: staffData.id,
-          email: email,
-          name: name,
+          staff_id: staffId,
+          email,
+          name,
+          invite_link: inviteLink,
           email_sent: emailSent,
-          email_error: emailError || null,
-          invite_link: inviteLink
-        }
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
+          email_error: emailError,
         },
-        status: 200
-      }
+      }),
+      { status: 200, headers: baseHeaders }
     )
-
   } catch (error: any) {
-    console.error('Error:', error)
+    console.error('❌ invite-staff error:', error)
     return new Response(
       JSON.stringify({
         success: false,
-        error: error?.message || String(error)
+        error: error?.message || String(error),
       }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        status: 500
-      }
+      { status: 500, headers: baseHeaders }
     )
   }
 })
-
