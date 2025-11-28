@@ -172,18 +172,34 @@ export function ShiftSubmission() {
               ) : (
                 <AlertCircle className="h-4 w-4" />
               )}
-              <AlertDescription className="space-y-1">
+              <AlertDescription className="space-y-2">
                 {submissionCheck.canSubmit ? (
                   <>
-                    <div>
-                      <strong>提出・編集期間:</strong> 毎月{globalSettings.shift_submission_start_day}日〜
-                      {globalSettings.shift_submission_end_day}日
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-6 gap-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs border border-red-200">
+                          翌月分の提出期限
+                        </span>
+                        <span className="font-medium">
+                          毎月<span className="text-red-600 font-bold text-base mx-1">{globalSettings.shift_submission_end_day}日</span>まで
+                        </span>
+                      </div>
+                      
                       {submissionRange && (
-                        <> （<span className="text-blue-600 font-semibold">{submissionRange.start}〜{submissionRange.end}</span>のシフトを提出・編集可能）</>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs border border-blue-200">
+                            提出可能範囲
+                          </span>
+                          <span>
+                            <span className="text-blue-700 font-bold">{submissionRange.start} 〜 {submissionRange.end}</span>
+                            <span className="text-xs text-muted-foreground ml-1">（4ヶ月先まで）</span>
+                          </span>
+                        </div>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      ※提出期限を過ぎた後の変更はシフト制作担当者に連絡してください
+                    <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1 pl-1 border-l-2 border-gray-200">
+                      <Info className="h-3 w-3" />
+                      提出期限を過ぎた後の変更は、シフト制作担当者に直接連絡してください
                     </div>
                   </>
                 ) : (
