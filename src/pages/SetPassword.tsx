@@ -93,25 +93,69 @@ export function SetPassword() {
               logger.log('✅ セッションが確立されました（setSession成功）:', sessionData.session.user.email)
               
               // ユーザーが実際に存在するか確認（重要：setSessionが成功してもユーザーが存在しない場合がある）
-              try {
-                const { data: { user }, error: userError } = await supabase.auth.getUser()
-                if (userError || !user) {
-                  logger.error('❌ ユーザーが存在しません:', userError)
-                  setError('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
+              // 複数回試行して確実に確認
+              let userVerified = false
+              let verifyAttempts = 0
+              const maxVerifyAttempts = 3
+              
+              while (!userVerified && verifyAttempts < maxVerifyAttempts) {
+                verifyAttempts++
+                logger.log(`🔍 ユーザー存在確認試行 ${verifyAttempts}/${maxVerifyAttempts}`)
+                
+                try {
+                  const { data: { user }, error: userError } = await supabase.auth.getUser()
+                  
+                  if (userError) {
+                    logger.error(`❌ ユーザー確認エラー (試行 ${verifyAttempts}):`, userError)
+                    if (userError.message && userError.message.includes('User from sub claim')) {
+                      setError('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
+                      setSessionReady(false)
+                      return
+                    }
+                    if (verifyAttempts < maxVerifyAttempts) {
+                      await new Promise(resolve => setTimeout(resolve, 500))
+                      continue
+                    }
+                    setError('ユーザーの確認に失敗しました。招待リンクをもう一度確認してください。')
+                    setSessionReady(false)
+                    return
+                  }
+                  
+                  if (!user) {
+                    logger.error(`❌ ユーザーが見つかりません (試行 ${verifyAttempts})`)
+                    if (verifyAttempts < maxVerifyAttempts) {
+                      await new Promise(resolve => setTimeout(resolve, 500))
+                      continue
+                    }
+                    setError('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
+                    setSessionReady(false)
+                    return
+                  }
+                  
+                  logger.log('✅ ユーザーの存在を確認しました:', user.email, `(試行 ${verifyAttempts})`)
+                  userVerified = true
+                  setSessionReady(true)
+                } catch (verifyErr: any) {
+                  logger.error(`❌ ユーザー確認時の予期しないエラー (試行 ${verifyAttempts}):`, verifyErr)
+                  if (verifyErr.message && verifyErr.message.includes('User from sub claim')) {
+                    setError('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
+                    setSessionReady(false)
+                    return
+                  }
+                  if (verifyAttempts < maxVerifyAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                    continue
+                  }
+                  setError('ユーザーの確認に失敗しました。招待リンクをもう一度確認してください。')
                   setSessionReady(false)
                   return
                 }
-                logger.log('✅ ユーザーの存在を確認しました:', user.email)
-                setSessionReady(true)
-              } catch (verifyErr: any) {
-                logger.error('❌ ユーザー確認エラー:', verifyErr)
-                if (verifyErr.message && verifyErr.message.includes('User from sub claim')) {
-                  setError('ユーザーが見つかりません。この招待リンクは無効です。\n\n新しい招待リンクを申請してください。')
-                } else {
-                  setError('ユーザーの確認に失敗しました。招待リンクをもう一度確認してください。')
-                }
+              }
+              
+              if (!userVerified) {
+                logger.error('❌ ユーザー確認に失敗しました（全試行完了）')
+                setError('ユーザーの確認に失敗しました。招待リンクをもう一度確認してください。')
                 setSessionReady(false)
-                return
               }
             } else {
               logger.warn('⚠️ セッションデータがありません')
