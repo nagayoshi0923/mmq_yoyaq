@@ -77,6 +77,7 @@ serve(async (req) => {
       }
     } else {
       // 新規ユーザーを作成（パスワード未設定、メール未確認状態）
+      console.log('📝 Creating new auth user:', email)
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: email,
         email_confirm: false, // メール確認が必要
@@ -92,8 +93,23 @@ serve(async (req) => {
         throw new Error(`Failed to create user: ${authError.message}`)
       }
 
+      if (!authData || !authData.user || !authData.user.id) {
+        console.error('❌ Auth user creation returned invalid data:', authData)
+        throw new Error('Failed to create user: Invalid response from createUser')
+      }
+
       userId = authData.user.id
-      console.log('✅ Auth user created:', userId)
+      console.log('✅ Auth user created:', userId, 'email:', authData.user.email)
+      
+      // ユーザーが確実に作成されたことを確認（念のため）
+      await new Promise(resolve => setTimeout(resolve, 500)) // 500ms待機
+      
+      const { data: verifyUser, error: verifyError } = await supabase.auth.admin.getUserById(userId)
+      if (verifyError || !verifyUser || !verifyUser.user) {
+        console.error('❌ Failed to verify created user:', verifyError)
+        throw new Error(`Failed to verify created user: ${verifyError?.message || 'User not found'}`)
+      }
+      console.log('✅ Verified user exists:', verifyUser.user.id, verifyUser.user.email)
       
       // 新規ユーザーの場合も、メールアドレスで既存のstaffレコードを確認
       // 複数のレコードがある場合は最初の1つを使用
@@ -142,7 +158,7 @@ serve(async (req) => {
       // レコードが存在しない場合、作成する
       if (!currentUser) {
         console.log(`📝 Users record not found, creating with staff role (attempt ${retryCount + 1})`)
-        const { data: insertedUser, error: insertError } = await supabase
+        const { data: insertedUsers, error: insertError } = await supabase
           .from('users')
           .insert({
             id: userId,
@@ -152,7 +168,6 @@ serve(async (req) => {
             updated_at: new Date().toISOString()
           })
           .select()
-          .single()
         
         if (insertError) {
           console.error(`❌ Error inserting user record (attempt ${retryCount + 1}):`, insertError)
@@ -160,12 +175,17 @@ serve(async (req) => {
           await new Promise(resolve => setTimeout(resolve, 300))
           retryCount++
           continue
-        } else {
+        }
+        
+        const insertedUser = Array.isArray(insertedUsers) ? insertedUsers[0] : insertedUsers
+        if (insertedUser && insertedUser.role === 'staff') {
           console.log('✅ Users record created with staff role:', insertedUser)
-          if (insertedUser && insertedUser.role === 'staff') {
-            userRecordCreated = true
-            break
-          }
+          userRecordCreated = true
+          break
+        } else {
+          console.warn(`⚠️ Inserted user record verification failed, retrying... (attempt ${retryCount + 1})`)
+          await new Promise(resolve => setTimeout(resolve, 300))
+          retryCount++
         }
       } else {
         // レコードが存在する場合、roleを確認して更新
@@ -179,7 +199,7 @@ serve(async (req) => {
         
         // roleが'staff'でない場合、確実に更新
         console.log(`🔄 Updating user role from '${currentUser.role}' to 'staff' (attempt ${retryCount + 1})`)
-        const { data: updatedUser, error: updateRoleError } = await supabase
+        const { data: updatedUsers, error: updateRoleError } = await supabase
           .from('users')
           .update({ 
             role: 'staff', 
@@ -188,15 +208,19 @@ serve(async (req) => {
           })
           .eq('id', userId)
           .select()
-          .single()
 
         if (updateRoleError) {
           console.error(`❌ Error updating user role to staff (attempt ${retryCount + 1}):`, updateRoleError)
           await new Promise(resolve => setTimeout(resolve, 300))
           retryCount++
-        } else if (updatedUser && updatedUser.role === 'staff') {
+          continue
+        }
+        
+        const updatedUser = Array.isArray(updatedUsers) ? updatedUsers[0] : updatedUsers
+        if (updatedUser && updatedUser.role === 'staff') {
           console.log('✅ User role successfully updated to staff:', updatedUser)
           userRecordCreated = true
+          break
         } else {
           console.warn(`⚠️ Role update verification failed, retrying... (attempt ${retryCount + 1})`)
           await new Promise(resolve => setTimeout(resolve, 300))
@@ -316,6 +340,49 @@ serve(async (req) => {
     } else {
       // 新規ユーザーの場合：inviteタイプ（パスワード設定）
       console.log('📧 新規ユーザー: 招待リンクを生成（inviteタイプ）')
+      console.log('📧 Generating invite link for user:', userId, email)
+      
+      // ユーザーが確実に存在することを再確認（複数回試行）
+      let userCheckSuccess = false
+      let userCheckAttempts = 0
+      const maxUserCheckAttempts = 3
+      
+      while (!userCheckSuccess && userCheckAttempts < maxUserCheckAttempts) {
+        userCheckAttempts++
+        console.log(`🔍 User existence check attempt ${userCheckAttempts}/${maxUserCheckAttempts}`)
+        
+        const { data: userCheck, error: userCheckError } = await supabase.auth.admin.getUserById(userId)
+        
+        if (userCheckError) {
+          console.error(`❌ User check error (attempt ${userCheckAttempts}):`, userCheckError)
+          if (userCheckAttempts < maxUserCheckAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 500))
+            continue
+          }
+          throw new Error(`User does not exist: ${userCheckError.message}`)
+        }
+        
+        if (!userCheck || !userCheck.user) {
+          console.error(`❌ User not found (attempt ${userCheckAttempts})`)
+          if (userCheckAttempts < maxUserCheckAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 500))
+            continue
+          }
+          throw new Error('User not found after multiple attempts')
+        }
+        
+        console.log('✅ User confirmed before generating link:', userCheck.user.id, userCheck.user.email)
+        userCheckSuccess = true
+      }
+      
+      if (!userCheckSuccess) {
+        throw new Error('Failed to verify user existence before generating invite link')
+      }
+      
+      // リンク生成前に少し待機（念のため）
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      console.log('🔗 Calling generateLink with type=invite for email:', email)
       const { data: inviteLinkData, error: inviteLinkError } = await supabase.auth.admin.generateLink({
         type: 'invite',
         email: email,
@@ -326,11 +393,17 @@ serve(async (req) => {
 
       if (inviteLinkError) {
         console.error('❌ Error generating invite link:', inviteLinkError)
+        console.error('❌ Invite link error details:', JSON.stringify(inviteLinkError, null, 2))
         throw new Error(`Failed to generate invite link: ${inviteLinkError.message}`)
       }
 
+      if (!inviteLinkData || !inviteLinkData.properties || !inviteLinkData.properties.action_link) {
+        console.error('❌ Invalid invite link data:', inviteLinkData)
+        throw new Error('Failed to generate invite link: Invalid response')
+      }
+
       inviteLink = inviteLinkData.properties.action_link
-      console.log('✅ Invite link generated for new user')
+      console.log('✅ Invite link generated for new user:', inviteLink.substring(0, 50) + '...')
     }
 
     // 5. Resend APIで招待メールを送信
