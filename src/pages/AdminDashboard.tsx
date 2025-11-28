@@ -130,7 +130,8 @@ export function AdminDashboard() {
   const handlePageChange = useCallback((pageId: string) => {
     setCurrentPage(pageId)
     setSelectedScenarioId(null) // ページ変更時はシナリオ選択をクリア
-    window.location.hash = pageId === 'dashboard' ? '' : pageId
+    // キャッシュ回避のため、明示的に dashboard ハッシュを使用する
+    window.location.hash = pageId
   }, [])
   const handleScenarioSelect = useCallback((scenarioId: string) => {
     setSelectedScenarioId(scenarioId)

@@ -25,7 +25,8 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
       onPageChange('dashboard')
     } else {
       // 各機能ページから呼ばれた場合はハッシュを変更
-      window.location.hash = ''
+      // 明示的に dashboard を指定してルートURLのキャッシュ回避を試みる
+      window.location.hash = 'dashboard'
     }
   }, [onPageChange])
 
