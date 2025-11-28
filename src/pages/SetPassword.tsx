@@ -18,32 +18,17 @@ export function SetPassword() {
 
   useEffect(() => {
     const extractParam = (key: string) => {
-      const sources: string[] = []
-
-      if (window.location.search.length > 1) {
-        sources.push(window.location.search.substring(1))
-      }
-
-      const rawHash = window.location.hash.startsWith('#')
-        ? window.location.hash.substring(1)
-        : window.location.hash
-
-      if (rawHash) {
-        sources.push(rawHash)
-        const hashParts = rawHash.split('?')
-        if (hashParts.length > 1) {
-          // `/set-password?access_token=...` のような場合に備えてクエリ部分だけを追加
-          sources.push(hashParts.slice(1).join('?'))
+      // Supabaseのリンクは `#/set-password#access_token=...` のように複数のハッシュを含むため、
+      // URL全体から正規表現でパラメータを抽出する
+      const pattern = new RegExp(`${key}=([^&?#]*)`, 'i')
+      const match = window.location.href.match(pattern)
+      if (match && match[1]) {
+        try {
+          return decodeURIComponent(match[1])
+        } catch {
+          return match[1]
         }
       }
-
-      for (const source of sources) {
-        if (!source) continue
-        const params = new URLSearchParams(source)
-        const value = params.get(key)
-        if (value) return value
-      }
-
       return null
     }
 
