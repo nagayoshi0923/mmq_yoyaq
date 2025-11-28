@@ -155,7 +155,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function setUserFromSession(supabaseUser: User) {
     // 既に処理中の場合はスキップ（重複呼び出し防止）
-    if (isProcessingRef.current) {
+    // ただし、userがまだセットされていない場合は処理を続行する（初期化時の競合対策）
+    if (isProcessingRef.current && userRef.current) {
       logger.log('⏭️ 処理中のためスキップ:', supabaseUser.email)
       return
     }
