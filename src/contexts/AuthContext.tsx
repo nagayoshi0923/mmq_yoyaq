@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { supabase, type AuthUser } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { User } from '@supabase/supabase-js'
+import { determineUserRole } from '@/utils/authUtils'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -222,13 +223,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           logger.log('📝 usersテーブルにレコードが存在しないため、作成します')
           
           // ロールを決定（メールアドレスから判定）
-          let newRole: 'admin' | 'staff' | 'customer' = 'customer'
-          const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
-          if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
-            newRole = 'admin'
-          } else if (supabaseUser.email?.includes('staff')) {
-            newRole = 'staff'
-          }
+          let newRole = determineUserRole(supabaseUser.email)
           
           // usersテーブルにレコードを作成
           const { error: upsertError } = await supabase
@@ -257,12 +252,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             logger.log('🔄 例外発生、既存のロールを保持:', role)
           } else {
             // フォールバック: メールアドレスで判定
-            const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
-            if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
-              role = 'admin'
-            } else if (supabaseUser.email?.includes('staff')) {
-              role = 'staff'
-            }
+            role = determineUserRole(supabaseUser.email)
             logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
           }
         }

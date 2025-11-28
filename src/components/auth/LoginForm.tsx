@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { determineUserRole } from '@/utils/authUtils'
 
 interface LoginFormProps {
   signup?: boolean
@@ -57,12 +58,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         // usersテーブルにレコードを作成（トリガーに依存しない）
         if (signUpData.user) {
           // ロールを決定（メールアドレスから判定）
-          let role: 'admin' | 'staff' | 'customer' = 'customer'
-          if (email.includes('admin')) {
-            role = 'admin'
-          } else if (email.includes('staff')) {
-            role = 'staff'
-          }
+          const role = determineUserRole(email)
           
           // usersテーブルにレコードを作成
           const { error: upsertError } = await supabase
