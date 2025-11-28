@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 
 // コード分割：各ページを動的インポート
+// v1.1: DashboardHomeの読み込み問題を解消するためのキャッシュバスター
 const StoreManagement = lazy(() => import('./StoreManagement').then(m => ({ default: m.StoreManagement })))
 const ScenarioManagement = lazy(() => import('./ScenarioManagement').then(m => ({ default: m.ScenarioManagement })))
 const ScenarioEdit = lazy(() => import('./ScenarioEdit'))
