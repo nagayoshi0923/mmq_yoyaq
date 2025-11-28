@@ -125,17 +125,17 @@ function PerformanceCardBase({
       }}
       onContextMenu={handleContextMenu}
       {...longPressHandlers}
-      className={`p-1 border-l-4 ${leftBorderColor} hover:shadow-sm transition-shadow relative ${
+      className={`p-2 border-l-4 ${leftBorderColor} hover:shadow-md transition-shadow relative ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
           : 'cursor-move'
       } ${categoryColors}`}
-      style={{ margin: '0px' }}
+      style={{ margin: '0px', minHeight: '100%' }}
       onClick={handleClick}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
-      <div className="flex items-center justify-between mb-0.5 gap-1">
-        <span className={`font-mono text-xs lg:text-[10px] leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className="flex items-center justify-between mb-1 gap-1">
+        <span className={`font-mono text-sm leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0 min-w-0">
@@ -175,18 +175,18 @@ function PerformanceCardBase({
       </div>
       
       {/* シナリオタイトル */}
-      <div className={`font-medium line-clamp-2 mb-0.5 text-xs lg:text-[10px] leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`font-bold line-clamp-2 mb-1 text-base leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.scenario || '未定'}
       </div>
       
       {/* GM情報 */}
-      <div className={`text-xs lg:text-[10px] mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
-        {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
+      <div className={`text-sm mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
+        GM: {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
       </div>
       
       {/* ノート情報 */}
       {event.notes && (
-        <div className={`text-xs lg:text-[10px] truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+        <div className={`text-xs mt-1 truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
           {event.notes}
         </div>
       )}

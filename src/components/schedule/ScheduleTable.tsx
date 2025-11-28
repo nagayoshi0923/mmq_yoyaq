@@ -87,13 +87,13 @@ export function ScheduleTable({
               <col className="w-[24px] sm:w-[28px] md:w-[32px] lg:w-[160px]" />
             </colgroup>
             <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="border-r text-xs !p-0 !h-auto text-center">日付<br/>曜日</TableHead>
-                <TableHead className="border-r text-xs !p-0 !h-auto text-center">会場</TableHead>
-                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">午前<br/>(~12)</TableHead>
-                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">午後<br/>(12-17)</TableHead>
-                <TableHead className="border-r text-xs whitespace-nowrap !p-0 !h-auto text-center">夜間<br/>(17~)</TableHead>
-                <TableHead className="text-xs !p-0 !h-auto text-center">メモ</TableHead>
+              <TableRow className="bg-muted/50 h-12">
+                <TableHead className="border-r text-sm font-bold !p-0 !h-auto text-center">日付<br/>曜日</TableHead>
+                <TableHead className="border-r text-sm font-bold !p-0 !h-auto text-center">会場</TableHead>
+                <TableHead className="border-r text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午前<br/>(~12)</TableHead>
+                <TableHead className="border-r text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午後<br/>(12-17)</TableHead>
+                <TableHead className="border-r text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜間<br/>(17~)</TableHead>
+                <TableHead className="text-sm font-bold !p-0 !h-auto text-center">メモ</TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>
@@ -109,22 +109,22 @@ export function ScheduleTable({
                 const isTemporary = venue.is_temporary === true
                 
                 return (
-                <TableRow key={`${day.date}-${venue.id}`} className="h-10 sm:h-12 md:h-14">
+                <TableRow key={`${day.date}-${venue.id}`} className="h-20 sm:h-24 md:h-28">
                   {/* 日付・曜日統合セル */}
                   {venueIndex === 0 ? (
                     <TableCell 
-                      className={`schedule-table-cell border-r text-schedule-xs !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} 
+                      className={`schedule-table-cell border-r text-sm !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} 
                       rowSpan={allVenues.length}
                     >
-                      <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-0">
-                        <span className="font-semibold">{day.displayDate}</span>
-                        <span className="text-xs">({day.dayOfWeek})</span>
+                      <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-1">
+                        <span className="font-bold text-base">{day.displayDate}</span>
+                        <span className="text-xs text-muted-foreground">({day.dayOfWeek})</span>
                       </div>
                     </TableCell>
                   ) : null}
                   
                   {/* 店舗セル */}
-                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-schedule-xs !p-0 leading-none text-center">
+                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-sm font-medium !p-0 leading-none text-center">
                     {venue.short_name}
                   </TableCell>
                   
