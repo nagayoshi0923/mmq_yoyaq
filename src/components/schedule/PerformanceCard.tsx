@@ -135,7 +135,7 @@ function PerformanceCardBase({
     >
       {/* ヘッダー行：時間 + バッジ群 */}
       <div className="flex items-center justify-between mb-1 gap-1">
-        <span className={`font-mono text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
+        <span className={`font-mono text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0 min-w-0">
@@ -180,8 +180,7 @@ function PerformanceCardBase({
       </div>
       
       {/* GM情報 */}
-      <div className={`text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
-        <span className="opacity-70 mr-1">GM</span>
+      <div className={`text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
       </div>
       
