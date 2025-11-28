@@ -25,8 +25,8 @@ export const CategoryTabs = memo(function CategoryTabs({
   return (
     <div className="bg-card border rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm">公演カテゴリ</h3>
-        <div className="text-xs text-muted-foreground">
+        <h3 className="text-base font-bold">公演カテゴリ</h3>
+        <div className="text-sm text-muted-foreground">
           中止: {categoryCounts.cancelled} / 警告: {categoryCounts.alerts}
         </div>
       </div>
@@ -37,7 +37,7 @@ export const CategoryTabs = memo(function CategoryTabs({
             key={category.id}
             onClick={() => onCategoryChange(category.id)}
             className={`
-              relative flex flex-col items-center gap-0.5 p-2 rounded-md border transition-all text-xs
+              relative flex flex-col items-center gap-0.5 p-2 rounded-md border transition-all text-sm
               ${category.color}
               ${selectedCategory === category.id 
                 ? 'ring-2 ring-primary shadow-sm' 

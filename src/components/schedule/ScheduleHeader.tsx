@@ -32,7 +32,7 @@ export const ScheduleHeader = memo(function ScheduleHeader({
     <div className="flex items-center gap-2">
       <span>スケジュール管理</span>
       {isLoading && (
-        <div className="text-xs sm:text-xs text-muted-foreground flex items-center gap-1">
+        <div className="text-sm text-muted-foreground flex items-center gap-1">
           <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
           <span className="hidden sm:inline">更新中...</span>
         </div>
