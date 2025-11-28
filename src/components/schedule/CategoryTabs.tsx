@@ -37,11 +37,11 @@ export const CategoryTabs = memo(function CategoryTabs({
             key={category.id}
             onClick={() => onCategoryChange(category.id)}
             className={`
-              relative flex flex-col items-center justify-center gap-0.5 h-16 px-1 rounded-md border transition-all
+              relative flex flex-col items-center justify-center gap-0.5 h-16 px-1 rounded-md transition-all focus:outline-none
               ${category.color}
               ${selectedCategory === category.id 
-                ? 'ring-2 ring-primary shadow-sm' 
-                : 'hover:shadow-sm'
+                ? 'border-2 border-foreground shadow-sm' 
+                : 'border hover:shadow-sm'
               }
             `}
           >
