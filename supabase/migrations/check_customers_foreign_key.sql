@@ -23,3 +23,4 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
   AND tc.table_name = 'customers'
   AND kcu.column_name = 'user_id';
 
+
