@@ -776,7 +776,8 @@ export const scheduleApi = {
           id,
           title,
           player_count_max,
-          duration
+          duration,
+          gm_costs
         )
       `)
       .gte('date', startDate)

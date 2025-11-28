@@ -72,6 +72,26 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     fetchMyData()
   }, [user, currentMonth]) // 月が変わったら再取得
 
+  // スタッフ用実績計算（今月分のみ）
+  const myStats = useMemo(() => {
+    const start = startOfMonth(currentMonth)
+    const end = endOfMonth(currentMonth)
+    const startStr = format(start, 'yyyy-MM-dd')
+    const endStr = format(end, 'yyyy-MM-dd')
+
+    const thisMonthEvents = mySchedule.filter(event => {
+      return event.date >= startStr && event.date <= endStr
+    })
+
+    const count = thisMonthEvents.length
+    const salary = thisMonthEvents.reduce((sum, event) => {
+      const gmCost = event.scenarios?.gm_costs || 0
+      return sum + gmCost
+    }, 0)
+
+    return { count, salary }
+  }, [mySchedule, currentMonth])
+
   // 統計データ取得（管理者・スタッフ共通で表示しても良いが、優先度は下げる）
   useEffect(() => {
     // モックデータ
@@ -284,7 +304,26 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         </div>
       </section>
 
-      {/* 4. 管理者向け統計情報（控えめに表示） */}
+      {/* 4. スタッフ向け統計情報（出勤数・給与概算）- 管理者以外に表示 */}
+      {user?.role !== 'admin' && (
+        <section className="pt-4 border-t border-border">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium text-muted-foreground">今月の実績（概算）</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-muted/50 p-3 rounded text-center">
+              <div className="text-xs text-muted-foreground mb-1">出勤回数</div>
+              <div className="font-bold text-xl">{myStats.count}回</div>
+            </div>
+            <div className="bg-muted/50 p-3 rounded text-center">
+              <div className="text-xs text-muted-foreground mb-1">報酬見込み</div>
+              <div className="font-bold text-xl">¥{myStats.salary.toLocaleString()}</div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 5. 管理者向け統計情報（控えめに表示） */}
       {user?.role === 'admin' && (
         <section className="pt-4 border-t border-border">
           <div className="flex items-center justify-between mb-2">
