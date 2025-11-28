@@ -87,34 +87,61 @@ serve(async (req) => {
 
     console.log('📧 Deleting user:', { userId, email: userEmail })
 
-    // 2. 関連データを明示的に削除（念のため）
-    // 2-1. customers テーブルから削除
-    const { error: deleteCustomersError } = await supabase
+    // 2. 関連データを確認・削除
+    // 2-1. customers テーブルから削除（CASCADEで自動削除されるが、明示的に削除）
+    const { data: customersData } = await supabase
       .from('customers')
-      .delete()
+      .select('id')
       .eq('user_id', userId)
     
-    if (deleteCustomersError) {
-      console.warn('⚠️ Warning: Failed to delete customers:', deleteCustomersError)
-      // エラーでも続行（外部キー制約で削除される可能性があるため）
-    } else {
-      console.log('✅ Customers deleted')
+    if (customersData && customersData.length > 0) {
+      const { error: deleteCustomersError } = await supabase
+        .from('customers')
+        .delete()
+        .eq('user_id', userId)
+      
+      if (deleteCustomersError) {
+        console.warn('⚠️ Warning: Failed to delete customers:', deleteCustomersError)
+      } else {
+        console.log(`✅ Deleted ${customersData.length} customer record(s)`)
+      }
     }
 
-    // 2-2. staff テーブルの user_id を NULL に設定（既に SET NULL になっているはずだが念のため）
-    const { error: updateStaffError } = await supabase
+    // 2-2. staff テーブルの user_id を NULL に設定（外部キー制約でSET NULLされるが、明示的に設定）
+    const { data: staffData } = await supabase
       .from('staff')
-      .update({ user_id: null })
+      .select('id')
       .eq('user_id', userId)
     
-    if (updateStaffError) {
-      console.warn('⚠️ Warning: Failed to update staff:', updateStaffError)
-    } else {
-      console.log('✅ Staff user_id set to NULL')
+    if (staffData && staffData.length > 0) {
+      const { error: updateStaffError } = await supabase
+        .from('staff')
+        .update({ user_id: null })
+        .eq('user_id', userId)
+      
+      if (updateStaffError) {
+        console.warn('⚠️ Warning: Failed to update staff:', updateStaffError)
+      } else {
+        console.log(`✅ Set user_id to NULL for ${staffData.length} staff record(s)`)
+      }
     }
 
-    // 3. auth.users から削除
-    // 外部キー制約により、public.users も自動的に削除される（CASCADE）
+    // 2-3. public.users テーブルから削除（CASCADEで自動削除されるが、明示的に削除）
+    const { error: deleteUsersError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId)
+    
+    if (deleteUsersError) {
+      console.warn('⚠️ Warning: Failed to delete from users table:', deleteUsersError)
+      // エラーでも続行（auth.usersから削除すればCASCADEで削除される）
+    } else {
+      console.log('✅ Deleted from users table')
+    }
+
+    // 3. auth.users から削除（最重要）
+    // これにより、外部キー制約により public.users も自動的に削除される（CASCADE）
+    // また、customers も自動的に削除される（CASCADE）
     const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
 
     if (deleteError) {

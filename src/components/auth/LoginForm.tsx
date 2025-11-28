@@ -47,12 +47,41 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         setMessage('パスワードリセット用のメールを送信しました。メールをチェックしてください。')
       } else if (isSignUp) {
         // サインアップ処理
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
         })
         
         if (error) throw error
+        
+        // usersテーブルにレコードを作成（トリガーに依存しない）
+        if (signUpData.user) {
+          // ロールを決定（メールアドレスから判定）
+          let role: 'admin' | 'staff' | 'customer' = 'customer'
+          if (email.includes('admin')) {
+            role = 'admin'
+          } else if (email.includes('staff')) {
+            role = 'staff'
+          }
+          
+          // usersテーブルにレコードを作成
+          const { error: upsertError } = await supabase
+            .from('users')
+            .upsert({
+              id: signUpData.user.id,
+              email: email,
+              role: role,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'id'
+            })
+          
+          if (upsertError) {
+            logger.warn('usersテーブルへのレコード作成に失敗しました:', upsertError)
+            // エラーでもサインアップは成功とみなす（後で修正可能）
+          }
+        }
         
         setMessage('確認メールを送信しました。メールをチェックしてアカウントを有効化してください。')
       } else {

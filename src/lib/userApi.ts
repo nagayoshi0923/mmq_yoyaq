@@ -100,13 +100,18 @@ export async function upsertUser(authUserId: string, email: string, role: 'admin
  * ユーザーを削除
  * Edge Functionを使用して auth.users から削除します
  * 外部キー制約により、public.users も自動的に削除されます（CASCADE）
+ * 
+ * @param userId 削除するユーザーID（省略時は現在のユーザー）
  */
-export async function deleteUser(userId: string): Promise<void> {
+export async function deleteUser(userId?: string): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession()
   
   if (!session) {
     throw new Error('認証が必要です')
   }
+
+  // userIdが指定されていない場合、現在のユーザーを削除
+  const targetUserId = userId || session.user.id
 
   const response = await fetch(`${supabaseUrl}/functions/v1/delete-user`, {
     method: 'POST',
@@ -115,7 +120,7 @@ export async function deleteUser(userId: string): Promise<void> {
       'Authorization': `Bearer ${session.access_token}`,
       'apikey': supabaseAnonKey
     },
-    body: JSON.stringify({ userId })
+    body: JSON.stringify({ userId: targetUserId })
   })
 
   const result = await response.json()
@@ -126,5 +131,12 @@ export async function deleteUser(userId: string): Promise<void> {
     error.code = result.code || response.status
     throw error
   }
+}
+
+/**
+ * 現在のユーザー自身のアカウントを削除
+ */
+export async function deleteMyAccount(): Promise<void> {
+  return deleteUser()
 }
 

@@ -115,25 +115,102 @@ serve(async (req) => {
       }
     }
 
-    // 2. usersテーブルの確認と更新
-    if (!existingUser) {
-      // 新規ユーザーの場合：トリガーの処理を待つ
-      await new Promise(resolve => setTimeout(resolve, 500))
-      console.log('✅ Users record created by trigger')
+    // 2. usersテーブルに確実にレコードを作成（トリガーに依存しない）
+    // トリガーが動作していても、確実にusersテーブルにレコードを作成する
+    console.log('📝 Ensuring users table record exists with staff role')
+    
+    let userRecordCreated = false
+    let retryCount = 0
+    const maxRetries = 5
+    
+    while (retryCount < maxRetries && !userRecordCreated) {
+      // usersテーブルにレコードが存在するか確認
+      const { data: currentUser, error: fetchError } = await supabase
+        .from('users')
+        .select('id, role, email')
+        .eq('id', userId)
+        .maybeSingle()
+      
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        // PGRST116は「レコードが見つからない」エラーなので、これは正常
+        console.warn(`⚠️ User fetch error (attempt ${retryCount + 1}):`, fetchError)
+        await new Promise(resolve => setTimeout(resolve, 300))
+        retryCount++
+        continue
+      }
+      
+      // レコードが存在しない場合、作成する
+      if (!currentUser) {
+        console.log(`📝 Users record not found, creating with staff role (attempt ${retryCount + 1})`)
+        const { data: insertedUser, error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: userId,
+            email: email,
+            role: 'staff',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single()
+        
+        if (insertError) {
+          console.error(`❌ Error inserting user record (attempt ${retryCount + 1}):`, insertError)
+          // 既に存在する可能性があるので、再確認
+          await new Promise(resolve => setTimeout(resolve, 300))
+          retryCount++
+          continue
+        } else {
+          console.log('✅ Users record created with staff role:', insertedUser)
+          if (insertedUser && insertedUser.role === 'staff') {
+            userRecordCreated = true
+            break
+          }
+        }
+      } else {
+        // レコードが存在する場合、roleを確認して更新
+        console.log(`📋 Found existing user record: role=${currentUser.role}`)
+        
+        if (currentUser.role === 'staff') {
+          console.log('✅ User role is already set to staff')
+          userRecordCreated = true
+          break
+        }
+        
+        // roleが'staff'でない場合、確実に更新
+        console.log(`🔄 Updating user role from '${currentUser.role}' to 'staff' (attempt ${retryCount + 1})`)
+        const { data: updatedUser, error: updateRoleError } = await supabase
+          .from('users')
+          .update({ 
+            role: 'staff', 
+            email: email,  // 念のためemailも更新
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', userId)
+          .select()
+          .single()
+
+        if (updateRoleError) {
+          console.error(`❌ Error updating user role to staff (attempt ${retryCount + 1}):`, updateRoleError)
+          await new Promise(resolve => setTimeout(resolve, 300))
+          retryCount++
+        } else if (updatedUser && updatedUser.role === 'staff') {
+          console.log('✅ User role successfully updated to staff:', updatedUser)
+          userRecordCreated = true
+        } else {
+          console.warn(`⚠️ Role update verification failed, retrying... (attempt ${retryCount + 1})`)
+          await new Promise(resolve => setTimeout(resolve, 300))
+          retryCount++
+        }
+      }
     }
     
-    // 2.5. usersテーブルのroleをstaffに明示的に更新
-    const { error: updateRoleError } = await supabase
-      .from('users')
-      .update({ role: 'staff' })
-      .eq('id', userId)
-
-    if (updateRoleError) {
-      console.error('⚠️ Error updating user role to staff:', updateRoleError)
-      // ロール更新失敗でもスタッフ作成は続行
-    } else {
-      console.log('✅ User role updated to staff')
+    if (!userRecordCreated) {
+      console.error('❌ CRITICAL: Failed to create/update user record with staff role after all retries')
+      throw new Error('ユーザーレコードをusersテーブルに作成できませんでした。データベースの状態を確認してください。')
     }
+    
+    console.log('✅ User record confirmed in users table with staff role')
 
     // 3. staffテーブルにレコード作成または更新
     let staffData: any

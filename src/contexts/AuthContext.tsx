@@ -213,19 +213,55 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       } catch (error: any) {
         logger.warn('⚠️ ロール取得失敗（タイムアウト/エラー）:', error?.message || error)
-        // 既存のユーザー情報がある場合は、そのロールを保持（エラー時もロールを維持）
-        if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
-          role = existingUser.role
-          logger.log('🔄 例外発生、既存のロールを保持:', role)
-        } else {
-          // フォールバック: メールアドレスで判定
+        
+        // レコードが存在しない場合、作成する（トリガーに依存しない）
+        if (error?.code === 'PGRST116' || error?.message?.includes('ロール取得タイムアウト')) {
+          logger.log('📝 usersテーブルにレコードが存在しないため、作成します')
+          
+          // ロールを決定（メールアドレスから判定）
+          let newRole: 'admin' | 'staff' | 'customer' = 'customer'
           const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
           if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
-            role = 'admin'
+            newRole = 'admin'
           } else if (supabaseUser.email?.includes('staff')) {
-            role = 'staff'
+            newRole = 'staff'
           }
-          logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
+          
+          // usersテーブルにレコードを作成
+          const { error: upsertError } = await supabase
+            .from('users')
+            .upsert({
+              id: supabaseUser.id,
+              email: supabaseUser.email!,
+              role: newRole,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'id'
+            })
+          
+          if (upsertError) {
+            logger.warn('⚠️ usersテーブルへのレコード作成に失敗しました:', upsertError)
+            role = newRole // フォールバックとして使用
+          } else {
+            role = newRole
+            logger.log('✅ usersテーブルにレコードを作成しました:', role)
+          }
+        } else {
+          // 既存のユーザー情報がある場合は、そのロールを保持（エラー時もロールを維持）
+          if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
+            role = existingUser.role
+            logger.log('🔄 例外発生、既存のロールを保持:', role)
+          } else {
+            // フォールバック: メールアドレスで判定
+            const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
+            if (adminEmails.includes(supabaseUser.email!) || supabaseUser.email?.includes('admin')) {
+              role = 'admin'
+            } else if (supabaseUser.email?.includes('staff')) {
+              role = 'staff'
+            }
+            logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
+          }
         }
       }
 
