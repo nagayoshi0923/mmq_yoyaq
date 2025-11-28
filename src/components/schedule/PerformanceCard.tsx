@@ -135,13 +135,13 @@ function PerformanceCardBase({
     >
       {/* ヘッダー行：時間 + バッジ群 */}
       <div className="flex items-center justify-between mb-1 gap-1">
-        <span className={`font-mono text-sm leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
+        <span className={`font-mono text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0 min-w-0">
           {/* 中止バッジ */}
           {event.is_cancelled && (
-            <Badge variant="cancelled" size="sm" className="font-normal text-xs px-1 py-0 h-4 whitespace-nowrap">
+            <Badge variant="cancelled" size="sm" className="font-normal text-[10px] px-1 py-0 h-4 whitespace-nowrap">
               中止
             </Badge>
           )}
@@ -175,13 +175,14 @@ function PerformanceCardBase({
       </div>
       
       {/* シナリオタイトル */}
-      <div className={`font-bold line-clamp-2 mb-1 text-sm leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`font-bold line-clamp-2 mb-0.5 text-sm leading-snug text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.scenario || '未定'}
       </div>
       
       {/* GM情報 */}
-      <div className={`text-sm mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
-        GM: {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
+      <div className={`text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
+        <span className="opacity-70 mr-1">GM</span>
+        {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
       </div>
       
       {/* ノート情報 */}

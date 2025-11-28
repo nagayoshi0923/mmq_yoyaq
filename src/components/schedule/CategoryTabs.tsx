@@ -31,13 +31,13 @@ export const CategoryTabs = memo(function CategoryTabs({
         </div>
       </div>
       
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
         {categories.map(category => (
           <button
             key={category.id}
             onClick={() => onCategoryChange(category.id)}
             className={`
-              relative flex flex-col items-center gap-0.5 p-2 rounded-md border transition-all text-sm
+              relative flex flex-col items-center justify-center gap-0.5 h-16 px-1 rounded-md border transition-all
               ${category.color}
               ${selectedCategory === category.id 
                 ? 'ring-2 ring-primary shadow-sm' 
@@ -45,8 +45,10 @@ export const CategoryTabs = memo(function CategoryTabs({
               }
             `}
           >
-            <span className="font-medium truncate w-full text-center">{category.label}</span>
-            <span className="text-xs opacity-75">
+            <span className="font-bold text-sm leading-tight w-full text-center px-1 truncate">
+              {category.label}
+            </span>
+            <span className="text-xs opacity-75 font-medium">
               {categoryCounts[category.id] || 0}
             </span>
           </button>
