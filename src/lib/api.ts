@@ -889,11 +889,6 @@ export const scheduleApi = {
           short_name,
           color,
           address
-        ),
-        gm_availability_responses (
-          staff_id,
-          response_status,
-          staff:staff_id (name)
         )
       `)
       .eq('reservation_source', 'web_private')
