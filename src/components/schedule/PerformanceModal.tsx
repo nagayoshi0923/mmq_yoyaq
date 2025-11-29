@@ -1455,7 +1455,7 @@ export function PerformanceModal({
               placeholder="シナリオを選択"
               searchPlaceholder="シナリオ名で検索..."
               emptyText="シナリオが見つかりません"
-              emptyActionLabel="+ シナリオを作成"
+              emptyActionLabel="シナリオを作成"
               onEmptyAction={() => setIsScenarioDialogOpen(true)}
             />
             {formData.is_private_request && (
