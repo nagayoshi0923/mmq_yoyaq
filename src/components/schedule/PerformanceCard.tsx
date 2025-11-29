@@ -125,7 +125,7 @@ function PerformanceCardBase({
       }}
       onContextMenu={handleContextMenu}
       {...longPressHandlers}
-      className={`p-2 border-l-4 ${leftBorderColor} hover:shadow-md transition-shadow relative ${
+      className={`p-1.5 border-l-4 ${leftBorderColor} hover:shadow-md transition-shadow relative ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
           : 'cursor-move'
@@ -134,7 +134,7 @@ function PerformanceCardBase({
       onClick={handleClick}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
-      <div className="flex items-center justify-between mb-1 gap-1">
+      <div className="flex items-center justify-between mb-0.5 gap-1">
         <span className={`font-mono text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
@@ -175,7 +175,7 @@ function PerformanceCardBase({
       </div>
       
       {/* シナリオタイトル */}
-      <div className={`font-bold line-clamp-2 mb-0.5 text-sm leading-snug text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div className={`font-bold line-clamp-2 mb-0.5 text-xs leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.scenario || '未定'}
       </div>
       
