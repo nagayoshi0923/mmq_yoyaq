@@ -133,7 +133,7 @@ export function ScheduleTable({
                   <TableCell className="sticky left-[32px] sm:static z-20 sm:z-auto bg-background group-hover:bg-muted/5 schedule-table-cell border-r venue-cell text-xs sm:text-sm font-medium !p-0 leading-none text-center shadow-[1px_0_0_0_hsl(var(--border))] sm:shadow-none">
                     <div className="flex flex-col items-center justify-center w-full h-full sm:flex-row sm:block">
                       <div className="sm:hidden flex flex-col items-center gap-0.5">
-                        {venue.short_name.slice(0, 2).split('').map((char, i) => (
+                        {venue.short_name.split('').map((char, i) => (
                           <span key={i} className="leading-none">{char}</span>
                         ))}
                       </div>
