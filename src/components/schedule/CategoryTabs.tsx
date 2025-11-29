@@ -1,6 +1,7 @@
 // スケジュールカテゴリのタブ
 
 import { memo } from 'react'
+import { cn } from '@/lib/utils'
 
 interface CategoryTabsProps {
   selectedCategory: string
@@ -36,14 +37,13 @@ export const CategoryTabs = memo(function CategoryTabs({
           <button
             key={category.id}
             onClick={() => onCategoryChange(category.id)}
-            className={`
-              relative flex flex-col items-center justify-center gap-0.5 h-16 px-1 rounded-md transition-all focus:outline-none
-              ${category.color}
-              ${selectedCategory === category.id 
-                ? 'border-2 border-primary shadow-sm' 
-                : 'border hover:shadow-sm'
-              }
-            `}
+            className={cn(
+              "relative flex flex-col items-center justify-center gap-0.5 h-16 px-1 rounded-md transition-all focus:outline-none",
+              category.color,
+              selectedCategory === category.id 
+                ? "border-2 border-primary shadow-sm" 
+                : "border hover:shadow-sm"
+            )}
           >
             <span className="font-bold text-sm leading-tight w-full text-center px-1 truncate">
               {category.label}
