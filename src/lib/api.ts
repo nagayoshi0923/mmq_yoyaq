@@ -35,6 +35,7 @@ interface ScheduleEvent {
   max_participants: number
   capacity: number
   gms: string[]
+  gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
   stores?: any
   scenarios?: any
   is_private_booking?: boolean
@@ -1324,6 +1325,7 @@ export const scheduleApi = {
     end_time: string
     capacity?: number
     gms?: string[]
+    gm_roles?: Record<string, string>
     notes?: string
     time_slot?: string | null // 時間帯（朝/昼/夜）
   }) {
@@ -1357,6 +1359,7 @@ export const scheduleApi = {
     end_time: string
     capacity: number
     gms: string[]
+    gm_roles: Record<string, string>
     notes: string
     is_cancelled: boolean
     is_reservation_enabled: boolean

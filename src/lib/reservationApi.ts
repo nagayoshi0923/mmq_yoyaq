@@ -363,6 +363,86 @@ export const reservationApi = {
       currentReservations: data.current_reservations,
       availableSeats: data.available_seats
     }
+  },
+
+  // スタッフ参加の予約を同期する関数
+  async syncStaffReservations(
+    eventId: string, 
+    gms: string[], 
+    gmRoles: Record<string, string>, 
+    eventDetails?: { 
+      date: string, 
+      start_time: string, 
+      scenario_id?: string,
+      scenario_title?: string,
+      store_id?: string,
+      duration?: number 
+    }
+  ): Promise<void> {
+    try {
+      // 1. スタッフ参加のGMリストを作成
+      const staffParticipants = gms.filter(gm => gmRoles[gm] === 'staff')
+
+      // 2. 現在の予約を取得
+      const currentReservations = await this.getByScheduleEvent(eventId)
+
+      // 3. スタッフ予約のみ抽出
+      const currentStaffReservations = currentReservations.filter(r =>
+        r.reservation_source === 'staff_entry' ||
+        r.payment_method === 'staff' ||
+        (r.participant_names && r.participant_names.some(name => staffParticipants.includes(name)))
+      )
+
+      // 4. 追加が必要なスタッフ
+      const toAdd = staffParticipants.filter(staffName =>
+        !currentStaffReservations.some(r => r.participant_names?.includes(staffName))
+      )
+
+      // 5. 削除が必要なスタッフ予約（スタッフリストに含まれていない予約）
+      const toRemove = currentStaffReservations.filter(r =>
+        !r.participant_names?.some(name => staffParticipants.includes(name))
+      )
+
+      // 6. 実行
+      // 追加
+      if (eventDetails) {
+        for (const staffName of toAdd) {
+          const reservation = {
+            schedule_event_id: eventId,
+            title: eventDetails.scenario_title || '',
+            scenario_id: eventDetails.scenario_id || null,
+            store_id: eventDetails.store_id || null,
+            customer_id: null,
+            customer_notes: staffName,
+            requested_datetime: `${eventDetails.date}T${eventDetails.start_time}+09:00`,
+            duration: eventDetails.duration || 120,
+            participant_count: 1,
+            participant_names: [staffName],
+            assigned_staff: [], 
+            base_price: 0,
+            options_price: 0,
+            total_price: 0,
+            discount_amount: 0,
+            final_price: 0,
+            payment_method: 'staff',
+            payment_status: 'paid',
+            status: 'confirmed',
+            reservation_source: 'staff_entry'
+          }
+
+          await this.create(reservation as any)
+        }
+      }
+
+      // 削除（キャンセル）
+      for (const res of toRemove) {
+        if (res.status !== 'cancelled') {
+          await this.update(res.id, { status: 'cancelled' })
+        }
+      }
+    } catch (error) {
+      console.error('スタッフ予約同期エラー:', error)
+    }
   }
 }
 

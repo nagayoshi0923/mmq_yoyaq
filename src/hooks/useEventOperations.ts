@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { scheduleApi } from '@/lib/api'
+import { reservationApi } from '@/lib/reservationApi' // 追加
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { getTimeSlot, TIME_SLOT_DEFAULTS } from '@/utils/scheduleUtils'
@@ -55,6 +56,7 @@ interface PerformanceData {
   capacity: number
   max_participants?: number
   gms: string[]
+  gm_roles?: Record<string, string> // 追加
   notes?: string
   is_cancelled?: boolean
   is_reservation_enabled?: boolean
@@ -367,12 +369,31 @@ export function useEventOperations({
           end_time: performanceData.end_time,
           capacity: performanceData.max_participants,
           gms: performanceData.gms.filter((gm: string) => gm.trim() !== ''),
+          gm_roles: performanceData.gm_roles || {},
           notes: performanceData.notes || null,
           time_slot: performanceData.time_slot || null // 時間帯（朝/昼/夜）
         }
         
         // Supabaseに保存
         const savedEvent = await scheduleApi.create(eventData)
+
+        // スタッフ予約の同期
+        if (performanceData.gm_roles && Object.values(performanceData.gm_roles).some(role => role === 'staff')) {
+          const scenarioObj = scenarios.find(s => s.title === performanceData.scenario)
+          await reservationApi.syncStaffReservations(
+            savedEvent.id,
+            savedEvent.gms || [],
+            performanceData.gm_roles,
+            {
+              date: savedEvent.date,
+              start_time: savedEvent.start_time,
+              scenario_id: savedEvent.scenario_id,
+              scenario_title: savedEvent.scenario,
+              store_id: savedEvent.store_id,
+              duration: scenarioObj?.duration
+            }
+          )
+        }
         
         // 内部形式に変換して状態に追加
         const formattedEvent: ScheduleEvent = {
@@ -381,6 +402,7 @@ export function useEventOperations({
           venue: savedEvent.store_id,
           scenario: savedEvent.scenario || '',
           gms: savedEvent.gms || [],
+          gm_roles: performanceData.gm_roles || {},
           start_time: savedEvent.start_time,
           end_time: savedEvent.end_time,
           category: savedEvent.category,
@@ -442,9 +464,31 @@ export function useEventOperations({
             end_time: performanceData.end_time,
             capacity: performanceData.max_participants,
             gms: performanceData.gms,
+            gm_roles: performanceData.gm_roles || {},
             notes: performanceData.notes,
             time_slot: performanceData.time_slot || null // 時間帯（朝/昼/夜）
           })
+
+          // スタッフ予約の同期
+          if (performanceData.gm_roles) {
+            const scenarioObj = scenarios.find(s => s.title === performanceData.scenario)
+            // performanceData.venue は store_id
+            const storeObj = stores.find(s => s.id === performanceData.venue)
+            
+            await reservationApi.syncStaffReservations(
+              performanceData.id!,
+              performanceData.gms,
+              performanceData.gm_roles,
+              {
+                date: performanceData.date,
+                start_time: performanceData.start_time,
+                scenario_id: scenarioId || undefined,
+                scenario_title: performanceData.scenario,
+                store_id: storeObj?.id || performanceData.venue,
+                duration: scenarioObj?.duration
+              }
+            )
+          }
 
           // ローカル状態を更新
           setEvents(prev => prev.map(event => 

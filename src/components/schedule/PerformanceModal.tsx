@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
-import { X, ChevronDown, ChevronUp, Mail, ExternalLink } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { X, ChevronDown, ChevronUp, Mail, ExternalLink, UserCog } from 'lucide-react'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { AutocompleteInput } from '@/components/ui/autocomplete-input'
@@ -40,6 +42,7 @@ interface ScheduleEvent {
   reservation_id?: string // 貸切リクエストの元のreservation ID
   reservation_info?: string
   timeSlot?: string // 時間帯（朝/昼/夜）
+  gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
 }
 
 
@@ -54,6 +57,7 @@ interface EventFormData {
   max_participants: number
   capacity: number
   gms: string[]
+  gmRoles: Record<string, string> // 追加
   notes?: string
   id?: string
   is_private_request?: boolean
@@ -268,6 +272,7 @@ export function PerformanceModal({
     venue: '',
     scenario: '',
     gms: [],
+    gmRoles: {}, // 初期値
     start_time: '10:00',
     end_time: '14:00',
     category: 'private',
@@ -1002,7 +1007,8 @@ export function PerformanceModal({
         ...event,
         scenario_id: selectedScenario?.id,  // IDを設定
         time_slot: event.timeSlot || (slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'), // time_slotを設定
-        max_participants: selectedScenario?.player_count_max ?? event.max_participants ?? DEFAULT_MAX_PARTICIPANTS // シナリオの参加人数を反映
+        max_participants: selectedScenario?.player_count_max ?? event.max_participants ?? DEFAULT_MAX_PARTICIPANTS, // シナリオの参加人数を反映
+        gmRoles: event.gm_roles || {} // 既存の役割があれば設定
       })
     } else if (mode === 'add' && initialData) {
       // 追加モード：初期データで初期化
@@ -1017,6 +1023,7 @@ export function PerformanceModal({
         venue: initialData.venue,
         scenario: '',
         gms: [],
+        gmRoles: {},
         start_time: defaults.start_time,
         end_time: defaults.end_time,
         category: 'private',
@@ -1094,7 +1101,8 @@ export function PerformanceModal({
       // 新しく作成したスタッフをGMとして選択
       setFormData((prev: EventFormData) => ({ 
         ...prev, 
-        gms: [...prev.gms, newStaff.name] 
+        gms: [...prev.gms, newStaff.name],
+        gmRoles: { ...prev.gmRoles, [newStaff.name]: 'main' }
       }))
     } catch (error: unknown) {
       logger.error('スタッフ作成エラー:', error)
@@ -1271,23 +1279,83 @@ export function PerformanceModal({
               {/* GM選択バッジ表示 */}
               {formData.gms.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.gms.map((gm: string, index: number) => (
-                    <Badge key={index} variant="secondary" className="flex items-center gap-1 font-normal bg-gray-100 border-0 rounded-[2px]">
-                      {gm}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 hover:bg-red-100"
-                        onClick={() => {
-                          const newGms = formData.gms.filter((g: string) => g !== gm)
-                          setFormData((prev: EventFormData) => ({ ...prev, gms: newGms }))
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
-                  ))}
+                  {formData.gms.map((gm: string, index: number) => {
+                    const role = formData.gmRoles?.[gm] || 'main'
+                    const badgeStyle = role === 'sub' 
+                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' 
+                      : role === 'staff' 
+                        ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
+                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
+                    
+                    return (
+                      <Popover key={index}>
+                        <PopoverTrigger asChild>
+                          <Badge 
+                            variant="outline" 
+                            className={`flex items-center gap-1 font-normal border cursor-pointer rounded-[4px] pr-1 ${badgeStyle}`}
+                          >
+                            <span className="flex items-center">
+                              <UserCog className="h-3 w-3 mr-1 opacity-70" />
+                              {gm}
+                              {role === 'sub' && <span className="text-[10px] ml-1 font-bold">(サブ)</span>}
+                              {role === 'staff' && <span className="text-[10px] ml-1 font-bold">(参加)</span>}
+                            </span>
+                            <div
+                              role="button"
+                              className="h-4 w-4 flex items-center justify-center rounded-full hover:bg-black/10 ml-1"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const newGms = formData.gms.filter((g: string) => g !== gm)
+                                const newRoles = { ...formData.gmRoles }
+                                delete newRoles[gm]
+                                setFormData((prev: EventFormData) => ({ ...prev, gms: newGms, gmRoles: newRoles }))
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </div>
+                          </Badge>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-3" align="start">
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <h4 className="font-medium text-xs text-muted-foreground">役割を選択</h4>
+                              <RadioGroup 
+                                value={role} 
+                                onValueChange={(value) => setFormData((prev: any) => ({
+                                  ...prev,
+                                  gmRoles: { ...prev.gmRoles, [gm]: value }
+                                }))}
+                              >
+                                <div className="flex items-center space-x-2 py-1">
+                                  <RadioGroupItem value="main" id={`role-main-${index}`} />
+                                  <Label htmlFor={`role-main-${index}`} className="text-sm cursor-pointer">メインGM</Label>
+                                </div>
+                                <div className="flex items-center space-x-2 py-1">
+                                  <RadioGroupItem value="sub" id={`role-sub-${index}`} />
+                                  <Label htmlFor={`role-sub-${index}`} className="text-sm cursor-pointer">サブGM</Label>
+                                </div>
+                                <div className="flex items-center space-x-2 py-1">
+                                  <RadioGroupItem value="staff" id={`role-staff-${index}`} />
+                                  <Label htmlFor={`role-staff-${index}`} className="text-sm cursor-pointer">スタッフ参加</Label>
+                                </div>
+                              </RadioGroup>
+                            </div>
+                            
+                            {role === 'sub' && (
+                              <p className="text-[10px] text-blue-600 bg-blue-50 p-1 rounded">
+                                ※サブGM給与が適用されます
+                              </p>
+                            )}
+                            {role === 'staff' && (
+                              <p className="text-[10px] text-green-600 bg-green-50 p-1 rounded">
+                                ※予約リストに追加されます(無料)
+                              </p>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -1363,7 +1431,8 @@ export function PerformanceModal({
                     category: value,
                     // 既存のシナリオ選択を明示的に保持
                     scenario: prev.scenario,
-                    gms: prev.gms
+                    gms: prev.gms,
+                    gmRoles: prev.gmRoles
                   }))
                 }}
                 disabled={formData.is_private_request}

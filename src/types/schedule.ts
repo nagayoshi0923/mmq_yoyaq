@@ -19,5 +19,6 @@ export interface ScheduleEvent {
   reservation_id?: string // 貸切リクエストの元のreservation ID
   is_private_booking?: boolean // 貸切予約かどうか
   timeSlot?: string // 貸切予約の時間帯（朝/昼/夜）
+  gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
 }
 
