@@ -101,7 +101,7 @@ function PerformanceCardBase({
 
   // 長押しでコンテキストメニューを表示（スマホ対応）
   // ドラッグ操作（onDragStart）と競合しないように、長押し判定は useLongPress で管理
-  const longPressHandlers = useLongPress((x, y) => {
+  const { isLongPressTriggered, ...longPressHandlers } = useLongPress((x, y) => {
     if (onContextMenu) {
       onContextMenu(event, x, y)
     }
@@ -109,7 +109,7 @@ function PerformanceCardBase({
 
   // 長押し時は onClick をスキップ
   const handleClick = () => {
-    if (longPressHandlers.isLongPressTriggered()) {
+    if (isLongPressTriggered()) {
       return // 長押しが成立していたら onClick をスキップ
     }
     onClick?.(event)
