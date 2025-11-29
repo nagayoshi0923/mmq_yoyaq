@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { TableCell } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { FileText } from 'lucide-react'
 
 interface MemoCellProps {
   date: string
@@ -30,6 +33,7 @@ function useDebounce(callback: Function, delay: number) {
 function MemoCellBase({ date, venue, initialMemo = '', onSave, className }: MemoCellProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [memo, setMemo] = useState(initialMemo)
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   useEffect(() => {
     setMemo(initialMemo)
@@ -45,6 +49,7 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave, className }: Memo
     debouncedSave(newMemo)
   }
 
+  // PC用のハンドラー
   const handleEdit = () => {
     setIsEditing(true)
   }
@@ -63,34 +68,76 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave, className }: Memo
     }
   }
 
+  // モバイル用の保存ハンドラー（ダイアログを閉じる時）
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open)
+    if (!open) {
+      onSave?.(date, venue, memo)
+    }
+  }
+
   return (
     <TableCell className={`schedule-table-cell !p-0 !align-top h-10 sm:h-12 md:h-14 ${className || ''}`}>
-      {isEditing ? (
-        <Textarea
-          value={memo}
-          onChange={(e) => handleMemoChange(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          placeholder="memo"
-          className="w-full h-full text-xs lg:text-[10px] p-0.5 resize-none border-0 focus:border-0 focus:ring-0 rounded-none"
-          style={{ 
-            backgroundColor: '#F6F9FB',
-            transition: 'background-color 0.2s ease'
-          }}
-          autoFocus
-        />
-      ) : (
-        <div
-          className={`w-full h-full cursor-pointer p-0.5 text-xs lg:text-[10px] whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight flex items-start ${memo ? 'text-gray-700' : 'text-gray-300'}`}
-          style={{ 
-            backgroundColor: '#F6F9FB',
-            transition: 'background-color 0.2s ease'
-          }}
-          onClick={handleEdit}
-        >
-          {memo || 'memo'}
-        </div>
-      )}
+      {/* PC表示 (lg以上): インライン編集 */}
+      <div className="hidden lg:block w-full h-full">
+        {isEditing ? (
+          <Textarea
+            value={memo}
+            onChange={(e) => handleMemoChange(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            placeholder="memo"
+            className="w-full h-full text-xs lg:text-[10px] p-0.5 resize-none border-0 focus:border-0 focus:ring-0 rounded-none"
+            style={{ 
+              backgroundColor: '#F6F9FB',
+              transition: 'background-color 0.2s ease'
+            }}
+            autoFocus
+          />
+        ) : (
+          <div
+            className={`w-full h-full cursor-pointer p-0.5 text-xs lg:text-[10px] whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight flex items-start ${memo ? 'text-gray-700' : 'text-gray-300'}`}
+            style={{ 
+              backgroundColor: '#F6F9FB',
+              transition: 'background-color 0.2s ease'
+            }}
+            onClick={handleEdit}
+          >
+            {memo || 'memo'}
+          </div>
+        )}
+      </div>
+
+      {/* モバイル/タブレット表示 (lg未満): アイコンボタン + ダイアログ */}
+      <div className="lg:hidden w-full h-full flex items-center justify-center bg-gray-50/50">
+        <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
+          <DialogTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={`h-full w-full rounded-none hover:bg-muted/20 ${memo ? 'text-primary' : 'text-muted-foreground/30'}`}
+            >
+              <FileText className="h-4 w-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>メモ編集</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <Textarea
+                value={memo}
+                onChange={(e) => handleMemoChange(e.target.value)}
+                placeholder="スケジュールに関するメモを入力してください"
+                className="min-h-[150px]"
+              />
+            </div>
+            <DialogFooter>
+              <Button onClick={() => handleDialogClose(false)}>完了</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </TableCell>
   )
 }

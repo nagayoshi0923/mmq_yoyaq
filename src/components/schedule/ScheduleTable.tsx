@@ -81,10 +81,10 @@ export function ScheduleTable({
             <colgroup>
               <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
               <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[106px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[106px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[106px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-0 lg:w-[160px]" />
+              <col className="w-[95px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[95px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[95px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[32px] lg:w-[160px]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50 h-12">
@@ -99,7 +99,10 @@ export function ScheduleTable({
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午前</TableHead>
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午後</TableHead>
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜間</TableHead>
-                <TableHead className="hidden lg:table-cell text-sm font-bold !p-0 !h-auto text-center">メモ</TableHead>
+                <TableHead className="text-sm font-bold !p-0 !h-auto text-center">
+                  <span className="hidden lg:inline">メモ</span>
+                  <span className="lg:hidden text-xs">📝</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>
@@ -207,7 +210,6 @@ export function ScheduleTable({
                     venue={venue.id}
                     initialMemo={getMemo(day.date, venue.id)}
                     onSave={onSaveMemo}
-                    className="hidden lg:table-cell"
                   />
                 </TableRow>
                 )
