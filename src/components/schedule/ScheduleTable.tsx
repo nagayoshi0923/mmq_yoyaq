@@ -77,19 +77,25 @@ export function ScheduleTable({
 
   return (
     <div className="overflow-x-auto -mx-2 sm:mx-0 relative">
-      <Table className="table-fixed w-full border-collapse min-w-[600px] sm:min-w-[562px] md:min-w-[676px]">
+      <Table className="table-fixed w-full border-collapse min-w-[375px] sm:min-w-[562px] md:min-w-[676px]">
             <colgroup>
-              <col className="w-[40px] sm:w-[40px] md:w-[48px]" />
-              <col className="w-[60px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[160px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[160px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[160px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
+              <col className="w-[28px] sm:w-[28px] md:w-[32px]" />
+              <col className="w-[105px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[105px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[105px] sm:w-[150px] md:w-[190px]" />
               <col className="w-0 sm:w-[28px] md:w-[32px] lg:w-[160px]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50 h-12">
-                <TableHead className="sticky left-0 z-30 bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center shadow-[1px_0_0_0_hsl(var(--border))]">日付</TableHead>
-                <TableHead className="sticky left-[40px] sm:static z-30 sm:z-auto bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center shadow-[1px_0_0_0_hsl(var(--border))] sm:shadow-none">会場</TableHead>
+                <TableHead className="sticky left-0 z-30 bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center shadow-[1px_0_0_0_hsl(var(--border))]">
+                  <span className="hidden sm:inline">日付</span>
+                  <span className="sm:hidden">日</span>
+                </TableHead>
+                <TableHead className="sticky left-[32px] sm:static z-30 sm:z-auto bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center shadow-[1px_0_0_0_hsl(var(--border))] sm:shadow-none">
+                  <span className="hidden sm:inline">会場</span>
+                  <span className="sm:hidden">店</span>
+                </TableHead>
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午前</TableHead>
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午後</TableHead>
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜間</TableHead>
@@ -117,15 +123,17 @@ export function ScheduleTable({
                       rowSpan={allVenues.length}
                     >
                       <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-0.5 sm:gap-1">
-                        <span className="font-bold text-xs sm:text-base">{day.displayDate}</span>
-                        <span className="text-[10px] sm:text-xs text-muted-foreground">({day.dayOfWeek})</span>
+                        <span className="font-bold text-xs sm:text-base">{day.displayDate.replace(/月/g,'')}</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground scale-90 sm:scale-100 origin-center">({day.dayOfWeek})</span>
                       </div>
                     </TableCell>
                   ) : null}
                   
                   {/* 店舗セル (Sticky on Mobile) */}
-                  <TableCell className="sticky left-[40px] sm:static z-20 sm:z-auto bg-background group-hover:bg-muted/5 schedule-table-cell border-r venue-cell text-xs sm:text-sm font-medium !p-0 leading-none text-center shadow-[1px_0_0_0_hsl(var(--border))] sm:shadow-none">
-                    {venue.short_name}
+                  <TableCell className="sticky left-[32px] sm:static z-20 sm:z-auto bg-background group-hover:bg-muted/5 schedule-table-cell border-r venue-cell text-xs sm:text-sm font-medium !p-0 leading-none text-center shadow-[1px_0_0_0_hsl(var(--border))] sm:shadow-none">
+                    <div className="writing-vertical-rl text-orientation-upright mx-auto sm:writing-mode-horizontal sm:text-orientation-mixed">
+                      {venue.short_name.slice(0, 2)}
+                    </div>
                   </TableCell>
                   
                   {/* 午前セル */}
