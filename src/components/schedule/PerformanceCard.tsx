@@ -11,6 +11,7 @@ interface ScheduleEvent {
   venue: string // 店舗ID
   scenario: string
   gms: string[] // GMの名前の配列
+  gm_roles?: Record<string, string> // GMの役割
   start_time: string // HH:MM
   end_time: string // HH:MM
   category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' // 公演カテゴリ
@@ -57,7 +58,18 @@ function PerformanceCardBase({
 }: PerformanceCardProps) {
   const reservationCount = event.participant_count || 0
   const maxCapacity = event.max_participants || 8
-  const isIncomplete = !event.scenario || event.gms.length === 0
+
+  // GMの役割による分類
+  const gmRoles = event.gm_roles || {}
+  const mainGms = event.gms.filter(gm => !gmRoles[gm] || gmRoles[gm] === 'main')
+  const subGms = event.gms.filter(gm => gmRoles[gm] === 'sub')
+  const staffGms = event.gms.filter(gm => gmRoles[gm] === 'staff')
+  
+  // 表示用GMリスト（メインとサブのみ）
+  const displayGms = [...mainGms, ...subGms.map(gm => `${gm}(サブ)`)]
+  
+  // 完了状態の判定（シナリオなし、GMなし、またはメインGMなし）
+  const isIncomplete = !event.scenario || event.gms.length === 0 || mainGms.length === 0
   
   // 貸切リクエストの場合は紫色で表示
   const categoryColors = event.is_private_request 
@@ -181,12 +193,27 @@ function PerformanceCardBase({
       
       {/* GM情報 */}
       <div className={`text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
-        {event.gms.length > 0 ? event.gms.join(', ') : '未定'}
+        {displayGms.length > 0 ? (
+          <span className="flex items-center gap-1">
+            <span className="font-bold opacity-70 text-[10px]">GM:</span>
+            {displayGms.join(', ')}
+          </span>
+        ) : (
+          <span className="text-red-500 font-bold flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" />
+            GM未定
+          </span>
+        )}
       </div>
       
-      {/* ノート情報 */}
-      {event.notes && (
-        <div className={`text-xs mt-1 truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
+      {/* ノート情報 + スタッフ参加GM */}
+      {(event.notes || staffGms.length > 0) && (
+        <div className={`text-xs mt-0.5 truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
+          {staffGms.length > 0 && (
+             <span className="mr-2 text-green-700 font-medium bg-green-50 px-1 rounded text-[10px] border border-green-100">
+               スタッフ: {staffGms.join(', ')}
+             </span>
+          )}
           {event.notes}
         </div>
       )}
