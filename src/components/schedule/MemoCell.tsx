@@ -72,7 +72,7 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave, className }: Memo
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           placeholder="memo"
-          className="w-full h-full text-xs p-0.5 resize-none border-0 focus:border-0 focus:ring-0 rounded-none"
+          className="w-full h-full text-[12px] p-0.5 resize-none border-0 focus:border-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none placeholder:text-muted-foreground/50"
           style={{ 
             backgroundColor: '#F6F9FB',
             transition: 'background-color 0.2s ease'
@@ -81,7 +81,7 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave, className }: Memo
         />
       ) : (
         <div
-          className={`w-full h-full cursor-pointer p-0.5 text-xs whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight flex items-start ${memo ? 'text-gray-700' : 'text-gray-300'}`}
+          className={`w-full h-full cursor-pointer p-0.5 text-[12px] whitespace-pre-wrap text-left hover:bg-gray-50 leading-tight flex items-start ${memo ? 'text-gray-700' : 'text-gray-300'}`}
           style={{ 
             backgroundColor: '#F6F9FB',
             transition: 'background-color 0.2s ease'
