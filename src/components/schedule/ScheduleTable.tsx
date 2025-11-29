@@ -76,20 +76,20 @@ export function ScheduleTable({
   const { categoryConfig, getReservationBadgeClass } = displayConfig
 
   return (
-    <div className="overflow-x-auto -mx-2 sm:mx-0">
-      <Table className="table-fixed w-full border-collapse min-w-[350px] sm:min-w-[562px] md:min-w-[676px]">
+    <div className="overflow-x-auto -mx-2 sm:mx-0 relative">
+      <Table className="table-fixed w-full border-collapse min-w-[600px] sm:min-w-[562px] md:min-w-[676px]">
             <colgroup>
               <col className="w-[40px] sm:w-[40px] md:w-[48px]" />
-              <col className="w-0 sm:w-[28px] md:w-[32px]" />
-              <col className="w-[103px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[103px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[103px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[60px] sm:w-[28px] md:w-[32px]" />
+              <col className="w-[160px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[160px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[160px] sm:w-[150px] md:w-[190px]" />
               <col className="w-0 sm:w-[28px] md:w-[32px] lg:w-[160px]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50 h-12">
-                <TableHead className="border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">日付</TableHead>
-                <TableHead className="hidden sm:table-cell border-r text-sm font-bold !p-0 !h-auto text-center">会場</TableHead>
+                <TableHead className="sticky left-0 z-30 bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center shadow-[1px_0_0_0_hsl(var(--border))]">日付</TableHead>
+                <TableHead className="sticky left-[40px] sm:static z-30 sm:z-auto bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center shadow-[1px_0_0_0_hsl(var(--border))] sm:shadow-none">会場</TableHead>
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午前</TableHead>
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午後</TableHead>
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜間</TableHead>
@@ -109,37 +109,22 @@ export function ScheduleTable({
                 const isTemporary = venue.is_temporary === true
                 
                 return (
-                <TableRow key={`${day.date}-${venue.id}`} className="h-20 sm:h-24 md:h-28">
-                  {/* 日付・曜日統合セル (PC用: rowSpanあり) */}
+                <TableRow key={`${day.date}-${venue.id}`} className="h-20 sm:h-24 md:h-28 group bg-background hover:bg-muted/5">
+                  {/* 日付・曜日統合セル (Sticky) */}
                   {venueIndex === 0 ? (
                     <TableCell 
-                      className={`hidden sm:table-cell schedule-table-cell border-r text-sm !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} 
+                      className={`sticky left-0 z-20 bg-background group-hover:bg-muted/5 schedule-table-cell border-r text-sm !p-0 leading-none text-center align-middle shadow-[1px_0_0_0_hsl(var(--border))] ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} 
                       rowSpan={allVenues.length}
                     >
-                      <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-1">
-                        <span className="font-bold text-base">{day.displayDate}</span>
-                        <span className="text-xs text-muted-foreground">({day.dayOfWeek})</span>
+                      <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-0.5 sm:gap-1">
+                        <span className="font-bold text-xs sm:text-base">{day.displayDate}</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">({day.dayOfWeek})</span>
                       </div>
                     </TableCell>
                   ) : null}
-
-                  {/* 日付・会場統合セル (モバイル用: rowSpanなし) */}
-                  <TableCell 
-                    className={`sm:hidden schedule-table-cell border-r text-xs !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`}
-                  >
-                    <div className="flex flex-col items-center justify-center h-full gap-1 py-1">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">{day.displayDate}</span>
-                        <span className="text-[10px] opacity-75">({day.dayOfWeek})</span>
-                      </div>
-                      <div className="text-[10px] font-bold bg-muted/30 px-1 rounded text-foreground">
-                        {venue.short_name}
-                      </div>
-                    </div>
-                  </TableCell>
                   
-                  {/* 店舗セル（PCのみ） */}
-                  <TableCell className="hidden sm:table-cell schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-sm font-medium !p-0 leading-none text-center">
+                  {/* 店舗セル (Sticky on Mobile) */}
+                  <TableCell className="sticky left-[40px] sm:static z-20 sm:z-auto bg-background group-hover:bg-muted/5 schedule-table-cell border-r venue-cell text-xs sm:text-sm font-medium !p-0 leading-none text-center shadow-[1px_0_0_0_hsl(var(--border))] sm:shadow-none">
                     {venue.short_name}
                   </TableCell>
                   
