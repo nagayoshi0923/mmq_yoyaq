@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
+import { Badge, badgeVariants } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SingleDatePopover } from '@/components/ui/single-date-popover'
@@ -21,6 +21,7 @@ import { scenarioApi, staffApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_MAX_PARTICIPANTS } from '@/constants/game'
+import { cn } from '@/lib/utils'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import { logger } from '@/utils/logger'
 
@@ -1290,9 +1291,12 @@ export function PerformanceModal({
                     return (
                       <Popover key={index}>
                         <PopoverTrigger asChild>
-                          <Badge 
-                            variant="outline" 
-                            className={`flex items-center gap-1 font-normal border cursor-pointer rounded-[4px] pr-1 ${badgeStyle}`}
+                          <div 
+                            className={cn(
+                              badgeVariants({ variant: "outline" }),
+                              "flex items-center gap-1 font-normal border cursor-pointer rounded-[4px] pr-1",
+                              badgeStyle
+                            )}
                           >
                             <span className="flex items-center">
                               <UserCog className="h-3 w-3 mr-1 opacity-70" />
@@ -1313,7 +1317,7 @@ export function PerformanceModal({
                             >
                               <X className="h-3 w-3" />
                             </div>
-                          </Badge>
+                          </div>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-3" align="start">
                           <div className="space-y-3">

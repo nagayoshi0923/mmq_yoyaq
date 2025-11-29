@@ -140,7 +140,7 @@ function TimeSlotCellBase({
   }
 
   // 長押しでコンテキストメニューを表示（スマホ対応）
-  const longPressHandlers = useLongPress((x, y) => {
+  const { isLongPressTriggered, ...longPressHandlers } = useLongPress((x, y) => {
     if (onContextMenuCell) {
       onContextMenuCell(date, venue, timeSlot, x, y)
     }
