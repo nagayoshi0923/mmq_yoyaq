@@ -211,7 +211,7 @@ function PerformanceCardBase({
         <div className={`text-xs mt-0.5 truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
           {staffGms.length > 0 && (
              <span className="mr-2 text-green-700 font-medium bg-green-50 px-1 rounded text-[10px] border border-green-100">
-               スタッフ: {staffGms.join(', ')}
+               <span className="hidden sm:inline">スタッフ: </span>{staffGms.join(', ')}
              </span>
           )}
           {event.notes}
