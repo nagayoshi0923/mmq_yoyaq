@@ -59,6 +59,7 @@ interface EventFormData {
   capacity: number
   gms: string[]
   gmRoles: Record<string, string> // 追加
+  gm_roles?: Record<string, string> // API送信用に追加
   notes?: string
   id?: string
   is_private_request?: boolean
@@ -1066,9 +1067,11 @@ export function PerformanceModal({
 
   const handleSave = () => {
     // 時間帯を'朝'/'昼'/'夜'形式で保存
+    // gmRoles (camelCase) を gm_roles (snake_case) に変換してAPIに渡す
     const saveData = {
       ...formData,
-      time_slot: getTimeSlotLabel(timeSlot)
+      time_slot: getTimeSlotLabel(timeSlot),
+      gm_roles: formData.gmRoles
     }
     onSave(saveData)
     onClose()
