@@ -7,6 +7,7 @@ interface MemoCellProps {
   venue: string
   initialMemo?: string
   onSave?: (date: string, venue: string, memo: string) => void
+  className?: string
 }
 
 // デバウンス用のカスタムフック
@@ -26,7 +27,7 @@ function useDebounce(callback: Function, delay: number) {
   return debouncedCallback
 }
 
-function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) {
+function MemoCellBase({ date, venue, initialMemo = '', onSave, className }: MemoCellProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [memo, setMemo] = useState(initialMemo)
 
@@ -63,7 +64,7 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave }: MemoCellProps) 
   }
 
   return (
-    <TableCell className="schedule-table-cell !p-0 !align-top h-10 sm:h-12 md:h-14">
+    <TableCell className={`schedule-table-cell !p-0 !align-top h-10 sm:h-12 md:h-14 ${className || ''}`}>
       {isEditing ? (
         <Textarea
           value={memo}
