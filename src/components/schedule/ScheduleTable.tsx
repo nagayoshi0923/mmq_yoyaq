@@ -80,10 +80,10 @@ export function ScheduleTable({
       <Table className="table-fixed w-full border-collapse min-w-[375px] sm:min-w-[562px] md:min-w-[676px]">
             <colgroup>
               <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
-              <col className="w-[28px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[105px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[105px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[105px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
+              <col className="w-[106px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[106px] sm:w-[150px] md:w-[190px]" />
+              <col className="w-[106px] sm:w-[150px] md:w-[190px]" />
               <col className="w-0 sm:w-[28px] md:w-[32px] lg:w-[160px]" />
             </colgroup>
             <TableHeader>
@@ -131,8 +131,13 @@ export function ScheduleTable({
                   
                   {/* 店舗セル (Sticky on Mobile) */}
                   <TableCell className="sticky left-[32px] sm:static z-20 sm:z-auto bg-background group-hover:bg-muted/5 schedule-table-cell border-r venue-cell text-xs sm:text-sm font-medium !p-0 leading-none text-center shadow-[1px_0_0_0_hsl(var(--border))] sm:shadow-none">
-                    <div className="writing-vertical-rl text-orientation-upright mx-auto sm:writing-mode-horizontal sm:text-orientation-mixed">
-                      {venue.short_name.slice(0, 2)}
+                    <div className="flex flex-col items-center justify-center w-full h-full sm:flex-row sm:block">
+                      <div className="sm:hidden flex flex-col items-center gap-0.5">
+                        {venue.short_name.slice(0, 2).split('').map((char, i) => (
+                          <span key={i} className="leading-none">{char}</span>
+                        ))}
+                      </div>
+                      <span className="hidden sm:inline">{venue.short_name}</span>
                     </div>
                   </TableCell>
                   
