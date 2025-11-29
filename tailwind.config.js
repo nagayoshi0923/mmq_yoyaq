@@ -6,11 +6,9 @@ export default {
   ],
   theme: {
     extend: {
-      // ブレークポイント設定：シンプルな3段階
+      // ブレークポイント設定：デフォルト(sm:640px, md:768px...)にモバイル小(xs)を追加
       screens: {
-        'xs': '375px',   // モバイル（iPhone等）
-        'md': '768px',   // タブレット（iPad等）
-        'xl': '1280px',  // デスクトップ（PC）
+        'xs': '375px',   // iPhone SEなどの小さめのモバイル端末以上
       },
       spacing: {
         'safe': 'max(0.75rem, env(safe-area-inset-left))',
