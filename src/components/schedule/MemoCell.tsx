@@ -108,16 +108,23 @@ function MemoCellBase({ date, venue, initialMemo = '', onSave, className }: Memo
         )}
       </div>
 
-      {/* モバイル/タブレット表示 (lg未満): アイコンボタン + ダイアログ */}
+      {/* モバイル/タブレット表示 (lg未満): テキスト表示 + ダイアログ */}
       <div className="lg:hidden w-full h-full flex items-center justify-center bg-gray-50/50">
         <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
             <Button 
               variant="ghost" 
-              size="icon" 
-              className={`h-full w-full rounded-none hover:bg-muted/20 ${memo ? 'text-primary' : 'text-muted-foreground/30'}`}
+              className={`h-full w-full rounded-none p-0.5 hover:bg-muted/20 items-start justify-center ${memo ? 'text-gray-900 bg-yellow-50/50' : 'text-transparent'}`}
             >
-              <FileText className="h-4 w-4" />
+              {memo ? (
+                <div className="flex flex-col items-center gap-0 leading-tight text-[10px] break-all w-full h-full overflow-hidden whitespace-pre-wrap pt-1 font-normal">
+                  {/* 縦書き風に見せるため、または単に狭い幅で折り返し */}
+                  {memo.slice(0, 10)}
+                  {memo.length > 10 && <span className="text-[8px] opacity-50">...</span>}
+                </div>
+              ) : (
+                <span className="opacity-0">memo</span>
+              )}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
