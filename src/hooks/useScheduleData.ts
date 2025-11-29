@@ -312,6 +312,7 @@ interface RawEventData {
   scenario?: string
   scenarios?: { title: string }
   gms: string[]
+  gm_roles?: Record<string, string> // 追加
   start_time: string
   end_time: string
   category: string
@@ -523,6 +524,7 @@ export function useScheduleData(currentDate: Date) {
           venue: event.store_id, // store_idを直接使用
           scenario: event.scenarios?.title || event.scenario || '', // JOINされたタイトルを優先
           gms: event.gms || [],
+          gm_roles: event.gm_roles || {},
           start_time: event.start_time,
           end_time: event.end_time,
           category: event.category,
@@ -719,6 +721,7 @@ export function useScheduleData(currentDate: Date) {
         venue: event.store_id,
         scenario: event.scenarios?.title || event.scenario || '',
         gms: event.gms || [],
+        gm_roles: event.gm_roles || {},
         start_time: event.start_time,
         end_time: event.end_time,
         category: event.category,
@@ -875,6 +878,7 @@ export function useScheduleData(currentDate: Date) {
               venue: newEvent.store_id,
               scenario: scenarioTitle,
               gms: newEvent.gms || [],
+              gm_roles: newEvent.gm_roles || {},
               start_time: newEvent.start_time,
               end_time: newEvent.end_time,
               category: newEvent.category,
@@ -910,6 +914,7 @@ export function useScheduleData(currentDate: Date) {
               venue: updatedEvent.store_id,
               scenario: scenarioTitle,
               gms: updatedEvent.gms || [],
+              gm_roles: updatedEvent.gm_roles || {},
               start_time: updatedEvent.start_time,
               end_time: updatedEvent.end_time,
               category: updatedEvent.category,
