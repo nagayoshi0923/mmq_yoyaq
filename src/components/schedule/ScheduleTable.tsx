@@ -77,13 +77,19 @@ export function ScheduleTable({
 
   return (
     <div className="overflow-x-auto -mx-2 sm:mx-0 relative">
-      <Table className="table-fixed w-full border-collapse min-w-[900px]">
+      {/* 
+        モバイル(375px)の場合の計算:
+        日付(32) + 会場(24) + 時間枠(106*3=318) = 374px (画面内に収まる)
+        メモ(160) = スクロールではみ出す
+        合計 min-w = 534px
+      */}
+      <Table className="table-fixed w-full border-collapse min-w-[534px] sm:min-w-[700px] md:min-w-[800px]">
             <colgroup>
               <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
               <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[25%]" />
-              <col className="w-[25%]" />
-              <col className="w-[25%]" />
+              <col />
+              <col />
+              <col />
               <col className="w-[160px]" />
             </colgroup>
             <TableHeader>
