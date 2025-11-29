@@ -77,14 +77,14 @@ export function ScheduleTable({
 
   return (
     <div className="overflow-x-auto -mx-2 sm:mx-0 relative">
-      <Table className="table-fixed w-full border-collapse min-w-[375px] sm:min-w-[562px] md:min-w-[676px]">
+      <Table className="table-fixed w-full border-collapse min-w-[900px]">
             <colgroup>
               <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
               <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
-              <col className="w-[95px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[95px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[95px] sm:w-[150px] md:w-[190px]" />
-              <col className="w-[32px] lg:w-[160px]" />
+              <col className="w-[25%]" />
+              <col className="w-[25%]" />
+              <col className="w-[25%]" />
+              <col className="w-[160px]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50 h-12">
@@ -99,10 +99,7 @@ export function ScheduleTable({
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午前</TableHead>
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午後</TableHead>
                 <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜間</TableHead>
-                <TableHead className="text-sm font-bold !p-0 !h-auto text-center">
-                  <span className="hidden lg:inline">メモ</span>
-                  <span className="lg:hidden text-xs">📝</span>
-                </TableHead>
+                <TableHead className="text-sm font-bold !p-0 !h-auto text-center">メモ</TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>
