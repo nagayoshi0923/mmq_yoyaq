@@ -199,7 +199,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
 
   if (loading) {
     return (
-      <div className="border border-gray-300 rounded">
+      <div>
         <div className="py-12 text-center text-muted-foreground">
           読み込み中...
         </div>
@@ -221,12 +221,12 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
   }
 
   return (
-    <div className="border border-gray-300 rounded -mx-2 sm:mx-0">
+    <div className="-mx-2 sm:mx-0">
       {/* 横スクロール可能なコンテナ */}
       <div className="overflow-x-auto overflow-y-hidden">
         {/* ヘッダー行 */}
         <div className={stickyHeader ? 'sm:sticky sm:top-0 z-40' : ''}>
-          <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-300 min-w-max">
+          <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-200 min-w-max">
             {table.getHeaderGroups().map((headerGroup) =>
               headerGroup.headers.map((header, headerIndex) => {
                 const meta = header.column.columnDef.meta as any
@@ -239,7 +239,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                 return (
                   <div
                     key={header.id}
-                    className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-300' : ''} font-medium text-xs sm:text-xs ${alignClass} bg-gray-100 ${
+                    className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} font-medium text-xs sm:text-xs ${alignClass} bg-gray-100 ${
                       isSortable ? 'cursor-pointer hover:bg-gray-200' : ''
                     } ${meta?.headerClassName || ''} flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'} whitespace-nowrap`}
                     onClick={
@@ -258,7 +258,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
               })
             )}
             {stickyHeaderContent && (
-              <div className="hidden md:flex items-center px-4 border-l border-gray-300 bg-gray-100 flex-shrink-0">
+              <div className="hidden md:flex items-center px-4 border-l border-gray-200 bg-gray-100 flex-shrink-0">
                 {stickyHeaderContent}
               </div>
             )}
@@ -271,7 +271,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
             {table.getRowModel().rows.map((row, index) => (
               <div 
                 key={getRowKey(row.original)}
-                className={`flex items-stretch h-[40px] sm:h-[45px] md:h-[50px] border-b border-gray-200 hover:bg-gray-50 min-w-max ${
+                className={`flex items-stretch h-[40px] sm:h-[45px] md:h-[50px] border-b border-gray-200 last:border-b-0 hover:bg-gray-50 min-w-max ${
                   index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
                 }`}
               >
