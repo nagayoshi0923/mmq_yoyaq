@@ -47,15 +47,6 @@ export const ScheduleHeader = memo(function ScheduleHeader({
         className="mb-2" // PageHeaderのデフォルトマージンを上書き調整
       >
         <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={onImportClick}
-          title="インポート"
-          className="h-9 w-9"
-        >
-          <Upload className="h-4 w-4" />
-        </Button>
       </PageHeader>
 
       {/* 操作行（モバイル対応：折り返し） */}
@@ -84,6 +75,16 @@ export const ScheduleHeader = memo(function ScheduleHeader({
             </SelectContent>
           </Select>
         )}
+
+        <Button 
+          variant="outline" 
+          size="icon"
+          onClick={onImportClick}
+          title="インポート"
+          className="h-9 w-9"
+        >
+          <Upload className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   )
