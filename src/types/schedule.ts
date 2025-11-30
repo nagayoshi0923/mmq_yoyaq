@@ -22,3 +22,22 @@ export interface ScheduleEvent {
   gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
 }
 
+export interface EventFormData {
+  date: string
+  venue: string
+  scenario: string
+  scenario_id?: string
+  category: string
+  start_time: string
+  end_time: string
+  max_participants: number
+  capacity: number
+  gms: string[]
+  gmRoles: Record<string, string>
+  gm_roles?: Record<string, string>
+  notes?: string
+  id?: string
+  is_private_request?: boolean
+  reservation_id?: string
+  time_slot?: string
+}
