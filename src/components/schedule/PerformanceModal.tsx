@@ -1200,6 +1200,81 @@ export function PerformanceModal({
             </div>
           </div>
 
+          {/* シナリオ */}
+          <div>
+            <Label htmlFor="scenario">シナリオタイトル</Label>
+            <SearchableSelect
+              value={formData.scenario}
+              onValueChange={(scenarioTitle) => {
+                const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
+                
+                if (selectedScenario) {
+                  const endTime = calculateEndTime(formData.start_time, scenarioTitle)
+                  
+                  setFormData((prev: EventFormData) => ({
+                    ...prev,
+                    scenario: scenarioTitle,
+                    scenario_id: selectedScenario.id,  // IDも同時に設定
+                    end_time: endTime,
+                    max_participants: selectedScenario.player_count_max
+                  }))
+                } else {
+                  setFormData((prev: EventFormData) => ({
+                    ...prev,
+                    scenario: scenarioTitle
+                  }))
+                }
+              }}
+              options={scenarios.map(scenario => {
+                // このシナリオで出勤可能なGMを取得
+                const scenarioAvailableGMs = allAvailableStaff.filter(gm => {
+                  const specialScenarios = gm.special_scenarios || []
+                  return specialScenarios.includes(scenario.id) || specialScenarios.includes(scenario.title)
+                })
+                
+                return {
+                  value: scenario.title,
+                  label: scenario.title,
+                  displayInfo: scenarioAvailableGMs.length > 0 
+                    ? scenarioAvailableGMs.map(gm => gm.name).join(', ')
+                    : undefined
+                }
+              })}
+              placeholder="シナリオを選択"
+              searchPlaceholder="シナリオ名で検索..."
+              emptyText="シナリオが見つかりません"
+              emptyActionLabel="シナリオを作成"
+              onEmptyAction={() => setIsScenarioDialogOpen(true)}
+            />
+            {formData.is_private_request && (
+              <p className="text-xs text-purple-600 mt-1">
+                ※ 貸切リクエストのシナリオは変更できません
+              </p>
+            )}
+            {/* シナリオ編集へのリンク */}
+            {formData.scenario && (() => {
+              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+              if (selectedScenario) {
+                return (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="mt-1 h-auto p-0 text-xs"
+                    onClick={() => {
+                      setEditingScenarioId(selectedScenario.id)
+                      setIsScenarioDialogOpen(true)
+                    }}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    シナリオを編集
+                  </Button>
+                )
+              }
+              return null
+            })()}
+          </div>
+
           {/* 時間帯選択とGM選択 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -1487,82 +1562,6 @@ export function PerformanceModal({
               )}
             </div>
           </div>
-
-          {/* シナリオ */}
-          <div>
-            <Label htmlFor="scenario">シナリオタイトル</Label>
-            <SearchableSelect
-              value={formData.scenario}
-              onValueChange={(scenarioTitle) => {
-                const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
-                
-                if (selectedScenario) {
-                  const endTime = calculateEndTime(formData.start_time, scenarioTitle)
-                  
-                  setFormData((prev: EventFormData) => ({
-                    ...prev,
-                    scenario: scenarioTitle,
-                    scenario_id: selectedScenario.id,  // IDも同時に設定
-                    end_time: endTime,
-                    max_participants: selectedScenario.player_count_max
-                  }))
-                } else {
-                  setFormData((prev: EventFormData) => ({
-                    ...prev,
-                    scenario: scenarioTitle
-                  }))
-                }
-              }}
-              options={scenarios.map(scenario => {
-                // このシナリオで出勤可能なGMを取得
-                const scenarioAvailableGMs = allAvailableStaff.filter(gm => {
-                  const specialScenarios = gm.special_scenarios || []
-                  return specialScenarios.includes(scenario.id) || specialScenarios.includes(scenario.title)
-                })
-                
-                return {
-                  value: scenario.title,
-                  label: scenario.title,
-                  displayInfo: scenarioAvailableGMs.length > 0 
-                    ? scenarioAvailableGMs.map(gm => gm.name).join(', ')
-                    : undefined
-                }
-              })}
-              placeholder="シナリオを選択"
-              searchPlaceholder="シナリオ名で検索..."
-              emptyText="シナリオが見つかりません"
-              emptyActionLabel="シナリオを作成"
-              onEmptyAction={() => setIsScenarioDialogOpen(true)}
-            />
-            {formData.is_private_request && (
-              <p className="text-xs text-purple-600 mt-1">
-                ※ 貸切リクエストのシナリオは変更できません
-              </p>
-            )}
-            {/* シナリオ編集へのリンク */}
-            {formData.scenario && (() => {
-              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
-              if (selectedScenario) {
-                return (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="mt-1 h-auto p-0 text-xs"
-                    onClick={() => {
-                      setEditingScenarioId(selectedScenario.id)
-                      setIsScenarioDialogOpen(true)
-                    }}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    シナリオを編集
-                  </Button>
-                )
-              }
-              return null
-            })()}
-          </div>
-
 
           {/* 備考 */}
           <div>
