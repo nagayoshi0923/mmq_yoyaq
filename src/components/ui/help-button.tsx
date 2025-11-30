@@ -26,9 +26,8 @@ export function HelpButton({ topic, label = 'マニュアルを開く' }: HelpBu
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="icon"
             onClick={handleClick}
-            className="text-muted-foreground hover:text-primary"
+            className="h-auto w-auto p-0 text-muted-foreground hover:text-primary hover:bg-transparent"
           >
             <HelpCircle className="h-5 w-5" />
             <span className="sr-only">{label}</span>
@@ -41,4 +40,3 @@ export function HelpButton({ topic, label = 'マニュアルを開く' }: HelpBu
     </TooltipProvider>
   )
 }
-
