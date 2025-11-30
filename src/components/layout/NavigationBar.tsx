@@ -21,20 +21,27 @@ interface NavigationBarProps {
 export const NavigationBar = memo(function NavigationBar({ currentPage, onPageChange }: NavigationBarProps) {
   const { user } = useAuth()
   
+  // 顧客の場合はナビゲーションを表示しない
+  if (user?.role === 'customer') {
+    return null
+  }
+  
   // 全タブ定義（定数なのでメモ化）
+  // 管理者のみ: 店舗、スタッフ、シナリオ、予約管理、顧客管理、ユーザー、売上、設定
+  // スタッフも: スケジュール、シフト提出、GM確認、貸切確認、マニュアル
+  // 顧客: ナビゲーション非表示（予約サイトのみ）
   const allTabs = useMemo(() => [
     { id: 'stores', label: '店舗', icon: Store, roles: ['admin'] },
     { id: 'schedule', label: 'スケジュール', icon: Calendar, roles: ['admin', 'staff'] },
-    { id: 'staff', label: 'スタッフ', icon: Users, roles: ['admin', 'staff'] },
-    { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin', 'staff'] },
+    { id: 'staff', label: 'スタッフ', icon: Users, roles: ['admin'] },
+    { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin'] },
     { id: 'shift-submission', label: 'シフト提出', icon: Clock, roles: ['admin', 'staff'] },
     { id: 'gm-availability', label: 'GM確認', icon: Clock, roles: ['admin', 'staff'] },
     { id: 'private-booking-management', label: '貸切確認', icon: ClipboardCheck, roles: ['admin', 'staff'] },
-    { id: 'customer-booking', label: '予約サイト', icon: Calendar, roles: ['admin', 'staff', 'customer'] },
-    { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin', 'staff'] },
-    { id: 'customer-management', label: '顧客管理', icon: Users, roles: ['admin', 'staff'] },
+    { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin'] },
+    { id: 'customer-management', label: '顧客管理', icon: Users, roles: ['admin'] },
     { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },
-    { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin', 'staff'] },
+    { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin'] },
     { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] },
     { id: 'manual', label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff'] }
   ], [])
