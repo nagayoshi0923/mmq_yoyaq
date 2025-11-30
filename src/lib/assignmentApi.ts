@@ -299,7 +299,7 @@ export const assignmentApi = {
       return new Map()
     }
 
-    // Supabaseのデフォルト制限は1000件なので、明示的に大きな値を設定
+    // GM可能なレコードのみをサーバー側でフィルタ（1000件制限対策）
     const { data, error } = await supabase
       .from('staff_scenario_assignments')
       .select(`
@@ -309,12 +309,11 @@ export const assignmentApi = {
         can_sub_gm
       `)
       .in('scenario_id', scenarioIds)
-      .limit(10000)
+      .or('can_main_gm.eq.true,can_sub_gm.eq.true')
     
     if (error) throw error
     
-    console.log('🔍 [DEBUG] getBatchScenarioAssignments raw data:', data?.length, 'records')
-    console.log('🔍 [DEBUG] Sample records:', data?.slice(0, 5))
+    console.log('🔍 [DEBUG] getBatchScenarioAssignments GM可能レコード:', data?.length, '件')
     
     // staff_idからスタッフ名を取得するために、別途スタッフ情報を取得
     const staffIds = [...new Set(data?.map(a => a.staff_id).filter(Boolean) || [])]
@@ -329,28 +328,24 @@ export const assignmentApi = {
       if (!staffError && staffData) {
         staffData.forEach(s => staffMap.set(s.id, s.name))
       }
-      console.log('🔍 [DEBUG] Staff map size:', staffMap.size)
     }
     
-    // シナリオIDごとにGM可能なスタッフ名をグループ化
+    // シナリオIDごとにスタッフ名をグループ化
     const assignmentMap = new Map<string, string[]>()
     
     data?.forEach((assignment: any) => {
-      // GM可能なスタッフのみ（can_main_gm = true OR can_sub_gm = true）
-      if (assignment.can_main_gm || assignment.can_sub_gm) {
-        const scenarioId = assignment.scenario_id
-        const staffName = staffMap.get(assignment.staff_id)
-        
-        if (staffName) {
-          if (!assignmentMap.has(scenarioId)) {
-            assignmentMap.set(scenarioId, [])
-          }
-          assignmentMap.get(scenarioId)!.push(staffName)
+      const scenarioId = assignment.scenario_id
+      const staffName = staffMap.get(assignment.staff_id)
+      
+      if (staffName) {
+        if (!assignmentMap.has(scenarioId)) {
+          assignmentMap.set(scenarioId, [])
         }
+        assignmentMap.get(scenarioId)!.push(staffName)
       }
     })
     
-    console.log('🔍 [DEBUG] Final assignmentMap size:', assignmentMap.size)
+    console.log('🔍 [DEBUG] シナリオ数:', assignmentMap.size)
     
     return assignmentMap
   },
@@ -361,7 +356,8 @@ export const assignmentApi = {
       return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
     }
 
-    // Supabaseのデフォルト制限は1000件なので、明示的に大きな値を設定
+    // 有効なレコードのみをサーバー側でフィルタ（1000件制限対策）
+    // GM可能 OR 体験済みのいずれかがtrueのレコードのみ取得
     const { data, error } = await supabase
       .from('staff_scenario_assignments')
       .select(`
@@ -372,11 +368,11 @@ export const assignmentApi = {
         is_experienced
       `)
       .in('staff_id', staffIds)
-      .limit(10000)
+      .or('can_main_gm.eq.true,can_sub_gm.eq.true,is_experienced.eq.true')
     
     if (error) throw error
     
-    console.log('🔍 [DEBUG] getBatchStaffAssignments raw data:', data?.length, 'records for', staffIds.length, 'staff')
+    console.log('🔍 [DEBUG] getBatchStaffAssignments 有効レコード:', data?.length, '件')
     
     // スタッフIDごとにGM可能なシナリオと体験済みシナリオをグループ化
     const assignmentMap = new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
@@ -409,7 +405,7 @@ export const assignmentApi = {
       }
     })
     
-    console.log('🔍 [DEBUG] getBatchStaffAssignments result:', assignmentMap.size, 'staff with assignments')
+    console.log('🔍 [DEBUG] getBatchStaffAssignments スタッフ数:', assignmentMap.size)
     
     return assignmentMap
   }
