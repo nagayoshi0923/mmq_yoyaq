@@ -190,7 +190,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         ) : upcomingEvents.length > 0 ? (
           <div className="space-y-3">
             {upcomingEvents.map(event => (
-              <Card key={event.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+              <Card key={event.id} className="border-l-4 border-l-primary shadow-none hover:bg-accent/50 transition-colors">
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex flex-col">
@@ -306,7 +306,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
             return (
               <Card 
                 key={tab.id} 
-                className="hover:bg-accent cursor-pointer transition-colors hover:shadow-sm"
+                className="hover:bg-accent cursor-pointer transition-colors"
                 onClick={() => onPageChange(tab.id)}
               >
                 <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">

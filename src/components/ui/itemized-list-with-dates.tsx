@@ -128,7 +128,7 @@ export function ItemizedListWithDates({
           items.map((item, index) => {
             const status = getItemStatus(item)
             return (
-              <div key={index} className="border rounded-lg p-3 bg-card hover:shadow-sm transition-shadow">
+              <div key={index} className="border rounded-lg p-3 bg-card hover:bg-accent/50 transition-colors">
                   <div 
                     className="grid gap-2 items-end"
                     style={{ gridTemplateColumns }}
@@ -281,7 +281,7 @@ export function ItemizedListWithDates({
       {/* 削除確認ダイアログ */}
       {deleteConfirmIndex !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full mx-4 border">
+          <div className="bg-card p-6 rounded-lg max-w-md w-full mx-4 border">
             <h3 className="text-lg font-semibold mb-2">削除の確認</h3>
             <p className="text-xs text-muted-foreground mb-6">
               この項目を削除してもよろしいですか？この操作は取り消せません。

@@ -98,7 +98,7 @@ export const ListView = memo(function ListView({
       return (
         <div
           key={idx}
-          className={`text-xs transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
+          className={`text-xs transition-colors border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:bg-gray-50'}`}
           style={{
             borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
             backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),

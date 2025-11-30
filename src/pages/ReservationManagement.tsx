@@ -193,7 +193,7 @@ export function ReservationManagement() {
         {/* ========================================================================
             PC表示: テーブル形式
            ======================================================================== */}
-        <div className="hidden md:block bg-white border rounded-lg shadow-sm overflow-hidden">
+        <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
           <Table>
             <TableHeader className="bg-gray-50">
               <TableRow>
@@ -276,7 +276,7 @@ export function ReservationManagement() {
            ======================================================================== */}
         <div className="md:hidden space-y-4">
           {sortedDates.map(dateKey => (
-            <div key={dateKey} className="bg-white border rounded-lg overflow-hidden shadow-sm">
+            <div key={dateKey} className="bg-white border rounded-lg overflow-hidden">
               <div className="bg-gray-50 px-3 py-2 border-b flex items-center justify-between">
                 <span className="text-sm font-bold text-gray-700">
                   {dateKey === 'undecided' ? '受付日不明' : 

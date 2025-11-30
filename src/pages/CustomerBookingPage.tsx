@@ -376,7 +376,7 @@ export function CustomerBookingPage() {
               </p>
               
               {filteredEvents.map((event) => (
-                <Card key={event.id} className="hover:shadow-lg transition-shadow">
+                <Card key={event.id} className="hover:bg-accent/50 transition-colors">
                   <CardContent className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                       {/* 日付・時間 */}

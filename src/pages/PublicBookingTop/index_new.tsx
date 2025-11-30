@@ -108,7 +108,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       </div>
 
       {/* 検索バー */}
-      <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
+      <div className="bg-white border-b sticky top-0 z-10">
         <div className="container mx-auto max-w-7xl px-6 py-3">
           <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         </div>
@@ -122,9 +122,9 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         ) : (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-6 p-1">
-              <TabsTrigger value="lineup" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">カレンダー</TabsTrigger>
-              <TabsTrigger value="list" className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">リスト</TabsTrigger>
+              <TabsTrigger value="lineup" className="text-sm px-3 md:px-4 py-1.5 md:py-2">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-sm px-3 md:px-4 py-1.5 md:py-2">カレンダー</TabsTrigger>
+              <TabsTrigger value="list" className="text-sm px-3 md:px-4 py-1.5 md:py-2">リスト</TabsTrigger>
             </TabsList>
 
             {/* ラインナップ表示 */}

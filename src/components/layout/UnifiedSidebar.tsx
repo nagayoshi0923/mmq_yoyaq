@@ -48,7 +48,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
       {/* ハンバーガーメニューボタン（モバイルのみ） */}
       <button
         onClick={() => setIsMobileMenuOpen(true)}
-        className="lg:hidden fixed bottom-4 right-4 z-40 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all hover:scale-110"
+        className="md:hidden fixed bottom-4 right-4 z-40 p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all hover:scale-110"
         aria-label="メニューを開く"
       >
         <Menu className="h-6 w-6" />
@@ -57,13 +57,13 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
       {/* オーバーレイ（モバイルメニュー開いている時） */}
       {isMobileMenuOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
       {/* デスクトップ版サイドバー（lg以上） */}
-      <div className="hidden lg:flex w-72 bg-white flex-shrink-0 flex-col h-full">
+      <div className="hidden md:flex w-72 bg-white flex-shrink-0 flex-col h-full">
         {/* ヘッダー */}
         <div className="p-6 border-b border-slate-200">
           <h2 className="text-base font-bold text-slate-800">
@@ -137,7 +137,7 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
       {/* モバイル版サイドバー（スライドインメニュー） */}
       <div
         className={cn(
-          'lg:hidden fixed top-0 left-0 bottom-0 w-72 bg-white z-50 flex flex-col',
+          'md:hidden fixed top-0 left-0 bottom-0 w-72 bg-white z-50 flex flex-col',
           'border-r border-slate-200 shadow-xl',
           'transition-transform duration-300 ease-in-out',
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'

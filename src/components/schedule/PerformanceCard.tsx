@@ -137,7 +137,7 @@ function PerformanceCardBase({
       }}
       onContextMenu={handleContextMenu}
       {...longPressHandlers}
-      className={`p-1.5 border-l-4 ${leftBorderColor} hover:shadow-md transition-shadow relative ${
+      className={`p-1.5 border-l-4 ${leftBorderColor} hover:bg-gray-50/80 transition-colors relative ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
           : 'cursor-move'

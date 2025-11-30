@@ -94,11 +94,11 @@ export function ScheduleTable({
             </colgroup>
             <TableHeader>
               <TableRow className="bg-muted/50 h-12">
-                <TableHead className="sticky left-0 z-30 bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center shadow-[1px_0_0_0_hsl(var(--border))]">
+                <TableHead className="sticky left-0 z-30 bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
                   <span className="hidden sm:inline">日付</span>
                   <span className="sm:hidden">日</span>
                 </TableHead>
-                <TableHead className="sticky left-[32px] sm:static z-30 sm:z-auto bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center shadow-[1px_0_0_0_hsl(var(--border))] sm:shadow-none">
+                <TableHead className="sticky left-[32px] sm:static z-30 sm:z-auto bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
                   <span className="hidden sm:inline">会場</span>
                   <span className="sm:hidden">店</span>
                 </TableHead>
@@ -125,7 +125,7 @@ export function ScheduleTable({
                   {/* 日付・曜日統合セル (Sticky) */}
                   {venueIndex === 0 ? (
                     <TableCell 
-                      className={`sticky left-0 z-20 bg-background group-hover:bg-muted/5 schedule-table-cell border-r text-sm !p-0 leading-none text-center align-middle shadow-[1px_0_0_0_hsl(var(--border))] ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} 
+                      className={`sticky left-0 z-20 bg-background group-hover:bg-muted/5 schedule-table-cell border-r text-sm !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} 
                       rowSpan={allVenues.length}
                     >
                       <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-0.5 sm:gap-1">
@@ -136,7 +136,7 @@ export function ScheduleTable({
                   ) : null}
                   
                   {/* 店舗セル (Sticky on Mobile) */}
-                  <TableCell className="sticky left-[32px] sm:static z-20 sm:z-auto bg-background group-hover:bg-muted/5 schedule-table-cell border-r venue-cell text-xs sm:text-sm font-medium !p-0 leading-none text-center shadow-[1px_0_0_0_hsl(var(--border))] sm:shadow-none">
+                  <TableCell className="sticky left-[32px] sm:static z-20 sm:z-auto bg-background group-hover:bg-muted/5 schedule-table-cell border-r venue-cell text-xs sm:text-sm font-medium !p-0 leading-none text-center">
                     <div className="flex flex-col items-center justify-center w-full h-full sm:flex-row sm:block">
                       <div className="sm:hidden flex flex-col items-center gap-0.5">
                         {venue.short_name.split('').map((char, i) => (

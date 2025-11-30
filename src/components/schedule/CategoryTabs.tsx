@@ -41,8 +41,8 @@ export const CategoryTabs = memo(function CategoryTabs({
               "relative flex flex-col items-center justify-center gap-0.5 h-16 px-1 rounded-md transition-all focus:outline-none",
               category.color,
               selectedCategory === category.id 
-                ? "border-2 border-primary shadow-sm" 
-                : "border hover:shadow-sm"
+                ? "border-2 border-primary" 
+                : "border hover:bg-muted/50"
             )}
           >
             <span className="font-bold text-sm leading-tight w-full text-center px-1 truncate">

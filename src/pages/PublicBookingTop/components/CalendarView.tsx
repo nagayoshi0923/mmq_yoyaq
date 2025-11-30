@@ -61,7 +61,7 @@ export const CalendarView = memo(function CalendarView({
       />
       
       {/* カレンダーグリッド */}
-      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border overflow-hidden">
         {/* 曜日ヘッダー（日曜始まり） */}
         <div className="grid grid-cols-7 border-b bg-muted/30">
           {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
@@ -148,7 +148,7 @@ export const CalendarView = memo(function CalendarView({
                             if (scenario) onCardClick(scenario.scenario_id)
                           }
                         }}
-                        className={`text-xs p-1 sm:p-1.5 rounded-none transition-shadow border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:shadow-md'}`}
+                        className={`text-xs p-1 sm:p-1.5 rounded-none transition-colors border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:bg-gray-50'}`}
                         style={{
                           borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
                           backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`)
