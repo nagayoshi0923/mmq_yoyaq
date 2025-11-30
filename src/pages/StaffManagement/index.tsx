@@ -371,9 +371,9 @@ export function StaffManagement() {
               
               <Card className="bg-white border shadow-none">
                 <CardContent className="p-3 sm:p-4">
-                  <div className="text-xs text-muted-foreground">在籍中</div>
-                  <div className="text-xl sm:text-2xl font-bold text-green-700">
-                    {staff.filter(s => s.status === 'active').length}
+                  <div className="text-xs text-muted-foreground">研修中</div>
+                  <div className="text-xl sm:text-2xl font-bold text-orange-700">
+                    {staff.filter(s => s.role && s.role.includes('trainee')).length}
                   </div>
                 </CardContent>
               </Card>
