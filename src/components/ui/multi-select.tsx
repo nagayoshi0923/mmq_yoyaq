@@ -24,6 +24,7 @@ interface MultiSelectProps {
   placeholder?: string
   searchPlaceholder?: string  // 検索ボックスのプレースホルダー
   className?: string
+  badgeClassName?: string  // バッジのカスタムクラス
   disabled?: boolean
   showBadges?: boolean
   closeOnSelect?: boolean  // 選択時にプルダウンを閉じるか
@@ -41,6 +42,7 @@ export function MultiSelect({
   placeholder = "選択してください",
   searchPlaceholder = "検索...",
   className = "",
+  badgeClassName = "",
   disabled = false,
   showBadges = false,
   closeOnSelect = false,
@@ -235,20 +237,27 @@ export function MultiSelect({
 
       {/* バッジ表示エリア */}
       {showBadges && selectedValues && selectedValues.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {selectedValues.map((value) => {
             // useIdAsValueがtrueの場合、IDからnameを取得して表示
             const displayValue = useIdAsValue 
               ? normalizedOptions.find(opt => opt.id === value)?.name || value
               : value
             return (
-              <Badge key={value} variant="secondary" className="flex items-center gap-1 font-normal bg-gray-100 border-0 rounded-[2px]">
+              <Badge 
+                key={value} 
+                variant="outline" 
+                className={cn(
+                  "flex items-center gap-1 font-normal text-xs",
+                  badgeClassName || "bg-gray-100 border-gray-200 text-gray-700"
+                )}
+              >
                 {displayValue}
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-4 w-4 p-0 hover:bg-red-100"
+                  className="h-4 w-4 p-0 hover:bg-red-100 rounded-full"
                   onClick={() => handleRemoveValue(value)}
                 >
                   <X className="h-3 w-3" />

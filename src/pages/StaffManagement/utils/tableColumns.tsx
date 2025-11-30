@@ -135,32 +135,25 @@ export function createStaffColumns(
               <div className="flex items-center gap-1 overflow-hidden cursor-pointer">
                 <div className="flex gap-1 overflow-hidden">
                   {staff.special_scenarios.slice(0, 4).map((scenarioId, index) => (
-                    // @ts-ignore
                     <Badge 
                       key={index} 
-                      size="sm" 
-                      variant="gray" 
-                      className="font-normal text-xs whitespace-nowrap flex-shrink-0"
+                      variant="outline"
+                      className="font-normal text-[10px] whitespace-nowrap flex-shrink-0 bg-blue-50 border-blue-200 text-blue-700"
                     >
                       {getScenarioName(scenarioId)}
                     </Badge>
                   ))}
                 </div>
                 {staff.special_scenarios.length > 4 && (
-                  // @ts-ignore
-                  <Badge 
-                    size="sm" 
-                    variant="gray" 
-                    className="font-normal text-xs whitespace-nowrap flex-shrink-0"
-                  >
+                  <span className="text-xs text-muted-foreground flex-shrink-0">
                     +{staff.special_scenarios.length - 4}
-                  </Badge>
+                  </span>
                 )}
               </div>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs max-h-96 overflow-y-auto">
               <div className="space-y-1">
-                <p className="text-xs">GM可能シナリオ（全{staff.special_scenarios.length}件）:</p>
+                <p className="text-xs font-medium text-blue-700">GM可能シナリオ（全{staff.special_scenarios.length}件）:</p>
                 {staff.special_scenarios.map((scenarioId, index) => (
                   <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
                 ))}
@@ -187,32 +180,25 @@ export function createStaffColumns(
               <div className="flex items-center gap-1 overflow-hidden cursor-pointer">
                 <div className="flex gap-1 overflow-hidden">
                   {experiencedScenarios.slice(0, 4).map((scenarioId: string, index: number) => (
-                    // @ts-ignore
                     <Badge 
                       key={index} 
-                      size="sm" 
-                      variant="gray" 
-                      className="font-normal text-xs whitespace-nowrap flex-shrink-0"
+                      variant="outline"
+                      className="font-normal text-[10px] whitespace-nowrap flex-shrink-0 bg-green-50 border-green-200 text-green-700"
                     >
                       {getScenarioName(scenarioId)}
                     </Badge>
                   ))}
                 </div>
                 {experiencedScenarios.length > 4 && (
-                  // @ts-ignore
-                  <Badge 
-                    size="sm" 
-                    variant="gray" 
-                    className="font-normal text-xs whitespace-nowrap flex-shrink-0"
-                  >
+                  <span className="text-xs text-muted-foreground flex-shrink-0">
                     +{experiencedScenarios.length - 4}
-                  </Badge>
+                  </span>
                 )}
               </div>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs max-h-96 overflow-y-auto">
               <div className="space-y-1">
-                <p className="text-xs">体験済みシナリオ（全{experiencedScenarios.length}件）:</p>
+                <p className="text-xs font-medium text-green-700">体験済みシナリオ（全{experiencedScenarios.length}件）:</p>
                 {experiencedScenarios.map((scenarioId: string, index: number) => (
                   <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
                 ))}

@@ -245,6 +245,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 emptySearchText="シナリオが見つかりません"
                 useIdAsValue={true}
                 showBadges={true}
+                badgeClassName="bg-blue-50 border-blue-200 text-blue-700"
               />
               <p className="text-xs text-muted-foreground mt-1">※追加すると体験済みにも自動追加されます</p>
             </div>
@@ -261,6 +262,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 emptySearchText="シナリオが見つかりません"
                 useIdAsValue={true}
                 showBadges={true}
+                badgeClassName="bg-green-50 border-green-200 text-green-700"
               />
               <p className="text-xs text-muted-foreground mt-1">※GMはできないが体験したシナリオ</p>
             </div>
