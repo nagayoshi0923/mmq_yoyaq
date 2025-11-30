@@ -6,16 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
+import { HelpButton } from '@/components/ui/help-button'
 import { Users, UserPlus, Shield, Settings, AlertCircle, Search, UserCog, User as UserIcon, Trash2 } from 'lucide-react'
-
-// サイドバーのメニュー項目定義
-const USER_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'user-list', label: 'ユーザー一覧', icon: Users, description: 'すべてのユーザーを表示' },
-  { id: 'new-user', label: '新規登録', icon: UserPlus, description: '新しいユーザーを追加' },
-  { id: 'roles', label: 'ロール管理', icon: Shield, description: 'ユーザーロール設定' },
-  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
-]
 import { searchUserByEmail, getAllUsers, updateUserRole, deleteUser, type User } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
 
@@ -28,7 +20,6 @@ export function UserManagement() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [showAllUsers, setShowAllUsers] = useState(false)
-  const [activeTab, setActiveTab] = useState('user-list')
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
 
   // 管理者チェック
@@ -36,18 +27,9 @@ export function UserManagement() {
     return (
       <AppLayout
         currentPage="user-management"
-        sidebar={
-          <UnifiedSidebar
-            title="ユーザー管理"
-            mode="list"
-            menuItems={USER_MENU_ITEMS}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
-        }
         stickyLayout={true}
       >
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-red-200 bg-red-50 shadow-none">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 text-red-800">
               <AlertCircle className="w-6 h-6" />
@@ -212,9 +194,9 @@ export function UserManagement() {
 
   // ユーザーカードコンポーネント
   const UserCard = ({ userData }: { userData: User }) => (
-    <Card className="mt-4 sm:mt-6">
+    <Card className="mt-4 sm:mt-6 shadow-none border">
       <CardHeader className="p-3 sm:p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+        <CardTitle className="flex items-center gap-2 text-base">
           {getRoleIcon(userData.role)}
           <span className="break-words">{userData.email}</span>
         </CardTitle>
@@ -293,15 +275,6 @@ export function UserManagement() {
   return (
     <AppLayout
       currentPage="user-management"
-      sidebar={
-        <UnifiedSidebar
-          title="ユーザー管理"
-          mode="list"
-          menuItems={USER_MENU_ITEMS}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-      }
       maxWidth="max-w-[1440px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       stickyLayout={true}
@@ -310,11 +283,13 @@ export function UserManagement() {
         <PageHeader
           title="ユーザー管理"
           description="ユーザーの検索・ロール管理を行います"
-        />
+        >
+          <HelpButton topic="user" label="ユーザー管理マニュアル" />
+        </PageHeader>
 
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Search className="w-4 h-4 sm:w-5 sm:h-5" />
             メールアドレスで検索
           </CardTitle>
@@ -355,7 +330,7 @@ export function UserManagement() {
 
       {/* エラーメッセージ */}
       {error && (
-        <Card className="mt-3 sm:mt-4 border-red-200 bg-red-50">
+        <Card className="mt-3 sm:mt-4 border-red-200 bg-red-50 shadow-none">
           <CardContent className="pt-4 sm:pt-6 p-3 sm:p-4 md:p-6">
             <div className="flex items-start gap-2 sm:gap-3 text-red-800">
               <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mt-0.5 flex-shrink-0" />
@@ -367,7 +342,7 @@ export function UserManagement() {
 
       {/* 成功メッセージ */}
       {message && (
-        <Card className="mt-3 sm:mt-4 border-green-200 bg-green-50">
+        <Card className="mt-3 sm:mt-4 border-green-200 bg-green-50 shadow-none">
           <CardContent className="pt-4 sm:pt-6 p-3 sm:p-4 md:p-6">
             <p className="text-green-800 text-xs sm:text-sm">{message}</p>
           </CardContent>
@@ -380,9 +355,9 @@ export function UserManagement() {
       {/* 全ユーザー一覧 */}
       {showAllUsers && allUsers.length > 0 && (
         <div className="mt-4 sm:mt-6 md:mt-8">
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader className="p-3 sm:p-4 md:p-6">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+              <CardTitle className="flex items-center gap-2 text-base">
                 <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                 全ユーザー ({allUsers.length}人)
               </CardTitle>
@@ -464,7 +439,7 @@ export function UserManagement() {
 
       {/* 全ユーザー表示時で0件の場合 */}
       {showAllUsers && allUsers.length === 0 && (
-        <Card className="mt-4 sm:mt-6 md:mt-8 border-gray-200 bg-gray-50">
+        <Card className="mt-4 sm:mt-6 md:mt-8 border-gray-200 bg-gray-50 shadow-none">
           <CardContent className="pt-4 sm:pt-6 p-3 sm:p-4 md:p-6">
             <p className="text-gray-600 text-center text-xs sm:text-sm">登録されているユーザーがいません</p>
           </CardContent>
@@ -472,9 +447,9 @@ export function UserManagement() {
       )}
 
       {/* 使い方の説明 */}
-      <Card className="mt-4 sm:mt-6 md:mt-8 bg-blue-50 border-blue-200">
+      <Card className="mt-4 sm:mt-6 md:mt-8 bg-blue-50 border-blue-200 shadow-none">
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="text-blue-900 text-base md:text-lg">使い方</CardTitle>
+          <CardTitle className="text-blue-900 text-base">使い方</CardTitle>
         </CardHeader>
         <CardContent className="text-xs sm:text-sm text-blue-800 space-y-1 sm:space-y-2 p-3 sm:p-4 md:p-6 pt-0">
           <p>1. 上部の検索ボックスにメールアドレスを入力して検索</p>
@@ -526,4 +501,3 @@ export function UserManagement() {
     </AppLayout>
   )
 }
-
