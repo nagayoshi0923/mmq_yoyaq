@@ -11,8 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { 
   Calendar, Search, Clock, User, DollarSign, Filter, 
   ChevronDown, Download, TrendingUp, AlertCircle, 
-  CalendarDays, Globe, Phone, MonitorCheck, AlertTriangle,
-  Link as LinkIcon
+  CalendarDays, Globe, Phone, MonitorCheck, AlertTriangle
 } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -70,14 +69,13 @@ export function ReservationManagement() {
   useScrollRestoration({ pageKey: 'reservation', isLoading: isListLoading })
 
   // グルーピングとアラートフィルタリング処理
-  const groupedReservations = useMemo(() => {
-    // まずアラートフィルターを適用
+  // ... (省略なしで実装)
+  const groupedReservations = useMemo(() => { // useMemoの中身は変更なし
     let filtered = reservations
     if (alertFilter === 'alert_only') {
       filtered = reservations.filter(r => getReservationAlerts(r).length > 0)
     }
 
-    // 日付でグループ化
     const groups: Record<string, ReservationWithDetails[]> = {}
     const noDateGroup: ReservationWithDetails[] = []
 
@@ -91,7 +89,6 @@ export function ReservationManagement() {
       }
     })
 
-    // 日付順にソート（降順: 新しい日付が上）
     const sortedDates = Object.keys(groups).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
 
     return { sortedDates, groups, noDateGroup }
@@ -108,28 +105,28 @@ export function ReservationManagement() {
       pending_store: { label: '店舗確認待ち', variant: 'secondary', className: 'bg-purple-100 text-purple-800 hover:bg-purple-200' }
     }
     const config = statusConfig[status] || { label: status, variant: 'outline' }
-    return <Badge variant={config.variant} className={config.className}>{config.label}</Badge>
+    return <Badge variant={config.variant} className={`h-4 px-1.5 text-[10px] ${config.className}`}>{config.label}</Badge>
   }
 
   const getSourceIcon = (source: string) => {
     switch (source) {
       case 'web':
       case 'web_private':
-        return <Globe className="h-4 w-4 text-blue-500" />
+        return <Globe className="h-3 w-3 text-blue-500" />
       case 'phone':
-        return <Phone className="h-4 w-4 text-green-500" />
+        return <Phone className="h-3 w-3 text-green-500" />
       case 'walk_in':
-        return <User className="h-4 w-4 text-orange-500" />
+        return <User className="h-3 w-3 text-orange-500" />
       default:
-        return <MonitorCheck className="h-4 w-4 text-gray-500" />
+        return <MonitorCheck className="h-3 w-3 text-gray-500" />
     }
   }
 
   const getSourceLabel = (source: string) => {
     const labels: Record<string, string> = {
-      web: 'Web予約',
-      web_private: '貸切リクエスト',
-      phone: '電話予約',
+      web: 'Web',
+      web_private: '貸切',
+      phone: '電話',
       walk_in: '当日',
       external: '外部'
     }
@@ -161,92 +158,92 @@ export function ReservationManagement() {
   }
 
   return (
-    <AppLayout currentPage="reservations" maxWidth="max-w-[1440px]" containerPadding="px-2 py-2 sm:px-4 sm:py-4" className="mx-auto">
-      <div className="space-y-3 sm:space-y-4">
+    <AppLayout currentPage="reservations" maxWidth="max-w-[1440px]" containerPadding="px-1 py-2 sm:px-4 sm:py-4" className="mx-auto">
+      <div className="space-y-2">
         <PageHeader
-          className="!mb-2"
+          className="!mb-1"
           title={
             <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">予約確認・照合</span>
+              <Calendar className="h-4 w-4 text-primary" />
+              <span className="text-base font-bold">予約確認</span>
             </div>
           }
-          description="予約データとスケジュールの整合性を確認します"
+          description="予約データとスケジュールの整合性を確認"
         >
           <HelpButton topic="reservation" label="予約管理マニュアル" />
-          <Button variant="outline" size="sm" className="h-8 text-xs">
-            <Download className="mr-2 h-3.5 w-3.5" />
-            <span className="hidden sm:inline">CSV出力</span>
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2">
+            <Download className="mr-1 h-3 w-3" />
+            <span className="hidden sm:inline">CSV</span>
             <span className="sm:hidden">CSV</span>
           </Button>
         </PageHeader>
 
         {/* 統計サマリー */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <Card className="bg-card/50 relative overflow-hidden shadow-sm">
-             <div className="absolute top-0 right-0 p-1.5 opacity-10"><TrendingUp className="w-8 h-8" /></div>
-            <CardContent className="p-2.5 sm:p-3">
-              <div className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> 今月の予約</div>
-              <div className="flex items-baseline gap-1.5"><div className="text-xl sm:text-2xl font-bold">{stats.monthlyTotal}</div><div className="text-[10px] text-muted-foreground">件</div></div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">見込: ¥{stats.monthlyRevenue.toLocaleString()}</div>
+          <Card className="bg-card/50 relative overflow-hidden shadow-sm border-none bg-muted/20">
+             <div className="absolute top-0 right-0 p-1 opacity-5"><TrendingUp className="w-6 h-6" /></div>
+            <CardContent className="p-2">
+              <div className="text-[10px] text-muted-foreground flex items-center gap-1 leading-none mb-1">今月</div>
+              <div className="flex items-baseline gap-1"><div className="text-lg font-bold leading-none">{stats.monthlyTotal}</div><div className="text-[9px] text-muted-foreground">件</div></div>
+              <div className="text-[9px] text-muted-foreground mt-0.5">¥{stats.monthlyRevenue.toLocaleString()}</div>
             </CardContent>
           </Card>
-          <Card className="bg-green-50/50 border-green-100 relative overflow-hidden shadow-sm">
-            <div className="absolute top-0 right-0 p-1.5 opacity-10"><Clock className="w-8 h-8 text-green-600" /></div>
-            <CardContent className="p-2.5 sm:p-3">
-              <div className="text-[10px] sm:text-xs text-green-700 mb-0.5 font-medium">確定済み（全期間）</div>
-              <div className="flex items-baseline gap-1.5"><div className="text-xl sm:text-2xl font-bold text-green-700">{stats.confirmed}</div><div className="text-[10px] text-green-600/70">件</div></div>
+          <Card className="bg-green-50/30 border-none relative overflow-hidden shadow-sm">
+            <div className="absolute top-0 right-0 p-1 opacity-10"><Clock className="w-6 h-6 text-green-600" /></div>
+            <CardContent className="p-2">
+              <div className="text-[10px] text-green-700 font-medium leading-none mb-1">確定済</div>
+              <div className="flex items-baseline gap-1"><div className="text-lg font-bold text-green-700 leading-none">{stats.confirmed}</div><div className="text-[9px] text-green-600/70">件</div></div>
             </CardContent>
           </Card>
-          <Card className="bg-yellow-50/50 border-yellow-100 relative overflow-hidden shadow-sm">
-            <div className="absolute top-0 right-0 p-1.5 opacity-10"><AlertCircle className="w-8 h-8 text-yellow-600" /></div>
-            <CardContent className="p-2.5 sm:p-3">
-              <div className="text-[10px] sm:text-xs text-yellow-700 mb-0.5 font-medium">要対応（保留・確認待）</div>
-              <div className="flex items-baseline gap-1.5"><div className="text-xl sm:text-2xl font-bold text-yellow-700">{stats.pending}</div><div className="text-[10px] text-yellow-600/70">件</div></div>
+          <Card className="bg-yellow-50/30 border-none relative overflow-hidden shadow-sm">
+            <div className="absolute top-0 right-0 p-1 opacity-10"><AlertCircle className="w-6 h-6 text-yellow-600" /></div>
+            <CardContent className="p-2">
+              <div className="text-[10px] text-yellow-700 font-medium leading-none mb-1">要対応</div>
+              <div className="flex items-baseline gap-1"><div className="text-lg font-bold text-yellow-700 leading-none">{stats.pending}</div><div className="text-[9px] text-yellow-600/70">件</div></div>
             </CardContent>
           </Card>
-          <Card className="bg-red-50/50 border-red-100 relative overflow-hidden shadow-sm">
-            <div className="absolute top-0 right-0 p-1.5 opacity-10"><DollarSign className="w-8 h-8 text-red-600" /></div>
-            <CardContent className="p-2.5 sm:p-3">
-              <div className="text-[10px] sm:text-xs text-red-700 mb-0.5 font-medium">未払い</div>
-              <div className="flex items-baseline gap-1.5"><div className="text-xl sm:text-2xl font-bold text-red-700">{stats.unpaid}</div><div className="text-[10px] text-red-600/70">件</div></div>
+          <Card className="bg-red-50/30 border-none relative overflow-hidden shadow-sm">
+            <div className="absolute top-0 right-0 p-1 opacity-10"><DollarSign className="w-6 h-6 text-red-600" /></div>
+            <CardContent className="p-2">
+              <div className="text-[10px] text-red-700 font-medium leading-none mb-1">未払い</div>
+              <div className="flex items-baseline gap-1"><div className="text-lg font-bold text-red-700 leading-none">{stats.unpaid}</div><div className="text-[9px] text-red-600/70">件</div></div>
             </CardContent>
           </Card>
         </div>
 
         {/* フィルター＆検索 */}
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input placeholder="予約番号、顧客名、シナリオ名で検索..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 h-9 text-sm" />
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+            <Input placeholder="検索..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-7 h-8 text-xs bg-background" />
           </div>
-          <Button variant="outline" onClick={() => setIsFilterOpen(!isFilterOpen)} className={`h-9 text-xs sm:w-auto w-full flex items-center justify-center gap-2 ${alertFilter !== 'all' ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100' : ''}`}>
-            <Filter className="h-3.5 w-3.5" />
-            {alertFilter !== 'all' ? '要確認のみ' : 'フィルター'}
+          <Button variant="outline" onClick={() => setIsFilterOpen(!isFilterOpen)} className={`h-8 text-xs px-2 sm:w-auto flex items-center justify-center gap-1 ${alertFilter !== 'all' ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100' : ''}`}>
+            <Filter className="h-3 w-3" />
+            <span className="hidden sm:inline">{alertFilter !== 'all' ? '要確認のみ' : 'フィルター'}</span>
             {(statusFilter !== 'all' || paymentFilter !== 'all' || typeFilter !== 'all' || alertFilter !== 'all') && (
-              <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">!</Badge>
+              <Badge variant="secondary" className="ml-0.5 h-3.5 px-1 text-[9px]">!</Badge>
             )}
-            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-3 w-3 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
           </Button>
         </div>
 
         {isFilterOpen && (
           <Card className="bg-muted/30 border-dashed">
-            <CardContent className="p-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-bold text-red-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 要確認アイテム</Label>
+            <CardContent className="p-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] font-bold text-red-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 要確認</Label>
                 <Select value={alertFilter} onValueChange={setAlertFilter}>
-                  <SelectTrigger className="bg-white border-red-200 h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-white border-red-200 h-7 text-[10px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">すべて表示</SelectItem>
-                    <SelectItem value="alert_only" className="text-red-600 font-medium">要確認のみ（警告あり）</SelectItem>
+                    <SelectItem value="all">すべて</SelectItem>
+                    <SelectItem value="alert_only" className="text-red-600 font-medium">警告あり</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">ステータス</Label>
+              <div className="space-y-0.5">
+                <Label className="text-[10px]">ステータス</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="bg-background h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-background h-7 text-[10px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">すべて</SelectItem>
                     <SelectItem value="confirmed">確定</SelectItem>
@@ -255,10 +252,10 @@ export function ReservationManagement() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">支払い状況</Label>
+              <div className="space-y-0.5">
+                <Label className="text-[10px]">支払い</Label>
                 <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-                  <SelectTrigger className="bg-background h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-background h-7 text-[10px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">すべて</SelectItem>
                     <SelectItem value="paid">支払済</SelectItem>
@@ -267,15 +264,15 @@ export function ReservationManagement() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">予約ソース</Label>
+              <div className="space-y-0.5">
+                <Label className="text-[10px]">ソース</Label>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="bg-background h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-background h-7 text-[10px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">すべて</SelectItem>
-                    <SelectItem value="web">Web予約</SelectItem>
-                    <SelectItem value="web_private">貸切リクエスト</SelectItem>
-                    <SelectItem value="phone">電話予約（手動）</SelectItem>
+                    <SelectItem value="web">Web</SelectItem>
+                    <SelectItem value="web_private">貸切</SelectItem>
+                    <SelectItem value="phone">電話</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -284,25 +281,23 @@ export function ReservationManagement() {
         )}
 
         {/* 予約リスト（日付グルーピング） */}
-        <div className="space-y-4">
+        <div className="space-y-2">
           {groupedReservations.sortedDates.length === 0 && groupedReservations.noDateGroup.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <Search className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                <p className="text-sm">該当する予約が見つかりませんでした</p>
-                <Button variant="link" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setPaymentFilter('all'); setTypeFilter('all'); setAlertFilter('all'); }} className="text-xs">条件をクリア</Button>
-              </CardContent>
-            </Card>
+            <div className="py-8 text-center text-muted-foreground border rounded-md border-dashed bg-muted/10">
+              <Search className="h-6 w-6 mx-auto mb-1 opacity-20" />
+              <p className="text-xs">該当なし</p>
+              <Button variant="link" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setPaymentFilter('all'); setTypeFilter('all'); setAlertFilter('all'); }} className="text-[10px] h-auto p-0">条件クリア</Button>
+            </div>
           ) : (
             <>
-              {/* 日付未定グループ（あれば先頭に表示） */}
+              {/* 日付未定グループ */}
               {groupedReservations.noDateGroup.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="font-bold text-muted-foreground flex items-center gap-2 px-1 text-sm">
-                    <CalendarDays className="h-3.5 w-3.5" /> 日付未定 / リクエスト中
-                    <Badge variant="outline" className="ml-2 text-[10px] h-4 px-1">{groupedReservations.noDateGroup.length}</Badge>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-muted-foreground flex items-center gap-2 px-1 text-xs">
+                    <CalendarDays className="h-3 w-3" /> 未定
+                    <span className="text-[10px] bg-muted px-1 rounded-full">{groupedReservations.noDateGroup.length}</span>
                   </h3>
-                  <div className="grid gap-2">
+                  <div className="grid gap-1">
                     {groupedReservations.noDateGroup.map(reservation => (
                       <ReservationCard key={reservation.id} reservation={reservation} isExpanded={expandedReservations.has(reservation.id)} toggleExpanded={toggleExpanded} getStatusBadge={getStatusBadge} getSourceIcon={getSourceIcon} getSourceLabel={getSourceLabel} />
                     ))}
@@ -312,14 +307,13 @@ export function ReservationManagement() {
 
               {/* 日付別グループ */}
               {groupedReservations.sortedDates.map(dateKey => (
-                <div key={dateKey} className="space-y-2">
-                  <h3 className={`font-bold flex items-center gap-2 px-1 sticky top-[56px] z-10 py-1.5 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b w-full text-sm ${isPast(new Date(dateKey)) ? 'text-muted-foreground' : 'text-foreground'}`}>
-                    <CalendarDays className="h-3.5 w-3.5" />
+                <div key={dateKey} className="space-y-1">
+                  <h3 className={`font-bold flex items-center gap-2 px-1 sticky top-[50px] z-10 py-1 bg-background/95 backdrop-blur border-b w-full text-xs ${isPast(new Date(dateKey)) ? 'text-muted-foreground' : 'text-foreground'}`}>
                     {/* @ts-ignore */}
-                    {format(new Date(dateKey), 'yyyy年M月d日 (EEE)', { locale: ja })}
-                    <Badge variant="secondary" className="ml-2 text-[10px] h-4 px-1">{groupedReservations.groups[dateKey].length}</Badge>
+                    {format(new Date(dateKey), 'M/d(EEE)', { locale: ja })}
+                    <span className="text-[10px] bg-muted px-1.5 rounded-full font-normal">{groupedReservations.groups[dateKey].length}</span>
                   </h3>
-                  <div className="grid gap-2">
+                  <div className="grid gap-1">
                     {groupedReservations.groups[dateKey].map(reservation => (
                       <ReservationCard key={reservation.id} reservation={reservation} isExpanded={expandedReservations.has(reservation.id)} toggleExpanded={toggleExpanded} getStatusBadge={getStatusBadge} getSourceIcon={getSourceIcon} getSourceLabel={getSourceLabel} />
                     ))}
@@ -340,95 +334,84 @@ function ReservationCard({ reservation, isExpanded, toggleExpanded, getStatusBad
   const hasAlerts = alerts.length > 0
 
   return (
-    <Card className={`transition-all duration-200 group ${isExpanded ? 'ring-1 ring-primary/20 shadow-sm' : 'hover:bg-accent/5'} ${hasAlerts ? 'border-l-[3px] border-l-red-500' : 'border-l-[3px] border-l-transparent'}`}>
-      <CardContent className="p-0">
-        <div className="flex items-stretch cursor-pointer min-h-[60px]" onClick={() => toggleExpanded(reservation.id)}>
-          {/* 左側: 時間とソース */}
-          <div className="flex flex-col items-center justify-center w-[70px] sm:w-20 flex-shrink-0 bg-muted/10 border-r px-1 py-2 gap-1">
-            <div className="font-mono font-bold text-lg leading-none text-foreground/80">
-              {reservation.event_time || '--:--'}
-            </div>
-            <div className="flex flex-col items-center text-[9px] text-muted-foreground leading-none gap-0.5 opacity-80">
-              {getSourceIcon(reservation.reservation_source)}
-              <span className="truncate max-w-[60px] text-[8px]">{getSourceLabel(reservation.reservation_source)}</span>
-            </div>
+    <div className={`bg-card border rounded transition-colors ${isExpanded ? 'ring-1 ring-primary/20' : 'hover:bg-accent/5'} ${hasAlerts ? 'border-l-2 border-l-red-500' : 'border-l-2 border-l-transparent'}`}>
+      <div className="flex items-center p-1.5 cursor-pointer gap-2" onClick={() => toggleExpanded(reservation.id)}>
+        {/* 左側: 時間・ソース */}
+        <div className="flex flex-col items-center justify-center w-10 flex-shrink-0 gap-0.5">
+          <div className="font-mono font-bold text-sm leading-none text-foreground/90">
+            {reservation.event_time || '--:--'}
           </div>
-
-          {/* メイン情報エリア */}
-          <div className="flex-1 min-w-0 py-2 px-3 flex flex-col justify-center gap-1">
-            {/* 上段: タイトルとステータス */}
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="font-mono text-[9px] text-muted-foreground">#{reservation.reservation_number.slice(-6)}</span>
-                  {hasAlerts && (
-                    <div className="flex gap-0.5 text-red-500">
-                      <AlertTriangle className="h-3 w-3" />
-                    </div>
-                  )}
-                </div>
-                <h4 className="font-bold text-sm leading-tight truncate">{reservation.scenario_title}</h4>
-              </div>
-              <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                 <div className="scale-90 origin-right">{getStatusBadge(reservation.status)}</div>
-              </div>
-            </div>
-
-            {/* 下段: 顧客・金額・アラートメッセージ（1行で） */}
-            <div className="flex items-center gap-3 text-xs text-muted-foreground overflow-hidden">
-              <div className="flex items-center gap-1 text-foreground/80 font-medium truncate max-w-[120px]">
-                <User className="h-3 w-3 opacity-70" /> {reservation.customer_name}
-              </div>
-              <div className="flex items-center gap-1 text-foreground/80">
-                <DollarSign className="h-3 w-3 opacity-70" />
-                <span className={reservation.payment_status === 'unpaid' ? 'text-red-600 font-medium' : ''}>
-                  {(reservation.total_amount || 0).toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 展開アイコン（右端縦中央） */}
-          <div className="flex items-center justify-center px-2 text-muted-foreground/50 group-hover:text-foreground transition-colors">
-            <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          <div className="flex items-center justify-center w-full">
+             {getSourceIcon(reservation.reservation_source)}
           </div>
         </div>
 
-        {/* 展開エリア */}
-        {isExpanded && (
-          <div className="bg-muted/30 border-t px-4 py-3 text-sm animate-in slide-in-from-top-1">
-            {hasAlerts && (
-              <div className="mb-3 bg-red-50 border border-red-200 text-red-800 p-3 rounded-md text-xs">
-                <div className="font-bold flex items-center gap-1 mb-1"><AlertTriangle className="h-3 w-3" /> 以下の点を確認してください</div>
-                <ul className="list-disc list-inside">{alerts.map((a: any, i: number) => <li key={i}>{a.message}</li>)}</ul>
-              </div>
-            )}
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <h5 className="font-medium text-muted-foreground text-xs mb-1">候補日時 / 備考</h5>
-                {reservation.candidate_datetimes?.candidates && (
-                  <ul className="list-disc list-inside text-xs text-muted-foreground mb-2">
-                    {reservation.candidate_datetimes.candidates.map((c: any, i: number) => (
-                      /* @ts-ignore */
-                      <li key={i}>{format(new Date(c.date), 'M/d(EEE)', { locale: ja })} {c.startTime}-{c.endTime}</li>
-                    ))}
-                  </ul>
-                )}
-                <p className="text-sm">{reservation.customer_notes || <span className="text-muted-foreground italic">備考なし</span>}</p>
-              </div>
-              <div className="flex flex-col gap-2 items-start sm:items-end justify-end">
-                 {/* スケジュール連携ボタン（モック） */}
-                 {reservation.event_date && (
-                   <Button size="sm" variant="outline" className="w-full sm:w-auto gap-2" onClick={(e) => e.stopPropagation()}>
-                     <LinkIcon className="h-3 w-3" /> スケジュールで確認
-                   </Button>
-                 )}
-                 <div className="text-[10px] text-muted-foreground">作成: {/* @ts-ignore */}{format(new Date(reservation.created_at), 'yyyy/MM/dd HH:mm')}</div>
-              </div>
+        {/* メイン情報 */}
+        <div className="flex-1 min-w-0 grid grid-cols-[1fr_auto] gap-x-2 items-center">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <h4 className="font-bold text-xs leading-tight truncate">{reservation.scenario_title}</h4>
+              {hasAlerts && <AlertTriangle className="h-3 w-3 text-red-500 flex-shrink-0" />}
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground truncate">
+              <span className="font-medium text-foreground/80">{reservation.customer_name}</span>
+              <span className="font-mono opacity-70">#{reservation.reservation_number.slice(-4)}</span>
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          
+          <div className="flex flex-col items-end gap-0.5">
+            <div className="scale-90 origin-right">{getStatusBadge(reservation.status)}</div>
+            <div className={`text-[10px] font-mono ${reservation.payment_status === 'unpaid' ? 'text-red-600 font-bold' : 'text-muted-foreground'}`}>
+              ¥{(reservation.total_amount || 0).toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        {/* 展開アイコン */}
+        <div className="w-4 flex justify-center text-muted-foreground/50">
+          <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        </div>
+      </div>
+
+      {/* 展開エリア */}
+      {isExpanded && (
+        <div className="bg-muted/30 border-t px-3 py-2 text-xs animate-in slide-in-from-top-1">
+          {hasAlerts && (
+            <div className="mb-2 bg-red-50 border border-red-200 text-red-800 p-1.5 rounded text-[10px]">
+              <ul className="list-disc list-inside">{alerts.map((a: any, i: number) => <li key={i}>{a.message}</li>)}</ul>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+             <div>
+                <div className="text-[10px] text-muted-foreground mb-0.5">詳細情報</div>
+                <p className="font-mono text-[10px]">{getSourceLabel(reservation.reservation_source)}経由</p>
+                {reservation.candidate_datetimes?.candidates && (
+                  <div className="mt-1">
+                    <div className="text-[10px] text-muted-foreground">候補日時</div>
+                    {reservation.candidate_datetimes.candidates.map((c: any, i: number) => (
+                      /* @ts-ignore */
+                      <div key={i} className="text-[10px] font-mono">{format(new Date(c.date), 'M/d', { locale: ja })} {c.startTime}</div>
+                    ))}
+                  </div>
+                )}
+             </div>
+             <div className="text-right">
+               <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={(e) => e.stopPropagation()}>
+                  詳細編集
+               </Button>
+               <div className="text-[9px] text-muted-foreground mt-1">
+                 作成: {/* @ts-ignore */}{format(new Date(reservation.created_at), 'MM/dd HH:mm')}
+               </div>
+             </div>
+          </div>
+          {reservation.customer_notes && (
+             <div className="mt-2 pt-2 border-t border-dashed">
+               <div className="text-[10px] text-muted-foreground mb-0.5">備考</div>
+               <p className="text-[10px] opacity-80">{reservation.customer_notes}</p>
+             </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
