@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button'
 import { HelpButton } from '@/components/ui/help-button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Calendar, Search, Clock, User, DollarSign, Filter, ChevronDown, Download, MoreHorizontal } from 'lucide-react'
+import { Calendar, Search, Clock, User, DollarSign, Filter, ChevronDown, Download, MoreHorizontal, TrendingUp, AlertCircle } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { useReservationData } from '@/hooks/useReservationData'
+import { useReservationStats } from '@/hooks/useReservationStats'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
@@ -25,16 +26,19 @@ export function ReservationManagement() {
   const [typeFilter, setTypeFilter] = useSessionState('reservationTypeFilter', 'all')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
 
-  // 予約データとフィルタリング
-  const { reservations, isLoading } = useReservationData({
+  // 予約データ（リスト用）
+  const { reservations, isLoading: isListLoading } = useReservationData({
     searchTerm,
     statusFilter,
     paymentFilter,
     typeFilter
   })
 
+  // 統計データ（ダッシュボード用）- 独立して取得
+  const { stats, isLoading: isStatsLoading } = useReservationStats()
+
   // スクロール位置の保存と復元
-  useScrollRestoration({ pageKey: 'reservation', isLoading })
+  useScrollRestoration({ pageKey: 'reservation', isLoading: isListLoading })
 
   // ステータスバッジ
   const getStatusBadge = (status: string) => {
@@ -74,13 +78,7 @@ export function ReservationManagement() {
     })
   }
 
-  // 統計
-  const stats = useMemo(() => ({
-    total: reservations.length,
-    confirmed: reservations.filter(r => r.status === 'confirmed').length,
-    pending: reservations.filter(r => r.status === 'pending' || r.status === 'pending_gm' || r.status === 'gm_confirmed' || r.status === 'pending_store').length,
-    unpaid: reservations.filter(r => r.payment_status === 'unpaid').length
-  }), [reservations])
+  const isLoading = isListLoading || isStatsLoading
 
   if (isLoading) {
     return (
@@ -121,30 +119,62 @@ export function ReservationManagement() {
           </Button>
         </PageHeader>
 
-        {/* 統計サマリー（ダッシュボード風デザイン） */}
+        {/* 統計サマリー（根本見直し版：サーバーサイド集計データを使用） */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="bg-card/50">
-            <CardContent className="p-4 text-center">
-              <div className="text-xs text-muted-foreground mb-1">総予約数</div>
-              <div className="text-2xl font-bold">{stats.total}</div>
+          <Card className="bg-card/50 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-2 opacity-10">
+              <Calendar className="w-12 h-12" />
+            </div>
+            <CardContent className="p-4">
+              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" /> 今月の予約
+              </div>
+              <div className="flex items-baseline gap-2">
+                <div className="text-2xl font-bold">{stats.monthlyTotal}</div>
+                <div className="text-xs text-muted-foreground">件</div>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1">
+                見込: ¥{stats.monthlyRevenue.toLocaleString()}
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-green-50/50 border-green-100">
-            <CardContent className="p-4 text-center">
-              <div className="text-xs text-green-700 mb-1">確定済み</div>
-              <div className="text-2xl font-bold text-green-700">{stats.confirmed}</div>
+
+          <Card className="bg-green-50/50 border-green-100 relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-2 opacity-10">
+              <Clock className="w-12 h-12 text-green-600" />
+            </div>
+            <CardContent className="p-4">
+              <div className="text-xs text-green-700 mb-1 font-medium">確定済み（全期間）</div>
+              <div className="flex items-baseline gap-2">
+                <div className="text-2xl font-bold text-green-700">{stats.confirmed}</div>
+                <div className="text-xs text-green-600/70">件</div>
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-yellow-50/50 border-yellow-100">
-            <CardContent className="p-4 text-center">
-              <div className="text-xs text-yellow-700 mb-1">対応待ち</div>
-              <div className="text-2xl font-bold text-yellow-700">{stats.pending}</div>
+
+          <Card className="bg-yellow-50/50 border-yellow-100 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-2 opacity-10">
+              <AlertCircle className="w-12 h-12 text-yellow-600" />
+            </div>
+            <CardContent className="p-4">
+              <div className="text-xs text-yellow-700 mb-1 font-medium">要対応（保留・確認待）</div>
+              <div className="flex items-baseline gap-2">
+                <div className="text-2xl font-bold text-yellow-700">{stats.pending}</div>
+                <div className="text-xs text-yellow-600/70">件</div>
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-red-50/50 border-red-100">
-            <CardContent className="p-4 text-center">
-              <div className="text-xs text-red-700 mb-1">未払い</div>
-              <div className="text-2xl font-bold text-red-700">{stats.unpaid}</div>
+
+          <Card className="bg-red-50/50 border-red-100 relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-2 opacity-10">
+              <DollarSign className="w-12 h-12 text-red-600" />
+            </div>
+            <CardContent className="p-4">
+              <div className="text-xs text-red-700 mb-1 font-medium">未払い</div>
+              <div className="flex items-baseline gap-2">
+                <div className="text-2xl font-bold text-red-700">{stats.unpaid}</div>
+                <div className="text-xs text-red-600/70">件</div>
+              </div>
             </CardContent>
           </Card>
         </div>
