@@ -279,7 +279,7 @@ export default function AuthorReport() {
       {/* フィルター */}
       <Card>
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             フィルター
           </CardTitle>

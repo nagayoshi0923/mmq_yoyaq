@@ -28,7 +28,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   currentPage,
   sidebar, 
   children, 
-  maxWidth = 'max-w-[1600px]',
+  maxWidth = 'max-w-[1440px]',
   containerPadding = 'px-[10px] py-4 sm:py-6 md:py-8',
   stickyLayout = false,
   className = ''

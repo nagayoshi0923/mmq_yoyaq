@@ -64,7 +64,7 @@ export const LineupView = memo(function LineupView({
       {/* 新着公演セクション */}
       {displayedNewScenarios.length > 0 && (
         <section>
-          <h2 className="text-lg md:text-base xl:text-lg mb-3 md:mb-4 flex items-center gap-2">
+          <h2 className="text-lg mb-3 md:mb-4 flex items-center gap-2">
             <span>新着公演</span>
             <Badge className="bg-red-600 text-white border-0 text-xs px-1.5 md:px-2 py-0.5 rounded-sm flex-shrink-0">NEW</Badge>
             {newScenarios.length > 10 && (
@@ -90,7 +90,7 @@ export const LineupView = memo(function LineupView({
       {/* 直近公演セクション */}
       {displayedUpcomingScenarios.length > 0 && (
         <section>
-          <h2 className="text-lg md:text-base xl:text-lg mb-3 md:mb-4">
+          <h2 className="text-lg mb-3 md:mb-4">
             直近公演
             {upcomingScenarios.length > 10 && (
               <span className="text-xs font-normal text-gray-500 ml-1">
@@ -115,7 +115,7 @@ export const LineupView = memo(function LineupView({
       {/* 全タイトルセクション */}
       {allScenarios.length > 0 ? (
         <section>
-          <h2 className="text-base md:text-lg mb-2 sm:mb-3 md:mb-4">
+          <h2 className="text-base mb-2 sm:mb-3 md:mb-4">
             全タイトル
             {allScenarios.length > INITIAL_DISPLAY_COUNT && (
               <span className="text-xs sm:text-sm font-normal text-gray-500 ml-1">
@@ -123,7 +123,7 @@ export const LineupView = memo(function LineupView({
               </span>
             )}
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 sm:gap-2 md:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-1.5 sm:gap-2 md:gap-3">
             {displayedAllScenarios.map((scenario) => (
               <ScenarioCard 
                 key={scenario.scenario_id} 

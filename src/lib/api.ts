@@ -649,29 +649,38 @@ export const staffApi = {
     
     if (error) throw error
     
-    // 6. auth.usersとusersテーブルからユーザーを削除（user_idが紐付いている場合）
+    // 6. usersテーブルのロールを更新（スタッフ削除に伴い、一般ユーザーに戻す）
+    // ただし、adminロールの場合は権限を維持する
     if (userId) {
       try {
-        // auth.usersから削除（admin権限が必要）
-        const { error: authError } = await supabase.auth.admin.deleteUser(userId)
-        if (authError) {
-          console.warn('auth.usersの削除に失敗しました:', authError)
-          // エラーでも処理を続行（スタッフは既に削除済みのため）
-        }
-        
-        // usersテーブルから削除（カスケード削除されない場合のため）
-        const { error: usersError } = await supabase
+        // 現在のロールを確認
+        const { data: userData, error: userError } = await supabase
           .from('users')
-          .delete()
+          .select('role')
           .eq('id', userId)
+          .single()
         
-        if (usersError) {
-          console.warn('usersテーブルの削除に失敗しました:', usersError)
-          // エラーでも処理を続行
+        if (userError && userError.code !== 'PGRST116') {
+          console.warn('ユーザー情報の取得に失敗しました:', userError)
         }
-      } catch (deleteError) {
-        console.warn('ユーザー削除でエラーが発生しました:', deleteError)
-        // スタッフは既に削除済みなので、エラーでも処理を続行
+
+        // adminでない場合のみ、customer（一般顧客）に戻す
+        if (userData && userData.role !== 'admin') {
+           const { error: updateError } = await supabase
+            .from('users')
+            .update({ role: 'customer' })
+            .eq('id', userId)
+            
+           if (updateError) {
+             console.warn('ユーザーロールの更新(customer化)に失敗しました:', updateError)
+           } else {
+             console.log('ユーザーロールをcustomerに戻しました:', userId)
+           }
+        } else if (userData && userData.role === 'admin') {
+          console.log('adminユーザーのため、ロール変更をスキップしました')
+        }
+      } catch (err) {
+        console.warn('ユーザーロールの更新処理でエラーが発生しました:', err)
       }
     }
   },

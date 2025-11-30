@@ -17,7 +17,7 @@ export function EmptySlot({ onAddPerformance, date, venue, timeSlot }: EmptySlot
       onClick={() => onAddPerformance?.(date, venue, timeSlot)}
     >
       <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
-      <span className="text-xs sm:text-xs md:text-xs">公演追加</span>
+      <span className="text-xs">公演追加</span>
     </Button>
   )
 }

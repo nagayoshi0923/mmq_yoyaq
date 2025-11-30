@@ -5,24 +5,31 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
+    // ブレークポイント設定：レイアウト用に標準的なブレークポイントを復元
+    // ただし文字サイズ等の拡大には使用しない運用とする
+    screens: {
+      'xs': '375px',
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1440px', // 最大幅に合わせて調整
+    },
     extend: {
-      // ブレークポイント設定：デフォルト(sm:640px, md:768px...)にモバイル小(xs)を追加
-      screens: {
-        'xs': '375px',   // iPhone SEなどの小さめのモバイル端末以上
-      },
       spacing: {
         'safe': 'max(0.75rem, env(safe-area-inset-left))',
       },
-      // グローバルスペーシング拡張（ブレークポイント対応）
       inset: {
         'full': '100%',
       },
       fontSize: {
-        // シンプルな4段階（モバイル基準）
-        'xs': ['12px', { lineHeight: '1.4' }],      // バッジ・補足
-        'sm': ['14px', { lineHeight: '1.5' }],      // 小テキスト
-        'base': ['16px', { lineHeight: '1.6' }],    // 本文（デフォルト）
-        'lg': ['20px', { lineHeight: '1.4' }],      // 見出し
+        // 文字サイズ定義（レスポンシブ拡大なしで運用）
+        'xs': ['12px', { lineHeight: '1.4' }],
+        'sm': ['14px', { lineHeight: '1.5' }],
+        'base': ['16px', { lineHeight: '1.6' }],
+        'lg': ['18px', { lineHeight: '1.4' }], // 少し控えめに
+        'xl': ['20px', { lineHeight: '1.4' }],
+        '2xl': ['24px', { lineHeight: '1.3' }],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -58,12 +65,11 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // グローバルカラー（ステータス・バッジ用）
         'status': {
-          'success': '#16a34a',      // 緑
-          'warning': '#ea580c',      // オレンジ
-          'error': '#dc2626',        // 赤
-          'info': '#0284c7',         // 青
+          'success': '#16a34a',
+          'warning': '#ea580c',
+          'error': '#dc2626',
+          'info': '#0284c7',
         },
       },
       borderRadius: {

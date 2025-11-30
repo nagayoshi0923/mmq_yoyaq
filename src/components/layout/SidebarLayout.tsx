@@ -3,7 +3,7 @@ import React, { ReactNode } from 'react'
 interface SidebarLayoutProps {
   sidebar: ReactNode
   children: ReactNode
-  maxWidth?: string // 例: 'max-w-7xl', 'max-w-[1600px]'
+  maxWidth?: string // 例: 'max-w-7xl', 'max-w-screen-xl'
   containerPadding?: string // 例: 'px-4 py-8', 'px-8 py-6'
 }
 
@@ -13,7 +13,7 @@ interface SidebarLayoutProps {
  * 使用例:
  * <SidebarLayout 
  *   sidebar={<ScenarioSidebar activeTab={activeTab} onTabChange={setActiveTab} />}
- *   maxWidth="max-w-[1600px]"
+ *   maxWidth="max-w-screen-xl"
  *   containerPadding="px-4 py-8"
  * >
  *   {メインコンテンツ}
@@ -22,13 +22,13 @@ interface SidebarLayoutProps {
 export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ 
   sidebar, 
   children, 
-  maxWidth = 'max-w-[1600px]',
+  maxWidth = 'max-w-[1440px]',
   containerPadding = 'px-4 py-8'
 }) => {
   return (
     <div className="flex">
       {/* サイドバー */}
-      <div className="hidden lg:block">
+      <div className="hidden md:block">
         {sidebar}
       </div>
       
@@ -41,4 +41,3 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
     </div>
   )
 }
-

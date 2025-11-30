@@ -77,7 +77,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
   return (
     <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
       <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
           {/* 左カラム: 基本情報・連絡先 */}
           <div className="space-y-6">
             {/* 基本情報 */}

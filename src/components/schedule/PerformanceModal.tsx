@@ -577,14 +577,14 @@ export function PerformanceModal({
                               className="h-4 w-4 flex items-center justify-center rounded-full hover:bg-black/10 ml-1"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                const newGms = formData.gms.filter((g: string) => g !== gm)
+                          const newGms = formData.gms.filter((g: string) => g !== gm)
                                 const newRoles = { ...formData.gmRoles }
                                 delete newRoles[gm]
                                 setFormData((prev: EventFormData) => ({ ...prev, gms: newGms, gmRoles: newRoles }))
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </div>
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                </div>
                           </div>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-3" align="start">

@@ -99,7 +99,7 @@ export default function SalaryCalculation() {
       {/* フィルター */}
       <Card>
         <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             フィルター
           </CardTitle>
@@ -165,7 +165,7 @@ export default function SalaryCalculation() {
               <div className="flex gap-6 sm:gap-8">
                 <div className="text-right">
                   <div className="text-xs sm:text-sm text-muted-foreground">合計支給額</div>
-                  <div className="text-lg sm:text-xl md:text-2xl font-bold">
+                  <div className="text-lg sm:text-xl font-bold">
                     ¥{salaryData.totalAmount.toLocaleString()}
                   </div>
                   <div className="text-[10px] sm:text-xs text-muted-foreground space-y-0.5 mt-1">
@@ -175,7 +175,7 @@ export default function SalaryCalculation() {
                 </div>
                 <div className="text-right border-l pl-6 sm:pl-8">
                   <div className="text-xs sm:text-sm text-muted-foreground">合計公演回数</div>
-                  <div className="text-lg sm:text-xl md:text-2xl font-bold">
+                  <div className="text-lg sm:text-xl font-bold">
                     {salaryData.totalEventCount}回
                   </div>
                   <div className="text-[10px] sm:text-xs text-muted-foreground space-y-0.5 mt-1">

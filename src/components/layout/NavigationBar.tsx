@@ -60,7 +60,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
 
   return (
     <nav className="border-b border-border bg-muted/30">
-      <div className="mx-auto px-0 sm:px-2 md:px-4 lg:px-8 py-1.5 sm:py-2 md:py-3 max-w-full overflow-x-auto overflow-y-hidden">
+      <div className="mx-auto px-0 sm:px-2 md:px-4 md:px-8 py-1.5 sm:py-2 md:py-3 max-w-full overflow-x-auto overflow-y-hidden">
         <div className="flex items-center justify-start gap-0 sm:gap-0.5 md:gap-1 min-w-max">
           {navigationTabs.map((tab) => {
             const Icon = tab.icon
