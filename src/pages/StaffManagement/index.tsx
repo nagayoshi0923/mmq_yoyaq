@@ -410,7 +410,7 @@ export function StaffManagement() {
             />
 
             {/* スタッフ一覧テーブル (PC表示) */}
-            <div className="hidden md:block bg-white border rounded-lg shadow-sm overflow-hidden">
+            <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
               <TanStackDataTable
                 data={sortedStaff}
                 columns={tableColumns}
@@ -430,7 +430,7 @@ export function StaffManagement() {
             <div className="md:hidden space-y-3">
               {sortedStaff.length > 0 ? (
                 sortedStaff.map((staff) => (
-                  <div key={staff.id} className="bg-white border rounded-lg overflow-hidden shadow-sm" onClick={() => handleEditStaff(staff)}>
+                  <div key={staff.id} className="bg-white border rounded-lg overflow-hidden" onClick={() => handleEditStaff(staff)}>
                     <div className="p-3 flex items-start justify-between">
                       <div className="flex gap-3">
                         <StaffAvatar

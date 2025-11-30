@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 import { 
   Calendar, Search, Filter, Download, FileText, X, Mail
 } from 'lucide-react'
@@ -73,14 +74,15 @@ export function ReservationManagement() {
   })
 
   const sortedReservations = [...filteredReservations].sort((a, b) => {
-    const dateA = a.event_date ? new Date(a.event_date).getTime() : 0
-    const dateB = b.event_date ? new Date(b.event_date).getTime() : 0
-    return dateB - dateA
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+    return dateB - dateA // 新しい順（降順）
   })
 
-  // モバイル用グルーピング
+  // モバイル用グルーピング (予約受付日ベース)
   const groupedReservations = sortedReservations.reduce((acc, r) => {
-    const dateKey = r.event_date || 'undecided'
+    // created_at がない場合は 'undecided'
+    const dateKey = r.created_at ? r.created_at.split('T')[0] : 'undecided'
     if (!acc[dateKey]) acc[dateKey] = []
     acc[dateKey].push(r)
     return acc
@@ -94,24 +96,25 @@ export function ReservationManagement() {
 
   // UIヘルパー関数群
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline', className?: string }> = {
-      confirmed: { label: '予約確定', variant: 'default', className: 'bg-green-100 text-green-700 border-none' },
-      pending: { label: '保留', variant: 'secondary', className: 'bg-yellow-100 text-yellow-800 border-none' },
-      cancelled: { label: 'キャンセル', variant: 'destructive', className: 'bg-gray-100 text-gray-500 border-none' },
-      pending_gm: { label: 'GM確認中', variant: 'secondary', className: 'bg-blue-50 text-blue-700 border-none' },
-      gm_confirmed: { label: 'GM確定', variant: 'default', className: 'bg-blue-100 text-blue-700 border-none' },
-      pending_store: { label: '店舗確認中', variant: 'secondary', className: 'bg-purple-50 text-purple-700 border-none' }
+    // Badgeのvariant型を拡張したものとして扱う（実際にはBadgeコンポーネント側で定義済み）
+    const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info' | 'purple' | 'gray' }> = {
+      confirmed: { label: '予約確定', variant: 'success' },
+      pending: { label: '保留', variant: 'warning' },
+      cancelled: { label: 'キャンセル', variant: 'gray' },
+      pending_gm: { label: 'GM確認中', variant: 'info' },
+      gm_confirmed: { label: 'GM確定', variant: 'success' }, // 青寄りのsuccessがあれば区別してもいいが、確定なのでsuccessで統一
+      pending_store: { label: '店舗確認中', variant: 'purple' },
+      no_show: { label: '無断キャンセル', variant: 'destructive' },
+      completed: { label: '完了', variant: 'outline' }
     }
+    // @ts-ignore: variantの型定義拡張が反映されるまでts-ignore
     const config = statusConfig[status] || { label: status, variant: 'outline' }
+    
     return (
-      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.className}`}>
-        <span className={`mr-1.5 h-2 w-2 rounded-full ${
-          status === 'confirmed' || status === 'gm_confirmed' ? 'bg-green-500' :
-          status === 'cancelled' ? 'bg-gray-400' :
-          'bg-yellow-500'
-        }`}></span>
+      // @ts-ignore
+      <Badge variant={config.variant} className="whitespace-nowrap">
         {config.label}
-      </span>
+      </Badge>
     )
   }
 
@@ -148,24 +151,29 @@ export function ReservationManagement() {
           </Button>
         </PageHeader>
 
-        {/* 統計サマリー (維持) */}
+        {/* 統計サマリー (影なし・フラットデザイン) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-white border shadow-sm"><CardContent className="p-4"><div className="text-xs text-muted-foreground">今月の予約</div><div className="text-2xl font-bold">{stats.monthlyTotal}</div></CardContent></Card>
-          <Card className="bg-white border shadow-sm"><CardContent className="p-4"><div className="text-xs text-green-600">確定済み</div><div className="text-2xl font-bold text-green-700">{stats.confirmed}</div></CardContent></Card>
-          <Card className="bg-white border shadow-sm"><CardContent className="p-4"><div className="text-xs text-yellow-600">要対応</div><div className="text-2xl font-bold text-yellow-700">{stats.pending}</div></CardContent></Card>
-          <Card className="bg-white border shadow-sm"><CardContent className="p-4"><div className="text-xs text-red-600">未払い</div><div className="text-2xl font-bold text-red-700">{stats.unpaid}</div></CardContent></Card>
+          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-muted-foreground">今月の予約</div><div className="text-2xl font-bold">{stats.monthlyTotal}</div></CardContent></Card>
+          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-green-600">確定済み</div><div className="text-2xl font-bold text-green-700">{stats.confirmed}</div></CardContent></Card>
+          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-yellow-600">要対応</div><div className="text-2xl font-bold text-yellow-700">{stats.pending}</div></CardContent></Card>
+          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-red-600">未払い</div><div className="text-2xl font-bold text-red-700">{stats.unpaid}</div></CardContent></Card>
         </div>
 
-        {/* フィルター＆検索 (維持) */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="検索" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-10 bg-white" />
+        {/* フィルター＆検索 (修正版) */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="予約番号、顧客名、シナリオ名で検索..." 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+              className="pl-9 h-10 bg-white w-full" 
+            />
           </div>
-          <Button variant="outline" size="icon" className="h-10 w-10 bg-white" onClick={() => setIsFilterOpen(!isFilterOpen)}>
+          <Button variant="outline" size="icon" className="h-10 w-10 bg-white flex-shrink-0" onClick={() => setIsFilterOpen(!isFilterOpen)}>
             <Filter className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="h-10 w-10 bg-white">
+          <Button variant="outline" size="icon" className="h-10 w-10 bg-white flex-shrink-0">
             <Download className="h-4 w-4" />
           </Button>
         </div>
@@ -190,7 +198,9 @@ export function ReservationManagement() {
             <TableHeader className="bg-gray-50">
               <TableRow>
                 <TableHead className="w-[50px] text-center"></TableHead>
-                <TableHead className="w-[180px]">予約日時</TableHead>
+                <TableHead className="w-[100px]">予約番号</TableHead>
+                <TableHead className="w-[160px]">受付日時</TableHead>
+                <TableHead className="w-[180px]">公演日時</TableHead>
                 <TableHead className="w-[120px]">ステータス</TableHead>
                 <TableHead>顧客名</TableHead>
                 <TableHead>予約ページ</TableHead>
@@ -204,6 +214,21 @@ export function ReservationManagement() {
               {sortedReservations.map((reservation) => (
                 <TableRow key={reservation.id} className="hover:bg-gray-50/50 cursor-pointer h-16" onClick={() => setSelectedReservation(reservation)}>
                   <TableCell className="text-center"><input type="checkbox" className="rounded border-gray-300" onClick={(e) => e.stopPropagation()} /></TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs text-gray-600">{reservation.reservation_number || '-'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-900 text-sm">
+                        {/* @ts-ignore */}
+                        {reservation.created_at ? format(new Date(reservation.created_at), 'yyyy/MM/dd') : '-'}
+                      </span>
+                      <span className="text-xs text-gray-500 font-mono">
+                        {/* @ts-ignore */}
+                        {reservation.created_at ? format(new Date(reservation.created_at), 'HH:mm') : ''}
+                      </span>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="font-bold text-gray-900">{reservation.event_date ? format(new Date(reservation.event_date), 'yyyy/MM/dd') : '未定'}</span>
@@ -247,45 +272,47 @@ export function ReservationManagement() {
         </div>
 
         {/* ========================================================================
-            モバイル表示: シンプルリスト形式
+            モバイル表示: PC版のテーブル行をベースにしたコンパクトリスト
            ======================================================================== */}
         <div className="md:hidden space-y-4">
           {sortedDates.map(dateKey => (
-            <div key={dateKey} className="space-y-2">
-              <div className="sticky top-0 z-10 bg-gray-100/95 backdrop-blur px-2 py-1.5 text-sm font-bold text-gray-700 border-b flex items-center justify-between">
-                <span>
-                  {dateKey === 'undecided' ? '日付未定' : 
+            <div key={dateKey} className="bg-white border rounded-lg overflow-hidden shadow-sm">
+              <div className="bg-gray-50 px-3 py-2 border-b flex items-center justify-between">
+                <span className="text-sm font-bold text-gray-700">
+                  {dateKey === 'undecided' ? '受付日不明' : 
                    /* @ts-ignore */
-                   format(new Date(dateKey), 'yyyy年M月d日 (EEE)', { locale: ja })}
+                   format(new Date(dateKey), 'yyyy/MM/dd (EEE)', { locale: ja }) + ' 受付'}
                 </span>
-                <span className="text-xs font-normal text-gray-500">{groupedReservations[dateKey].length}件</span>
+                <span className="text-xs bg-white px-2 py-0.5 rounded border text-gray-500">{groupedReservations[dateKey].length}件</span>
               </div>
               
-              <div className="space-y-0 divide-y border-t border-b bg-white">
+              <div className="divide-y">
                 {groupedReservations[dateKey].map(reservation => (
-                  <div key={reservation.id} className="p-3 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer" onClick={() => setSelectedReservation(reservation)}>
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-lg text-gray-900">{reservation.event_time || '--:--'}</span>
-                        {getStatusBadge(reservation.status)}
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-sm font-bold ${reservation.payment_status === 'unpaid' ? 'text-red-600' : 'text-gray-900'}`}>
-                          ¥{(reservation.total_amount || 0).toLocaleString()}
+                  <div key={reservation.id} className="p-3 hover:bg-gray-50 active:bg-gray-100 transition-colors" onClick={() => setSelectedReservation(reservation)}>
+                    {/* 上段: 時間・ステータス・金額 */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-sm text-gray-900">
+                          {/* @ts-ignore */}
+                          {reservation.event_date ? format(new Date(reservation.event_date), 'MM/dd') : ''} {reservation.event_time || '--:--'}
                         </span>
+                        {getStatusBadge(reservation.status)}
+                        <span className="text-[10px] text-gray-400 font-mono">#{reservation.reservation_number?.slice(-4) || ''}</span>
+                      </div>
+                      <div className={`text-sm font-bold ${reservation.payment_status === 'unpaid' ? 'text-red-600' : 'text-gray-900'}`}>
+                        ¥{(reservation.total_amount || 0).toLocaleString()}
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-[1fr_auto] gap-2">
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-blue-600 mb-0.5 truncate">{reservation.customer_name}</div>
-                        <div className="text-xs text-gray-600 truncate">【{reservation.scenario_title}】</div>
+                    {/* 下段: 顧客名・シナリオ名 */}
+                    <div className="flex justify-between items-end gap-2">
+                      <div className="flex-1 min-w-0 grid gap-0.5">
+                        <div className="font-medium text-sm text-blue-600 truncate">{reservation.customer_name}</div>
+                        <div className="text-xs text-gray-500 truncate">【{reservation.scenario_title}】</div>
                       </div>
-                      <div className="flex items-end">
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-600 px-2 hover:bg-blue-50">
-                          詳細
-                        </Button>
-                      </div>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600 shrink-0">
+                        <FileText className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -324,15 +351,36 @@ export function ReservationManagement() {
                     <h4 className="text-lg font-bold mb-4 text-gray-900">予約情報</h4>
                     <div className="space-y-0 divide-y border-t border-b">
                       <div className="py-4 flex flex-col sm:flex-row sm:items-center">
-                        <div className="w-40 text-sm font-bold text-gray-700 mb-1 sm:mb-0">予約ページ</div>
-                        <div className="flex-1 text-blue-600 font-medium">【{selectedReservation.scenario_title}】</div>
+                        <div className="w-40 text-sm font-bold text-gray-700 mb-1 sm:mb-0">予約番号</div>
+                        <div className="flex-1 font-mono text-sm text-gray-900">
+                          {selectedReservation.reservation_number || '-'}
+                        </div>
                       </div>
                       <div className="py-4 flex flex-col sm:flex-row sm:items-center">
-                        <div className="w-40 text-sm font-bold text-gray-700 mb-1 sm:mb-0">希望の予約日時</div>
+                        <div className="w-40 text-sm font-bold text-gray-700 mb-1 sm:mb-0">予約ページ</div>
+                        <div className="flex-1 text-blue-600 font-medium">
+                          {selectedReservation.event_date && (
+                            <span className="mr-2">
+                              {/* @ts-ignore */}
+                              {format(new Date(selectedReservation.event_date), 'yyyy/MM/dd', { locale: ja })} {selectedReservation.event_time}
+                            </span>
+                          )}
+                          【{selectedReservation.scenario_title}】
+                        </div>
+                      </div>
+                      <div className="py-4 flex flex-col sm:flex-row sm:items-center">
+                        <div className="w-40 text-sm font-bold text-gray-700 mb-1 sm:mb-0">公演日時</div>
                         <div className="flex-1 text-sm text-gray-900">
                           {/* @ts-ignore */}
                           {selectedReservation.event_date ? format(new Date(selectedReservation.event_date), 'yyyy年MM月dd日 (EEE)', { locale: ja }) : '未定'}
                           {' '}{selectedReservation.event_time} ~
+                        </div>
+                      </div>
+                      <div className="py-4 flex flex-col sm:flex-row sm:items-center">
+                        <div className="w-40 text-sm font-bold text-gray-700 mb-1 sm:mb-0">予約受付日時</div>
+                        <div className="flex-1 text-sm text-gray-900">
+                          {/* @ts-ignore */}
+                          {selectedReservation.created_at ? format(new Date(selectedReservation.created_at), 'yyyy年MM月dd日 HH:mm', { locale: ja }) : '-'}
                         </div>
                       </div>
                       <div className="py-4 flex flex-col sm:flex-row sm:items-center">
