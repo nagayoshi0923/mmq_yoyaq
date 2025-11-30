@@ -47,10 +47,14 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   ], [])
   
   // ユーザーのロールに応じてタブをフィルタリング
-  const navigationTabs = useMemo(() => 
-    allTabs.filter(tab => !user || tab.roles.includes(user.role)),
-    [allTabs, user]
-  )
+  const navigationTabs = useMemo(() => {
+    // ユーザーがいない場合は何も表示しない
+    if (!user || !user.role) {
+      return []
+    }
+    // ユーザーのロールに基づいてフィルタリング
+    return allTabs.filter(tab => tab.roles.includes(user.role))
+  }, [allTabs, user])
 
   // 最適化: タブクリックハンドラをメモ化
   const handleTabClick = useCallback((tabId: string, e: React.MouseEvent<HTMLAnchorElement>) => {
