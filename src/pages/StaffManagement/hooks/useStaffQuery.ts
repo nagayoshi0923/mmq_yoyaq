@@ -43,11 +43,24 @@ export function useStaffMutation() {
 
   return useMutation({
     mutationFn: async ({ staff, isEdit }: { staff: Staff; isEdit: boolean }) => {
+      let result: Staff
       if (isEdit) {
-        return await staffApi.update(staff.id, staff)
+        result = await staffApi.update(staff.id, staff)
+        
+        // staff_scenario_assignmentsテーブルも同期更新
+        // special_scenariosが変更された場合、リレーションテーブルを更新
+        if (staff.special_scenarios) {
+          await assignmentApi.updateStaffAssignments(staff.id, staff.special_scenarios)
+        }
       } else {
-        return await staffApi.create(staff)
+        result = await staffApi.create(staff)
+        
+        // 新規作成時もリレーションテーブルに追加
+        if (staff.special_scenarios && staff.special_scenarios.length > 0 && result.id) {
+          await assignmentApi.updateStaffAssignments(result.id, staff.special_scenarios)
+        }
       }
+      return result
     },
     onMutate: async ({ staff, isEdit }) => {
       await queryClient.cancelQueries({ queryKey: staffKeys.all })
