@@ -3,6 +3,8 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StaffManual } from './StaffManual'
+import { ReservationManual } from './ReservationManual'
+import { ShiftManual } from './ShiftManual'
 import { BookOpen, Users, CalendarDays, FileText } from 'lucide-react'
 
 export function ManualPage() {
@@ -46,11 +48,11 @@ export function ManualPage() {
               <Users className="h-4 w-4" />
               スタッフ管理
             </TabsTrigger>
-            <TabsTrigger value="reservation" className="flex items-center gap-2" disabled>
+            <TabsTrigger value="reservation" className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
               予約管理
             </TabsTrigger>
-            <TabsTrigger value="shift" className="flex items-center gap-2" disabled>
+            <TabsTrigger value="shift" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               シフト管理
             </TabsTrigger>
@@ -62,15 +64,11 @@ export function ManualPage() {
             </TabsContent>
             
             <TabsContent value="reservation" className="m-0">
-              <div className="p-8 text-center text-muted-foreground border rounded-lg border-dashed">
-                予約管理マニュアルは準備中です
-              </div>
+              <ReservationManual />
             </TabsContent>
             
             <TabsContent value="shift" className="m-0">
-              <div className="p-8 text-center text-muted-foreground border rounded-lg border-dashed">
-                シフト管理マニュアルは準備中です
-              </div>
+              <ShiftManual />
             </TabsContent>
           </div>
         </Tabs>
