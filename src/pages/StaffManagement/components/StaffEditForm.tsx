@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
+import { Link2, Unlink, Trash2 } from 'lucide-react'
 import type { Staff, Store, Scenario } from '@/types'
 
 interface StaffEditFormProps {
@@ -13,6 +14,9 @@ interface StaffEditFormProps {
   scenarios: Scenario[]
   onSave: (staff: Staff) => void
   onCancel: () => void
+  onLink?: () => void
+  onUnlink?: () => void
+  onDelete?: () => void
 }
 
 const roleOptions: MultiSelectOption[] = [
@@ -30,7 +34,7 @@ const statusOptions = [
   { value: 'resigned', label: '退職' }
 ]
 
-export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: StaffEditFormProps) {
+export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLink, onUnlink, onDelete }: StaffEditFormProps) {
   const [formData, setFormData] = useState<Partial<Staff>>({
     name: '',
     x_account: '',
@@ -239,13 +243,42 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel }: St
       </div>
 
       {/* フッターボタン（固定） */}
-      <div className="flex justify-end gap-3 px-6 py-4 border-t bg-muted/30 shrink-0">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          キャンセル
-        </Button>
-        <Button type="submit">
-          保存
-        </Button>
+      <div className="flex justify-between px-4 sm:px-6 py-4 border-t bg-muted/30 shrink-0">
+        {/* 左側：アクションボタン（既存スタッフのみ） */}
+        <div className="flex gap-2">
+          {staff?.id && (
+            <>
+              {onLink && (
+                <Button type="button" variant="outline" size="sm" onClick={onLink} className="text-muted-foreground">
+                  <Link2 className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">連携</span>
+                </Button>
+              )}
+              {onUnlink && (
+                <Button type="button" variant="outline" size="sm" onClick={onUnlink} className="text-orange-600 border-orange-200 hover:bg-orange-50">
+                  <Unlink className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">連携解除</span>
+                </Button>
+              )}
+              {onDelete && (
+                <Button type="button" variant="outline" size="sm" onClick={onDelete} className="text-red-600 border-red-200 hover:bg-red-50">
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">削除</span>
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+        
+        {/* 右側：保存・キャンセル */}
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            キャンセル
+          </Button>
+          <Button type="submit">
+            保存
+          </Button>
+        </div>
       </div>
     </form>
   )

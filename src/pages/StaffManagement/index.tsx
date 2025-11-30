@@ -435,7 +435,7 @@ export function StaffManagement() {
                   
                   return (
                     <div key={staffItem.id} className="bg-white border rounded-lg overflow-hidden" onClick={() => handleEditStaff(staffItem)}>
-                      {/* ヘッダー：アバター、名前、アクション */}
+                      {/* ヘッダー：アバター、名前 */}
                       <div className="p-3 pb-2">
                         <div className="flex items-start gap-3">
                           <StaffAvatar
@@ -445,25 +445,9 @@ export function StaffManagement() {
                             size="md"
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-bold text-sm truncate">{staffItem.name}</h3>
-                                {getStatusBadge(staffItem.status)}
-                              </div>
-                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                {!staffItem.user_id ? (
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={() => openLinkModal(staffItem)}>
-                                    <Link2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                ) : (
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-orange-400" onClick={() => openUnlinkDialog(staffItem)}>
-                                    <Unlink className="h-3.5 w-3.5" />
-                                  </Button>
-                                )}
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => openDeleteDialog(staffItem)}>
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-sm truncate">{staffItem.name}</h3>
+                              {getStatusBadge(staffItem.status)}
                             </div>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {getRoleBadges(staffItem.role)}
@@ -556,6 +540,9 @@ export function StaffManagement() {
               scenarios={scenarios as any}
               onSave={handleSaveStaff}
               onCancel={closeEditModal}
+              onLink={editingStaff && !editingStaff.user_id ? () => { closeEditModal(); openLinkModal(editingStaff); } : undefined}
+              onUnlink={editingStaff?.user_id ? () => { closeEditModal(); openUnlinkDialog(editingStaff); } : undefined}
+              onDelete={editingStaff?.id ? () => { closeEditModal(); openDeleteDialog(editingStaff); } : undefined}
             />
           </DialogContent>
         </Dialog>
