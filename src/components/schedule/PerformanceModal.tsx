@@ -1579,10 +1579,10 @@ export function PerformanceModal({
 
         {/* アクションボタン */}
         <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} className="min-w-[100px]">
             キャンセル
           </Button>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSave} className="min-w-[100px]">
             {mode === 'add' ? '追加' : '保存'}
           </Button>
         </div>
