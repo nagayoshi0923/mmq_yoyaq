@@ -52,9 +52,9 @@ export function ManualPage() {
               <CalendarDays className="h-4 w-4" />
               予約管理
             </TabsTrigger>
-            <TabsTrigger value="shift" className="flex items-center gap-2">
+            <TabsTrigger value="schedule" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              シフト管理
+              シフト・スケジュール
             </TabsTrigger>
           </TabsList>
           
@@ -67,7 +67,7 @@ export function ManualPage() {
               <ReservationManual />
             </TabsContent>
             
-            <TabsContent value="shift" className="m-0">
+            <TabsContent value="schedule" className="m-0">
               <ShiftManual />
             </TabsContent>
           </div>
