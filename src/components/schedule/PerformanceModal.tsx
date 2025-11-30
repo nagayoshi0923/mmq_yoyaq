@@ -331,8 +331,8 @@ export function PerformanceModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="lg" className="overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent size="lg" className="max-h-[85vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b shrink-0">
           <DialogTitle>{modalTitle}</DialogTitle>
           <DialogDescription>
             {modalDescription}
@@ -340,13 +340,15 @@ export function PerformanceModal({
         </DialogHeader>
         
         <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="edit">公演情報</TabsTrigger>
-            <TabsTrigger value="reservations">予約者</TabsTrigger>
-          </TabsList>
+          <div className="px-6 pt-4 shrink-0">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="edit">公演情報</TabsTrigger>
+              <TabsTrigger value="reservations">予約者</TabsTrigger>
+            </TabsList>
+          </div>
           
-          <TabsContent value="edit" className="mt-4 overflow-y-auto flex-1">
-            <div className="space-y-4">
+          <TabsContent value="edit" className="flex-1 overflow-y-auto p-6 mt-0">
+            <div className="space-y-4 pb-20 sm:pb-0">
           {/* 基本情報 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -762,18 +764,10 @@ export function PerformanceModal({
           </div>
         </div>
 
-        {/* アクションボタン */}
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" onClick={onClose} className="min-w-[100px]">
-            キャンセル
-          </Button>
-          <Button onClick={handleSave} className="min-w-[100px]">
-            {mode === 'add' ? '追加' : '保存'}
-          </Button>
-        </div>
+          {/* アクションボタン削除 */}
           </TabsContent>
           
-          <TabsContent value="reservations" className="mt-4 overflow-y-auto flex-1">
+          <TabsContent value="reservations" className="flex-1 overflow-y-auto p-6 mt-0">
             <ReservationList
               event={event || null}
               currentEventData={formData}
@@ -785,6 +779,16 @@ export function PerformanceModal({
             />
           </TabsContent>
         </Tabs>
+
+        {/* フッターアクションボタン */}
+        <div className="flex justify-end gap-2 p-4 border-t bg-background shrink-0">
+          <Button variant="outline" onClick={onClose} className="min-w-[100px]">
+            キャンセル
+          </Button>
+          <Button onClick={handleSave} className="min-w-[100px]">
+            {mode === 'add' ? '追加' : '保存'}
+          </Button>
+        </div>
       </DialogContent>
 
       {/* シナリオ編集ダイアログ */}

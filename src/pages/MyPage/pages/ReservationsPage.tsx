@@ -230,7 +230,7 @@ export function ReservationsPage() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="shadow-none border">
         <CardContent className="py-8">
           <div className="text-center text-muted-foreground">読み込み中...</div>
         </CardContent>
@@ -249,7 +249,7 @@ export function ReservationsPage() {
   return (
     <div className="space-y-6">
       {/* 参加予定の予約 */}
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
@@ -350,7 +350,7 @@ export function ReservationsPage() {
       </Card>
 
       {/* 参加済みの予約 */}
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
@@ -432,7 +432,7 @@ export function ReservationsPage() {
 
       {/* キャンセル済みの予約 */}
       {cancelledReservations.length > 0 && (
-        <Card>
+        <Card className="shadow-none border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />

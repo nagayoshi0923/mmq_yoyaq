@@ -188,7 +188,14 @@ function PerformanceCardBase({
       
       {/* シナリオタイトル */}
       <div className={`font-bold line-clamp-2 mb-0.5 text-xs leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
-        {event.scenario || '未定'}
+        {event.scenario ? (
+          event.scenario
+        ) : (
+          <span className="text-red-500 flex items-center gap-1">
+             <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+             未定
+          </span>
+        )}
       </div>
       
       {/* GM情報 */}
@@ -200,7 +207,7 @@ function PerformanceCardBase({
           </span>
         ) : (
           <span className="text-red-500 font-bold flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" />
+            <AlertTriangle className="w-3 h-3 flex-shrink-0" />
             GM未定
           </span>
         )}
@@ -217,14 +224,6 @@ function PerformanceCardBase({
           {event.notes}
         </div>
       )}
-
-      {/* 右上ステータス群 */}
-      <div className="absolute top-1 right-1 flex gap-1 items-center">
-        {/* 警告アイコン */}
-        {isIncomplete && (
-          <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
-        )}
-      </div>
 
       {/* 右下：予約者数バッジ */}
       {!event.is_cancelled && !event.is_private_request && (

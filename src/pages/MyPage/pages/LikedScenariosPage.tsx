@@ -152,7 +152,7 @@ export function WantToPlayPage() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="shadow-none border">
         <CardContent className="py-8">
           <div className="text-center text-muted-foreground">読み込み中...</div>
         </CardContent>
@@ -162,7 +162,7 @@ export function WantToPlayPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
@@ -179,7 +179,10 @@ export function WantToPlayPage() {
               {wantToPlayScenarios.map((item) => (
                 <div
                   key={item.id}
-                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    window.location.hash = `customer-booking/scenario/${item.scenario.id}`
+                  }}
                 >
                   <div className="flex items-start gap-4 mb-3">
                     {/* シナリオ画像 */}
@@ -223,7 +226,10 @@ export function WantToPlayPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleRemove(item.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRemove(item.id)
+                          }}
                           className="hover:bg-red-50"
                           title="リストから削除"
                         >

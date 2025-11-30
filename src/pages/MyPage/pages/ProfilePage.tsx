@@ -245,7 +245,7 @@ export function ProfilePage() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="shadow-none border">
         <CardContent className="py-8">
           <div className="text-center text-muted-foreground text-sm">読み込み中...</div>
         </CardContent>
@@ -256,7 +256,7 @@ export function ProfilePage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* ユーザー基本情報 */}
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <User className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -378,7 +378,7 @@ export function ProfilePage() {
       </Card>
 
       {/* プロフィール編集 */}
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <User className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -472,7 +472,7 @@ export function ProfilePage() {
       </Card>
 
       {/* アカウント削除セクション */}
-      <Card className="border-destructive">
+      <Card className="border-destructive shadow-none">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-5 w-5" />

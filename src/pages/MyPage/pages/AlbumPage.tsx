@@ -324,7 +324,7 @@ export function AlbumPage() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="shadow-none border">
         <CardContent className="py-8">
           <div className="text-center text-muted-foreground text-sm">読み込み中...</div>
         </CardContent>
@@ -336,19 +336,19 @@ export function AlbumPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* 統計 */}
       <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <Card>
+        <Card className="shadow-none border">
           <CardContent className="pt-4 sm:pt-6 text-center">
             <div className="text-lg text-primary">{playedScenarios.length}</div>
             <div className="text-xs text-muted-foreground mt-1">総プレイ回数</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="shadow-none border">
           <CardContent className="pt-4 sm:pt-6 text-center">
             <div className="text-lg text-primary">{scenarioGroups.length}</div>
             <div className="text-xs text-muted-foreground mt-1">プレイしたシナリオ</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="shadow-none border">
           <CardContent className="pt-4 sm:pt-6 text-center">
             <div className="text-lg text-primary">{likedScenariosList.length}</div>
             <div className="text-xs text-muted-foreground mt-1">いいねしたシナリオ</div>
@@ -357,7 +357,7 @@ export function AlbumPage() {
       </div>
 
       {/* シナリオリスト */}
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Images className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -485,7 +485,7 @@ export function AlbumPage() {
       </Card>
 
       {/* いいねしたシナリオ */}
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Star className="h-4 w-4 sm:h-5 sm:w-5 fill-yellow-400 text-yellow-400" />
@@ -598,7 +598,7 @@ export function AlbumPage() {
 
       {/* 非表示にしたシナリオ */}
       {hiddenScenarios.size > 0 && (
-        <Card>
+        <Card className="shadow-none border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />

@@ -74,7 +74,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <SettingsIcon className="h-5 w-5" />
@@ -114,7 +114,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle>表示設定</CardTitle>
         </CardHeader>
@@ -131,7 +131,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle>言語</CardTitle>
         </CardHeader>
@@ -144,7 +144,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-destructive">
+      <Card className="border-destructive shadow-none">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-5 w-5" />
