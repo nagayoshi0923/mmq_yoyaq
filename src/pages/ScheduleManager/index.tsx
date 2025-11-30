@@ -18,6 +18,13 @@ import type { Staff } from '@/types'
 
 // Layout Components
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
+
+// UI Components
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { HelpButton } from '@/components/ui/help-button'
+import { MonthSwitcher } from '@/components/patterns/calendar'
 
 // Schedule Components
 import { ConflictWarningModal } from '@/components/schedule/ConflictWarningModal'
@@ -25,13 +32,12 @@ import { ContextMenu, Copy, Clipboard } from '@/components/schedule/ContextMenu'
 import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
 import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
-import { ScheduleHeader } from '@/components/schedule/ScheduleHeader'
 import { CategoryTabs } from '@/components/schedule/CategoryTabs'
 import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload } from 'lucide-react'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -127,8 +133,6 @@ export function ScheduleManager() {
     }
   }), [scheduleTableProps, filteredGetEventsForSlot, temporaryVenues])
 
-  // デモ参加者追加処理（削除済み - 別途スクリプトで実行）
-
   // ハッシュ変更でページ切り替え
   useEffect(() => {
     const handleHashChange = () => {
@@ -153,15 +157,58 @@ export function ScheduleManager() {
     >
       <div className="space-y-6 max-w-[1280px] mx-auto">
         {/* ヘッダー */}
-        <ScheduleHeader
-          currentDate={currentDate}
-          isLoading={false}
-          onDateChange={setCurrentDate}
-          onImportClick={() => setIsImportModalOpen(true)}
-          gmList={gmList}
-          selectedGM={selectedGM}
-          onGMChange={setSelectedGM}
-        />
+        <div className="space-y-4">
+          <PageHeader
+            title={
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-6 w-6 text-primary" />
+                <span className="text-xl font-bold tracking-tight">スケジュール管理</span>
+              </div>
+            }
+            description="月ごとの公演スケジュールとGM配置を管理します"
+            className="mb-2"
+          >
+            <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
+          </PageHeader>
+
+          {/* 操作行 */}
+          <div className="flex flex-wrap items-center gap-3 pl-1">
+            <MonthSwitcher
+              value={currentDate}
+              onChange={setCurrentDate}
+              showToday
+              quickJump
+              enableKeyboard
+            />
+            
+            {/* スタッフフィルター */}
+            {gmList.length > 0 && (
+              <Select value={selectedGM} onValueChange={setSelectedGM}>
+                <SelectTrigger className="w-36 sm:w-48 h-9">
+                  <SelectValue placeholder="スタッフ選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全スタッフ</SelectItem>
+                  {gmList.map((staff) => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      {staff.display_name || staff.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => setIsImportModalOpen(true)}
+              title="インポート"
+              className="h-9 w-9"
+            >
+              <Upload className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
         {/* カテゴリータブ */}
         <CategoryTabs
