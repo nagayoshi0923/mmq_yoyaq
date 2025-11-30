@@ -35,7 +35,7 @@ const statusOptions = [
 ]
 
 export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLink, onUnlink, onDelete }: StaffEditFormProps) {
-  const [formData, setFormData] = useState<Partial<Staff>>({
+  const [formData, setFormData] = useState<Partial<Staff> & { experienced_scenarios?: string[] }>({
     name: '',
     x_account: '',
     discord_id: '',
@@ -47,6 +47,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
     stores: [],
     status: 'active',
     special_scenarios: [],
+    experienced_scenarios: [],
     notes: '',
   })
 
@@ -56,10 +57,24 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
         ...staff,
         role: staff.role || [],
         stores: staff.stores || [],
-        special_scenarios: staff.special_scenarios || []
+        special_scenarios: staff.special_scenarios || [],
+        experienced_scenarios: (staff as any).experienced_scenarios || []
       })
     }
   }, [staff])
+  
+  // 担当シナリオ変更時：体験済みにも自動追加（担当=体験済み）
+  const handleSpecialScenariosChange = (values: string[]) => {
+    // 新しく追加されたシナリオを体験済みにも追加
+    const currentExperienced = formData.experienced_scenarios || []
+    const newExperienced = [...new Set([...currentExperienced, ...values])]
+    
+    setFormData({ 
+      ...formData, 
+      special_scenarios: values,
+      experienced_scenarios: newExperienced
+    })
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -213,15 +228,29 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
             </div>
 
             <div>
-              <Label>特別シナリオ</Label>
+              <Label>担当シナリオ（GM可能）</Label>
               <MultiSelect
                 options={scenarioOptions}
                 selectedValues={formData.special_scenarios || []}
-                onSelectionChange={(values) => setFormData({ ...formData, special_scenarios: values })}
-                placeholder="シナリオを選択"
+                onSelectionChange={handleSpecialScenariosChange}
+                placeholder="GM可能なシナリオを選択"
                 useIdAsValue={true}
                 showBadges={true}
               />
+              <p className="text-xs text-muted-foreground mt-1">※追加すると体験済みにも自動追加されます</p>
+            </div>
+
+            <div>
+              <Label>体験済みシナリオ</Label>
+              <MultiSelect
+                options={scenarioOptions}
+                selectedValues={formData.experienced_scenarios || []}
+                onSelectionChange={(values) => setFormData({ ...formData, experienced_scenarios: values })}
+                placeholder="体験済みシナリオを選択"
+                useIdAsValue={true}
+                showBadges={true}
+              />
+              <p className="text-xs text-muted-foreground mt-1">※GMはできないが体験したシナリオ</p>
             </div>
               </div>
             </div>

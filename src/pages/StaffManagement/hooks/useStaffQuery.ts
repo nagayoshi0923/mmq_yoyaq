@@ -44,20 +44,87 @@ export function useStaffMutation() {
   return useMutation({
     mutationFn: async ({ staff, isEdit }: { staff: Staff; isEdit: boolean }) => {
       let result: Staff
+      const staffData = staff as Staff & { experienced_scenarios?: string[] }
+      
       if (isEdit) {
         result = await staffApi.update(staff.id, staff)
         
-        // staff_scenario_assignmentsテーブルも同期更新
-        // special_scenariosが変更された場合、リレーションテーブルを更新
-        if (staff.special_scenarios) {
-          await assignmentApi.updateStaffAssignments(staff.id, staff.special_scenarios)
+        // staff_scenario_assignmentsテーブルを同期更新
+        // 担当シナリオ（GM可能）と体験済みシナリオを統合して保存
+        const gmScenarios = staffData.special_scenarios || []
+        const expScenarios = staffData.experienced_scenarios || []
+        
+        // アサインメントオブジェクトを構築
+        // GM可能シナリオ: can_main_gm=true, can_sub_gm=true, is_experienced=true
+        // 体験のみシナリオ: can_main_gm=false, can_sub_gm=false, is_experienced=true
+        const assignments: Array<{
+          scenarioId: string
+          can_main_gm: boolean
+          can_sub_gm: boolean
+          is_experienced: boolean
+        }> = []
+        
+        // GM可能シナリオを追加（体験済みも含む）
+        gmScenarios.forEach(scenarioId => {
+          assignments.push({
+            scenarioId,
+            can_main_gm: true,
+            can_sub_gm: true,
+            is_experienced: true
+          })
+        })
+        
+        // 体験のみシナリオを追加（GM可能に含まれないもの）
+        expScenarios.forEach(scenarioId => {
+          if (!gmScenarios.includes(scenarioId)) {
+            assignments.push({
+              scenarioId,
+              can_main_gm: false,
+              can_sub_gm: false,
+              is_experienced: true
+            })
+          }
+        })
+        
+        if (assignments.length > 0 || gmScenarios.length === 0) {
+          await assignmentApi.updateStaffAssignments(staff.id, assignments)
         }
       } else {
         result = await staffApi.create(staff)
         
         // 新規作成時もリレーションテーブルに追加
-        if (staff.special_scenarios && staff.special_scenarios.length > 0 && result.id) {
-          await assignmentApi.updateStaffAssignments(result.id, staff.special_scenarios)
+        const gmScenarios = staffData.special_scenarios || []
+        const expScenarios = staffData.experienced_scenarios || []
+        
+        const assignments: Array<{
+          scenarioId: string
+          can_main_gm: boolean
+          can_sub_gm: boolean
+          is_experienced: boolean
+        }> = []
+        
+        gmScenarios.forEach(scenarioId => {
+          assignments.push({
+            scenarioId,
+            can_main_gm: true,
+            can_sub_gm: true,
+            is_experienced: true
+          })
+        })
+        
+        expScenarios.forEach(scenarioId => {
+          if (!gmScenarios.includes(scenarioId)) {
+            assignments.push({
+              scenarioId,
+              can_main_gm: false,
+              can_sub_gm: false,
+              is_experienced: true
+            })
+          }
+        })
+        
+        if (assignments.length > 0 && result.id) {
+          await assignmentApi.updateStaffAssignments(result.id, assignments)
         }
       }
       return result
