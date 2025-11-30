@@ -6,6 +6,7 @@ import { MonthSwitcher } from '@/components/patterns/calendar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Upload, CalendarDays } from 'lucide-react'
 import { HelpButton } from '@/components/ui/help-button'
+import { PageHeader } from '@/components/layout/PageHeader'
 import type { Staff } from '@/types'
 
 interface ScheduleHeaderProps {
@@ -28,35 +29,37 @@ export const ScheduleHeader = memo(function ScheduleHeader({
   onGMChange
 }: ScheduleHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 mb-6">
-      {/* タイトル行 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight">スケジュール管理</h1>
-          {isLoading && (
-            <div className="ml-2 text-sm text-muted-foreground flex items-center gap-1">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
-              <span className="hidden sm:inline">更新中...</span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={onImportClick}
-            title="インポート"
-            className="h-9 w-9"
-          >
-            <Upload className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+    <div className="mb-6 space-y-4">
+      <PageHeader
+        title={
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-6 w-6 text-primary" />
+            <span className="text-xl font-bold tracking-tight">スケジュール管理</span>
+            {isLoading && (
+              <div className="ml-2 text-sm text-muted-foreground flex items-center gap-1">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                <span className="hidden sm:inline font-normal">更新中...</span>
+              </div>
+            )}
+          </div>
+        }
+        description="月ごとの公演スケジュールとGM配置を管理します"
+        className="mb-2" // PageHeaderのデフォルトマージンを上書き調整
+      >
+        <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
+        <Button 
+          variant="outline" 
+          size="icon"
+          onClick={onImportClick}
+          title="インポート"
+          className="h-9 w-9"
+        >
+          <Upload className="h-4 w-4" />
+        </Button>
+      </PageHeader>
 
       {/* 操作行（モバイル対応：折り返し） */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 pl-1">
         <MonthSwitcher
           value={currentDate}
           onChange={onDateChange}
@@ -85,4 +88,3 @@ export const ScheduleHeader = memo(function ScheduleHeader({
     </div>
   )
 })
-

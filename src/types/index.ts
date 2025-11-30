@@ -39,6 +39,7 @@ export interface Store {
 export interface Staff {
   id: string
   name: string
+  display_name?: string // 追加
   line_name?: string
   x_account?: string
   discord_id?: string
