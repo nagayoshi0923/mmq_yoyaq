@@ -288,6 +288,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
               if (data?.name) {
                 setStaffCache(prev => new Map(prev.set(supabaseUser.id, data.name)))
                 logger.log('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
+                // ユーザー情報も更新してヘッダーに反映
+                setUser(prev => prev ? { ...prev, staffName: data.name } : prev)
               }
           }).catch((error) => {
               logger.log('📋 スタッフ情報の取得エラー（バックグラウンド）:', error)
