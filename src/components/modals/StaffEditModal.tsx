@@ -118,9 +118,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     try {
       setIsLoadingAssignments(true)
       setAssignmentsLoaded(false)
-      console.log('🔍 [DEBUG] loadAssignments starting for staff:', staffId)
       const assignments = await assignmentApi.getAllStaffAssignments(staffId)
-      console.log('🔍 [DEBUG] loadAssignments got:', assignments.length, 'assignments')
       
       // APIレスポンスをUI用ステートに変換
       const formattedAssignments: ScenarioAssignment[] = assignments.map((a: any) => ({
@@ -133,10 +131,8 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       
       setScenarioAssignments(formattedAssignments)
       setAssignmentsLoaded(true)
-      console.log('✅ [DEBUG] loadAssignments completed, assignmentsLoaded = true')
     } catch (error) {
       logger.error('Failed to load assignments:', error)
-      console.error('❌ [DEBUG] loadAssignments failed:', error)
       // エラー時はロード失敗として扱い、保存時にアサインメントを更新しない
       setAssignmentsLoaded(false)
     } finally {
@@ -197,26 +193,14 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       // - 既存スタッフ編集時のみ
       // - アサインメントが正常に読み込まれた場合のみ
       // - アサインメントが変更された場合のみ
-      console.log('🔍 [DEBUG] Save conditions:', { 
-        staffId: staff?.id, 
-        assignmentsLoaded, 
-        assignmentsChanged,
-        scenarioAssignmentsCount: scenarioAssignments.length 
-      })
-      
       if (staff?.id && assignmentsLoaded && assignmentsChanged) {
         try {
-          console.log('🔍 [DEBUG] Calling updateStaffAssignments with:', scenarioAssignments)
           await assignmentApi.updateStaffAssignments(staff.id, scenarioAssignments)
-          console.log('✅ [DEBUG] updateStaffAssignments completed')
         } catch (assignmentError) {
           logger.error('Error updating assignments:', assignmentError)
-          console.error('❌ [DEBUG] updateStaffAssignments failed:', assignmentError)
           // アサインメント更新に失敗しても、スタッフ情報は保存済みなので警告のみ
           alert('スタッフ情報は保存されましたが、担当シナリオの更新に失敗しました。再度編集画面を開いて確認してください。')
         }
-      } else {
-        console.log('⏭️ [DEBUG] Skipping assignment update due to conditions not met')
       }
       
       if (closeAfterSave) {

@@ -313,8 +313,6 @@ export const assignmentApi = {
     
     if (error) throw error
     
-    console.log('🔍 [DEBUG] getBatchScenarioAssignments GM可能レコード:', data?.length, '件')
-    
     // staff_idからスタッフ名を取得するために、別途スタッフ情報を取得
     const staffIds = [...new Set(data?.map(a => a.staff_id).filter(Boolean) || [])]
     
@@ -345,8 +343,6 @@ export const assignmentApi = {
       }
     })
     
-    console.log('🔍 [DEBUG] シナリオ数:', assignmentMap.size)
-    
     return assignmentMap
   },
 
@@ -371,8 +367,6 @@ export const assignmentApi = {
       .or('can_main_gm.eq.true,can_sub_gm.eq.true,is_experienced.eq.true')
     
     if (error) throw error
-    
-    console.log('🔍 [DEBUG] getBatchStaffAssignments 有効レコード:', data?.length, '件')
     
     // スタッフIDごとにGM可能なシナリオと体験済みシナリオをグループ化
     const assignmentMap = new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
@@ -404,8 +398,6 @@ export const assignmentApi = {
         }
       }
     })
-    
-    console.log('🔍 [DEBUG] getBatchStaffAssignments スタッフ数:', assignmentMap.size)
     
     return assignmentMap
   }
