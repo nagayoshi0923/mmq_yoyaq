@@ -14,12 +14,19 @@ import {
   ChevronLeft,
   ChevronRight,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  Info
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { staffApi, scheduleApi } from '@/lib/api'
 import { format, addDays, startOfMonth, endOfMonth, isSameDay, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from 'date-fns'
 import { ja } from 'date-fns/locale'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface DashboardHomeProps {
   onPageChange: (pageId: string) => void
@@ -31,6 +38,8 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   const [loading, setLoading] = useState(true)
   const [staffName, setStaffName] = useState('')
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
 
   // 統計情報を遅延ロード（管理者向け情報として残す）
   const [stats, setStats] = useState({
@@ -143,6 +152,20 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     return mySchedule.filter(event => event.date === dateStr)
   }
 
+  // 選択された日のイベント
+  const selectedDateEvents = useMemo(() => {
+    if (!selectedDate) return []
+    return getEventsForDate(selectedDate)
+  }, [selectedDate, mySchedule])
+
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date)
+    const events = getEventsForDate(date)
+    if (events.length > 0) {
+      setIsDetailOpen(true)
+    }
+  }
+
   // ナビゲーションメニュー
   const navigationTabs = useMemo(() => [
     { id: 'shift-submission', label: 'シフト提出', icon: Clock, color: 'bg-indigo-100 text-indigo-800' },
@@ -245,7 +268,6 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                 const dateStr = format(day, 'yyyy-MM-dd')
                 const dayEvents = getEventsForDate(day)
                 const hasEvent = dayEvents.length > 0
-                const isSelected = false // 選択状態の実装は後ほど
                 
                 return (
                   <div 
@@ -255,21 +277,16 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                       ${isToday(day) ? 'bg-primary/5 border-primary font-bold' : 'border-transparent hover:bg-accent'}
                       ${hasEvent ? 'bg-accent/30' : ''}
                     `}
-                    onClick={() => {
-                      // 日付クリック時の処理（詳細表示など）
-                      if (hasEvent) {
-                        alert(`${format(day, 'M月d日')}のシフト:\n${dayEvents.map(e => `${e.start_time.slice(0, 5)} ${e.scenarios?.title || e.scenario}`).join('\n')}`)
-                      }
-                    }}
+                    onClick={() => handleDateClick(day)}
                   >
                     <span className={`text-xs sm:text-sm ${getDay(day) === 0 ? 'text-red-500' : getDay(day) === 6 ? 'text-blue-500' : ''}`}>
                       {format(day, 'd')}
                     </span>
                     
                     {/* イベントインジケーター */}
-                    <div className="flex flex-col gap-0.5 mt-1 w-full px-0.5">
+                    <div className="flex flex-col gap-0.5 mt-1 w-full px-0.5 items-center">
                       {dayEvents.map((e, i) => (
-                        <div key={i} className="h-1.5 w-full bg-primary/70 rounded-full" title={e.scenarios?.title} />
+                        <div key={i} className="h-1.5 w-1.5 bg-primary rounded-full" title={e.scenarios?.title} />
                       ))}
                     </div>
                   </div>
@@ -282,8 +299,8 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
 
       {/* 3. クイックリンク */}
       <section>
-        <h2>クイックメニュー</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+        <h2 className="text-lg font-bold mb-3">クイックメニュー</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {navigationTabs.map((tab) => {
             const Icon = tab.icon
             return (
@@ -347,6 +364,38 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           </div>
         </section>
       )}
+
+      {/* 日付詳細ダイアログ */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5 text-primary" />
+              {selectedDate && format(selectedDate, 'M月d日(EEE)', { locale: ja })}のシフト
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            {selectedDateEvents.map((event, i) => (
+              <div key={i} className="bg-muted/50 p-4 rounded-lg border">
+                <div className="flex items-start justify-between mb-2">
+                   <h3 className="font-bold text-lg">{event.scenarios?.title || event.scenario}</h3>
+                   <Badge>{event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}</Badge>
+                </div>
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    <span>{event.stores?.name || event.venue}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <span>予約: {event.current_participants}名</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
