@@ -38,6 +38,26 @@ interface PrivateBookingNotification {
   }
 }
 
+// シナリオタイトルを取得する関数
+async function fetchScenarioTitle(scenarioId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('scenarios')
+      .select('title')
+      .eq('id', scenarioId)
+      .single()
+    
+    if (error) {
+      console.error('❌ Error fetching scenario title:', error)
+      return null
+    }
+    return data?.title || null
+  } catch (e) {
+    console.error('❌ Exception fetching scenario title:', e)
+    return null
+  }
+}
+
 // 個別チャンネルに通知を送信する関数
 async function sendNotificationToGMChannels(booking: any) {
   console.log('📤 Sending notifications to individual GM channels...')
@@ -235,6 +255,16 @@ serve(async (req) => {
 
     console.log('✅ Processing insert operation')
     const booking = payload.record
+
+    // 予約データにscenario_titleがない場合（reservationsテーブルなど）、DBから取得を試みる
+    if (!booking.scenario_title && !booking.title && booking.scenario_id) {
+      console.log('ℹ️ Scenario title missing in payload, fetching from DB...')
+      const title = await fetchScenarioTitle(booking.scenario_id)
+      if (title) {
+        booking.scenario_title = title
+        console.log(`✅ Fetched scenario title: ${title}`)
+      }
+    }
 
     // 通知設定をチェック
     const { data: notificationSettings, error: settingsError } = await supabase

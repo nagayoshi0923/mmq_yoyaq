@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Badge } from '@/components/ui/badge'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConditionalSetting } from '@/components/ui/conditional-settings'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
@@ -76,6 +77,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   
   // スタッフデータ用のstate
   const [staff, setStaff] = useState<Staff[]>([])
+  const [loadingStaff, setLoadingStaff] = useState(false)
   
   // 担当関係データ用のstate
   const [currentAssignments, setCurrentAssignments] = useState<any[]>([])
@@ -852,6 +854,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
       // 担当GM関係をリレーションテーブルで更新
       if (updatedScenario.id) {
+        // IDのみの比較では不十分だが、最低限の追加/削除チェック
         const originalStaffIds = currentAssignments.map(a => a.staff_id).sort()
         const newStaffIds = [...selectedStaffIds].sort()
         
@@ -860,9 +863,10 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
           try {
             if (scenario?.id) {
               // 既存シナリオの場合
+              // 差分更新ロジックに変更されたAPIを使用
               await assignmentApi.updateScenarioAssignments(updatedScenario.id, selectedStaffIds)
             } else {
-              // 新規作成の場合（保存後にIDが確定してから担当関係を追加）
+              // 新規作成の場合
               // 新規作成時はupdatedScenario.idが仮のIDなので、実際のシナリオ保存後に処理する
             }
           } catch (syncError) {
@@ -890,7 +894,13 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     onClose()
   }
 
-
+  // 選択状態の変更ハンドラ（追加時にUI側のstateを更新）
+  const handleSelectionChange = (newSelectedIds: string[]) => {
+    setSelectedStaffIds(newSelectedIds)
+    
+    // UI上での表示用にも反映（詳細設定パネル等があればここで更新）
+    // 現在は単純なIDリスト管理のみ
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -1085,9 +1095,20 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 <div className="text-xs text-muted-foreground mb-2">
                   担当開始時期は自動的に記録されます
                 </div>
-              {(() => {
-                // 通常のGMスタッフ
-                const activeGMs = staff.filter(s => Array.isArray(s.role) && s.role.includes('gm') && s.status === 'active')
+              {loadingStaff ? (
+                <div className="flex items-center justify-center p-4 text-sm text-muted-foreground bg-gray-50 rounded border">
+                  スタッフデータを読み込み中...
+                </div>
+              ) : staff.length === 0 ? (
+                <div className="text-sm text-red-500 p-2 border border-red-200 rounded bg-red-50">
+                  スタッフデータが見つかりません。
+                </div>
+              ) : (() => {
+                // 通常のGMスタッフ（安全なフィルタリング）
+                const activeGMs = staff.filter(s => {
+                  const roles = Array.isArray(s.role) ? s.role : (s.role ? [s.role] : [])
+                  return roles.includes('gm') && s.status === 'active'
+                })
                 
                 // 既に担当GMとして設定されているスタッフ（role/statusに関係なく含める）
                 const assignedStaff = staff.filter(s => selectedStaffIds.includes(s.id))
@@ -1100,27 +1121,72 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                   }
                 })
                 
-                const gmOptions = allAvailableStaff.map(staffMember => ({
-                  id: staffMember.id,
-                  name: staffMember.name,
-                  displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name || ''}${
-                    !staffMember.role.includes('gm') || staffMember.status !== 'active' 
-                      ? ' (非アクティブGM)' 
-                      : ''
-                  }`
-                }))
+                const gmOptions = allAvailableStaff.map(staffMember => {
+                  const roles = Array.isArray(staffMember.role) ? staffMember.role : (staffMember.role ? [staffMember.role] : [])
+                  const isGm = roles.includes('gm')
+                  
+                  return {
+                    id: staffMember.id,
+                    name: staffMember.name,
+                    displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name || ''}${
+                      !isGm || staffMember.status !== 'active' 
+                        ? ' (非アクティブGM)' 
+                        : ''
+                    }`
+                  }
+                })
                 
                 return (
                   <MultiSelect
                     options={gmOptions}
                     selectedValues={selectedStaffIds}
-                    onSelectionChange={setSelectedStaffIds}
+                    onSelectionChange={handleSelectionChange}
                     placeholder="担当GMを選択してください"
                     showBadges={true}
                     useIdAsValue={true}
                   />
                 )
               })()}
+              
+              {/* 選択されたGMの詳細表示エリア（簡易版） */}
+              {selectedStaffIds.length > 0 && (
+                <ScrollArea className="h-[200px] border rounded-md p-2 mt-2">
+                  <div className="space-y-2">
+                    {selectedStaffIds.map(staffId => {
+                      const staffMember = staff.find(s => s.id === staffId)
+                      // 現在のアサインメント情報を探す（APIから取得したもの、またはデフォルト）
+                      const assignment = currentAssignments.find(a => a.staff_id === staffId) || {
+                        can_main_gm: true, // デフォルト表示
+                        can_sub_gm: true,  // デフォルト表示
+                        status: 'can_gm'   // デフォルト表示
+                      }
+                      
+                      if (!staffMember) return null
+                      
+                      return (
+                        <div key={staffId} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                          <div className="font-medium truncate flex-1 mr-2">
+                            {staffMember.name}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                             {/* 現状は表示のみ。詳細編集はスタッフ管理ページで行うよう案内 */}
+                             <Badge variant="outline" className="text-xs font-normal">
+                                {assignment.can_main_gm ? 'メイン可' : ''}
+                                {assignment.can_main_gm && assignment.can_sub_gm ? ' / ' : ''}
+                                {assignment.can_sub_gm ? 'サブ可' : ''}
+                                {!assignment.can_main_gm && !assignment.can_sub_gm ? '権限なし' : ''}
+                             </Badge>
+                             {assignment.status === 'want_to_learn' && <Badge variant="secondary" className="text-xs">修行中</Badge>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-2 text-right">
+                    ※ 詳細な権限設定はスタッフ管理ページで行ってください
+                  </div>
+                </ScrollArea>
+              )}
             </div>
 
           </div>
@@ -1188,7 +1254,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     </Select>
                     <Input
                       type="text"
-                      placeholder="円"
+                      placeholder="金額"
                       value={formatCurrency(newRequiredPropAmount || 0)}
                       onChange={(e) => setNewRequiredPropAmount(parseCurrency(e.target.value))}
                       className="w-[120px]"

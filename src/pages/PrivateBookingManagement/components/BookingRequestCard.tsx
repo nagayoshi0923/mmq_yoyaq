@@ -48,6 +48,10 @@ interface BookingRequestCardProps {
 /**
  * 貸切リクエストカードコンポーネント
  */
+import { cn } from '@/lib/utils'
+
+// ...
+
 export const BookingRequestCard = ({
   request,
   onSelectRequest,
@@ -57,7 +61,7 @@ export const BookingRequestCard = ({
   const elapsedTimeColor = elapsedDays >= 3 ? 'text-red-600 font-medium' : 'text-purple-600'
   
   return (
-    <Card className={getCardClassName(request.status)}>
+    <Card className={cn(getCardClassName(request.status), "shadow-none")}>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">{request.scenario_title}</CardTitle>

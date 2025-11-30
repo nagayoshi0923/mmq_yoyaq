@@ -136,7 +136,7 @@ export function GMAvailabilityCheck() {
           {/* 未回答タブ */}
           <TabsContent value="pending" className="mt-0">
             {pendingRequests.length === 0 ? (
-              <Card>
+              <Card className="shadow-none border">
                 <CardContent className="py-8 text-center text-muted-foreground text-sm">
                   未回答のリクエストはありません
                 </CardContent>
@@ -173,7 +173,7 @@ export function GMAvailabilityCheck() {
           {/* 全てのリクエストタブ（月別） */}
           <TabsContent value="all" className="mt-0">
             {allRequests.length === 0 ? (
-              <Card>
+              <Card className="shadow-none border">
                 <CardContent className="py-8 text-center text-muted-foreground text-sm">
                   {formatMonthYear(currentDate)}のリクエストはありません
                 </CardContent>

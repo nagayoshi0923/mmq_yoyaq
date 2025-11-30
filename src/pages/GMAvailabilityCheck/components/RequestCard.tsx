@@ -39,7 +39,7 @@ export function RequestCard({
   const elapsedTimeColor = elapsedDays >= 3 ? 'text-red-600 font-medium' : 'text-purple-600'
 
   return (
-    <Card className="shadow-none">
+    <Card className="shadow-none border">
       <CardHeader className="bg-purple-50 border-b">
         <div className="flex justify-between items-start">
           <div>

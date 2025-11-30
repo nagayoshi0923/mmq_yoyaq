@@ -256,7 +256,7 @@ export function PrivateBookingManagement() {
           <TabsContent value={activeTab} className="mt-0">
 
             {filteredRequests.length === 0 ? (
-              <Card>
+              <Card className="shadow-none border">
                 <CardContent className="py-8 text-center text-muted-foreground text-sm">
                   該当するリクエストがありません
                 </CardContent>
