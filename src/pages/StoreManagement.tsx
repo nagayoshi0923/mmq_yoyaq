@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { HelpButton } from '@/components/ui/help-button'
 import { StoreEditModal } from '@/components/modals/StoreEditModal'
 import { storeApi } from '@/lib/api'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -13,7 +14,6 @@ import {
   Store as StoreIcon, 
   Plus, 
   Edit, 
-  Trash2, 
   MapPin, 
   Phone, 
   Mail, 
@@ -78,10 +78,8 @@ export function StoreManagement() {
   }
 
   function openEditModal(store: Store | null) {
-    console.log('openEditModal called with:', store)
     setEditingStore(store)
     setIsEditModalOpen(true)
-    console.log('Modal state set to open')
   }
 
   async function handleSaveStore(updatedStore: Store) {
@@ -135,10 +133,13 @@ export function StoreManagement() {
   // ステータスバッジを返すヘルパー関数
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active': return <Badge className="bg-green-100 text-green-800">営業中</Badge>
-      case 'temporarily_closed': return <Badge className="bg-yellow-100 text-yellow-800">一時休業</Badge>
-      case 'closed': return <Badge className="bg-red-100 text-red-800">閉鎖</Badge>
-      default: return <Badge className="bg-gray-100 text-gray-800">不明</Badge>
+      // @ts-ignore
+      case 'active': return <Badge variant="success">営業中</Badge>
+      // @ts-ignore
+      case 'temporarily_closed': return <Badge variant="warning">一時休業</Badge>
+      // @ts-ignore
+      case 'closed': return <Badge variant="gray">閉鎖</Badge>
+      default: return <Badge variant="outline">不明</Badge>
     }
   }
 
@@ -150,66 +151,76 @@ export function StoreManagement() {
     <AppLayout
       currentPage="stores"
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+      containerPadding="px-2 py-4 sm:px-6"
     >
-      <div className="space-y-3 sm:space-y-4 md:space-y-6">
+      <div className="space-y-6">
           <PageHeader
             title="店舗管理"
             description={`Queens Waltz 全${stores.length}店舗の管理`}
           >
+            <HelpButton topic="store" label="店舗管理マニュアル" />
             <Button 
               onClick={() => openEditModal(null)}
               size="sm"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              新規店舗
+              <Plus className="mr-1 h-4 w-4" />
+              <span className="hidden sm:inline">新規店舗</span>
+              <span className="sm:hidden">新規</span>
             </Button>
           </PageHeader>
 
+          {error && (
+            <Card className="border-red-500 bg-red-50 shadow-none">
+              <CardContent className="p-4 text-red-800 text-sm">
+                {error}
+              </CardContent>
+            </Card>
+          )}
+
           {/* 統計情報 */}
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-            <Card>
-              <CardContent className="pt-3 sm:pt-4 md:pt-6">
-                <div className="flex items-center gap-1.5 sm:gap-2">
+            <Card className="shadow-none border">
+              <CardContent className="p-3 sm:p-4 md:pt-6">
+                <div className="flex items-center gap-2">
                   <StoreIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-base md:text-lg truncate">{stores.length}</p>
+                    <p className="text-xl sm:text-2xl font-bold">{stores.length}</p>
                     <p className="text-xs text-muted-foreground truncate">総店舗数</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="pt-3 sm:pt-4 md:pt-6">
-                <div className="flex items-center gap-1.5 sm:gap-2">
+            <Card className="shadow-none border">
+              <CardContent className="p-3 sm:p-4 md:pt-6">
+                <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-base md:text-lg truncate">{totalCapacity}名</p>
+                    <p className="text-xl sm:text-2xl font-bold">{totalCapacity}名</p>
                     <p className="text-xs text-muted-foreground truncate">総収容人数</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="pt-3 sm:pt-4 md:pt-6">
-                <div className="flex items-center gap-1.5 sm:gap-2">
+            <Card className="shadow-none border">
+              <CardContent className="p-3 sm:p-4 md:pt-6">
+                <div className="flex items-center gap-2">
                   <DoorOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-base md:text-lg truncate">{totalRooms}室</p>
+                    <p className="text-xl sm:text-2xl font-bold">{totalRooms}室</p>
                     <p className="text-xs text-muted-foreground truncate">総部屋数</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="pt-3 sm:pt-4 md:pt-6">
-                <div className="flex items-center gap-1.5 sm:gap-2">
+            <Card className="shadow-none border">
+              <CardContent className="p-3 sm:p-4 md:pt-6">
+                <div className="flex items-center gap-2">
                   <Building className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-base md:text-lg truncate">{activeStores}</p>
+                    <p className="text-xl sm:text-2xl font-bold">{activeStores}</p>
                     <p className="text-xs text-muted-foreground truncate">営業中店舗</p>
                   </div>
                 </div>
@@ -218,35 +229,35 @@ export function StoreManagement() {
           </div>
 
           {/* 店舗一覧 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             {stores.map((store) => {
               const colors = getStoreThemeClasses(store.short_name)
               
               return (
-                <Card key={store.id} className="bg-card border-border">
-                  <CardHeader>
+                <Card key={store.id} className="bg-card border-border shadow-none">
+                  <CardHeader className="p-4 pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <CardTitle className="flex items-center gap-1.5 sm:gap-2 text-lg">
-                          <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0 ${colors.dot}`}></div>
+                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${colors.dot}`}></div>
                           <span className="truncate">{store.name}</span>
                         </CardTitle>
-                        <CardDescription className="text-xs sm:text-sm truncate">
+                        <CardDescription className="text-xs mt-1">
                           {store.short_name}
                         </CardDescription>
                       </div>
-                      <div className="flex flex-col gap-1 sm:gap-2 flex-shrink-0">
-                        <div className="scale-75 sm:scale-100 origin-top-right">
-                          {getStatusBadge(store.status)}
-                        </div>
+                      <div className="flex flex-col gap-1 items-end flex-shrink-0">
+                        {getStatusBadge(store.status)}
                         {store.ownership_type && (
-                          <Badge className={
-                            `text-xs px-1 sm:px-2 py-0 ${
-                              store.ownership_type === 'corporate' ? 'bg-blue-100 text-blue-800' : 
-                              store.ownership_type === 'office' ? 'bg-purple-100 text-purple-800' :
-                              'bg-amber-100 text-amber-800'
-                            }`
-                          }>
+                          <Badge 
+                            // @ts-ignore
+                            variant={
+                              store.ownership_type === 'corporate' ? 'info' : 
+                              store.ownership_type === 'office' ? 'purple' :
+                              'warning'
+                            }
+                            className="text-[10px] px-1.5 py-0 font-normal"
+                          >
                             {store.ownership_type === 'corporate' ? '直営店' : 
                              store.ownership_type === 'office' ? 'オフィス' : 'FC'}
                           </Badge>
@@ -255,66 +266,66 @@ export function StoreManagement() {
                     </div>
                   </CardHeader>
                   
-                  <CardContent className="space-y-2 sm:space-y-3 md:space-y-4">
-                    <div className="space-y-1.5 sm:space-y-2">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="space-y-2">
                       {store.address && (
-                        <div className="flex items-start gap-1.5 sm:gap-2 text-xs sm:text-sm">
-                          <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        <div className="flex items-start gap-2 text-sm">
+                          <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                           <span className="break-words min-w-0">{store.address}</span>
                         </div>
                       )}
                       {store.phone_number && (
-                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-                          <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           <span className="break-all">{store.phone_number}</span>
                         </div>
                       )}
                       {store.email && (
-                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-                          <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex items-center gap-2 text-sm">
+                          <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           <span className="break-all truncate">{store.email}</span>
                         </div>
                       )}
                       {store.opening_date && (
-                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-                          <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex items-center gap-2 text-sm">
+                          <CalendarDays className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           <span className="truncate">開店日: {new Date(store.opening_date).toLocaleDateString()}</span>
                         </div>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 pt-2 border-t border-border">
+                    <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                       <div>
                         <p className="text-xs text-muted-foreground">収容人数</p>
-                        <p className="text-lg">{store.capacity}名</p>
+                        <p className="text-base font-bold">{store.capacity}名</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">部屋数</p>
-                        <p className="text-lg">{store.rooms}室</p>
+                        <p className="text-base font-bold">{store.rooms}室</p>
                       </div>
                     </div>
 
                     {store.manager_name && (
                       <div>
                         <p className="text-xs text-muted-foreground">店長</p>
-                        <p className="text-xs sm:text-sm truncate">{store.manager_name}</p>
+                        <p className="text-sm">{store.manager_name}</p>
                       </div>
                     )}
 
                     {store.notes && (
                       <div>
                         <p className="text-xs text-muted-foreground">メモ</p>
-                        <p className="text-xs sm:text-sm line-clamp-2 break-words">{store.notes}</p>
+                        <p className="text-sm line-clamp-2 break-words">{store.notes}</p>
                       </div>
                     )}
 
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full text-xs sm:text-sm"
+                      className="w-full"
                       onClick={() => handleEditStore(store)}
                     >
-                      <Edit className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                      <Edit className="h-4 w-4 mr-2" />
                       編集
                     </Button>
                   </CardContent>
