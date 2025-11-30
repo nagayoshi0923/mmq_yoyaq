@@ -438,12 +438,12 @@ export function StaffManagement() {
                       {/* ヘッダー：アバター、名前 */}
                       <div className="p-3 pb-2">
                         <div className="flex items-start gap-3">
-                          <StaffAvatar
+                        <StaffAvatar
                             name={staffItem.name}
                             avatarUrl={staffItem.avatar_url}
                             avatarColor={staffItem.avatar_color}
-                            size="md"
-                          />
+                          size="md"
+                        />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <h3 className="font-bold text-sm truncate">{staffItem.name}</h3>
@@ -454,7 +454,7 @@ export function StaffManagement() {
                               {!staffItem.user_id && (
                                 <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">未連携</Badge>
                               )}
-                            </div>
+                          </div>
                           </div>
                         </div>
                       </div>
@@ -467,7 +467,7 @@ export function StaffManagement() {
                             <div className="flex flex-wrap gap-1">
                               {staffItem.stores.slice(0, 3).map((storeId, idx) => {
                                 const store = stores.find(s => s.id === storeId)
-                                return <Badge key={idx} variant="outline" className="text-[10px] font-normal">{store?.name || storeId}</Badge>
+                                return <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5">{store?.name || storeId}</Badge>
                               })}
                               {staffItem.stores.length > 3 && <span className="text-muted-foreground">+{staffItem.stores.length - 3}</span>}
                             </div>
@@ -479,7 +479,7 @@ export function StaffManagement() {
                             <span className="text-blue-600 shrink-0 w-10">GM可</span>
                             <div className="flex flex-wrap gap-1">
                               {gmScenarios.slice(0, 5).map((scenarioId: string, idx: number) => (
-                                <Badge key={idx} variant="outline" className="text-[10px] font-normal bg-blue-50 border-blue-200 text-blue-700">
+                                <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5 bg-blue-50 border-blue-200 text-blue-700">
                                   {getScenarioName(scenarioId)}
                                 </Badge>
                               ))}
@@ -493,7 +493,7 @@ export function StaffManagement() {
                             <span className="text-green-600 shrink-0 w-10">体験</span>
                             <div className="flex flex-wrap gap-1">
                               {expScenarios.slice(0, 5).map((scenarioId: string, idx: number) => (
-                                <Badge key={idx} variant="outline" className="text-[10px] font-normal bg-green-50 border-green-200 text-green-700">
+                                <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">
                                   {getScenarioName(scenarioId)}
                                 </Badge>
                               ))}
