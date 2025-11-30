@@ -38,6 +38,7 @@ const MyPage = lazy(() => import('./MyPage'))
 const SettingsPage = lazy(() => import('./Settings'))
 const AddDemoParticipants = lazy(() => import('./AddDemoParticipants').then(m => ({ default: m.AddDemoParticipants })))
 const ScenarioMatcher = lazy(() => import('./ScenarioMatcher').then(m => ({ default: m.ScenarioMatcher })))
+const ManualPage = lazy(() => import('./Manual/index').then(m => ({ default: m.ManualPage })))
 const DashboardHome = lazy(() => import('./DashboardHome').then(m => ({ default: m.DashboardHome })))
 
 export function AdminDashboard() {
@@ -59,6 +60,7 @@ export function AdminDashboard() {
     'user-management',
     'sales',
     'settings',
+    'manual',
     'add-demo-participants',
     'scenario-matcher'
   ]
@@ -96,6 +98,9 @@ export function AdminDashboard() {
     }
     if (hash.startsWith('scenario-matcher')) {
       return { page: 'scenario-matcher', scenarioId: null }
+    }
+    if (hash.startsWith('manual')) {
+      return { page: 'manual', scenarioId: null }
     }
     // ハッシュからクエリパラメータを分離
     const hashWithoutQuery = hash.split('?')[0]
@@ -193,10 +198,10 @@ export function AdminDashboard() {
       // ⚠️ 認証完了後のみリダイレクト判定を行う
       if (isInitialized) {
         // ログアウト状態または顧客アカウントの場合、管理ツールのページへのアクセスを制限
-        const isCustomerOrLoggedOut = !user || user.role === 'customer'
-        const restrictedPages = ['dashboard', 'stores', 'staff', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'add-demo-participants', 'scenario-matcher']
-        if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
-          // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+    const isCustomerOrLoggedOut = !user || user.role === 'customer'
+    const restrictedPages = ['dashboard', 'stores', 'staff', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher']
+    if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
+      // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
           setCurrentPage('customer-booking')
           window.location.hash = 'customer-booking'
           return
@@ -353,6 +358,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="設定を読み込み中..." />}>
         <SettingsPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'manual') {
+    return (
+      <Suspense fallback={<LoadingScreen message="マニュアルを読み込み中..." />}>
+        <ManualPage />
       </Suspense>
     )
   }

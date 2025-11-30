@@ -9,7 +9,8 @@ import {
   Settings,
   ClipboardCheck,
   UserCog,
-  Store
+  Store,
+  HelpCircle
 } from 'lucide-react'
 
 interface NavigationBarProps {
@@ -34,7 +35,8 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'customer-management', label: '顧客管理', icon: Users, roles: ['admin', 'staff'] },
     { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },
     { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin', 'staff'] },
-    { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] }
+    { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] },
+    { id: 'manual', label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff'] }
   ], [])
   
   // ユーザーのロールに応じてタブをフィルタリング
