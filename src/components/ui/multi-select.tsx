@@ -248,7 +248,7 @@ export function MultiSelect({
                 key={value} 
                 variant="outline" 
                 className={cn(
-                  "flex items-center gap-0.5 font-normal text-[10px] py-0.5 px-1.5 h-auto",
+                  "flex items-center gap-0.5 font-normal text-[11px] py-0.5 px-1.5 h-auto",
                   badgeClassName || "bg-gray-100 border-gray-200 text-gray-700"
                 )}
               >
