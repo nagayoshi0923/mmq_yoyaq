@@ -36,31 +36,31 @@ export function SetPassword() {
     }
 
     // トークンを抽出して保存（セッション確立は行わない）
-    const accessToken = extractParam('access_token')
-    const refreshToken = extractParam('refresh_token')
+        const accessToken = extractParam('access_token')
+        const refreshToken = extractParam('refresh_token')
 
-    logger.log('🔧 SetPassword: URL解析', {
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken,
-    })
+        logger.log('🔧 SetPassword: URL解析', {
+          hasAccessToken: !!accessToken,
+          hasRefreshToken: !!refreshToken,
+        })
 
-    if (!accessToken || !refreshToken) {
+        if (!accessToken || !refreshToken) {
       // 既存セッションがあるか確認
       supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) {
-          logger.log('✅ 既存セッションを利用します:', session.user.email)
+          if (session?.user) {
+            logger.log('✅ 既存セッションを利用します:', session.user.email)
           setTokens({ accessToken: null, refreshToken: null })
-          setError('')
-        } else {
-          setError('無効な招待リンクです。もう一度招待メールを確認してください。')
-        }
+            setError('')
+          } else {
+            setError('無効な招待リンクです。もう一度招待メールを確認してください。')
+          }
       })
-      return
-    }
+          return
+        }
 
     // トークンを保存（セッション確立はパスワード設定時に行う）
     setTokens({ accessToken, refreshToken })
-    setError('')
+        setError('')
   }, [])
 
   const handleSetPassword = async (e: React.FormEvent) => {

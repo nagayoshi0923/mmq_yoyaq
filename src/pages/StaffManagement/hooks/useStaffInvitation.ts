@@ -162,8 +162,19 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
 
     try {
       // 1. まず既存のスタッフレコードを削除
-      await staffApi.delete(linkingStaff.id)
-      logger.log('既存スタッフレコード削除完了')
+      try {
+        await staffApi.delete(linkingStaff.id)
+        logger.log('既存スタッフレコード削除完了')
+      } catch (deleteError: any) {
+        // スタッフが見つからない場合（既に削除済みなど）は無視して続行
+        // PGRST116: The result contains 0 rows (single() called on empty set)
+        if (deleteError.code === 'PGRST116' || deleteError.message?.includes('JSON object requested, multiple (or no) rows returned')) {
+          logger.warn('削除対象のスタッフが見つかりませんでした（既に削除済みの可能性） - 処理を続行します')
+        } else {
+          // その他のエラー（権限エラーなど）は再スロー
+          throw deleteError
+        }
+      }
       
       // 2. 新規ユーザーとスタッフレコードを作成
       const result = await inviteStaff(request)
@@ -200,6 +211,32 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       }
       
       await staffApi.update(staff.id, updatedStaff)
+
+      // usersテーブルのroleをcustomerに更新（スタッフ権限を解除）
+      if (staff.user_id) {
+        // 現在のユーザー情報を取得してroleを確認
+        const { data: user } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', staff.user_id)
+          .single()
+          
+        // adminでない場合のみロールを変更
+        if (user && user.role !== 'admin') {
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ role: 'customer' })
+            .eq('id', staff.user_id)
+            
+          if (updateError) {
+            console.warn('usersテーブルのロール更新に失敗しました:', updateError)
+          } else {
+            console.log('連携解除に伴い、ユーザーロールをcustomerに戻しました')
+          }
+        } else {
+          console.log('adminユーザーのため、ロール変更をスキップしました')
+        }
+      }
 
       // React Queryのキャッシュを更新
       queryClient.setQueryData<Staff[]>(staffKeys.all, (old = []) => {

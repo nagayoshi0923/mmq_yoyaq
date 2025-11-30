@@ -12,112 +12,86 @@ export function ResetPassword() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [sessionReady, setSessionReady] = useState(false)
+  const [tokens, setTokens] = useState<{ accessToken: string | null; refreshToken: string | null }>({
+    accessToken: null,
+    refreshToken: null,
+  })
+  const [isCheckingSession, setIsCheckingSession] = useState(true)
   const [countdown, setCountdown] = useState(5)
   const [isRedirecting, setIsRedirecting] = useState(false)
 
   useEffect(() => {
-    // URLのハッシュフラグメントまたはクエリパラメータからトークンを取得してセッションを確立
-    const setupSession = async () => {
+    // URLのハッシュフラグメントまたはクエリパラメータからトークンを取得
+    const setupTokens = async () => {
       try {
-        // まず、現在のセッションを確認（Supabaseが自動的にセッションを設定している可能性がある）
-        const { data: { session: existingSession }, error: sessionCheckError } = await supabase.auth.getSession()
-        
-        if (existingSession && !sessionCheckError) {
-          logger.log('既存のセッションが見つかりました')
-          setSessionReady(true)
-          return
-        }
-
-        // URLの形式: #access_token=...&refresh_token=...&type=recovery
-        // または: ?access_token=...&refresh_token=...&type=recovery
-        const fullUrl = window.location.href
-        const hash = window.location.hash.substring(1) // '#' を削除
-        const searchParams = window.location.search.substring(1) // '?' を削除
-        
-        logger.log('Full URL:', fullUrl)
-        logger.log('Hash:', hash)
-        logger.log('Search params:', searchParams)
-        
-        // ハッシュとクエリパラメータの両方を確認
-        let hashParams = new URLSearchParams(hash)
-        let searchParamsObj = new URLSearchParams(searchParams)
-        
-        // ハッシュにパラメータがない場合、クエリパラメータを確認
-        if (!hashParams.get('access_token') && searchParamsObj.get('access_token')) {
-          hashParams = searchParamsObj
-        }
-        
-        // URL全体から直接検索（fallback）
-        const urlMatch = fullUrl.match(/[#?]access_token=([^&]+).*refresh_token=([^&]+)/)
-        
-        let accessToken = hashParams.get('access_token')
-        let refreshToken = hashParams.get('refresh_token')
-        const type = hashParams.get('type')
-        
-        // URL全体からのマッチングで取得を試みる
-        if (!accessToken && urlMatch) {
-          accessToken = decodeURIComponent(urlMatch[1])
-          refreshToken = decodeURIComponent(urlMatch[2])
-        }
-        
-        logger.log('Access token:', accessToken ? 'Found' : 'Not found')
-        logger.log('Refresh token:', refreshToken ? 'Found' : 'Not found')
-        logger.log('Type:', type)
-        
-        if (!accessToken || !refreshToken) {
-          // トークンが見つからない場合、Supabaseの認証フローを確認
-          logger.warn('トークンが見つかりません。Supabaseの認証フローを確認します。')
+        // ヘルパー関数: URLパラメータの取得
+        const extractParam = (key: string): string | null => {
+          // ハッシュから検索
+          const hashParams = new URLSearchParams(window.location.hash.substring(1))
+          let value = hashParams.get(key)
           
-          // Supabaseが自動的にセッションを設定する可能性があるので、少し待ってから再確認
-          setTimeout(async () => {
-            const { data: { session: delayedSession } } = await supabase.auth.getSession()
-            if (delayedSession) {
-              logger.log('遅延セッション確認: セッションが見つかりました')
-              setSessionReady(true)
-            } else {
-              setError('無効なリセットリンクです。もう一度パスワードリセットを申請してください。')
+          if (value) return value
+
+          // クエリパラメータから検索
+          const searchParams = new URLSearchParams(window.location.search)
+          value = searchParams.get(key)
+          
+          if (value) return value
+
+          // URL全体から正規表現でパラメータを抽出する (最後の手段)
+          const pattern = new RegExp(`${key}=([^&?#]*)`, 'i')
+          const match = window.location.href.match(pattern)
+          if (match && match[1]) {
+            try {
+              return decodeURIComponent(match[1])
+            } catch {
+              return match[1]
             }
-          }, 1000)
-          return
+          }
+          return null
         }
 
-        // type=recovery または typeがない場合（スタッフ招待リンクなど）も許可
-        // access_tokenとrefresh_tokenがあれば、セッションを確立できる
-        if (type && type !== 'recovery') {
-          logger.warn('Unexpected type parameter:', type, '- Continuing anyway if tokens are valid')
-        }
+        const accessToken = extractParam('access_token')
+        const refreshToken = extractParam('refresh_token')
+        const type = extractParam('type')
 
-        // セッションを設定
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
+        logger.log('🔧 ResetPassword: URL解析 v2', {
+          hasAccessToken: !!accessToken,
+          hasRefreshToken: !!refreshToken,
+          type
         })
 
-        if (sessionError) {
-          logger.error('Session error:', sessionError)
-          setError('セッションの確立に失敗しました。もう一度お試しください。')
-          return
+        if (accessToken && refreshToken) {
+          // トークンが見つかった場合、stateに保存
+          // 既存セッションがあっても、リカバリートークンがあるならそれを優先するために保存する
+          setTokens({ accessToken, refreshToken })
+          setIsCheckingSession(false)
+        } else {
+          // トークンがない場合、既存のセッションを確認
+          const { data: { session: existingSession } } = await supabase.auth.getSession()
+          
+          if (existingSession) {
+            logger.log('既存のセッションが見つかりました（トークンなし）')
+            setTokens({ accessToken: null, refreshToken: null })
+          } else {
+            // セッションもトークンもない場合
+            setError('無効なリセットリンクです。もう一度パスワードリセットを申請してください。')
+          }
+          setIsCheckingSession(false)
         }
-
-        setSessionReady(true)
       } catch (err) {
         logger.error('Setup error:', err)
         setError('エラーが発生しました。もう一度お試しください。')
+        setIsCheckingSession(false)
       }
     }
 
-    setupSession()
+    setupTokens()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    
-    if (!sessionReady) {
-      setError('セッションの準備ができていません。少しお待ちください。')
-      return
-    }
     
     if (newPassword.length < 6) {
       setError('パスワードは6文字以上である必要があります')
@@ -132,18 +106,48 @@ export function ResetPassword() {
     setIsLoading(true)
     
     try {
-      const { error } = await supabase.auth.updateUser({
+      // 1. トークンがある場合は、既存セッションを無視して強制的にセッションを再確立する
+      // これにより、recoveryモードでの正しいセッション状態にする
+      if (tokens.accessToken && tokens.refreshToken) {
+        logger.log('🔒 リカバリートークンでセッションを確立中...')
+        
+        // 一旦サインアウトして状態をクリアする（念のため）
+        // ただし、これをやると他のタブに影響する可能性もあるが、パスワードリセットは重要操作なので許容
+        // await supabase.auth.signOut() 
+        // -> signOutすると画面遷移してしまう可能性があるので、直接setSessionで上書きを試みる
+
+        const { data, error: sessionError } = await supabase.auth.setSession({
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+        })
+
+        if (sessionError) {
+          logger.error('Session establishment failed:', sessionError)
+          throw new Error('セッションの有効期限が切れています。もう一度リセットリンクを取得してください。')
+        }
+        
+        logger.log('✅ セッション確立成功:', data.session ? 'Session Active' : 'No Session Data')
+        
+        // セッション確立後、少し待機して内部状態を安定させる
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+
+      // 2. パスワードを更新する
+      logger.log('🔑 パスワード更新リクエスト送信...')
+      const { data: updateData, error } = await supabase.auth.updateUser({
         password: newPassword
       })
       
       if (error) {
+        logger.error('Update user error:', error)
         // 「新しいパスワードが古いパスワードと同じ」エラーの場合、より分かりやすいメッセージを表示
         if (error.message.includes('should be different from the old password')) {
           throw new Error('新しいパスワードは現在のパスワードと異なるものを設定してください')
         }
         throw error
       }
-      
+
+      logger.log('✅ パスワード更新成功:', updateData)
       setSuccess(true)
     } catch (error: any) {
       setError('パスワードの更新に失敗しました: ' + (error.message || ''))
@@ -157,17 +161,13 @@ export function ResetPassword() {
   useEffect(() => {
     if (!success || isRedirecting) return
 
-    logger.log('Countdown effect triggered, countdown:', countdown)
-
     if (countdown > 0) {
       const timer = setTimeout(() => {
-        logger.log('Countdown decrementing from:', countdown)
         setCountdown(countdown - 1)
       }, 1000)
       return () => clearTimeout(timer)
     } else if (countdown === 0 && !isRedirecting) {
       // countdown が 0 になったらリダイレクト処理を開始
-      logger.log('Countdown reached 0, starting redirect...')
       setIsRedirecting(true)
     }
   }, [success, countdown, isRedirecting])
@@ -175,9 +175,7 @@ export function ResetPassword() {
   // リダイレクト処理を別のuseEffectで実行
   useEffect(() => {
     if (isRedirecting) {
-      logger.log('Redirecting: signing out...')
       supabase.auth.signOut().then(() => {
-        logger.log('Redirecting: signed out, navigating to login...')
         // /login へリダイレクト
         window.location.href = window.location.origin + '/login'
       })
@@ -186,8 +184,6 @@ export function ResetPassword() {
 
   const handleGoToLogin = () => {
     if (isRedirecting) return // 既にリダイレクト中なら何もしない
-    
-    logger.log('Button clicked, starting redirect...')
     setIsRedirecting(true)
   }
 
@@ -243,6 +239,7 @@ export function ResetPassword() {
                 placeholder="6文字以上のパスワード"
                 disabled={isLoading}
                 className="text-sm sm:text-base"
+                autoComplete="new-password"
               />
             </div>
             
@@ -260,6 +257,7 @@ export function ResetPassword() {
                 placeholder="もう一度入力してください"
                 disabled={isLoading}
                 className="text-sm sm:text-base"
+                autoComplete="new-password"
               />
             </div>
 
@@ -273,9 +271,9 @@ export function ResetPassword() {
             <Button 
               type="submit" 
               className="w-full h-10 sm:h-11 text-sm sm:text-base" 
-              disabled={isLoading || !sessionReady}
+              disabled={isLoading || isCheckingSession}
             >
-              {isLoading ? 'パスワードを変更中...' : !sessionReady ? '準備中...' : 'パスワードを変更'}
+              {isLoading ? 'パスワードを変更中...' : isCheckingSession ? '準備中...' : 'パスワードを変更'}
             </Button>
             
             <Button

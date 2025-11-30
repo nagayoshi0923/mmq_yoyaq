@@ -61,9 +61,22 @@ serve(async (req) => {
     let userId: string
     let isNewUser = false
 
+    let currentRole = 'staff'
     if (existingUser) {
       userId = existingUser.id
       console.log('✅ Existing auth user found:', userId)
+      
+      // 既存ユーザーの現在のロールを確認（adminなら上書きしない）
+      const { data: currentUserData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single()
+      
+      if (currentUserData && currentUserData.role === 'admin') {
+        currentRole = 'admin'
+        console.log('ℹ️ User is admin, keeping admin role')
+      }
     } else {
       console.log('🆕 Creating auth user:', email)
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -89,7 +102,7 @@ serve(async (req) => {
     const userRecordPayload: Record<string, unknown> = {
       id: userId,
       email,
-      role: 'staff',
+      role: currentRole,
       updated_at: now,
     }
     if (isNewUser) {

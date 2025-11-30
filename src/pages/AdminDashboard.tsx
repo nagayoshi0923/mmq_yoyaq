@@ -198,10 +198,10 @@ export function AdminDashboard() {
       // ⚠️ 認証完了後のみリダイレクト判定を行う
       if (isInitialized) {
         // ログアウト状態または顧客アカウントの場合、管理ツールのページへのアクセスを制限
-    const isCustomerOrLoggedOut = !user || user.role === 'customer'
+        const isCustomerOrLoggedOut = !user || user.role === 'customer'
     const restrictedPages = ['dashboard', 'stores', 'staff', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher']
-    if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
-      // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+        if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
+          // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
           setCurrentPage('customer-booking')
           window.location.hash = 'customer-booking'
           return
