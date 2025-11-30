@@ -243,18 +243,18 @@ export function createScenarioColumns(
               {displayedGMs.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                 {displayedGMs.map((gm, i) => (
-                  <Badge key={i} variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                  <Badge key={i} variant="outline" className="font-normal text-xs py-0.5 px-1.5 bg-blue-50 border-blue-200 text-blue-700">
                     {gm}
                   </Badge>
                 ))}
                 {remainingGMs > 0 && (
-                  <Badge variant="secondary" className="font-normal text-xs px-1 py-0.5 bg-gray-100 border-0 rounded-[2px]">
+                  <span className="text-xs text-muted-foreground">
                     +{remainingGMs}
-                  </Badge>
+                  </span>
                 )}
                 </div>
               ) : (
-                <span className="text-muted-foreground">未設定</span>
+                <span className="text-muted-foreground text-xs">未設定</span>
               )}
             </div>
           )
