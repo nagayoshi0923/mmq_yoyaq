@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -5,9 +6,28 @@ import { StaffManual } from './StaffManual'
 import { BookOpen, Users, CalendarDays, FileText } from 'lucide-react'
 
 export function ManualPage() {
+  const [activeTab, setActiveTab] = useState('staff')
+
+  // URLパラメータから初期タブを設定
+  useEffect(() => {
+    const hash = window.location.hash
+    const queryMatch = hash.match(/\?tab=([^&]+)/)
+    if (queryMatch && queryMatch[1]) {
+      setActiveTab(queryMatch[1])
+    }
+  }, [])
+
+  // タブ変更時にURLも更新（オプション）
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    // 履歴に残さない形でURLを更新
+    const currentHash = window.location.hash.split('?')[0]
+    window.history.replaceState(null, '', `${currentHash}?tab=${value}`)
+  }
+
   return (
     <AppLayout 
-      currentPage="settings" // 設定やヘルプの一環として配置
+      currentPage="manual"
       maxWidth="max-w-[1440px]"
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       className="mx-auto"
@@ -20,7 +40,7 @@ export function ManualPage() {
           <BookOpen className="h-5 w-5 text-muted-foreground" />
         </PageHeader>
 
-        <Tabs defaultValue="staff" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="staff" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -58,4 +78,3 @@ export function ManualPage() {
     </AppLayout>
   )
 }
-

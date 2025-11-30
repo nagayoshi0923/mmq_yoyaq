@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { HelpButton } from '@/components/ui/help-button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
@@ -139,7 +140,9 @@ export function ReservationManagement() {
         <PageHeader
           title="予約管理"
           description="予約の確認・検索・ステータス管理を行います"
-        />
+        >
+          <HelpButton topic="reservation" label="予約管理マニュアル" />
+        </PageHeader>
 
         {/* 統計サマリー */}
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Upload, CalendarDays } from 'lucide-react'
+import { HelpButton } from '@/components/ui/help-button'
 import type { Staff } from '@/types'
 
 interface ScheduleHeaderProps {
@@ -41,6 +42,7 @@ export const ScheduleHeader = memo(function ScheduleHeader({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
           <Button 
             variant="outline" 
             size="icon"

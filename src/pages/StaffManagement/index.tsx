@@ -10,6 +10,7 @@ import { TanStackDataTable } from '@/components/patterns/table'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StaffEditForm } from './components/StaffEditForm'
+import { HelpButton } from '@/components/ui/help-button'
 import { usePageState } from '@/hooks/usePageState'
 import { supabase } from '@/lib/supabase'
 import { staffApi } from '@/lib/api'
@@ -111,6 +112,7 @@ export function StaffManagement() {
 
   // モーダル管理
   const {
+    isEditModalOpen,
     editingStaff,
     openEditModal,
     closeEditModal,
@@ -353,10 +355,7 @@ export function StaffManagement() {
               title="スタッフ管理"
               description={`全${staff.length}名のスタッフを管理`}
             >
-              <Button onClick={() => openEditModal(null as any)} size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                新規スタッフ
-              </Button>
+              <HelpButton topic="staff" label="スタッフ管理マニュアル" />
             </PageHeader>
 
             {/* 統計情報 */}
@@ -445,7 +444,7 @@ export function StaffManagement() {
           </div>
 
         {/* スタッフ編集モーダル */}
-        <Dialog open={!!editingStaff} onOpenChange={(open) => !open && closeEditModal()}>
+        <Dialog open={isEditModalOpen} onOpenChange={(open) => !open && closeEditModal()}>
           <DialogContent className="max-w-[95vw] sm:max-w-7xl max-h-[90vh] sm:max-h-[85vh] p-0 flex flex-col overflow-hidden">
             <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-4 border-b shrink-0">
               <DialogTitle>{editingStaff?.id ? 'スタッフ編集' : '新規スタッフ作成'}</DialogTitle>
@@ -453,15 +452,13 @@ export function StaffManagement() {
                 {editingStaff?.name ? `${editingStaff.name}の情報を編集します` : 'スタッフの情報を入力してください'}
               </DialogDescription>
             </DialogHeader>
-            {editingStaff && (
-              <StaffEditForm
-                staff={editingStaff}
-                stores={stores}
-                scenarios={scenarios as any}
-                onSave={handleSaveStaff}
-                onCancel={closeEditModal}
-              />
-            )}
+            <StaffEditForm
+              staff={editingStaff}
+              stores={stores}
+              scenarios={scenarios as any}
+              onSave={handleSaveStaff}
+              onCancel={closeEditModal}
+            />
           </DialogContent>
         </Dialog>
 
