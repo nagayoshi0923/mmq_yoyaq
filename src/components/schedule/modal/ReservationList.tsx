@@ -252,14 +252,28 @@ export function ReservationList({
     if (!cancellingReservation || !event) return
 
     try {
-      const customerName = cancellingReservation.customer_name || 
+      let customerName = cancellingReservation.customer_name || 
         (cancellingReservation.customers ? 
           (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.name : cancellingReservation.customers?.name) : 
-          null)
-      const customerEmail = cancellingReservation.customer_email || 
+          null) || 
+        cancellingReservation.customer_notes // 顧客名がない場合はcustomer_notesをフォールバックとして使用
+
+      let customerEmail = cancellingReservation.customer_email || 
         (cancellingReservation.customers ? 
           (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.email : cancellingReservation.customers?.email) : 
           null)
+
+      // メールアドレスが見つからない場合、スタッフ情報から検索を試みる
+      if (!customerEmail && customerName) {
+        // 名前からスタッフを検索（完全一致）
+        const normalizedName = customerName.replace(/様$/, '').trim()
+        const staffMember = staff.find(s => s.name === normalizedName)
+        
+        if (staffMember && staffMember.email) {
+          customerEmail = staffMember.email
+          logger.log('スタッフ情報からメールアドレスを取得しました:', { name: normalizedName, email: customerEmail })
+        }
+      }
 
       const eventDate = event.date || currentEventData.date
       const startTime = event.start_time || currentEventData.start_time
