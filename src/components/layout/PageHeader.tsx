@@ -44,8 +44,8 @@ export function PageHeader({
   return (
     <div className={`mb-6 ${className}`}>
       <div className="flex flex-row items-start justify-between gap-3">
-        <div className="flex-1 min-w-0 pt-1">
-          <h1 className="text-xl font-bold tracking-tight break-words flex items-center leading-none min-h-[28px]">{title}</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold tracking-tight break-words flex items-center gap-2">{title}</h1>
           <p className="text-xs text-muted-foreground mt-1.5 break-words leading-normal">
             {description}
           </p>
