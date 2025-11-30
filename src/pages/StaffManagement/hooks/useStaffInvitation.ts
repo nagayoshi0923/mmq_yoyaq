@@ -213,28 +213,31 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       await staffApi.update(staff.id, updatedStaff)
 
       // usersテーブルのroleをcustomerに更新（スタッフ権限を解除）
-      if (staff.user_id) {
+      const userIdToUpdate = staff.user_id
+      if (userIdToUpdate) {
         // 現在のユーザー情報を取得してroleを確認
-        const { data: user } = await supabase
+        const { data: userData, error: fetchError } = await supabase
           .from('users')
           .select('role')
-          .eq('id', staff.user_id)
+          .eq('id', userIdToUpdate)
           .single()
-          
-        // adminでない場合のみロールを変更
-        if (user && user.role !== 'admin') {
+        
+        if (fetchError) {
+          console.error('ユーザー情報取得エラー:', fetchError)
+        } else if (userData && userData.role !== 'admin') {
+          // adminでない場合のみロールを変更
           const { error: updateError } = await supabase
             .from('users')
             .update({ role: 'customer' })
-            .eq('id', staff.user_id)
+            .eq('id', userIdToUpdate)
             
           if (updateError) {
-            console.warn('usersテーブルのロール更新に失敗しました:', updateError)
+            console.error('usersテーブルのロール更新に失敗しました:', updateError)
           } else {
-            console.log('連携解除に伴い、ユーザーロールをcustomerに戻しました')
+            console.log('✅ 連携解除に伴い、ユーザーロールをcustomerに変更しました')
           }
-        } else {
-          console.log('adminユーザーのため、ロール変更をスキップしました')
+        } else if (userData?.role === 'admin') {
+          console.log('ℹ️ adminユーザーのため、ロール変更をスキップしました')
         }
       }
 
