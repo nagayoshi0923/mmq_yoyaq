@@ -138,7 +138,7 @@ export function createStaffColumns(
                     <Badge 
                       key={index} 
                       variant="outline"
-                      className="font-normal text-[10px] whitespace-nowrap flex-shrink-0 bg-blue-50 border-blue-200 text-blue-700"
+                      className="font-normal text-xs whitespace-nowrap flex-shrink-0 bg-blue-50 border-blue-200 text-blue-700 py-0.5 px-1.5"
                     >
                       {getScenarioName(scenarioId)}
                     </Badge>
@@ -183,7 +183,7 @@ export function createStaffColumns(
                     <Badge 
                       key={index} 
                       variant="outline"
-                      className="font-normal text-[10px] whitespace-nowrap flex-shrink-0 bg-green-50 border-green-200 text-green-700"
+                      className="font-normal text-xs whitespace-nowrap flex-shrink-0 bg-green-50 border-green-200 text-green-700 py-0.5 px-1.5"
                     >
                       {getScenarioName(scenarioId)}
                     </Badge>
