@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { staffApi } from '@/lib/api'
+import { assignmentApi } from '@/lib/assignmentApi'
 import type { Staff } from '@/types'
+import { logger } from '@/utils/logger'
 
 export const staffKeys = {
   all: ['staff'] as const,
@@ -9,7 +11,29 @@ export const staffKeys = {
 export function useStaffQuery() {
   return useQuery({
     queryKey: staffKeys.all,
-    queryFn: () => staffApi.getAll(),
+    queryFn: async () => {
+      // スタッフデータを取得
+      const staffData = await staffApi.getAll()
+      
+      // 担当シナリオ情報を一括取得（N+1問題の回避）
+      const staffIds = staffData.map(s => s.id)
+      const assignmentMap = await assignmentApi.getBatchStaffAssignments(staffIds).catch((error) => {
+        logger.error('Error loading batch staff assignments:', error)
+        return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
+      })
+      
+      // スタッフデータにアサインメント情報をマージ
+      const staffWithAssignments = staffData.map(staff => {
+        const assignments = assignmentMap.get(staff.id) || { gmScenarios: [], experiencedScenarios: [] }
+        return {
+          ...staff,
+          special_scenarios: assignments.gmScenarios,
+          experienced_scenarios: assignments.experiencedScenarios
+        }
+      })
+      
+      return staffWithAssignments
+    },
     staleTime: 5 * 60 * 1000,
   })
 }
