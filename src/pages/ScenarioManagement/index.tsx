@@ -3,11 +3,18 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { HelpButton } from '@/components/ui/help-button'
 import type { Scenario } from '@/types'
 import { 
   Plus, 
-  AlertTriangle
+  AlertTriangle,
+  Users,
+  Clock,
+  JapaneseYen,
+  Edit,
+  Trash2
 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
@@ -302,7 +309,12 @@ export function ScenarioManagement() {
   if (loading) {
     return (
       <AppLayout currentPage="scenarios">
-        <div className="text-center">読み込み中...</div>
+        <div className="flex items-center justify-center py-20">
+          <p className="text-muted-foreground text-lg flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+            読み込み中...
+          </p>
+        </div>
       </AppLayout>
     )
   }
@@ -311,35 +323,39 @@ export function ScenarioManagement() {
     <AppLayout
       currentPage="scenarios"
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+      containerPadding="px-2 py-4 sm:px-6"
       className="mx-auto"
     >
-        <div className="space-y-3 sm:space-y-4 md:space-y-6">
+        <div className="space-y-6">
           <PageHeader
             title="シナリオ管理"
             description={`全${allScenarios.length}本のシナリオを管理`}
           >
-            <CsvImportExport
-              data={allScenarios}
-              onImport={handleImport}
-              isImporting={isImporting}
-              exportFilename="scenarios"
-              headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
-              rowMapper={(s) => [
-                s.title,
-                s.author,
-                s.description || '',
-                s.duration.toString(),
-                s.player_count_min.toString(),
-                s.player_count_max?.toString() || s.player_count_min.toString(),
-                s.difficulty?.toString() || '3',
-                s.participation_fee?.toString() || '3000'
-              ]}
-            />
-            <Button onClick={handleNewScenario} size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              新規シナリオ
-            </Button>
+            <HelpButton topic="scenario" label="シナリオ管理マニュアル" />
+            <div className="flex gap-2">
+              <CsvImportExport
+                data={allScenarios}
+                onImport={handleImport}
+                isImporting={isImporting}
+                exportFilename="scenarios"
+                headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
+                rowMapper={(s) => [
+                  s.title,
+                  s.author,
+                  s.description || '',
+                  s.duration.toString(),
+                  s.player_count_min.toString(),
+                  s.player_count_max?.toString() || s.player_count_min.toString(),
+                  s.difficulty?.toString() || '3',
+                  s.participation_fee?.toString() || '3000'
+                ]}
+              />
+              <Button onClick={handleNewScenario} size="sm">
+                <Plus className="mr-1 h-4 w-4" />
+                <span className="hidden sm:inline">新規シナリオ</span>
+                <span className="sm:hidden">新規</span>
+              </Button>
+            </div>
           </PageHeader>
 
           {/* エラー表示 */}
@@ -389,20 +405,90 @@ export function ScenarioManagement() {
             </div>
           </div>
 
-          {/* テーブル */}
-          <TanStackDataTable
-            data={displayedScenarios}
-            columns={tableColumns}
-            getRowKey={(scenario) => scenario.id}
-            sortState={sortState}
-            onSort={handleSort}
-            emptyMessage={
-              searchTerm || statusFilter !== 'all' 
-                ? '検索条件に一致するシナリオが見つかりません' 
-                : 'シナリオが登録されていません'
-            }
-            loading={loading}
-          />
+          {/* PC用: テーブル形式 */}
+          <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
+            <TanStackDataTable
+              data={displayedScenarios}
+              columns={tableColumns}
+              getRowKey={(scenario) => scenario.id}
+              sortState={sortState}
+              onSort={handleSort}
+              emptyMessage={
+                searchTerm || statusFilter !== 'all' 
+                  ? '検索条件に一致するシナリオが見つかりません' 
+                  : 'シナリオが登録されていません'
+              }
+              loading={loading}
+            />
+          </div>
+
+          {/* モバイル用: リスト形式 */}
+          <div className="md:hidden space-y-3">
+            {displayedScenarios.length > 0 ? (
+              displayedScenarios.map((scenario) => (
+                <div key={scenario.id} className="bg-white border rounded-lg overflow-hidden" onClick={() => handleEditScenario(scenario)}>
+                  <div className="p-3 flex items-start gap-3">
+                    {/* 画像サムネイル (あれば) */}
+                    <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-md overflow-hidden border">
+                      {scenario.key_visual_url ? (
+                        <img src={scenario.key_visual_url} alt={scenario.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                          <span className="text-xs">No img</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-bold text-sm truncate pr-2">{scenario.title}</h3>
+                        {/* @ts-ignore */}
+                        <Badge variant={scenario.status === 'available' ? 'success' : 'warning'} size="sm" className="shrink-0 text-[10px] px-1.5 py-0">
+                          {scenario.status === 'available' ? '公開' : '非公開'}
+                        </Badge>
+                      </div>
+                      
+                      <div className="text-xs text-muted-foreground mb-2 truncate">
+                        作: {scenario.author || '不明'}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          <span>{scenario.player_count_min}{scenario.player_count_max && scenario.player_count_max !== scenario.player_count_min ? `-${scenario.player_count_max}` : ''}人</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>{scenario.duration}分</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <JapaneseYen className="h-3 w-3" />
+                          <span>{scenario.participation_fee?.toLocaleString() || '-'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 px-3 py-2 border-t flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-primary" onClick={() => handleEditScenario(scenario)}>
+                      <Edit className="h-3.5 w-3.5 mr-1" />
+                      編集
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => openDeleteDialog(scenario)}>
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />
+                      削除
+                    </Button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                {searchTerm || statusFilter !== 'all' 
+                  ? '検索条件に一致するシナリオが見つかりません' 
+                  : 'シナリオが登録されていません'}
+              </div>
+            )}
+          </div>
           
           {/* 段階的表示：トリガー要素 */}
           {useInfiniteScroll && hasMore && (

@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { BookOpen, Play, DollarSign, Users } from 'lucide-react'
 import type { Scenario } from '@/types'
 
 interface ScenarioStatsProps {
@@ -30,55 +29,34 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
   }, [scenarios])
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-      <Card>
-        <CardContent className="p-3 sm:p-4 md:pt-6">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-lg">{stats.totalScenarios}</p>
-              <p className="text-xs text-muted-foreground">総シナリオ数</p>
-            </div>
-          </div>
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+      <Card className="bg-white border shadow-none">
+        <CardContent className="p-3 sm:p-4">
+          <div className="text-xs text-muted-foreground">総シナリオ数</div>
+          <div className="text-xl sm:text-2xl font-bold">{stats.totalScenarios}</div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-3 sm:p-4 md:pt-6">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Play className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-lg">{stats.availableScenarios}</p>
-              <p className="text-xs text-muted-foreground">利用可能</p>
-            </div>
-          </div>
+      <Card className="bg-white border shadow-none">
+        <CardContent className="p-3 sm:p-4">
+          <div className="text-xs text-muted-foreground">利用可能</div>
+          <div className="text-xl sm:text-2xl font-bold text-green-700">{stats.availableScenarios}</div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-3 sm:p-4 md:pt-6">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-lg">¥{stats.totalLicenseAmount.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">総ライセンス料</p>
-            </div>
-          </div>
+      <Card className="bg-white border shadow-none">
+        <CardContent className="p-3 sm:p-4">
+          <div className="text-xs text-muted-foreground">総ライセンス料</div>
+          <div className="text-xl sm:text-2xl font-bold">¥{stats.totalLicenseAmount.toLocaleString()}</div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="p-3 sm:p-4 md:pt-6">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-lg">{stats.avgPlayers}名</p>
-              <p className="text-xs text-muted-foreground">平均プレイヤー数</p>
-            </div>
-          </div>
+      <Card className="bg-white border shadow-none">
+        <CardContent className="p-3 sm:p-4">
+          <div className="text-xs text-muted-foreground">平均プレイヤー数</div>
+          <div className="text-xl sm:text-2xl font-bold">{stats.avgPlayers}名</div>
         </CardContent>
       </Card>
     </div>
   )
 }
-
