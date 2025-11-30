@@ -1,19 +1,10 @@
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { Users, UserPlus, Search, Settings } from 'lucide-react'
-
-// サイドバーのメニュー項目定義
-const CUSTOMER_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'customer-list', label: '顧客一覧', icon: Users, description: 'すべての顧客を表示' },
-  { id: 'new-customer', label: '新規登録', icon: UserPlus, description: '新しい顧客を追加' },
-  { id: 'search', label: '検索', icon: Search, description: '顧客を検索' },
-  { id: 'settings', label: '設定', icon: Settings, description: '表示設定' }
-]
+import { HelpButton } from '@/components/ui/help-button'
+import { UserPlus, Search } from 'lucide-react'
 import { useCustomerData } from './hooks/useCustomerData'
 import { CustomerRow } from './components/CustomerRow'
 import { CustomerEditModal } from './components/CustomerEditModal'
@@ -25,7 +16,6 @@ export default function CustomerManagement() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState('customer-list')
 
   // フィルタリング
   const filteredCustomers = customers.filter((customer) => {
@@ -46,78 +36,62 @@ export default function CustomerManagement() {
     setExpandedCustomerId(expandedCustomerId === customerId ? null : customerId)
   }
 
-  const handlePageChange = (pageId: string) => {
-    window.location.hash = pageId === 'dashboard' ? '' : pageId
-  }
-
   return (
     <AppLayout
       currentPage="customer-management"
-      sidebar={
-        <UnifiedSidebar
-          title="顧客管理"
-          mode="list"
-          menuItems={CUSTOMER_MENU_ITEMS}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-      }
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
-      stickyLayout={true}
+      containerPadding="px-2 py-4 sm:px-6"
+      className="mx-auto"
     >
-      <main className="space-y-3 sm:space-y-4 md:space-y-6">
-        <div className="space-y-3 sm:space-y-4 md:space-y-6">
-          <PageHeader
-            title="顧客管理"
-            description={`全${customers.length}名の顧客を管理`}
-          >
-            <Button onClick={() => {
-              setSelectedCustomer(null)
-              setIsEditModalOpen(true)
-            }} size="sm">
-              <UserPlus className="mr-2 h-4 w-4" />
-              新規顧客
-            </Button>
-          </PageHeader>
+      <div className="space-y-6">
+        <PageHeader
+          title="顧客管理"
+          description={`全${customers.length}名の顧客を管理`}
+        >
+          <HelpButton topic="customer" label="顧客管理マニュアル" />
+          <Button onClick={() => {
+            setSelectedCustomer(null)
+            setIsEditModalOpen(true)
+          }} size="sm">
+            <UserPlus className="mr-1 h-4 w-4" />
+            <span className="hidden sm:inline">新規顧客</span>
+            <span className="sm:hidden">新規</span>
+          </Button>
+        </PageHeader>
 
-      {/* 検索バー */}
-      <Card>
-        <CardContent className="pt-4 sm:pt-6 p-3 sm:p-4 md:p-6">
-          <div className="relative">
-            <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-            <Input
-              placeholder="顧客名、メール、電話番号で検索..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-7 sm:pl-10 text-xs sm:text-sm"
-            />
+        {/* 検索バー */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="顧客名、メール、電話番号で検索..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 h-10 bg-white w-full max-w-md"
+          />
+        </div>
+
+        {/* 顧客一覧 */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold tracking-tight">顧客一覧 ({filteredCustomers.length}件)</h2>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* 顧客一覧 */}
-      <Card>
-        <CardHeader className="p-3 sm:p-4 md:p-6">
-          <CardTitle>顧客一覧 ({filteredCustomers.length}件)</CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 sm:p-4 md:p-6">
           {loading ? (
-            <div className="text-center py-6 sm:py-8 text-muted-foreground text-xs sm:text-sm">読み込み中...</div>
+            <div className="text-center py-8 text-muted-foreground text-sm">読み込み中...</div>
           ) : filteredCustomers.length === 0 ? (
-            <div className="text-center py-6 sm:py-8 text-muted-foreground text-xs sm:text-sm">
+            <div className="text-center py-8 text-muted-foreground text-sm">
               {searchTerm ? '該当する顧客が見つかりません' : '顧客がまだ登録されていません'}
             </div>
           ) : (
-            <div className="space-y-2 overflow-x-auto">
-              {/* テーブルヘッダー */}
-              <div className="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-muted/50 rounded-lg text-xs min-w-max">
-                <div className="col-span-3 sm:col-span-2">顧客名</div>
-                <div className="col-span-3 sm:col-span-2 hidden sm:block">メールアドレス</div>
-                <div className="col-span-3 sm:col-span-2 hidden md:block">電話番号</div>
-                <div className="col-span-2 sm:col-span-1 text-center">来店</div>
-                <div className="col-span-3 sm:col-span-2 text-right hidden sm:block">累計支払額</div>
-                <div className="col-span-3 sm:col-span-2 hidden md:block">最終来店日</div>
+            <div className="space-y-2">
+              {/* テーブルヘッダー (PCのみ) */}
+              <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 bg-muted/50 rounded-lg text-xs font-medium text-muted-foreground">
+                <div className="col-span-2">顧客名</div>
+                <div className="col-span-2">メールアドレス</div>
+                <div className="col-span-2">電話番号</div>
+                <div className="col-span-1 text-center">来店</div>
+                <div className="col-span-2 text-right">累計支払額</div>
+                <div className="col-span-2">最終来店日</div>
                 <div className="col-span-1 text-center">詳細</div>
               </div>
 
@@ -133,22 +107,19 @@ export default function CustomerManagement() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* 編集モーダル */}
-      <CustomerEditModal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false)
-          setSelectedCustomer(null)
-        }}
-        customer={selectedCustomer}
-        onSave={refreshCustomers}
-      />
         </div>
-      </main>
+
+        {/* 編集モーダル */}
+        <CustomerEditModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false)
+            setSelectedCustomer(null)
+          }}
+          customer={selectedCustomer}
+          onSave={refreshCustomers}
+        />
+      </div>
     </AppLayout>
   )
 }
-

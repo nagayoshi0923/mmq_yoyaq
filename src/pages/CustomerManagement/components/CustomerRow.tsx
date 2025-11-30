@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronDown, ChevronUp, Edit2, Mail, Phone } from 'lucide-react'
+import { ChevronDown, ChevronUp, Edit2, Mail, Phone, Calendar } from 'lucide-react'
 import type { Customer, Reservation } from '@/types'
 import { supabase } from '@/lib/supabase'
 
@@ -57,15 +57,15 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      {/* メイン行（高さ60px） */}
-      <div className="grid grid-cols-12 gap-4 px-4 items-center h-[60px] hover:bg-muted/50 transition-colors">
-        <div className="col-span-2 truncate">{customer.name}</div>
+    <div className="border rounded-lg overflow-hidden bg-white">
+      {/* PC View */}
+      <div className="hidden md:grid grid-cols-12 gap-4 px-4 items-center h-[60px] hover:bg-muted/50 transition-colors cursor-pointer" onClick={onToggleExpand}>
+        <div className="col-span-2 truncate font-medium">{customer.name}</div>
         <div className="col-span-2 text-xs text-muted-foreground truncate flex items-center gap-2">
           {customer.email ? (
             <>
-              <Mail className="h-3 w-3" />
-              {customer.email}
+              <Mail className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{customer.email}</span>
             </>
           ) : (
             <span className="text-muted-foreground/50">未登録</span>
@@ -74,29 +74,66 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
         <div className="col-span-2 text-xs text-muted-foreground truncate flex items-center gap-2">
           {customer.phone ? (
             <>
-              <Phone className="h-3 w-3" />
-              {customer.phone}
+              <Phone className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{customer.phone}</span>
             </>
           ) : (
             <span className="text-muted-foreground/50">未登録</span>
           )}
         </div>
         <div className="col-span-1 text-center">
-          <Badge variant="secondary">{customer.visit_count}回</Badge>
+          <Badge variant="secondary" className="font-normal">{customer.visit_count}回</Badge>
         </div>
-        <div className="col-span-2 text-right">
+        <div className="col-span-2 text-right font-medium">
           {formatCurrency(customer.total_spent)}
         </div>
-        <div className="col-span-2 text-xs text-muted-foreground">
+        <div className="col-span-2 text-xs text-muted-foreground truncate">
           {formatDate(customer.last_visit)}
         </div>
-        <div className="col-span-1 flex items-center justify-center gap-1">
-          <Button variant="ghost" size="sm" onClick={onEdit}>
+        <div className="col-span-1 flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={onToggleExpand}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleExpand}>
             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
+        </div>
+      </div>
+
+      {/* Mobile View */}
+      <div className="md:hidden p-3 hover:bg-muted/50 transition-colors cursor-pointer" onClick={onToggleExpand}>
+        <div className="flex justify-between items-start mb-2">
+          <div className="font-bold">{customer.name}</div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-xs font-normal">{customer.visit_count}回</Badge>
+            {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+        </div>
+        
+        <div className="space-y-1 mb-2">
+            {customer.email && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Mail className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{customer.email}</span>
+              </div>
+            )}
+            {customer.phone && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Phone className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{customer.phone}</span>
+              </div>
+            )}
+        </div>
+
+        <div className="flex justify-between items-center text-sm pt-2 border-t border-dashed">
+          <div className="font-bold">{formatCurrency(customer.total_spent)}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{formatDate(customer.last_visit)}</span>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+              <Edit2 className="h-3 w-3 mr-1" />
+              編集
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -104,9 +141,9 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
       {isExpanded && (
         <div className="border-t bg-muted/20 p-4 space-y-4">
           {/* 顧客詳細 */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h4 className="mb-2">顧客情報</h4>
+              <h4 className="mb-2 font-bold text-sm">顧客情報</h4>
               <div className="space-y-1 text-sm">
                 <div><span className="text-muted-foreground">LINE ID:</span> {customer.line_id || '未登録'}</div>
                 <div><span className="text-muted-foreground">登録日:</span> {formatDate(customer.created_at)}</div>
@@ -115,7 +152,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
                     <span className="text-muted-foreground">好み:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {customer.preferences.map((pref, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs">{pref}</Badge>
+                        <Badge key={idx} variant="outline" className="text-xs font-normal">{pref}</Badge>
                       ))}
                     </div>
                   </div>
@@ -123,8 +160,8 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
               </div>
             </div>
             <div>
-              <h4 className="mb-2">メモ</h4>
-              <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+              <h4 className="mb-2 font-bold text-sm">メモ</h4>
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap bg-white p-2 rounded border min-h-[60px]">
                 {customer.notes || 'メモなし'}
               </p>
             </div>
@@ -132,36 +169,39 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
 
           {/* 予約履歴 */}
           <div>
-            <h4 className="mb-2">予約履歴 ({reservations.length}件)</h4>
+            <h4 className="mb-2 font-bold text-sm">予約履歴 ({reservations.length}件)</h4>
             {loading ? (
               <div className="text-center py-4 text-xs text-muted-foreground">読み込み中...</div>
             ) : reservations.length === 0 ? (
               <div className="text-center py-4 text-xs text-muted-foreground">予約履歴がありません</div>
             ) : (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                 {reservations.map((reservation) => (
-                  <div key={reservation.id} className="flex items-center justify-between p-3 bg-background rounded-lg border">
+                  <div key={reservation.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background rounded-lg border gap-2">
                     <div className="flex-1">
-                      <div className="">{reservation.title}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-sm font-medium">{reservation.title}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Calendar className="h-3 w-3" />
                         {formatDateTime(reservation.requested_datetime)}
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
                       <div className="text-right">
-                        <div className="text-xs text-muted-foreground">参加人数</div>
-                        <div className="">{reservation.participant_count}名</div>
+                        <div className="text-[10px] text-muted-foreground">人数</div>
+                        <div className="text-sm">{reservation.participant_count}名</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-muted-foreground">金額</div>
-                        <div className="">{formatCurrency(reservation.final_price)}</div>
+                        <div className="text-[10px] text-muted-foreground">金額</div>
+                        <div className="text-sm font-medium">{formatCurrency(reservation.final_price)}</div>
                       </div>
                       <Badge
+                        // @ts-ignore
                         variant={
-                          reservation.status === 'confirmed' ? 'default' :
-                          reservation.status === 'cancelled' ? 'destructive' :
-                          'secondary'
+                          reservation.status === 'confirmed' ? 'success' :
+                          reservation.status === 'cancelled' ? 'gray' :
+                          'warning'
                         }
+                        className="font-normal w-20 justify-center"
                       >
                         {reservation.status === 'confirmed' ? '確定' :
                          reservation.status === 'cancelled' ? 'キャンセル' :
@@ -178,4 +218,3 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
     </div>
   )
 }
-
