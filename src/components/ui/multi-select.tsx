@@ -237,7 +237,7 @@ export function MultiSelect({
 
       {/* バッジ表示エリア */}
       {showBadges && selectedValues && selectedValues.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1">
           {selectedValues.map((value) => {
             // useIdAsValueがtrueの場合、IDからnameを取得して表示
             const displayValue = useIdAsValue 
@@ -248,20 +248,18 @@ export function MultiSelect({
                 key={value} 
                 variant="outline" 
                 className={cn(
-                  "flex items-center gap-1 font-normal text-xs",
+                  "flex items-center gap-0.5 font-normal text-[10px] py-0.5 px-1.5 h-auto",
                   badgeClassName || "bg-gray-100 border-gray-200 text-gray-700"
                 )}
               >
                 {displayValue}
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-4 w-4 p-0 hover:bg-red-100 rounded-full"
+                  className="ml-0.5 hover:bg-red-100 rounded-full p-0.5"
                   onClick={() => handleRemoveValue(value)}
                 >
-                  <X className="h-3 w-3" />
-                </Button>
+                  <X className="h-2.5 w-2.5" />
+                </button>
               </Badge>
             )
           })}
