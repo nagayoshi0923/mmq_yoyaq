@@ -210,6 +210,9 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 selectedValues={formData.role || []}
                 onSelectionChange={(values) => setFormData({ ...formData, role: values })}
                 placeholder="役割を選択"
+                searchPlaceholder="役割を検索..."
+                emptyText="役割がありません"
+                emptySearchText="役割が見つかりません"
                 useIdAsValue={true}
                 showBadges={true}
               />
@@ -222,6 +225,9 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 selectedValues={formData.stores || []}
                 onSelectionChange={(values) => setFormData({ ...formData, stores: values })}
                 placeholder="店舗を選択"
+                searchPlaceholder="店舗名で検索..."
+                emptyText="店舗がありません"
+                emptySearchText="店舗が見つかりません"
                 useIdAsValue={true}
                 showBadges={true}
               />
@@ -234,6 +240,9 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 selectedValues={formData.special_scenarios || []}
                 onSelectionChange={handleSpecialScenariosChange}
                 placeholder="GM可能なシナリオを選択"
+                searchPlaceholder="シナリオ名で検索..."
+                emptyText="シナリオがありません"
+                emptySearchText="シナリオが見つかりません"
                 useIdAsValue={true}
                 showBadges={true}
               />
@@ -247,6 +256,9 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
                 selectedValues={formData.experienced_scenarios || []}
                 onSelectionChange={(values) => setFormData({ ...formData, experienced_scenarios: values })}
                 placeholder="体験済みシナリオを選択"
+                searchPlaceholder="シナリオ名で検索..."
+                emptyText="シナリオがありません"
+                emptySearchText="シナリオが見つかりません"
                 useIdAsValue={true}
                 showBadges={true}
               />

@@ -22,12 +22,14 @@ interface MultiSelectProps {
   selectedValues: string[]
   onSelectionChange: (values: string[]) => void
   placeholder?: string
+  searchPlaceholder?: string  // 検索ボックスのプレースホルダー
   className?: string
   disabled?: boolean
   showBadges?: boolean
   closeOnSelect?: boolean  // 選択時にプルダウンを閉じるか
   useIdAsValue?: boolean  // trueの場合、idを値として使用（デフォルトはname）
   emptyText?: string  // 空の時に表示するテキスト
+  emptySearchText?: string  // 検索結果が空の時のテキスト
   emptyActionLabel?: string  // 空の時に表示するボタンラベル
   onEmptyAction?: () => void  // 空の時にボタンをクリックした時のアクション
 }
@@ -37,12 +39,14 @@ export function MultiSelect({
   selectedValues,
   onSelectionChange,
   placeholder = "選択してください",
+  searchPlaceholder = "検索...",
   className = "",
   disabled = false,
   showBadges = false,
   closeOnSelect = false,
   useIdAsValue = false,
-  emptyText,
+  emptyText = "項目がありません",
+  emptySearchText = "見つかりません",
   emptyActionLabel,
   onEmptyAction
 }: MultiSelectProps) {
@@ -151,7 +155,7 @@ export function MultiSelect({
         >
           <div className="p-2 border-b flex-shrink-0">
             <Input
-              placeholder="スタッフ名で検索..."
+              placeholder={searchPlaceholder}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-8"
@@ -178,7 +182,7 @@ export function MultiSelect({
             {sortedOptions.length === 0 && (
               <div className="px-4 py-3 text-center">
                 <p className="text-xs text-muted-foreground">
-                  {emptyText || (searchTerm ? 'スタッフが見つかりません' : 'スタッフがいません')}
+                  {searchTerm ? emptySearchText : emptyText}
                 </p>
               </div>
             )}
