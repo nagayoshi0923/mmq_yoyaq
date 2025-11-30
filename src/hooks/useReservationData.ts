@@ -10,6 +10,18 @@ export interface ReservationWithDetails extends Reservation {
   event_time?: string
   scenario_title?: string
   store_name?: string
+  // UI表示用に追加または型拡張
+  candidate_datetimes?: {
+    candidates: Array<{
+      date: string
+      startTime: string
+      endTime: string
+    }>
+  }
+  // 実際のDB値と型定義の不一致を許容するための拡張
+  status: Reservation['status'] | 'pending_gm' | 'pending_store'
+  payment_status: Reservation['payment_status'] | 'unpaid'
+  total_amount?: number // 後方互換性またはエイリアス用
 }
 
 interface Filters {
@@ -72,7 +84,8 @@ export function useReservationData(filters: Filters) {
           scenario_title: reservation.scenarios?.title || reservation.title,
           store_name: reservation.stores?.name || '',
           event_date: eventDate,
-          event_time: eventTime
+          event_time: eventTime,
+          total_amount: reservation.final_price || reservation.total_price || 0 // 金額フィールドの統一
         }
       })
       
@@ -118,4 +131,3 @@ export function useReservationData(filters: Filters) {
     loadReservations
   }
 }
-

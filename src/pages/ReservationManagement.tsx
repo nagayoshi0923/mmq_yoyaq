@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -7,16 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { HelpButton } from '@/components/ui/help-button'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { Calendar, Search, CheckCircle, Settings, Clock, User, DollarSign, Filter, ChevronDown, ChevronUp, Download, MoreHorizontal } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Calendar, Search, Clock, User, DollarSign, Filter, ChevronDown, Download, MoreHorizontal } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { useReservationData } from '@/hooks/useReservationData'
@@ -111,23 +103,23 @@ export function ReservationManagement() {
       className="mx-auto"
     >
       <div className="space-y-4 sm:space-y-6">
-        {/* ヘッダーエリア */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-6 w-6 text-primary" />
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">予約管理</h1>
-              <p className="text-xs text-muted-foreground">全{stats.total}件の予約</p>
+        {/* ヘッダーエリア (PageHeaderを使用) */}
+        <PageHeader
+          title={
+            <div className="flex items-center gap-2">
+              <Calendar className="h-6 w-6 text-primary" />
+              <span>予約管理</span>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <HelpButton topic="reservation" label="予約管理マニュアル" />
-            <Button variant="outline" size="sm" className="h-9">
-              <Download className="mr-2 h-4 w-4" />
-              CSV出力
-            </Button>
-          </div>
-        </div>
+          }
+          description={`全${stats.total}件の予約`}
+        >
+          <HelpButton topic="reservation" label="予約管理マニュアル" />
+          <Button variant="outline" size="sm" className="h-9">
+            <Download className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">CSV出力</span>
+            <span className="sm:hidden">CSV</span>
+          </Button>
+        </PageHeader>
 
         {/* 統計サマリー（ダッシュボード風デザイン） */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -289,11 +281,12 @@ export function ReservationManagement() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
                             {reservation.event_date && (
                               <div className="flex items-center gap-1.5">
                                 <Calendar className="h-4 w-4 text-primary/70" />
                                 <span className="font-medium text-foreground">
+                                  {/* @ts-ignore */}
                                   {format(new Date(reservation.event_date), 'M/d(EEE)', { locale: ja })}
                                 </span>
                               </div>
@@ -306,7 +299,7 @@ export function ReservationManagement() {
                             )}
                             <div className="flex items-center gap-1.5">
                               <DollarSign className="h-4 w-4 text-primary/70" />
-                              <span>¥{reservation.total_amount?.toLocaleString() || '0'}</span>
+                              <span>¥{(reservation.total_amount || 0).toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
@@ -330,6 +323,7 @@ export function ReservationManagement() {
                             <ul className="list-disc list-inside space-y-0.5">
                               {reservation.candidate_datetimes.candidates?.map((c: any, i: number) => (
                                 <li key={i}>
+                                  {/* @ts-ignore */}
                                   {format(new Date(c.date), 'M/d(EEE)', { locale: ja })} {c.startTime}-{c.endTime}
                                 </li>
                               ))}
