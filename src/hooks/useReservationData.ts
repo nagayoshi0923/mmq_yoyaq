@@ -8,6 +8,7 @@ export interface ReservationWithDetails extends Reservation {
   customer_name?: string
   event_date?: string
   event_time?: string
+  end_time?: string // 追加
   scenario_title?: string
   store_name?: string
   // UI表示用に追加または型拡張
@@ -63,6 +64,7 @@ export function useReservationData(filters: Filters) {
       const formattedData: ReservationWithDetails[] = (data || []).map((reservation: any) => {
         let eventDate = ''
         let eventTime = ''
+        let endTime = ''
         
         if (reservation.requested_datetime) {
           const dateStr = reservation.requested_datetime
@@ -77,6 +79,14 @@ export function useReservationData(filters: Filters) {
               eventTime = spaceParts[1].slice(0, 5)
             }
           }
+
+          // 終了時間の計算
+          if (eventTime && reservation.duration) {
+            const [hours, minutes] = eventTime.split(':').map(Number)
+            const date = new Date()
+            date.setHours(hours, minutes + reservation.duration)
+            endTime = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+          }
         }
         
         return {
@@ -85,6 +95,7 @@ export function useReservationData(filters: Filters) {
           store_name: reservation.stores?.name || '',
           event_date: eventDate,
           event_time: eventTime,
+          end_time: endTime,
           total_amount: reservation.final_price || reservation.total_price || 0 // 金額フィールドの統一
         }
       })
