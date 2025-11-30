@@ -192,6 +192,59 @@ serve(async (req) => {
       console.log('🆕 Staff record created:', staffId)
     }
 
+    // ------------------------------------------------------------------
+    // customersテーブルにレコードを作成・更新
+    // スタッフも顧客として登録することで、プライベート予約時にも履歴を残せるようにする
+    // ------------------------------------------------------------------
+    if (userId) {
+      console.log('🔄 Checking/Creating customer record for staff:', userId)
+      
+      const { data: existingCustomer, error: customerError } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle()
+      
+      if (!existingCustomer && !customerError) {
+        // user_idで紐付く顧客データがない場合、emailで検索
+        const { data: customerByEmail } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle()
+          
+        if (customerByEmail) {
+          // emailで一致する場合はuser_idを紐付け
+          await supabase
+            .from('customers')
+            .update({ user_id: userId })
+            .eq('id', customerByEmail.id)
+          console.log('🔗 Linked existing customer record to staff user:', customerByEmail.id)
+        } else {
+          // 新規作成
+          const { error: createCustomerError } = await supabase
+            .from('customers')
+            .insert({
+              user_id: userId,
+              name: name,
+              email: email,
+              visit_count: 0,
+              total_spent: 0,
+              created_at: now,
+              updated_at: now
+            })
+          
+          if (createCustomerError) {
+            console.warn('⚠️ Failed to create customer record for staff:', createCustomerError)
+          } else {
+            console.log('✅ Created new customer record for staff')
+          }
+        }
+      } else if (existingCustomer) {
+        console.log('✅ Customer record already exists for staff:', existingCustomer.id)
+      }
+    }
+
     const linkType = isNewUser ? 'invite' : 'recovery'
     const redirectTo = isNewUser ? SET_PASSWORD_REDIRECT : RESET_PASSWORD_REDIRECT
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
