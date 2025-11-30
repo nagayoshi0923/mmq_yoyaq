@@ -211,24 +211,21 @@ function applyIncrementalUpdate(sheet, shifts, month) {
     
     const dayData = existingData[day];
     
-    // 終日の場合は全時間帯を処理
-    const timeSlots = shift.all_day 
-      ? ['morning', 'afternoon', 'evening']
-      : [];
-    
-    if (shift.morning) timeSlots.push('morning');
-    if (shift.afternoon) timeSlots.push('afternoon');
-    if (shift.evening) timeSlots.push('evening');
+    // 全ての時間帯（朝・昼・夜）を処理（追加・削除両方に対応）
+    const allTimeSlots = ['morning', 'afternoon', 'evening'];
     
     // 各時間帯を更新
-    timeSlots.forEach(slot => {
+    allTimeSlots.forEach(slot => {
       const slotIndex = { morning: 2, afternoon: 3, evening: 4 }[slot];
       const currentStaff = dayData[slot];
       
       // スタッフ名が既に存在するかチェック
       const existingIndex = currentStaff.indexOf(staffName);
       
-      if (shift[slot] || (shift.all_day && ['morning', 'afternoon', 'evening'].includes(slot))) {
+      // この時間帯が有効かどうかを判定（終日 or 個別チェック）
+      const isSlotEnabled = shift.all_day || shift[slot];
+      
+      if (isSlotEnabled) {
         // 追加処理
         if (existingIndex === -1) {
           console.log(`  追加: ${day}日 ${slot} - ${staffName}`);
@@ -239,7 +236,7 @@ function applyIncrementalUpdate(sheet, shifts, month) {
           unchangedCount++;
         }
       } else {
-        // 削除処理（他の時間帯がfalseの場合）
+        // 削除処理（時間帯がfalseの場合）
         if (existingIndex !== -1) {
           console.log(`  削除: ${day}日 ${slot} - ${staffName}`);
           currentStaff.splice(existingIndex, 1);

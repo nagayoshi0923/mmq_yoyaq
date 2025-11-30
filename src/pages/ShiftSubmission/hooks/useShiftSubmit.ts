@@ -106,9 +106,10 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading, reloadSh
               }))
             }
           }),
-          // Googleスプレッドシート同期（DB準拠：全スタッフ）
+          // Googleスプレッドシート同期（提出したスタッフのみ）
           supabase.functions.invoke('sync-shifts-to-google-sheet', {
             body: {
+              staff_id: currentStaffId,
               year,
               month
             }
