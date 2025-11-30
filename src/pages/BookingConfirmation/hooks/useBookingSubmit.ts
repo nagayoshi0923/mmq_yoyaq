@@ -203,8 +203,12 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         props.startTime,
         props.eventDate
       )
-      // 予約番号を生成
-      const reservationNumber = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-6)}`
+      // 予約番号を生成 (YYMMDD-XXXX形式: 11桁)
+      const now = new Date()
+      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+      const reservationNumber = `${dateStr}-${randomStr}`
+      
       const eventDateTime = `${props.eventDate}T${props.startTime}`
       
       // 顧客レコードを取得または作成

@@ -78,8 +78,11 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         logger.error('顧客レコードの作成/更新エラー:', error)
       }
 
-      // 親予約番号を生成（全候補で共通）
-      const baseReservationNumber = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-PV${Date.now().toString().slice(-6)}`
+      // 親予約番号を生成（全候補で共通）(YYMMDD-XXXX形式: 11桁)
+      const now = new Date()
+      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+      const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
+      const baseReservationNumber = `${dateStr}-${randomStr}`
       
       // 最初の候補を親レコードとして作成
       const firstSlot = props.selectedTimeSlots[0]

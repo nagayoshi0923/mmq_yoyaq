@@ -133,9 +133,9 @@ export const reservationApi = {
 
   // 予約を作成
   async create(reservation: Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'>): Promise<Reservation> {
-    // 予約番号を自動生成（YYYYMMDD-XXXX形式）
-    const date = new Date()
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
+    // 予約番号を自動生成（YYMMDD-XXXX形式: 11桁）
+    const now = new Date()
+    const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
     const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase()
     const reservationNumber = `${dateStr}-${randomStr}`
 
