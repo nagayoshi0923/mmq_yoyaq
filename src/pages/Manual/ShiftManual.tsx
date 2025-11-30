@@ -23,7 +23,7 @@ export function ShiftManual() {
         </h3>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 1. 提出期間の設定
@@ -39,7 +39,7 @@ export function ShiftManual() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 2. スケジュール作成
@@ -53,7 +53,7 @@ export function ShiftManual() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 3. スタッフ配置 (GM決定)
@@ -67,7 +67,7 @@ export function ShiftManual() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 4. 公開
@@ -91,7 +91,7 @@ export function ShiftManual() {
         </h3>
 
         <div className="space-y-4">
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <UserCheck className="h-4 w-4" />
@@ -113,7 +113,7 @@ export function ShiftManual() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" />

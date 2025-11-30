@@ -23,7 +23,7 @@ export function ReservationManual() {
         </h3>
 
         <div className="grid gap-6 md:grid-cols-3">
-          <Card className="border-t-4 border-t-yellow-500">
+          <Card className="border-t-4 border-t-yellow-500 shadow-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">1. 保留 (Pending)</CardTitle>
               <CardDescription>対応待ちの状態</CardDescription>
@@ -36,7 +36,7 @@ export function ReservationManual() {
             </CardContent>
           </Card>
 
-          <Card className="border-t-4 border-t-green-500">
+          <Card className="border-t-4 border-t-green-500 shadow-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">2. 確定 (Confirmed)</CardTitle>
               <CardDescription>予約完了の状態</CardDescription>
@@ -49,7 +49,7 @@ export function ReservationManual() {
             </CardContent>
           </Card>
 
-          <Card className="border-t-4 border-t-red-500">
+          <Card className="border-t-4 border-t-red-500 shadow-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">3. キャンセル</CardTitle>
               <CardDescription>無効な状態</CardDescription>
@@ -72,7 +72,7 @@ export function ReservationManual() {
         </h3>
 
         <div className="space-y-4">
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Mail className="h-4 w-4" />
@@ -92,7 +92,7 @@ export function ReservationManual() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <AlertCircle className="h-4 w-4" />
@@ -108,7 +108,7 @@ export function ReservationManual() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Search className="h-4 w-4" />

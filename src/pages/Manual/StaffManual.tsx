@@ -25,7 +25,7 @@ export function StaffManual() {
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* 1. 採用・招待 */}
-          <Card className="border-l-4 border-l-blue-500">
+          <Card className="border-l-4 border-l-blue-500 shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <UserPlus className="h-5 w-5 text-blue-500" />
@@ -45,7 +45,7 @@ export function StaffManual() {
           </Card>
 
           {/* 2. 退職・削除 */}
-          <Card className="border-l-4 border-l-red-500">
+          <Card className="border-l-4 border-l-red-500 shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <UserMinus className="h-5 w-5 text-red-500" />
@@ -66,7 +66,7 @@ export function StaffManual() {
           </Card>
 
           {/* 3. 復帰・再雇用 */}
-          <Card className="border-l-4 border-l-green-500">
+          <Card className="border-l-4 border-l-green-500 shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <RefreshCw className="h-5 w-5 text-green-500" />
@@ -86,7 +86,7 @@ export function StaffManual() {
           </Card>
 
           {/* 4. 管理者の保護 */}
-          <Card className="border-l-4 border-l-yellow-500">
+          <Card className="border-l-4 border-l-yellow-500 shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <ShieldCheck className="h-5 w-5 text-yellow-500" />
@@ -115,7 +115,7 @@ export function StaffManual() {
         </h3>
 
         <div className="space-y-4">
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="h-4 w-4" />
@@ -131,7 +131,7 @@ export function StaffManual() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <UserPlus className="h-4 w-4" />
@@ -146,7 +146,7 @@ export function StaffManual() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-none border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" />
