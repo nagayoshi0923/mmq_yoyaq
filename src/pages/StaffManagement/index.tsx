@@ -289,14 +289,16 @@ export function StaffManagement() {
         email: searchedUser.email
       })
 
-      // 4. usersテーブルのroleをstaffに更新
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ role: 'staff' })
-        .eq('id', searchedUser.id)
+      // 4. usersテーブルのroleをstaffに更新（既にadminの場合は変更しない）
+      if (searchedUser.role !== 'admin') {
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ role: 'staff' })
+          .eq('id', searchedUser.id)
 
-      if (updateError) {
-        console.warn('usersテーブルの更新に失敗しました:', updateError)
+        if (updateError) {
+          console.warn('usersテーブルの更新に失敗しました:', updateError)
+        }
       }
 
       alert(`✅ ${linkingStaff.name}さんを ${searchedUser.email} と紐付けました！`)
