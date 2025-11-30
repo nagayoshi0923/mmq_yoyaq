@@ -340,47 +340,57 @@ function ReservationCard({ reservation, isExpanded, toggleExpanded, getStatusBad
   const hasAlerts = alerts.length > 0
 
   return (
-    <Card className={`transition-all duration-200 ${isExpanded ? 'ring-1 ring-primary/20 shadow-sm' : 'hover:shadow-sm'} ${hasAlerts ? 'border-l-4 border-l-red-400' : ''}`}>
+    <Card className={`transition-all duration-200 group ${isExpanded ? 'ring-1 ring-primary/20 shadow-sm' : 'hover:bg-accent/5'} ${hasAlerts ? 'border-l-[3px] border-l-red-500' : 'border-l-[3px] border-l-transparent'}`}>
       <CardContent className="p-0">
-        <div className="p-2.5 sm:p-3 cursor-pointer" onClick={() => toggleExpanded(reservation.id)}>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-            {/* 左端：アラートと時間 */}
-            <div className="flex sm:flex-col items-center sm:items-start gap-2 sm:w-20 flex-shrink-0">
-              {hasAlerts && (
-                <div className="flex gap-1">
-                  {alerts.map((alert, i) => (
-                    <div key={i} className="text-red-500" title={alert.message}><AlertTriangle className="h-3.5 w-3.5" /></div>
-                  ))}
+        <div className="flex items-stretch cursor-pointer min-h-[60px]" onClick={() => toggleExpanded(reservation.id)}>
+          {/* 左側: 時間とソース */}
+          <div className="flex flex-col items-center justify-center w-[70px] sm:w-20 flex-shrink-0 bg-muted/10 border-r px-1 py-2 gap-1">
+            <div className="font-mono font-bold text-lg leading-none text-foreground/80">
+              {reservation.event_time || '--:--'}
+            </div>
+            <div className="flex flex-col items-center text-[9px] text-muted-foreground leading-none gap-0.5 opacity-80">
+              {getSourceIcon(reservation.reservation_source)}
+              <span className="truncate max-w-[60px] text-[8px]">{getSourceLabel(reservation.reservation_source)}</span>
+            </div>
+          </div>
+
+          {/* メイン情報エリア */}
+          <div className="flex-1 min-w-0 py-2 px-3 flex flex-col justify-center gap-1">
+            {/* 上段: タイトルとステータス */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="font-mono text-[9px] text-muted-foreground">#{reservation.reservation_number.slice(-6)}</span>
+                  {hasAlerts && (
+                    <div className="flex gap-0.5 text-red-500">
+                      <AlertTriangle className="h-3 w-3" />
+                    </div>
+                  )}
                 </div>
-              )}
-              <div className="font-mono font-bold text-base text-primary">
-                {reservation.event_time || '--:--'}
+                <h4 className="font-bold text-sm leading-tight truncate">{reservation.scenario_title}</h4>
               </div>
-              <div className="flex items-center gap-1 text-[9px] text-muted-foreground bg-muted px-1 py-0.5 rounded border">
-                {getSourceIcon(reservation.reservation_source)}
-                <span className="truncate max-w-[60px]">{getSourceLabel(reservation.reservation_source)}</span>
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                 <div className="scale-90 origin-right">{getStatusBadge(reservation.status)}</div>
               </div>
             </div>
 
-            {/* 中央：メイン情報 */}
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-mono text-[9px] text-muted-foreground">#{reservation.reservation_number}</span>
-                <div className="scale-90 origin-left">{getStatusBadge(reservation.status)}</div>
-                {reservation.payment_status === 'unpaid' && <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50 text-[10px] h-4 px-1">未払い</Badge>}
+            {/* 下段: 顧客・金額・アラートメッセージ（1行で） */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground overflow-hidden">
+              <div className="flex items-center gap-1 text-foreground/80 font-medium truncate max-w-[120px]">
+                <User className="h-3 w-3 opacity-70" /> {reservation.customer_name}
               </div>
-              <h4 className="font-bold text-sm leading-tight truncate">{reservation.scenario_title}</h4>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1 text-foreground font-medium truncate"><User className="h-3 w-3" /> {reservation.customer_name} 様</div>
-                <div className="flex items-center gap-1"><DollarSign className="h-3 w-3" /> ¥{(reservation.total_amount || 0).toLocaleString()}</div>
+              <div className="flex items-center gap-1 text-foreground/80">
+                <DollarSign className="h-3 w-3 opacity-70" />
+                <span className={reservation.payment_status === 'unpaid' ? 'text-red-600 font-medium' : ''}>
+                  {(reservation.total_amount || 0).toLocaleString()}
+                </span>
               </div>
             </div>
+          </div>
 
-            {/* 右端：アクション・展開 */}
-            <div className="flex items-center justify-between sm:justify-end gap-2 mt-1 sm:mt-0 pt-1 sm:pt-0 border-t sm:border-t-0 w-full sm:w-auto">
-               {hasAlerts && <span className="text-[10px] text-red-500 font-bold sm:hidden">要確認</span>}
-               <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ml-auto sm:ml-0 ${isExpanded ? 'rotate-180' : ''}`} />
-            </div>
+          {/* 展開アイコン（右端縦中央） */}
+          <div className="flex items-center justify-center px-2 text-muted-foreground/50 group-hover:text-foreground transition-colors">
+            <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
           </div>
         </div>
 
