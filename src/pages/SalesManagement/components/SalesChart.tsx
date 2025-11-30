@@ -14,12 +14,12 @@ const SalesChartBase: React.FC<SalesChartProps> = ({
   chartRef
 }) => {
   return (
-    <Card>
-      <CardHeader className="p-2 sm:p-3 md:p-4 lg:p-6">
+    <Card className="shadow-none border">
+      <CardHeader className="p-2 sm:p-3 md:p-4 md:p-6">
         <CardTitle className="text-base">売上推移</CardTitle>
       </CardHeader>
-      <CardContent className="p-2 sm:p-3 md:p-4 lg:p-6">
-        <div className="h-48 sm:h-64 md:h-80 lg:h-96">
+      <CardContent className="p-2 sm:p-3 md:p-4 md:p-6">
+        <div className="h-48 sm:h-64 md:h-80 md:h-96">
           <Line 
             data={chartData || { labels: [], datasets: [] }} 
             options={chartOptions} 

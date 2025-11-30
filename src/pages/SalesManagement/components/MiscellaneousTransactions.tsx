@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { MonthSwitcher } from '@/components/patterns/calendar/MonthSwitcher'
 import { Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -89,7 +88,6 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
   const getMonthRange = (date: Date) => {
     const year = date.getFullYear()
     const month = date.getMonth()
-    const startDate = new Date(year, month, 1, 12, 0, 0, 0)
     const endDate = new Date(year, month + 1, 0, 12, 0, 0, 0)
     
     const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`
@@ -210,7 +208,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     <div className="space-y-6">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg">雑収支管理</h2>
+        <h2 className="text-lg font-bold">雑収支管理</h2>
       </div>
       
       {/* 月切り替え */}
@@ -226,7 +224,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       
       {/* サマリー */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-green-600" />
@@ -240,7 +238,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200 shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <TrendingDown className="h-4 w-4 text-red-600" />
@@ -254,7 +252,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
           </CardContent>
         </Card>
         
-        <Card className={`bg-gradient-to-br border-2 ${netAmount >= 0 ? 'from-blue-50 to-blue-100 border-blue-300' : 'from-gray-50 to-gray-100 border-gray-300'}`}>
+        <Card className={`bg-gradient-to-br border-2 shadow-none ${netAmount >= 0 ? 'from-blue-50 to-blue-100 border-blue-300' : 'from-gray-50 to-gray-100 border-gray-300'}`}>
           <CardHeader className="pb-3">
             <CardTitle className={`text-sm ${netAmount >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>
               差額
@@ -269,7 +267,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       </div>
       
       {/* 新規追加フォーム */}
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Plus className="h-5 w-5" />
@@ -386,7 +384,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       </Card>
       
       {/* トランザクションリスト */}
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="text-lg">
             {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月の収支一覧
@@ -403,12 +401,53 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                 const store = corporateStores.find(s => s.id === transaction.store_id)
                 const scenario = scenarios.find(s => s.id === transaction.scenario_id)
                 return (
-                  <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                    <div className="flex-1 grid grid-cols-7 gap-4 items-center">
-                      <div className="text-xs text-muted-foreground">
-                        {transaction.date}
+                  <div key={transaction.id} className="border rounded-lg hover:bg-gray-50 bg-white">
+                    {/* PC View */}
+                    <div className="hidden md:flex items-center justify-between p-4">
+                      <div className="flex-1 grid grid-cols-7 gap-4 items-center">
+                        <div className="text-xs text-muted-foreground">
+                          {transaction.date}
+                        </div>
+                        <div>
+                          <span className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                            transaction.type === 'income' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {transaction.type === 'income' ? '収入' : '支出'}
+                          </span>
+                        </div>
+                        <div className="">
+                          {transaction.category}
+                        </div>
+                        <div className={`text-lg ${
+                          transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {formatCurrency(transaction.amount)}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {scenario ? scenario.title : '-'}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {store ? store.short_name : '全社'}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {transaction.description || '-'}
+                        </div>
                       </div>
-                      <div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteTransaction(transaction.id!)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+
+                    {/* Mobile View */}
+                    <div className="md:hidden p-3 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div className="text-sm text-muted-foreground">{transaction.date}</div>
                         <span className={`inline-flex items-center px-2 py-1 rounded text-xs ${
                           transaction.type === 'income' 
                             ? 'bg-green-100 text-green-800' 
@@ -417,31 +456,37 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                           {transaction.type === 'income' ? '収入' : '支出'}
                         </span>
                       </div>
-                      <div className="">
-                        {transaction.category}
+                      <div className="flex justify-between items-center">
+                        <div className="font-medium">{transaction.category}</div>
+                        <div className={`text-lg font-bold ${
+                          transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {formatCurrency(transaction.amount)}
+                        </div>
                       </div>
-                      <div className={`text-lg ${
-                        transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {formatCurrency(transaction.amount)}
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        {(store || scenario) && (
+                          <div className="flex gap-2">
+                            {store && <span className="bg-gray-100 px-1 rounded">{store.short_name}</span>}
+                            {scenario && <span className="bg-gray-100 px-1 rounded truncate">{scenario.title}</span>}
+                          </div>
+                        )}
+                        {transaction.description && (
+                          <div className="mt-1 break-words">{transaction.description}</div>
+                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {scenario ? scenario.title : '-'}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {store ? store.short_name : '全社'}
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {transaction.description || '-'}
+                      <div className="flex justify-end pt-2 border-t border-dashed">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs text-red-600 hover:bg-red-50"
+                          onClick={() => handleDeleteTransaction(transaction.id!)}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          削除
+                        </Button>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteTransaction(transaction.id!)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
                   </div>
                 )
               })}
@@ -452,4 +497,3 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     </div>
   )
 }
-

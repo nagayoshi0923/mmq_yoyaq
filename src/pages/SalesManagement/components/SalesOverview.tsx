@@ -108,7 +108,6 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     const month = currentMonth.getMonth()
     
     // 月初と月末を計算（必ず正午で作成してタイムゾーン問題を回避）
-    const startDate = new Date(year, month, 1, 12, 0, 0, 0)
     const endDate = new Date(year, month + 1, 0, 12, 0, 0, 0)
     
     // YYYY-MM-DD形式に変換
@@ -273,7 +272,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
         title={isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}
         description="期間別の売上・予約実績と分析"
       />
-        <Card>
+        <Card className="shadow-none border">
           <CardContent className="p-4 sm:p-6 md:p-8">
             <div className="text-center text-muted-foreground text-xs sm:text-sm">読み込み中...</div>
           </CardContent>
@@ -339,7 +338,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
 
       {/* 期間設定パネル（トグル表示） */}
       {showPeriodSettings && (
-        <Card className="mb-4 sm:mb-6">
+        <Card className="mb-4 sm:mb-6 shadow-none border">
           <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
               <Label className="text-xs sm:text-sm min-w-[80px] sm:min-w-[80px]">期間プリセット</Label>

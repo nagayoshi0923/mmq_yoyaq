@@ -50,7 +50,7 @@ export const ScenarioAnalysisTable: React.FC<ScenarioAnalysisTableProps> = ({
   )
 
   return (
-    <Card>
+    <Card className="shadow-none border">
       <CardHeader>
         <CardTitle>シナリオ別公演数</CardTitle>
       </CardHeader>

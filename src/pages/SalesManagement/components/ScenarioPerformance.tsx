@@ -71,7 +71,7 @@ export const ScenarioPerformance: React.FC<ScenarioPerformanceProps> = ({
       />
 
       {loading ? (
-        <Card>
+        <Card className="shadow-none border">
           <CardContent className="p-8">
             <div className="text-center text-muted-foreground">
               データを読み込んでいます...
