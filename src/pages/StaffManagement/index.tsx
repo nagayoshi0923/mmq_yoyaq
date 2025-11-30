@@ -314,10 +314,10 @@ export function StaffManagement() {
     return (
       <AppLayout currentPage="staff">
         <div className="flex items-center justify-center py-20">
-          <p className="text-muted-foreground text-lg flex items-center gap-2">
+          <div className="text-muted-foreground text-lg flex items-center gap-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
             読み込み中...
-          </p>
+          </div>
         </div>
       </AppLayout>
     )

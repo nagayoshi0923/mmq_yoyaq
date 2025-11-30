@@ -178,7 +178,15 @@ export const assignmentApi = {
   },
 
   // スタッフの担当シナリオを一括更新
-  async updateStaffAssignments(staffId: string, scenarioIds: string[], notes?: string) {
+  // 後方互換性: string[] (シナリオIDのみ) または 詳細オブジェクト配列 の両方をサポート
+  async updateStaffAssignments(staffId: string, assignments: string[] | Array<{
+    scenarioId: string
+    can_main_gm: boolean
+    can_sub_gm: boolean
+    is_experienced: boolean
+    status?: 'want_to_learn' | 'experienced' | 'can_gm'
+    notes?: string
+  }>) {
     // 既存の担当関係を削除
     await supabase
       .from('staff_scenario_assignments')
@@ -186,48 +194,85 @@ export const assignmentApi = {
       .eq('staff_id', staffId)
 
     // 新しい担当関係を追加
-    if (scenarioIds.length > 0) {
-      const assignments = scenarioIds.map(scenarioId => ({
-        staff_id: staffId,
-        scenario_id: scenarioId,
-        can_main_gm: true,  // GM可能として設定
-        can_sub_gm: true,   // サブGMも可能として設定
-        is_experienced: false,  // 体験済みではない
-        notes: notes || null
-      }))
+    if (assignments.length > 0) {
+      // 入力形式を判定: string[] か オブジェクト配列か
+      const isStringArray = typeof assignments[0] === 'string'
+      
+      // DBテーブルに存在するカラムのみ使用（statusは存在しない）
+      const records = isStringArray 
+        ? (assignments as string[]).map(scenarioId => ({
+            staff_id: staffId,
+            scenario_id: scenarioId,
+            can_main_gm: true, // デフォルト: GM可能
+            can_sub_gm: true,
+            is_experienced: false,
+            notes: null,
+            assigned_at: new Date().toISOString()
+          }))
+        : (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>).map(a => ({
+            staff_id: staffId,
+            scenario_id: a.scenarioId,
+            can_main_gm: a.can_main_gm,
+            can_sub_gm: a.can_sub_gm,
+            is_experienced: a.is_experienced,
+            notes: a.notes || null,
+            assigned_at: new Date().toISOString()
+          }))
 
       const { error } = await supabase
         .from('staff_scenario_assignments')
-        .insert(assignments)
+        .insert(records)
 
       if (error) throw error
     }
   },
 
-  // シナリオの担当スタッフを一括更新
+  // シナリオの担当スタッフを一括更新（差分更新）
   async updateScenarioAssignments(scenarioId: string, staffIds: string[], notes?: string) {
-    // 既存の担当関係を削除
-    await supabase
+    // 現在の担当関係を取得
+    const { data: currentAssignments, error: fetchError } = await supabase
       .from('staff_scenario_assignments')
-      .delete()
+      .select('staff_id')
       .eq('scenario_id', scenarioId)
+    
+    if (fetchError) throw fetchError
 
-    // 新しい担当関係を追加
-    if (staffIds.length > 0) {
-      const assignments = staffIds.map(staffId => ({
+    const currentStaffIds = currentAssignments?.map(a => a.staff_id) || []
+    
+    // 削除対象: 現在のリストにあるが、新しいリストにないもの
+    const toDelete = currentStaffIds.filter(id => !staffIds.includes(id))
+    
+    // 追加対象: 新しいリストにあるが、現在のリストにないもの
+    const toAdd = staffIds.filter(id => !currentStaffIds.includes(id))
+    
+    // 削除実行
+    if (toDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('staff_scenario_assignments')
+        .delete()
+        .eq('scenario_id', scenarioId)
+        .in('staff_id', toDelete)
+      
+      if (deleteError) throw deleteError
+    }
+    
+    // 追加実行（デフォルト設定: can_main_gm=true, can_sub_gm=true）
+    // DBテーブルに存在するカラムのみ使用（statusは存在しない）
+    if (toAdd.length > 0) {
+      const newAssignments = toAdd.map(staffId => ({
         staff_id: staffId,
         scenario_id: scenarioId,
-        can_main_gm: true,  // GM可能として設定
-        can_sub_gm: true,   // サブGMも可能として設定
-        is_experienced: false,  // 体験済みではない
+        can_main_gm: true,
+        can_sub_gm: true,
+        is_experienced: false,
         notes: notes || null
       }))
 
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('staff_scenario_assignments')
-        .insert(assignments)
-
-      if (error) throw error
+        .insert(newAssignments)
+      
+      if (insertError) throw insertError
     }
   },
 
@@ -273,10 +318,11 @@ export const assignmentApi = {
     // シナリオIDごとにGM可能なスタッフ名をグループ化
     const assignmentMap = new Map<string, string[]>()
     
-    data?.forEach((assignment) => {
+    data?.forEach((assignment: any) => {
       // GM可能なスタッフのみ（can_main_gm = true OR can_sub_gm = true）
       if (assignment.can_main_gm || assignment.can_sub_gm) {
         const scenarioId = assignment.scenario_id
+        // staffは単一オブジェクト（外部キーのリレーション）
         const staffName = assignment.staff?.name
         
         if (staffName) {
@@ -302,9 +348,6 @@ export const assignmentApi = {
       .select(`
         staff_id,
         scenario_id,
-        scenarios:scenario_id (
-          id
-        ),
         can_main_gm,
         can_sub_gm,
         is_experienced
@@ -316,9 +359,10 @@ export const assignmentApi = {
     // スタッフIDごとにGM可能なシナリオと体験済みシナリオをグループ化
     const assignmentMap = new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
     
-    data?.forEach((assignment) => {
+    data?.forEach((assignment: any) => {
       const staffId = assignment.staff_id
-      const scenarioId = assignment.scenarios?.id || assignment.scenario_id
+      // scenario_id を直接使用（リレーション結果より確実）
+      const scenarioId = assignment.scenario_id
       
       if (!assignmentMap.has(staffId)) {
         assignmentMap.set(staffId, { gmScenarios: [], experiencedScenarios: [] })

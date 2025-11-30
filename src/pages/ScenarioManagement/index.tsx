@@ -310,10 +310,10 @@ export function ScenarioManagement() {
     return (
       <AppLayout currentPage="scenarios">
         <div className="flex items-center justify-center py-20">
-          <p className="text-muted-foreground text-lg flex items-center gap-2">
+          <div className="text-muted-foreground text-lg flex items-center gap-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
             読み込み中...
-          </p>
+          </div>
         </div>
       </AppLayout>
     )
@@ -332,31 +332,32 @@ export function ScenarioManagement() {
             description={`全${allScenarios.length}本のシナリオを管理`}
           >
             <HelpButton topic="scenario" label="シナリオ管理マニュアル" />
-            <div className="flex gap-2">
-              <CsvImportExport
-                data={allScenarios}
-                onImport={handleImport}
-                isImporting={isImporting}
-                exportFilename="scenarios"
-                headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
-                rowMapper={(s) => [
-                  s.title,
-                  s.author,
-                  s.description || '',
-                  s.duration.toString(),
-                  s.player_count_min.toString(),
-                  s.player_count_max?.toString() || s.player_count_min.toString(),
-                  s.difficulty?.toString() || '3',
-                  s.participation_fee?.toString() || '3000'
-                ]}
-              />
-              <Button onClick={handleNewScenario} size="sm">
-                <Plus className="mr-1 h-4 w-4" />
-                <span className="hidden sm:inline">新規シナリオ</span>
-                <span className="sm:hidden">新規</span>
-              </Button>
-            </div>
           </PageHeader>
+
+          <div className="flex justify-end gap-2">
+            <CsvImportExport
+              data={allScenarios}
+              onImport={handleImport}
+              isImporting={isImporting}
+              exportFilename="scenarios"
+              headers={['タイトル', '作者', '説明', '所要時間(分)', '最小人数', '最大人数', '難易度', '参加費']}
+              rowMapper={(s) => [
+                s.title,
+                s.author,
+                s.description || '',
+                s.duration.toString(),
+                s.player_count_min.toString(),
+                s.player_count_max?.toString() || s.player_count_min.toString(),
+                s.difficulty?.toString() || '3',
+                s.participation_fee?.toString() || '3000'
+              ]}
+            />
+            <Button onClick={handleNewScenario} size="sm">
+              <Plus className="mr-1 h-4 w-4" />
+              <span className="hidden sm:inline">新規シナリオ</span>
+              <span className="sm:hidden">新規</span>
+            </Button>
+          </div>
 
           {/* エラー表示 */}
           {error && (

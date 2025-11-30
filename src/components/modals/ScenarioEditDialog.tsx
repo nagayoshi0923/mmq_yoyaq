@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button'
 import { Save } from 'lucide-react'
 import { useScenariosQuery, useScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
-import { useQueryClient } from '@tanstack/react-query'
 
 // 各セクションのコンポーネント
 import { BasicInfoSection } from '@/pages/ScenarioEdit/sections/BasicInfoSection'
@@ -14,6 +13,11 @@ import { CostsPropsSection } from '@/pages/ScenarioEdit/sections/CostsPropsSecti
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { logger } from '@/utils/logger'
 
+// API関連
+import { staffApi } from '@/lib/api'
+import { assignmentApi } from '@/lib/assignmentApi'
+import type { Staff } from '@/types'
+
 interface ScenarioEditDialogProps {
   isOpen: boolean
   onClose: () => void
@@ -22,7 +26,6 @@ interface ScenarioEditDialogProps {
 }
 
 export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: ScenarioEditDialogProps) {
-  const queryClient = useQueryClient()
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
@@ -63,6 +66,62 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
 
   const { data: scenarios = [] } = useScenariosQuery()
   const scenarioMutation = useScenarioMutation()
+
+  // スタッフデータ用のstate
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [loadingStaff, setLoadingStaff] = useState(false)
+  
+  // 担当関係データ用のstate
+  const [currentAssignments, setCurrentAssignments] = useState<any[]>([])
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
+  // ローディング状態
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false)
+
+  // スタッフデータと担当関係データを取得
+  useEffect(() => {
+    const loadStaffData = async () => {
+      try {
+        setLoadingStaff(true)
+        const staffData = await staffApi.getAll()
+        setStaff(staffData)
+      } catch (error) {
+        logger.error('Error loading staff data:', error)
+      } finally {
+        setLoadingStaff(false)
+      }
+    }
+
+    if (isOpen) {
+      loadStaffData()
+    }
+  }, [isOpen])
+
+  // シナリオIDが変わった時（またはモーダルが開いた時）に担当関係を取得
+  useEffect(() => {
+    const loadAssignments = async () => {
+      if (isOpen && scenarioId) {
+        try {
+          setIsLoadingAssignments(true)
+          const assignments = await assignmentApi.getScenarioAssignments(scenarioId)
+          setCurrentAssignments(assignments)
+          setSelectedStaffIds(assignments.map(a => a.staff_id))
+        } catch (error) {
+          logger.error('Error loading assignments:', error)
+        } finally {
+          setIsLoadingAssignments(false)
+        }
+      } else {
+        // 新規作成時またはIDなし
+        setCurrentAssignments([])
+        setSelectedStaffIds([])
+        setIsLoadingAssignments(false)
+      }
+    }
+
+    if (isOpen) {
+      loadAssignments()
+    }
+  }, [isOpen, scenarioId])
 
   // シナリオデータをロード
   useEffect(() => {
@@ -243,8 +302,6 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         })),
         // 公演可能店舗
         available_stores: formData.available_stores || [],
-        // gm_countはScenario型にないためコメントアウト（フォーム専用フィールド）
-        // gm_count: formData.gm_count || 1,
         updated_at: new Date().toISOString()
       }
 
@@ -252,14 +309,34 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         scenarioData.id = scenarioId
       }
       
-      await scenarioMutation.mutateAsync({
+      const result = await scenarioMutation.mutateAsync({
         scenario: scenarioData,
         isEdit: !!scenarioId
       })
 
-      // 楽観的更新で既にキャッシュが更新されているため、refetchQueriesは不要
-      // invalidateQueriesはバックグラウンドで再取得する（onSettledで既に実行される）
-      
+      // 担当GMの更新処理
+      // 編集モードの場合、または新規作成でIDが取得できた場合
+      // result は mutation の戻り値だが、Supabase の戻り値が含まれているか確認が必要
+      // useScenarioMutation の実装によっては result が void の可能性もあるが、
+      // とりあえず編集モード (scenarioIdがある) 場合は確実に実行
+      const targetScenarioId = scenarioId || (result && (result as any).id)
+
+      if (targetScenarioId) {
+        const originalStaffIds = currentAssignments.map(a => a.staff_id).sort()
+        const newStaffIds = [...selectedStaffIds].sort()
+        
+        // 担当GMが変更された場合、リレーションテーブルを更新
+        if (JSON.stringify(originalStaffIds) !== JSON.stringify(newStaffIds)) {
+          try {
+            // 差分更新ロジックを使用
+            await assignmentApi.updateScenarioAssignments(targetScenarioId, selectedStaffIds)
+          } catch (syncError) {
+            logger.error('Error updating GM assignments:', syncError)
+            alert('シナリオは保存されましたが、担当GMの更新に失敗しました。手動で確認してください。')
+          }
+        }
+      }
+
       // 保存完了通知
       if (onSaved) {
         try { 
@@ -298,7 +375,15 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
             {/* 右カラム: 料金・GM設定・制作費 */}
             <div className="space-y-6">
               <PricingSection formData={formData} setFormData={setFormData} />
-              <GmSettingsSection formData={formData} setFormData={setFormData} />
+              <GmSettingsSection 
+                formData={formData} 
+                setFormData={setFormData} 
+                staff={staff}
+                loadingStaff={loadingStaff}
+                selectedStaffIds={selectedStaffIds}
+                onStaffSelectionChange={setSelectedStaffIds}
+                currentAssignments={currentAssignments}
+              />
               <CostsPropsSection formData={formData} setFormData={setFormData} />
             </div>
           </div>
@@ -309,13 +394,12 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
           <Button type="button" variant="outline" onClick={onClose}>
             キャンセル
           </Button>
-          <Button onClick={handleSave} disabled={scenarioMutation.isPending}>
+          <Button onClick={handleSave} disabled={scenarioMutation.isPending || isLoadingAssignments}>
             <Save className="h-4 w-4 mr-2" />
-            {scenarioMutation.isPending ? '保存中...' : '保存'}
+            {isLoadingAssignments ? '読み込み中...' : scenarioMutation.isPending ? '保存中...' : '保存'}
           </Button>
         </div>
       </DialogContent>
     </Dialog>
   )
 }
-
