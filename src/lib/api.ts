@@ -313,9 +313,10 @@ export const scenarioApi = {
       .update(updates)
       .eq('id', id)
       .select()
-      .single()
+      .maybeSingle()
     
     if (error) throw error
+    if (!data) throw new Error('シナリオの更新に失敗しました。権限がないか、対象が見つかりません。')
     return data
   },
 
@@ -494,10 +495,13 @@ export const staffApi = {
       oldName = oldData.name
     }
     
+    // DBに存在しないフィールドを除外（UIで追加される仮想フィールド）
+    const { experienced_scenarios, ...dbUpdates } = updates as any
+    
     // スタッフ情報を更新
     const { data, error } = await supabase
       .from('staff')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single()
