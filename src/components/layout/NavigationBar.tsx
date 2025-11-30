@@ -48,18 +48,12 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   
   // ユーザーのロールに応じてタブをフィルタリング
   const navigationTabs = useMemo(() => {
-    console.log('🔍 [NAV DEBUG] user:', user)
-    console.log('🔍 [NAV DEBUG] user.role:', user?.role)
-    
     // ユーザーがいない場合は何も表示しない
     if (!user || !user.role) {
-      console.log('🔍 [NAV DEBUG] No user or role, returning empty')
       return []
     }
     // ユーザーのロールに基づいてフィルタリング
-    const filtered = allTabs.filter(tab => tab.roles.includes(user.role))
-    console.log('🔍 [NAV DEBUG] Filtered tabs:', filtered.map(t => t.id))
-    return filtered
+    return allTabs.filter(tab => tab.roles.includes(user.role))
   }, [allTabs, user])
 
   // 最適化: タブクリックハンドラをメモ化
