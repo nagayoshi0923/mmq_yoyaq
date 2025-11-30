@@ -1448,14 +1448,12 @@ export function PerformanceModal({
             <div>
               <Label htmlFor="start_time">開始時間</Label>
               <Select 
-                value={formData.start_time} 
+                value={formData.start_time?.slice(0, 5)} 
                 onValueChange={handleStartTimeChange}
                 disabled={formData.is_private_request}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="開始時間を選択">
-                    {formData.start_time ? formData.start_time.slice(0, 5) : "開始時間を選択"}
-                  </SelectValue>
+                  <SelectValue placeholder="開始時間を選択" />
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
@@ -1477,14 +1475,12 @@ export function PerformanceModal({
             <div>
               <Label htmlFor="end_time">終了時間</Label>
               <Select 
-                value={formData.end_time} 
+                value={formData.end_time?.slice(0, 5)} 
                 onValueChange={(value) => setFormData((prev: any) => ({ ...prev, end_time: value }))}
                 disabled={formData.is_private_request}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="終了時間を選択">
-                    {formData.end_time ? formData.end_time.slice(0, 5) : "終了時間を選択"}
-                  </SelectValue>
+                  <SelectValue placeholder="終了時間を選択" />
                 </SelectTrigger>
                 <SelectContent>
                   {timeOptions.map(time => (
