@@ -97,7 +97,7 @@ export default function SalaryCalculation() {
       </PageHeader>
 
       {/* フィルター */}
-      <Card>
+      <Card className="shadow-none border">
         <CardHeader className="p-3 sm:p-4 md:p-6">
           <CardTitle className="flex items-center gap-2 text-base">
             <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -152,13 +152,13 @@ export default function SalaryCalculation() {
 
       {/* データ表示 */}
       {loading ? (
-        <Card>
+        <Card className="shadow-none border">
           <CardContent className="py-8 sm:py-12 p-3 sm:p-4 md:p-6">
             <p className="text-center text-muted-foreground text-xs sm:text-sm">読み込み中...</p>
           </CardContent>
         </Card>
       ) : salaryData ? (
-        <Card>
+        <Card className="shadow-none border">
           <CardHeader className="p-3 sm:p-4 md:p-6">
             <div className="flex justify-between items-start">
               <CardTitle className="text-lg">{salaryData.month}</CardTitle>

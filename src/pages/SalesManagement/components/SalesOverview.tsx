@@ -441,7 +441,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           />
         </>
       ) : (
-        <Card>
+        <Card className="shadow-none border">
           <CardContent className="p-4 sm:p-6 md:p-8">
             <div className="text-center text-muted-foreground text-xs sm:text-sm">
               データを読み込んでいます...
