@@ -15,8 +15,12 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
-        static: "border-transparent bg-secondary text-secondary-foreground", // ホバーエフェクトなし
-        cancelled: "border-transparent bg-red-100 text-red-800", // 中止専用
+        // 追加バリアント
+        success: "border-transparent bg-green-100 text-green-700 hover:bg-green-200",
+        warning: "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+        info: "border-transparent bg-blue-100 text-blue-700 hover:bg-blue-200",
+        purple: "border-transparent bg-purple-100 text-purple-700 hover:bg-purple-200",
+        gray: "border-transparent bg-gray-100 text-gray-700 hover:bg-gray-200",
       },
     },
     defaultVariants: {
@@ -26,9 +30,9 @@ const badgeVariants = cva(
 )
 
 const sizeMap = {
-  sm: "text-xs px-1 py-0",
-  md: "text-sm px-2 py-1",
-  lg: "text-base px-3 py-2"
+  sm: "text-[10px] px-1.5 py-0 h-5",
+  md: "text-xs px-2.5 py-0.5",
+  lg: "text-sm px-3 py-1"
 }
 
 export interface BadgeProps

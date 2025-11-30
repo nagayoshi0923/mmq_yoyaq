@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -16,8 +17,10 @@ import { supabase } from '@/lib/supabase'
 import { staffApi } from '@/lib/api'
 import type { Staff } from '@/types'
 import { 
-  Users, Clock, Shield, CheckCircle2, Plus
+  Users, CheckCircle2, Link2, Trash2, Unlink
 } from 'lucide-react'
+import { StaffAvatar } from '@/components/staff/StaffAvatar'
+import { getRoleBadges, getStatusBadge } from './utils/staffFormatters'
 
 // 分離されたフック
 import { useStaffFilters } from './hooks/useStaffFilters'
@@ -310,17 +313,11 @@ export function StaffManagement() {
   if (loading) {
     return (
       <AppLayout currentPage="staff">
-        <div className="space-y-6">
-          <div className="h-16 bg-gray-200 rounded animate-pulse"></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            {[...Array(4)].map((_, i) => (
-              <Card key={i}>
-                <CardContent className="pt-6">
-                  <div className="h-20 bg-gray-200 rounded animate-pulse"></div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        <div className="flex items-center justify-center py-20">
+          <p className="text-muted-foreground text-lg flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+            読み込み中...
+          </p>
         </div>
       </AppLayout>
     )
@@ -347,69 +344,54 @@ export function StaffManagement() {
       <AppLayout 
         currentPage="staff" 
         maxWidth="max-w-[1440px]"
-        containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+        containerPadding="px-2 py-4 sm:px-6"
         className="mx-auto"
       >
-        <div className="space-y-3 sm:space-y-4 md:space-y-6">
+        <div className="space-y-6">
             <PageHeader
-              title="スタッフ管理"
+              title={
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <span className="text-lg font-bold">スタッフ管理</span>
+                </div>
+              }
               description={`全${staff.length}名のスタッフを管理`}
             >
               <HelpButton topic="staff" label="スタッフ管理マニュアル" />
             </PageHeader>
 
-            {/* 統計情報 */}
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-              <Card>
-                <CardContent className="p-3 sm:p-4 md:pt-6">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-lg">{staff.length}</p>
-                      <p className="text-xs text-muted-foreground">総スタッフ数</p>
-                    </div>
-                  </div>
+            {/* 統計情報 - モバイル対応（2列グリッド） */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
+              <Card className="bg-white border shadow-none">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs text-muted-foreground">総スタッフ数</div>
+                  <div className="text-xl sm:text-2xl font-bold">{staff.length}</div>
                 </CardContent>
               </Card>
               
-              <Card>
-                <CardContent className="p-3 sm:p-4 md:pt-6">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-lg">
-                        {staff.filter(s => s.status === 'active').length}
-                      </p>
-                      <p className="text-xs text-muted-foreground">在籍中</p>
-                    </div>
+              <Card className="bg-white border shadow-none">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs text-muted-foreground">在籍中</div>
+                  <div className="text-xl sm:text-2xl font-bold text-green-700">
+                    {staff.filter(s => s.status === 'active').length}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardContent className="p-3 sm:p-4 md:pt-6">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-lg">
-                        {staff.filter(s => s.role && s.role.includes('GM')).length}
-                      </p>
-                      <p className="text-xs text-muted-foreground">GM</p>
-                    </div>
+              <Card className="bg-white border shadow-none">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs text-muted-foreground">GM</div>
+                  <div className="text-xl sm:text-2xl font-bold text-blue-700">
+                    {staff.filter(s => s.role && s.role.includes('GM')).length}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardContent className="p-3 sm:p-4 md:pt-6">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-lg">
-                        {Math.round(staff.reduce((sum, s) => sum + s.experience, 0) / staff.length) || 0}
-                      </p>
-                      <p className="text-xs text-muted-foreground">平均経験年数</p>
-                    </div>
+              <Card className="bg-white border shadow-none">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-xs text-muted-foreground">平均経験年数</div>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {Math.round(staff.reduce((sum, s) => sum + s.experience, 0) / staff.length) || 0}年
                   </div>
                 </CardContent>
               </Card>
@@ -427,20 +409,83 @@ export function StaffManagement() {
               }}
             />
 
-            {/* スタッフ一覧テーブル */}
-            <TanStackDataTable
-              data={sortedStaff}
-              columns={tableColumns}
-              getRowKey={(staff) => staff.id}
-              sortState={sortState}
-              onSort={setSortState}
-              emptyMessage={
-                searchTerm || statusFilter !== 'all'
-                  ? '検索条件に一致するスタッフが見つかりません'
-                  : 'スタッフが登録されていません'
-              }
-              loading={loading}
-            />
+            {/* スタッフ一覧テーブル (PC表示) */}
+            <div className="hidden md:block bg-white border rounded-lg shadow-sm overflow-hidden">
+              <TanStackDataTable
+                data={sortedStaff}
+                columns={tableColumns}
+                getRowKey={(staff) => staff.id}
+                sortState={sortState}
+                onSort={setSortState}
+                emptyMessage={
+                  searchTerm || statusFilter !== 'all'
+                    ? '検索条件に一致するスタッフが見つかりません'
+                    : 'スタッフが登録されていません'
+                }
+                loading={loading}
+              />
+            </div>
+
+            {/* スタッフ一覧リスト (モバイル表示) */}
+            <div className="md:hidden space-y-3">
+              {sortedStaff.length > 0 ? (
+                sortedStaff.map((staff) => (
+                  <div key={staff.id} className="bg-white border rounded-lg overflow-hidden shadow-sm" onClick={() => handleEditStaff(staff)}>
+                    <div className="p-3 flex items-start justify-between">
+                      <div className="flex gap-3">
+                        <StaffAvatar
+                          name={staff.name}
+                          avatarUrl={staff.avatar_url}
+                          avatarColor={staff.avatar_color}
+                          size="md"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-bold text-sm">{staff.name}</h3>
+                            {getStatusBadge(staff.status)}
+                          </div>
+                          <div className="flex flex-wrap gap-1 mb-1">
+                            {getRoleBadges(staff.role)}
+                          </div>
+                          {!staff.user_id && (
+                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                              アカウント未連携
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {/* アクション */}
+                      <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                        {!staff.user_id ? (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openLinkModal(staff)}>
+                            <Link2 className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-400 hover:text-orange-600" onClick={() => openUnlinkDialog(staff)}>
+                            <Unlink className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => openDeleteDialog(staff)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 px-3 py-2 text-xs text-muted-foreground flex justify-between items-center">
+                      <span>{staff.stores && staff.stores.length > 0 ? `${staff.stores.length}店舗担当` : '店舗未割当'}</span>
+                      <Button variant="ghost" size="sm" className="h-auto p-0 text-primary text-xs hover:bg-transparent" onClick={() => handleEditStaff(staff)}>
+                        詳細・編集
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  {searchTerm || statusFilter !== 'all'
+                    ? '検索条件に一致するスタッフが見つかりません'
+                    : 'スタッフが登録されていません'}
+                </div>
+              )}
+            </div>
           </div>
 
         {/* スタッフ編集モーダル */}
@@ -642,4 +687,3 @@ export function StaffManagement() {
     </TooltipProvider>
   )
 }
-

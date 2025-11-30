@@ -10,15 +10,19 @@ import { Badge } from '@/components/ui/badge'
 export function getStatusBadge(status: string) {
   switch (status) {
     case 'active':
-      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs border-0 rounded-[2px]">在籍中</Badge>
+      // @ts-ignore
+      return <Badge size="sm" variant="success">在籍中</Badge>
     case 'inactive':
-      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs border-0 rounded-[2px]">休職中</Badge>
+      // @ts-ignore
+      return <Badge size="sm" variant="warning">休職中</Badge>
     case 'on_leave':
-      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs border-0 rounded-[2px]">休暇中</Badge>
+      // @ts-ignore
+      return <Badge size="sm" variant="warning">休暇中</Badge>
     case 'resigned':
-      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs border-0 rounded-[2px]">退職</Badge>
+      // @ts-ignore
+      return <Badge size="sm" variant="gray">退職</Badge>
     default:
-      return <Badge size="sm" className="bg-gray-100 text-gray-800 font-normal text-xs border-0 rounded-[2px]">{status}</Badge>
+      return <Badge size="sm" variant="outline">{status}</Badge>
   }
 }
 
@@ -35,7 +39,8 @@ export function getRoleBadges(roles: string[]) {
   }
 
   return roles.map((role, index) => (
-    <Badge key={index} size="sm" className="font-normal text-xs px-1 py-0.5 bg-gray-100 text-gray-800 border-0 rounded-[2px]">
+    // @ts-ignore
+    <Badge key={index} size="sm" variant="gray" className="font-normal">
       {roleNames[role] || role}
     </Badge>
   ))
@@ -55,4 +60,3 @@ export function getStoreColors(storeName: string): string {
   }
   return storeColorMap[storeName] || 'bg-gray-100 text-gray-800'
 }
-
