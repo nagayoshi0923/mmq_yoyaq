@@ -43,15 +43,15 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div className={`mb-6 ${className}`}>
-      <div className="flex flex-row items-start justify-between gap-3">
+      <div className="flex flex-row items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold tracking-tight break-words">{title}</h1>
+          <h1 className="text-xl font-bold tracking-tight break-words flex items-center">{title}</h1>
           <p className="text-xs text-muted-foreground mt-1 break-words">
             {description}
           </p>
         </div>
         {children && (
-          <div className="flex gap-2 flex-shrink-0 items-start pt-0.5">
+          <div className="flex gap-2 flex-shrink-0 items-center">
             {children}
           </div>
         )}
