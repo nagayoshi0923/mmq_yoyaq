@@ -28,6 +28,7 @@ import { useStoresAndScenarios } from './hooks/useStoresAndScenarios'
 import { useStaffModals } from './hooks/useStaffModals'
 import { useStaffInvitation } from './hooks/useStaffInvitation'
 import { useStaffQuery, useStaffMutation, useDeleteStaffMutation } from './hooks/useStaffQuery'
+import { useQueryClient } from '@tanstack/react-query'
 
 // 分離されたコンポーネントとユーティリティ
 import { StaffFilters } from './components/StaffFilters'
@@ -42,6 +43,7 @@ export function StaffManagement() {
   })
 
   // React Query でCRUD操作
+  const queryClient = useQueryClient()
   const { data: staff = [], isLoading: loading, error: queryError } = useStaffQuery()
   const staffMutation = useStaffMutation()
   const deleteStaffMutation = useDeleteStaffMutation()
@@ -301,9 +303,11 @@ export function StaffManagement() {
         }
       }
 
+      // React Queryのキャッシュを無効化して最新データを取得
+      await queryClient.invalidateQueries({ queryKey: ['staff'] })
+      
       alert(`✅ ${linkingStaff.name}さんを ${searchedUser.email} と紐付けました！`)
       closeLinkModal()
-      // React Queryが自動でリロード
     } catch (err: any) {
       alert('紐付けに失敗しました: ' + err.message)
     } finally {
