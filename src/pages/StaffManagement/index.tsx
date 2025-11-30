@@ -427,57 +427,110 @@ export function StaffManagement() {
             </div>
 
             {/* スタッフ一覧リスト (モバイル表示) */}
-            <div className="md:hidden space-y-3">
+            <div className="md:hidden space-y-2">
               {sortedStaff.length > 0 ? (
-                sortedStaff.map((staff) => (
-                  <div key={staff.id} className="bg-white border rounded-lg overflow-hidden" onClick={() => handleEditStaff(staff)}>
-                    <div className="p-3 flex items-start justify-between">
-                      <div className="flex gap-3">
-                        <StaffAvatar
-                          name={staff.name}
-                          avatarUrl={staff.avatar_url}
-                          avatarColor={staff.avatar_color}
-                          size="md"
-                        />
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-bold text-sm">{staff.name}</h3>
-                            {getStatusBadge(staff.status)}
+                sortedStaff.map((staffItem) => {
+                  const gmScenarios = staffItem.special_scenarios || []
+                  const expScenarios = (staffItem as any).experienced_scenarios || []
+                  
+                  return (
+                    <div key={staffItem.id} className="bg-white border rounded-lg overflow-hidden" onClick={() => handleEditStaff(staffItem)}>
+                      {/* ヘッダー：アバター、名前、アクション */}
+                      <div className="p-3 pb-2">
+                        <div className="flex items-start gap-3">
+                          <StaffAvatar
+                            name={staffItem.name}
+                            avatarUrl={staffItem.avatar_url}
+                            avatarColor={staffItem.avatar_color}
+                            size="md"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-sm truncate">{staffItem.name}</h3>
+                                {getStatusBadge(staffItem.status)}
+                              </div>
+                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                {!staffItem.user_id ? (
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={() => openLinkModal(staffItem)}>
+                                    <Link2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                ) : (
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-orange-400" onClick={() => openUnlinkDialog(staffItem)}>
+                                    <Unlink className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => openDeleteDialog(staffItem)}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {getRoleBadges(staffItem.role)}
+                              {!staffItem.user_id && (
+                                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">未連携</Badge>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-1 mb-1">
-                            {getRoleBadges(staff.role)}
-                          </div>
-                          {!staff.user_id && (
-                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
-                              アカウント未連携
-                            </Badge>
-                          )}
                         </div>
                       </div>
-                      {/* アクション */}
-                      <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-                        {!staff.user_id ? (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => openLinkModal(staff)}>
-                            <Link2 className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-400 hover:text-orange-600" onClick={() => openUnlinkDialog(staff)}>
-                            <Unlink className="h-4 w-4" />
-                          </Button>
+                      
+                      {/* 詳細：店舗、シナリオ */}
+                      <div className="px-3 pb-2 space-y-1.5">
+                        {staffItem.stores && staffItem.stores.length > 0 && (
+                          <div className="flex items-start gap-2 text-xs">
+                            <span className="text-muted-foreground shrink-0 w-10">店舗</span>
+                            <div className="flex flex-wrap gap-1">
+                              {staffItem.stores.slice(0, 3).map((storeId, idx) => {
+                                const store = stores.find(s => s.id === storeId)
+                                return <Badge key={idx} variant="outline" className="text-[10px] font-normal">{store?.name || storeId}</Badge>
+                              })}
+                              {staffItem.stores.length > 3 && <span className="text-muted-foreground">+{staffItem.stores.length - 3}</span>}
+                            </div>
+                          </div>
                         )}
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => openDeleteDialog(staff)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        
+                        {gmScenarios.length > 0 && (
+                          <div className="flex items-start gap-2 text-xs">
+                            <span className="text-blue-600 shrink-0 w-10">GM可</span>
+                            <div className="flex flex-wrap gap-1">
+                              {gmScenarios.slice(0, 5).map((scenarioId: string, idx: number) => (
+                                <Badge key={idx} variant="outline" className="text-[10px] font-normal bg-blue-50 border-blue-200 text-blue-700">
+                                  {getScenarioName(scenarioId)}
+                                </Badge>
+                              ))}
+                              {gmScenarios.length > 5 && <span className="text-muted-foreground">+{gmScenarios.length - 5}</span>}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {expScenarios.length > 0 && (
+                          <div className="flex items-start gap-2 text-xs">
+                            <span className="text-green-600 shrink-0 w-10">体験</span>
+                            <div className="flex flex-wrap gap-1">
+                              {expScenarios.slice(0, 5).map((scenarioId: string, idx: number) => (
+                                <Badge key={idx} variant="outline" className="text-[10px] font-normal bg-green-50 border-green-200 text-green-700">
+                                  {getScenarioName(scenarioId)}
+                                </Badge>
+                              ))}
+                              {expScenarios.length > 5 && <span className="text-muted-foreground">+{expScenarios.length - 5}</span>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* フッター */}
+                      <div className="bg-gray-50 px-3 py-1.5 text-[10px] text-muted-foreground flex items-center justify-between border-t">
+                        <div className="flex gap-3">
+                          <span>店舗{staffItem.stores?.length || 0}</span>
+                          <span className="text-blue-600">GM可{gmScenarios.length}</span>
+                          <span className="text-green-600">体験{expScenarios.length}</span>
+                        </div>
+                        <span className="text-primary">編集 →</span>
                       </div>
                     </div>
-                    <div className="bg-gray-50 px-3 py-2 text-xs text-muted-foreground flex justify-between items-center">
-                      <span>{staff.stores && staff.stores.length > 0 ? `${staff.stores.length}店舗担当` : '店舗未割当'}</span>
-                      <Button variant="ghost" size="sm" className="h-auto p-0 text-primary text-xs hover:bg-transparent" onClick={() => handleEditStaff(staff)}>
-                        詳細・編集
-                      </Button>
-                    </div>
-                  </div>
-                ))
+                  )
+                })
               ) : (
                 <div className="text-center py-8 text-muted-foreground text-sm">
                   {searchTerm || statusFilter !== 'all'
