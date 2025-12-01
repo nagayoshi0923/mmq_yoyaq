@@ -157,7 +157,11 @@ export const assignmentApi = {
       .insert({
         staff_id: staffId,
         scenario_id: scenarioId,
-        notes: notes || null
+        notes: notes || null,
+        can_main_gm: true,
+        can_sub_gm: true,
+        is_experienced: false,
+        assigned_at: new Date().toISOString()
       })
       .select()
       .single()
@@ -265,7 +269,8 @@ export const assignmentApi = {
         can_main_gm: true,
         can_sub_gm: true,
         is_experienced: false,
-        notes: notes || null
+        notes: notes || null,
+        assigned_at: new Date().toISOString()
       }))
 
       const { error: insertError } = await supabase
