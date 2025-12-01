@@ -315,12 +315,12 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
         
         {/* 右側：保存・キャンセル */}
         <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            キャンセル
-          </Button>
-          <Button type="submit">
-            保存
-          </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          キャンセル
+        </Button>
+        <Button type="submit">
+          保存
+        </Button>
         </div>
       </div>
     </form>

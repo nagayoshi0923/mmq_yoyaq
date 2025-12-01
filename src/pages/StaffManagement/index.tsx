@@ -293,19 +293,19 @@ export function StaffManagement() {
 
       // 4. usersテーブルのroleをstaffに更新（既にadminの場合は変更しない）
       if (searchedUser.role !== 'admin') {
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ role: 'staff' })
-          .eq('id', searchedUser.id)
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ role: 'staff' })
+        .eq('id', searchedUser.id)
 
-        if (updateError) {
-          console.warn('usersテーブルの更新に失敗しました:', updateError)
-        }
+      if (updateError) {
+        console.warn('usersテーブルの更新に失敗しました:', updateError)
+      }
       }
 
       // React Queryのキャッシュを無効化して最新データを取得
       await queryClient.invalidateQueries({ queryKey: ['staff'] })
-      
+
       alert(`✅ ${linkingStaff.name}さんを ${searchedUser.email} と紐付けました！`)
       closeLinkModal()
     } catch (err: any) {

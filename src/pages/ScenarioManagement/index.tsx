@@ -429,49 +429,49 @@ export function ScenarioManagement() {
               displayedScenarios.map((scenario) => {
                 const gms = scenario.available_gms || []
                 return (
-                  <div key={scenario.id} className="bg-white border rounded-lg overflow-hidden" onClick={() => handleEditScenario(scenario)}>
-                    <div className="p-3 flex items-start gap-3">
-                      {/* 画像サムネイル (あれば) */}
+                <div key={scenario.id} className="bg-white border rounded-lg overflow-hidden" onClick={() => handleEditScenario(scenario)}>
+                  <div className="p-3 flex items-start gap-3">
+                    {/* 画像サムネイル (あれば) */}
                       <div className="flex-shrink-0 w-14 h-14 bg-gray-100 rounded-md overflow-hidden border">
-                        {scenario.key_visual_url ? (
-                          <img src={scenario.key_visual_url} alt={scenario.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-300">
+                      {scenario.key_visual_url ? (
+                        <img src={scenario.key_visual_url} alt={scenario.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
                             <span className="text-[10px]">No img</span>
-                          </div>
-                        )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-bold text-sm truncate pr-2">{scenario.title}</h3>
+                        {/* @ts-ignore */}
+                        <Badge variant={scenario.status === 'available' ? 'success' : 'warning'} size="sm" className="shrink-0 text-[10px] px-1.5 py-0">
+                          {scenario.status === 'available' ? '公開' : '非公開'}
+                        </Badge>
                       </div>
                       
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-1">
-                          <h3 className="font-bold text-sm truncate pr-2">{scenario.title}</h3>
-                          {/* @ts-ignore */}
-                          <Badge variant={scenario.status === 'available' ? 'success' : 'warning'} size="sm" className="shrink-0 text-[10px] px-1.5 py-0">
-                            {scenario.status === 'available' ? '公開' : '非公開'}
-                          </Badge>
-                        </div>
-                        
                         <div className="text-xs text-muted-foreground mb-1.5 truncate">
-                          作: {scenario.author || '不明'}
-                        </div>
+                        作: {scenario.author || '不明'}
+                      </div>
 
-                        <div className="flex flex-wrap gap-2 text-xs text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            <span>{scenario.player_count_min}{scenario.player_count_max && scenario.player_count_max !== scenario.player_count_min ? `-${scenario.player_count_max}` : ''}人</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            <span>{scenario.duration}分</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <JapaneseYen className="h-3 w-3" />
-                            <span>{scenario.participation_fee?.toLocaleString() || '-'}</span>
-                          </div>
+                      <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          <span>{scenario.player_count_min}{scenario.player_count_max && scenario.player_count_max !== scenario.player_count_min ? `-${scenario.player_count_max}` : ''}人</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>{scenario.duration}分</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <JapaneseYen className="h-3 w-3" />
+                          <span>{scenario.participation_fee?.toLocaleString() || '-'}</span>
                         </div>
                       </div>
                     </div>
-                    
+                  </div>
+                  
                     {/* 担当GM */}
                     {gms.length > 0 && (
                       <div className="px-3 pb-2">

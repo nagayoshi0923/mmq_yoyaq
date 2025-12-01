@@ -195,7 +195,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       // - アサインメントが変更された場合のみ
       if (staff?.id && assignmentsLoaded && assignmentsChanged) {
         try {
-          await assignmentApi.updateStaffAssignments(staff.id, scenarioAssignments)
+        await assignmentApi.updateStaffAssignments(staff.id, scenarioAssignments)
         } catch (assignmentError) {
           logger.error('Error updating assignments:', assignmentError)
           // アサインメント更新に失敗しても、スタッフ情報は保存済みなので警告のみ
@@ -487,14 +487,14 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
                 担当シナリオを読み込み中...
               </div>
             ) : (
-              <MultiSelect
-                options={scenarioOptions}
-                selectedValues={scenarioAssignments.map(a => a.scenarioId)}
-                onSelectionChange={handleScenarioSelectionChange}
-                placeholder="担当シナリオを選択"
-                showBadges={true}
-                useIdAsValue={true}
-              />
+            <MultiSelect
+              options={scenarioOptions}
+              selectedValues={scenarioAssignments.map(a => a.scenarioId)}
+              onSelectionChange={handleScenarioSelectionChange}
+              placeholder="担当シナリオを選択"
+              showBadges={true}
+              useIdAsValue={true}
+            />
             )}
             
             {/* シナリオ詳細設定リスト */}

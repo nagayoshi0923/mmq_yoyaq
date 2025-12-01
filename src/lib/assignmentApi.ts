@@ -210,14 +210,14 @@ export const assignmentApi = {
             assigned_at: new Date().toISOString()
           }))
         : (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>).map(a => ({
-            staff_id: staffId,
-            scenario_id: a.scenarioId,
-            can_main_gm: a.can_main_gm,
-            can_sub_gm: a.can_sub_gm,
-            is_experienced: a.is_experienced,
-            notes: a.notes || null,
-            assigned_at: new Date().toISOString()
-          }))
+        staff_id: staffId,
+        scenario_id: a.scenarioId,
+        can_main_gm: a.can_main_gm,
+        can_sub_gm: a.can_sub_gm,
+        is_experienced: a.is_experienced,
+        notes: a.notes || null,
+        assigned_at: new Date().toISOString()
+      }))
 
       const { error } = await supabase
         .from('staff_scenario_assignments')
@@ -332,14 +332,14 @@ export const assignmentApi = {
     const assignmentMap = new Map<string, string[]>()
     
     data?.forEach((assignment: any) => {
-      const scenarioId = assignment.scenario_id
+        const scenarioId = assignment.scenario_id
       const staffName = staffMap.get(assignment.staff_id)
-      
-      if (staffName) {
-        if (!assignmentMap.has(scenarioId)) {
-          assignmentMap.set(scenarioId, [])
-        }
-        assignmentMap.get(scenarioId)!.push(staffName)
+        
+        if (staffName) {
+          if (!assignmentMap.has(scenarioId)) {
+            assignmentMap.set(scenarioId, [])
+          }
+          assignmentMap.get(scenarioId)!.push(staffName)
       }
     })
     

@@ -221,11 +221,11 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
           .select('role')
           .eq('id', userIdToUpdate)
           .single()
-        
+          
         if (fetchError) {
           console.error('ユーザー情報取得エラー:', fetchError)
         } else if (userData && userData.role !== 'admin') {
-          // adminでない場合のみロールを変更
+        // adminでない場合のみロールを変更
           const { error: updateError } = await supabase
             .from('users')
             .update({ role: 'customer' })

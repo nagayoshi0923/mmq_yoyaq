@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { 
   UserPlus, UserMinus, RefreshCw, ShieldCheck, 
-  Users, Briefcase, AlertTriangle, MessageSquare
+  Users, Briefcase, AlertTriangle, MessageSquare, Mail, ExternalLink, KeyRound
 } from 'lucide-react'
 
 export function StaffManual() {
@@ -107,6 +107,116 @@ export function StaffManual() {
                   </ul>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 招待メール送信後の流れ */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Mail className="h-4 w-4 text-primary" />
+          </div>
+          <h3 className="text-lg font-semibold">招待メール送信後の流れ</h3>
+        </div>
+
+        <p className="text-muted-foreground text-sm">
+          「スタッフを招待」ボタンから招待を行うと、指定したメールアドレスに招待メールが送信されます。
+          以下はスタッフ側とシステム側の動作フローです。
+        </p>
+
+        <div className="space-y-4">
+          {/* Step 1: 招待メール受信 */}
+          <div className="bg-muted/30 rounded-lg p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">1</span>
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-blue-500" />
+                  <h4 className="font-medium">招待メールを受信</h4>
+                </div>
+                <div className="bg-background rounded-md p-3 text-sm space-y-2">
+                  <p className="text-muted-foreground">スタッフのメールボックスに以下のメールが届きます：</p>
+                  <div className="border rounded-md p-3 bg-white dark:bg-gray-900 text-xs space-y-2">
+                    <p><strong>件名:</strong> 【MMQ】スタッフアカウント招待</p>
+                    <p><strong>内容:</strong> 「パスワードを設定する」ボタン付きのメール</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">※ 既存アカウントの場合は「スタッフアカウント登録完了」というメールになります。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2: パスワード設定 */}
+          <div className="bg-muted/30 rounded-lg p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">2</span>
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-blue-500" />
+                  <h4 className="font-medium">パスワードを設定</h4>
+                </div>
+                <div className="bg-background rounded-md p-3 text-sm space-y-2">
+                  <p className="text-muted-foreground">メール内のボタンをクリックすると、パスワード設定画面に移動します。</p>
+                  <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                    <li>新しいパスワードを2回入力して「設定」をクリック</li>
+                    <li>設定完了後、自動的にログイン状態になります</li>
+                  </ul>
+                  <div className="bg-yellow-50 dark:bg-yellow-950/30 rounded p-2 text-xs text-yellow-700 dark:text-yellow-300">
+                    ⚠️ リンクには有効期限があります。期限切れの場合は管理者に再招待を依頼してください。
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3: ログイン完了 */}
+          <div className="bg-muted/30 rounded-lg p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex-shrink-0 h-6 w-6 rounded-full bg-green-500 text-white text-xs font-bold flex items-center justify-center">3</span>
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4 text-green-500" />
+                  <h4 className="font-medium">スタッフとしてログイン完了</h4>
+                </div>
+                <div className="bg-background rounded-md p-3 text-sm space-y-2">
+                  <p className="text-muted-foreground">パスワード設定が完了すると、スタッフ権限でシステムにアクセスできます。</p>
+                  <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                    <li><strong>スケジュール:</strong> 公演スケジュールの確認</li>
+                    <li><strong>シフト提出:</strong> 毎月のシフト希望を提出</li>
+                    <li><strong>GM確認:</strong> 貸切予約のGM可否を回答</li>
+                    <li><strong>貸切確認:</strong> 貸切リクエストの確認</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* よくある質問 */}
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-muted/30 px-4 py-3 border-b">
+            <h4 className="font-medium text-sm">招待に関するよくある質問</h4>
+          </div>
+          <div className="divide-y">
+            <div className="p-4">
+              <p className="font-medium text-sm mb-1">Q: メールが届きません</p>
+              <p className="text-sm text-muted-foreground">
+                迷惑メールフォルダを確認してください。それでも届かない場合は、管理者に再招待を依頼してください。
+              </p>
+            </div>
+            <div className="p-4">
+              <p className="font-medium text-sm mb-1">Q: リンクの有効期限が切れました</p>
+              <p className="text-sm text-muted-foreground">
+                管理者がスタッフ一覧から「連携」→「新規招待」で同じメールアドレスに再度招待を送ることができます。
+              </p>
+            </div>
+            <div className="p-4">
+              <p className="font-medium text-sm mb-1">Q: パスワードを忘れました</p>
+              <p className="text-sm text-muted-foreground">
+                ログイン画面の「パスワードを忘れた方」からリセットできます。または管理者に再招待を依頼してください。
+              </p>
             </div>
           </div>
         </div>

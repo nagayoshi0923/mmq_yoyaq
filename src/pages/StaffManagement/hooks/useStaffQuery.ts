@@ -120,7 +120,7 @@ export function useStaffMutation() {
               can_sub_gm: false,
               is_experienced: true
             })
-          }
+      }
         })
         
         if (assignments.length > 0 && result.id) {
