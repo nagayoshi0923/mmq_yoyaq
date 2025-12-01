@@ -147,32 +147,43 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         .eq('scenario_id', props.scenarioId)
       
       if (!gmError && gmAssignments && gmAssignments.length > 0 && parentReservation) {
-        // staff_idの重複を排除（同一スタッフが複数の役割で登録されている場合）
-        const uniqueStaffIds = [...new Set(gmAssignments.map(a => a.staff_id))]
-        
-        // 既存のGM確認レコードを取得
-        const { data: existingResponses } = await supabase
-          .from('gm_availability_responses')
-          .select('staff_id')
-          .eq('reservation_id', parentReservation.id)
-        
-        const existingStaffIds = new Set((existingResponses || []).map(r => r.staff_id))
-        
-        // 既存レコードがないGMのみ挿入対象にする
-        const newGmResponses = uniqueStaffIds
-          .filter(staffId => !existingStaffIds.has(staffId))
-          .map(staffId => ({
-            reservation_id: parentReservation.id,
-            staff_id: staffId,
-            response_status: 'pending',
-            notified_at: new Date().toISOString()
-          }))
-        
-        // 新規レコードがある場合のみ挿入
-        if (newGmResponses.length > 0) {
-          await supabase
+        try {
+          // staff_idの重複を排除（同一スタッフが複数の役割で登録されている場合）
+          const uniqueStaffIds = [...new Set(gmAssignments.map(a => a.staff_id))]
+          
+          // 既存のGM確認レコードを取得
+          const { data: existingResponses } = await supabase
             .from('gm_availability_responses')
-            .insert(newGmResponses)
+            .select('staff_id')
+            .eq('reservation_id', parentReservation.id)
+          
+          const existingStaffIds = new Set((existingResponses || []).map(r => r.staff_id))
+          
+          // 既存レコードがないGMのみ挿入対象にする
+          const newGmResponses = uniqueStaffIds
+            .filter(staffId => !existingStaffIds.has(staffId))
+            .map(staffId => ({
+              reservation_id: parentReservation.id,
+              staff_id: staffId,
+              response_status: 'pending',
+              notified_at: new Date().toISOString()
+            }))
+          
+          // 新規レコードがある場合のみ挿入
+          if (newGmResponses.length > 0) {
+            const { error: insertError } = await supabase
+              .from('gm_availability_responses')
+              .insert(newGmResponses)
+            
+            if (insertError) {
+              // 権限エラー（403）などは警告ログのみ出力し、予約処理は継続
+              // GM確認レコードはDBトリガーまたは管理者が後から作成可能
+              logger.warn('GM確認レコード作成スキップ（権限またはエラー）:', insertError.message)
+            }
+          }
+        } catch (gmResponseError) {
+          // エラーが発生しても予約自体は成功させる
+          logger.warn('GM確認レコード作成エラー:', gmResponseError)
         }
       }
 
