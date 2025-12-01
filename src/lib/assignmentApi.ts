@@ -219,22 +219,22 @@ export const assignmentApi = {
         : (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>)
             .filter(a => a.scenarioId && typeof a.scenarioId === 'string')
             .map(a => ({
-              staff_id: staffId,
-              scenario_id: a.scenarioId,
-              can_main_gm: a.can_main_gm,
-              can_sub_gm: a.can_sub_gm,
-              is_experienced: a.is_experienced,
-              notes: a.notes || null,
-              assigned_at: new Date().toISOString()
-            }))
+        staff_id: staffId,
+        scenario_id: a.scenarioId,
+        can_main_gm: a.can_main_gm,
+        can_sub_gm: a.can_sub_gm,
+        is_experienced: a.is_experienced,
+        notes: a.notes || null,
+        assigned_at: new Date().toISOString()
+      }))
 
       // 有効なレコードがある場合のみ挿入
       if (records.length > 0) {
-        const { error } = await supabase
-          .from('staff_scenario_assignments')
-          .insert(records)
+      const { error } = await supabase
+        .from('staff_scenario_assignments')
+        .insert(records)
 
-        if (error) throw error
+      if (error) throw error
       }
     }
   },
@@ -312,18 +312,35 @@ export const assignmentApi = {
       return new Map()
     }
 
-    // GM可能なレコードのみをサーバー側でフィルタ（1000件制限対策）
-    const { data, error } = await supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        scenario_id,
-        staff_id,
-        can_main_gm,
-        can_sub_gm
-      `)
-      .in('scenario_id', scenarioIds)
-      .or('can_main_gm.eq.true,can_sub_gm.eq.true')
+    // シナリオIDを50件ずつバッチ処理（URLサイズ制限対策）
+    const batchSize = 50
+    const allData: any[] = []
     
+    for (let i = 0; i < scenarioIds.length; i += batchSize) {
+      const batchIds = scenarioIds.slice(i, i + batchSize)
+      
+      const { data, error } = await supabase
+        .from('staff_scenario_assignments')
+        .select(`
+          scenario_id,
+          staff_id,
+          can_main_gm,
+          can_sub_gm
+        `)
+        .in('scenario_id', batchIds)
+        .limit(10000)
+      
+      if (error) throw error
+      if (data) allData.push(...data)
+    }
+    
+    // クライアント側でGM可能なレコードのみフィルタ
+    const data = allData.filter(row => 
+      row.can_main_gm === true || row.can_sub_gm === true
+    )
+    
+    // エラーチェック用（既存コードとの互換性）
+    const error = null
     if (error) throw error
     
     // staff_idからスタッフ名を取得するために、別途スタッフ情報を取得
@@ -365,20 +382,36 @@ export const assignmentApi = {
       return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
     }
 
-    // 有効なレコードのみをサーバー側でフィルタ（1000件制限対策）
-    // GM可能 OR 体験済みのいずれかがtrueのレコードのみ取得
-    const { data, error } = await supabase
-      .from('staff_scenario_assignments')
-      .select(`
-        staff_id,
-        scenario_id,
-        can_main_gm,
-        can_sub_gm,
-        is_experienced
-      `)
-      .in('staff_id', staffIds)
-      .or('can_main_gm.eq.true,can_sub_gm.eq.true,is_experienced.eq.true')
+    // スタッフIDを50件ずつバッチ処理（URLサイズ制限対策）
+    const batchSize = 50
+    const allData: any[] = []
     
+    for (let i = 0; i < staffIds.length; i += batchSize) {
+      const batchIds = staffIds.slice(i, i + batchSize)
+      
+      const { data, error } = await supabase
+        .from('staff_scenario_assignments')
+        .select(`
+          staff_id,
+          scenario_id,
+          can_main_gm,
+          can_sub_gm,
+          is_experienced
+        `)
+        .in('staff_id', batchIds)
+        .limit(10000)
+      
+      if (error) throw error
+      if (data) allData.push(...data)
+    }
+    
+    // クライアント側でフィルタリング（GM可能 OR 体験済み）
+    const data = allData.filter(row => 
+      row.can_main_gm === true || row.can_sub_gm === true || row.is_experienced === true
+    )
+    
+    // エラーチェック用の空変数（既存コードとの互換性）
+    const error = null
     if (error) throw error
     
     // スタッフIDごとにGM可能なシナリオと体験済みシナリオをグループ化
