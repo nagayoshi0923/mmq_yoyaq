@@ -224,37 +224,8 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         }
       }
 
-      // Discord通知を送信（GM確認依頼）
-      if (parentReservation) {
-        try {
-          const { error: discordError } = await supabase.functions.invoke('notify-private-booking-discord', {
-            body: {
-              type: 'INSERT',
-              table: 'reservations',
-              record: {
-                id: parentReservation.id,
-                customer_name: customerName,
-                customer_email: customerEmail,
-                customer_phone: customerPhone,
-                scenario_id: props.scenarioId,
-                scenario_title: props.scenarioTitle,
-                participant_count: props.maxParticipants,
-                candidate_datetimes: candidateDatetimes,
-                notes: notes || null,
-                created_at: new Date().toISOString()
-              }
-            }
-          })
-
-          if (discordError) {
-            logger.warn('Discord通知送信エラー:', discordError)
-          } else {
-            logger.log('Discord通知を送信しました')
-          }
-        } catch (discordError) {
-          logger.warn('Discord通知送信エラー:', discordError)
-        }
-      }
+      // Discord通知はSupabase Webhookで自動送信されるため、ここでは呼び出さない
+      // （reservationsテーブルへのINSERT時にnotify-private-booking-discordが発火）
 
       setSuccess(true)
       
