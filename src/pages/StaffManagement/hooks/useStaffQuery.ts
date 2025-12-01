@@ -55,7 +55,8 @@ export function useStaffMutation() {
         const expScenarios = staffData.experienced_scenarios || []
         
         // アサインメントオブジェクトを構築
-        // GM可能シナリオ: can_main_gm=true, can_sub_gm=true, is_experienced=true
+        // DB制約: GM可能とis_experiencedは排他的
+        // GM可能シナリオ: can_main_gm=true, can_sub_gm=true, is_experienced=false
         // 体験のみシナリオ: can_main_gm=false, can_sub_gm=false, is_experienced=true
         const assignments: Array<{
           scenarioId: string
@@ -64,13 +65,13 @@ export function useStaffMutation() {
           is_experienced: boolean
         }> = []
         
-        // GM可能シナリオを追加（体験済みも含む）
+        // GM可能シナリオを追加
         gmScenarios.forEach(scenarioId => {
           assignments.push({
             scenarioId,
             can_main_gm: true,
             can_sub_gm: true,
-            is_experienced: true
+            is_experienced: false // DB制約: GM可能ならfalse
           })
         })
         
@@ -108,7 +109,7 @@ export function useStaffMutation() {
             scenarioId,
             can_main_gm: true,
             can_sub_gm: true,
-            is_experienced: true
+            is_experienced: false // DB制約: GM可能ならfalse
           })
         })
         
