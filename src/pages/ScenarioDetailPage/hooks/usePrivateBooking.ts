@@ -563,7 +563,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(year, month, day)
       if (date >= today) {
-        dates.push(date.toISOString().split('T')[0])
+        // ローカルタイムゾーンで日付文字列を生成（UTCではなく）
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+        dates.push(dateStr)
       }
     }
     
