@@ -106,7 +106,7 @@ export const shiftApi = {
       .select('*')
       .gte('date', startDate)
       .lte('date', endDate)
-      .eq('status', 'submitted') // 提出済みのみ
+      .or('morning.eq.true,afternoon.eq.true,evening.eq.true,all_day.eq.true') // 時間帯が1つ以上選択されている
       .limit(10000) // デフォルト1000件制限を回避
       .order('date')
     
