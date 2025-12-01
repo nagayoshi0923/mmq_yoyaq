@@ -6,6 +6,13 @@ const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
+// CORSヘッダー
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 // Supabaseクライアントを初期化
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -235,6 +242,11 @@ async function sendDiscordNotification(channelId: string, booking: any) {
 }
 
 serve(async (req) => {
+  // CORSプリフライトリクエストの処理
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   console.log('🔥 Discord notification function called!')
   console.log('Request method:', req.method)
   console.log('Request headers:', Object.fromEntries(req.headers))
@@ -249,7 +261,7 @@ serve(async (req) => {
       console.log('❌ Not an insert operation:', payload.type)
       return new Response(
         JSON.stringify({ message: 'Not a new booking' }),
-        { headers: { "Content-Type": "application/json" }, status: 200 }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       )
     }
 
@@ -282,7 +294,7 @@ serve(async (req) => {
       console.log('⚠️ Discord notifications are disabled in settings')
       return new Response(
         JSON.stringify({ message: 'Discord notifications are disabled' }),
-        { headers: { "Content-Type": "application/json" }, status: 200 }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       )
     }
     console.log('📋 Booking data:', {
@@ -300,14 +312,14 @@ serve(async (req) => {
         message: 'Individual notifications sent successfully',
         booking_id: booking.id
       }),
-      { headers: { "Content-Type": "application/json" }, status: 200 }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     )
 
   } catch (error) {
     console.error('Error:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
-      { headers: { "Content-Type": "application/json" }, status: 500 }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     )
   }
 })
