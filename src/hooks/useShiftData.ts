@@ -24,13 +24,21 @@ export function useShiftData(
         // 全スタッフのシフトを取得
         const shifts = await shiftApi.getAllStaffShifts(year, month)
         
+        logger.log(`📅 シフトデータ取得: ${year}年${month}月 - ${shifts.length}件`)
+        
         // 日付とタイムスロットごとにスタッフを整理
         const shiftMap: Record<string, Array<Staff & { timeSlot: string }>> = {}
+        
+        // マッチングできなかったstaff_idを追跡
+        const unmatchedStaffIds = new Set<string>()
         
         for (const shift of shifts) {
           // staffステートから完全なスタッフデータ（special_scenariosを含む）を取得
           const fullStaffData = staff.find(s => s.id === shift.staff_id)
-          if (!fullStaffData) continue
+          if (!fullStaffData) {
+            unmatchedStaffIds.add(shift.staff_id)
+            continue
+          }
           
           const dateKey = shift.date
           
@@ -53,6 +61,18 @@ export function useShiftData(
             shiftMap[key].push({ ...fullStaffData, timeSlot: 'evening' })
           }
         }
+        
+        // マッチングできなかったstaff_idをログ出力
+        if (unmatchedStaffIds.size > 0) {
+          logger.log(`⚠️ スタッフテーブルに存在しないstaff_id: ${unmatchedStaffIds.size}件`, Array.from(unmatchedStaffIds))
+        }
+        
+        // シフトデータのサマリーをログ出力
+        const uniqueStaffInShifts = new Set<string>()
+        Object.values(shiftMap).forEach(staffList => {
+          staffList.forEach(s => uniqueStaffInShifts.add(s.name))
+        })
+        logger.log(`📊 シフトマップ作成完了: ${Object.keys(shiftMap).length}スロット, ${uniqueStaffInShifts.size}名のスタッフ`, Array.from(uniqueStaffInShifts))
         
         setShiftData(shiftMap)
       } catch (error) {

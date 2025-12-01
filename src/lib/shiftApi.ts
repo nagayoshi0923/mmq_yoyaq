@@ -106,6 +106,8 @@ export const shiftApi = {
       .select('*')
       .gte('date', startDate)
       .lte('date', endDate)
+      .eq('status', 'submitted') // 提出済みのみ
+      .limit(10000) // デフォルト1000件制限を回避
       .order('date')
     
     if (error) throw error
