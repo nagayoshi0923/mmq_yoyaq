@@ -109,17 +109,24 @@ async function sendNotificationToGMChannels(booking: any) {
   
   console.log(`📋 Found ${gmStaff.length} GM(s) with Discord channels:`, gmStaff.map(g => g.name).join(', '))
   
-  // 各GMのチャンネルに通知を送信
-  const notificationPromises = gmStaff.map(async (gm) => {
-    const channelId = gm.discord_channel_id
-    
-    // チャンネルIDが設定されていない場合はスキップ
-    if (!channelId || channelId.trim() === '') {
-      console.log(`⚠️ Skipping ${gm.name}: discord_channel_id not set`)
-      throw new Error(`discord_channel_id not set for ${gm.name}`)
+  // チャンネルIDの重複を除外（同じチャンネルに複数回送信しないため）
+  const uniqueChannels = new Map<string, { channelId: string, gmNames: string[] }>()
+  gmStaff.forEach(gm => {
+    const channelId = gm.discord_channel_id?.trim()
+    if (channelId) {
+      if (uniqueChannels.has(channelId)) {
+        uniqueChannels.get(channelId)!.gmNames.push(gm.name)
+      } else {
+        uniqueChannels.set(channelId, { channelId, gmNames: [gm.name] })
+      }
     }
-    
-    console.log(`📤 Sending notification to ${gm.name} (Channel: ${channelId})`)
+  })
+  
+  console.log(`📋 Unique channels to notify: ${uniqueChannels.size} (from ${gmStaff.length} GMs)`)
+  
+  // 各ユニークなチャンネルに通知を送信
+  const notificationPromises = Array.from(uniqueChannels.values()).map(async ({ channelId, gmNames }) => {
+    console.log(`📤 Sending notification to channel ${channelId} (GMs: ${gmNames.join(', ')})`)
     return sendDiscordNotification(channelId, booking)
   })
   
@@ -127,12 +134,13 @@ async function sendNotificationToGMChannels(booking: any) {
   const results = await Promise.allSettled(notificationPromises)
   
   // 結果をログ出力
+  const channelEntries = Array.from(uniqueChannels.entries())
   results.forEach((result, index) => {
-    const gm = gmStaff[index]
+    const [channelId, { gmNames }] = channelEntries[index]
     if (result.status === 'fulfilled') {
-      console.log(`✅ Notification sent to ${gm.name}`)
+      console.log(`✅ Notification sent to channel ${channelId} (GMs: ${gmNames.join(', ')})`)
     } else {
-      console.error(`❌ Failed to send notification to ${gm.name}:`, result.reason)
+      console.error(`❌ Failed to send notification to channel ${channelId}:`, result.reason)
     }
   })
 }
