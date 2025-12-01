@@ -10,7 +10,8 @@ import {
   ClipboardCheck,
   UserCog,
   Store,
-  HelpCircle
+  HelpCircle,
+  Globe
 } from 'lucide-react'
 
 interface NavigationBarProps {
@@ -31,6 +32,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   // スタッフも: スケジュール、シフト提出、GM確認、貸切確認、マニュアル
   // 顧客: ナビゲーション非表示（予約サイトのみ）
   const allTabs = useMemo(() => [
+    { id: 'customer-booking', label: '予約サイト', icon: Globe, roles: ['admin', 'staff'] },
     { id: 'stores', label: '店舗', icon: Store, roles: ['admin'] },
     { id: 'schedule', label: 'スケジュール', icon: Calendar, roles: ['admin', 'staff'] },
     { id: 'staff', label: 'スタッフ', icon: Users, roles: ['admin'] },
