@@ -203,31 +203,39 @@ export const assignmentApi = {
       const isStringArray = typeof assignments[0] === 'string'
       
       // DBテーブルに存在するカラムのみ使用（statusは存在しない）
+      // 無効なscenarioIdをフィルタリング
       const records = isStringArray 
-        ? (assignments as string[]).map(scenarioId => ({
-            staff_id: staffId,
-            scenario_id: scenarioId,
-            can_main_gm: true, // デフォルト: GM可能
-            can_sub_gm: true,
-            is_experienced: false,
-            notes: null,
-            assigned_at: new Date().toISOString()
-          }))
-        : (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>).map(a => ({
-        staff_id: staffId,
-        scenario_id: a.scenarioId,
-        can_main_gm: a.can_main_gm,
-        can_sub_gm: a.can_sub_gm,
-        is_experienced: a.is_experienced,
-        notes: a.notes || null,
-        assigned_at: new Date().toISOString()
-      }))
+        ? (assignments as string[])
+            .filter(scenarioId => scenarioId && typeof scenarioId === 'string')
+            .map(scenarioId => ({
+              staff_id: staffId,
+              scenario_id: scenarioId,
+              can_main_gm: true, // デフォルト: GM可能
+              can_sub_gm: true,
+              is_experienced: false,
+              notes: null,
+              assigned_at: new Date().toISOString()
+            }))
+        : (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>)
+            .filter(a => a.scenarioId && typeof a.scenarioId === 'string')
+            .map(a => ({
+              staff_id: staffId,
+              scenario_id: a.scenarioId,
+              can_main_gm: a.can_main_gm,
+              can_sub_gm: a.can_sub_gm,
+              is_experienced: a.is_experienced,
+              notes: a.notes || null,
+              assigned_at: new Date().toISOString()
+            }))
 
-      const { error } = await supabase
-        .from('staff_scenario_assignments')
-        .insert(records)
+      // 有効なレコードがある場合のみ挿入
+      if (records.length > 0) {
+        const { error } = await supabase
+          .from('staff_scenario_assignments')
+          .insert(records)
 
-      if (error) throw error
+        if (error) throw error
+      }
     }
   },
 
