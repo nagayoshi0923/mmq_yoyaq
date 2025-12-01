@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
@@ -98,6 +98,13 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
     }
   }, [scenarioId, setSelectedStoreIds, setSelectedTimeSlots])
 
+  // 貸切リクエスト完了時のハンドラ（選択状態をクリア）
+  const handlePrivateBookingCompleteWithClear = useCallback(() => {
+    setSelectedTimeSlots([])
+    setSelectedStoreIds([])
+    handlePrivateBookingComplete()
+  }, [handlePrivateBookingComplete, setSelectedTimeSlots, setSelectedStoreIds])
+
   // 予約確認画面を表示
   if (showBookingConfirmation && selectedEvent && scenario) {
     return (
@@ -134,7 +141,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         selectedStoreIds={selectedStoreIds}
         stores={stores}
         onBack={handleBackFromPrivateBooking}
-        onComplete={handlePrivateBookingComplete}
+        onComplete={handlePrivateBookingCompleteWithClear}
       />
     )
   }
