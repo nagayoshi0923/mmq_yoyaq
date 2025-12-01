@@ -160,7 +160,7 @@ export const assignmentApi = {
         notes: notes || null,
         can_main_gm: true,
         can_sub_gm: true,
-        is_experienced: false,
+        is_experienced: true, // GM可能なら体験済み必須（DB制約）
         assigned_at: new Date().toISOString()
       })
       .select()
@@ -212,7 +212,7 @@ export const assignmentApi = {
               scenario_id: scenarioId,
               can_main_gm: true, // デフォルト: GM可能
               can_sub_gm: true,
-              is_experienced: false,
+              is_experienced: true, // GM可能なら体験済み必須（DB制約）
               notes: null,
               assigned_at: new Date().toISOString()
             }))
@@ -268,15 +268,16 @@ export const assignmentApi = {
       if (deleteError) throw deleteError
     }
     
-    // 追加実行（デフォルト設定: can_main_gm=true, can_sub_gm=true）
+    // 追加実行（デフォルト設定: can_main_gm=true, can_sub_gm=true, is_experienced=true）
     // DBテーブルに存在するカラムのみ使用（statusは存在しない）
+    // 注意: gm_experienced_check制約により、GM可能なら体験済みも必須
     if (toAdd.length > 0) {
       const newAssignments = toAdd.map(staffId => ({
         staff_id: staffId,
         scenario_id: scenarioId,
         can_main_gm: true,
         can_sub_gm: true,
-        is_experienced: false,
+        is_experienced: true, // GM可能なら体験済み必須（DB制約）
         notes: notes || null,
         assigned_at: new Date().toISOString()
       }))
