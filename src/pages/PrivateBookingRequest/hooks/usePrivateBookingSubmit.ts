@@ -147,6 +147,9 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         .eq('scenario_id', props.scenarioId)
       
       if (!gmError && gmAssignments && gmAssignments.length > 0 && parentReservation) {
+        // staff_idの重複を排除（同一スタッフが複数の役割で登録されている場合）
+        const uniqueStaffIds = [...new Set(gmAssignments.map(a => a.staff_id))]
+        
         // 既存のGM確認レコードを取得
         const { data: existingResponses } = await supabase
           .from('gm_availability_responses')
@@ -156,11 +159,11 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         const existingStaffIds = new Set((existingResponses || []).map(r => r.staff_id))
         
         // 既存レコードがないGMのみ挿入対象にする
-        const newGmResponses = gmAssignments
-          .filter(assignment => !existingStaffIds.has(assignment.staff_id))
-          .map(assignment => ({
+        const newGmResponses = uniqueStaffIds
+          .filter(staffId => !existingStaffIds.has(staffId))
+          .map(staffId => ({
             reservation_id: parentReservation.id,
-            staff_id: assignment.staff_id,
+            staff_id: staffId,
             response_status: 'pending',
             notified_at: new Date().toISOString()
           }))
