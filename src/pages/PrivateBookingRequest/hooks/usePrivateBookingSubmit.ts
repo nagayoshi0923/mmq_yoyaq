@@ -147,7 +147,7 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         .eq('scenario_id', props.scenarioId)
       
       if (!gmError && gmAssignments && gmAssignments.length > 0 && parentReservation) {
-        // 各GMに対して確認レコードを作成
+        // 各GMに対して確認レコードを作成（既存レコードがあればスキップ）
         const gmResponses = gmAssignments.map(assignment => ({
           reservation_id: parentReservation.id,
           staff_id: assignment.staff_id,
@@ -155,9 +155,13 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           notified_at: new Date().toISOString()
         }))
         
+        // upsertを使用して重複エラーを回避（既存レコードは更新しない）
         await supabase
           .from('gm_availability_responses')
-          .insert(gmResponses)
+          .upsert(gmResponses, { 
+            onConflict: 'reservation_id,staff_id',
+            ignoreDuplicates: true 
+          })
       }
 
       // 貸切申し込み完了メールを送信

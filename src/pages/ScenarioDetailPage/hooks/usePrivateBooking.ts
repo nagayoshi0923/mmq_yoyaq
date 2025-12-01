@@ -20,6 +20,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
   const [allStoreEvents, setAllStoreEvents] = useState<any[]>([])
+  // 営業時間設定のキャッシュ（店舗IDをキーにする）
+  const [businessHoursCache, setBusinessHoursCache] = useState<Map<string, any>>(new Map())
   const MAX_SELECTIONS = 10
 
   // 現在の月から3ヶ月先までの全店舗のイベントを取得（貸切申込可能日判定用）
@@ -94,6 +96,40 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     loadAllStoreEvents()
   }, [])
 
+  // 営業時間設定を一括で取得してキャッシュ
+  useEffect(() => {
+    const loadBusinessHours = async () => {
+      if (stores.length === 0) return
+      
+      try {
+        // 全店舗の営業時間設定を一括取得
+        const storeIds = stores.map(s => s.id)
+        const { data, error } = await supabase
+          .from('business_hours_settings')
+          .select('store_id, opening_hours, holidays, time_restrictions')
+          .in('store_id', storeIds)
+        
+        if (error) {
+          logger.error('営業時間設定一括取得エラー:', error)
+          return
+        }
+        
+        // キャッシュに保存
+        const cache = new Map<string, any>()
+        if (data) {
+          for (const setting of data) {
+            cache.set(setting.store_id, setting)
+          }
+        }
+        setBusinessHoursCache(cache)
+      } catch (error) {
+        logger.error('営業時間設定読み込みエラー:', error)
+      }
+    }
+    
+    loadBusinessHours()
+  }, [stores])
+
   // そのシナリオを公演可能な店舗IDを取得（シナリオのavailable_stores設定から）
   // オフィス（ownership_type='office'）は貸切リクエストの対象外
   const getAvailableStoreIds = useCallback((): Set<string> => {
@@ -139,51 +175,37 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     return null
   }, [stores])
 
-  // 営業時間内かどうかをチェックする関数（スケジュール管理側の設定と同期）
-  const isWithinBusinessHours = useCallback(async (date: string, startTime: string, storeId: string): Promise<boolean> => {
-    try {
-      // 営業時間設定を取得
-      const { data, error } = await supabase
-        .from('business_hours_settings')
-        .select('opening_hours, holidays, time_restrictions')
-        .eq('store_id', storeId)
-        .maybeSingle()
+  // 営業時間内かどうかをチェックする関数（キャッシュを使用）
+  const isWithinBusinessHours = useCallback((date: string, startTime: string, storeId: string): boolean => {
+    // キャッシュから営業時間設定を取得
+    const data = businessHoursCache.get(storeId)
+    
+    if (!data) return true // 設定がない場合は制限しない
 
-      if (error && error.code !== 'PGRST116') {
-        logger.error('営業時間設定取得エラー:', error)
-        return true // エラーの場合は制限しない
-      }
+    // 休日チェック
+    if (data.holidays && data.holidays.includes(date)) {
+      return false
+    }
 
-      if (!data) return true // 設定がない場合は制限しない
-
-      // 休日チェック
-      if (data.holidays && data.holidays.includes(date)) {
+    // 営業時間チェック
+    if (data.opening_hours) {
+      const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+      const dayName = dayNames[dayOfWeek]
+      
+      const dayHours = data.opening_hours[dayName]
+      if (!dayHours || !dayHours.is_open) {
         return false
       }
 
-      // 営業時間チェック
-      if (data.opening_hours) {
-        const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
-        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-        const dayName = dayNames[dayOfWeek]
-        
-        const dayHours = data.opening_hours[dayName]
-        if (!dayHours || !dayHours.is_open) {
-          return false
-        }
-
-        const eventTime = startTime.slice(0, 5) // HH:MM形式
-        if (eventTime < dayHours.open_time || eventTime > dayHours.close_time) {
-          return false
-        }
+      const eventTime = startTime.slice(0, 5) // HH:MM形式
+      if (eventTime < dayHours.open_time || eventTime > dayHours.close_time) {
+        return false
       }
-
-      return true
-    } catch (error) {
-      logger.error('営業時間チェックエラー:', error)
-      return true // エラーの場合は制限しない
     }
-  }, [])
+
+    return true
+  }, [businessHoursCache])
 
   // 特定の日付と時間枠が空いているかチェック（店舗フィルター対応）
   // 全店舗のイベントを使用して判定（特定シナリオのイベントのみではない）
@@ -264,7 +286,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       // 各店舗の空き状況をチェック（Promise.allで並列処理）
       const storeAvailabilityPromises = validStoreIds.map(async (storeId) => {
         // まず営業時間設定をチェック（スケジュール管理側と同期）
-        const withinBusinessHours = await isWithinBusinessHours(date, slot.startTime, storeId)
+        const withinBusinessHours = isWithinBusinessHours(date, slot.startTime, storeId)
         if (!withinBusinessHours) {
           if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: 営業時間外のため受付不可`, {
             date,
@@ -390,7 +412,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     // 各店舗の空き状況をチェック（Promise.allで並列処理）
     const storeAvailabilityPromises = availableStoreIdsArray.map(async (storeId) => {
       // まず営業時間設定をチェック（スケジュール管理側と同期）
-      const withinBusinessHours = await isWithinBusinessHours(date, slot.startTime, storeId)
+      const withinBusinessHours = isWithinBusinessHours(date, slot.startTime, storeId)
       if (!withinBusinessHours) {
         if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: 営業時間外のため受付不可（店舗未選択時）`, {
           date,
