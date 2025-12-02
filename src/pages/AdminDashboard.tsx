@@ -168,25 +168,41 @@ export function AdminDashboard() {
       return
     }
 
-    // ログアウト状態または顧客アカウントの場合
-    const isCustomerOrLoggedOut = !user || user.role === 'customer'
-    
-    // 顧客/ログアウト状態でダッシュボードや管理ページにいる場合は予約サイトにリダイレクト
-    if (isCustomerOrLoggedOut && (!currentPage || currentPage === 'dashboard' || adminOnlyPages.includes(currentPage))) {
-      setCurrentPage('customer-booking')
-      window.location.hash = 'customer-booking'
-      return
-    }
-
-    // スタッフ/管理者がログインしていて、ハッシュがない場合はダッシュボードを表示
-    if (user && (user.role === 'admin' || user.role === 'staff')) {
-      const hash = window.location.hash.slice(1)
-      if (!hash || hash === '') {
-        setCurrentPage('dashboard')
-        window.location.hash = 'dashboard'
+    // ⚠️ 重要: ユーザー情報がまだ読み込み中の可能性があるため、
+    // ログイン状態の確認は慎重に行う
+    // user が null でも、Supabase セッションが存在する可能性がある
+    const checkAndRedirect = async () => {
+      // Supabaseセッションを直接確認
+      const { data: { session } } = await (await import('@/lib/supabase')).supabase.auth.getSession()
+      
+      // セッションがある場合は、ユーザー情報の読み込みを待つ
+      if (session && !user) {
+        // ユーザー情報がまだ読み込まれていない場合は、リダイレクトしない
         return
       }
+      
+      // ログアウト状態または顧客アカウントの場合
+      const isCustomerOrLoggedOut = !user || user.role === 'customer'
+      
+      // 顧客/ログアウト状態でダッシュボードや管理ページにいる場合は予約サイトにリダイレクト
+      if (isCustomerOrLoggedOut && (!currentPage || currentPage === 'dashboard' || adminOnlyPages.includes(currentPage))) {
+        setCurrentPage('customer-booking')
+        window.location.hash = 'customer-booking'
+        return
+      }
+
+      // スタッフ/管理者がログインしていて、ハッシュがない場合はダッシュボードを表示
+      if (user && (user.role === 'admin' || user.role === 'staff')) {
+        const hash = window.location.hash.slice(1)
+        if (!hash || hash === '') {
+          setCurrentPage('dashboard')
+          window.location.hash = 'dashboard'
+          return
+        }
+      }
     }
+    
+    checkAndRedirect()
   }, [user, currentPage, isInitialized])
 
   // ブラウザの戻る/進むボタンに対応
