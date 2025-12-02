@@ -74,6 +74,9 @@ function PerformanceCardBase({
   // 表示用GMリスト（メインとサブのみ）
   const displayGms = [...mainGms, ...subGms.map(gm => `${gm}(サブ)`)]
   
+  // シナリオマスタ未登録チェック（シナリオ名はあるがscenariosがない）
+  const isUnregisteredScenario = event.scenario && !event.scenarios
+  
   // 完了状態の判定（シナリオなし、GMなし、またはメインGMなし）
   const isIncomplete = !event.scenario || event.gms.length === 0 || mainGms.length === 0
   
@@ -195,7 +198,15 @@ function PerformanceCardBase({
       {/* シナリオタイトル */}
       <div className={`font-bold line-clamp-2 mb-0.5 text-xs leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
         {event.scenario ? (
-          event.scenario
+          <span 
+            className={`flex items-center gap-1 ${isUnregisteredScenario ? 'text-orange-600' : ''}`}
+            title={isUnregisteredScenario ? 'シナリオマスタ未登録' : undefined}
+          >
+            {isUnregisteredScenario && (
+              <AlertTriangle className="w-3 h-3 flex-shrink-0 text-orange-500" />
+            )}
+            {event.scenario}
+          </span>
         ) : (
           <span className="text-red-500 flex items-center gap-1">
              <AlertTriangle className="w-3 h-3 flex-shrink-0" />
