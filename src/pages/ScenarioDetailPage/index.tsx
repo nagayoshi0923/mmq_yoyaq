@@ -205,14 +205,15 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
               className="flex items-center gap-1 hover:bg-accent h-9 px-2 touch-manipulation text-sm"
             >
               <ArrowLeft className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">シナリオ一覧に戻る</span>
-              <span className="sm:hidden">戻る</span>
+              <span className="hidden md:inline">シナリオ一覧に戻る</span>
+              <span className="md:hidden">戻る</span>
             </Button>
           </div>
           
           {/* 2行目: モバイル用シナリオ概要（スクロール時にアニメーション表示） */}
+          {/* md:hidden - 768px未満でのみ表示（グリッドレイアウトのmd:と統一） */}
           <div 
-            className={`sm:hidden overflow-hidden transition-all duration-300 ease-out ${
+            className={`md:hidden overflow-hidden transition-all duration-300 ease-out ${
               showStickyInfo 
                 ? 'max-h-[120px] opacity-100' 
                 : 'max-h-0 opacity-0'
