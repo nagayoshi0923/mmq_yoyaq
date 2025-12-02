@@ -2,9 +2,18 @@ import { memo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { Clock, Users, ExternalLink } from 'lucide-react'
+import { Clock, Users, ExternalLink, Star, Share2 } from 'lucide-react'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
+
+// 難易度ラベル
+const DIFFICULTY_LABELS: Record<number, { label: string; color: string }> = {
+  1: { label: '初心者向け', color: 'bg-green-500' },
+  2: { label: 'やや易しい', color: 'bg-lime-500' },
+  3: { label: '普通', color: 'bg-yellow-500' },
+  4: { label: 'やや難しい', color: 'bg-orange-500' },
+  5: { label: '上級者向け', color: 'bg-red-500' },
+}
 
 interface ScenarioHeroProps {
   scenario: ScenarioDetail
@@ -45,8 +54,8 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
           {/* タイトル・基本情報 */}
           <div className="md:col-span-8 space-y-3 md:space-y-4">
             <div>
-              <p className="text-xs sm:text-sm opacity-80 mb-2">{scenario.author}</p>
-              <h1 className="text-lg mb-3">{scenario.scenario_title}</h1>
+              <p className="text-sm opacity-80 mb-1">{scenario.author}</p>
+              <h1 className="text-xl md:text-2xl font-bold mb-3">{scenario.scenario_title}</h1>
               
               <div className="flex flex-wrap gap-1.5 items-center">
                 <div className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-full text-sm sm:text-base">
@@ -64,6 +73,14 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
                     {scenario.participation_fee ? `¥${scenario.participation_fee.toLocaleString()}〜` : '¥3,000〜'}
                   </span>
                 </div>
+                
+                {/* 難易度表示 */}
+                {scenario.difficulty && DIFFICULTY_LABELS[scenario.difficulty] && (
+                  <div className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-full text-sm sm:text-base">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="text-white">{DIFFICULTY_LABELS[scenario.difficulty].label}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -86,7 +103,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {scenario.official_site_url && (
                 <Button
                   variant="outline"
@@ -98,6 +115,21 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
                   公式サイト
                 </Button>
               )}
+              
+              {/* SNSシェアボタン */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20 h-8 sm:h-9 text-xs sm:text-sm touch-manipulation"
+                onClick={() => {
+                  const url = window.location.href
+                  const text = `${scenario.scenario_title} - マーダーミステリークエスト`
+                  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'width=550,height=420')
+                }}
+              >
+                <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1 sm:mr-1.5" />
+                シェア
+              </Button>
             </div>
           </div>
         </div>

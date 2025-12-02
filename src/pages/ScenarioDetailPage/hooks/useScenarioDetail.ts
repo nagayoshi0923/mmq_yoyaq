@@ -12,6 +12,7 @@ export function useScenarioDetail(scenarioId: string) {
   const [scenario, setScenario] = useState<ScenarioDetail | null>(null)
   const [events, setEvents] = useState<EventSchedule[]>([])
   const [stores, setStores] = useState<any[]>([])
+  const [relatedScenarios, setRelatedScenarios] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const loadScenarioDetail = useCallback(async () => {
@@ -171,6 +172,23 @@ export function useScenarioDetail(scenarioId: string) {
       })
       
       setEvents(scenarioEvents)
+      
+      // 同じ著者の他作品を取得
+      if (scenarioData.author) {
+        try {
+          const { data: relatedData } = await supabase
+            .from('scenarios')
+            .select('id, title, key_visual_url, author, player_count_min, player_count_max, duration')
+            .eq('author', scenarioData.author)
+            .neq('id', scenarioData.id)
+            .limit(6)
+          
+          setRelatedScenarios(relatedData || [])
+        } catch (error) {
+          logger.error('関連シナリオの取得エラー:', error)
+          setRelatedScenarios([])
+        }
+      }
     } catch (error) {
       logger.error('データの読み込みエラー:', error)
     } finally {
@@ -186,6 +204,7 @@ export function useScenarioDetail(scenarioId: string) {
     scenario,
     events,
     stores,
+    relatedScenarios,
     isLoading,
     loadScenarioDetail
   }

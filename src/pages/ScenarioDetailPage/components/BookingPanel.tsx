@@ -29,7 +29,7 @@ export const BookingPanel = memo(function BookingPanel({
     <div className="space-y-4">
       {/* 人数を選択 */}
       <div>
-        <h3 className="mb-3 xl:mb-4 text-lg xl:text-xl">人数を選択</h3>
+        <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">人数を選択</h3>
         <Card>
           <CardContent className="p-4 xl:p-5">
             <div className="flex items-center justify-between">
@@ -61,7 +61,7 @@ export const BookingPanel = memo(function BookingPanel({
 
       {/* 料金情報 */}
       <div>
-        <h3 className="mb-3 xl:mb-4 text-lg xl:text-xl">料金</h3>
+        <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">料金</h3>
         <Card>
           <CardContent className="p-4 xl:p-5 space-y-3 xl:space-y-4">
               <div className="flex justify-between items-center text-sm">
