@@ -128,22 +128,20 @@ export const CalendarView = memo(function CalendarView({
                     </div>
                   ) : (
                     events.map((event: any, idx: number) => {
-                    // シナリオ情報を取得（player_count_max、画像URL用）
-                    const scenario = scenarioMap.get(event.scenario_id) || 
-                                   scenarioMap.get(event.scenario) ||
-                                   scenarios.find(s => 
-                                     s.scenario_id === event.scenario_id || 
-                                     s.scenario_title === event.scenario
-                                   )
-                    
-                    // シナリオのplayer_count_maxを最優先（scenarioMapから取得したデータを使用）
-                    const maxParticipants = scenario?.player_count_max || event.scenarios?.player_count_max || event.max_participants || 8
+                    // useBookingDataで事前計算済みのplayer_count_maxを使用
+                    const maxParticipants = event.player_count_max || 8
                     const available = maxParticipants - (event.current_participants || 0)
                     const isFull = available === 0
                     const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
                     const storeName = getStoreName(event)
                     const storeColor = getStoreColor(event)
-                    const imageUrl = scenario?.key_visual_url || event.scenarios?.image_url || event.scenarios?.key_visual_url
+                    
+                    // シナリオ情報を取得（クリック時のscenario_id用）
+                    const scenario = scenarioMap.get(event.scenario_id) || 
+                                   scenarioMap.get(event.scenario) ||
+                                   event.scenario_data
+                    // useBookingDataで事前計算済みのkey_visual_urlを使用
+                    const imageUrl = event.key_visual_url
                     
                     return (
                       <div

@@ -125,11 +125,45 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         if (store.name) storeMap.set(store.name, store)
       })
       
+      // 最適化: シナリオデータをMapに変換（O(1)アクセス）
+      const scenarioDataMap = new Map<string, any>()
+      scenariosData.forEach((scenario: any) => {
+        scenarioDataMap.set(scenario.id, scenario)
+        if (scenario.title) scenarioDataMap.set(scenario.title, scenario)
+      })
+      
+      // イベントを加工: player_count_max を事前計算してセット
+      const enrichedEvents = publicEvents.map((event: any) => {
+        // シナリオ情報を検索（ID → タイトル の順で検索）
+        const scenarioFromMap = scenarioDataMap.get(event.scenario_id) || 
+                                scenarioDataMap.get(event.scenario) ||
+                                scenarioDataMap.get(event.scenarios?.id) ||
+                                scenarioDataMap.get(event.scenarios?.title)
+        
+        // player_count_max: scenarioMapからの値を最優先
+        const player_count_max = scenarioFromMap?.player_count_max || 
+                                 event.scenarios?.player_count_max || 
+                                 event.max_participants || 
+                                 8
+        
+        // key_visual_url: scenarioMapからの値を最優先
+        const key_visual_url = scenarioFromMap?.key_visual_url || 
+                               event.scenarios?.key_visual_url || 
+                               event.scenarios?.image_url
+        
+        return {
+          ...event,
+          player_count_max,
+          key_visual_url,
+          scenario_data: scenarioFromMap // シナリオマスタの情報を保持
+        }
+      })
+      
       // 最適化: イベントをシナリオIDでインデックス化（O(1)アクセス）
       const eventsByScenarioId = new Map<string, any[]>()
       const eventsByScenarioTitle = new Map<string, any[]>()
       
-      publicEvents.forEach((event: any) => {
+      enrichedEvents.forEach((event: any) => {
         // scenario_idでインデックス化
         const scenarioId = event.scenario_id || event.scenarios?.id
         if (scenarioId) {
@@ -296,12 +330,12 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       
       const totalTime = performance.now() - startTime
       // パフォーマンスログ
-      logger.log(`📊 予約サイトデータ取得完了: ${scenarioList.length}件のシナリオ, ${publicEvents.length}件の公演`)
+      logger.log(`📊 予約サイトデータ取得完了: ${scenarioList.length}件のシナリオ, ${enrichedEvents.length}件の公演`)
       logger.log(`⏱️ 総処理時間: ${(totalTime / 1000).toFixed(2)}秒`)
       
       // データを即座に設定（非同期化は不要、むしろ遅延の原因になる）
       setScenarios(scenarioList)
-      setAllEvents(publicEvents)
+      setAllEvents(enrichedEvents) // 加工済みイベントを使用
       setStores(storesData)
       setIsLoading(false)
       
