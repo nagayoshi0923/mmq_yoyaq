@@ -219,22 +219,29 @@ export const ListView = memo(function ListView({
 
       {/* リスト表示テーブル */}
       <div className="overflow-x-auto -mx-2 sm:mx-0">
-        <Table className="w-full">
+        <Table className="w-full table-fixed">
+        <colgroup>
+          <col className="hidden sm:table-column w-24" />
+          <col className="w-12 sm:w-16" />
+          <col className="w-auto" />
+          <col className="w-auto" />
+          <col className="w-auto" />
+        </colgroup>
         <TableHeader>
           <TableRow className="bg-muted/50">
-              <TableHead className="hidden sm:table-cell w-20 sm:w-24 border-r text-sm whitespace-nowrap">日付</TableHead>
-              <TableHead className="border-r text-xs sm:text-sm w-10 sm:w-16 whitespace-nowrap">
+              <TableHead className="hidden sm:table-cell border-r text-sm whitespace-nowrap">日付</TableHead>
+              <TableHead className="border-r text-xs sm:text-sm whitespace-nowrap">
                 会場
               </TableHead>
-              <TableHead className="border-r text-xs sm:text-sm w-[28%]">
+              <TableHead className="border-r text-xs sm:text-sm text-center">
                 <span className="sm:hidden">朝</span>
                 <span className="hidden sm:inline">朝公演</span>
               </TableHead>
-              <TableHead className="border-r text-xs sm:text-sm w-[28%]">
+              <TableHead className="border-r text-xs sm:text-sm text-center">
                 <span className="sm:hidden">昼</span>
                 <span className="hidden sm:inline">昼公演</span>
               </TableHead>
-              <TableHead className="text-xs sm:text-sm w-[28%]">
+              <TableHead className="text-xs sm:text-sm text-center">
                 <span className="sm:hidden">夜</span>
                 <span className="hidden sm:inline">夜公演</span>
               </TableHead>
