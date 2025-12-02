@@ -36,10 +36,10 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
   const [showStickyInfo, setShowStickyInfo] = useState(false)
   
-  // スクロール検知（400px以上スクロールしたらスティッキー情報を表示）
+  // スクロール検知（600px以上スクロールしたらスティッキー情報を表示）
   useEffect(() => {
     const handleScroll = () => {
-      setShowStickyInfo(window.scrollY > 400)
+      setShowStickyInfo(window.scrollY > 600)
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
