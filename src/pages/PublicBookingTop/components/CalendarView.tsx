@@ -132,8 +132,17 @@ export const CalendarView = memo(function CalendarView({
                     const dateStr = formatDateJST(day.date)
                     const blockedEvents = blockedEventsByDate.get(dateStr) || []
                     
-                    // 通常公演 + 貸切公演 + GMテスト等を全てマージして時間順にソート
+                    // 通常公演 + 貸切公演 + GMテスト等を全てマージ
+                    // ソート順: オープン公演優先 → 時間順
                     const allDisplayEvents = [...events, ...blockedEvents].sort((a, b) => {
+                      const aIsReserved = a.category === 'private' || a.is_private_booking === true || a.category === 'gmtest' || a.category === 'testplay'
+                      const bIsReserved = b.category === 'private' || b.is_private_booking === true || b.category === 'gmtest' || b.category === 'testplay'
+                      
+                      // オープン公演を上に
+                      if (aIsReserved !== bIsReserved) {
+                        return aIsReserved ? 1 : -1
+                      }
+                      // 同じカテゴリ内では時間順
                       return (a.start_time || '').localeCompare(b.start_time || '')
                     })
                     
