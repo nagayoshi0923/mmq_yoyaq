@@ -36,10 +36,10 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
   const [showStickyInfo, setShowStickyInfo] = useState(false)
   
-  // スクロール検知（200px以上スクロールしたらスティッキー情報を表示）
+  // スクロール検知（400px以上スクロールしたらスティッキー情報を表示）
   useEffect(() => {
     const handleScroll = () => {
-      setShowStickyInfo(window.scrollY > 200)
+      setShowStickyInfo(window.scrollY > 400)
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
@@ -210,9 +210,15 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
             </Button>
           </div>
           
-          {/* 2行目: モバイル用シナリオ概要（スクロール時のみ表示） */}
-          {showStickyInfo && (
-            <div className="flex items-center gap-3 pb-2 sm:hidden border-t pt-2">
+          {/* 2行目: モバイル用シナリオ概要（スクロール時にアニメーション表示） */}
+          <div 
+            className={`sm:hidden overflow-hidden transition-all duration-300 ease-out ${
+              showStickyInfo 
+                ? 'max-h-[120px] opacity-100' 
+                : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="flex items-center gap-3 pb-2 border-t pt-2">
               {/* キービジュアル（縦80px） */}
               {scenario.key_visual_url && (
                 <div className="flex-shrink-0 h-[80px] aspect-[1/1.4] bg-gray-200 rounded overflow-hidden">
@@ -240,7 +246,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
