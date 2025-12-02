@@ -152,11 +152,15 @@ export function PrivateBookingScenarioSelect() {
                       <div className="flex gap-4 text-sm">
                         <div>
                           <span className="text-xs text-muted-foreground">所要時間: </span>
-                          <span>{(scenario.duration / 60).toFixed(1)}時間</span>
+                          <span>{scenario.duration}分</span>
                         </div>
                         <div>
                           <span className="text-xs text-muted-foreground">人数: </span>
-                          <span>{scenario.player_count_min}〜{scenario.player_count_max}名</span>
+                          <span>
+                            {scenario.player_count_min === scenario.player_count_max
+                              ? `${scenario.player_count_max}名`
+                              : `${scenario.player_count_min}〜${scenario.player_count_max}名`}
+                          </span>
                         </div>
                       </div>
                       

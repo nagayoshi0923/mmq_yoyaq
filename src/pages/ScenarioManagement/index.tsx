@@ -458,7 +458,11 @@ export function ScenarioManagement() {
                       <div className="flex flex-wrap gap-2 text-xs text-gray-600">
                         <div className="flex items-center gap-1">
                           <Users className="h-3 w-3" />
-                          <span>{scenario.player_count_min}{scenario.player_count_max && scenario.player_count_max !== scenario.player_count_min ? `-${scenario.player_count_max}` : ''}人</span>
+                          <span>
+                            {scenario.player_count_min === scenario.player_count_max
+                              ? `${scenario.player_count_max}人`
+                              : `${scenario.player_count_min}〜${scenario.player_count_max}人`}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />

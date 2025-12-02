@@ -242,7 +242,9 @@ export function WantToPlayPage() {
                     <div className="flex items-center gap-1">
                       <Users className="h-4 w-4 text-muted-foreground" />
                       <span>
-                        {item.scenario.player_count_min}〜{item.scenario.player_count_max}人
+                        {item.scenario.player_count_min === item.scenario.player_count_max
+                          ? `${item.scenario.player_count_max}人`
+                          : `${item.scenario.player_count_min}〜${item.scenario.player_count_max}人`}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">

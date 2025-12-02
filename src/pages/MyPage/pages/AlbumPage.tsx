@@ -558,7 +558,9 @@ export function AlbumPage() {
                         <div className="flex items-center gap-1">
                           <Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                           <span>
-                            {item.scenario.player_count_min}〜{item.scenario.player_count_max}人
+                            {item.scenario.player_count_min === item.scenario.player_count_max
+                              ? `${item.scenario.player_count_max}人`
+                              : `${item.scenario.player_count_min}〜${item.scenario.player_count_max}人`}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
