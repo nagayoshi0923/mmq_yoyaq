@@ -213,6 +213,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                 onCardClick={handleCardClick}
                 getStoreName={getStoreName}
                 getStoreColor={getStoreColor}
+                blockedSlots={blockedSlots}
               />
             </TabsContent>
 

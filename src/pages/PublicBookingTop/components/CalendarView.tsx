@@ -20,6 +20,7 @@ interface CalendarViewProps {
   onCardClick: (scenarioId: string) => void
   getStoreName: (event: any) => string
   getStoreColor: (event: any) => string
+  blockedSlots?: any[]
 }
 
 /**
@@ -36,7 +37,8 @@ export const CalendarView = memo(function CalendarView({
   scenarios,
   onCardClick,
   getStoreName,
-  getStoreColor
+  getStoreColor,
+  blockedSlots = []
 }: CalendarViewProps) {
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
@@ -49,6 +51,15 @@ export const CalendarView = memo(function CalendarView({
     })
     return map
   }, [scenarios])
+  
+  // GMテスト等のブロックされた日付をSetで管理
+  const blockedDates = useMemo(() => {
+    const set = new Set<string>()
+    blockedSlots.forEach(event => {
+      set.add(event.date)
+    })
+    return set
+  }, [blockedSlots])
 
   return (
     <div>
@@ -114,19 +125,50 @@ export const CalendarView = memo(function CalendarView({
                 
                 {/* 公演リスト（スクロール可能） */}
                 <div className="relative space-y-1 px-0 pb-0 overflow-y-auto max-h-[200px] sm:max-h-[250px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                  {events.length === 0 ? (
-                    <div className="p-1 sm:p-2">
-                      <button
-                        className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
-                        onClick={() => {
-                          const dateStr = formatDateJST(day.date)
-                          window.location.hash = `#private-booking-select?date=${dateStr}`
-                        }}
-                      >
-                        貸切申込
-                      </button>
-                    </div>
-                  ) : (
+                  {(() => {
+                    const dateStr = formatDateJST(day.date)
+                    const isBlocked = blockedDates.has(dateStr)
+                    const hasOnlyPrivateBooking = events.length > 0 && events.every((event: any) => 
+                      event.category === 'private' || event.is_private_booking === true
+                    )
+                    
+                    if (events.length === 0) {
+                      if (isBlocked) {
+                        // GMテスト等でブロックされている日は「満室」と表示
+                        return (
+                          <div className="p-1 sm:p-2">
+                            <div className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 text-center text-gray-400">
+                              満室
+                            </div>
+                          </div>
+                        )
+                      }
+                      return (
+                        <div className="p-1 sm:p-2">
+                          <button
+                            className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                            onClick={() => {
+                              window.location.hash = `#private-booking-select?date=${dateStr}`
+                            }}
+                          >
+                            貸切申込
+                          </button>
+                        </div>
+                      )
+                    }
+                    
+                    // 貸切公演のみの場合は「満室」と表示
+                    if (hasOnlyPrivateBooking) {
+                      return (
+                        <div className="p-1 sm:p-2">
+                          <div className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 text-center text-gray-400">
+                            満室
+                          </div>
+                        </div>
+                      )
+                    }
+                    
+                    return (
                     events.map((event: any, idx: number) => {
                     // useBookingDataで事前計算済みのplayer_count_maxを使用
                     const maxParticipants = event.player_count_max || 8
@@ -217,7 +259,8 @@ export const CalendarView = memo(function CalendarView({
                       </div>
                     )
                   })
-                  )}
+                  )
+                  })()}
                 </div>
               </div>
             )
