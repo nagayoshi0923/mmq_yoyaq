@@ -46,9 +46,6 @@ export function PrivateBookingRequestPage() {
   
   const date = formatDate(dateParam)
   
-  // デバッグ用ログ
-  console.log('URL params:', { scenarioId, dateParam, storeId, slotParam, formattedDate: date })
-  
   const slotMap: { [key: string]: TimeSlot } = {
     morning: { label: '午前', startTime: '09:00', endTime: '12:00' },
     afternoon: { label: '午後', startTime: '12:00', endTime: '17:00' },
@@ -91,8 +88,6 @@ export function PrivateBookingRequestPage() {
             slot: slotMap[slotParam]
           }
         ])
-      } else {
-        console.warn('日付または時間帯が無効です:', { date, slotParam })
       }
       
     } catch (error) {
