@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect, useMemo } from 'react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { 
@@ -7,22 +7,18 @@ import {
   Calendar as CalendarIcon, 
   Users, 
   BookOpen, 
-  TrendingUp,
   Clock,
   Settings,
-  UserCog,
   ChevronLeft,
   ChevronRight,
   MapPin,
-  AlertCircle,
-  Info,
   Globe,
   UserCircle,
   HelpCircle
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { staffApi, scheduleApi } from '@/lib/api'
-import { format, addDays, startOfMonth, endOfMonth, isSameDay, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from 'date-fns'
+import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import {
   Dialog,
@@ -197,49 +193,42 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     <div className="space-y-6 pb-20">
       {/* 1. 直近の出勤予定 */}
       <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Clock className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-bold">直近の出勤予定</h2>
+        <div className="flex items-center gap-2 mb-2">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-medium text-muted-foreground">直近の出勤予定</h2>
         </div>
         
         {loading && staffName === '' ? (
-          <div className="p-4 text-center text-muted-foreground bg-accent/20 rounded-lg">読み込み中...</div>
+          <div className="text-sm text-muted-foreground">読み込み中...</div>
         ) : upcomingEvents.length > 0 ? (
-          <div className="space-y-3">
+          <div className="bg-muted/30 rounded-lg divide-y divide-border">
             {upcomingEvents.map(event => (
-              <Card key={event.id} className="border-l-4 border-l-primary shadow-none hover:bg-accent/50 transition-colors">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex flex-col">
-                      <span className="text-lg font-bold flex items-center gap-2">
-                        {format(parseISO(event.date), 'M月d日(EEE)', { locale: ja })}
-                        {isToday(parseISO(event.date)) && <Badge variant="destructive" className="text-xs">今日</Badge>}
-                      </span>
-                      <span className="text-muted-foreground text-sm flex items-center gap-1 mt-1">
-                        <Clock className="h-3 w-3" />
-                        {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
-                      </span>
-                    </div>
-                    <Badge variant={event.current_participants >= 1 ? "default" : "outline"}>
-                      予約: {event.current_participants}名
-                    </Badge>
+              <div key={event.id} className="px-3 py-2 flex items-center gap-3">
+                <div className="text-center flex-shrink-0 w-12">
+                  <div className="text-xs text-muted-foreground">
+                    {format(parseISO(event.date), 'M/d')}
                   </div>
-                  
-                  <div className="space-y-1">
-                    <div className="font-medium text-base">{event.scenarios?.title || event.scenario}</div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {event.stores?.name || event.venue}
-                    </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {format(parseISO(event.date), 'EEE', { locale: ja })}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">
+                    {event.scenarios?.title || event.scenario}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {event.start_time.slice(0, 5)}〜 @ {event.stores?.name || event.venue}
+                  </div>
+                </div>
+                <div className="flex-shrink-0 text-xs text-muted-foreground">
+                  {event.current_participants}名
+                </div>
+              </div>
             ))}
           </div>
         ) : (
-          <div className="p-6 text-center text-muted-foreground bg-accent/10 rounded-lg border border-dashed border-border">
-            <p>直近の予定はありません</p>
-            <p className="text-xs mt-1">ゆっくり休んでください</p>
+          <div className="text-sm text-muted-foreground py-2">
+            直近の予定はありません
           </div>
         )}
       </section>
