@@ -63,13 +63,19 @@ export const ListView = memo(function ListView({
   }, [scenarios])
 
   const renderEventCell = (events: any[], store: any, timeSlot: 'morning' | 'afternoon' | 'evening', date: number) => {
-    // GMテスト等でブロックされている場合は貸切申込ボタンを表示しない
+    // GMテスト等でブロックされている場合
     const blocked = isSlotBlocked?.(date, store.id, timeSlot) ?? false
     
     if (events.length === 0) {
       if (blocked) {
-        // ブロックされている時間帯は何も表示しない（空のセル）
-        return null
+        // ブロックされている時間帯は「満室」と表示
+        return (
+          <div className="p-1 sm:p-2">
+            <div className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 text-center text-gray-400">
+              満室
+            </div>
+          </div>
+        )
       }
       return (
         <div className="p-1 sm:p-2">
@@ -81,6 +87,20 @@ export const ListView = memo(function ListView({
           >
             貸切申込
           </button>
+        </div>
+      )
+    }
+    
+    // 貸切公演のみの場合は「満室」と表示
+    const hasOnlyPrivateBooking = events.every((event: any) => 
+      event.category === 'private' || event.is_private_booking === true
+    )
+    if (hasOnlyPrivateBooking) {
+      return (
+        <div className="p-1 sm:p-2">
+          <div className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 text-center text-gray-400">
+            満室
+          </div>
         </div>
       )
     }
