@@ -22,6 +22,7 @@ interface ReservationSettings {
   max_participants_per_booking: number
   advance_booking_days: number
   same_day_booking_cutoff: number
+  private_booking_deadline_days: number
   cancellation_policy: string
   cancellation_deadline_hours: number
   max_bookings_per_customer: number | null
@@ -38,6 +39,7 @@ export function ReservationSettings() {
     max_participants_per_booking: 8,
     advance_booking_days: 90,
     same_day_booking_cutoff: 2,
+    private_booking_deadline_days: 7,
     cancellation_policy: '',
     cancellation_deadline_hours: 24,
     max_bookings_per_customer: null,
@@ -90,7 +92,10 @@ export function ReservationSettings() {
       if (error && error.code !== 'PGRST116') throw error
 
       if (data) {
-        setFormData(data)
+        setFormData({
+          ...data,
+          private_booking_deadline_days: data.private_booking_deadline_days ?? 7
+        })
       } else {
         setFormData({
           id: '',
@@ -98,6 +103,7 @@ export function ReservationSettings() {
           max_participants_per_booking: 8,
           advance_booking_days: 90,
           same_day_booking_cutoff: 2,
+          private_booking_deadline_days: 7,
           cancellation_policy: '',
           cancellation_deadline_hours: 24,
           max_bookings_per_customer: null,
@@ -130,6 +136,7 @@ export function ReservationSettings() {
             max_participants_per_booking: formData.max_participants_per_booking,
             advance_booking_days: formData.advance_booking_days,
             same_day_booking_cutoff: formData.same_day_booking_cutoff,
+            private_booking_deadline_days: formData.private_booking_deadline_days,
             cancellation_policy: formData.cancellation_policy,
             cancellation_deadline_hours: formData.cancellation_deadline_hours,
             max_bookings_per_customer: formData.max_bookings_per_customer,
@@ -147,6 +154,7 @@ export function ReservationSettings() {
             max_participants_per_booking: formData.max_participants_per_booking,
             advance_booking_days: formData.advance_booking_days,
             same_day_booking_cutoff: formData.same_day_booking_cutoff,
+            private_booking_deadline_days: formData.private_booking_deadline_days,
             cancellation_policy: formData.cancellation_policy,
             cancellation_deadline_hours: formData.cancellation_deadline_hours,
             max_bookings_per_customer: formData.max_bookings_per_customer,
@@ -158,7 +166,10 @@ export function ReservationSettings() {
 
         if (error) throw error
         if (data) {
-          setFormData(data)
+          setFormData({
+            ...data,
+            private_booking_deadline_days: data.private_booking_deadline_days ?? 7
+          })
         }
       }
 
@@ -221,6 +232,24 @@ export function ReservationSettings() {
               />
               <p className="text-xs text-muted-foreground mt-1">
                 公演開始の{formData.same_day_booking_cutoff}時間前まで予約可能
+              </p>
+            </div>
+          </div>
+          
+          <div className="pt-4 border-t">
+            <div>
+              <Label htmlFor="private_booking_deadline_days">貸切予約の受付締切（日前）</Label>
+              <Input
+                id="private_booking_deadline_days"
+                type="number"
+                value={formData.private_booking_deadline_days}
+                onChange={(e) => setFormData(prev => ({ ...prev, private_booking_deadline_days: parseInt(e.target.value) || 0 }))}
+                min="0"
+                max="90"
+                className="max-w-[200px]"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                公演日の{formData.private_booking_deadline_days}日前まで貸切申込を受付
               </p>
             </div>
           </div>
