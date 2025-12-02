@@ -49,8 +49,6 @@ export const BookingNotice = memo(function BookingNotice({
     ? [...commonNotices, ...privateOnlyNotices]
     : [...commonNotices, ...openOnlyNotices]
 
-  const notices = mode === 'private' ? privateNotices : openNotices
-
   return (
     <div>
       <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">
