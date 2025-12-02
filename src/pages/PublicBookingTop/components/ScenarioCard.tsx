@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Users, Heart } from 'lucide-react'
 import { usePrefetch } from '@/hooks/usePrefetch'
+import { getColorFromName } from '@/lib/utils'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
 // 画像コンポーネントをインライン化して最適化
@@ -193,8 +194,11 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                     )}
                   </span>
                   {event.store_name && (
-                    <span className="text-gray-500 text-xs truncate">
-                      @ {event.store_name}
+                    <span 
+                      className="text-[10px] sm:text-xs whitespace-nowrap flex-shrink-0"
+                      style={{ color: event.store_color ? getColorFromName(event.store_color) : '#6B7280' }}
+                    >
+                      {event.store_name.length > 2 ? event.store_name.slice(0, 2) : event.store_name}
                     </span>
                   )}
                   {/* 空席がある場合は残席数を表示、満席の場合は何も表示しない */}

@@ -17,6 +17,7 @@ export interface ScenarioCard {
     date: string
     time?: string
     store_name?: string
+    store_color?: string
     available_seats?: number
   }>
   total_events_count?: number // 次回公演の総数（表示用）
@@ -224,6 +225,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
               date: event.date,
               time: event.start_time,
               store_name: store?.name || event.venue,
+              store_color: store?.color,
               available_seats: availableSeats
             }
           })
