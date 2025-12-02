@@ -43,11 +43,10 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   )
 
   // リストビューデータフック
-  const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore, isSlotBlocked } = useListViewData(
+  const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(
     allEvents,
     stores,
-    selectedStoreFilter,
-    blockedSlots
+    selectedStoreFilter
   )
 
   // 検索キーワード
@@ -230,7 +229,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                 getColorFromName={getColorFromName}
                 scenarios={scenarios}
                 onCardClick={handleCardClick}
-                isSlotBlocked={isSlotBlocked}
+                blockedSlots={blockedSlots}
               />
             </TabsContent>
           </Tabs>

@@ -52,13 +52,16 @@ export const CalendarView = memo(function CalendarView({
     return map
   }, [scenarios])
   
-  // GMテスト等のブロックされた日付をSetで管理
-  const blockedDates = useMemo(() => {
-    const set = new Set<string>()
+  // GMテスト等のブロックされたイベントを日付でMapに管理
+  const blockedEventsByDate = useMemo(() => {
+    const map = new Map<string, any[]>()
     blockedSlots.forEach(event => {
-      set.add(event.date)
+      if (!map.has(event.date)) {
+        map.set(event.date, [])
+      }
+      map.get(event.date)!.push(event)
     })
-    return set
+    return map
   }, [blockedSlots])
 
   return (
@@ -127,29 +130,15 @@ export const CalendarView = memo(function CalendarView({
                 <div className="relative space-y-1 px-0 pb-0 overflow-y-auto max-h-[200px] sm:max-h-[250px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {(() => {
                     const dateStr = formatDateJST(day.date)
-                    const isBlocked = blockedDates.has(dateStr)
+                    const blockedEvents = blockedEventsByDate.get(dateStr) || []
                     
-                    // 貸切公演を除外した通常公演のみを表示用に抽出
-                    const displayEvents = events.filter((event: any) => 
-                      !(event.category === 'private' || event.is_private_booking === true)
-                    )
-                    // 貸切公演があるかどうか
-                    const hasPrivateBooking = events.some((event: any) => 
-                      event.category === 'private' || event.is_private_booking === true
-                    )
+                    // 通常公演 + 貸切公演 + GMテスト等を全てマージして時間順にソート
+                    const allDisplayEvents = [...events, ...blockedEvents].sort((a, b) => {
+                      return (a.start_time || '').localeCompare(b.start_time || '')
+                    })
                     
-                    if (displayEvents.length === 0) {
-                      // 通常公演がない場合
-                      if (isBlocked || hasPrivateBooking) {
-                        // GMテスト等でブロックされている、または貸切公演がある場合は「満室」と表示
-                        return (
-                          <div className="p-1 sm:p-2">
-                            <div className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 text-center text-gray-400">
-                              満室
-                            </div>
-                          </div>
-                        )
-                      }
+                    if (allDisplayEvents.length === 0) {
+                      // 何もない場合は貸切申込ボタン
                       return (
                         <div className="p-1 sm:p-2">
                           <button
@@ -164,14 +153,16 @@ export const CalendarView = memo(function CalendarView({
                       )
                     }
                     
-                    // 通常公演を表示
+                    // 全てのイベントを表示
                     return (
-                    displayEvents.map((event: any, idx: number) => {
+                    allDisplayEvents.map((event: any, idx: number) => {
                     // useBookingDataで事前計算済みのplayer_count_maxを使用
                     const maxParticipants = event.player_count_max || 8
                     const available = maxParticipants - (event.current_participants || 0)
                     const isFull = available === 0
                     const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
+                    const isGmTest = event.category === 'gmtest' || event.category === 'testplay'
+                    const isReserved = isPrivateBooking || isGmTest // 予約済みかどうか
                     const storeName = getStoreName(event)
                     const storeColor = getStoreColor(event)
                     
@@ -186,14 +177,14 @@ export const CalendarView = memo(function CalendarView({
                       <div
                         key={idx}
                         onClick={() => {
-                          if (!isPrivateBooking && scenario) {
+                          if (!isReserved && scenario) {
                             onCardClick(scenario.scenario_id)
                           }
                         }}
-                        className={`text-xs transition-colors border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:bg-gray-50'}`}
+                        className={`text-xs transition-colors border-l-2 touch-manipulation ${isReserved ? '' : 'cursor-pointer hover:bg-gray-50'}`}
                         style={{
-                          borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
-                          backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),
+                          borderLeftColor: isReserved ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
+                          backgroundColor: isReserved ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),
                           padding: '2px 3px'
                         }}
                       >
@@ -201,11 +192,11 @@ export const CalendarView = memo(function CalendarView({
                           {/* 左カラム: 画像（PC版のみ表示）比率1:1.4 */}
                           <div 
                             className={`hidden sm:block flex-shrink-0 w-[40px] overflow-hidden ${
-                              isPrivateBooking ? 'bg-gray-300' : 'bg-gray-200'
+                              isReserved ? 'bg-gray-300' : 'bg-gray-200'
                             }`}
                             style={{ aspectRatio: '1 / 1.4' }}
                           >
-                            {isPrivateBooking ? (
+                            {isReserved ? (
                               <div className="w-full h-full bg-gray-300 flex items-center justify-center">
                                 <span className="text-gray-500 text-[8px] font-medium">MMQ</span>
                               </div>
@@ -236,20 +227,20 @@ export const CalendarView = memo(function CalendarView({
                           {/* 右カラム: 情報 */}
                           <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
                             {/* 1行目: 時間 */}
-                            <div className="text-xs leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                            <div className="text-xs leading-tight" style={{ color: isReserved ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                               {event.start_time?.slice(0, 5)}
                             </div>
                             {/* 2行目: 店舗 */}
-                            <div className="text-xs leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                            <div className="text-xs leading-tight" style={{ color: isReserved ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                               {storeName}
                             </div>
-                            {/* 3行目: シナリオ */}
-                            <div className={`text-xs leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
-                              {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
+                            {/* 3行目: シナリオ or 予約済 */}
+                            <div className={`text-xs leading-tight truncate ${isReserved ? 'text-gray-500' : 'text-gray-800'}`}>
+                              {isReserved ? '予約済' : (event.scenario || event.scenarios?.title)}
                             </div>
                             {/* 4行目: 人数 */}
-                            <div className={`text-xs leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
-                              {isPrivateBooking ? '貸切' : isFull ? '満席' : `残${available}人`}
+                            <div className={`text-xs leading-tight ${isReserved ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+                              {isReserved ? '' : isFull ? '満席' : `残${available}人`}
                             </div>
                           </div>
                         </div>

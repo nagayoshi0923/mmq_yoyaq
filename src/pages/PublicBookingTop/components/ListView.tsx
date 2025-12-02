@@ -1,8 +1,9 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { memo, useState, useEffect, useMemo } from 'react'
+import { memo, useState, useEffect, useMemo, useCallback } from 'react'
 import React from 'react'
 import { BookingFilters } from './BookingFilters'
 import { OptimizedImage } from '@/components/ui/optimized-image'
+import { formatDateJST } from '@/utils/dateUtils'
 
 interface ListViewData {
   date: number
@@ -20,7 +21,7 @@ interface ListViewProps {
   getColorFromName: (color: string) => string
   scenarios: any[]
   onCardClick: (scenarioId: string) => void
-  isSlotBlocked?: (date: number, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening') => boolean
+  blockedSlots?: any[]
 }
 
 /**
@@ -37,7 +38,7 @@ export const ListView = memo(function ListView({
   getColorFromName,
   scenarios,
   onCardClick,
-  isSlotBlocked
+  blockedSlots = []
 }: ListViewProps) {
   const [isMobile, setIsMobile] = useState(false)
 
@@ -61,22 +62,43 @@ export const ListView = memo(function ListView({
     })
     return map
   }, [scenarios])
-
-  const renderEventCell = (events: any[], store: any, timeSlot: 'morning' | 'afternoon' | 'evening', date: number) => {
-    // GMテスト等でブロックされている場合
-    const blocked = isSlotBlocked?.(date, store.id, timeSlot) ?? false
-    
-    if (events.length === 0) {
-      if (blocked) {
-        // ブロックされている時間帯は「満室」と表示
-        return (
-          <div className="p-1 sm:p-2">
-            <div className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 text-center text-gray-400">
-              満室
-            </div>
-          </div>
-        )
+  
+  // GMテスト等のブロックイベントを日付×店舗×時間帯でインデックス化
+  const blockedEventsByDateStoreSlot = useMemo(() => {
+    const map = new Map<string, any[]>()
+    blockedSlots.forEach(event => {
+      const dateStr = event.date
+      const eventStoreId = event.store_id || event.venue
+      const hour = parseInt(event.start_time?.split(':')[0] || '0')
+      let timeSlot = 'morning'
+      if (hour >= 12 && hour <= 17) timeSlot = 'afternoon'
+      else if (hour >= 18) timeSlot = 'evening'
+      
+      const key = `${dateStr}:${eventStoreId}:${timeSlot}`
+      if (!map.has(key)) {
+        map.set(key, [])
       }
+      map.get(key)!.push(event)
+    })
+    return map
+  }, [blockedSlots])
+
+  // ブロックイベントを取得する関数
+  const getBlockedEvents = useCallback((date: number, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
+    const dateObj = new Date(listViewMonth.getFullYear(), listViewMonth.getMonth(), date)
+    const dateStr = formatDateJST(dateObj)
+    const key = `${dateStr}:${storeId}:${timeSlot}`
+    return blockedEventsByDateStoreSlot.get(key) || []
+  }, [blockedEventsByDateStoreSlot, listViewMonth])
+  
+  const renderEventCell = (events: any[], store: any, timeSlot: 'morning' | 'afternoon' | 'evening', date: number) => {
+    // GMテスト等のブロックイベントを取得してマージ
+    const blockedEvents = getBlockedEvents(date, store.id, timeSlot)
+    const allEvents = [...events, ...blockedEvents].sort((a, b) => {
+      return (a.start_time || '').localeCompare(b.start_time || '')
+    })
+    
+    if (allEvents.length === 0) {
       return (
         <div className="p-1 sm:p-2">
           <button
@@ -90,28 +112,16 @@ export const ListView = memo(function ListView({
         </div>
       )
     }
-    
-    // 貸切公演のみの場合は「満室」と表示
-    const hasOnlyPrivateBooking = events.every((event: any) => 
-      event.category === 'private' || event.is_private_booking === true
-    )
-    if (hasOnlyPrivateBooking) {
-      return (
-        <div className="p-1 sm:p-2">
-          <div className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 text-center text-gray-400">
-            満室
-          </div>
-        </div>
-      )
-    }
 
-    return events.map((event: any, idx: number) => {
+    return allEvents.map((event: any, idx: number) => {
       // useBookingDataで事前計算済みのplayer_count_maxを使用
       const maxParticipants = event.player_count_max || 8
       const currentParticipants = event.current_participants || 0
       const available = maxParticipants - currentParticipants
       const isFull = available === 0
       const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
+      const isGmTest = event.category === 'gmtest' || event.category === 'testplay'
+      const isReserved = isPrivateBooking || isGmTest // 予約済みかどうか
       const storeColor = getColorFromName(store.color)
       
       // シナリオ情報を取得（クリック時のscenario_id用）
@@ -124,15 +134,15 @@ export const ListView = memo(function ListView({
       return (
         <div
           key={idx}
-          className={`text-xs transition-colors border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:bg-gray-50'}`}
+          className={`text-xs transition-colors border-l-2 touch-manipulation ${isReserved ? '' : 'cursor-pointer hover:bg-gray-50'}`}
           style={{
-            borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
-            backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),
+            borderLeftColor: isReserved ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
+            backgroundColor: isReserved ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),
             padding: '2px 3px',
             display: 'block'
           }}
           onClick={() => {
-            if (!isPrivateBooking && scenario) {
+            if (!isReserved && scenario) {
               onCardClick(scenario.scenario_id)
             }
           }}
@@ -140,13 +150,13 @@ export const ListView = memo(function ListView({
           <div className="flex gap-0.5 sm:gap-2">
             {/* 左カラム: 画像 */}
             <div className={`flex-shrink-0 w-[28px] sm:w-[46px] self-stretch overflow-hidden ${
-              isPrivateBooking
+              isReserved
                 ? 'bg-gray-300'
                 : imageUrl
                   ? 'bg-gray-200'
                   : 'bg-gray-200'
             }`}>
-              {isPrivateBooking ? (
+              {isReserved ? (
                 <div className="w-full h-full bg-gray-300 relative">
                   <span className="absolute inset-0 flex items-center justify-center text-gray-500 text-[10px] sm:text-xs font-medium">MMQ</span>
                 </div>
@@ -180,14 +190,14 @@ export const ListView = memo(function ListView({
 
             {/* 右カラム: 情報 */}
             <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
-              <div className="text-xs sm:text-sm text-left leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+              <div className="text-xs sm:text-sm text-left leading-tight" style={{ color: isReserved ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
                   {event.start_time?.slice(0, 5)}
                 </div>
-              <div className={`text-xs sm:text-sm text-left truncate leading-tight ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
-                {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
+              <div className={`text-xs sm:text-sm text-left truncate leading-tight ${isReserved ? 'text-gray-500' : 'text-gray-800'}`}>
+                {isReserved ? '予約済' : (event.scenario || event.scenarios?.title)}
               </div>
-              <div className={`text-xs sm:text-sm text-right leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
-                {isPrivateBooking ? `残り0人` : isFull ? '満席' : `残り${available}人`}
+              <div className={`text-xs sm:text-sm text-right leading-tight ${isReserved ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+                {isReserved ? '' : isFull ? '満席' : `残り${available}人`}
               </div>
             </div>
           </div>
