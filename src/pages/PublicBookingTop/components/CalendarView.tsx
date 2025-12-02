@@ -128,13 +128,20 @@ export const CalendarView = memo(function CalendarView({
                   {(() => {
                     const dateStr = formatDateJST(day.date)
                     const isBlocked = blockedDates.has(dateStr)
-                    const hasOnlyPrivateBooking = events.length > 0 && events.every((event: any) => 
+                    
+                    // 貸切公演を除外した通常公演のみを表示用に抽出
+                    const displayEvents = events.filter((event: any) => 
+                      !(event.category === 'private' || event.is_private_booking === true)
+                    )
+                    // 貸切公演があるかどうか
+                    const hasPrivateBooking = events.some((event: any) => 
                       event.category === 'private' || event.is_private_booking === true
                     )
                     
-                    if (events.length === 0) {
-                      if (isBlocked) {
-                        // GMテスト等でブロックされている日は「満室」と表示
+                    if (displayEvents.length === 0) {
+                      // 通常公演がない場合
+                      if (isBlocked || hasPrivateBooking) {
+                        // GMテスト等でブロックされている、または貸切公演がある場合は「満室」と表示
                         return (
                           <div className="p-1 sm:p-2">
                             <div className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 text-center text-gray-400">
@@ -157,19 +164,9 @@ export const CalendarView = memo(function CalendarView({
                       )
                     }
                     
-                    // 貸切公演のみの場合は「満室」と表示
-                    if (hasOnlyPrivateBooking) {
-                      return (
-                        <div className="p-1 sm:p-2">
-                          <div className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 text-center text-gray-400">
-                            満室
-                          </div>
-                        </div>
-                      )
-                    }
-                    
+                    // 通常公演を表示
                     return (
-                    events.map((event: any, idx: number) => {
+                    displayEvents.map((event: any, idx: number) => {
                     // useBookingDataで事前計算済みのplayer_count_maxを使用
                     const maxParticipants = event.player_count_max || 8
                     const available = maxParticipants - (event.current_participants || 0)
