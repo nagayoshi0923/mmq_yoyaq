@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header'
 import { ArrowLeft } from 'lucide-react'
 import { scenarioApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
+import { BookingNotice } from './ScenarioDetailPage/components/BookingNotice'
 
 interface Scenario {
   id: string
@@ -196,6 +197,14 @@ export function PrivateBookingScenarioSelect() {
             >
               貸切リクエストを続ける
             </Button>
+
+            {/* 注意事項（DBから取得） */}
+            <BookingNotice
+              reservationDeadlineHours={24}
+              hasPreReading={false}
+              mode="private"
+              storeId={preselectedStore || null}
+            />
           </CardContent>
         </Card>
       </div>
