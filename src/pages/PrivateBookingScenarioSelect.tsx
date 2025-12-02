@@ -19,6 +19,7 @@ interface Scenario {
   key_visual_url?: string
   synopsis?: string
   genre?: string[]
+  participation_fee?: number
 }
 
 export function PrivateBookingScenarioSelect() {
@@ -124,71 +125,99 @@ export function PrivateBookingScenarioSelect() {
               const scenario = scenarios.find(s => s.id === selectedScenarioId)
               if (!scenario) return null
               
+              const participationFee = scenario.participation_fee || 0
+              const maxParticipants = scenario.player_count_max
+              const totalPrice = participationFee * maxParticipants
+              
               return (
-                <div className="border rounded-lg overflow-hidden bg-card">
-                  <div className="flex gap-4 p-4">
-                    {/* キービジュアル（左側・コンパクト） */}
-                    {scenario.key_visual_url && (
-                      <div className="flex-shrink-0 w-24 h-32 bg-gradient-to-br from-gray-200 to-gray-300 rounded overflow-hidden">
-                        <OptimizedImage
-                          src={scenario.key_visual_url}
-                          alt={scenario.title}
-                          className="w-full h-full object-cover"
-                          responsive={false}
-                          useWebP={true}
-                          quality={80}
-                        />
-                      </div>
-                    )}
-                    
-                    {/* シナリオ情報（右側） */}
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div>
-                        <h3 className="text-base font-medium mb-0.5">{scenario.title}</h3>
-                        <p className="text-xs text-muted-foreground">作者: {scenario.author}</p>
-                      </div>
-                      
-                      {/* 基本情報 */}
-                      <div className="flex gap-4 text-sm">
-                        <div>
-                          <span className="text-xs text-muted-foreground">所要時間: </span>
-                          <span>{scenario.duration}分</span>
-                        </div>
-                        <div>
-                          <span className="text-xs text-muted-foreground">人数: </span>
-                          <span>
-                            {scenario.player_count_min === scenario.player_count_max
-                              ? `${scenario.player_count_max}名`
-                              : `${scenario.player_count_min}〜${scenario.player_count_max}名`}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {/* ジャンル */}
-                      {scenario.genre && scenario.genre.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {scenario.genre.map((g, i) => (
-                            <span
-                              key={i}
-                              className="px-1.5 py-0.5 text-xs bg-muted rounded"
-                            >
-                              {g}
-                            </span>
-                          ))}
+                <>
+                  <div className="border rounded-lg overflow-hidden bg-card">
+                    <div className="flex gap-4 p-4">
+                      {/* キービジュアル（左側・コンパクト） */}
+                      {scenario.key_visual_url && (
+                        <div className="flex-shrink-0 w-24 h-32 bg-gradient-to-br from-gray-200 to-gray-300 rounded overflow-hidden">
+                          <OptimizedImage
+                            src={scenario.key_visual_url}
+                            alt={scenario.title}
+                            className="w-full h-full object-cover"
+                            responsive={false}
+                            useWebP={true}
+                            quality={80}
+                          />
                         </div>
                       )}
+                      
+                      {/* シナリオ情報（右側） */}
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div>
+                          <h3 className="text-base font-medium mb-0.5">{scenario.title}</h3>
+                          <p className="text-xs text-muted-foreground">作者: {scenario.author}</p>
+                        </div>
+                        
+                        {/* 基本情報 */}
+                        <div className="flex gap-4 text-sm">
+                          <div>
+                            <span className="text-xs text-muted-foreground">所要時間: </span>
+                            <span>{scenario.duration}分</span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground">人数: </span>
+                            <span>
+                              {scenario.player_count_min === scenario.player_count_max
+                                ? `${scenario.player_count_max}名`
+                                : `${scenario.player_count_min}〜${scenario.player_count_max}名`}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* ジャンル */}
+                        {scenario.genre && scenario.genre.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {scenario.genre.map((g, i) => (
+                              <span
+                                key={i}
+                                className="px-1.5 py-0.5 text-xs bg-muted rounded"
+                              >
+                                {g}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    
+                    {/* あらすじ（下部） */}
+                    {scenario.synopsis && (
+                      <div className="px-4 pb-4 pt-0">
+                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                          {scenario.synopsis}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  
-                  {/* あらすじ（下部） */}
-                  {scenario.synopsis && (
-                    <div className="px-4 pb-4 pt-0">
-                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
-                        {scenario.synopsis}
-                      </p>
+
+                  {/* 料金情報 */}
+                  <div className="border rounded-lg bg-purple-50 p-4 space-y-2">
+                    <h3 className="text-sm font-medium text-purple-800">料金（目安）</h3>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">参加費（1名）</span>
+                        <span>¥{participationFee.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">貸切人数</span>
+                        <span>{maxParticipants}名</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t border-purple-200">
+                        <span className="font-medium">合計（目安）</span>
+                        <span className="text-purple-600 font-bold">¥{totalPrice.toLocaleString()}</span>
+                      </div>
                     </div>
-                  )}
-                </div>
+                    <p className="text-xs text-muted-foreground">
+                      ※ 実際の料金は店舗との調整により変動する場合があります
+                    </p>
+                  </div>
+                </>
               )
             })()}
 
@@ -206,7 +235,7 @@ export function PrivateBookingScenarioSelect() {
               onClick={handleProceed}
               disabled={!selectedScenarioId || loading}
             >
-              貸切リクエストを続ける
+              貸切リクエスト確認へ
             </Button>
           </CardContent>
         </Card>
