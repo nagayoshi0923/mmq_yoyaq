@@ -201,7 +201,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         {loading && staffName === '' ? (
           <div className="text-sm text-muted-foreground">読み込み中...</div>
         ) : upcomingEvents.length > 0 ? (
-          <div className="bg-muted/30 rounded-lg divide-y divide-border">
+          <div className="border rounded-lg divide-y divide-border bg-background">
             {upcomingEvents.map(event => (
               <div key={event.id} className="px-3 py-2 flex items-center gap-3">
                 <div className="text-center flex-shrink-0 w-12">
