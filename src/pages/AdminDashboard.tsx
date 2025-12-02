@@ -28,6 +28,7 @@ const ShiftSubmission = lazy(() => import('./ShiftSubmission/index').then(m => (
 const ReservationManagement = lazy(() => import('./ReservationManagement').then(m => ({ default: m.ReservationManagement })))
 const PublicBookingTop = lazy(() => import('./PublicBookingTop').then(m => ({ default: m.PublicBookingTop })))
 const ScenarioDetailPage = lazy(() => import('./ScenarioDetailPage').then(m => ({ default: m.ScenarioDetailPage })))
+const ScenarioCatalog = lazy(() => import('./ScenarioCatalog').then(m => ({ default: m.ScenarioCatalog })))
 const GMAvailabilityCheck = lazy(() => import('./GMAvailabilityCheck').then(m => ({ default: m.GMAvailabilityCheck })))
 const PrivateBookingScenarioSelect = lazy(() => import('./PrivateBookingScenarioSelect').then(m => ({ default: m.PrivateBookingScenarioSelect })))
 const PrivateBookingRequestPage = lazy(() => import('./PrivateBookingRequestPage').then(m => ({ default: m.PrivateBookingRequestPage })))
@@ -98,6 +99,9 @@ export function AdminDashboard() {
     }
     if (hash.startsWith('scenario-matcher')) {
       return { page: 'scenario-matcher', scenarioId: null }
+    }
+    if (hash.startsWith('catalog')) {
+      return { page: 'catalog', scenarioId: null }
     }
     if (hash.startsWith('manual')) {
       return { page: 'manual', scenarioId: null }
@@ -294,6 +298,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="予約サイトを読み込み中..." />}>
         <PublicBookingTop onScenarioSelect={handleScenarioSelect} />
+      </Suspense>
+    )
+  }
+  
+  if (currentPage === 'catalog') {
+    return (
+      <Suspense fallback={<LoadingScreen message="カタログを読み込み中..." />}>
+        <ScenarioCatalog />
       </Suspense>
     )
   }
