@@ -131,18 +131,37 @@ export const ListView = memo(function ListView({
       // useBookingDataで事前計算済みのkey_visual_urlを使用
       const imageUrl = event.key_visual_url
 
+      // 予約済みの場合はシンプル表示（画像なし）
+      if (isReserved) {
+        return (
+          <div
+            key={idx}
+            className="text-xs border-l-2 bg-gray-100"
+            style={{
+              borderLeftColor: '#9CA3AF',
+              padding: '2px 3px'
+            }}
+          >
+            <div className="flex items-center gap-1 text-gray-500">
+              <span>{event.start_time?.slice(0, 5)}</span>
+              <span>予約済</span>
+            </div>
+          </div>
+        )
+      }
+      
       return (
         <div
           key={idx}
-          className={`text-xs transition-colors border-l-2 touch-manipulation ${isReserved ? '' : 'cursor-pointer hover:bg-gray-50'}`}
+          className="text-xs transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
           style={{
-            borderLeftColor: isReserved ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
-            backgroundColor: isReserved ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),
+            borderLeftColor: isFull ? '#9CA3AF' : storeColor,
+            backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
             padding: '2px 3px',
             display: 'block'
           }}
           onClick={() => {
-            if (!isReserved && scenario) {
+            if (scenario) {
               onCardClick(scenario.scenario_id)
             }
           }}
@@ -150,17 +169,9 @@ export const ListView = memo(function ListView({
           <div className="flex gap-0.5 sm:gap-2">
             {/* 左カラム: 画像 */}
             <div className={`flex-shrink-0 w-[28px] sm:w-[46px] self-stretch overflow-hidden ${
-              isReserved
-                ? 'bg-gray-300'
-                : imageUrl
-                  ? 'bg-gray-200'
-                  : 'bg-gray-200'
+              imageUrl ? 'bg-gray-200' : 'bg-gray-200'
             }`}>
-              {isReserved ? (
-                <div className="w-full h-full bg-gray-300 relative">
-                  <span className="absolute inset-0 flex items-center justify-center text-gray-500 text-[10px] sm:text-xs font-medium">MMQ</span>
-                </div>
-              ) : imageUrl ? (
+              {imageUrl ? (
                 <OptimizedImage
                   src={imageUrl}
                   alt={event.scenario || scenario?.scenario_title || event.scenarios?.title || 'シナリオ画像'}
@@ -190,14 +201,14 @@ export const ListView = memo(function ListView({
 
             {/* 右カラム: 情報 */}
             <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
-              <div className="text-xs sm:text-sm text-left leading-tight" style={{ color: isReserved ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+              <div className="text-xs sm:text-sm text-left leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                   {event.start_time?.slice(0, 5)}
                 </div>
-              <div className={`text-xs sm:text-sm text-left truncate leading-tight ${isReserved ? 'text-gray-500' : 'text-gray-800'}`}>
-                {isReserved ? '予約済' : (event.scenario || event.scenarios?.title)}
+              <div className="text-xs sm:text-sm text-left truncate leading-tight text-gray-800">
+                {event.scenario || event.scenarios?.title}
               </div>
-              <div className={`text-xs sm:text-sm text-right leading-tight ${isReserved ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
-                {isReserved ? '' : isFull ? '満席' : `残り${available}人`}
+              <div className={`text-xs sm:text-sm text-right leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                {isFull ? '満席' : `残り${available}人`}
               </div>
             </div>
           </div>
