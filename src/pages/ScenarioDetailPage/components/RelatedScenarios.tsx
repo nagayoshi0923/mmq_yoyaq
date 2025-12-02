@@ -30,16 +30,16 @@ export const RelatedScenarios = memo(function RelatedScenarios({
 
   return (
     <div>
-      <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">{authorName}の他作品</h3>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
+      <h3 className="mb-2 md:mb-3 text-sm text-muted-foreground">{authorName}の他作品</h3>
+      <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
         {scenarios.map((scenario) => (
-          <Card
+          <div
             key={scenario.id}
-            className="overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
+            className="cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => onScenarioClick(scenario.id)}
           >
             {/* キービジュアル */}
-            <div className="aspect-[1/1.4] bg-gray-200 overflow-hidden">
+            <div className="aspect-[1/1.4] bg-gray-200 rounded overflow-hidden mb-1">
               {scenario.key_visual_url ? (
                 <img
                   src={scenario.key_visual_url}
@@ -48,31 +48,15 @@ export const RelatedScenarios = memo(function RelatedScenarios({
                   loading="lazy"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                <div className="w-full h-full flex items-center justify-center text-gray-400 text-[10px]">
                   No Image
                 </div>
               )}
             </div>
-            <CardContent className="p-2 md:p-3">
-              <h4 className="text-xs md:text-sm font-medium line-clamp-2 mb-1">
-                {scenario.title}
-              </h4>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <div className="flex items-center gap-0.5">
-                  <Users className="w-3 h-3" />
-                  <span>
-                    {scenario.player_count_min === scenario.player_count_max
-                      ? `${scenario.player_count_max}人`
-                      : `${scenario.player_count_min}-${scenario.player_count_max}人`}
-                  </span>
-                </div>
-                <div className="flex items-center gap-0.5">
-                  <Clock className="w-3 h-3" />
-                  <span>{scenario.duration}分</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            <p className="text-[10px] md:text-xs text-muted-foreground line-clamp-2 leading-tight">
+              {scenario.title}
+            </p>
+          </div>
         ))}
       </div>
     </div>
