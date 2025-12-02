@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { scenarioApi } from '@/lib/api'
-import { Loader2, Search, BookOpen, CheckCircle2, Users } from 'lucide-react'
+import { Loader2, Search, BookOpen, Users } from 'lucide-react'
 
 interface Scenario {
   id: string
@@ -39,7 +39,6 @@ export function StaffProfile() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState<'experienced' | 'gm'>('experienced')
 
   // スタッフ情報とアサインメントを読み込み
   useEffect(() => {
@@ -120,7 +119,7 @@ export function StaffProfile() {
       if (existing) {
         // 既存のアサインメントがある場合
         if (existing.is_experienced || existing.can_main_gm || existing.can_sub_gm) {
-          // 体験済み→未体験に変更（削除）
+          // 体験済み→未体験に変更（削除）- GM可能も一緒に解除
           return prev.filter(a => a.scenario_id !== scenarioId)
         }
       }
@@ -135,7 +134,7 @@ export function StaffProfile() {
     })
   }, [])
 
-  // GM可能をトグル
+  // GM可能をトグル（GM可能にすると自動的に体験済みになる）
   const toggleGM = useCallback((scenarioId: string) => {
     setAssignments(prev => {
       const existing = prev.find(a => a.scenario_id === scenarioId)
@@ -158,7 +157,7 @@ export function StaffProfile() {
         }
       }
       
-      // 新規追加（GM可能）
+      // 新規追加（GM可能 = 自動的に体験済みも含む）
       return [...prev, {
         scenario_id: scenarioId,
         can_main_gm: true,
@@ -272,24 +271,6 @@ export function StaffProfile() {
           </Card>
         </div>
 
-        {/* タブ */}
-        <div className="flex gap-2 mb-4">
-          <Button
-            variant={activeTab === 'experienced' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('experienced')}
-            size="sm"
-          >
-            体験リスト追加
-          </Button>
-          <Button
-            variant={activeTab === 'gm' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('gm')}
-            size="sm"
-          >
-            GM可能作品追加
-          </Button>
-        </div>
-
         {/* 検索 */}
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -304,11 +285,20 @@ export function StaffProfile() {
         {/* シナリオリスト */}
         <Card>
           <CardHeader className="py-3">
-            <CardTitle className="text-base">
-              {activeTab === 'experienced' ? '体験済みシナリオを選択' : 'GM可能なシナリオを選択'}
-            </CardTitle>
+            <CardTitle className="text-base">シナリオを選択</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              体験済み・GM可能を設定してください
+            </p>
           </CardHeader>
           <CardContent className="p-0">
+            {/* ヘッダー */}
+            <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
+              <div className="flex-1">シナリオ</div>
+              <div className="flex items-center gap-6">
+                <span className="w-16 text-center">体験済</span>
+                <span className="w-16 text-center">GM可</span>
+              </div>
+            </div>
             <div className="max-h-[500px] overflow-y-auto">
               {filteredScenarios.map(scenario => {
                 const experienced = isExperienced(scenario.id)
@@ -323,32 +313,21 @@ export function StaffProfile() {
                       <p className="text-sm font-medium truncate">{scenario.title}</p>
                       <p className="text-xs text-muted-foreground">{scenario.author}</p>
                     </div>
-                    <div className="flex items-center gap-3 ml-4">
-                      {/* ステータスバッジ */}
-                      {gm && (
-                        <Badge className="bg-green-100 text-green-800 border-green-200">
-                          GM可
-                        </Badge>
-                      )}
-                      {experienced && !gm && (
-                        <Badge variant="secondary">
-                          体験済
-                        </Badge>
-                      )}
-
-                      {/* チェックボックス */}
-                      {activeTab === 'experienced' ? (
+                    <div className="flex items-center gap-6">
+                      {/* 体験済みチェックボックス */}
+                      <div className="w-16 flex justify-center">
                         <Checkbox
                           checked={experienced}
                           onCheckedChange={() => toggleExperienced(scenario.id)}
                         />
-                      ) : (
+                      </div>
+                      {/* GM可能チェックボックス */}
+                      <div className="w-16 flex justify-center">
                         <Checkbox
                           checked={gm}
                           onCheckedChange={() => toggleGM(scenario.id)}
-                          disabled={!experienced}
                         />
-                      )}
+                      </div>
                     </div>
                   </div>
                 )
@@ -363,11 +342,9 @@ export function StaffProfile() {
           </CardContent>
         </Card>
 
-        {activeTab === 'gm' && (
-          <p className="text-xs text-muted-foreground mt-2">
-            ※ GM可能に設定するには、まず体験リストに追加してください
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground mt-2">
+          ※ GM可能にチェックすると自動的に体験済みになります
+        </p>
       </div>
     </AppLayout>
   )
