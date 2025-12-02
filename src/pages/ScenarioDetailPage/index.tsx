@@ -34,6 +34,16 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   const { user } = useAuth()
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
+  const [showStickyInfo, setShowStickyInfo] = useState(false)
+  
+  // スクロール検知（200px以上スクロールしたらスティッキー情報を表示）
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowStickyInfo(window.scrollY > 200)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
   
   // データ取得フック
   const { scenario, events, stores, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId)
@@ -184,26 +194,28 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         <NavigationBar currentPage="customer-booking" />
       )}
 
-      {/* スティッキーヘッダー（モバイルではシナリオ情報も表示） */}
+      {/* スティッキーヘッダー */}
       <div className="bg-background border-b sticky top-0 z-10">
-        <div className="container mx-auto max-w-7xl px-[10px] py-2">
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* 戻るボタン */}
+        <div className="container mx-auto max-w-7xl px-[10px]">
+          {/* 1行目: 戻るボタン */}
+          <div className="py-2">
             <Button
               variant="ghost"
               onClick={onClose}
-              className="flex items-center gap-1 hover:bg-accent h-9 px-2 touch-manipulation text-sm flex-shrink-0"
+              className="flex items-center gap-1 hover:bg-accent h-9 px-2 touch-manipulation text-sm"
             >
               <ArrowLeft className="w-4 h-4 flex-shrink-0" />
               <span className="hidden sm:inline">シナリオ一覧に戻る</span>
               <span className="sm:hidden">戻る</span>
             </Button>
-            
-            {/* モバイル用シナリオ概要（スクロール時に表示） */}
-            <div className="flex items-center gap-2 flex-1 min-w-0 sm:hidden">
-              {/* キービジュアル（縦100px） */}
+          </div>
+          
+          {/* 2行目: モバイル用シナリオ概要（スクロール時のみ表示） */}
+          {showStickyInfo && (
+            <div className="flex items-center gap-3 pb-2 sm:hidden border-t pt-2">
+              {/* キービジュアル（縦80px） */}
               {scenario.key_visual_url && (
-                <div className="flex-shrink-0 h-[100px] aspect-[1/1.4] bg-gray-200 rounded overflow-hidden">
+                <div className="flex-shrink-0 h-[80px] aspect-[1/1.4] bg-gray-200 rounded overflow-hidden">
                   <img
                     src={scenario.key_visual_url}
                     alt={scenario.scenario_title}
@@ -213,18 +225,22 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
               )}
               {/* タイトルと基本情報 */}
               <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-bold truncate">{scenario.scenario_title}</h2>
-                <p className="text-xs text-muted-foreground truncate">
+                <h2 className="text-sm font-bold line-clamp-2">{scenario.scenario_title}</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {scenario.player_count_min === scenario.player_count_max
                     ? `${scenario.player_count_max}人`
                     : `${scenario.player_count_min}〜${scenario.player_count_max}人`}
                   {' / '}
                   {scenario.duration}分
-                  {scenario.participation_fee && ` / ¥${scenario.participation_fee.toLocaleString()}〜`}
                 </p>
+                {scenario.participation_fee && (
+                  <p className="text-xs font-medium mt-0.5">
+                    ¥{scenario.participation_fee.toLocaleString()}〜
+                  </p>
+                )}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
