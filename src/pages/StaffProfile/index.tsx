@@ -1,8 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -10,7 +8,35 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { scenarioApi } from '@/lib/api'
-import { Loader2, Search, BookOpen, Users } from 'lucide-react'
+import { Loader2, Search, BookOpen, Users, Check } from 'lucide-react'
+
+// カスタム丸型チェックボックス
+interface CircleCheckProps {
+  checked: boolean
+  onChange: () => void
+  color: 'blue' | 'green'
+}
+
+function CircleCheck({ checked, onChange, color }: CircleCheckProps) {
+  const colorClasses = {
+    blue: checked 
+      ? 'bg-blue-100 border-blue-400 text-blue-600' 
+      : 'bg-gray-100 border-gray-300 text-gray-400',
+    green: checked 
+      ? 'bg-green-100 border-green-400 text-green-600' 
+      : 'bg-gray-100 border-gray-300 text-gray-400'
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors ${colorClasses[color]}`}
+    >
+      {checked && <Check className="w-4 h-4" />}
+    </button>
+  )
+}
 
 interface Scenario {
   id: string
@@ -316,16 +342,18 @@ export function StaffProfile() {
                     <div className="flex items-center gap-6">
                       {/* 体験済みチェックボックス */}
                       <div className="w-16 flex justify-center">
-                        <Checkbox
+                        <CircleCheck
                           checked={experienced}
-                          onCheckedChange={() => toggleExperienced(scenario.id)}
+                          onChange={() => toggleExperienced(scenario.id)}
+                          color="blue"
                         />
                       </div>
                       {/* GM可能チェックボックス */}
                       <div className="w-16 flex justify-center">
-                        <Checkbox
+                        <CircleCheck
                           checked={gm}
-                          onCheckedChange={() => toggleGM(scenario.id)}
+                          onChange={() => toggleGM(scenario.id)}
+                          color="green"
                         />
                       </div>
                     </div>
