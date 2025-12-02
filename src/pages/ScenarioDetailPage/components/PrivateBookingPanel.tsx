@@ -21,34 +21,35 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
     <div className="space-y-4">
       {/* 貸切料金情報 */}
       <div>
-        <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">料金（目安）</h3>
+        <h3 className="text-base font-semibold mb-3">料金（目安）</h3>
         <Card>
-          <CardContent className="p-3 md:p-4 space-y-3">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">参加費（1名）</span>
-                <span>¥{participationFee.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">最大人数</span>
-                <span>× {maxParticipants}名</span>
-              </div>
-              <div className="border-t pt-3 flex justify-between items-center">
-                <span className="text-base font-semibold">合計</span>
-                <span className="text-lg md:text-xl font-bold text-purple-600">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">参加費（1名）</span>
+              <span>¥{participationFee.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">最大人数</span>
+              <span>{maxParticipants}名</span>
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex justify-between items-center">
+                <span className="text-base font-bold">合計</span>
+                <span className="text-lg text-purple-600 font-bold">
                   ¥{(participationFee * maxParticipants).toLocaleString()}
                 </span>
               </div>
-              <div className="bg-purple-50 border border-purple-200 rounded p-2.5 md:p-3">
-                <p className="text-sm font-medium text-purple-800">貸切料金</p>
-                <p className="text-xs text-purple-700">詳細はリクエスト後にご相談</p>
-              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                ※ 実際の料金は店舗との調整により変動する場合があります
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* 貸切リクエスト送信ボタン */}
       <Button 
-        className="w-full bg-purple-600 text-white hover:bg-purple-700 h-11 text-base touch-manipulation"
+        className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
         onClick={onRequestBooking}
         disabled={!isLoggedIn || selectedTimeSlotsCount === 0}
       >

@@ -63,11 +63,11 @@ export const VenueAccess = memo(function VenueAccess({
 
   return (
     <div>
-      <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">
+      <h3 className="text-base font-semibold mb-3">
         {mode === 'schedule' ? '会場アクセス' : '選択店舗'}
       </h3>
       <Card>
-        <CardContent className="p-3 md:p-4 space-y-3">
+        <CardContent className="p-4 space-y-3">
           {displayVenues.map((venue, index) => {
             // 色名（例: "blue", "green"）か色コード（例: "#3B82F6"）かを判定
             const isHexColor = venue.color && venue.color.startsWith('#')
