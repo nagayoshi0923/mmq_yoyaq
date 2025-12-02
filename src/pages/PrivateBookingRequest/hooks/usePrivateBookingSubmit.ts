@@ -78,6 +78,19 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         logger.error('顧客レコードの作成/更新エラー:', error)
       }
 
+      // 候補日時のバリデーション
+      if (props.selectedTimeSlots.length === 0) {
+        throw new Error('候補日時を選択してください')
+      }
+      
+      const firstSlot = props.selectedTimeSlots[0]
+      
+      // 日付形式のバリデーション
+      if (!firstSlot.date || !firstSlot.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        logger.error('無効な日付形式:', firstSlot.date)
+        throw new Error('日付が正しく設定されていません。最初からやり直してください。')
+      }
+      
       // 親予約番号を生成（全候補で共通）(YYMMDD-XXXX形式: 11桁)
       const now = new Date()
       const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
@@ -85,7 +98,6 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
       const baseReservationNumber = `${dateStr}-${randomStr}`
       
       // 最初の候補を親レコードとして作成
-      const firstSlot = props.selectedTimeSlots[0]
       const firstEventDateTime = `${firstSlot.date}T${firstSlot.slot.startTime}`
       
       // 候補日時をJSONB形式で準備

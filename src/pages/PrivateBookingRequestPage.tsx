@@ -23,9 +23,13 @@ export function PrivateBookingRequestPage() {
   const storeId = urlParams.get('store') || ''
   const slotParam = urlParams.get('slot') || ''
   
-  // 日付を正しいフォーマットに変換（数値の場合）
+  // 日付を正しいフォーマットに変換
   const formatDate = (dateStr: string): string => {
     if (!dateStr) return ''
+    // 時間帯文字列の場合は空文字を返す
+    if (['morning', 'afternoon', 'evening'].includes(dateStr)) {
+      return ''
+    }
     // dateStrが数値のみの場合、現在の月の日付として扱う
     if (/^\d+$/.test(dateStr)) {
       const today = new Date()
@@ -33,10 +37,17 @@ export function PrivateBookingRequestPage() {
       const month = today.getMonth() + 1
       return `${year}-${String(month).padStart(2, '0')}-${String(dateStr).padStart(2, '0')}`
     }
-    return dateStr
+    // YYYY-MM-DD形式かチェック
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr
+    }
+    return ''
   }
   
   const date = formatDate(dateParam)
+  
+  // デバッグ用ログ
+  console.log('URL params:', { scenarioId, dateParam, storeId, slotParam, formattedDate: date })
   
   const slotMap: { [key: string]: TimeSlot } = {
     morning: { label: '午前', startTime: '09:00', endTime: '12:00' },
@@ -72,13 +83,16 @@ export function PrivateBookingRequestPage() {
         setSelectedStoreIds([storeId])
       }
       
-      if (date && slotParam && slotMap[slotParam]) {
+      // 日付が有効な場合のみ時間帯を設定
+      if (date && date.match(/^\d{4}-\d{2}-\d{2}$/) && slotParam && slotMap[slotParam]) {
         setSelectedTimeSlots([
           {
             date: date,
             slot: slotMap[slotParam]
           }
         ])
+      } else {
+        console.warn('日付または時間帯が無効です:', { date, slotParam })
       }
       
     } catch (error) {
