@@ -68,6 +68,11 @@ export function AdminDashboard() {
 
   // ハッシュを解析してページとシナリオIDを返すユーティリティ
   function parseHash(hash: string, userRole?: string | null): { page: string, scenarioId: string | null } {
+    // scenario-detail/{scenarioId} のルーティング
+    const scenarioDetailMatch = hash.match(/scenario-detail\/([^/?]+)/)
+    if (scenarioDetailMatch) {
+      return { page: 'scenario-detail', scenarioId: scenarioDetailMatch[1] }
+    }
     const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/?]+)/)
     if (scenarioMatch) {
       return { page: 'customer-booking', scenarioId: scenarioMatch[1] }
@@ -308,6 +313,24 @@ export function AdminDashboard() {
         <ScenarioCatalog />
       </Suspense>
     )
+  }
+  
+  // シナリオ詳細ページ（カタログからの遷移）
+  if (currentPage === 'scenario-detail') {
+    const hash = window.location.hash.slice(1)
+    const scenarioDetailMatch = hash.match(/scenario-detail\/([^/?]+)/)
+    const scenarioId = scenarioDetailMatch ? scenarioDetailMatch[1] : null
+    
+    if (scenarioId) {
+      return (
+        <Suspense fallback={<LoadingScreen message="シナリオ詳細を読み込み中..." />}>
+          <ScenarioDetailPage 
+            scenarioId={scenarioId}
+            onClose={() => window.history.back()}
+          />
+        </Suspense>
+      )
+    }
   }
   
   if (currentPage === 'reservations') {
