@@ -1,5 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { memo, useState, useEffect, useMemo, useCallback } from 'react'
+import { memo, useMemo, useCallback } from 'react'
 import React from 'react'
 import { BookingFilters } from './BookingFilters'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -40,17 +40,6 @@ export const ListView = memo(function ListView({
   onCardClick,
   blockedSlots = []
 }: ListViewProps) {
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 640)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
-
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
     const map = new Map<string, any>()
@@ -230,22 +219,22 @@ export const ListView = memo(function ListView({
 
       {/* リスト表示テーブル */}
       <div className="overflow-x-auto -mx-2 sm:mx-0">
-        <Table className="sm:min-w-max" style={{ tableLayout: 'fixed', width: isMobile ? '100%' : 'auto' }}>
+        <Table className="w-full">
         <TableHeader>
           <TableRow className="bg-muted/50">
-              <TableHead className="hidden sm:table-cell w-24 border-r text-sm">日付</TableHead>
-              <TableHead className="border-r text-xs sm:text-sm" style={{ width: isMobile ? '10px' : '60px', minWidth: isMobile ? '10px' : '60px', maxWidth: isMobile ? '10px' : '60px', flexShrink: 0 }}>
+              <TableHead className="hidden sm:table-cell w-20 sm:w-24 border-r text-sm whitespace-nowrap">日付</TableHead>
+              <TableHead className="border-r text-xs sm:text-sm w-10 sm:w-16 whitespace-nowrap">
                 会場
               </TableHead>
-              <TableHead className="w-10 sm:w-48 border-r text-xs sm:text-sm">
+              <TableHead className="border-r text-xs sm:text-sm">
                 <span className="sm:hidden">午前</span>
                 <span className="hidden sm:inline">午前 (~12:00)</span>
               </TableHead>
-              <TableHead className="w-10 sm:w-48 border-r text-xs sm:text-sm">
+              <TableHead className="border-r text-xs sm:text-sm">
                 <span className="sm:hidden">午後</span>
                 <span className="hidden sm:inline">午後 (12:00-17:59)</span>
               </TableHead>
-              <TableHead className="w-10 sm:w-48 text-xs sm:text-sm">
+              <TableHead className="text-xs sm:text-sm">
                 <span className="sm:hidden">夜間</span>
                 <span className="hidden sm:inline">夜間 (18:00~)</span>
               </TableHead>
@@ -313,28 +302,28 @@ export const ListView = memo(function ListView({
                 )}
 
                 {/* 店舗セル */}
-                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-xs sm:text-sm" style={{ width: isMobile ? '10px' : '60px', minWidth: isMobile ? '10px' : '60px', maxWidth: isMobile ? '10px' : '60px', flexShrink: 0 }}>
-                    <div className=" whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: getColorFromName(store.color) }}>
+                  <TableCell className="schedule-table-cell border-r venue-cell hover:bg-muted/30 transition-colors text-xs sm:text-sm w-10 sm:w-16">
+                    <div className="whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: getColorFromName(store.color) }}>
                     {store.short_name || store.name}
                   </div>
                 </TableCell>
 
                 {/* 午前セル */}
-                <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
+                <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
                     {renderEventCell(morningEvents, store, 'morning', date)}
                   </div>
                 </TableCell>
 
                 {/* 午後セル */}
-                <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
+                <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
                     {renderEventCell(afternoonEvents, store, 'afternoon', date)}
                   </div>
                 </TableCell>
 
                 {/* 夜間セル */}
-                <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
+                <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
                     {renderEventCell(eveningEvents, store, 'evening', date)}
                   </div>
