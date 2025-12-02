@@ -16,7 +16,7 @@ interface LineupViewProps {
 
 /**
  * ラインナップビューコンポーネント
- * パフォーマンス最適化: 新着・直近公演のみ表示（全タイトルはカタログページへ）
+ * 新着・直近公演を表示（全タイトルはカタログページへ）
  */
 export const LineupView = memo(function LineupView({
   newScenarios,
@@ -26,9 +26,8 @@ export const LineupView = memo(function LineupView({
   isFavorite,
   onToggleFavorite
 }: LineupViewProps) {
-  // パフォーマンス最適化: 新着・直近公演も表示件数を制限
+  // 新着は10件まで、直近公演は全て表示
   const displayedNewScenarios = newScenarios.slice(0, 10)
-  const displayedUpcomingScenarios = upcomingScenarios.slice(0, 10)
   
   const handleCatalogClick = () => {
     window.location.hash = 'catalog'
@@ -62,19 +61,17 @@ export const LineupView = memo(function LineupView({
         </section>
       )}
 
-      {/* 直近公演セクション */}
-      {displayedUpcomingScenarios.length > 0 && (
+      {/* 直近公演セクション（全て表示） */}
+      {upcomingScenarios.length > 0 && (
         <section>
           <h2 className="text-lg mb-3 md:mb-4">
             直近公演
-            {upcomingScenarios.length > 10 && (
-              <span className="text-xs font-normal text-gray-500 ml-1">
-                ({displayedUpcomingScenarios.length} / {upcomingScenarios.length})
-              </span>
-            )}
+            <span className="text-xs font-normal text-gray-500 ml-1">
+              ({upcomingScenarios.length}件)
+            </span>
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
-            {displayedUpcomingScenarios.map((scenario) => (
+            {upcomingScenarios.map((scenario) => (
               <ScenarioCard 
                 key={scenario.scenario_id} 
                 scenario={scenario} 
