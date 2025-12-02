@@ -141,21 +141,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         
         if (session?.user) {
-          // queueMicrotaskで非同期実行し、setIntervalハンドラーをブロックしない
-          queueMicrotask(() => {
-            setUserFromSession(session.user).catch(err => {
-              logger.error('❌ setUserFromSession error (background):', err)
-            })
+          // ⚠️ 重要: setUserFromSessionの完了を待ってからisInitializedを設定
+          // これにより、user情報が設定される前にリダイレクトが発生することを防ぐ
+          setUserFromSession(session.user).then(() => {
+            setLoading(false)
+            setIsInitialized(true)  // ユーザー情報設定完了後に認証完了をマーク
+          }).catch(err => {
+            logger.error('❌ setUserFromSession error:', err)
+            setLoading(false)
+            setIsInitialized(true)  // エラーでも完了とみなす
           })
         } else {
           setUser(null)
           userRef.current = null
-        }
-        // 状態更新も遅延させてsetIntervalハンドラーへの影響を最小化
-        queueMicrotask(() => {
           setLoading(false)
-          setIsInitialized(true)  // 認証完了をマーク
-        })
+          setIsInitialized(true)  // ログアウト状態として認証完了をマーク
+        }
       }
     )
 

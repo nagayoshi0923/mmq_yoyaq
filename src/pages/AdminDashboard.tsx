@@ -44,7 +44,7 @@ const DashboardHome = lazy(() => import('./DashboardHome').then(m => ({ default:
 const StaffProfile = lazy(() => import('./StaffProfile').then(m => ({ default: m.StaffProfile })))
 
 export function AdminDashboard() {
-  const { user, isInitialized } = useAuth()
+  const { user, loading, isInitialized } = useAuth()
 
   // 管理ツールのページ一覧（顧客がアクセスできないページ）
   const adminOnlyPages = [
@@ -163,58 +163,42 @@ export function AdminDashboard() {
   // ユーザーロールが確定したときに初回リダイレクト
   // ⚠️ 重要: 認証完了後のみリダイレクト（早期表示時はリダイレクトしない）
   React.useEffect(() => {
-    // 認証が完了していない場合は何もしない（現在のページを維持）
-    if (!isInitialized) {
+    // 認証が完了していない場合、またはまだロード中の場合は何もしない
+    if (!isInitialized || loading) {
       return
     }
 
-    // ⚠️ 重要: ユーザー情報がまだ読み込み中の可能性があるため、
-    // ログイン状態の確認は慎重に行う
-    // user が null でも、Supabase セッションが存在する可能性がある
-    const checkAndRedirect = async () => {
-      // Supabaseセッションを直接確認
-      const { data: { session } } = await (await import('@/lib/supabase')).supabase.auth.getSession()
-      
-      // セッションがある場合は、ユーザー情報の読み込みを待つ
-      if (session && !user) {
-        // ユーザー情報がまだ読み込まれていない場合は、リダイレクトしない
-        return
-      }
-      
-      // ログアウト状態または顧客アカウントの場合
-      const isCustomerOrLoggedOut = !user || user.role === 'customer'
-      
-      // 顧客/ログアウト状態でダッシュボードや管理ページにいる場合は予約サイトにリダイレクト
-      if (isCustomerOrLoggedOut && (!currentPage || currentPage === 'dashboard' || adminOnlyPages.includes(currentPage))) {
-        setCurrentPage('customer-booking')
-        window.location.hash = 'customer-booking'
-        return
-      }
+    // ログアウト状態または顧客アカウントの場合
+    const isCustomerOrLoggedOut = !user || user.role === 'customer'
+    
+    // 顧客/ログアウト状態でダッシュボードや管理ページにいる場合は予約サイトにリダイレクト
+    if (isCustomerOrLoggedOut && (!currentPage || currentPage === 'dashboard' || adminOnlyPages.includes(currentPage))) {
+      setCurrentPage('customer-booking')
+      window.location.hash = 'customer-booking'
+      return
+    }
 
-      // スタッフ/管理者がログインしていて、ハッシュがない場合はダッシュボードを表示
-      if (user && (user.role === 'admin' || user.role === 'staff')) {
-        const hash = window.location.hash.slice(1)
-        if (!hash || hash === '') {
-          setCurrentPage('dashboard')
-          window.location.hash = 'dashboard'
-          return
-        }
+    // スタッフ/管理者がログインしていて、ハッシュがない場合はダッシュボードを表示
+    if (user && (user.role === 'admin' || user.role === 'staff')) {
+      const hash = window.location.hash.slice(1)
+      if (!hash || hash === '') {
+        setCurrentPage('dashboard')
+        window.location.hash = 'dashboard'
+        return
       }
     }
-    
-    checkAndRedirect()
-  }, [user, currentPage, isInitialized])
+  }, [user, currentPage, isInitialized, loading])
 
   // ブラウザの戻る/進むボタンに対応
   React.useEffect(() => {
     const handleHashChange = () => {
       const { page, scenarioId } = parseHash(window.location.hash.slice(1), user?.role)
       
-      // ⚠️ 認証完了後のみリダイレクト判定を行う
-      if (isInitialized) {
+      // ⚠️ 認証完了後かつロード完了後のみリダイレクト判定を行う
+      if (isInitialized && !loading) {
         // ログアウト状態または顧客アカウントの場合、管理ツールのページへのアクセスを制限
         const isCustomerOrLoggedOut = !user || user.role === 'customer'
-    const restrictedPages = ['dashboard', 'stores', 'staff', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher']
+        const restrictedPages = ['dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher']
         if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
           // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
           setCurrentPage('customer-booking')
@@ -229,7 +213,7 @@ export function AdminDashboard() {
 
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [user?.role, user, isInitialized])
+  }, [user?.role, user, isInitialized, loading])
 
   // ログインページはAdminDashboardで表示しない（App.tsxで処理される）
   if (currentPage === 'login') {
