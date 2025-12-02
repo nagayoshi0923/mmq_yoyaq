@@ -214,14 +214,9 @@ export const CalendarView = memo(function CalendarView({
                         return (
                           <div
                             key={`${event.id || idx}`}
-                            className="text-xs border-l-2 bg-gray-100"
-                            style={{ borderLeftColor: '#9CA3AF', padding: '2px 3px' }}
+                            className="w-full text-xs py-1 px-1 border border-gray-200 rounded bg-gray-100 text-gray-400 text-center cursor-not-allowed"
                           >
-                            <div className="flex items-center gap-1 text-gray-500">
-                              <span>{event.start_time?.slice(0, 5)}</span>
-                              <span>{storeName}</span>
-                              <span>予約済</span>
-                            </div>
+                            予約済
                           </div>
                         )
                       }

@@ -137,20 +137,14 @@ export const ListView = memo(function ListView({
       // useBookingDataで事前計算済みのkey_visual_urlを使用
       const imageUrl = event.key_visual_url
 
-      // 予約済みの場合はシンプル表示（画像なし）
+      // 予約済みの場合はdisabledボタン風の表示
       if (isReserved) {
         return (
-          <div
-            key={idx}
-            className="text-xs border-l-2 bg-gray-100"
-            style={{
-              borderLeftColor: '#9CA3AF',
-              padding: '2px 3px'
-            }}
-          >
-            <div className="flex items-center gap-1 text-gray-500">
-              <span>{event.start_time?.slice(0, 5)}</span>
-              <span>予約済</span>
+          <div key={idx} className="p-1 sm:p-2">
+            <div
+              className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-gray-200 rounded bg-gray-100 text-gray-400 text-center cursor-not-allowed"
+            >
+              予約済
             </div>
           </div>
         )
