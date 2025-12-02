@@ -15,7 +15,10 @@ import {
   ChevronRight,
   MapPin,
   AlertCircle,
-  Info
+  Info,
+  Globe,
+  UserCircle,
+  HelpCircle
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { staffApi, scheduleApi } from '@/lib/api'
@@ -166,15 +169,30 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     }
   }
 
-  // ナビゲーションメニュー
-  const navigationTabs = useMemo(() => [
-    { id: 'shift-submission', label: 'シフト提出', icon: Clock, color: 'bg-indigo-100 text-indigo-800' },
-    { id: 'schedule', label: 'スケジュール', icon: CalendarIcon, color: 'bg-green-100 text-green-800' },
-    { id: 'reservations', label: '予約管理', icon: CalendarIcon, color: 'bg-red-100 text-red-800' },
-    { id: 'scenarios', label: 'シナリオ', icon: BookOpen, color: 'bg-orange-100 text-orange-800' },
-    { id: 'staff', label: 'スタッフ', icon: Users, color: 'bg-purple-100 text-purple-800' },
-    { id: 'stores', label: '店舗', icon: Store, color: 'bg-blue-100 text-blue-800' },
-  ], [])
+  // ナビゲーションメニュー（ロールに応じて表示）
+  const navigationTabs = useMemo(() => {
+    const commonTabs = [
+      { id: 'customer-booking', label: '予約サイト', icon: Globe, color: 'bg-blue-100 text-blue-800' },
+      { id: 'schedule', label: 'スケジュール', icon: CalendarIcon, color: 'bg-green-100 text-green-800' },
+      { id: 'shift-submission', label: 'シフト提出', icon: Clock, color: 'bg-indigo-100 text-indigo-800' },
+      { id: 'gm-availability', label: 'GM確認', icon: Clock, color: 'bg-yellow-100 text-yellow-800' },
+      { id: 'staff-profile', label: 'マイプロフィール', icon: UserCircle, color: 'bg-pink-100 text-pink-800' },
+      { id: 'manual', label: 'マニュアル', icon: HelpCircle, color: 'bg-gray-100 text-gray-800' },
+    ]
+    
+    const adminTabs = [
+      { id: 'reservations', label: '予約管理', icon: CalendarIcon, color: 'bg-red-100 text-red-800' },
+      { id: 'scenarios', label: 'シナリオ', icon: BookOpen, color: 'bg-orange-100 text-orange-800' },
+      { id: 'staff', label: 'スタッフ', icon: Users, color: 'bg-purple-100 text-purple-800' },
+      { id: 'stores', label: '店舗', icon: Store, color: 'bg-teal-100 text-teal-800' },
+      { id: 'settings', label: '設定', icon: Settings, color: 'bg-slate-100 text-slate-800' },
+    ]
+    
+    if (user?.role === 'admin') {
+      return [...commonTabs, ...adminTabs]
+    }
+    return commonTabs
+  }, [user?.role])
 
   return (
     <div className="space-y-6 pb-20">
