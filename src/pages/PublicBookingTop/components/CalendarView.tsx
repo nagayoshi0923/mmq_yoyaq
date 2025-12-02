@@ -173,9 +173,9 @@ export const CalendarView = memo(function CalendarView({
                     }
                     
                     const timeSlots: { slot: 'morning' | 'afternoon' | 'evening', label: string }[] = [
-                      { slot: 'morning', label: '午前' },
-                      { slot: 'afternoon', label: '午後' },
-                      { slot: 'evening', label: '夜間' }
+                      { slot: 'morning', label: '朝公演' },
+                      { slot: 'afternoon', label: '昼公演' },
+                      { slot: 'evening', label: '夜公演' }
                     ]
                     
                     // 時間帯ごとにイベントをグループ化

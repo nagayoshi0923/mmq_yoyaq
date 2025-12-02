@@ -227,16 +227,16 @@ export const ListView = memo(function ListView({
                 会場
               </TableHead>
               <TableHead className="border-r text-xs sm:text-sm">
-                <span className="sm:hidden">午前</span>
-                <span className="hidden sm:inline">午前 (~12:00)</span>
+                <span className="sm:hidden">朝</span>
+                <span className="hidden sm:inline">朝公演 (~12:00)</span>
               </TableHead>
               <TableHead className="border-r text-xs sm:text-sm">
-                <span className="sm:hidden">午後</span>
-                <span className="hidden sm:inline">午後 (12:00-17:59)</span>
+                <span className="sm:hidden">昼</span>
+                <span className="hidden sm:inline">昼公演 (12:00-17:59)</span>
               </TableHead>
               <TableHead className="text-xs sm:text-sm">
-                <span className="sm:hidden">夜間</span>
-                <span className="hidden sm:inline">夜間 (18:00~)</span>
+                <span className="sm:hidden">夜</span>
+                <span className="hidden sm:inline">夜公演 (18:00~)</span>
               </TableHead>
           </TableRow>
         </TableHeader>
@@ -308,21 +308,21 @@ export const ListView = memo(function ListView({
                   </div>
                 </TableCell>
 
-                {/* 午前セル */}
+                {/* 朝公演セル */}
                 <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
                     {renderEventCell(morningEvents, store, 'morning', date)}
                   </div>
                 </TableCell>
 
-                {/* 午後セル */}
+                {/* 昼公演セル */}
                 <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
                     {renderEventCell(afternoonEvents, store, 'afternoon', date)}
                   </div>
                 </TableCell>
 
-                {/* 夜間セル */}
+                {/* 夜公演セル */}
                 <TableCell className="schedule-table-cell p-0">
                   <div className="flex flex-col">
                     {renderEventCell(eveningEvents, store, 'evening', date)}
