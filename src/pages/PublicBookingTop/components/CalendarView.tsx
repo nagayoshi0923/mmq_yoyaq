@@ -146,8 +146,14 @@ export const CalendarView = memo(function CalendarView({
                       return (a.start_time || '').localeCompare(b.start_time || '')
                     })
                     
+                    // 全ての時間帯が予約済みかどうかをチェック（朝・昼・夜の3枠全てが埋まっているか）
+                    const reservedCount = allDisplayEvents.filter((e: any) => 
+                      e.category === 'private' || e.is_private_booking === true || e.category === 'gmtest' || e.category === 'testplay'
+                    ).length
+                    const hasAvailableSlot = reservedCount < 3 // 3枠未満なら空きあり
+                    
                     if (allDisplayEvents.length === 0) {
-                      // 何もない場合は貸切申込ボタン
+                      // 何もない場合は貸切申込ボタンのみ
                       return (
                         <div className="p-1 sm:p-2">
                           <button
@@ -162,9 +168,10 @@ export const CalendarView = memo(function CalendarView({
                       )
                     }
                     
-                    // 全てのイベントを表示
+                    // 全てのイベントを表示 + 空きがあれば貸切申込ボタンを一番下に
                     return (
-                    allDisplayEvents.map((event: any, idx: number) => {
+                    <>
+                    {allDisplayEvents.map((event: any, idx: number) => {
                     // useBookingDataで事前計算済みのplayer_count_maxを使用
                     const maxParticipants = event.player_count_max || 8
                     const available = maxParticipants - (event.current_participants || 0)
@@ -269,7 +276,21 @@ export const CalendarView = memo(function CalendarView({
                         </div>
                       </div>
                     )
-                  })
+                  })}
+                  {/* 空きがある場合は貸切申込ボタンを一番下に表示 */}
+                  {hasAvailableSlot && (
+                    <div className="p-1 sm:p-2">
+                      <button
+                        className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                        onClick={() => {
+                          window.location.hash = `#private-booking-select?date=${dateStr}`
+                        }}
+                      >
+                        貸切申込
+                      </button>
+                    </div>
+                  )}
+                  </>
                   )
                   })()}
                 </div>
