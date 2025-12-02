@@ -7,15 +7,19 @@
  */
 export const formatDate = (dateStr: string | undefined | null): string => {
   if (!dateStr) {
-    return '日付不明'
+    return '日付未定'
+  }
+  
+  // 時間帯文字列の場合はスキップ（morning/afternoon/evening）
+  if (['morning', 'afternoon', 'evening'].includes(dateStr)) {
+    return '日付未定'
   }
   
   const date = new Date(dateStr)
   
   // 無効な日付の場合
   if (isNaN(date.getTime())) {
-    console.error('Invalid date string:', dateStr)
-    return '日付エラー'
+    return '日付未定'
   }
   
   const weekdays = ['日', '月', '火', '水', '木', '金', '土']
