@@ -210,12 +210,8 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
                          storeMap.get(event.store_short_name) ||
                          null
             
-            // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
-            const scenarioMaxPlayers = event.scenarios?.player_count_max
-            const maxParticipants = scenarioMaxPlayers ||
-                                    event.max_participants ||
-                                    event.capacity ||
-                                    8
+            // シナリオマスタのplayer_count_maxを使用（公演データは古い値の可能性があるため）
+            const maxParticipants = scenario.player_count_max || 8
             const currentParticipants = event.current_participants || 0
             const availableSeats = event.is_private_booking === true 
               ? 0 
@@ -235,12 +231,8 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
           if (sortedEvents.length > 0) {
             const nextEvent = sortedEvents[0]
             const isPrivateBooking = nextEvent.is_private_booking === true
-            // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
-            const nextEventScenarioMaxPlayers = nextEvent.scenarios?.player_count_max
-            const maxParticipants = nextEventScenarioMaxPlayers ||
-                                    nextEvent.max_participants ||
-                                    nextEvent.capacity ||
-                                    8
+            // シナリオマスタのplayer_count_maxを使用
+            const maxParticipants = scenario.player_count_max || 8
             const currentParticipants = nextEvent.current_participants || 0
             status = isPrivateBooking ? 'sold_out' : getAvailabilityStatus(maxParticipants, currentParticipants)
           }
