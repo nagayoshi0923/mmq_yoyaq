@@ -28,8 +28,8 @@ export function ShiftManual() {
               <div className="space-y-2 flex-1">
                 <h4 className="font-medium">提出期間の設定</h4>
                 <p className="text-sm text-muted-foreground">
-                  「シフト提出」ページで、スタッフがシフトを入力できる期間（例: 毎月1日〜10日）と、対象の月を設定します。
-                </p>
+                「シフト提出」ページで、スタッフがシフトを入力できる期間（例: 毎月1日〜10日）と、対象の月を設定します。
+              </p>
                 <div className="bg-background rounded-md p-3 text-sm text-muted-foreground">
                   <strong className="text-foreground">ポイント:</strong> 提出期限を過ぎると、スタッフは画面から入力できなくなります。変更が必要な場合は管理者が直接修正します。
                 </div>
@@ -43,9 +43,9 @@ export function ShiftManual() {
               <div className="space-y-2 flex-1">
                 <h4 className="font-medium">スケジュール作成</h4>
                 <p className="text-sm text-muted-foreground">
-                  「スケジュール管理」ページで、日付セルをクリックして公演枠を作成します。
-                  または、CSVインポート機能を使って一括登録することも可能です。
-                </p>
+                「スケジュール管理」ページで、日付セルをクリックして公演枠を作成します。
+                または、CSVインポート機能を使って一括登録することも可能です。
+              </p>
               </div>
             </div>
           </div>
@@ -56,9 +56,9 @@ export function ShiftManual() {
               <div className="space-y-2 flex-1">
                 <h4 className="font-medium">スタッフ配置 (GM決定)</h4>
                 <p className="text-sm text-muted-foreground">
-                  作成した公演枠にGM（ゲームマスター）を割り当てます。
-                  シフト提出済みのスタッフは、空き状況がアイコンで表示されるので、スムーズに配置できます。
-                </p>
+                作成した公演枠にGM（ゲームマスター）を割り当てます。
+                シフト提出済みのスタッフは、空き状況がアイコンで表示されるので、スムーズに配置できます。
+              </p>
               </div>
             </div>
           </div>
@@ -69,9 +69,9 @@ export function ShiftManual() {
               <div className="space-y-2 flex-1">
                 <h4 className="font-medium">公開</h4>
                 <p className="text-sm text-muted-foreground">
-                  スケジュールが固まったら、予約サイトでの受付を開始します。
-                  （現在は作成と同時に公開される仕様です。将来的に「下書き」機能が追加される可能性があります）
-                </p>
+                スケジュールが固まったら、予約サイトでの受付を開始します。
+                （現在は作成と同時に公開される仕様です。将来的に「下書き」機能が追加される可能性があります）
+              </p>
               </div>
             </div>
           </div>
@@ -110,10 +110,10 @@ export function ShiftManual() {
               <h4 className="font-medium text-sm">公演の中止と復活</h4>
             </div>
             <p className="text-sm text-muted-foreground">
-              急な事情で公演ができなくなった場合は「中止」に設定します。
-              削除するのではなく「中止」ステータスにすることで、履歴を残しつつ予約受付を停止できます。
-              状況が変われば「復活」させることも可能です。
-            </p>
+                急な事情で公演ができなくなった場合は「中止」に設定します。
+                削除するのではなく「中止」ステータスにすることで、履歴を残しつつ予約受付を停止できます。
+                状況が変われば「復活」させることも可能です。
+              </p>
           </div>
         </div>
       </section>

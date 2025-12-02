@@ -163,16 +163,16 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           const newGmResponses = uniqueStaffIds
             .filter(staffId => !existingStaffIds.has(staffId))
             .map(staffId => ({
-              reservation_id: parentReservation.id,
+          reservation_id: parentReservation.id,
               staff_id: staffId,
-              response_status: 'pending',
-              notified_at: new Date().toISOString()
-            }))
-          
+          response_status: 'pending',
+          notified_at: new Date().toISOString()
+        }))
+        
           // 新規レコードがある場合のみ挿入
           if (newGmResponses.length > 0) {
             const { error: insertError } = await supabase
-              .from('gm_availability_responses')
+          .from('gm_availability_responses')
               .insert(newGmResponses)
             
             if (insertError) {

@@ -179,32 +179,32 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
   const isWithinBusinessHours = useCallback((date: string, startTime: string, storeId: string): boolean => {
     // キャッシュから営業時間設定を取得
     const data = businessHoursCache.get(storeId)
-    
-    if (!data) return true // 設定がない場合は制限しない
 
-    // 休日チェック
-    if (data.holidays && data.holidays.includes(date)) {
-      return false
-    }
+      if (!data) return true // 設定がない場合は制限しない
 
-    // 営業時間チェック
-    if (data.opening_hours) {
-      const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
-      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-      const dayName = dayNames[dayOfWeek]
-      
-      const dayHours = data.opening_hours[dayName]
-      if (!dayHours || !dayHours.is_open) {
+      // 休日チェック
+      if (data.holidays && data.holidays.includes(date)) {
         return false
       }
 
-      const eventTime = startTime.slice(0, 5) // HH:MM形式
-      if (eventTime < dayHours.open_time || eventTime > dayHours.close_time) {
-        return false
-      }
-    }
+      // 営業時間チェック
+      if (data.opening_hours) {
+        const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+        const dayName = dayNames[dayOfWeek]
+        
+        const dayHours = data.opening_hours[dayName]
+        if (!dayHours || !dayHours.is_open) {
+          return false
+        }
 
-    return true
+        const eventTime = startTime.slice(0, 5) // HH:MM形式
+        if (eventTime < dayHours.open_time || eventTime > dayHours.close_time) {
+          return false
+        }
+      }
+
+      return true
   }, [businessHoursCache])
 
   // 特定の日付と時間枠が空いているかチェック（店舗フィルター対応）

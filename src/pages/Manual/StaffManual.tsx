@@ -101,10 +101,10 @@ export function StaffManual() {
                 <p className="text-sm text-muted-foreground">管理者が自分を削除してしまった時</p>
                 <div className="bg-background rounded-md p-3 text-sm space-y-2">
                   <p><strong>シーン:</strong> あなた（管理者）が誤って自分のスタッフデータを削除しました。</p>
-                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                     <li>スタッフデータは消えますが、<strong>管理者権限（admin）は維持されます</strong>。</li>
                     <li>システムから閉め出されることはありません。再度自分を登録し直せば元通りです。</li>
-                  </ul>
+              </ul>
                 </div>
               </div>
             </div>
@@ -187,7 +187,7 @@ export function StaffManual() {
                     <li><strong>シフト提出:</strong> 毎月のシフト希望を提出</li>
                     <li><strong>GM確認:</strong> 貸切予約のGM可否を回答</li>
                     <li><strong>貸切確認:</strong> 貸切リクエストの確認</li>
-                  </ul>
+              </ul>
                 </div>
               </div>
             </div>
@@ -238,9 +238,9 @@ export function StaffManual() {
               <h4 className="font-medium text-sm">スタッフがプライベートで遊びに来る場合</h4>
             </div>
             <p className="text-sm text-muted-foreground">
-              スタッフアカウントのまま予約サイトから予約可能です。
-              システムは「スタッフ」と認識しつつ「顧客」として予約を受け付けます。
-            </p>
+                スタッフアカウントのまま予約サイトから予約可能です。
+                システムは「スタッフ」と認識しつつ「顧客」として予約を受け付けます。
+              </p>
           </div>
 
           <div className="border rounded-lg p-4 hover:bg-muted/20 transition-colors">
@@ -249,9 +249,9 @@ export function StaffManual() {
               <h4 className="font-medium text-sm">常連さんをスタッフとしてスカウトする場合</h4>
             </div>
             <p className="text-sm text-muted-foreground">
-              既に顧客アカウントを持っている方のメールアドレスで「招待」を行ってください。
-              これまでの予約履歴やアカウント情報を引き継いだまま、スタッフ権限が付与されます。
-            </p>
+                既に顧客アカウントを持っている方のメールアドレスで「招待」を行ってください。
+                これまでの予約履歴やアカウント情報を引き継いだまま、スタッフ権限が付与されます。
+              </p>
           </div>
 
           <div className="border rounded-lg p-4 hover:bg-muted/20 transition-colors">
@@ -260,9 +260,9 @@ export function StaffManual() {
               <h4 className="font-medium text-sm">紐付けミスを修正する場合</h4>
             </div>
             <p className="text-sm text-muted-foreground">
-              間違ったアカウントを紐付けてしまった場合は、「連携解除」を行ってください。
+                間違ったアカウントを紐付けてしまった場合は、「連携解除」を行ってください。
               誤って紐付けられたユーザーは即座に「一般顧客」に戻り、その後正しいメールアドレスで再度招待を行ってください。
-            </p>
+              </p>
           </div>
         </div>
       </section>

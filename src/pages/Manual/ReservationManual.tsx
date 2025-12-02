@@ -35,8 +35,8 @@ export function ReservationManual() {
               <p>申し込み直後の状態です。内容を確認し、問題なければ確定処理を行います。</p>
             </div>
             <div className="bg-white dark:bg-yellow-900/50 rounded p-2 text-xs text-yellow-700 dark:text-yellow-300">
-              <strong>アクション:</strong> 内容確認 → 確定ボタン
-            </div>
+                <strong>アクション:</strong> 内容確認 → 確定ボタン
+              </div>
           </div>
 
           {/* 確定 */}
@@ -51,8 +51,8 @@ export function ReservationManual() {
               <p>お客様に参加確定メールが送信され、スケジュール上の席が確保されています。</p>
             </div>
             <div className="bg-white dark:bg-green-900/50 rounded p-2 text-xs text-green-700 dark:text-green-300">
-              <strong>アクション:</strong> 当日を迎えるのみ
-            </div>
+                <strong>アクション:</strong> 当日を迎えるのみ
+              </div>
           </div>
 
           {/* キャンセル */}
@@ -67,8 +67,8 @@ export function ReservationManual() {
               <p>お客様都合または公演中止によりキャンセルされた状態です。席は解放されます。</p>
             </div>
             <div className="bg-white dark:bg-red-900/50 rounded p-2 text-xs text-red-700 dark:text-red-300">
-              <strong>注意:</strong> 復元はできません
-            </div>
+                <strong>注意:</strong> 復元はできません
+              </div>
           </div>
         </div>
       </section>
@@ -104,9 +104,9 @@ export function ReservationManual() {
               <h4 className="font-medium text-sm">直前の人数変更・キャンセル</h4>
             </div>
             <p className="text-sm text-muted-foreground">
-              電話などでキャンセル連絡を受けた場合は、管理画面から手動でステータスを「キャンセル」に変更してください。
-              メモ欄に「電話にて受付（担当：〇〇）」と残しておくと、後で経緯が分かりやすくなります。
-            </p>
+                電話などでキャンセル連絡を受けた場合は、管理画面から手動でステータスを「キャンセル」に変更してください。
+                メモ欄に「電話にて受付（担当：〇〇）」と残しておくと、後で経緯が分かりやすくなります。
+              </p>
           </div>
 
           <div className="border rounded-lg p-4 hover:bg-muted/20 transition-colors">
@@ -115,9 +115,9 @@ export function ReservationManual() {
               <h4 className="font-medium text-sm">過去の予約を探す</h4>
             </div>
             <p className="text-sm text-muted-foreground">
-              「フィルター」機能を使って、特定のお客様名や電話番号、予約番号で検索できます。
-              「未払い」のみを抽出して、月末の請求漏れチェックにも活用できます。
-            </p>
+                「フィルター」機能を使って、特定のお客様名や電話番号、予約番号で検索できます。
+                「未払い」のみを抽出して、月末の請求漏れチェックにも活用できます。
+              </p>
           </div>
         </div>
       </section>
