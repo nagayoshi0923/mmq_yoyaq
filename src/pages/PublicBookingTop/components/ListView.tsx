@@ -87,13 +87,16 @@ export const ListView = memo(function ListView({
       return (a.start_time || '').localeCompare(b.start_time || '')
     })
     
+    // 日付文字列を生成（YYYY-MM-DD形式）
+    const dateStr = `${listViewMonth.getFullYear()}-${String(listViewMonth.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
+    
     if (allEvents.length === 0) {
       return (
         <div className="p-1 sm:p-2">
           <button
             className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
             onClick={() => {
-              window.location.hash = `#private-booking-select?date=${timeSlot}&store=${store.id}&slot=${timeSlot}`
+              window.location.hash = `#private-booking-select?date=${dateStr}&store=${store.id}&slot=${timeSlot}`
             }}
           >
             貸切申込
