@@ -189,6 +189,14 @@ export function PrivateBookingScenarioSelect() {
               )
             })()}
 
+            {/* 注意事項（DBから取得） */}
+            <BookingNotice
+              reservationDeadlineHours={24}
+              hasPreReading={false}
+              mode="private"
+              storeId={preselectedStore || null}
+            />
+
             {/* 確認ボタン */}
             <Button
               className="w-full bg-purple-600 hover:bg-purple-700 text-white"
@@ -197,14 +205,6 @@ export function PrivateBookingScenarioSelect() {
             >
               貸切リクエストを続ける
             </Button>
-
-            {/* 注意事項（DBから取得） */}
-            <BookingNotice
-              reservationDeadlineHours={24}
-              hasPreReading={false}
-              mode="private"
-              storeId={preselectedStore || null}
-            />
           </CardContent>
         </Card>
       </div>
