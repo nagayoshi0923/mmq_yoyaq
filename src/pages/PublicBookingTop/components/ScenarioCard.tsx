@@ -198,9 +198,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                       className="text-[10px] sm:text-xs whitespace-nowrap flex-shrink-0"
                       style={{ color: event.store_color ? getColorFromName(event.store_color) : '#6B7280' }}
                     >
-                      {/* モバイル: 2文字に制限, PC: フル表示 */}
-                      <span className="sm:hidden">{event.store_name.length > 2 ? event.store_name.slice(0, 2) : event.store_name}</span>
-                      <span className="hidden sm:inline">{event.store_name}</span>
+                      {event.store_name}
                     </span>
                   )}
                   {/* 空席がある場合は残席数を表示、満席の場合は何も表示しない */}
