@@ -184,17 +184,47 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
         <NavigationBar currentPage="customer-booking" />
       )}
 
-      {/* 戻るボタン */}
+      {/* スティッキーヘッダー（モバイルではシナリオ情報も表示） */}
       <div className="bg-background border-b sticky top-0 z-10">
         <div className="container mx-auto max-w-7xl px-[10px] py-2">
-          <Button
-            variant="ghost"
-            onClick={onClose}
-            className="flex items-center gap-1 hover:bg-accent h-9 px-2 touch-manipulation text-sm"
-          >
-            <ArrowLeft className="w-4 h-4 flex-shrink-0" />
-            <span>シナリオ一覧に戻る</span>
-          </Button>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* 戻るボタン */}
+            <Button
+              variant="ghost"
+              onClick={onClose}
+              className="flex items-center gap-1 hover:bg-accent h-9 px-2 touch-manipulation text-sm flex-shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">シナリオ一覧に戻る</span>
+              <span className="sm:hidden">戻る</span>
+            </Button>
+            
+            {/* モバイル用シナリオ概要（スクロール時に表示） */}
+            <div className="flex items-center gap-2 flex-1 min-w-0 sm:hidden">
+              {/* キービジュアル（縦100px） */}
+              {scenario.key_visual_url && (
+                <div className="flex-shrink-0 h-[100px] aspect-[1/1.4] bg-gray-200 rounded overflow-hidden">
+                  <img
+                    src={scenario.key_visual_url}
+                    alt={scenario.scenario_title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              {/* タイトルと基本情報 */}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-bold truncate">{scenario.scenario_title}</h2>
+                <p className="text-xs text-muted-foreground truncate">
+                  {scenario.player_count_min === scenario.player_count_max
+                    ? `${scenario.player_count_max}人`
+                    : `${scenario.player_count_min}〜${scenario.player_count_max}人`}
+                  {' / '}
+                  {scenario.duration}分
+                  {scenario.participation_fee && ` / ¥${scenario.participation_fee.toLocaleString()}〜`}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
