@@ -20,6 +20,7 @@ interface ListViewProps {
   getColorFromName: (color: string) => string
   scenarios: any[]
   onCardClick: (scenarioId: string) => void
+  isSlotBlocked?: (date: number, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening') => boolean
 }
 
 /**
@@ -35,7 +36,8 @@ export const ListView = memo(function ListView({
   getEventsForDateStore,
   getColorFromName,
   scenarios,
-  onCardClick
+  onCardClick,
+  isSlotBlocked
 }: ListViewProps) {
   const [isMobile, setIsMobile] = useState(false)
 
@@ -60,8 +62,15 @@ export const ListView = memo(function ListView({
     return map
   }, [scenarios])
 
-  const renderEventCell = (events: any[], store: any, timeSlot: string) => {
+  const renderEventCell = (events: any[], store: any, timeSlot: 'morning' | 'afternoon' | 'evening', date: number) => {
+    // GMテスト等でブロックされている場合は貸切申込ボタンを表示しない
+    const blocked = isSlotBlocked?.(date, store.id, timeSlot) ?? false
+    
     if (events.length === 0) {
+      if (blocked) {
+        // ブロックされている時間帯は何も表示しない（空のセル）
+        return null
+      }
       return (
         <div className="p-1 sm:p-2">
           <button
@@ -272,21 +281,21 @@ export const ListView = memo(function ListView({
                 {/* 午前セル */}
                 <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
                   <div className="flex flex-col">
-                    {renderEventCell(morningEvents, store, 'morning')}
+                    {renderEventCell(morningEvents, store, 'morning', date)}
                   </div>
                 </TableCell>
 
                 {/* 午後セル */}
                 <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
                   <div className="flex flex-col">
-                    {renderEventCell(afternoonEvents, store, 'afternoon')}
+                    {renderEventCell(afternoonEvents, store, 'afternoon', date)}
                   </div>
                 </TableCell>
 
                 {/* 夜間セル */}
                 <TableCell className="schedule-table-cell p-0 w-10 sm:w-48">
                   <div className="flex flex-col">
-                    {renderEventCell(eveningEvents, store, 'evening')}
+                    {renderEventCell(eveningEvents, store, 'evening', date)}
                   </div>
                 </TableCell>
               </TableRow>

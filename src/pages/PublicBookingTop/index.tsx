@@ -34,7 +34,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('all')
 
   // データ取得フック
-  const { scenarios, allEvents, stores, isLoading, loadData } = useBookingData()
+  const { scenarios, allEvents, blockedSlots, stores, isLoading, loadData } = useBookingData()
 
   // カレンダーデータフック
   const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(
@@ -43,10 +43,11 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   )
 
   // リストビューデータフック
-  const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(
+  const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore, isSlotBlocked } = useListViewData(
     allEvents,
     stores,
-    selectedStoreFilter
+    selectedStoreFilter,
+    blockedSlots
   )
 
   // 検索キーワード
@@ -228,6 +229,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                 getColorFromName={getColorFromName}
                 scenarios={scenarios}
                 onCardClick={handleCardClick}
+                isSlotBlocked={isSlotBlocked}
               />
             </TabsContent>
           </Tabs>

@@ -49,6 +49,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
   export function useBookingData() {
     const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
     const [allEvents, setAllEvents] = useState<any[]>([])
+    const [blockedSlots, setBlockedSlots] = useState<any[]>([]) // GMテスト等、貸切申込を受け付けない時間帯
     const [stores, setStores] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(true)
 
@@ -115,6 +116,14 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
         
         return isNotCancelled && (isOpenAndEnabled || isPrivateBooking)
+      })
+      
+      // GMテスト等、貸切申込を受け付けない時間帯をフィルタリング
+      const blockedSlotsData = allEventsData.filter((event: any) => {
+        const isNotCancelled = !event.is_cancelled
+        // GMテスト、テストプレイは貸切申込を受け付けない
+        const isBlocked = event.category === 'gmtest' || event.category === 'testplay'
+        return isNotCancelled && isBlocked
       })
       
       // 最適化: 店舗データをMapに変換（O(1)アクセス）
@@ -336,6 +345,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       // データを即座に設定（非同期化は不要、むしろ遅延の原因になる）
       setScenarios(scenarioList)
       setAllEvents(enrichedEvents) // 加工済みイベントを使用
+      setBlockedSlots(blockedSlotsData) // GMテスト等の時間帯
       setStores(storesData)
       setIsLoading(false)
       
@@ -376,6 +386,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
   return {
     scenarios,
     allEvents,
+    blockedSlots, // GMテスト等、貸切申込を受け付けない時間帯
     stores,
     isLoading,
     loadData

@@ -9,7 +9,7 @@ interface ListViewDataItem {
 /**
  * リスト表示のロジックを管理するフック
  */
-export function useListViewData(allEvents: any[], stores: any[], selectedStoreFilter: string) {
+export function useListViewData(allEvents: any[], stores: any[], selectedStoreFilter: string, blockedSlots: any[] = []) {
   const [listViewMonth, setListViewMonth] = useState(new Date())
 
   /**
@@ -86,6 +86,26 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
   }, [allEvents])
 
   /**
+   * GMテスト等のブロック時間帯をインデックス化
+   */
+  const blockedByDateStoreSlot = useMemo(() => {
+    const map = new Map<string, boolean>()
+    blockedSlots.forEach(event => {
+      const dateStr = event.date
+      const eventStoreId = event.store_id || event.venue
+      // 時間帯を判定
+      const hour = parseInt(event.start_time?.split(':')[0] || '0')
+      let timeSlot = 'morning'
+      if (hour >= 12 && hour <= 17) timeSlot = 'afternoon'
+      else if (hour >= 18) timeSlot = 'evening'
+      
+      const key = `${dateStr}:${eventStoreId}:${timeSlot}`
+      map.set(key, true)
+    })
+    return map
+  }, [blockedSlots])
+
+  /**
    * 特定の日付・店舗の公演を取得
    * 最適化: インデックス化されたイベントを使用（O(1)アクセス）
    */
@@ -132,6 +152,27 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
     return store?.color || '#gray'
   }, [storeMap])
 
+  /**
+   * 指定の日付・店舗・時間帯がGMテスト等でブロックされているかチェック
+   */
+  const isSlotBlocked = useCallback((date: number, storeId: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
+    const dateObj = new Date(listViewMonth.getFullYear(), listViewMonth.getMonth(), date)
+    const dateStr = formatDateJST(dateObj)
+    
+    // 店舗情報を取得
+    const store = storeMap.get(storeId)
+    if (!store) return false
+    
+    // 可能な店舗ID/名前の組み合わせでチェック
+    const possibleKeys = [
+      `${dateStr}:${storeId}:${timeSlot}`,
+      `${dateStr}:${store.short_name}:${timeSlot}`,
+      `${dateStr}:${store.name}:${timeSlot}`
+    ]
+    
+    return possibleKeys.some(key => blockedByDateStoreSlot.has(key))
+  }, [blockedByDateStoreSlot, storeMap, listViewMonth])
+
   return {
     listViewMonth,
     setListViewMonth,
@@ -140,6 +181,7 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
     getEventsForDateStore,
     getStoreName,
     getStoreColor,
+    isSlotBlocked,
     generateListViewData: () => listViewData
   }
 }
