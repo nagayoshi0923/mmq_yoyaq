@@ -41,7 +41,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin'] },
     { id: 'shift-submission', label: 'シフト提出', icon: Clock, roles: ['admin', 'staff'] },
     { id: 'gm-availability', label: 'GM確認', icon: Clock, roles: ['admin', 'staff'] },
-    { id: 'staff-profile', label: 'マイプロフィール', icon: UserCircle, roles: ['staff'] },
+    { id: 'staff-profile', label: 'マイプロフィール', icon: UserCircle, roles: ['admin', 'staff'] },
     { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin'] },
     { id: 'customer-management', label: '顧客管理', icon: Users, roles: ['admin'] },
     { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },
