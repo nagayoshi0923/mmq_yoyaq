@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react'
 import { formatDateJST } from '@/utils/dateUtils'
 import { BookingFilters } from './BookingFilters'
+import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface CalendarDay {
   date: Date
@@ -133,43 +134,84 @@ export const CalendarView = memo(function CalendarView({
                     const storeName = getStoreName(event)
                     const storeColor = getStoreColor(event)
                     
+                    // シナリオ情報を取得（画像URL用）
+                    const scenario = scenarioMap.get(event.scenario_id) || 
+                                   scenarioMap.get(event.scenario) ||
+                                   scenarios.find(s => 
+                                     s.scenario_id === event.scenario_id || 
+                                     s.scenario_title === event.scenario
+                                   )
+                    const imageUrl = scenario?.key_visual_url || event.scenarios?.image_url || event.scenarios?.key_visual_url
+                    
                     return (
                       <div
                         key={idx}
                         onClick={() => {
-                          if (!isPrivateBooking) {
-                            // 最適化: Mapから直接取得（O(1)）
-                            const scenario = scenarioMap.get(event.scenario_id) || 
-                                           scenarioMap.get(event.scenario) ||
-                                           scenarios.find(s => 
-                                             s.scenario_id === event.scenario_id || 
-                                             s.scenario_title === event.scenario
-                                           )
-                            if (scenario) onCardClick(scenario.scenario_id)
+                          if (!isPrivateBooking && scenario) {
+                            onCardClick(scenario.scenario_id)
                           }
                         }}
-                        className={`text-xs p-1 sm:p-1.5 rounded-none transition-colors border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:bg-gray-50'}`}
+                        className={`text-xs transition-colors border-l-2 touch-manipulation ${isPrivateBooking ? '' : 'cursor-pointer hover:bg-gray-50'}`}
                         style={{
                           borderLeftColor: isPrivateBooking ? '#9CA3AF' : (isFull ? '#9CA3AF' : storeColor),
-                          backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`)
+                          backgroundColor: isPrivateBooking ? '#F3F4F6' : (isFull ? '#F3F4F6' : `${storeColor}15`),
+                          padding: '2px 3px'
                         }}
                       >
-                        <div className="space-y-0.5">
-                          {/* 1行目: 時間 */}
-                          <div className="text-xs leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
-                            {event.start_time?.slice(0, 5)}
+                        <div className="flex gap-1 sm:gap-1.5">
+                          {/* 左カラム: 画像（PC版のみ表示）比率1:1.4 */}
+                          <div 
+                            className={`hidden sm:block flex-shrink-0 w-[40px] overflow-hidden ${
+                              isPrivateBooking ? 'bg-gray-300' : 'bg-gray-200'
+                            }`}
+                            style={{ aspectRatio: '1 / 1.4' }}
+                          >
+                            {isPrivateBooking ? (
+                              <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                                <span className="text-gray-500 text-[8px] font-medium">MMQ</span>
+                              </div>
+                            ) : imageUrl ? (
+                              <OptimizedImage
+                                src={imageUrl}
+                                alt={event.scenario || scenario?.scenario_title || event.scenarios?.title || 'シナリオ画像'}
+                                responsive={false}
+                                useWebP={true}
+                                quality={70}
+                                lazy={true}
+                                srcSetSizes={[50, 100]}
+                                breakpoints={{ mobile: 50, tablet: 75, desktop: 100 }}
+                                className="w-full h-full object-cover"
+                                fallback={
+                                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                    <span className="text-gray-400 text-[8px]">No Image</span>
+                                  </div>
+                                }
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                <span className="text-gray-400 text-[8px]">No Image</span>
+                              </div>
+                            )}
                           </div>
-                          {/* 2行目: 店舗 */}
-                          <div className="text-xs leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
-                            {storeName}
-                          </div>
-                          {/* 3行目: シナリオ */}
-                          <div className={`text-xs leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
-                            {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
-                          </div>
-                          {/* 4行目: 人数 */}
-                          <div className={`text-xs leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
-                            {isPrivateBooking ? '貸切' : isFull ? '満席' : `残${available}人`}
+
+                          {/* 右カラム: 情報 */}
+                          <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
+                            {/* 1行目: 時間 */}
+                            <div className="text-xs leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                              {event.start_time?.slice(0, 5)}
+                            </div>
+                            {/* 2行目: 店舗 */}
+                            <div className="text-xs leading-tight" style={{ color: isPrivateBooking ? '#6B7280' : (isFull ? '#6B7280' : storeColor) }}>
+                              {storeName}
+                            </div>
+                            {/* 3行目: シナリオ */}
+                            <div className={`text-xs leading-tight truncate ${isPrivateBooking ? 'text-gray-500' : 'text-gray-800'}`}>
+                              {isPrivateBooking ? '貸切' : (event.scenario || event.scenarios?.title)}
+                            </div>
+                            {/* 4行目: 人数 */}
+                            <div className={`text-xs leading-tight ${isPrivateBooking ? 'text-gray-500' : (isFull ? 'text-gray-500' : 'text-gray-600')}`}>
+                              {isPrivateBooking ? '貸切' : isFull ? '満席' : `残${available}人`}
+                            </div>
                           </div>
                         </div>
                       </div>
