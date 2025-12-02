@@ -119,12 +119,8 @@ export function useScenarioDetail(scenarioId: string) {
           }
           
           // 最大人数と現在の参加者数を正しく取得（満席も含む）
-          // scenarios.player_count_maxを最優先（capacityは古い値の可能性があるため）
-          const scenarioMaxPlayers = event.scenarios?.player_count_max
-          const maxParticipants = scenarioMaxPlayers ||
-                                  event.max_participants ||
-                                  event.capacity ||
-                                  8
+          // シナリオマスタのplayer_count_maxを使用（公演データは古い値の可能性があるため）
+          const maxParticipants = scenarioData.player_count_max || 8
           const currentParticipants = event.current_participants || 0
           const available = maxParticipants - currentParticipants
           
