@@ -178,11 +178,129 @@ export const CalendarView = memo(function CalendarView({
                       { slot: 'evening', label: '夜間' }
                     ]
                     
-                    // 何もない場合は時間帯ごとの貸切申込ボタン
-                    if (allDisplayEvents.length === 0 && selectedStore) {
+                    // 時間帯ごとにイベントをグループ化
+                    const eventsBySlot = {
+                      morning: allDisplayEvents.filter((e: any) => getTimeSlot(e.start_time) === 'morning'),
+                      afternoon: allDisplayEvents.filter((e: any) => getTimeSlot(e.start_time) === 'afternoon'),
+                      evening: allDisplayEvents.filter((e: any) => getTimeSlot(e.start_time) === 'evening')
+                    }
+                    
+                    // 全店舗表示で何もない場合
+                    if (allDisplayEvents.length === 0 && !selectedStore) {
                       return (
-                        <div className="space-y-1 p-1">
-                          {timeSlots.map(({ slot, label }) => (
+                        <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">
+                          店舗を選択して貸切申込
+                        </div>
+                      )
+                    }
+                    
+                    // 時間帯順にイベントと貸切ボタンを表示
+                    const renderEvent = (event: any, idx: number) => {
+                      // useBookingDataで事前計算済みのplayer_count_maxを使用
+                      const maxParticipants = event.player_count_max || 8
+                      const available = maxParticipants - (event.current_participants || 0)
+                      const isFull = available === 0
+                      const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
+                      const isGmTest = event.category === 'gmtest' || event.category === 'testplay'
+                      const isReserved = isPrivateBooking || isGmTest
+                      const storeName = getStoreName(event)
+                      const storeColor = getStoreColor(event)
+                      
+                      const scenario = scenarioMap.get(event.scenario_id) || 
+                                     scenarioMap.get(event.scenario) ||
+                                     event.scenario_data
+                      const imageUrl = event.key_visual_url
+                      
+                      if (isReserved) {
+                        return (
+                          <div
+                            key={`${event.id || idx}`}
+                            className="text-xs border-l-2 bg-gray-100"
+                            style={{ borderLeftColor: '#9CA3AF', padding: '2px 3px' }}
+                          >
+                            <div className="flex items-center gap-1 text-gray-500">
+                              <span>{event.start_time?.slice(0, 5)}</span>
+                              <span>{storeName}</span>
+                              <span>予約済</span>
+                            </div>
+                          </div>
+                        )
+                      }
+                      
+                      return (
+                        <div
+                          key={`${event.id || idx}`}
+                          onClick={() => scenario && onCardClick(scenario.scenario_id)}
+                          className="text-xs transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
+                          style={{
+                            borderLeftColor: isFull ? '#9CA3AF' : storeColor,
+                            backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
+                            padding: '2px 3px'
+                          }}
+                        >
+                          <div className="flex gap-1 sm:gap-1.5">
+                            {/* 左カラム: 画像（PC版のみ表示）比率1:1.4 */}
+                            <div 
+                              className="hidden sm:block flex-shrink-0 w-[40px] overflow-hidden bg-gray-200"
+                              style={{ aspectRatio: '1 / 1.4' }}
+                            >
+                              {imageUrl ? (
+                                <OptimizedImage
+                                  src={imageUrl}
+                                  alt={event.scenario || scenario?.scenario_title || event.scenarios?.title || 'シナリオ画像'}
+                                  responsive={false}
+                                  useWebP={true}
+                                  quality={70}
+                                  lazy={true}
+                                  srcSetSizes={[50, 100]}
+                                  breakpoints={{ mobile: 50, tablet: 75, desktop: 100 }}
+                                  className="w-full h-full object-cover"
+                                  fallback={
+                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                      <span className="text-gray-400 text-[8px]">No Image</span>
+                                    </div>
+                                  }
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                  <span className="text-gray-400 text-[8px]">No Image</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 右カラム: 情報 */}
+                            <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
+                              <div className="text-xs leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                {event.start_time?.slice(0, 5)}
+                              </div>
+                              <div className="text-xs leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
+                                {storeName}
+                              </div>
+                              <div className="text-xs leading-tight truncate text-gray-800">
+                                {event.scenario || event.scenarios?.title}
+                              </div>
+                              <div className={`text-xs leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
+                                {isFull ? '満席' : `残${available}人`}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    }
+                    
+                    return (
+                    <>
+                      {/* 時間帯順にイベントと貸切ボタンを表示 */}
+                      {timeSlots.map(({ slot, label }) => {
+                        const slotEvents = eventsBySlot[slot]
+                        const hasEvents = slotEvents.length > 0
+                        
+                        if (hasEvents) {
+                          // イベントがある場合
+                          return slotEvents.map((event: any, idx: number) => renderEvent(event, idx))
+                        } else if (selectedStore) {
+                          // イベントがなく、店舗が選択されている場合は貸切ボタン
+                          return (
                             <button
                               key={slot}
                               className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 rounded text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
@@ -192,149 +310,12 @@ export const CalendarView = memo(function CalendarView({
                             >
                               {label} 貸切
                             </button>
-                          ))}
-                        </div>
-                      )
-                    }
-                    
-                    // 全店舗表示で何もない場合
-                    if (allDisplayEvents.length === 0) {
-                      return (
-                        <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">
-                          店舗を選択して貸切申込
-                        </div>
-                      )
-                    }
-                    
-                    // イベントを表示 + 空いている時間帯に貸切申込ボタン
-                    return (
-                    <>
-                    {allDisplayEvents.map((event: any, idx: number) => {
-                    // useBookingDataで事前計算済みのplayer_count_maxを使用
-                    const maxParticipants = event.player_count_max || 8
-                    const available = maxParticipants - (event.current_participants || 0)
-                    const isFull = available === 0
-                    const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
-                    const isGmTest = event.category === 'gmtest' || event.category === 'testplay'
-                    const isReserved = isPrivateBooking || isGmTest // 予約済みかどうか
-                    const storeName = getStoreName(event)
-                    const storeColor = getStoreColor(event)
-                    
-                    // シナリオ情報を取得（クリック時のscenario_id用）
-                    const scenario = scenarioMap.get(event.scenario_id) || 
-                                   scenarioMap.get(event.scenario) ||
-                                   event.scenario_data
-                    // useBookingDataで事前計算済みのkey_visual_urlを使用
-                    const imageUrl = event.key_visual_url
-                    
-                    // 予約済みの場合はシンプル表示
-                    if (isReserved) {
-                      return (
-                        <div
-                          key={idx}
-                          className="text-xs border-l-2 bg-gray-100"
-                          style={{
-                            borderLeftColor: '#9CA3AF',
-                            padding: '2px 3px'
-                          }}
-                        >
-                          <div className="flex items-center gap-1 text-gray-500">
-                            <span>{event.start_time?.slice(0, 5)}</span>
-                            <span>{storeName}</span>
-                            <span>予約済</span>
-                          </div>
-                        </div>
-                      )
-                    }
-                    
-                    return (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          if (scenario) {
-                            onCardClick(scenario.scenario_id)
-                          }
-                        }}
-                        className="text-xs transition-colors border-l-2 touch-manipulation cursor-pointer hover:bg-gray-50"
-                        style={{
-                          borderLeftColor: isFull ? '#9CA3AF' : storeColor,
-                          backgroundColor: isFull ? '#F3F4F6' : `${storeColor}15`,
-                          padding: '2px 3px'
-                        }}
-                      >
-                        <div className="flex gap-1 sm:gap-1.5">
-                          {/* 左カラム: 画像（PC版のみ表示）比率1:1.4 */}
-                          <div 
-                            className="hidden sm:block flex-shrink-0 w-[40px] overflow-hidden bg-gray-200"
-                            style={{ aspectRatio: '1 / 1.4' }}
-                          >
-                            {imageUrl ? (
-                              <OptimizedImage
-                                src={imageUrl}
-                                alt={event.scenario || scenario?.scenario_title || event.scenarios?.title || 'シナリオ画像'}
-                                responsive={false}
-                                useWebP={true}
-                                quality={70}
-                                lazy={true}
-                                srcSetSizes={[50, 100]}
-                                breakpoints={{ mobile: 50, tablet: 75, desktop: 100 }}
-                                className="w-full h-full object-cover"
-                                fallback={
-                                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                    <span className="text-gray-400 text-[8px]">No Image</span>
-                                  </div>
-                                }
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                <span className="text-gray-400 text-[8px]">No Image</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* 右カラム: 情報 */}
-                          <div className="flex flex-col gap-0 flex-1 min-w-0 justify-between">
-                            {/* 1行目: 時間 */}
-                            <div className="text-xs leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
-                              {event.start_time?.slice(0, 5)}
-                            </div>
-                            {/* 2行目: 店舗 */}
-                            <div className="text-xs leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
-                              {storeName}
-                            </div>
-                            {/* 3行目: シナリオ */}
-                            <div className="text-xs leading-tight truncate text-gray-800">
-                              {event.scenario || event.scenarios?.title}
-                            </div>
-                            {/* 4行目: 人数 */}
-                            <div className={`text-xs leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
-                              {isFull ? '満席' : `残${available}人`}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                          )
+                        }
+                        return null
+                      })}
+                    </>
                     )
-                  })}
-                  {/* 選択中の店舗で空いている時間帯に貸切申込ボタンを表示 */}
-                  {selectedStore && (
-                    <div className="space-y-1 p-1 pt-2 border-t border-gray-200 mt-1">
-                      {timeSlots.map(({ slot, label }) => (
-                        !hasEventInSlot(slot) && (
-                          <button
-                            key={slot}
-                            className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 rounded text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
-                            onClick={() => {
-                              window.location.hash = `#private-booking-select?date=${dateStr}&store=${selectedStore.id}&slot=${slot}`
-                            }}
-                          >
-                            {label} 貸切
-                          </button>
-                        )
-                      ))}
-                    </div>
-                  )}
-                  </>
-                  )
                   })()}
                 </div>
               </div>
