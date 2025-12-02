@@ -12,7 +12,8 @@ import {
   DollarSign,
   FileText,
   UserCog,
-  Shield
+  Shield,
+  AlertCircle
 } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
@@ -33,6 +34,7 @@ import { SystemSettings } from './pages/SystemSettings'
 import { EmailSettings } from './pages/EmailSettings'
 import { CustomerSettings } from './pages/CustomerSettings'
 import { DataManagementSettings } from './pages/DataManagementSettings'
+import { BookingNoticeSettings } from './pages/BookingNoticeSettings'
 
 // サイドバーのメニュー項目定義（2025-11-22 更新: 全体設定追加）
 const SETTINGS_MENU_ITEMS: SidebarMenuItem[] = [
@@ -48,6 +50,7 @@ const SETTINGS_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'staff', label: 'スタッフ設定', icon: UserCog, description: 'スタッフ管理' },
   { id: 'email', label: 'メール設定', icon: Mail, description: 'メールテンプレート' },
   { id: 'notifications', label: '通知設定', icon: Bell, description: '通知の設定' },
+  { id: 'booking-notice', label: '注意事項設定', icon: AlertCircle, description: '予約時の注意事項' },
   { id: 'system', label: 'システム設定', icon: Shield, description: 'システム設定' },
   { id: 'data', label: 'データ管理', icon: Database, description: 'データ管理' }
 ]
@@ -95,6 +98,8 @@ export function Settings() {
         return <CustomerSettings storeId={storeId} />
       case 'data':
         return <DataManagementSettings storeId={storeId} />
+      case 'booking-notice':
+        return <BookingNoticeSettings />
       default:
         return <GeneralSettings />
     }
