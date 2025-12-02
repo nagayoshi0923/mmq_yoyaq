@@ -51,7 +51,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   // カレンダーデータフック
   const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(
     allEvents,
-    selectedStoreFilter
+    selectedStoreFilter,
+    stores
   )
 
   // リストビューデータフック

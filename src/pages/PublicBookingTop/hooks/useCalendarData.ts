@@ -9,7 +9,7 @@ interface CalendarDay {
 /**
  * カレンダー表示のロジックを管理するフック
  */
-export function useCalendarData(allEvents: any[], selectedStoreFilter: string) {
+export function useCalendarData(allEvents: any[], selectedStoreFilter: string, stores: any[] = []) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
 
   /**
@@ -93,14 +93,17 @@ export function useCalendarData(allEvents: any[], selectedStoreFilter: string) {
     
     // 店舗フィルター適用
     if (selectedStoreFilter !== 'all') {
-      return events.filter(event => 
-        event.store_id === selectedStoreFilter || 
-        event.venue === selectedStoreFilter
-      )
+      const selectedStore = stores.find(s => s.id === selectedStoreFilter)
+      return events.filter(event => {
+        const eventStoreId = event.store_id || event.venue
+        return eventStoreId === selectedStoreFilter || 
+               eventStoreId === selectedStore?.short_name || 
+               eventStoreId === selectedStore?.name
+      })
     }
     
     return events
-  }, [eventsByDate, selectedStoreFilter])
+  }, [eventsByDate, selectedStoreFilter, stores])
 
   return {
     currentMonth,

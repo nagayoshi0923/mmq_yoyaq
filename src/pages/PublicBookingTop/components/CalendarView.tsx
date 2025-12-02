@@ -130,7 +130,18 @@ export const CalendarView = memo(function CalendarView({
                 <div className="relative space-y-1 px-0 pb-0 overflow-y-auto max-h-[200px] sm:max-h-[250px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {(() => {
                     const dateStr = formatDateJST(day.date)
-                    const blockedEvents = blockedEventsByDate.get(dateStr) || []
+                    const allBlockedEvents = blockedEventsByDate.get(dateStr) || []
+                    
+                    // blockedEventsにも店舗フィルターを適用
+                    const blockedEvents = selectedStoreFilter !== 'all'
+                      ? allBlockedEvents.filter((e: any) => {
+                          const eventStoreId = e.store_id || e.venue
+                          const selectedStore = stores.find(s => s.id === selectedStoreFilter)
+                          return eventStoreId === selectedStoreFilter || 
+                                 eventStoreId === selectedStore?.short_name || 
+                                 eventStoreId === selectedStore?.name
+                        })
+                      : allBlockedEvents
                     
                     // 通常公演 + 貸切公演 + GMテスト等を全てマージして時間順にソート
                     const allDisplayEvents = [...events, ...blockedEvents].sort((a, b) => {
