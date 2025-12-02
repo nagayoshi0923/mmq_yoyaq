@@ -390,6 +390,19 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
             </div>
           </div>
         </div>
+
+        {/* 関連シナリオ（2カラムレイアウトの外、全幅で表示） */}
+        {relatedScenarios.length > 0 && (
+          <div className="mt-8 pt-6 border-t">
+            <RelatedScenarios
+              scenarios={relatedScenarios}
+              authorName={scenario.author}
+              onScenarioClick={(id) => {
+                window.location.hash = `scenario-detail/${id}`
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
