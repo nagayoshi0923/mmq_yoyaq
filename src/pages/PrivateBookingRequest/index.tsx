@@ -150,7 +150,7 @@ export function PrivateBookingRequest({
           <div className="md:col-span-2 space-y-6">
             {/* シナリオ情報 */}
             <div>
-              <h2 className="text-lg font-semibold mb-3">シナリオ情報</h2>
+              <h2 className="text-base font-semibold mb-3">シナリオ情報</h2>
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div>
@@ -169,7 +169,7 @@ export function PrivateBookingRequest({
 
             {/* 候補日時 */}
             <div>
-              <h2 className="text-lg font-semibold mb-3">候補日時（{selectedTimeSlots.length}件）</h2>
+              <h2 className="text-base font-semibold mb-3">候補日時（{selectedTimeSlots.length}件）</h2>
               <div className="space-y-2">
                 {selectedTimeSlots.map((slot, index) => (
                   <Card key={index}>
@@ -195,7 +195,7 @@ export function PrivateBookingRequest({
 
             {/* 希望店舗 */}
             <div>
-              <h2 className="text-lg font-semibold mb-3">希望店舗</h2>
+              <h2 className="text-base font-semibold mb-3">希望店舗</h2>
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-2">
@@ -225,7 +225,7 @@ export function PrivateBookingRequest({
 
             {/* お客様情報 */}
             <div>
-              <h2 className="text-lg font-semibold mb-3">お客様情報</h2>
+              <h2 className="text-base font-semibold mb-3">お客様情報</h2>
               <Card>
                 <CardContent className="p-4 space-y-4">
                   <div>
@@ -281,7 +281,7 @@ export function PrivateBookingRequest({
           {/* 右側：料金サマリー */}
           <div className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold mb-3">料金（目安）</h2>
+              <h2 className="text-base font-semibold mb-3">料金（目安）</h2>
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex justify-between text-sm">

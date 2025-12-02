@@ -163,7 +163,7 @@ export function BookingConfirmation({
           <div className="md:col-span-2 space-y-6">
             {/* 公演情報 */}
             <div>
-              <h2 className="text-lg font-semibold mb-3">公演情報</h2>
+              <h2 className="text-base font-semibold mb-3">公演情報</h2>
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div>
@@ -202,7 +202,7 @@ export function BookingConfirmation({
 
             {/* 参加人数 */}
             <div>
-              <h2 className="text-lg font-semibold mb-3">参加人数</h2>
+              <h2 className="text-base font-semibold mb-3">参加人数</h2>
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
@@ -235,7 +235,7 @@ export function BookingConfirmation({
 
             {/* お客様情報 */}
             <div>
-              <h2 className="text-lg font-semibold mb-3">お客様情報</h2>
+              <h2 className="text-base font-semibold mb-3">お客様情報</h2>
               <Card>
                 <CardContent className="p-4 space-y-4">
                   <div>
@@ -291,7 +291,7 @@ export function BookingConfirmation({
           {/* 右側：料金サマリー */}
           <div className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold mb-3">料金</h2>
+              <h2 className="text-base font-semibold mb-3">料金</h2>
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex justify-between text-sm">
