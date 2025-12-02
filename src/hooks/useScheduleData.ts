@@ -517,23 +517,41 @@ export function useScheduleData(currentDate: Date) {
         
         const data = await scheduleApi.getByMonth(year, month)
         
+        // シナリオリストを取得（player_count_max取得用のフォールバック）
+        const scenarioList = await scenarioApi.getAll()
+        const scenarioByTitle = new Map<string, any>()
+        scenarioList.forEach((s: any) => {
+          scenarioByTitle.set(s.title, s)
+        })
+        
         // Supabaseのデータを内部形式に変換
-        const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => ({
-          id: event.id,
-          date: event.date,
-          venue: event.store_id, // store_idを直接使用
-          scenario: event.scenarios?.title || event.scenario || '', // JOINされたタイトルを優先
-          gms: event.gms || [],
-          gm_roles: event.gm_roles || {},
-          start_time: event.start_time,
-          end_time: event.end_time,
-          category: event.category,
-          is_cancelled: event.is_cancelled || false,
-          participant_count: event.current_participants || 0, // 実際の参加者数を使用
-          max_participants: event.capacity || 8,
-          notes: event.notes || '',
-          is_reservation_enabled: event.is_reservation_enabled || false
-        }))
+        const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => {
+          const scenarioTitle = event.scenarios?.title || event.scenario || ''
+          // scenariosがない場合はシナリオリストから検索
+          const scenarioInfo = event.scenarios || (scenarioTitle ? scenarioByTitle.get(scenarioTitle) : null)
+          
+          return {
+            id: event.id,
+            date: event.date,
+            venue: event.store_id, // store_idを直接使用
+            scenario: scenarioTitle, // JOINされたタイトルを優先
+            scenarios: scenarioInfo ? {
+              id: scenarioInfo.id,
+              title: scenarioInfo.title,
+              player_count_max: scenarioInfo.player_count_max
+            } : undefined,
+            gms: event.gms || [],
+            gm_roles: event.gm_roles || {},
+            start_time: event.start_time,
+            end_time: event.end_time,
+            category: event.category,
+            is_cancelled: event.is_cancelled || false,
+            participant_count: event.current_participants || 0, // 実際の参加者数を使用
+            max_participants: event.capacity || 8,
+            notes: event.notes || '',
+            is_reservation_enabled: event.is_reservation_enabled || false
+          }
+        })
         
         // 貸切リクエストを取得して追加（確定済みのみ）
         const { data: privateRequests, error: privateError } = await supabase
@@ -714,23 +732,41 @@ export function useScheduleData(currentDate: Date) {
       
       const data = await scheduleApi.getByMonth(year, month)
       
+      // シナリオリストを取得（player_count_max取得用のフォールバック）
+      const scenarioList = await scenarioApi.getAll()
+      const scenarioByTitle = new Map<string, any>()
+      scenarioList.forEach((s: any) => {
+        scenarioByTitle.set(s.title, s)
+      })
+      
       // Supabaseのデータを内部形式に変換
-      const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => ({
-        id: event.id,
-        date: event.date,
-        venue: event.store_id,
-        scenario: event.scenarios?.title || event.scenario || '',
-        gms: event.gms || [],
-        gm_roles: event.gm_roles || {},
-        start_time: event.start_time,
-        end_time: event.end_time,
-        category: event.category,
-        is_cancelled: event.is_cancelled || false,
-        participant_count: event.current_participants || 0, // 実際の参加者数を使用
-        max_participants: event.capacity || 8,
-        notes: event.notes || '',
-        is_reservation_enabled: event.is_reservation_enabled || false
-      }))
+      const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => {
+        const scenarioTitle = event.scenarios?.title || event.scenario || ''
+        // scenariosがない場合はシナリオリストから検索
+        const scenarioInfo = event.scenarios || (scenarioTitle ? scenarioByTitle.get(scenarioTitle) : null)
+        
+        return {
+          id: event.id,
+          date: event.date,
+          venue: event.store_id,
+          scenario: scenarioTitle,
+          scenarios: scenarioInfo ? {
+            id: scenarioInfo.id,
+            title: scenarioInfo.title,
+            player_count_max: scenarioInfo.player_count_max
+          } : undefined,
+          gms: event.gms || [],
+          gm_roles: event.gm_roles || {},
+          start_time: event.start_time,
+          end_time: event.end_time,
+          category: event.category,
+          is_cancelled: event.is_cancelled || false,
+          participant_count: event.current_participants || 0, // 実際の参加者数を使用
+          max_participants: event.capacity || 8,
+          notes: event.notes || '',
+          is_reservation_enabled: event.is_reservation_enabled || false
+        }
+      })
       
       // 貸切リクエストを取得して追加
       const { data: privateRequests, error: privateError } = await supabase

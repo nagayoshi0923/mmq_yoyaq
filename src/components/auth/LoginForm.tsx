@@ -101,9 +101,15 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       } else {
         // ログイン
         if (message.includes('Invalid login credentials')) {
-          setError('メールアドレスまたはパスワードが正しくありません')
+          setError('メールアドレスまたはパスワードが正しくありません。再度確認してください。')
         } else if (message.includes('Email not confirmed')) {
           setError('メールアドレスが確認されていません。受信トレイの確認メールのリンクをクリックしてください。')
+        } else if (message.includes('Invalid Refresh Token') || message.includes('Refresh Token Not Found')) {
+          setError('セッションの有効期限が切れました。再度ログインしてください。')
+        } else if (message.includes('Network')) {
+          setError('ネットワークエラーが発生しました。インターネット接続を確認してください。')
+        } else if (message.includes('too many requests') || message.includes('rate limit')) {
+          setError('ログイン試行回数が多すぎます。しばらく待ってから再度お試しください。')
         } else {
           setError('ログインに失敗しました: ' + message)
         }

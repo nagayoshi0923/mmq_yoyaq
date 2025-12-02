@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase, type AuthUser } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { User } from '@supabase/supabase-js'
@@ -10,6 +10,7 @@ interface AuthContextType {
   isInitialized: boolean  // 初期認証が完了したか（タイムアウトではなく、実際に完了）
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  refreshSession: () => Promise<void>  // 手動でセッションをリフレッシュ
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -35,11 +36,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const userRef = React.useRef<AuthUser | null>(null)
   // 認証処理中のフラグ（クロージャー問題を回避するためuseRefを使用）
   const isProcessingRef = React.useRef<boolean>(false)
+  // 最後のトークンリフレッシュ時間（重複リフレッシュ防止）
+  const lastRefreshRef = React.useRef<number>(0)
   
   // userが変更されたらrefも更新
   React.useEffect(() => {
     userRef.current = user
   }, [user])
+  
+  // 手動セッションリフレッシュ関数
+  const refreshSession = useCallback(async () => {
+    const now = Date.now()
+    // 30秒以内に既にリフレッシュした場合はスキップ
+    if (now - lastRefreshRef.current < 30000) {
+      logger.log('⏭️ セッションリフレッシュ: 30秒以内に既に実行済み、スキップ')
+      return
+    }
+    
+    lastRefreshRef.current = now
+    logger.log('🔄 セッションリフレッシュ開始')
+    
+    try {
+      const { data, error } = await supabase.auth.refreshSession()
+      if (error) {
+        logger.error('❌ セッションリフレッシュエラー:', error)
+        // リフレッシュに失敗した場合、サインアウト状態にする
+        if (error.message?.includes('Invalid Refresh Token') || 
+            error.message?.includes('Refresh Token Not Found')) {
+          setUser(null)
+          userRef.current = null
+        }
+        return
+      }
+      
+      if (data.session) {
+        logger.log('✅ セッションリフレッシュ成功')
+      }
+    } catch (err) {
+      logger.error('❌ セッションリフレッシュ例外:', err)
+    }
+  }, [])
 
   useEffect(() => {
     const authStartTime = performance.now()
@@ -105,23 +141,55 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         
         if (session?.user) {
-          // awaitせずに非同期で実行して、呼び出し元（setSessionなど）をブロックしないようにする
-          setUserFromSession(session.user).catch(err => {
-            logger.error('❌ setUserFromSession error (background):', err)
+          // queueMicrotaskで非同期実行し、setIntervalハンドラーをブロックしない
+          queueMicrotask(() => {
+            setUserFromSession(session.user).catch(err => {
+              logger.error('❌ setUserFromSession error (background):', err)
+            })
           })
         } else {
           setUser(null)
           userRef.current = null
         }
-        setLoading(false)
-        setIsInitialized(true)  // 認証完了をマーク
+        // 状態更新も遅延させてsetIntervalハンドラーへの影響を最小化
+        queueMicrotask(() => {
+          setLoading(false)
+          setIsInitialized(true)  // 認証完了をマーク
+        })
       }
     )
 
+    // タブがアクティブになったときにセッションをリフレッシュ（バックグラウンドでの期限切れ対策）
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && userRef.current) {
+        logger.log('👁️ タブがアクティブになりました、セッションを確認')
+        // 非同期でリフレッシュ（UIをブロックしない）
+        setTimeout(() => {
+          refreshSession()
+        }, 100)
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    // フォーカス時にもセッションを確認（visibilitychangeが発火しない場合の対策）
+    const handleFocus = () => {
+      if (userRef.current) {
+        logger.log('🎯 ウィンドウにフォーカス、セッションを確認')
+        setTimeout(() => {
+          refreshSession()
+        }, 100)
+      }
+    }
+    
+    window.addEventListener('focus', handleFocus)
+
     return () => {
       subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
     }
-  }, [])
+  }, [refreshSession])
 
   async function getInitialSession() {
     const startTime = performance.now()
@@ -357,11 +425,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
   async function signIn(email: string, password: string) {
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      // ログイン前に古いセッションをクリア（セッション切れ後のログイン問題対策）
+      // これにより、期限切れセッションが干渉することを防ぐ
+      const { data: currentSession } = await supabase.auth.getSession()
+      if (currentSession.session) {
+        logger.log('🔄 既存セッションを検出、クリアします')
+        await supabase.auth.signOut({ scope: 'local' })
+      }
+      
+      // 少し待機してからログイン（セッションクリアの完了を確実にする）
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      if (error) throw error
+      
+      if (error) {
+        logger.error('❌ ログインエラー:', error.message)
+        throw error
+      }
+      
+      logger.log('✅ ログイン成功:', data.user?.email)
     } catch (error) {
       setLoading(false)
       throw error
@@ -393,6 +478,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isInitialized,
     signIn,
     signOut,
+    refreshSession,
   }
 
   return (

@@ -23,6 +23,11 @@ interface ScheduleEvent {
   is_private_request?: boolean // 貸切リクエストかどうか
   reservation_info?: string
   reservation_id?: string // 貸切リクエストの元のreservation ID
+  scenarios?: {
+    id: string
+    title: string
+    player_count_max: number
+  }
 }
 
 interface PerformanceCardProps {
@@ -57,7 +62,8 @@ function PerformanceCardBase({
   onContextMenu
 }: PerformanceCardProps) {
   const reservationCount = event.participant_count || 0
-  const maxCapacity = event.max_participants || 8
+  // シナリオのplayer_count_maxを最優先
+  const maxCapacity = event.scenarios?.player_count_max || event.max_participants || 8
 
   // GMの役割による分類
   const gmRoles = event.gm_roles || {}

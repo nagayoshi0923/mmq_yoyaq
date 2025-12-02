@@ -128,7 +128,9 @@ export const CalendarView = memo(function CalendarView({
                     </div>
                   ) : (
                     events.map((event: any, idx: number) => {
-                    const available = (event.max_participants || 8) - (event.current_participants || 0)
+                    // シナリオのplayer_count_maxを最優先
+                    const maxParticipants = event.scenarios?.player_count_max || event.max_participants || 8
+                    const available = maxParticipants - (event.current_participants || 0)
                     const isFull = available === 0
                     const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
                     const storeName = getStoreName(event)

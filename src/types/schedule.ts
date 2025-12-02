@@ -20,6 +20,11 @@ export interface ScheduleEvent {
   is_private_booking?: boolean // 貸切予約かどうか
   timeSlot?: string // 貸切予約の時間帯（朝/昼/夜）
   gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
+  scenarios?: {
+    id: string
+    title: string
+    player_count_max: number
+  }
 }
 
 export interface EventFormData {

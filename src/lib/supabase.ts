@@ -10,7 +10,20 @@ if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KE
   logger.warn('実際のSupabaseを使用する場合は、.env.localファイルを作成してください。')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // セッションをlocalStorageに保存（デフォルトはtrue）
+    persistSession: true,
+    // トークンの自動リフレッシュを有効化
+    autoRefreshToken: true,
+    // 非同期でセッションを検出（パフォーマンス向上）
+    detectSessionInUrl: true,
+    // ストレージキーを明示的に設定
+    storageKey: 'mmq-supabase-auth',
+    // タブ間でのセッション同期を有効化
+    flowType: 'pkce',
+  },
+})
 
 // 認証状態の型定義
 export type AuthUser = {
