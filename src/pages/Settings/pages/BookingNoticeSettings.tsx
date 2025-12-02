@@ -23,8 +23,13 @@ import {
 } from '@/components/ui/select'
 import { Plus, Pencil, Trash2, Save, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { toast } from 'sonner'
 import { CATEGORY_CONFIG } from '@/utils/scheduleUtils'
+
+// シンプルな通知ヘルパー
+const notify = {
+  success: (message: string) => console.log('✅', message),
+  error: (message: string) => { console.error('❌', message); alert(message) }
+}
 
 // 公演カテゴリの定義
 const EVENT_CATEGORIES = [
@@ -93,7 +98,7 @@ export function BookingNoticeSettings() {
       setStores(storesRes.data || [])
     } catch (error) {
       console.error('データ取得エラー:', error)
-      toast.error('データの取得に失敗しました')
+      notify.error('データの取得に失敗しました')
     } finally {
       setIsLoading(false)
     }
@@ -130,11 +135,11 @@ export function BookingNoticeSettings() {
   // 保存
   const handleSave = async () => {
     if (!editForm.content.trim()) {
-      toast.error('注意事項の内容を入力してください')
+      notify.error('注意事項の内容を入力してください')
       return
     }
     if (editForm.applicable_types.length === 0) {
-      toast.error('適用カテゴリを1つ以上選択してください')
+      notify.error('適用カテゴリを1つ以上選択してください')
       return
     }
 
@@ -154,7 +159,7 @@ export function BookingNoticeSettings() {
           .eq('id', editingNotice.id)
 
         if (error) throw error
-        toast.success('注意事項を更新しました')
+        notify.success('注意事項を更新しました')
       } else {
         // 新規作成
         const maxSortOrder = notices.length > 0 
@@ -172,14 +177,14 @@ export function BookingNoticeSettings() {
           })
 
         if (error) throw error
-        toast.success('注意事項を追加しました')
+        notify.success('注意事項を追加しました')
       }
 
       setEditDialogOpen(false)
       fetchData()
     } catch (error) {
       console.error('保存エラー:', error)
-      toast.error('保存に失敗しました')
+      notify.error('保存に失敗しました')
     } finally {
       setIsSaving(false)
     }
@@ -196,11 +201,11 @@ export function BookingNoticeSettings() {
         .eq('id', notice.id)
 
       if (error) throw error
-      toast.success('注意事項を削除しました')
+      notify.success('注意事項を削除しました')
       fetchData()
     } catch (error) {
       console.error('削除エラー:', error)
-      toast.error('削除に失敗しました')
+      notify.error('削除に失敗しました')
     }
   }
 
@@ -222,7 +227,7 @@ export function BookingNoticeSettings() {
       ))
     } catch (error) {
       console.error('更新エラー:', error)
-      toast.error('更新に失敗しました')
+      notify.error('更新に失敗しました')
     }
   }
 
@@ -261,7 +266,7 @@ export function BookingNoticeSettings() {
       setNotices(newNotices.map((n, i) => ({ ...n, sort_order: i })))
     } catch (error) {
       console.error('並び替えエラー:', error)
-      toast.error('並び替えに失敗しました')
+      notify.error('並び替えに失敗しました')
     }
   }
 
@@ -290,7 +295,7 @@ export function BookingNoticeSettings() {
       setNotices(newNotices.map((n, i) => ({ ...n, sort_order: i })))
     } catch (error) {
       console.error('並び替えエラー:', error)
-      toast.error('並び替えに失敗しました')
+      notify.error('並び替えに失敗しました')
     }
   }
 
