@@ -258,11 +258,12 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
           {/* メインエリア - 詳細情報 */}
           <div className="md:col-span-8 space-y-4 md:space-y-6">
             <ScenarioHero scenario={scenario} events={events} />
-            {/* PC版: 注意事項をここに表示 */}
+            {/* PC版: 注意事項をここに表示（タブに応じて内容切り替え） */}
             <div className="hidden md:block">
               <BookingNotice 
                 reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
                 hasPreReading={scenario.has_pre_reading}
+                mode={activeTab}
               />
             </div>
           </div>
@@ -345,11 +346,12 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 </TabsContent>
               </Tabs>
 
-              {/* モバイル版: 注意事項をタブの下に表示 */}
+              {/* モバイル版: 注意事項をタブの下に表示（タブに応じて内容切り替え） */}
               <div className="md:hidden">
                 <BookingNotice 
                   reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
                   hasPreReading={scenario.has_pre_reading}
+                  mode={activeTab}
                 />
               </div>
 
