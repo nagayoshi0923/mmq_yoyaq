@@ -397,7 +397,7 @@ export function AdminDashboard() {
 
   if (currentPage === 'staff-profile') {
     return (
-      <Suspense fallback={<LoadingScreen message="マイプロフィールを読み込み中..." />}>
+      <Suspense fallback={<LoadingScreen message="担当作品を読み込み中..." />}>
         <StaffProfile />
       </Suspense>
     )

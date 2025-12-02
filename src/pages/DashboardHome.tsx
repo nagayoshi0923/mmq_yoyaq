@@ -176,7 +176,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       { id: 'schedule', label: 'スケジュール', icon: CalendarIcon, color: 'bg-green-100 text-green-800' },
       { id: 'shift-submission', label: 'シフト提出', icon: Clock, color: 'bg-indigo-100 text-indigo-800' },
       { id: 'gm-availability', label: 'GM確認', icon: Clock, color: 'bg-yellow-100 text-yellow-800' },
-      { id: 'staff-profile', label: 'マイプロフィール', icon: UserCircle, color: 'bg-pink-100 text-pink-800' },
+      { id: 'staff-profile', label: '担当作品', icon: UserCircle, color: 'bg-pink-100 text-pink-800' },
       { id: 'manual', label: 'マニュアル', icon: HelpCircle, color: 'bg-gray-100 text-gray-800' },
     ]
     

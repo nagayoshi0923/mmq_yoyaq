@@ -260,7 +260,7 @@ export function StaffProfile() {
     <AppLayout currentPage="staff-profile">
       <div className="container mx-auto max-w-4xl px-2 md:px-4 py-6">
         <PageHeader
-          title="マイプロフィール"
+          title="担当作品"
           description={`${staffName}さんの体験リストとGM可能作品を管理`}
         >
           <Button onClick={handleSave} disabled={saving}>
