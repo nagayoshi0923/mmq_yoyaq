@@ -36,7 +36,7 @@ const calculateParticipationFee = async (scenarioId: string, startTime: string, 
     // シナリオの料金設定を取得
     const { data: scenario, error } = await supabase
       .from('scenarios')
-      .select('participation_fee, participation_costs, flexible_pricing')
+      .select('participation_fee, participation_costs')
       .eq('id', scenarioId)
       .single()
 
@@ -64,12 +64,6 @@ const calculateParticipationFee = async (scenarioId: string, startTime: string, 
           baseFee = timeSlotCost.amount
         }
       }
-    }
-
-    // 柔軟な料金設定をチェック
-    if (scenario.flexible_pricing) {
-      // TODO: 柔軟な料金設定の適用ロジックを実装
-      logger.log('柔軟な料金設定が設定されています:', scenario.flexible_pricing)
     }
 
     return baseFee
