@@ -25,13 +25,6 @@ export const VenueAccess = memo(function VenueAccess({
   stores = [],
   mode = 'schedule'
 }: VenueAccessProps) {
-  // デバッグ: storesの構造を確認
-  console.log('VenueAccess - stores:', stores)
-  console.log('VenueAccess - selectedStoreIds:', selectedStoreIds)
-  if (stores.length > 0) {
-    console.log('VenueAccess - 最初のstore:', stores[0])
-    console.log('VenueAccess - 最初のstoreのキー:', Object.keys(stores[0]))
-  }
   // 公演日程タブ: 選択した公演の会場情報を表示
   const displayVenues = useMemo(() => {
     if (mode === 'schedule') {
@@ -50,11 +43,6 @@ export const VenueAccess = memo(function VenueAccess({
       return selectedStoreIds.map(storeId => {
         const store = stores.find(s => s.id === storeId)
         if (!store) return null
-        
-        // デバッグ: storeオブジェクト全体を確認
-        console.log('storeオブジェクト:', store)
-        console.log('store.address:', store.address)
-        console.log('storeの全キー:', Object.keys(store))
         
         return {
           name: store.name || '',
@@ -75,11 +63,11 @@ export const VenueAccess = memo(function VenueAccess({
 
   return (
     <div>
-      <h3 className="mb-2 sm:mb-3 text-sm sm:text-base">
+      <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">
         {mode === 'schedule' ? '会場アクセス' : '選択店舗'}
       </h3>
       <Card>
-        <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
+        <CardContent className="p-3 md:p-4 space-y-3">
           {displayVenues.map((venue, index) => {
             // 色名（例: "blue", "green"）か色コード（例: "#3B82F6"）かを判定
             const isHexColor = venue.color && venue.color.startsWith('#')
@@ -87,29 +75,19 @@ export const VenueAccess = memo(function VenueAccess({
               ? (isHexColor ? venue.color : getColorFromName(venue.color))
               : '#6B7280'
             
-            // デバッグ: venueデータを確認
-            console.log('VenueAccess - venue:', {
-              name: venue.name,
-              address: venue.address,
-              addressType: typeof venue.address,
-              addressLength: venue.address?.length,
-              hasAddress: !!venue.address,
-              addressTrimmed: venue.address?.trim(),
-              fullVenue: venue
-            })
-            
             return (
               <div key={`${venue.name}-${index}`} className="space-y-1">
                 <div className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" style={{ color: storeColor }} />
-                  <p className="text-sm sm:text-base" style={{ color: storeColor }}>
+                  <MapPin className="w-4 h-4 flex-shrink-0" style={{ color: storeColor }} />
+                  <p className="text-sm font-medium" style={{ color: storeColor }}>
                     {venue.name}
                   </p>
                 </div>
-                {/* 住所を常に表示（デバッグ用） */}
-                <p className="text-xs text-muted-foreground pl-5 sm:pl-5.5">
-                  {venue.address || '(住所データなし)'}
-                </p>
+                {venue.address && (
+                  <p className="text-xs text-muted-foreground pl-5">
+                    {venue.address}
+                  </p>
+                )}
               </div>
             )
           })}

@@ -56,7 +56,7 @@ export const EventList = memo(function EventList({
               onEventSelect(isSelected ? null : event.event_id)
             }}
           >
-            <div className="flex items-center gap-2 p-3 xl:p-4 touch-manipulation">
+            <div className="flex items-center gap-2 p-3 md:p-4 touch-manipulation">
               {/* 一番左：店舗 */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <span 

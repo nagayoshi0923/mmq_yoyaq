@@ -83,8 +83,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   return (
     <div>
       {/* 店舗選択 */}
-      <div className="mb-3">
-        <label className="text-sm mb-2 block">店舗を選択</label>
+      <div className="mb-4">
+        <label className="text-sm font-medium mb-2 block">店舗を選択</label>
         <MultiSelect
           options={stores.map(store => ({
             id: store.id,
