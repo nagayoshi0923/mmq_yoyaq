@@ -91,12 +91,12 @@ export function PrivateBookingRequest({
         <Header />
         <NavigationBar currentPage="customer-booking" />
         
-        <div className="container mx-auto max-w-3xl px-2 xs:px-2 sm:px-2 md:px-4 md:px-6 xl:px-8 2xl:px-8 py-12">
+        <div className="container mx-auto max-w-3xl px-2 md:px-4 py-12">
           <Card className="border-2 border-purple-200 bg-purple-50">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-purple-600 mx-auto" />
               <h2 className="text-lg text-purple-800">貸切リクエストを受け付けました！</h2>
-              <p className="text-purple-700">
+              <p className="text-sm text-purple-700 leading-relaxed">
                 リクエストありがとうございます。<br />
                 確認メールを {customerEmail} に送信しました。<br />
                 担当者より折り返しご連絡させていただきます。
@@ -125,43 +125,43 @@ export function PrivateBookingRequest({
 
       {/* 戻るボタン */}
       <div className="bg-background border-b">
-        <div className="container mx-auto max-w-5xl px-2 xs:px-2 sm:px-2 md:px-4 md:px-6 xl:px-8 2xl:px-8 py-2">
-          <Button variant="ghost" onClick={onBack} className="flex items-center gap-1.5 hover:bg-accent h-8 px-2">
+        <div className="container mx-auto max-w-5xl px-2 md:px-4 py-2">
+          <Button variant="ghost" onClick={onBack} className="flex items-center gap-1.5 hover:bg-accent h-8 px-2 text-sm">
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">シナリオ詳細に戻る</span>
+            シナリオ詳細に戻る
           </Button>
         </div>
       </div>
 
-      <div className="container mx-auto max-w-5xl px-2 xs:px-2 sm:px-2 md:px-4 md:px-6 xl:px-8 2xl:px-8 py-6">
-        <h1 className="text-base font-semibold mb-6">貸切リクエスト確認</h1>
+      <div className="container mx-auto max-w-5xl px-2 md:px-4 py-6">
+        <h1 className="text-xl font-bold mb-6">貸切リクエスト確認</h1>
 
         {error && (
           <Card className="mb-6 border-2 border-red-200 bg-red-50">
-            <CardContent className="p-4 flex items-center gap-2 text-red-800">
+            <CardContent className="p-4 flex items-center gap-2 text-red-800 text-sm">
               <AlertCircle className="w-5 h-5" />
-              <span className="text-sm">{error}</span>
+              <span>{error}</span>
             </CardContent>
           </Card>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* 左側：リクエスト内容 */}
-          <div className="md:col-span-2 space-y-4">
+          <div className="md:col-span-2 space-y-6">
             {/* シナリオ情報 */}
             <div>
-              <h2 className="text-sm font-medium mb-2">シナリオ</h2>
+              <h2 className="text-lg font-semibold mb-3">シナリオ情報</h2>
               <Card>
-                <CardContent className="p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{scenarioTitle}</span>
+                <CardContent className="p-4 space-y-3">
+                  <div>
+                    <h3 className="text-base font-medium mb-2">{scenarioTitle}</h3>
                     <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                      貸切
+                      貸切予約
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Users className="w-3.5 h-3.5" />
-                    <span>{maxParticipants}名</span>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Users className="w-4 h-4 text-muted-foreground" />
+                    <span>最大 {maxParticipants} 名まで</span>
                   </div>
                 </CardContent>
               </Card>
@@ -169,21 +169,23 @@ export function PrivateBookingRequest({
 
             {/* 候補日時 */}
             <div>
-              <h2 className="text-sm font-medium mb-2">候補日時（{selectedTimeSlots.length}件）</h2>
+              <h2 className="text-lg font-semibold mb-3">候補日時（{selectedTimeSlots.length}件）</h2>
               <div className="space-y-2">
                 {selectedTimeSlots.map((slot, index) => (
                   <Card key={index}>
-                    <CardContent className="p-3 flex items-center gap-3">
-                      <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                        {index + 1}
-                      </Badge>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span>{formatDate(slot.date)}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{slot.slot.label} {slot.slot.startTime}〜</span>
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                            候補 {index + 1}
+                          </Badge>
+                          <Calendar className="w-4 h-4 text-muted-foreground" />
+                          <span>{formatDate(slot.date)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock className="w-4 h-4" />
+                          <span>{slot.slot.label} {slot.slot.startTime} - {slot.slot.endTime}</span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -193,28 +195,28 @@ export function PrivateBookingRequest({
 
             {/* 希望店舗 */}
             <div>
-              <h2 className="text-sm font-medium mb-2">希望店舗</h2>
+              <h2 className="text-lg font-semibold mb-3">希望店舗</h2>
               <Card>
-                <CardContent className="p-3">
-                  <div className="space-y-2">
-                    {selectedStoreIds.map((storeId) => {
-                      const store = stores.find(s => s.id === storeId)
-                      return (
-                        <div key={storeId} className="flex items-start gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
-                          <div>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                    <div className="flex-1">
+                      {selectedStoreIds.map((storeId) => {
+                        const store = stores.find(s => s.id === storeId)
+                        return (
+                          <div key={storeId} className="mb-2 last:mb-0">
                             <p className="text-sm">{store?.name || ''}</p>
                             {store?.address && (
-                              <p className="text-xs text-muted-foreground">{store.address}</p>
+                              <p className="text-muted-foreground text-xs">{store.address}</p>
                             )}
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
                   {selectedStoreIds.length > 1 && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      ※ 最終的な開催店舗は店舗側が決定します
+                      ※ 最終的な開催店舗は、候補日時と合わせて店舗側が決定します
                     </p>
                   )}
                 </CardContent>
@@ -223,51 +225,52 @@ export function PrivateBookingRequest({
 
             {/* お客様情報 */}
             <div>
-              <h2 className="text-sm font-medium mb-2">お客様情報</h2>
+              <h2 className="text-lg font-semibold mb-3">お客様情報</h2>
               <Card>
-                <CardContent className="p-3 space-y-3">
+                <CardContent className="p-4 space-y-4">
                   <div>
-                    <Label className="text-xs mb-1 block">お名前 *</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">お名前 *</Label>
                     <Input
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder="山田 太郎"
                       required
-                      className="h-9"
+                      className="text-sm"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs mb-1 block">メールアドレス *</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">メールアドレス *</Label>
                     <Input
                       type="email"
                       value={customerEmail}
                       onChange={(e) => setCustomerEmail(e.target.value)}
                       placeholder="example@example.com"
                       required
-                      className="h-9"
+                      className="text-sm"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs mb-1 block">電話番号 *</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">電話番号 *</Label>
                     <Input
                       type="tel"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       placeholder="090-1234-5678"
                       required
-                      className="h-9"
+                      className="text-sm"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-xs mb-1 block">ご要望・備考（任意）</Label>
+                    <Label className="text-sm font-medium mb-1.5 block">ご要望・備考（任意）</Label>
                     <Textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="開催日時や店舗のご希望などがあればご記入ください"
-                      rows={3}
+                      rows={4}
+                      className="text-sm"
                     />
                   </div>
                 </CardContent>
@@ -276,11 +279,11 @@ export function PrivateBookingRequest({
           </div>
 
           {/* 右側：料金サマリー */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
-              <h2 className="text-sm font-medium mb-2">料金（目安）</h2>
+              <h2 className="text-lg font-semibold mb-3">料金（目安）</h2>
               <Card>
-                <CardContent className="p-3 space-y-2">
+                <CardContent className="p-4 space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">参加費（1名）</span>
                     <span>¥{participationFee.toLocaleString()}</span>
@@ -291,12 +294,12 @@ export function PrivateBookingRequest({
                     <span>{maxParticipants}名</span>
                   </div>
 
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium">合計（目安）</span>
-                      <span className="text-purple-600 font-bold">¥{totalPrice.toLocaleString()}</span>
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-base font-bold">合計（目安）</span>
+                      <span className="text-lg text-purple-600 font-bold">¥{totalPrice.toLocaleString()}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-2">
                       ※ 実際の料金は店舗との調整により変動する場合があります
                     </p>
                   </div>
@@ -306,17 +309,14 @@ export function PrivateBookingRequest({
 
             {/* 注意事項（DBから取得） */}
             <BookingNotice
-              reservationDeadlineHours={24}
-              hasPreReading={false}
               mode="private"
               storeId={selectedStoreIds[0] || null}
             />
 
-            {/* リクエスト送信ボタン */}
             <Button
               onClick={onSubmit}
               disabled={isSubmitting}
-              className="w-full bg-purple-600 hover:bg-purple-700"
+              className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
             >
               {isSubmitting ? 'リクエスト送信中...' : '貸切リクエストを送信'}
             </Button>
