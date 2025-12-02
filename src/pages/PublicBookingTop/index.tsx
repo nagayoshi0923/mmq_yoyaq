@@ -35,7 +35,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const [isStoreFilterInitialized, setIsStoreFilterInitialized] = useState(false)
 
   // データ取得フック
-  const { scenarios, allEvents, blockedSlots, stores, isLoading, loadData } = useBookingData()
+  const { scenarios, allEvents, blockedSlots, stores, privateBookingDeadlineDays, isLoading, loadData } = useBookingData()
   
   // 店舗データがロードされたら、デフォルトで「馬場」を選択
   useEffect(() => {
@@ -226,6 +226,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                 getStoreName={getStoreName}
                 getStoreColor={getStoreColor}
                 blockedSlots={blockedSlots}
+                privateBookingDeadlineDays={privateBookingDeadlineDays}
               />
             </TabsContent>
 
@@ -243,6 +244,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
                 scenarios={scenarios}
                 onCardClick={handleCardClick}
                 blockedSlots={blockedSlots}
+                privateBookingDeadlineDays={privateBookingDeadlineDays}
               />
             </TabsContent>
           </Tabs>

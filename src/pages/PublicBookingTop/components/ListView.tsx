@@ -22,6 +22,7 @@ interface ListViewProps {
   scenarios: any[]
   onCardClick: (scenarioId: string) => void
   blockedSlots?: any[]
+  privateBookingDeadlineDays?: number
 }
 
 /**
@@ -38,7 +39,8 @@ export const ListView = memo(function ListView({
   getColorFromName,
   scenarios,
   onCardClick,
-  blockedSlots = []
+  blockedSlots = [],
+  privateBookingDeadlineDays = 7
 }: ListViewProps) {
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
@@ -90,7 +92,19 @@ export const ListView = memo(function ListView({
     // 日付文字列を生成（YYYY-MM-DD形式）
     const dateStr = `${listViewMonth.getFullYear()}-${String(listViewMonth.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
     
+    // 貸切申込の締切チェック
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const targetDate = new Date(listViewMonth.getFullYear(), listViewMonth.getMonth(), date)
+    targetDate.setHours(0, 0, 0, 0)
+    const diffDays = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    const canApplyPrivateBooking = diffDays >= privateBookingDeadlineDays
+    
     if (allEvents.length === 0) {
+      // 締切を過ぎている場合は貸切ボタンを表示しない
+      if (!canApplyPrivateBooking) {
+        return <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">-</div>
+      }
       return (
         <div className="p-1 sm:p-2">
           <button

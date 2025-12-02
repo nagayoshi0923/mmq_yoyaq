@@ -21,6 +21,7 @@ interface CalendarViewProps {
   getStoreName: (event: any) => string
   getStoreColor: (event: any) => string
   blockedSlots?: any[]
+  privateBookingDeadlineDays?: number
 }
 
 /**
@@ -38,7 +39,8 @@ export const CalendarView = memo(function CalendarView({
   onCardClick,
   getStoreName,
   getStoreColor,
-  blockedSlots = []
+  blockedSlots = [],
+  privateBookingDeadlineDays = 7
 }: CalendarViewProps) {
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
@@ -132,6 +134,14 @@ export const CalendarView = memo(function CalendarView({
                     const dateStr = formatDateJST(day.date)
                     const allBlockedEvents = blockedEventsByDate.get(dateStr) || []
                     
+                    // 貸切申込の締切チェック（締切日を過ぎていたら申込不可）
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+                    const targetDate = new Date(day.date)
+                    targetDate.setHours(0, 0, 0, 0)
+                    const diffDays = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+                    const canApplyPrivateBooking = diffDays >= privateBookingDeadlineDays
+                    
                     // blockedEventsにも店舗フィルターを適用
                     const blockedEvents = selectedStoreFilter !== 'all'
                       ? allBlockedEvents.filter((e: any) => {
@@ -156,21 +166,10 @@ export const CalendarView = memo(function CalendarView({
                       return 'evening'
                     }
                     
-                    // 選択中の店舗の各時間帯に予約があるかチェック
+                    // 選択中の店舗
                     const selectedStore = selectedStoreFilter !== 'all' 
                       ? stores.find(s => s.id === selectedStoreFilter) 
                       : null
-                    
-                    const hasEventInSlot = (slot: 'morning' | 'afternoon' | 'evening') => {
-                      if (!selectedStore) return true // 全店舗表示時は貸切ボタン非表示
-                      return allDisplayEvents.some((e: any) => {
-                        const eventStoreId = e.store_id || e.venue
-                        const isTargetStore = eventStoreId === selectedStore.id || 
-                                              eventStoreId === selectedStore.short_name || 
-                                              eventStoreId === selectedStore.name
-                        return isTargetStore && getTimeSlot(e.start_time) === slot
-                      })
-                    }
                     
                     const timeSlots: { slot: 'morning' | 'afternoon' | 'evening', label: string }[] = [
                       { slot: 'morning', label: '朝公演' },
@@ -298,8 +297,8 @@ export const CalendarView = memo(function CalendarView({
                         if (hasEvents) {
                           // イベントがある場合
                           return slotEvents.map((event: any, idx: number) => renderEvent(event, idx))
-                        } else if (selectedStore) {
-                          // イベントがなく、店舗が選択されている場合は貸切ボタン
+                        } else if (selectedStore && canApplyPrivateBooking) {
+                          // イベントがなく、店舗が選択されている、かつ締切前の場合は貸切ボタン
                           return (
                             <button
                               key={slot}

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
 
@@ -51,6 +52,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
     const [allEvents, setAllEvents] = useState<any[]>([])
     const [blockedSlots, setBlockedSlots] = useState<any[]>([]) // GMテスト等、貸切申込を受け付けない時間帯
     const [stores, setStores] = useState<any[]>([])
+    const [privateBookingDeadlineDays, setPrivateBookingDeadlineDays] = useState<number>(7) // 貸切申込締切日数
     const [isLoading, setIsLoading] = useState(true)
 
   /**
@@ -81,16 +83,33 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       logger.log(`⏱️ API呼び出し開始: ${((performance.now() - apiStartTime).toFixed(2))}ms`)
 
       // パフォーマンス最適化: 段階的データ取得
-      // 1. まずシナリオと店舗データを取得（軽量、即座に表示可能）
+      // 1. まずシナリオと店舗データと設定を取得（軽量、即座に表示可能）
       const fetchStartTime = performance.now()
-      const [scenariosData, storesDataResult] = await Promise.all([
+      const [scenariosData, storesDataResult, settingsResult] = await Promise.all([
         scenarioApi.getPublic(), // status='available'のみ、必要なフィールドのみ取得
         storeApi.getAll().catch((error) => {
           logger.error('店舗データの取得エラー:', error)
           return []
-        })
+        }),
+        (async () => {
+          try {
+            return await supabase
+              .from('reservation_settings')
+              .select('private_booking_deadline_days')
+              .limit(1)
+              .maybeSingle()
+          } catch {
+            return { data: null, error: null }
+          }
+        })()
       ])
       const storesData = storesDataResult || []
+      
+      // 貸切申込締切日数を設定（デフォルト7日）
+      if (settingsResult?.data?.private_booking_deadline_days) {
+        setPrivateBookingDeadlineDays(settingsResult.data.private_booking_deadline_days)
+      }
+      
       const firstFetchEndTime = performance.now()
       logger.log(`⏱️ シナリオ・店舗データ取得完了: ${((firstFetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
       
@@ -388,6 +407,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
     allEvents,
     blockedSlots, // GMテスト等、貸切申込を受け付けない時間帯
     stores,
+    privateBookingDeadlineDays, // 貸切申込締切日数
     isLoading,
     loadData
   }
