@@ -890,21 +890,27 @@ export function useScheduleData(currentDate: Date) {
         },
         async (payload) => {
           // 現在表示中の月のイベントのみ処理
-          const eventDate = (payload.new as any)?.date || (payload.old as any)?.date
-          if (eventDate < monthStart || eventDate > monthEnd) {
-            logger.log('⏭️ Realtime: 対象外の月のため無視', eventDate)
+          const newDate = (payload.new as any)?.date
+          const oldDate = (payload.old as any)?.date
+          
+          const newDateInRange = newDate && newDate >= monthStart && newDate <= monthEnd
+          const oldDateInRange = oldDate && oldDate >= monthStart && oldDate <= monthEnd
+          
+          // 両方の日付が範囲外の場合は無視
+          if (!newDateInRange && !oldDateInRange) {
+            logger.log('⏭️ Realtime: 対象外の月のため無視', newDate || oldDate)
             return
           }
           
-          logger.log('📡 Realtime: schedule_events 変更検知', payload.eventType, eventDate)
+          logger.log('📡 Realtime: schedule_events 変更検知', payload.eventType, newDate || oldDate)
           
           if (payload.eventType === 'INSERT') {
             const newEvent = payload.new as any
             
-            // シナリオ情報を取得
+            // シナリオ情報を取得（useRefで最新の値を参照）
             let scenarioTitle = newEvent.scenario || ''
             if (newEvent.scenario_id) {
-              const scenario = scenarios.find(s => s.id === newEvent.scenario_id)
+              const scenario = scenariosRef.current.find(s => s.id === newEvent.scenario_id)
               if (scenario) scenarioTitle = scenario.title
             }
             
@@ -936,11 +942,22 @@ export function useScheduleData(currentDate: Date) {
             })
           } else if (payload.eventType === 'UPDATE') {
             const updatedEvent = payload.new as any
+            const eventId = updatedEvent.id
             
-            // シナリオ情報を取得
+            // 日付が変更され、新しい日付が範囲外の場合はイベントを削除
+            if (oldDateInRange && !newDateInRange) {
+              setEvents(prev => {
+                const filtered = prev.filter(e => e.id !== eventId)
+                logger.log('🔄 Realtime: イベント日付変更（範囲外へ移動）→削除', eventId)
+                return filtered
+              })
+              return
+            }
+            
+            // シナリオ情報を取得（useRefで最新の値を参照）
             let scenarioTitle = updatedEvent.scenario || ''
             if (updatedEvent.scenario_id) {
-              const scenario = scenarios.find(s => s.id === updatedEvent.scenario_id)
+              const scenario = scenariosRef.current.find(s => s.id === updatedEvent.scenario_id)
               if (scenario) scenarioTitle = scenario.title
             }
             
@@ -961,6 +978,22 @@ export function useScheduleData(currentDate: Date) {
               is_reservation_enabled: updatedEvent.is_reservation_enabled || false
             }
             
+            // 古い日付が範囲外で、新しい日付が範囲内の場合はイベントを追加
+            if (!oldDateInRange && newDateInRange) {
+              setEvents(prev => {
+                if (prev.some(e => e.id === eventId)) {
+                  // 既に存在する場合は更新
+                  const updated = prev.map(e => e.id === eventId ? formattedEvent : e)
+                  logger.log('🔄 Realtime: イベント更新（既存）', eventId)
+                  return updated
+                }
+                logger.log('✅ Realtime: イベント追加（日付変更により範囲内へ）', eventId)
+                return [...prev, formattedEvent]
+              })
+              return
+            }
+            
+            // 両方の日付が範囲内の場合は更新
             setEvents(prev => {
               const updated = prev.map(e => e.id === formattedEvent.id ? formattedEvent : e)
               logger.log('🔄 Realtime: イベント更新', formattedEvent.id)
@@ -1013,7 +1046,7 @@ export function useScheduleData(currentDate: Date) {
       supabase.removeChannel(reservationsChannel)
       logger.log('🔌 Realtime: 購読解除')
     }
-  }, [currentDate, scenarios]) // currentDate と scenarios が変わったら再購読
+  }, [currentDate, fetchSchedule]) // currentDate が変わったら再購読（scenariosは参照で取得）
 
   return {
     events,
