@@ -46,7 +46,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   }, [])
   
   // データ取得フック
-  const { scenario, events, stores, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId)
+  const { scenario, events, stores, relatedScenarios, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId)
   
   // 予約・貸切リクエストアクションフック
   const {
