@@ -117,21 +117,20 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     }, 100)
   }, [])
 
-  // 直近の予定（今日・明日）
+  // 直近の予定（今日〜7日後まで）
   const upcomingEvents = useMemo(() => {
+    // 日付文字列で比較（タイムゾーンの問題を回避）
     const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = addDays(today, 1)
-    const dayAfterTomorrow = addDays(today, 2)
+    const todayStr = format(today, 'yyyy-MM-dd')
+    const weekLaterStr = format(addDays(today, 7), 'yyyy-MM-dd')
     
     return mySchedule.filter(event => {
-      const eventDate = parseISO(event.date)
-      // 今日〜明後日までを表示（直近の予定がないと寂しいので少し広めに）
-      return eventDate >= today && eventDate < dayAfterTomorrow
+      // 今日〜7日後までを表示
+      return event.date >= todayStr && event.date <= weekLaterStr
     }).sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date)
       return a.start_time.localeCompare(b.start_time)
-    })
+    }).slice(0, 5) // 最大5件まで表示
   }, [mySchedule])
 
   // カレンダー用の日付生成
