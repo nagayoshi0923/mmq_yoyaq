@@ -395,12 +395,20 @@ export function useEventOperations({
           )
         }
         
+        // シナリオ情報を取得（シナリオマスタ未登録チェック用）
+        const matchedScenario = scenarios.find(s => s.title === performanceData.scenario)
+        
         // 内部形式に変換して状態に追加
         const formattedEvent: ScheduleEvent = {
           id: savedEvent.id,
           date: savedEvent.date,
           venue: savedEvent.store_id,
           scenario: savedEvent.scenario || '',
+          scenarios: matchedScenario ? {
+            id: matchedScenario.id,
+            title: matchedScenario.title,
+            player_count_max: matchedScenario.player_count_max
+          } : undefined,
           gms: savedEvent.gms || [],
           gm_roles: performanceData.gm_roles || {},
           start_time: savedEvent.start_time,
@@ -497,9 +505,11 @@ export function useEventOperations({
             )
           }
 
-          // ローカル状態を更新
+          // ローカル状態を更新（scenariosは元のデータを保持）
           setEvents(prev => prev.map(event => 
-            event.id === performanceData.id ? { ...event, ...performanceData, id: performanceData.id! } as ScheduleEvent : event
+            event.id === performanceData.id 
+              ? { ...event, ...performanceData, scenarios: event.scenarios, id: performanceData.id! } as ScheduleEvent 
+              : event
           ))
         }
       }

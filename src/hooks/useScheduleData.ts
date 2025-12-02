@@ -310,7 +310,7 @@ interface RawEventData {
   date: string
   store_id: string
   scenario?: string
-  scenarios?: { title: string }
+  scenarios?: { id: string; title: string; player_count_max?: number } | null
   gms: string[]
   gm_roles?: Record<string, string> // 追加
   start_time: string
@@ -524,22 +524,26 @@ export function useScheduleData(currentDate: Date) {
           scenarioByTitle.set(s.title, s)
         })
         
-        // Supabaseのデータを内部形式に変換
-        const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => {
-          const scenarioTitle = event.scenarios?.title || event.scenario || ''
-          // scenariosがない場合はシナリオリストから検索
-          const scenarioInfo = event.scenarios || (scenarioTitle ? scenarioByTitle.get(scenarioTitle) : null)
-          
-          return {
-          id: event.id,
-          date: event.date,
-          venue: event.store_id, // store_idを直接使用
-            scenario: scenarioTitle, // JOINされたタイトルを優先
-            scenarios: scenarioInfo ? {
-              id: scenarioInfo.id,
-              title: scenarioInfo.title,
-              player_count_max: scenarioInfo.player_count_max
-            } : undefined,
+      // Supabaseのデータを内部形式に変換
+      const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => {
+        const scenarioTitle = event.scenarios?.title || event.scenario || ''
+        // scenariosが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
+        const isValidScenario = event.scenarios && event.scenarios.id
+        // scenariosが無効な場合はシナリオリストからタイトルで検索
+        const scenarioInfo = isValidScenario 
+          ? event.scenarios 
+          : (scenarioTitle ? scenarioByTitle.get(scenarioTitle) : null)
+        
+        return {
+        id: event.id,
+        date: event.date,
+        venue: event.store_id, // store_idを直接使用
+          scenario: scenarioTitle, // JOINされたタイトルを優先
+          scenarios: scenarioInfo ? {
+            id: scenarioInfo.id,
+            title: scenarioInfo.title,
+            player_count_max: scenarioInfo.player_count_max
+          } : undefined,
           gms: event.gms || [],
           gm_roles: event.gm_roles || {},
           start_time: event.start_time,
@@ -742,8 +746,12 @@ export function useScheduleData(currentDate: Date) {
       // Supabaseのデータを内部形式に変換
       const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => {
         const scenarioTitle = event.scenarios?.title || event.scenario || ''
-        // scenariosがない場合はシナリオリストから検索
-        const scenarioInfo = event.scenarios || (scenarioTitle ? scenarioByTitle.get(scenarioTitle) : null)
+        // scenariosが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
+        const isValidScenario = event.scenarios && event.scenarios.id
+        // scenariosが無効な場合はシナリオリストからタイトルで検索
+        const scenarioInfo = isValidScenario 
+          ? event.scenarios 
+          : (scenarioTitle ? scenarioByTitle.get(scenarioTitle) : null)
         
         return {
         id: event.id,
