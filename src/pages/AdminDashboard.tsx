@@ -169,32 +169,20 @@ export function AdminDashboard() {
     // ログアウト状態または顧客アカウントの場合
     const isCustomerOrLoggedOut = !user || user.role === 'customer'
     
-    // デフォルトページを予約サイトに設定
-    if (isCustomerOrLoggedOut && (!currentPage || currentPage === 'dashboard')) {
+    // 顧客/ログアウト状態でダッシュボードや管理ページにいる場合は予約サイトにリダイレクト
+    if (isCustomerOrLoggedOut && (!currentPage || currentPage === 'dashboard' || adminOnlyPages.includes(currentPage))) {
       setCurrentPage('customer-booking')
       window.location.hash = 'customer-booking'
       return
     }
 
-    // 顧客が管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
-    if (user && user.role === 'customer' && adminOnlyPages.includes(currentPage)) {
-      setCurrentPage('customer-booking')
-      window.location.hash = 'customer-booking'
-      return
-    }
-
-    // ログアウト状態で管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
-    if (!user && adminOnlyPages.includes(currentPage)) {
-      setCurrentPage('customer-booking')
-      window.location.hash = 'customer-booking'
-      return
-    }
-
-    // 通常のログインユーザーの場合
-    if (user && currentPage === 'dashboard' && !window.location.hash) {
-      // admin/staffの場合はダッシュボードを表示
-      if (user.role === 'admin' || user.role === 'staff') {
-        // ダッシュボードはそのまま表示
+    // スタッフ/管理者がログインしていて、ハッシュがない場合はダッシュボードを表示
+    if (user && (user.role === 'admin' || user.role === 'staff')) {
+      const hash = window.location.hash.slice(1)
+      if (!hash || hash === '') {
+        setCurrentPage('dashboard')
+        window.location.hash = 'dashboard'
+        return
       }
     }
   }, [user, currentPage, isInitialized])

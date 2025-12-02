@@ -7,11 +7,11 @@ import {
   TrendingUp,
   Clock,
   Settings,
-  ClipboardCheck,
   UserCog,
   Store,
   HelpCircle,
-  Globe
+  Globe,
+  LayoutDashboard
 } from 'lucide-react'
 
 interface NavigationBarProps {
@@ -29,9 +29,10 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   
   // 全タブ定義（定数なのでメモ化）
   // 管理者のみ: 店舗、スタッフ、シナリオ、予約管理、顧客管理、ユーザー、売上、設定
-  // スタッフも: スケジュール、シフト提出、GM確認、貸切確認、マニュアル
+  // スタッフも: ダッシュボード、スケジュール、シフト提出、GM確認、マニュアル
   // 顧客: ナビゲーション非表示（予約サイトのみ）
   const allTabs = useMemo(() => [
+    { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, roles: ['admin', 'staff'] },
     { id: 'customer-booking', label: '予約サイト', icon: Globe, roles: ['admin', 'staff'] },
     { id: 'stores', label: '店舗', icon: Store, roles: ['admin'] },
     { id: 'schedule', label: 'スケジュール', icon: Calendar, roles: ['admin', 'staff'] },
@@ -39,7 +40,6 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin'] },
     { id: 'shift-submission', label: 'シフト提出', icon: Clock, roles: ['admin', 'staff'] },
     { id: 'gm-availability', label: 'GM確認', icon: Clock, roles: ['admin', 'staff'] },
-    { id: 'private-booking-management', label: '貸切確認', icon: ClipboardCheck, roles: ['admin', 'staff'] },
     { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin'] },
     { id: 'customer-management', label: '顧客管理', icon: Users, roles: ['admin'] },
     { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },
