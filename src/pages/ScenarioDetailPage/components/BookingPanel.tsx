@@ -31,7 +31,7 @@ export const BookingPanel = memo(function BookingPanel({
       <div>
         <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">人数を選択</h3>
         <Card>
-          <CardContent className="p-4 xl:p-5">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm">予約人数</span>
               <select 
@@ -63,7 +63,7 @@ export const BookingPanel = memo(function BookingPanel({
       <div>
         <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">料金</h3>
         <Card>
-          <CardContent className="p-4 xl:p-5 space-y-3 xl:space-y-4">
+          <CardContent className="p-3 md:p-4 space-y-3">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">参加費（1名）</span>
                 <span>¥{participationFee.toLocaleString()}</span>
@@ -73,14 +73,14 @@ export const BookingPanel = memo(function BookingPanel({
                 <span>× {participantCount}名</span>
               </div>
               <div className="border-t pt-3 flex justify-between items-center">
-                <span className="text-lg">合計</span>
-                <span className="text-xl text-blue-600">
+                <span className="text-base font-semibold">合計</span>
+                <span className="text-lg md:text-xl font-bold text-blue-600">
                   ¥{(participationFee * participantCount).toLocaleString()}
                 </span>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-base text-blue-800">
-                <p className="mb-1">現地決済</p>
-                <p className="text-sm">当日会場にてお支払いください</p>
+              <div className="bg-blue-50 border border-blue-200 rounded p-2.5 md:p-3">
+                <p className="text-sm font-medium text-blue-800">現地決済</p>
+                <p className="text-xs text-blue-700">当日会場にてお支払いください</p>
               </div>
         </CardContent>
         </Card>

@@ -24,7 +24,6 @@ import { BookingPanel } from './components/BookingPanel'
 import { PrivateBookingPanel } from './components/PrivateBookingPanel'
 import { BookingNotice } from './components/BookingNotice'
 import { VenueAccess } from './components/VenueAccess'
-import { RelatedScenarios } from './components/RelatedScenarios'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -47,7 +46,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   }, [])
   
   // データ取得フック
-  const { scenario, events, stores, relatedScenarios, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId)
+  const { scenario, events, stores, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId)
   
   // 予約・貸切リクエストアクションフック
   const {
@@ -265,16 +264,6 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 hasPreReading={scenario.has_pre_reading}
               />
             </div>
-            {/* PC版: 関連シナリオ（同じ著者の他作品） */}
-            <div className="hidden md:block">
-              <RelatedScenarios
-                scenarios={relatedScenarios}
-                authorName={scenario.author}
-                onScenarioClick={(id) => {
-                  window.location.hash = `scenario-detail/${id}`
-                }}
-              />
-            </div>
           </div>
 
           {/* 右サイドバー - チケット購入 */}
@@ -294,7 +283,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">日付を選択</h3>
+                    <h3 className="mb-3 md:mb-4 text-lg">日付を選択</h3>
                     <EventList
                       events={events}
                       selectedEventId={selectedEventId}
@@ -360,17 +349,6 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
                 <BookingNotice 
                   reservationDeadlineHours={events[0]?.reservation_deadline_hours || 24}
                   hasPreReading={scenario.has_pre_reading}
-                />
-              </div>
-
-              {/* モバイル版: 関連シナリオ（同じ著者の他作品） */}
-              <div className="md:hidden">
-                <RelatedScenarios
-                  scenarios={relatedScenarios}
-                  authorName={scenario.author}
-                  onScenarioClick={(id) => {
-                    window.location.hash = `scenario-detail/${id}`
-                  }}
                 />
               </div>
 

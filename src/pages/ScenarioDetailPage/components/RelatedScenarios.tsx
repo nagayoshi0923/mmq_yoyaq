@@ -30,7 +30,7 @@ export const RelatedScenarios = memo(function RelatedScenarios({
 
   return (
     <div>
-      <h3 className="mb-3 md:mb-4 text-base md:text-lg">{authorName}の他作品</h3>
+      <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">{authorName}の他作品</h3>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
         {scenarios.map((scenario) => (
           <Card
