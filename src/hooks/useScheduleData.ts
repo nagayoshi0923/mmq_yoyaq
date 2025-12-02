@@ -531,25 +531,25 @@ export function useScheduleData(currentDate: Date) {
           const scenarioInfo = event.scenarios || (scenarioTitle ? scenarioByTitle.get(scenarioTitle) : null)
           
           return {
-            id: event.id,
-            date: event.date,
-            venue: event.store_id, // store_idを直接使用
+          id: event.id,
+          date: event.date,
+          venue: event.store_id, // store_idを直接使用
             scenario: scenarioTitle, // JOINされたタイトルを優先
             scenarios: scenarioInfo ? {
               id: scenarioInfo.id,
               title: scenarioInfo.title,
               player_count_max: scenarioInfo.player_count_max
             } : undefined,
-            gms: event.gms || [],
-            gm_roles: event.gm_roles || {},
-            start_time: event.start_time,
-            end_time: event.end_time,
-            category: event.category,
-            is_cancelled: event.is_cancelled || false,
-            participant_count: event.current_participants || 0, // 実際の参加者数を使用
-            max_participants: event.capacity || 8,
-            notes: event.notes || '',
-            is_reservation_enabled: event.is_reservation_enabled || false
+          gms: event.gms || [],
+          gm_roles: event.gm_roles || {},
+          start_time: event.start_time,
+          end_time: event.end_time,
+          category: event.category,
+          is_cancelled: event.is_cancelled || false,
+          participant_count: event.current_participants || 0, // 実際の参加者数を使用
+          max_participants: event.capacity || 8,
+          notes: event.notes || '',
+          is_reservation_enabled: event.is_reservation_enabled || false
           }
         })
         
@@ -746,25 +746,25 @@ export function useScheduleData(currentDate: Date) {
         const scenarioInfo = event.scenarios || (scenarioTitle ? scenarioByTitle.get(scenarioTitle) : null)
         
         return {
-          id: event.id,
-          date: event.date,
-          venue: event.store_id,
+        id: event.id,
+        date: event.date,
+        venue: event.store_id,
           scenario: scenarioTitle,
           scenarios: scenarioInfo ? {
             id: scenarioInfo.id,
             title: scenarioInfo.title,
             player_count_max: scenarioInfo.player_count_max
           } : undefined,
-          gms: event.gms || [],
-          gm_roles: event.gm_roles || {},
-          start_time: event.start_time,
-          end_time: event.end_time,
-          category: event.category,
-          is_cancelled: event.is_cancelled || false,
-          participant_count: event.current_participants || 0, // 実際の参加者数を使用
-          max_participants: event.capacity || 8,
-          notes: event.notes || '',
-          is_reservation_enabled: event.is_reservation_enabled || false
+        gms: event.gms || [],
+        gm_roles: event.gm_roles || {},
+        start_time: event.start_time,
+        end_time: event.end_time,
+        category: event.category,
+        is_cancelled: event.is_cancelled || false,
+        participant_count: event.current_participants || 0, // 実際の参加者数を使用
+        max_participants: event.capacity || 8,
+        notes: event.notes || '',
+        is_reservation_enabled: event.is_reservation_enabled || false
         }
       })
       

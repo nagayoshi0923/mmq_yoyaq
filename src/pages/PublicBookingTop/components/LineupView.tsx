@@ -66,9 +66,9 @@ export const LineupView = memo(function LineupView({
         <section>
           <h2 className="text-lg mb-3 md:mb-4">
             直近公演
-            <span className="text-xs font-normal text-gray-500 ml-1">
+              <span className="text-xs font-normal text-gray-500 ml-1">
               ({upcomingScenarios.length}件)
-            </span>
+              </span>
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
             {upcomingScenarios.map((scenario) => (
@@ -97,7 +97,7 @@ export const LineupView = memo(function LineupView({
           <BookOpen className="w-4 h-4" />
           シナリオカタログを見る
         </Button>
-      </section>
+        </section>
     </div>
   )
 })
