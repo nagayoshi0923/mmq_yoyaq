@@ -270,7 +270,10 @@ export const CalendarView = memo(function CalendarView({
                               <div className="text-xs leading-tight" style={{ color: isFull ? '#6B7280' : storeColor }}>
                                 {storeName}
                               </div>
-                              <div className="text-xs leading-tight text-gray-800">
+                              <div 
+                                className="text-xs leading-tight text-gray-800 overflow-hidden whitespace-nowrap"
+                                style={{ textOverflow: 'clip' }}
+                              >
                                 {event.scenario || event.scenarios?.title}
                               </div>
                               <div className={`text-xs leading-tight ${isFull ? 'text-gray-500' : 'text-gray-600'}`}>
