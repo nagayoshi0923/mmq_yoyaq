@@ -24,6 +24,7 @@ import { BookingPanel } from './components/BookingPanel'
 import { PrivateBookingPanel } from './components/PrivateBookingPanel'
 import { BookingNotice } from './components/BookingNotice'
 import { VenueAccess } from './components/VenueAccess'
+import { RelatedScenarios } from './components/RelatedScenarios'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
