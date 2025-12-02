@@ -193,9 +193,9 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     <div className="space-y-6 pb-20">
       {/* 1. 直近の出勤予定 */}
       <section>
-        <div className="flex items-center gap-2 mb-2">
-          <Clock className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-medium text-muted-foreground">直近の出勤予定</h2>
+        <div className="flex items-center gap-2 mb-3">
+          <Clock className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-bold">直近の出勤予定</h2>
         </div>
         
         {loading && staffName === '' ? (
@@ -335,7 +335,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       {/* 4. スタッフ向け統計情報（出勤数・給与概算）- 全員に表示 */}
       <section className="pt-4 border-t border-border">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-medium text-muted-foreground">今月の実績（概算）</h2>
+          <h2 className="text-lg font-bold">今月の実績（概算）</h2>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-muted/50 p-3 rounded text-center">
@@ -353,7 +353,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       {user?.role === 'admin' && (
         <section className="pt-4 border-t border-border">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-medium text-muted-foreground">管理者用データ</h2>
+            <h2 className="text-lg font-bold">管理者用データ</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="bg-muted/50 p-2 rounded text-center">
