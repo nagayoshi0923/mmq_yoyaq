@@ -45,8 +45,8 @@ export interface TimeSlot {
 }
 
 export const TIME_SLOTS: TimeSlot[] = [
-  { label: '朝', startTime: '10:00', endTime: '13:00' },
-  { label: '昼', startTime: '14:00', endTime: '17:00' },
-  { label: '夜', startTime: '18:00', endTime: '21:00' },
+  { label: '朝公演', startTime: '10:00', endTime: '13:00' },
+  { label: '昼公演', startTime: '14:00', endTime: '17:00' },
+  { label: '夜公演', startTime: '18:00', endTime: '21:00' },
 ]
 
