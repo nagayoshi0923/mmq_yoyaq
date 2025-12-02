@@ -301,11 +301,16 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
                       {format(day, 'd')}
                     </span>
                     
-                    {/* イベントインジケーター */}
-                    <div className="flex flex-col gap-0.5 mt-1 w-full px-0.5 items-center">
-                      {dayEvents.map((e, i) => (
-                        <div key={i} className="h-1.5 w-1.5 bg-primary rounded-full" title={e.scenarios?.title} />
+                    {/* イベントタイトル */}
+                    <div className="flex flex-col gap-0.5 mt-0.5 w-full px-0.5 overflow-hidden">
+                      {dayEvents.slice(0, 2).map((e, i) => (
+                        <div key={i} className="text-[8px] sm:text-[10px] leading-tight truncate text-primary w-full text-center">
+                          {e.scenarios?.title || e.scenario}
+                        </div>
                       ))}
+                      {dayEvents.length > 2 && (
+                        <div className="text-[8px] text-muted-foreground text-center">+{dayEvents.length - 2}</div>
+                      )}
                     </div>
                   </div>
                 )
