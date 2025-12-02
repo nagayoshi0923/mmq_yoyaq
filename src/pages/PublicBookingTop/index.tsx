@@ -167,7 +167,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage="customer-booking" />

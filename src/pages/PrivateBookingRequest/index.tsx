@@ -87,7 +87,7 @@ export function PrivateBookingRequest({
   // 成功画面
   if (success) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
         <NavigationBar currentPage="customer-booking" />
         
@@ -119,7 +119,7 @@ export function PrivateBookingRequest({
   const totalPrice = participationFee * maxParticipants
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       <NavigationBar currentPage="customer-booking" />
 

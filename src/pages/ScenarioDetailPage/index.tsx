@@ -162,7 +162,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
     const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
     
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
         {shouldShowNavigation && (
           <NavigationBar currentPage="customer-booking" />
@@ -176,7 +176,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
 
   if (!scenario) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
         {shouldShowNavigation && (
           <NavigationBar currentPage="customer-booking" />
@@ -189,7 +189,7 @@ export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPagePr
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage="customer-booking" />

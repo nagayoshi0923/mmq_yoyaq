@@ -127,7 +127,7 @@ export function ScenarioCatalog() {
   const hasActiveFilters = searchTerm || selectedGenre !== 'all' || selectedDuration !== 'all' || selectedPlayerCount !== 'all'
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage="customer-booking" />

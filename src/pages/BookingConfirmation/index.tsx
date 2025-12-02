@@ -101,7 +101,7 @@ export function BookingConfirmation({
   // 成功画面
   if (success) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
         <NavigationBar currentPage="customer-booking" />
         
@@ -132,7 +132,7 @@ export function BookingConfirmation({
   const totalPrice = participationFee * participantCount
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       <NavigationBar currentPage="customer-booking" />
 
