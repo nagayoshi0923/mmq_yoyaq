@@ -12,6 +12,7 @@ import { useCustomerData } from '../BookingConfirmation/hooks/useCustomerData'
 import { usePrivateBookingForm } from './hooks/usePrivateBookingForm'
 import { usePrivateBookingSubmit } from './hooks/usePrivateBookingSubmit'
 import { formatDate } from './utils/privateBookingFormatters'
+import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
 import type { PrivateBookingRequestProps } from './types'
 
 export function PrivateBookingRequest({
@@ -325,6 +326,14 @@ export function PrivateBookingRequest({
                 </ul>
               </CardContent>
             </Card>
+
+            {/* 注意事項（DBから取得） */}
+            <BookingNotice
+              reservationDeadlineHours={24}
+              hasPreReading={false}
+              mode="private"
+              storeId={selectedStoreIds[0] || null}
+            />
           </div>
         </div>
       </div>
