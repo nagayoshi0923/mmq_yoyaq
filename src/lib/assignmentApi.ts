@@ -307,8 +307,8 @@ export const assignmentApi = {
     return data
   },
 
-  // 複数シナリオのGM情報を一括取得（N+1問題の回避）
-  async getBatchScenarioAssignments(scenarioIds: string[]) {
+  // 複数シナリオのGM情報と体験済みスタッフを一括取得（N+1問題の回避）
+  async getBatchScenarioAssignments(scenarioIds: string[]): Promise<Map<string, { gmStaff: string[], experiencedStaff: string[] }>> {
     if (scenarioIds.length === 0) {
       return new Map()
     }
@@ -326,7 +326,8 @@ export const assignmentApi = {
           scenario_id,
           staff_id,
           can_main_gm,
-          can_sub_gm
+          can_sub_gm,
+          is_experienced
         `)
         .in('scenario_id', batchIds)
         .limit(10000)
@@ -335,14 +336,10 @@ export const assignmentApi = {
       if (data) allData.push(...data)
     }
     
-    // クライアント側でGM可能なレコードのみフィルタ
+    // GM可能 OR 体験済みのレコードをフィルタ
     const data = allData.filter(row => 
-      row.can_main_gm === true || row.can_sub_gm === true
+      row.can_main_gm === true || row.can_sub_gm === true || row.is_experienced === true
     )
-    
-    // エラーチェック用（既存コードとの互換性）
-    const error = null
-    if (error) throw error
     
     // staff_idからスタッフ名を取得するために、別途スタッフ情報を取得
     const staffIds = [...new Set(data?.map(a => a.staff_id).filter(Boolean) || [])]
@@ -359,18 +356,32 @@ export const assignmentApi = {
       }
     }
     
-    // シナリオIDごとにスタッフ名をグループ化
-    const assignmentMap = new Map<string, string[]>()
+    // シナリオIDごとにGMスタッフと体験済みスタッフをグループ化
+    const assignmentMap = new Map<string, { gmStaff: string[], experiencedStaff: string[] }>()
     
     data?.forEach((assignment: any) => {
-        const scenarioId = assignment.scenario_id
+      const scenarioId = assignment.scenario_id
       const staffName = staffMap.get(assignment.staff_id)
+      
+      if (staffName) {
+        if (!assignmentMap.has(scenarioId)) {
+          assignmentMap.set(scenarioId, { gmStaff: [], experiencedStaff: [] })
+        }
+        const entry = assignmentMap.get(scenarioId)!
         
-        if (staffName) {
-          if (!assignmentMap.has(scenarioId)) {
-            assignmentMap.set(scenarioId, [])
+        // GM可能なスタッフ
+        if (assignment.can_main_gm || assignment.can_sub_gm) {
+          if (!entry.gmStaff.includes(staffName)) {
+            entry.gmStaff.push(staffName)
           }
-          assignmentMap.get(scenarioId)!.push(staffName)
+        }
+        
+        // 体験済みスタッフ（GM不可のもののみ）
+        if (assignment.is_experienced && !assignment.can_main_gm && !assignment.can_sub_gm) {
+          if (!entry.experiencedStaff.includes(staffName)) {
+            entry.experiencedStaff.push(staffName)
+          }
+        }
       }
     })
     

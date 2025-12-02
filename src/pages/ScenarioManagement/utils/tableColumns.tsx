@@ -234,7 +234,7 @@ export function createScenarioColumns(
       {
         key: 'available_gms',
         header: '担当GM',
-        width: 'w-96',
+        width: 'w-48',
         sortable: true,
         render: (scenario) => {
           const { displayed: displayedGMs, remaining: remainingGMs } = getDisplayGMs(scenario.available_gms || [])
@@ -254,7 +254,37 @@ export function createScenarioColumns(
                 )}
                 </div>
               ) : (
-                <span className="text-muted-foreground text-xs">未設定</span>
+                <span className="text-muted-foreground text-xs">-</span>
+              )}
+            </div>
+          )
+        }
+      },
+      {
+        key: 'experienced_staff',
+        header: '体験済み',
+        width: 'w-48',
+        sortable: true,
+        render: (scenario) => {
+          const experiencedStaff = (scenario as any).experienced_staff || []
+          const { displayed, remaining } = getDisplayGMs(experiencedStaff)
+          return (
+            <div className="text-sm">
+              {displayed.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                {displayed.map((staff, i) => (
+                  <Badge key={i} variant="outline" className="font-normal text-xs py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">
+                    {staff}
+                  </Badge>
+                ))}
+                {remaining > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    +{remaining}
+                  </span>
+                )}
+                </div>
+              ) : (
+                <span className="text-muted-foreground text-xs">-</span>
               )}
             </div>
           )

@@ -31,18 +31,22 @@ export function useScenariosQuery() {
       logger.log('📖 シナリオデータ取得開始')
       const data = await scenarioApi.getAll()
       
-      // GM情報を一括取得（N+1問題を回避）
+      // GM情報と体験済みスタッフを一括取得（N+1問題を回避）
       const scenarioIds = data.map(s => s.id)
-      const gmMap = await assignmentApi.getBatchScenarioAssignments(scenarioIds)
+      const assignmentMap = await assignmentApi.getBatchScenarioAssignments(scenarioIds)
       
-      // シナリオにGM情報をマージ
-      const scenariosWithGMs = data.map(scenario => ({
-        ...scenario,
-        available_gms: gmMap.get(scenario.id) || scenario.available_gms || []
-      }))
+      // シナリオにGM情報と体験済みスタッフをマージ
+      const scenariosWithAssignments = data.map(scenario => {
+        const assignments = assignmentMap.get(scenario.id)
+        return {
+          ...scenario,
+          available_gms: assignments?.gmStaff || scenario.available_gms || [],
+          experienced_staff: assignments?.experiencedStaff || []
+        }
+      })
       
-      logger.log('✅ シナリオデータ取得完了:', scenariosWithGMs.length)
-      return scenariosWithGMs
+      logger.log('✅ シナリオデータ取得完了:', scenariosWithAssignments.length)
+      return scenariosWithAssignments
     },
     staleTime: 5 * 60 * 1000, // 5分間キャッシュ
   })

@@ -428,6 +428,7 @@ export function ScenarioManagement() {
             {displayedScenarios.length > 0 ? (
               displayedScenarios.map((scenario) => {
                 const gms = scenario.available_gms || []
+                const experiencedStaff = (scenario as any).experienced_staff || []
                 return (
                 <div key={scenario.id} className="bg-white border rounded-lg overflow-hidden" onClick={() => handleEditScenario(scenario)}>
                   <div className="p-3 flex items-start gap-3">
@@ -478,7 +479,7 @@ export function ScenarioManagement() {
                   
                     {/* 担当GM */}
                     {gms.length > 0 && (
-                      <div className="px-3 pb-2">
+                      <div className="px-3 pb-1">
                         <div className="flex items-start gap-2 text-xs">
                           <span className="text-blue-600 shrink-0 w-10">GM</span>
                           <div className="flex flex-wrap gap-1">
@@ -493,9 +494,29 @@ export function ScenarioManagement() {
                       </div>
                     )}
                     
+                    {/* 体験済みスタッフ */}
+                    {experiencedStaff.length > 0 && (
+                      <div className="px-3 pb-2">
+                        <div className="flex items-start gap-2 text-xs">
+                          <span className="text-green-600 shrink-0 w-10">体験</span>
+                          <div className="flex flex-wrap gap-1">
+                            {experiencedStaff.slice(0, 5).map((staff: string, idx: number) => (
+                              <Badge key={idx} variant="outline" className="text-xs font-normal py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">
+                                {staff}
+                              </Badge>
+                            ))}
+                            {experiencedStaff.length > 5 && <span className="text-muted-foreground">+{experiencedStaff.length - 5}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* フッター */}
                     <div className="bg-gray-50 px-3 py-1.5 border-t flex items-center justify-between text-[10px] text-muted-foreground">
-                      <span className="text-blue-600">GM: {gms.length}名</span>
+                      <div className="flex gap-3">
+                        <span className="text-blue-600">GM: {gms.length}名</span>
+                        <span className="text-green-600">体験: {experiencedStaff.length}名</span>
+                      </div>
                       <span className="text-primary">編集 →</span>
                     </div>
                   </div>
