@@ -132,43 +132,70 @@ export const CalendarView = memo(function CalendarView({
                     const dateStr = formatDateJST(day.date)
                     const blockedEvents = blockedEventsByDate.get(dateStr) || []
                     
-                    // 通常公演 + 貸切公演 + GMテスト等を全てマージ
-                    // ソート順: オープン公演優先 → 時間順
+                    // 通常公演 + 貸切公演 + GMテスト等を全てマージして時間順にソート
                     const allDisplayEvents = [...events, ...blockedEvents].sort((a, b) => {
-                      const aIsReserved = a.category === 'private' || a.is_private_booking === true || a.category === 'gmtest' || a.category === 'testplay'
-                      const bIsReserved = b.category === 'private' || b.is_private_booking === true || b.category === 'gmtest' || b.category === 'testplay'
-                      
-                      // オープン公演を上に
-                      if (aIsReserved !== bIsReserved) {
-                        return aIsReserved ? 1 : -1
-                      }
-                      // 同じカテゴリ内では時間順
                       return (a.start_time || '').localeCompare(b.start_time || '')
                     })
                     
-                    // 全ての時間帯が予約済みかどうかをチェック（朝・昼・夜の3枠全てが埋まっているか）
-                    const reservedCount = allDisplayEvents.filter((e: any) => 
-                      e.category === 'private' || e.is_private_booking === true || e.category === 'gmtest' || e.category === 'testplay'
-                    ).length
-                    const hasAvailableSlot = reservedCount < 3 // 3枠未満なら空きあり
+                    // 時間帯別にイベントを分類
+                    const getTimeSlot = (startTime: string) => {
+                      const hour = parseInt(startTime?.split(':')[0] || '0')
+                      if (hour < 12) return 'morning'
+                      if (hour < 18) return 'afternoon'
+                      return 'evening'
+                    }
                     
-                    if (allDisplayEvents.length === 0) {
-                      // 何もない場合は貸切申込ボタンのみ
+                    // 選択中の店舗の各時間帯に予約があるかチェック
+                    const selectedStore = selectedStoreFilter !== 'all' 
+                      ? stores.find(s => s.id === selectedStoreFilter) 
+                      : null
+                    
+                    const hasEventInSlot = (slot: 'morning' | 'afternoon' | 'evening') => {
+                      if (!selectedStore) return true // 全店舗表示時は貸切ボタン非表示
+                      return allDisplayEvents.some((e: any) => {
+                        const eventStoreId = e.store_id || e.venue
+                        const isTargetStore = eventStoreId === selectedStore.id || 
+                                              eventStoreId === selectedStore.short_name || 
+                                              eventStoreId === selectedStore.name
+                        return isTargetStore && getTimeSlot(e.start_time) === slot
+                      })
+                    }
+                    
+                    const timeSlots: { slot: 'morning' | 'afternoon' | 'evening', label: string }[] = [
+                      { slot: 'morning', label: '午前' },
+                      { slot: 'afternoon', label: '午後' },
+                      { slot: 'evening', label: '夜間' }
+                    ]
+                    
+                    // 何もない場合は時間帯ごとの貸切申込ボタン
+                    if (allDisplayEvents.length === 0 && selectedStore) {
                       return (
-                        <div className="p-1 sm:p-2">
-                          <button
-                            className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
-                            onClick={() => {
-                              window.location.hash = `#private-booking-select?date=${dateStr}`
-                            }}
-                          >
-                            貸切申込
-                          </button>
+                        <div className="space-y-1 p-1">
+                          {timeSlots.map(({ slot, label }) => (
+                            <button
+                              key={slot}
+                              className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 rounded text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                              onClick={() => {
+                                window.location.hash = `#private-booking-select?date=${dateStr}&store=${selectedStore.id}&slot=${slot}`
+                              }}
+                            >
+                              {label} 貸切
+                            </button>
+                          ))}
                         </div>
                       )
                     }
                     
-                    // 全てのイベントを表示 + 空きがあれば貸切申込ボタンを一番下に
+                    // 全店舗表示で何もない場合
+                    if (allDisplayEvents.length === 0) {
+                      return (
+                        <div className="p-1 sm:p-2 text-xs text-gray-400 text-center">
+                          店舗を選択して貸切申込
+                        </div>
+                      )
+                    }
+                    
+                    // イベントを表示 + 空いている時間帯に貸切申込ボタン
                     return (
                     <>
                     {allDisplayEvents.map((event: any, idx: number) => {
@@ -277,17 +304,22 @@ export const CalendarView = memo(function CalendarView({
                       </div>
                     )
                   })}
-                  {/* 空きがある場合は貸切申込ボタンを一番下に表示 */}
-                  {hasAvailableSlot && (
-                    <div className="p-1 sm:p-2">
-                      <button
-                        className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
-                        onClick={() => {
-                          window.location.hash = `#private-booking-select?date=${dateStr}`
-                        }}
-                      >
-                        貸切申込
-                      </button>
+                  {/* 選択中の店舗で空いている時間帯に貸切申込ボタンを表示 */}
+                  {selectedStore && (
+                    <div className="space-y-1 p-1 pt-2 border-t border-gray-200 mt-1">
+                      {timeSlots.map(({ slot, label }) => (
+                        !hasEventInSlot(slot) && (
+                          <button
+                            key={slot}
+                            className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 rounded text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                            onClick={() => {
+                              window.location.hash = `#private-booking-select?date=${dateStr}&store=${selectedStore.id}&slot=${slot}`
+                            }}
+                          >
+                            {label} 貸切
+                          </button>
+                        )
+                      ))}
                     </div>
                   )}
                   </>

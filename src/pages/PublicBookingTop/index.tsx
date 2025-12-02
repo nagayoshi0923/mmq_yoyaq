@@ -30,11 +30,23 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     return 'lineup'
   })
 
-  // 店舗フィルター
+  // 店舗フィルター（デフォルトは馬場）
   const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>('all')
+  const [isStoreFilterInitialized, setIsStoreFilterInitialized] = useState(false)
 
   // データ取得フック
   const { scenarios, allEvents, blockedSlots, stores, isLoading, loadData } = useBookingData()
+  
+  // 店舗データがロードされたら、デフォルトで「馬場」を選択
+  useEffect(() => {
+    if (stores.length > 0 && !isStoreFilterInitialized) {
+      const babaStore = stores.find(s => s.name?.includes('馬場') || s.short_name?.includes('馬場'))
+      if (babaStore) {
+        setSelectedStoreFilter(babaStore.id)
+      }
+      setIsStoreFilterInitialized(true)
+    }
+  }, [stores, isStoreFilterInitialized])
 
   // カレンダーデータフック
   const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(
