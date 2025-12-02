@@ -1365,6 +1365,9 @@ export const scheduleApi = {
 
   // 公演を更新
   async update(id: string, updates: Partial<{
+    date: string // 日程
+    store_id: string // 店舗ID
+    venue: string // 店舗名
     scenario_id: string
     scenario: string
     category: string

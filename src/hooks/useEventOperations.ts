@@ -456,7 +456,14 @@ export function useEventOperations({
           }
           
           // 通常公演の場合は schedule_events テーブルを更新
+          // 店舗名を取得
+          const storeData = stores.find(s => s.id === performanceData.venue)
+          const storeName = storeData?.name || ''
+          
           await scheduleApi.update(performanceData.id, {
+            date: performanceData.date, // 日程移動用
+            store_id: performanceData.venue, // 店舗移動用（store_id）
+            venue: storeName, // 店舗名
             scenario: performanceData.scenario,
             scenario_id: scenarioId,
             category: performanceData.category,
