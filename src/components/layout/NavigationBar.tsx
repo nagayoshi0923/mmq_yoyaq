@@ -11,7 +11,8 @@ import {
   Store,
   HelpCircle,
   Globe,
-  LayoutDashboard
+  LayoutDashboard,
+  UserCircle
 } from 'lucide-react'
 
 interface NavigationBarProps {
@@ -29,7 +30,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   
   // 全タブ定義（定数なのでメモ化）
   // 管理者のみ: 店舗、スタッフ、シナリオ、予約管理、顧客管理、ユーザー、売上、設定
-  // スタッフも: ダッシュボード、スケジュール、シフト提出、GM確認、マニュアル
+  // スタッフも: ダッシュボード、スケジュール、シフト提出、GM確認、マイプロフィール、マニュアル
   // 顧客: ナビゲーション非表示（予約サイトのみ）
   const allTabs = useMemo(() => [
     { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, roles: ['admin', 'staff'] },
@@ -40,6 +41,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin'] },
     { id: 'shift-submission', label: 'シフト提出', icon: Clock, roles: ['admin', 'staff'] },
     { id: 'gm-availability', label: 'GM確認', icon: Clock, roles: ['admin', 'staff'] },
+    { id: 'staff-profile', label: 'マイプロフィール', icon: UserCircle, roles: ['staff'] },
     { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin'] },
     { id: 'customer-management', label: '顧客管理', icon: Users, roles: ['admin'] },
     { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },

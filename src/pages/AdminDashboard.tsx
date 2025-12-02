@@ -41,6 +41,7 @@ const AddDemoParticipants = lazy(() => import('./AddDemoParticipants').then(m =>
 const ScenarioMatcher = lazy(() => import('./ScenarioMatcher').then(m => ({ default: m.ScenarioMatcher })))
 const ManualPage = lazy(() => import('./Manual/index').then(m => ({ default: m.ManualPage })))
 const DashboardHome = lazy(() => import('./DashboardHome').then(m => ({ default: m.DashboardHome })))
+const StaffProfile = lazy(() => import('./StaffProfile').then(m => ({ default: m.StaffProfile })))
 
 export function AdminDashboard() {
   const { user, isInitialized } = useAuth()
@@ -50,6 +51,7 @@ export function AdminDashboard() {
     'dashboard',
     'stores',
     'staff',
+    'staff-profile',
     'scenarios',
     'scenarios-edit',
     'schedule',
@@ -389,6 +391,14 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="マニュアルを読み込み中..." />}>
         <ManualPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'staff-profile') {
+    return (
+      <Suspense fallback={<LoadingScreen message="マイプロフィールを読み込み中..." />}>
+        <StaffProfile />
       </Suspense>
     )
   }
