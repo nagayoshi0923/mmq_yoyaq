@@ -1333,6 +1333,7 @@ export const scheduleApi = {
     store_id: string
     venue?: string
     scenario?: string
+    scenario_id?: string | null // シナリオID
     category: string
     start_time: string
     end_time: string
@@ -1354,7 +1355,8 @@ export const scheduleApi = {
         ),
         scenarios:scenario_id (
           id,
-          title
+          title,
+          player_count_max
         )
       `)
       .single()

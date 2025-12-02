@@ -193,12 +193,20 @@ export function useEventOperations({
       // 元の公演を削除
       await scheduleApi.delete(draggedEvent.id)
 
+      // シナリオIDを取得（元のイベントから、またはシナリオリストから検索）
+      let scenarioId = draggedEvent.scenarios?.id || null
+      if (!scenarioId && draggedEvent.scenario) {
+        const matchingScenario = scenarios.find(s => s.title === draggedEvent.scenario)
+        scenarioId = matchingScenario?.id || null
+      }
+
       // 新しい位置に公演を作成
       const newEventData = {
         date: dropTarget.date,
         store_id: dropTarget.venue,
         venue: stores.find(s => s.id === dropTarget.venue)?.name || '',
         scenario: draggedEvent.scenario,
+        scenario_id: scenarioId,
         category: draggedEvent.category,
         start_time: defaults.start_time,
         end_time: defaults.end_time,
@@ -209,10 +217,15 @@ export function useEventOperations({
 
       const savedEvent = await scheduleApi.create(newEventData)
 
-      // ローカル状態を更新
+      // ローカル状態を更新（scenariosは元のイベントから保持）
       setEvents(prev => {
         const filtered = prev.filter(e => e.id !== draggedEvent.id)
-        return [...filtered, { ...savedEvent, venue: dropTarget.venue }]
+        const newEvent: ScheduleEvent = {
+          ...savedEvent,
+          venue: dropTarget.venue,
+          scenarios: draggedEvent.scenarios || savedEvent.scenarios
+        }
+        return [...filtered, newEvent]
       })
 
       setDraggedEvent(null)
@@ -251,12 +264,20 @@ export function useEventOperations({
       // 移動先の時間を計算
       const defaults = TIME_SLOT_DEFAULTS[dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening']
 
+      // シナリオIDを取得（元のイベントから、またはシナリオリストから検索）
+      let scenarioId = draggedEvent.scenarios?.id || null
+      if (!scenarioId && draggedEvent.scenario) {
+        const matchingScenario = scenarios.find(s => s.title === draggedEvent.scenario)
+        scenarioId = matchingScenario?.id || null
+      }
+
       // 新しい位置に公演を作成（元の公演は残す）
       const newEventData = {
         date: dropTarget.date,
         store_id: dropTarget.venue,
         venue: stores.find(s => s.id === dropTarget.venue)?.name || '',
         scenario: draggedEvent.scenario,
+        scenario_id: scenarioId,
         category: draggedEvent.category,
         start_time: defaults.start_time,
         end_time: defaults.end_time,
@@ -267,8 +288,13 @@ export function useEventOperations({
 
       const savedEvent = await scheduleApi.create(newEventData)
 
-      // ローカル状態を更新（元の公演は残す）
-      setEvents(prev => [...prev, { ...savedEvent, venue: dropTarget.venue }])
+      // ローカル状態を更新（元の公演は残す、scenariosは元のイベントから保持）
+      const newEvent: ScheduleEvent = {
+        ...savedEvent,
+        venue: dropTarget.venue,
+        scenarios: draggedEvent.scenarios || savedEvent.scenarios
+      }
+      setEvents(prev => [...prev, newEvent])
 
       setDraggedEvent(null)
       setDropTarget(null)
