@@ -77,13 +77,6 @@ export const ListView = memo(function ListView({
     }
 
     return events.map((event: any, idx: number) => {
-      const maxParticipants = event.scenarios?.player_count_max || event.max_participants || 8
-      const currentParticipants = event.current_participants || 0
-      const available = maxParticipants - currentParticipants
-      const isFull = available === 0
-      const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
-      const storeColor = getColorFromName(store.color)
-      
       // シナリオ情報を取得（最適化: Mapから直接取得）
       const scenario = scenarioMap.get(event.scenario_id) || 
                        scenarioMap.get(event.scenario) ||
@@ -93,6 +86,14 @@ export const ListView = memo(function ListView({
                          s.scenario_title === event.scenario ||
                          s.scenario_id === event.scenarios?.id
                        )
+      
+      // シナリオのplayer_count_maxを最優先（scenarioMapから取得したデータを使用）
+      const maxParticipants = scenario?.player_count_max || event.scenarios?.player_count_max || event.max_participants || 8
+      const currentParticipants = event.current_participants || 0
+      const available = maxParticipants - currentParticipants
+      const isFull = available === 0
+      const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
+      const storeColor = getColorFromName(store.color)
       const imageUrl = scenario?.key_visual_url || event.scenarios?.image_url || event.scenarios?.key_visual_url
 
       return (
