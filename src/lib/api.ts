@@ -560,6 +560,23 @@ export const staffApi = {
       }
     }
     
+    // 役割が変更された場合、usersテーブルのroleも更新
+    if (updates.role !== undefined && data.user_id) {
+      // スタッフの役割に応じてユーザーロールを決定
+      const userRole = updates.role === '管理者' ? 'admin' : 'staff'
+      
+      const { error: userRoleError } = await supabase
+        .from('users')
+        .update({ role: userRole, updated_at: new Date().toISOString() })
+        .eq('id', data.user_id)
+      
+      if (userRoleError) {
+        console.warn('ユーザーロールの更新に失敗しました:', userRoleError)
+      } else {
+        console.log(`スタッフ「${data.name}」の役割変更に伴い、ユーザーロールを${userRole}に更新しました`)
+      }
+    }
+    
     return data
   },
 
