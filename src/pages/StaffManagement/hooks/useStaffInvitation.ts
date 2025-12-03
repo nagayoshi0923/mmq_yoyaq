@@ -163,25 +163,52 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
     }
 
     try {
-      // 1. まず既存のスタッフレコードを削除
+      // 1. 既存のスタッフのシナリオ割り当て情報を取得（GM可能・体験済み）
+      const { data: existingAssignments } = await supabase
+        .from('staff_scenario_assignments')
+        .select('scenario_id, can_gm, has_experienced')
+        .eq('staff_id', linkingStaff.id)
+      
+      logger.log('既存のシナリオ割り当て情報:', existingAssignments?.length || 0, '件')
+
+      // 2. 既存のスタッフレコードを削除
       try {
         await staffApi.delete(linkingStaff.id)
         logger.log('既存スタッフレコード削除完了')
       } catch (deleteError: any) {
         // スタッフが見つからない場合（既に削除済みなど）は無視して続行
-        // PGRST116: The result contains 0 rows (single() called on empty set)
         if (deleteError.code === 'PGRST116' || deleteError.message?.includes('JSON object requested, multiple (or no) rows returned')) {
           logger.warn('削除対象のスタッフが見つかりませんでした（既に削除済みの可能性） - 処理を続行します')
         } else {
-          // その他のエラー（権限エラーなど）は再スロー
           throw deleteError
         }
       }
       
-      // 2. 新規ユーザーとスタッフレコードを作成
+      // 3. 新規ユーザーとスタッフレコードを作成
       const result = await inviteStaff(request)
       
       if (result.success && result.data) {
+        // 4. シナリオ割り当て情報を新しいスタッフIDで復元
+        if (existingAssignments && existingAssignments.length > 0) {
+          const newStaffId = result.data.staff_id
+          const assignmentsToInsert = existingAssignments.map(assignment => ({
+            staff_id: newStaffId,
+            scenario_id: assignment.scenario_id,
+            can_gm: assignment.can_gm,
+            has_experienced: assignment.has_experienced
+          }))
+          
+          const { error: insertError } = await supabase
+            .from('staff_scenario_assignments')
+            .insert(assignmentsToInsert)
+          
+          if (insertError) {
+            logger.warn('シナリオ割り当て情報の復元に失敗:', insertError)
+          } else {
+            logger.log('シナリオ割り当て情報を復元:', assignmentsToInsert.length, '件')
+          }
+        }
+        
         // スタッフリストを再取得
         await queryClient.invalidateQueries({ queryKey: staffKeys.all })
         alert(`✅ ${linkingStaff.name}さんを新規ユーザーとして招待しました！\n\n招待メールが${email}に送信されました。`)
