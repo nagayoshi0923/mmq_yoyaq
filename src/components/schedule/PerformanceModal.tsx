@@ -345,9 +345,12 @@ export function PerformanceModal({
               <TabsTrigger value="edit">公演情報</TabsTrigger>
               <TabsTrigger value="reservations">
                 予約者
-                {event && typeof event.participant_count === 'number' && (
+                {event && (
                   <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
-                    {event.participant_count}名
+                    {event.is_private_request || event.is_private_booking
+                      ? '満席'
+                      : `${event.participant_count || 0}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
+                    }
                   </Badge>
                 )}
               </TabsTrigger>
