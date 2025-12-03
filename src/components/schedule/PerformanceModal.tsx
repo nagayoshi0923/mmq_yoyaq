@@ -343,7 +343,14 @@ export function PerformanceModal({
           <div className="px-6 pt-4 shrink-0">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="edit">公演情報</TabsTrigger>
-              <TabsTrigger value="reservations">予約者</TabsTrigger>
+              <TabsTrigger value="reservations">
+                予約者
+                {event && typeof event.participant_count === 'number' && (
+                  <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                    {event.participant_count}名
+                  </Badge>
+                )}
+              </TabsTrigger>
             </TabsList>
           </div>
           
