@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Search, Filter, Mail, Plus } from 'lucide-react'
+import { Search, Filter, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -10,7 +10,6 @@ interface StaffFiltersProps {
   onSearchChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
   onInviteClick: () => void
-  onCreateClick: () => void
 }
 
 /**
@@ -21,8 +20,7 @@ export const StaffFilters = memo(function StaffFilters({
   statusFilter,
   onSearchChange,
   onStatusFilterChange,
-  onInviteClick,
-  onCreateClick
+  onInviteClick
 }: StaffFiltersProps) {
   return (
     <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
@@ -54,31 +52,17 @@ export const StaffFilters = memo(function StaffFilters({
         </Select>
       </div>
 
-      {/* ボタン群 */}
-      <div className="flex gap-2 flex-shrink-0">
-        {/* 招待ボタン */}
-        <Button 
-          variant="outline"
-          onClick={onInviteClick}
-          className="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm"
-          size="sm"
-        >
-          <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">スタッフを招待</span>
-          <span className="sm:hidden">招待</span>
-        </Button>
-
-        {/* 新規作成ボタン */}
-        <Button 
-          onClick={onCreateClick}
-          className="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-initial text-xs sm:text-sm"
-          size="sm"
-        >
-          <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">新規作成</span>
-          <span className="sm:hidden">新規</span>
-        </Button>
-      </div>
+      {/* 招待ボタン */}
+      <Button 
+        variant="outline"
+        onClick={onInviteClick}
+        className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
+        size="sm"
+      >
+        <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+        <span className="hidden sm:inline">スタッフを招待</span>
+        <span className="sm:hidden">招待</span>
+      </Button>
     </div>
   )
 })

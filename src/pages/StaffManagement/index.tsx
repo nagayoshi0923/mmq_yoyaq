@@ -410,9 +410,6 @@ export function StaffManagement() {
               onSearchChange={setSearchTerm}
               onStatusFilterChange={setStatusFilter}
               onInviteClick={openInviteModal}
-              onCreateClick={() => {
-                openEditModal(null as any)
-              }}
             />
 
             {/* スタッフ一覧テーブル (PC表示) */}

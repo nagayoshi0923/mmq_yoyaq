@@ -21,6 +21,7 @@ export function UserManagement() {
   const [message, setMessage] = useState('')
   const [showAllUsers, setShowAllUsers] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [roleChangeConfirm, setRoleChangeConfirm] = useState<{ user: User; newRole: 'admin' | 'staff' | 'customer' } | null>(null)
 
   // 管理者チェック
   if (!user || user.role !== 'admin') {
@@ -88,18 +89,29 @@ export function UserManagement() {
     }
   }
 
-  // ロールを更新
-  const handleRoleUpdate = async (userId: string, newRole: 'admin' | 'staff' | 'customer') => {
+  // ロール変更の確認ダイアログを表示
+  const handleRoleChangeRequest = (userData: User, newRole: 'admin' | 'staff' | 'customer') => {
+    // 同じロールの場合は何もしない
+    if (userData.role === newRole) return
+    setRoleChangeConfirm({ user: userData, newRole })
+  }
+
+  // ロールを更新（確認後に実行）
+  const handleRoleUpdate = async () => {
+    if (!roleChangeConfirm) return
+
+    const { user: targetUser, newRole } = roleChangeConfirm
+
     setLoading(true)
     setError('')
     setMessage('')
 
     try {
-      await updateUserRole(userId, newRole)
-      setMessage(`ロールを ${newRole} に更新しました`)
+      await updateUserRole(targetUser.id, newRole)
+      setMessage(`${targetUser.email} のロールを ${getRoleLabel(newRole)} に更新しました`)
       
       // 検索結果を更新
-      if (searchResult && searchResult.id === userId) {
+      if (searchResult && searchResult.id === targetUser.id) {
         setSearchResult({ ...searchResult, role: newRole })
       }
 
@@ -107,6 +119,8 @@ export function UserManagement() {
       if (showAllUsers) {
         await loadAllUsers()
       }
+
+      setRoleChangeConfirm(null)
     } catch (err: any) {
       logger.error('ロール更新エラー:', err)
       setError('ロールの更新に失敗しました: ' + (err.message || ''))
@@ -220,7 +234,7 @@ export function UserManagement() {
               <Button
                 variant={userData.role === 'admin' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => handleRoleUpdate(userData.id, 'admin')}
+                onClick={() => handleRoleChangeRequest(userData, 'admin')}
                 disabled={loading || userData.role === 'admin'}
                 className="flex items-center gap-1 text-xs sm:text-sm"
               >
@@ -230,7 +244,7 @@ export function UserManagement() {
               <Button
                 variant={userData.role === 'staff' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => handleRoleUpdate(userData.id, 'staff')}
+                onClick={() => handleRoleChangeRequest(userData, 'staff')}
                 disabled={loading || userData.role === 'staff'}
                 className="flex items-center gap-1 text-xs sm:text-sm"
               >
@@ -240,7 +254,7 @@ export function UserManagement() {
               <Button
                 variant={userData.role === 'customer' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => handleRoleUpdate(userData.id, 'customer')}
+                onClick={() => handleRoleChangeRequest(userData, 'customer')}
                 disabled={loading || userData.role === 'customer'}
                 className="flex items-center gap-1 text-xs sm:text-sm"
               >
@@ -385,7 +399,7 @@ export function UserManagement() {
                           <Button
                             variant={userData.role === 'admin' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => handleRoleUpdate(userData.id, 'admin')}
+                            onClick={() => handleRoleChangeRequest(userData, 'admin')}
                             disabled={loading || userData.role === 'admin'}
                             className="flex items-center gap-1 text-xs h-8 sm:h-auto sm:px-3 px-2"
                             title="管理者に変更"
@@ -396,7 +410,7 @@ export function UserManagement() {
                           <Button
                             variant={userData.role === 'staff' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => handleRoleUpdate(userData.id, 'staff')}
+                            onClick={() => handleRoleChangeRequest(userData, 'staff')}
                             disabled={loading || userData.role === 'staff'}
                             className="flex items-center gap-1 text-xs h-8 sm:h-auto sm:px-3 px-2"
                             title="スタッフに変更"
@@ -407,7 +421,7 @@ export function UserManagement() {
                           <Button
                             variant={userData.role === 'customer' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => handleRoleUpdate(userData.id, 'customer')}
+                            onClick={() => handleRoleChangeRequest(userData, 'customer')}
                             disabled={loading || userData.role === 'customer'}
                             className="flex items-center gap-1 text-xs h-8 sm:h-auto sm:px-3 px-2"
                             title="顧客に変更"
@@ -464,6 +478,52 @@ export function UserManagement() {
         </CardContent>
       </Card>
       </div>
+
+      {/* ロール変更確認ダイアログ */}
+      <Dialog open={!!roleChangeConfirm} onOpenChange={(open) => !open && setRoleChangeConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ロールを変更</DialogTitle>
+            <DialogDescription>
+              本当にこのユーザーのロールを変更しますか？
+            </DialogDescription>
+          </DialogHeader>
+          {roleChangeConfirm && (
+            <div className="py-4 space-y-2">
+              <p className="text-sm"><strong>メールアドレス:</strong> {roleChangeConfirm.user.email}</p>
+              <p className="text-sm">
+                <strong>現在のロール:</strong>{' '}
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border ${getRoleBadgeColor(roleChangeConfirm.user.role)}`}>
+                  {getRoleIcon(roleChangeConfirm.user.role)}
+                  {getRoleLabel(roleChangeConfirm.user.role)}
+                </span>
+              </p>
+              <p className="text-sm">
+                <strong>変更後のロール:</strong>{' '}
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border ${getRoleBadgeColor(roleChangeConfirm.newRole)}`}>
+                  {getRoleIcon(roleChangeConfirm.newRole)}
+                  {getRoleLabel(roleChangeConfirm.newRole)}
+                </span>
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRoleChangeConfirm(null)}
+              disabled={loading}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleRoleUpdate}
+              disabled={loading}
+            >
+              {loading ? '変更中...' : '変更する'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 削除確認ダイアログ */}
       <Dialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
