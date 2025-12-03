@@ -397,7 +397,8 @@ export function useEventOperations({
           gms: performanceData.gms.filter((gm: string) => gm.trim() !== ''),
           gm_roles: performanceData.gm_roles || {},
           notes: performanceData.notes || null,
-          time_slot: performanceData.time_slot || null // 時間帯（朝/昼/夜）
+          time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
+          is_reservation_enabled: false // デフォルトは非公開
         }
         
         // Supabaseに保存
@@ -811,15 +812,35 @@ export function useEventOperations({
     }
   }, [setEvents])
 
-  // 予約サイト公開/非公開トグル
-  const handleToggleReservation = useCallback((event: ScheduleEvent) => {
+  // 予約サイト公開/非公開トグル（直接切り替え）
+  const handleToggleReservation = useCallback(async (event: ScheduleEvent) => {
     if (event.is_private_request) {
       alert('貸切公演の公開状態は変更できません')
       return
     }
-    setPublishingEvent(event)
-    setIsPublishDialogOpen(true)
-  }, [])
+    
+    const isPrivateBooking = event.id.startsWith('private-') ||
+                            (event.id.includes('-') && event.id.split('-').length > 5)
+    if (isPrivateBooking) {
+      alert('貸切公演の公開状態は変更できません')
+      return
+    }
+    
+    try {
+      const newStatus = !event.is_reservation_enabled
+      
+      await scheduleApi.update(event.id, {
+        is_reservation_enabled: newStatus
+      })
+
+      setEvents(prev => prev.map(e => 
+        e.id === event.id ? { ...e, is_reservation_enabled: newStatus } : e
+      ))
+    } catch (error) {
+      logger.error('予約サイト公開状態の更新エラー:', error)
+      alert('予約サイト公開状態の更新に失敗しました')
+    }
+  }, [setEvents])
   
   const handleConfirmPublishToggle = useCallback(async () => {
     if (!publishingEvent) return

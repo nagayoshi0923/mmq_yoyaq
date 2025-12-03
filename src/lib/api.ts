@@ -1362,6 +1362,7 @@ export const scheduleApi = {
     gm_roles?: Record<string, string>
     notes?: string
     time_slot?: string | null // 時間帯（朝/昼/夜）
+    is_reservation_enabled?: boolean // 予約サイト公開状態
   }) {
     const { data, error } = await supabase
       .from('schedule_events')
