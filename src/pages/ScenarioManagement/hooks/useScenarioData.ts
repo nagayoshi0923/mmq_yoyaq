@@ -114,7 +114,7 @@ export function useScenarioData() {
           play_count: 0,
           required_props: [],
           gm_costs: [{ role: 'main', reward: 2000, status: 'active' }],
-          license_amount: 1500,
+          license_amount: 0,
           gm_test_license_amount: 0,
           license_rewards: [],
           participation_costs: [{ time_slot: '通常', amount: parseInt(participationFee) || 3000, type: 'fixed', status: 'active' }],

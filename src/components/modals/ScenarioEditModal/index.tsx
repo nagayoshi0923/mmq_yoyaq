@@ -44,7 +44,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     production_costs: [],
     genre: [],
     required_props: [],
-    license_amount: 1500,
+    license_amount: 0,
     gm_test_license_amount: 0,
     franchise_license_amount: undefined,
     franchise_gm_test_license_amount: undefined,
@@ -629,7 +629,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             }))
           }
         })(),
-        license_amount: scenario.license_amount || 1500,
+        license_amount: scenario.license_amount || 0,
         gm_test_license_amount: scenario.gm_test_license_amount || 0,
         franchise_license_amount: scenario.franchise_license_amount,
         franchise_gm_test_license_amount: scenario.franchise_gm_test_license_amount,
