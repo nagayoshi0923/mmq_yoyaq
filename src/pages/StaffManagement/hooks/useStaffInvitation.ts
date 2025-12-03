@@ -62,6 +62,8 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       const result = await inviteStaff(request)
       
       if (result.success) {
+        // スタッフリストを再取得
+        await queryClient.invalidateQueries({ queryKey: staffKeys.all })
         alert(`✅ ${request.name}さんを招待しました！\n\n招待メールが${request.email}に送信されました。`)
         onSuccess?.()
       } else {
@@ -73,7 +75,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       alert(errorMessage)
       onError?.(errorMessage)
     }
-  }, [onSuccess, onError])
+  }, [queryClient, onSuccess, onError])
 
   /**
    * 既存ユーザーと紐付け
@@ -134,7 +136,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       alert(errorMessage)
       onError?.(errorMessage)
     }
-  }, [onSuccess, onError])
+  }, [queryClient, onSuccess, onError])
 
   /**
    * 新規招待して紐付け
@@ -180,6 +182,8 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       const result = await inviteStaff(request)
       
       if (result.success && result.data) {
+        // スタッフリストを再取得
+        await queryClient.invalidateQueries({ queryKey: staffKeys.all })
         alert(`✅ ${linkingStaff.name}さんを新規ユーザーとして招待しました！\n\n招待メールが${email}に送信されました。`)
         onSuccess?.()
       } else {
@@ -191,7 +195,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       alert(errorMessage)
       onError?.(errorMessage)
     }
-  }, [onSuccess, onError])
+  }, [queryClient, onSuccess, onError])
 
   /**
    * スタッフとアカウントの連携を解除
