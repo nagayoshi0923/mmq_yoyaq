@@ -349,16 +349,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // 非同期で取得（await しない）
           const staffPromise = supabase
             .from('staff')
-            .select('name')
+            .select('id, name, user_id')
             .eq('user_id', supabaseUser.id)
             .maybeSingle()
           
-          Promise.resolve(staffPromise).then(({ data }) => {
+          Promise.resolve(staffPromise).then(async ({ data }) => {
               if (data?.name) {
                 setStaffCache(prev => new Map(prev.set(supabaseUser.id, data.name)))
                 logger.log('📋 ✅ バックグラウンドでスタッフ名取得成功:', data.name)
                 // ユーザー情報も更新してヘッダーに反映
                 setUser(prev => prev ? { ...prev, staffName: data.name } : prev)
+              } else {
+                // user_idで見つからない場合、メールアドレスで検索して自動紐付け
+                logger.log('📋 user_idで見つからないため、メールアドレスで検索:', supabaseUser.email)
+                const { data: staffByEmail } = await supabase
+                  .from('staff')
+                  .select('id, name, user_id')
+                  .eq('email', supabaseUser.email)
+                  .is('user_id', null)
+                  .maybeSingle()
+                
+                if (staffByEmail) {
+                  logger.log('📋 🔗 メールアドレスでスタッフ発見、自動紐付け:', staffByEmail.name)
+                  // user_idを設定して紐付け
+                  const { error: updateError } = await supabase
+                    .from('staff')
+                    .update({ user_id: supabaseUser.id })
+                    .eq('id', staffByEmail.id)
+                  
+                  if (!updateError) {
+                    setStaffCache(prev => new Map(prev.set(supabaseUser.id, staffByEmail.name)))
+                    logger.log('📋 ✅ スタッフ自動紐付け成功:', staffByEmail.name)
+                    setUser(prev => prev ? { ...prev, staffName: staffByEmail.name } : prev)
+                    
+                    // usersテーブルのroleもstaffに更新（adminでなければ）
+                    if (role !== 'admin') {
+                      await supabase
+                        .from('users')
+                        .update({ role: 'staff' })
+                        .eq('id', supabaseUser.id)
+                      logger.log('📋 ✅ ユーザーロールをstaffに更新')
+                    }
+                  } else {
+                    logger.warn('📋 ⚠️ スタッフ紐付けエラー:', updateError)
+                  }
+                }
               }
           }).catch((error) => {
               logger.log('📋 スタッフ情報の取得エラー（バックグラウンド）:', error)
