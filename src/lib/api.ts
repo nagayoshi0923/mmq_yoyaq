@@ -563,7 +563,10 @@ export const staffApi = {
     // 役割が変更された場合、usersテーブルのroleも更新
     if (updates.role !== undefined && data.user_id) {
       // スタッフの役割に応じてユーザーロールを決定
-      const userRole = updates.role === '管理者' ? 'admin' : 'staff'
+      // role配列に「admin」または「管理者」が含まれていればadmin
+      const roles = Array.isArray(updates.role) ? updates.role : [updates.role]
+      const isAdmin = roles.some(r => r === 'admin' || r === '管理者')
+      const userRole = isAdmin ? 'admin' : 'staff'
       
       const { error: userRoleError } = await supabase
         .from('users')
