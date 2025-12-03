@@ -1,6 +1,6 @@
 // スケジュールデータの読み込みと管理
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
@@ -726,13 +726,15 @@ export function useScheduleData(currentDate: Date) {
   }
 
   // スケジュールデータを再取得する関数
-  const fetchSchedule = async () => {
+  const fetchSchedule = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
       
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth() + 1
+      
+      logger.log(`🔄 fetchSchedule: ${year}年${month}月のデータを取得`)
       
       const data = await scheduleApi.getByMonth(year, month)
       
@@ -870,13 +872,14 @@ export function useScheduleData(currentDate: Date) {
       // const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
       
       setEvents([...formattedEvents, ...privateEvents])
+      logger.log(`✅ fetchSchedule: ${formattedEvents.length + privateEvents.length}件のイベントを取得`)
     } catch (err) {
       logger.error('スケジュールデータの再取得エラー:', err)
       setError('スケジュールデータの再取得に失敗しました')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [currentDate, staff])
 
   // リアルタイム購読（複数ユーザー対応）
   useEffect(() => {

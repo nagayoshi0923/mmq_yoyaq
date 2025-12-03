@@ -239,7 +239,15 @@ export function ScheduleManager() {
         <ImportScheduleModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
-          onImportComplete={scheduleTableProps.fetchSchedule}
+          onImportComplete={(targetMonth) => {
+            // インポート対象の月に切り替え
+            if (targetMonth) {
+              const targetDate = new Date(targetMonth.year, targetMonth.month - 1, 1)
+              setCurrentDate(targetDate)
+            }
+            // データを再取得（月切り替え後に自動で実行されるが、念のため）
+            scheduleTableProps.fetchSchedule()
+          }}
         />
 
         <ConflictWarningModal

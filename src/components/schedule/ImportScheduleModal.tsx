@@ -11,7 +11,7 @@ import { getTimeSlot } from '@/utils/scheduleUtils'
 interface ImportScheduleModalProps {
   isOpen: boolean
   onClose: () => void
-  onImportComplete: () => void
+  onImportComplete: (targetMonth?: { year: number; month: number }) => void
 }
 
 // 店舗名→store_id のマッピング
@@ -408,9 +408,10 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
 
       setResult({ success: successCount, failed: failedCount, errors })
 
-      if (failedCount === 0) {
+      if (successCount > 0) {
         setTimeout(() => {
-          onImportComplete()
+          // インポート対象の月を通知して、その月に切り替えられるようにする
+          onImportComplete(targetMonth || undefined)
           handleClose()
         }, 2000)
       }
