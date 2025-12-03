@@ -151,7 +151,7 @@ function PerformanceCardBase({
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
           : 'cursor-move'
       } ${categoryColors}`}
-      style={{ margin: '0px', minHeight: '100%' }}
+      style={{ margin: '0px' }}
       onClick={handleClick}
     >
       {/* ヘッダー行：時間 + バッジ群 */}

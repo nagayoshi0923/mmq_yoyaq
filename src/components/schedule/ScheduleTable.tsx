@@ -121,7 +121,7 @@ export function ScheduleTable({
                 const isTemporary = venue.is_temporary === true
                 
                 return (
-                <TableRow key={`${day.date}-${venue.id}`} className="h-20 sm:h-24 md:h-28 group bg-background hover:bg-muted/5">
+                <TableRow key={`${day.date}-${venue.id}`} className="min-h-[80px] group bg-background hover:bg-muted/5">
                   {/* 日付・曜日統合セル (Sticky) */}
                   {venueIndex === 0 ? (
                     <TableCell 
