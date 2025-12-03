@@ -384,6 +384,8 @@ export function useEventOperations({
         }
         
         // Supabaseに保存するデータ形式に変換
+        // 貸切（private）はデフォルト公開、それ以外は非公開
+        const isPrivateCategory = performanceData.category === 'private'
         const eventData = {
           date: performanceData.date,
           store_id: storeData.id,
@@ -398,7 +400,7 @@ export function useEventOperations({
           gm_roles: performanceData.gm_roles || {},
           notes: performanceData.notes || null,
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
-          is_reservation_enabled: false // デフォルトは非公開
+          is_reservation_enabled: isPrivateCategory // 貸切は公開、それ以外は非公開
         }
         
         // Supabaseに保存
