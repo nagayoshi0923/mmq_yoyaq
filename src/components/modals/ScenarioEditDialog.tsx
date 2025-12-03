@@ -288,6 +288,8 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
       const scenarioData: any = {
         ...dbFields,
         participation_fee: normalParticipationCost?.amount || formData.participation_fee || 3000,
+        // 参加費設定（時間帯別料金）を保存
+        participation_costs: formData.participation_costs || [],
         license_amount: (normalLicenseReward?.amount ?? formData.license_amount ?? 1500),
         gm_test_license_amount: (gmtestLicenseReward?.amount ?? formData.gm_test_license_amount ?? 0),
         scenario_type: formData.scenario_type || 'normal',
