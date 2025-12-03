@@ -288,42 +288,115 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } catch (error: any) {
         logger.warn('⚠️ ロール取得失敗（タイムアウト/エラー）:', error?.message || error)
         
-        // レコードが存在しない場合、作成する（トリガーに依存しない）
-        if (error?.code === 'PGRST116' || error?.message?.includes('ロール取得タイムアウト')) {
+        // レコードが存在しない場合のみ、作成する（既存のロールを上書きしない）
+        if (error?.code === 'PGRST116') {
           logger.log('📝 usersテーブルにレコードが存在しないため、作成します')
           
-          // ロールを決定（メールアドレスから判定）
+          // 🔴 重要: スタッフテーブルに紐付けがあるか確認
+          // スタッフとして招待されている場合は staff ロールを維持
           let newRole = determineUserRole(supabaseUser.email)
           
-          // usersテーブルにレコードを作成
-          const { error: upsertError } = await supabase
+          try {
+            const { data: staffData } = await supabase
+              .from('staff')
+              .select('id')
+              .eq('user_id', supabaseUser.id)
+              .maybeSingle()
+            
+            if (staffData) {
+              newRole = 'staff'
+              logger.log('✅ スタッフテーブルに紐付けあり: staffロールを設定')
+            }
+          } catch (staffErr) {
+            logger.warn('⚠️ スタッフテーブル確認エラー:', staffErr)
+          }
+          
+          // usersテーブルにレコードを作成（insertで新規のみ、upsertしない）
+          const { error: insertError } = await supabase
             .from('users')
-            .upsert({
+            .insert({
               id: supabaseUser.id,
               email: supabaseUser.email!,
               role: newRole,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'id'
             })
           
-          if (upsertError) {
-            logger.warn('⚠️ usersテーブルへのレコード作成に失敗しました:', upsertError)
-            role = newRole // フォールバックとして使用
+          if (insertError) {
+            // 重複エラーの場合は既存レコードがあるので、再取得を試みる
+            if (insertError.code === '23505') {
+              logger.log('📋 既存レコードあり、再取得を試みます')
+              const { data: retryData } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', supabaseUser.id)
+                .single()
+              
+              if (retryData?.role) {
+                role = retryData.role as 'admin' | 'staff' | 'customer'
+                logger.log('✅ 既存ロールを取得:', role)
+              } else {
+                role = newRole
+              }
+            } else {
+              logger.warn('⚠️ usersテーブルへのレコード作成に失敗しました:', insertError)
+              role = newRole // フォールバックとして使用
+            }
           } else {
             role = newRole
             logger.log('✅ usersテーブルにレコードを作成しました:', role)
           }
+        } else if (error?.message?.includes('ロール取得タイムアウト')) {
+          // タイムアウトの場合: 既存のロールを保持、なければスタッフチェック
+          if (existingUser && existingUser.id === supabaseUser.id) {
+            role = existingUser.role
+            logger.log('🔄 タイムアウト: 既存のロールを保持:', role)
+          } else {
+            // スタッフテーブルをチェック
+            try {
+              const { data: staffData } = await supabase
+                .from('staff')
+                .select('id')
+                .eq('user_id', supabaseUser.id)
+                .maybeSingle()
+              
+              if (staffData) {
+                role = 'staff'
+                logger.log('✅ スタッフテーブルに紐付けあり: staffロールを使用')
+              } else {
+                role = determineUserRole(supabaseUser.email)
+                logger.log('🔄 タイムアウトフォールバック:', role)
+              }
+            } catch {
+              role = determineUserRole(supabaseUser.email)
+              logger.log('🔄 タイムアウトフォールバック:', role)
+            }
+          }
         } else {
-          // 既存のユーザー情報がある場合は、そのロールを保持（エラー時もロールを維持）
+          // その他のエラー: 既存のユーザー情報があればそのロールを保持
           if (existingUser && existingUser.id === supabaseUser.id && existingUser.role !== 'customer') {
             role = existingUser.role
             logger.log('🔄 例外発生、既存のロールを保持:', role)
           } else {
-            // フォールバック: メールアドレスで判定
-            role = determineUserRole(supabaseUser.email)
-            logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
+            // スタッフテーブルをチェック
+            try {
+              const { data: staffData } = await supabase
+                .from('staff')
+                .select('id')
+                .eq('user_id', supabaseUser.id)
+                .maybeSingle()
+              
+              if (staffData) {
+                role = 'staff'
+                logger.log('✅ スタッフテーブルに紐付けあり: staffロールを使用')
+              } else {
+                role = determineUserRole(supabaseUser.email)
+                logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
+              }
+            } catch {
+              role = determineUserRole(supabaseUser.email)
+              logger.log('🔄 例外フォールバック:', role)
+            }
           }
         }
       }
