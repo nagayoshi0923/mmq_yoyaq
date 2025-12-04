@@ -30,6 +30,21 @@ interface Store {
   }>
 }
 
+// 売上計算用のイベント型（schedule_eventsから取得したデータ）
+interface SalesEvent {
+  id: string
+  date: string
+  store_id: string
+  scenario?: string
+  category: string
+  current_participants?: number
+  capacity?: number
+  is_cancelled: boolean
+  gms?: string[]
+  actual_participants?: number
+  has_demo_participant?: boolean
+}
+
 export function useSalesData() {
   const [salesData, setSalesData] = useState<SalesData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -462,7 +477,7 @@ function calculateSalesData(
       storeData.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const actualGmCount = (event as any).gms?.length || 0
+        const actualGmCount = (event as SalesEvent).gms?.length || 0
         const applicableGmCosts = scenario.gm_costs
           .filter(gm => {
             const gmCategory = gm.category || 'normal'
@@ -565,7 +580,7 @@ function calculateSalesData(
       scenarioData.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const actualGmCount = (event as any).gms?.length || 0
+        const actualGmCount = (event as SalesEvent).gms?.length || 0
         const applicableGmCosts = scenario.gm_costs
           .filter(gm => {
             const gmCategory = gm.category || 'normal'
@@ -632,7 +647,7 @@ function calculateSalesData(
       current.licenseCost += licenseAmount
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const actualGmCount = (event as any).gms?.length || 0
+        const actualGmCount = (event as SalesEvent).gms?.length || 0
         const applicableGmCosts = scenario.gm_costs
           .filter(gm => {
             const gmCategory = gm.category || 'normal'
@@ -701,7 +716,7 @@ function calculateSalesData(
       }
 
       if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const actualGmCount = (event as any).gms?.length || 0
+        const actualGmCount = (event as SalesEvent).gms?.length || 0
         const applicableGmCosts = scenario.gm_costs
           .filter(gm => {
             const gmCategory = gm.category || 'normal'
@@ -739,9 +754,9 @@ function calculateSalesData(
       license_cost: licenseCost,
       gm_cost: gmCost,
       net_profit: netProfit,
-      participant_count: (event as any).actual_participants || event.current_participants || 0,
+      participant_count: (event as SalesEvent).actual_participants || event.current_participants || 0,
       category: event.category,
-      has_demo_participant: (event as any).has_demo_participant || false
+      has_demo_participant: (event as SalesEvent).has_demo_participant || false
     }
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) // 古い日付順でソート
 

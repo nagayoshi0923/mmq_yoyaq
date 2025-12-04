@@ -497,7 +497,7 @@ export const staffApi = {
     }
     
     // DBに存在しないフィールドを除外（UIで追加される仮想フィールド）
-    const { experienced_scenarios, ...dbUpdates } = updates as any
+    const { experienced_scenarios, ...dbUpdates } = updates as Staff & { experienced_scenarios?: string[] }
     
     // スタッフ情報を更新
     const { data, error } = await supabase

@@ -56,6 +56,7 @@ export interface Staff {
   availability: string[]
   experience: number
   special_scenarios: string[]
+  experienced_scenarios?: string[]
   status: 'active' | 'inactive' | 'on-leave'
   avatar_url?: string | null
   avatar_color?: string | null

@@ -235,7 +235,8 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       logger.log('✅ 臨時会場から日付を削除:', { venue: venue.name, date })
     } catch (error) {
       logger.error('臨時会場からの日付削除に失敗:', error)
-      alert('臨時会場の削除に失敗しました: ' + (error as any).message)
+      const message = error instanceof Error ? error.message : '不明なエラー'
+      alert('臨時会場の削除に失敗しました: ' + message)
     }
   }, [temporaryVenues])
 

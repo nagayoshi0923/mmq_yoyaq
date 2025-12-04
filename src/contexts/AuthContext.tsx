@@ -4,6 +4,13 @@ import { logger } from '@/utils/logger'
 import type { User } from '@supabase/supabase-js'
 import { determineUserRole } from '@/utils/authUtils'
 
+// グローバル変数の型定義
+declare global {
+  interface Window {
+    __PASSWORD_RESET_IN_PROGRESS__?: boolean
+  }
+}
+
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
@@ -121,7 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         
         // パスワードリセット中はロール更新をスキップ（一時セッションでロールが変わるのを防ぐ）
-        if ((window as any).__PASSWORD_RESET_IN_PROGRESS__) {
+        if (window.__PASSWORD_RESET_IN_PROGRESS__) {
           logger.log('⏭️ パスワードリセット中のためスキップ:', event)
           return
         }
@@ -310,7 +317,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const result = await Promise.race([
               rolePromise,
               timeoutPromise
-            ]) as any
+            ]) as { data: { role: string } | null; error: Error | null } | undefined
             
             // Supabaseのレスポンス形式を確認
             if (result && (result.data !== undefined || result.error !== undefined)) {

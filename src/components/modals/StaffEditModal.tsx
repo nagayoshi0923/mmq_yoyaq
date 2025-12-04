@@ -441,7 +441,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             </div>
             <div>
               <Label htmlFor="status">ステータス</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as any }))}>
+              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as 'active' | 'inactive' | 'on-leave' }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="ステータスを選択" />
                 </SelectTrigger>

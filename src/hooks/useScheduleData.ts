@@ -901,8 +901,10 @@ export function useScheduleData(currentDate: Date) {
         },
         async (payload) => {
           // 現在表示中の月のイベントのみ処理
-          const newDate = (payload.new as any)?.date
-          const oldDate = (payload.old as any)?.date
+          const newRecord = payload.new as { date?: string } | null
+          const oldRecord = payload.old as { date?: string } | null
+          const newDate = newRecord?.date
+          const oldDate = oldRecord?.date
           
           const newDateInRange = newDate && newDate >= monthStart && newDate <= monthEnd
           const oldDateInRange = oldDate && oldDate >= monthStart && oldDate <= monthEnd
@@ -934,7 +936,7 @@ export function useScheduleData(currentDate: Date) {
           // フィルターなし（すべての変更を受信）
         },
         async (payload) => {
-          const reservation = (payload.new || payload.old) as any
+          const reservation = (payload.new || payload.old) as { reservation_source?: string; status?: string } | null
           
           // web_private かつ confirmed のみ処理
           if (reservation?.reservation_source !== 'web_private' || reservation?.status !== 'confirmed') {

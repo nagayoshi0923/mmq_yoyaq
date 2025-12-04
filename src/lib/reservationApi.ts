@@ -432,7 +432,7 @@ export const reservationApi = {
             reservation_source: 'staff_entry'
           }
 
-          await this.create(reservation as any)
+          await this.create(reservation as Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'>)
         }
       }
 

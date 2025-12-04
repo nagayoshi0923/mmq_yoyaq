@@ -58,7 +58,7 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
         role: staff.role || [],
         stores: staff.stores || [],
         special_scenarios: staff.special_scenarios || [],
-        experienced_scenarios: (staff as any).experienced_scenarios || []
+        experienced_scenarios: staff.experienced_scenarios || []
       })
     }
   }, [staff])

@@ -96,14 +96,14 @@ function TimeSlotCellBase({
   }), [])
 
   const getStaffAvatarColors = (staff: Staff) => {
-    if ((staff as any).avatar_color) {
-      const bg = (staff as any).avatar_color as string
+    if (staff.avatar_color) {
+      const bg = staff.avatar_color
       return {
         bgColor: bg,
         textColor: COLOR_MAP[bg] || '#374151'
       }
     }
-    const name = (staff as any).name as string
+    const name = staff.name
     const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
     const colorIndex = hash % DEFAULT_AVATAR_COLORS.length
     return {
@@ -187,7 +187,7 @@ function TimeSlotCellBase({
           {availableStaff.length > 0 && (
             <div className="flex flex-wrap gap-0.5 justify-center items-center mt-0.5">
               {availableStaff.map((staff) => {
-                const { bgColor, textColor } = getStaffAvatarColors(staff as any)
+                const { bgColor, textColor } = getStaffAvatarColors(staff)
                 return (
                   <Badge
                     key={staff.id}

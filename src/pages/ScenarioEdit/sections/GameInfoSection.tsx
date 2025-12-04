@@ -172,7 +172,7 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
             <Label htmlFor="status">ステータス</Label>
             <Select 
               value={formData.status} 
-              onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as any }))}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as 'draft' | 'active' | 'retired' }))}
             >
               <SelectTrigger>
                 <SelectValue />

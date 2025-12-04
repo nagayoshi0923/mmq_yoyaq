@@ -209,7 +209,7 @@ export function createStaffColumns(
       sortable: true,
       width: 'w-64 max-w-64',
       render: (staff) => {
-        const experiencedScenarios = (staff as any).experienced_scenarios
+        const experiencedScenarios = staff.experienced_scenarios
         if (!experiencedScenarios || experiencedScenarios.length === 0) {
           return <span className="text-xs text-muted-foreground">-</span>
         }

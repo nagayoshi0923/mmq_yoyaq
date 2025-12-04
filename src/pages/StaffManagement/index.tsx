@@ -108,8 +108,8 @@ export function StaffManagement() {
           bValue = b.special_scenarios?.length || 0
           break
         case 'experienced_scenarios':
-          aValue = (a as any).experienced_scenarios?.length || 0
-          bValue = (b as any).experienced_scenarios?.length || 0
+          aValue = a.experienced_scenarios?.length || 0
+          bValue = b.experienced_scenarios?.length || 0
           break
         default:
           return 0
@@ -442,7 +442,7 @@ export function StaffManagement() {
               {sortedStaff.length > 0 ? (
                 sortedStaff.map((staffItem) => {
                   const gmScenarios = staffItem.special_scenarios || []
-                  const expScenarios = (staffItem as any).experienced_scenarios || []
+                  const expScenarios = staffItem.experienced_scenarios || []
                   
                   return (
                     <div key={staffItem.id} className="bg-white border rounded-lg overflow-hidden" onClick={() => handleEditStaff(staffItem)}>
