@@ -244,7 +244,7 @@ export function ReservationList({
       logger.log('予約ステータス更新成功:', { id: reservationId, oldStatus, newStatus })
     } catch (error) {
       logger.error('予約ステータス更新エラー:', error)
-      alert('ステータスの更新に失敗しました')
+      showToast.error('ステータスの更新に失敗しました')
     }
   }
 
@@ -320,7 +320,7 @@ export function ReservationList({
       }
     } catch (error) {
       logger.error('メール内容の準備エラー:', error)
-      alert('メール内容の準備に失敗しました')
+      showToast.error('メール内容の準備に失敗しました')
     }
   }
 
@@ -375,10 +375,10 @@ export function ReservationList({
       }
 
       setCancellingReservation(null)
-      alert('予約をキャンセルしました。\n\n※ 顧客情報が不足しているため、キャンセル確認メールは送信されませんでした。')
+      showToast.success('予約をキャンセルしました', '※ 顧客情報が不足しているため、キャンセル確認メールは送信されませんでした')
     } catch (error) {
       logger.error('予約キャンセルエラー:', error)
-      alert('予約のキャンセルに失敗しました')
+      showToast.error('予約のキャンセルに失敗しました')
     }
   }
 
@@ -455,7 +455,7 @@ export function ReservationList({
         if (emailError) throw emailError
       } catch (emailError) {
         logger.error('キャンセル確認メール送信エラー:', emailError)
-        alert(`予約はキャンセルされましたが、メール送信に失敗しました: ${emailError instanceof Error ? emailError.message : '不明なエラー'}`)
+        showToast.warning('予約はキャンセルされましたが、メール送信に失敗しました', emailError instanceof Error ? emailError.message : '不明なエラー')
       }
 
       setIsEmailConfirmOpen(false)
@@ -478,7 +478,7 @@ export function ReservationList({
       showToast.success('メールを送信しました')
     } catch (error) {
       logger.error('予約キャンセルエラー:', error)
-      alert(`予約のキャンセルに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
+      showToast.error('予約のキャンセルに失敗しました', error instanceof Error ? error.message : '不明なエラー')
     }
   }
 
@@ -568,7 +568,7 @@ export function ReservationList({
       
     } catch (error) {
       logger.error('参加者追加エラー:', error)
-      alert('参加者の追加に失敗しました')
+      showToast.error('参加者の追加に失敗しました')
     }
   }
 
@@ -690,7 +690,7 @@ export function ReservationList({
                       if (selectedEmails.length > 0) {
                         setIsEmailModalOpen(true)
                       } else {
-                        alert('選択した予約にメールアドレスが設定されていません')
+                        showToast.warning('選択した予約にメールアドレスが設定されていません')
                       }
                     }}
                   >
@@ -885,7 +885,7 @@ export function ReservationList({
               <Button
                 onClick={async () => {
                   if (!emailSubject.trim() || !emailBody.trim()) {
-                    alert('件名と本文を入力してください')
+                    showToast.warning('件名と本文を入力してください')
                     return
                   }
 
@@ -905,7 +905,7 @@ export function ReservationList({
                       .filter((email): email is string => email !== null && email !== undefined)
                     
                     if (selectedEmails.length === 0) {
-                      alert('送信先のメールアドレスが見つかりませんでした')
+                      showToast.warning('送信先のメールアドレスが見つかりませんでした')
                       return
                     }
 
@@ -927,7 +927,7 @@ export function ReservationList({
                       throw error
                     }
 
-                    alert(`${selectedEmails.length}件のメールを送信しました`)
+                    showToast.success(`${selectedEmails.length}件のメールを送信しました`)
                     setIsEmailModalOpen(false)
                     setEmailSubject('')
                     setEmailBody('')

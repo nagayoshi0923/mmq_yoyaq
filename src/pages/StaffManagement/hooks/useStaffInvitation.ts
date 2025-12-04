@@ -65,7 +65,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       if (result.success) {
         // スタッフリストを再取得
         await queryClient.invalidateQueries({ queryKey: staffKeys.all })
-        alert(`✅ ${request.name}さんを招待しました！\n\n招待メールが${request.email}に送信されました。`)
+        showToast.success(`${request.name}さんを招待しました！`, `招待メールを${request.email}に送信しました`)
         onSuccess?.()
       } else {
         throw new Error(result.error || '招待に失敗しました')
@@ -73,7 +73,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
     } catch (err: any) {
       logger.error('Error inviting staff:', err)
       const errorMessage = 'スタッフの招待に失敗しました: ' + err.message
-      alert(errorMessage)
+      showToast.error(errorMessage)
       onError?.(errorMessage)
     }
   }, [queryClient, onSuccess, onError])
@@ -129,12 +129,12 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       // キャッシュを無効化して最新データを取得
       await queryClient.invalidateQueries({ queryKey: staffKeys.all })
 
-      alert(`✅ ${linkingStaff.name}さんを ${email} と紐付けました！`)
+      showToast.success(`${linkingStaff.name}さんを${email}と紐付けました`)
       onSuccess?.()
     } catch (err: any) {
       logger.error('Error linking user:', err)
       const errorMessage = 'ユーザーとの紐付けに失敗しました: ' + err.message
-      alert(errorMessage)
+      showToast.error(errorMessage)
       onError?.(errorMessage)
     }
   }, [queryClient, onSuccess, onError])
@@ -212,7 +212,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
         
         // スタッフリストを再取得
         await queryClient.invalidateQueries({ queryKey: staffKeys.all })
-        alert(`✅ ${linkingStaff.name}さんを新規ユーザーとして招待しました！\n\n招待メールが${email}に送信されました。`)
+        showToast.success(`${linkingStaff.name}さんを招待しました！`, `招待メールを${email}に送信しました`)
         onSuccess?.()
       } else {
         throw new Error(result.error || '招待に失敗しました')
@@ -220,7 +220,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
     } catch (err: any) {
       logger.error('Error inviting and linking:', err)
       const errorMessage = '招待に失敗しました: ' + err.message
-      alert(errorMessage)
+      showToast.error(errorMessage)
       onError?.(errorMessage)
     }
   }, [queryClient, onSuccess, onError])
@@ -230,7 +230,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
    */
   const handleUnlinkUser = useCallback(async (staff: Staff) => {
     if (!staff.user_id) {
-      alert('このスタッフは既にアカウントと連携されていません')
+      showToast.warning('このスタッフは既にアカウントと連携されていません')
       return
     }
 
@@ -281,12 +281,12 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       // キャッシュを無効化して最新データを取得
       await queryClient.invalidateQueries({ queryKey: staffKeys.all })
 
-      alert(`✅ ${staff.name}さんとアカウントの連携を解除しました`)
+      showToast.success(`${staff.name}さんとアカウントの連携を解除しました`)
       onSuccess?.()
     } catch (err: any) {
       logger.error('Error unlinking user:', err)
       const errorMessage = '連携解除に失敗しました: ' + err.message
-      alert(errorMessage)
+      showToast.error(errorMessage)
       onError?.(errorMessage)
     }
   }, [onSuccess, onError, queryClient])
@@ -296,7 +296,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
    */
   const handleReinviteStaff = useCallback(async (staff: Staff) => {
     if (!staff.email) {
-      alert('このスタッフにはメールアドレスが設定されていません')
+      showToast.warning('このスタッフにはメールアドレスが設定されていません')
       return
     }
 
@@ -318,7 +318,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
       if (result.success) {
         // スタッフリストを再取得
         await queryClient.invalidateQueries({ queryKey: staffKeys.all })
-        alert(`✅ ${staff.name}さんに招待メールを再送信しました！\n\nメールアドレス: ${staff.email}`)
+        showToast.success(`${staff.name}さんに招待メールを再送信しました`, `送信先: ${staff.email}`)
         onSuccess?.()
       } else {
         throw new Error(result.error || '再招待に失敗しました')
@@ -326,7 +326,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
     } catch (err: any) {
       logger.error('Error reinviting staff:', err)
       const errorMessage = '再招待に失敗しました: ' + err.message
-      alert(errorMessage)
+      showToast.error(errorMessage)
       onError?.(errorMessage)
     }
   }, [queryClient, onSuccess, onError])

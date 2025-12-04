@@ -142,7 +142,7 @@ export function ScenarioManagement() {
     // バリデーション
     const validation = validateImageFile(file, 5)
     if (!validation.valid) {
-      alert(validation.error)
+      showToast.error(validation.error)
       return
     }
 
@@ -150,7 +150,7 @@ export function ScenarioManagement() {
       // 画像をアップロード
       const result = await uploadImage(file, 'key-visuals')
       if (!result) {
-        alert('画像のアップロードに失敗しました')
+        showToast.error('画像のアップロードに失敗しました')
         return
       }
 
@@ -162,7 +162,7 @@ export function ScenarioManagement() {
 
       if (error) {
         logger.error('画像URL更新エラー:', error)
-        alert('画像の保存に失敗しました')
+        showToast.error('画像の保存に失敗しました')
         return
       }
 
@@ -177,7 +177,7 @@ export function ScenarioManagement() {
       })
     } catch (error) {
       logger.error('画像アップロードエラー:', error)
-      alert('画像のアップロードに失敗しました')
+      showToast.error('画像のアップロードに失敗しました')
     }
   }
 
@@ -194,7 +194,7 @@ export function ScenarioManagement() {
 
       if (error) {
         logger.error('画像削除エラー:', error)
-        alert('画像の削除に失敗しました')
+        showToast.error('画像の削除に失敗しました')
         return
       }
 
@@ -209,7 +209,7 @@ export function ScenarioManagement() {
       })
     } catch (error) {
       logger.error('画像削除エラー:', error)
-      alert('画像の削除に失敗しました')
+      showToast.error('画像の削除に失敗しました')
     }
   }
 
@@ -227,7 +227,7 @@ export function ScenarioManagement() {
       setScenarioToDelete(null)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
-      alert(message)
+      showToast.error(message)
     }
   }
 
@@ -236,10 +236,10 @@ export function ScenarioManagement() {
     setIsImporting(true)
     try {
       const result = await importScenariosMutation.mutateAsync(file)
-      alert(`${result.count}件のシナリオをインポートしました`)
+      showToast.success(`${result.count}件のシナリオをインポートしました`)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
-      alert(message)
+      showToast.error(message)
       throw err // CsvImportExport コンポーネントでエラーハンドリング
     } finally {
       setIsImporting(false)
