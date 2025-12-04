@@ -111,7 +111,7 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
       logger.log('公演をペーストしました')
     } catch (error) {
       logger.error('公演ペーストエラー:', error)
-      alert('公演のペーストに失敗しました')
+      showToast.error('公演のペーストに失敗しました')
     }
   }, [clipboardEvent, stores, setEvents, checkConflict])
 

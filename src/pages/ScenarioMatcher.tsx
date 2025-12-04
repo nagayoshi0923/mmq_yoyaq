@@ -172,7 +172,7 @@ export function ScenarioMatcher() {
         }
       }
       
-      alert(`完了しました。\n成功: ${successCount}件\n失敗: ${failedCount}件`)
+      showToast.success(`完了しました`, `成功: ${successCount}件、失敗: ${failedCount}件`)
       
       // リロード
       setSelectedMatches({})

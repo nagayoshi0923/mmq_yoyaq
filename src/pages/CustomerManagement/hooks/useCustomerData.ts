@@ -24,7 +24,7 @@ export function useCustomerData() {
       setCustomers(data || [])
     } catch (error) {
       logger.error('顧客データ取得エラー:', error)
-      alert('顧客データの取得に失敗しました')
+      showToast.error('顧客データの取得に失敗しました')
     } finally {
       setLoading(false)
     }

@@ -616,7 +616,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       if (selectedTimeSlots.length < MAX_SELECTIONS) {
         setSelectedTimeSlots(prev => [...prev, { date, slot }])
       } else {
-        alert(`最大${MAX_SELECTIONS}枠まで選択できます`)
+        showToast.warning(`最大${MAX_SELECTIONS}枠まで選択できます`)
       }
     }
   }, [selectedTimeSlots])

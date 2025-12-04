@@ -21,7 +21,7 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading, reloadSh
    */
   const handleSubmitShift = async () => {
     if (!currentStaffId) {
-      alert('スタッフ情報が取得できませんでした')
+      showToast.error('スタッフ情報が取得できませんでした')
       return
     }
     
@@ -158,14 +158,14 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading, reloadSh
       }
       
       const totalDays = shiftsToUpsert.length + shiftsToRemove.length
-      alert(`シフトを更新しました。\n\n${monthDisplay}シフトを更新しました。\n（出勤可能: ${totalCheckedSlots}枠）\n\nスケジュール管理ページで確認できます。`)
+      showToast.success('シフトを更新しました', `${monthDisplay}：出勤可能${totalCheckedSlots}枠`)
       
       // DBから最新データを再取得
       await reloadShiftData()
       
     } catch (error) {
       logger.error('シフト提出エラー:', error)
-      alert('シフトの更新に失敗しました')
+      showToast.error('シフトの更新に失敗しました')
     } finally {
       setLoading(false)
     }

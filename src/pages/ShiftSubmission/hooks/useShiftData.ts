@@ -37,7 +37,7 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
           setCurrentStaffId(staffData.id)
         } else {
           logger.error('❌ スタッフデータが見つかりません:', user.email)
-          alert(`スタッフ情報が見つかりません。\nログイン中: ${user.email}\n\n管理者に連絡してスタッフ登録を依頼してください。`)
+          showToast.error('スタッフ情報が見つかりません', `ログイン中: ${user.email}。管理者に連絡してスタッフ登録を依頼してください。`)
         }
       }
     }

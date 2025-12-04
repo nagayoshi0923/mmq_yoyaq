@@ -121,10 +121,10 @@ export function NotificationSettings() {
         message += `（${result.failed_staff.join(', ')}）`
       }
 
-      alert(message)
+      showToast.success(message)
     } catch (error) {
       logger.error('テスト通知エラー:', error)
-      alert('テスト通知の送信に失敗しました\n\n' + (error instanceof Error ? error.message : '不明なエラー'))
+      showToast.error('テスト通知の送信に失敗しました', error instanceof Error ? error.message : '不明なエラー')
     } finally {
       setTesting(false)
     }

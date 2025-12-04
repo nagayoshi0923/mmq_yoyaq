@@ -54,7 +54,7 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      alert('顧客名を入力してください')
+      showToast.warning('顧客名を入力してください')
       return
     }
 
@@ -94,7 +94,7 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
         logger.log('顧客作成成功')
       }
 
-      alert(customer ? '顧客情報を更新しました' : '顧客を作成しました')
+      showToast.success(customer ? '顧客情報を更新しました' : '顧客を作成しました')
       onSave()
       onClose()
     } catch (error) {

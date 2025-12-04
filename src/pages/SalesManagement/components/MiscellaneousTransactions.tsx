@@ -131,7 +131,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
   // トランザクションを追加
   const handleAddTransaction = async () => {
     if (!newTransaction.category || !newTransaction.amount || newTransaction.amount <= 0) {
-      alert('カテゴリと金額を入力してください')
+      showToast.warning('カテゴリと金額を入力してください')
       return
     }
     

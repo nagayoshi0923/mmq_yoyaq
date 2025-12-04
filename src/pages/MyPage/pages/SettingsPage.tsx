@@ -28,7 +28,7 @@ export function SettingsPage() {
 
   const handleDeleteAccount = async () => {
     if (confirmEmail !== user?.email) {
-      alert('メールアドレスが一致しません。正確に入力してください。')
+      showToast.warning('メールアドレスが一致しません', '正確に入力してください')
       return
     }
 
@@ -60,12 +60,12 @@ export function SettingsPage() {
       // auth.usersとpublic.usersも削除
       await deleteMyAccount()
       
-      alert('アカウントを削除しました。')
+      showToast.success('アカウントを削除しました')
       await signOut()
       window.location.hash = '#login'
     } catch (error: any) {
       logger.error('アカウント削除エラー:', error)
-      alert('アカウントの削除に失敗しました: ' + (error.message || '不明なエラー'))
+      showToast.error('アカウントの削除に失敗しました', error.message || '不明なエラー')
     } finally {
       setDeleting(false)
       setDeleteDialogOpen(false)

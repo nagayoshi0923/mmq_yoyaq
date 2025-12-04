@@ -20,18 +20,18 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
   // 予約処理
   const handleBooking = useCallback(() => {
     if (!selectedEventId) {
-      alert('日付を選択してください')
+      showToast.warning('日付を選択してください')
       return
     }
     
     const event = events.find(e => e.event_id === selectedEventId)
     if (!event) {
-      alert('選択された公演が見つかりません')
+      showToast.error('選択された公演が見つかりません')
       return
     }
     
     if (!event.is_available) {
-      alert('この公演は満席です')
+      showToast.warning('この公演は満席です')
       return
     }
     

@@ -58,7 +58,7 @@ export function PrivateBookingScenarioSelect() {
 
   const handleProceed = () => {
     if (!selectedScenarioId) {
-      alert('シナリオを選択してください')
+      showToast.warning('シナリオを選択してください')
       return
     }
     

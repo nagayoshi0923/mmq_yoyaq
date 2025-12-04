@@ -97,7 +97,7 @@ export function StoreManagement() {
       }
     } catch (err: any) {
       logger.error('Error saving store:', err)
-      alert('店舗の保存に失敗しました: ' + err.message)
+      showToast.error('店舗の保存に失敗しました', err.message)
       throw err // モーダルでエラーハンドリングするため再throw
     }
   }
@@ -109,7 +109,7 @@ export function StoreManagement() {
       setStores(prev => prev.filter(s => s.id !== store.id))
     } catch (err: any) {
       logger.error('Error deleting store:', err)
-      alert('店舗の削除に失敗しました: ' + err.message)
+      showToast.error('店舗の削除に失敗しました', err.message)
     }
   }
 

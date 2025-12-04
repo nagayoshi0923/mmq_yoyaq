@@ -34,7 +34,7 @@ export function AuthorLicenseEmailDialog({
 
   const handleSend = async () => {
     if (!emailAddress.trim()) {
-      alert('メールアドレスを入力してください')
+      showToast.warning('メールアドレスを入力してください')
       return
     }
 
@@ -79,7 +79,7 @@ export function AuthorLicenseEmailDialog({
       onClose()
     } catch (error: any) {
       logger.error('メール送信エラー:', error)
-      alert(`メール送信に失敗しました: ${error?.message || '不明なエラー'}`)
+      showToast.error('メール送信に失敗しました', error?.message || '不明なエラー')
     } finally {
       setSending(false)
     }

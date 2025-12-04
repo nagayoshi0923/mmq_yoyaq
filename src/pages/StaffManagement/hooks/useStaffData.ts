@@ -119,7 +119,7 @@ export const useStaffData = (): UseStaffDataReturn => {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
       logger.error('Error saving staff:', err)
-      alert('スタッフの保存に失敗しました: ' + message)
+      showToast.error('スタッフの保存に失敗しました', message)
     }
   }, [staff, loadStaff])
 
@@ -130,7 +130,7 @@ export const useStaffData = (): UseStaffDataReturn => {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
       logger.error('Error deleting staff:', err)
-      alert('スタッフの削除に失敗しました: ' + message)
+      showToast.error('スタッフの削除に失敗しました', message)
     }
   }, [loadStaff])
 

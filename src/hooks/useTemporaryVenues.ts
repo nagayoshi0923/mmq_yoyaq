@@ -210,7 +210,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       logger.log('公演チェック結果:', { 公演数: events?.length || 0 })
 
       if (events && events.length > 0) {
-        alert('この日付には公演が登録されているため削除できません。先に公演を削除してください。')
+        showToast.warning('この日付には公演が登録されているため削除できません', '先に公演を削除してください')
         return
       }
 
@@ -237,7 +237,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
     } catch (error) {
       logger.error('臨時会場からの日付削除に失敗:', error)
       const message = error instanceof Error ? error.message : '不明なエラー'
-      alert('臨時会場の削除に失敗しました: ' + message)
+      showToast.error('臨時会場の削除に失敗しました', message)
     }
   }, [temporaryVenues])
 

@@ -43,7 +43,7 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
     // シナリオ名確認が必要な場合、入力値をチェック
     if (requireScenarioNameConfirmation && scenarioName) {
       if (scenarioNameInput !== scenarioName) {
-        alert('シナリオ名が正しくありません。正確に入力してください。')
+        showToast.warning('シナリオ名が正しくありません', '正確に入力してください')
         return
       }
     }

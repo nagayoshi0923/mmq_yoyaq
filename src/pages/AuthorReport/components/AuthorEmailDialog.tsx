@@ -70,12 +70,12 @@ export function AuthorEmailDialog({ isOpen, onClose, authorName, onSave }: Autho
     } catch (error: any) {
       // テーブルが存在しない場合はエラーメッセージを表示
       if (error?.code === 'PGRST205') {
-        alert('authorsテーブルが存在しません。\n\nSupabaseのSQL Editorで以下のSQLを実行してテーブルを作成してください：\n\nCREATE TABLE IF NOT EXISTS authors (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  name TEXT NOT NULL UNIQUE,\n  email TEXT,\n  notes TEXT,\n  created_at TIMESTAMPTZ DEFAULT NOW(),\n  updated_at TIMESTAMPTZ DEFAULT NOW()\n);')
+        showToast.error('authorsテーブルが存在しません', 'SupabaseのSQL Editorでテーブルを作成してください')
       } else if (error?.code === 'PGRST116' || error?.status === 404) {
-        alert('レコードが見つかりませんでした。')
+        showToast.error('レコードが見つかりませんでした')
       } else {
         logger.error('保存に失敗:', error)
-        alert(`保存に失敗しました: ${error?.message || '不明なエラー'}`)
+        showToast.error('保存に失敗しました', error?.message || '不明なエラー')
       }
     } finally {
       setSaving(false)

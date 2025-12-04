@@ -317,7 +317,7 @@ export function PerformanceModal({
     } catch (error: unknown) {
       logger.error('スタッフ作成エラー:', error)
       const message = error instanceof Error ? error.message : '不明なエラー'
-      alert(`スタッフの作成に失敗しました: ${message}`)
+      showToast.error('スタッフの作成に失敗しました', message)
     }
   }
 

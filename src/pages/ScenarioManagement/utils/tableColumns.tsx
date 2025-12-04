@@ -75,7 +75,7 @@ export function createScenarioColumns(
                 actions.onImageUpload(scenario, file)
               }
             } else {
-              alert('画像ファイルのみアップロード可能です')
+              showToast.warning('画像ファイルのみアップロード可能です')
             }
           }
         }

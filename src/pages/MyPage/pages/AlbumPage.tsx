@@ -291,7 +291,7 @@ export function AlbumPage() {
       }
     } catch (error) {
       logger.error('いいね切り替えエラー:', error)
-      alert('操作に失敗しました')
+      showToast.error('操作に失敗しました')
     }
   }
 
