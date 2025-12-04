@@ -8,6 +8,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { Store, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 interface StoreSettings {
   id: string
@@ -112,10 +113,10 @@ export function StoreBasicSettings() {
       // ローカルステートを更新
       setStores(prev => prev.map(s => s.id === formData.id ? formData : s))
       
-      alert('保存しました')
+      showToast.success('保存しました')
     } catch (error) {
       logger.error('保存エラー:', error)
-      alert('保存に失敗しました')
+      showToast.error('保存に失敗しました')
     } finally {
       setSaving(false)
     }

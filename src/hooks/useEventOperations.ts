@@ -5,6 +5,7 @@ import { scheduleApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi' // 追加
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { getTimeSlot, TIME_SLOT_DEFAULTS } from '@/utils/scheduleUtils'
 import type { ScheduleEvent } from '@/types/schedule'
 
@@ -232,7 +233,7 @@ export function useEventOperations({
       setDropTarget(null)
     } catch (error) {
       logger.error('公演移動エラー:', error)
-      alert('公演の移動に失敗しました')
+      showToast.error('公演の移動に失敗しました')
     }
   }, [draggedEvent, dropTarget, stores, setEvents, checkConflict])
 
@@ -300,7 +301,7 @@ export function useEventOperations({
       setDropTarget(null)
     } catch (error) {
       logger.error('公演複製エラー:', error)
-      alert('公演の複製に失敗しました')
+      showToast.error('公演の複製に失敗しました')
     }
   }, [draggedEvent, dropTarget, stores, setEvents, checkConflict])
 
@@ -546,7 +547,7 @@ export function useEventOperations({
       handleCloseModal()
     } catch (error) {
       logger.error('公演保存エラー:', error)
-      alert(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
+      showToast.error(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
     }
   }, [modalMode, stores, scenarios, setEvents, handleCloseModal])
 
@@ -642,7 +643,7 @@ export function useEventOperations({
         
         if (reservations && reservations.length > 0) {
           // 予約がある場合は削除を拒否
-          alert(`この公演には${reservations.length}件の予約が紐付いているため削除できません。\n\n代わりに「中止」機能を使用してください。\n中止にすると、予約者に通知され、公演は非表示になります。`)
+          showToast.warning(`この公演には${reservations.length}件の予約が紐付いているため削除できません`, '代わりに「中止」機能を使用してください。中止にすると、予約者に通知され、公演は非表示になります。')
           setIsDeleteDialogOpen(false)
           setDeletingEvent(null)
           return
@@ -660,7 +661,7 @@ export function useEventOperations({
       
       // エラーメッセージを詳細化
       const errorMessage = error instanceof Error ? error.message : '公演の削除に失敗しました'
-      alert(errorMessage)
+      showToast.error(errorMessage)
       
       setIsDeleteDialogOpen(false)
       setDeletingEvent(null)
@@ -781,7 +782,7 @@ export function useEventOperations({
       setCancellingEvent(null)
     } catch (error) {
       logger.error('公演中止エラー:', error)
-      alert('公演の中止処理に失敗しました')
+      showToast.error('公演の中止処理に失敗しました')
     }
   }, [cancellingEvent, setEvents])
 
@@ -810,21 +811,21 @@ export function useEventOperations({
       }
     } catch (error) {
       logger.error('公演キャンセル解除エラー:', error)
-      alert('公演のキャンセル解除処理に失敗しました')
+      showToast.error('公演のキャンセル解除処理に失敗しました')
     }
   }, [setEvents])
 
   // 予約サイト公開/非公開トグル（直接切り替え）
   const handleToggleReservation = useCallback(async (event: ScheduleEvent) => {
     if (event.is_private_request) {
-      alert('貸切公演の公開状態は変更できません')
+      showToast.warning('貸切公演の公開状態は変更できません')
       return
     }
     
     const isPrivateBooking = event.id.startsWith('private-') ||
                             (event.id.includes('-') && event.id.split('-').length > 5)
     if (isPrivateBooking) {
-      alert('貸切公演の公開状態は変更できません')
+      showToast.warning('貸切公演の公開状態は変更できません')
       return
     }
     
@@ -840,7 +841,7 @@ export function useEventOperations({
       ))
     } catch (error) {
       logger.error('予約サイト公開状態の更新エラー:', error)
-      alert('予約サイト公開状態の更新に失敗しました')
+      showToast.error('予約サイト公開状態の更新に失敗しました')
     }
   }, [setEvents])
   
@@ -851,7 +852,7 @@ export function useEventOperations({
                             publishingEvent.id.startsWith('private-') ||
                             (publishingEvent.id.includes('-') && publishingEvent.id.split('-').length > 5)
     if (isPrivateBooking) {
-      alert('貸切公演の公開状態は変更できません')
+      showToast.warning('貸切公演の公開状態は変更できません')
       setIsPublishDialogOpen(false)
       setPublishingEvent(null)
       return
@@ -872,7 +873,7 @@ export function useEventOperations({
       setPublishingEvent(null)
     } catch (error) {
       logger.error('予約サイト公開状態の更新エラー:', error)
-      alert('予約サイト公開状態の更新に失敗しました')
+      showToast.error('予約サイト公開状態の更新に失敗しました')
     }
   }, [publishingEvent, setEvents])
 
@@ -935,7 +936,7 @@ export function useEventOperations({
       setConflictInfo(null)
     } catch (error) {
       logger.error('既存公演の削除エラー:', error)
-      alert('既存公演の削除に失敗しました')
+      showToast.error('既存公演の削除に失敗しました')
     }
   }, [pendingPerformanceData, conflictInfo, events, modalMode, setEvents, doSavePerformance])
 

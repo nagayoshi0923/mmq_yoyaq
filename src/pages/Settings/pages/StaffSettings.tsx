@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { Users, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 interface StaffSettings {
   id: string
@@ -55,7 +56,7 @@ export function StaffSettings() {
       }
     } catch (error) {
       logger.error('データ取得エラー:', error)
-      alert('データの取得に失敗しました')
+      showToast.error('データの取得に失敗しました')
     } finally {
       setLoading(false)
     }
@@ -130,10 +131,10 @@ export function StaffSettings() {
         }
       }
 
-      alert('保存しました')
+      showToast.success('保存しました')
     } catch (error) {
       logger.error('保存エラー:', error)
-      alert('保存に失敗しました')
+      showToast.error('保存に失敗しました')
     } finally {
       setSaving(false)
     }

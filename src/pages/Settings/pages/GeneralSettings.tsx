@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { Settings as SettingsIcon, Save, Calendar, Bell, Shield } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 interface GlobalSettings {
   id: string
@@ -56,7 +57,7 @@ export function GeneralSettings() {
 
       if (error) {
         logger.error('全体設定の取得に失敗:', error)
-        alert('設定の読み込みに失敗しました')
+        showToast.error('設定の読み込みに失敗しました')
         return
       }
 
@@ -102,17 +103,17 @@ export function GeneralSettings() {
 
       if (error) {
         logger.error('設定保存エラー:', error)
-        alert('設定の保存に失敗しました')
+        showToast.error('設定の保存に失敗しました')
         return
       }
 
-      alert('設定を保存しました')
+      showToast.success('設定を保存しました')
 
       // 設定を再取得
       await fetchSettings()
     } catch (error) {
       logger.error('設定保存エラー:', error)
-      alert('設定の保存に失敗しました')
+      showToast.error('設定の保存に失敗しました')
     } finally {
       setSaving(false)
     }
