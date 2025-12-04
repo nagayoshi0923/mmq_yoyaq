@@ -52,17 +52,17 @@ export const StaffFilters = memo(function StaffFilters({
         </Select>
       </div>
 
-      {/* 招待ボタン */}
-      <Button 
-        variant="outline"
-        onClick={onInviteClick}
+        {/* 招待ボタン */}
+        <Button 
+          variant="outline"
+          onClick={onInviteClick}
         className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 text-xs sm:text-sm"
-        size="sm"
-      >
-        <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        <span className="hidden sm:inline">スタッフを招待</span>
-        <span className="sm:hidden">招待</span>
-      </Button>
+          size="sm"
+        >
+          <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="hidden sm:inline">スタッフを招待</span>
+          <span className="sm:hidden">招待</span>
+        </Button>
     </div>
   )
 })

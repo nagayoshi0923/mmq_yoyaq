@@ -331,7 +331,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 .select('role')
                 .eq('id', supabaseUser.id)
                 .single()
-              
+          
               if (retryData?.role) {
                 role = retryData.role as 'admin' | 'staff' | 'customer'
                 logger.log('✅ 既存ロールを取得:', role)
@@ -340,7 +340,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               }
             } else {
               logger.warn('⚠️ usersテーブルへのレコード作成に失敗しました:', insertError)
-              role = newRole // フォールバックとして使用
+            role = newRole // フォールバックとして使用
             }
           } else {
             role = newRole
@@ -390,8 +390,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 role = 'staff'
                 logger.log('✅ スタッフテーブルに紐付けあり: staffロールを使用')
               } else {
-                role = determineUserRole(supabaseUser.email)
-                logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
+            role = determineUserRole(supabaseUser.email)
+            logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
               }
             } catch {
               role = determineUserRole(supabaseUser.email)
