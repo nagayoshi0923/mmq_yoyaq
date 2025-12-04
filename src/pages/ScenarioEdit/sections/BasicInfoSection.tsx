@@ -71,7 +71,7 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
 
     const validation = validateImageFile(file, 5)
     if (!validation.valid) {
-      alert(validation.error)
+      showToast.error(validation.error)
       return
     }
 
@@ -81,11 +81,11 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
       if (result) {
         setFormData(prev => ({ ...prev, key_visual_url: result.url }))
       } else {
-        alert('画像のアップロードに失敗しました')
+        showToast.error('画像のアップロードに失敗しました')
       }
     } catch (error) {
       logger.error('画像アップロードエラー:', error)
-      alert('画像のアップロードに失敗しました')
+      showToast.error('画像のアップロードに失敗しました')
     } finally {
       setUploading(false)
       if (imageInputRef.current) {
@@ -102,7 +102,7 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
 
   const handleAddAuthor = () => {
     if (!newAuthorName.trim()) {
-      alert('作者名を入力してください')
+      showToast.warning('作者名を入力してください')
       return
     }
 

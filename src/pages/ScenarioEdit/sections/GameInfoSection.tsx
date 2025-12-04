@@ -63,7 +63,7 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
 
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) {
-      alert('カテゴリ名を入力してください')
+      showToast.warning('カテゴリ名を入力してください')
       return
     }
 

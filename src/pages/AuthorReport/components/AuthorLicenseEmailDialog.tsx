@@ -75,7 +75,7 @@ export function AuthorLicenseEmailDialog({
         throw new Error(data?.error || 'メール送信に失敗しました')
       }
 
-      alert('メールを送信しました')
+      showToast.success('メールを送信しました')
       onClose()
     } catch (error: any) {
       logger.error('メール送信エラー:', error)

@@ -237,11 +237,11 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
   const handleSave = async () => {
     // バリデーション
     if (!formData.title.trim()) {
-      alert('タイトルを入力してください')
+      showToast.warning('タイトルを入力してください')
       return
     }
     if (!formData.author.trim()) {
-      alert('作者を入力してください')
+      showToast.warning('作者を入力してください')
       return
     }
 
@@ -294,7 +294,7 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
       setTimeout(() => setShowSaveSuccess(false), 3000)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '不明なエラー'
-      alert(`保存に失敗しました: ${message}`)
+      showToast.error('保存に失敗しました', message)
       logger.error('シナリオ保存エラー:', err)
     }
   }

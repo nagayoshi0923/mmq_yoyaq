@@ -166,7 +166,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     // ファイルバリデーション
     const validation = validateImageFile(file, 5)
     if (!validation.valid) {
-      alert(validation.error)
+      showToast.error(validation.error)
       return
     }
 
@@ -176,11 +176,11 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
       if (result) {
         setFormData(prev => ({ ...prev, key_visual_url: result.url }))
       } else {
-        alert('画像のアップロードに失敗しました')
+        showToast.error('画像のアップロードに失敗しました')
       }
     } catch (error) {
       logger.error('画像アップロードエラー:', error)
-      alert('画像のアップロードに失敗しました')
+      showToast.error('画像のアップロードに失敗しました')
     } finally {
       setUploading(false)
       // inputをリセット
@@ -817,7 +817,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             }
           } catch (syncError) {
             logger.error('Error updating GM assignments:', syncError)
-            alert('シナリオは保存されましたが、担当GMの更新に失敗しました。手動で確認してください。')
+            showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
           }
         }
       }
@@ -832,7 +832,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         stack: (error as Error).stack,
         error: error
       })
-      alert('シナリオの保存に失敗しました: ' + (error as Error).message || 'Unknown error')
+      showToast.error('シナリオの保存に失敗しました', (error as Error).message || 'Unknown error')
     }
   }
 

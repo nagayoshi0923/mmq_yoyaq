@@ -263,7 +263,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
 
   const handleSave = async () => {
     if (!formData.title.trim()) {
-      alert('タイトルを入力してください')
+      showToast.warning('タイトルを入力してください')
       return
     }
 
@@ -335,7 +335,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
             await assignmentApi.updateScenarioAssignments(targetScenarioId, selectedStaffIds)
           } catch (syncError) {
             logger.error('Error updating GM assignments:', syncError)
-            alert('シナリオは保存されましたが、担当GMの更新に失敗しました。手動で確認してください。')
+            showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
           }
         }
       }
@@ -352,7 +352,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
     } catch (err: unknown) {
       logger.error('詳細エラー:', err)
       const message = err instanceof Error ? err.message : JSON.stringify(err)
-      alert(`保存に失敗しました: ${message}`)
+      showToast.error('保存に失敗しました', message)
       logger.error('シナリオ保存エラー:', err)
     }
   }

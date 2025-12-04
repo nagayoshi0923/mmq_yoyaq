@@ -143,13 +143,13 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
 
   const handleSave = async (closeAfterSave: boolean = true) => {
     if (!formData.name) {
-      alert('スタッフ名を入力してください')
+      showToast.warning('スタッフ名を入力してください')
       return
     }
 
     // ローディング中は保存を許可しない
     if (isLoadingAssignments) {
-      alert('担当シナリオを読み込み中です。しばらくお待ちください。')
+      showToast.info('担当シナリオを読み込み中です', 'しばらくお待ちください')
       return
     }
 
@@ -200,7 +200,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         } catch (assignmentError) {
           logger.error('Error updating assignments:', assignmentError)
           // アサインメント更新に失敗しても、スタッフ情報は保存済みなので警告のみ
-          alert('スタッフ情報は保存されましたが、担当シナリオの更新に失敗しました。再度編集画面を開いて確認してください。')
+          showToast.warning('スタッフ情報は保存されました', '担当シナリオの更新に失敗しました。再度編集画面を開いて確認してください')
         }
       }
       
@@ -209,7 +209,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       }
     } catch (error) {
       logger.error('Error saving staff:', error)
-      alert('保存中にエラーが発生しました')
+      showToast.error('保存中にエラーが発生しました')
     }
   }
 
