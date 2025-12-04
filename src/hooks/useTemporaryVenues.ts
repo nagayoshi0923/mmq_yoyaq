@@ -179,7 +179,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       logger.log('✅ 臨時会場に日付を追加:', { venue: venue.name, date })
     } catch (error) {
       logger.error('臨時会場への日付追加に失敗:', error)
-      alert('臨時会場の追加に失敗しました')
+      showToast.error('臨時会場の追加に失敗しました')
     }
   }, [temporaryVenues])
 

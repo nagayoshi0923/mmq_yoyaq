@@ -171,13 +171,13 @@ export function useStaffOperations() {
       }
 
       await inviteStaff(inviteRequest)
-      alert(`招待メールを ${email} に送信しました`)
+      showToast.success(`招待メールを${email}に送信しました`)
       setIsInviteModalOpen(false)
       await loadStaff()
     } catch (err: unknown) {
       logger.error('Error inviting staff:', err)
       const message = err instanceof Error ? err.message : '不明なエラー'
-      alert('招待に失敗しました: ' + message)
+      showToast.error('招待に失敗しました', message)
     } finally {
       setInviteLoading(false)
     }
@@ -201,14 +201,14 @@ export function useStaffOperations() {
         user_id: userId
       })
 
-      alert('ユーザーとの紐付けが完了しました')
+      showToast.success('ユーザーとの紐付けが完了しました')
       setIsLinkModalOpen(false)
       setLinkingStaff(null)
       await loadStaff()
     } catch (err: unknown) {
       logger.error('Error linking user:', err)
       const message = err instanceof Error ? err.message : '不明なエラー'
-      alert('紐付けに失敗しました: ' + message)
+      showToast.error('紐付けに失敗しました', message)
     } finally {
       setLinkLoading(false)
     }
@@ -235,14 +235,14 @@ export function useStaffOperations() {
       }
 
       await inviteStaff(inviteRequest)
-      alert(`招待メールを ${email} に送信しました`)
+      showToast.success(`招待メールを${email}に送信しました`)
       setIsLinkModalOpen(false)
       setLinkingStaff(null)
       await loadStaff()
     } catch (err: unknown) {
       logger.error('Error inviting and linking:', err)
       const message = err instanceof Error ? err.message : '不明なエラー'
-      alert('招待に失敗しました: ' + message)
+      showToast.error('招待に失敗しました', message)
     } finally {
       setLinkLoading(false)
     }
