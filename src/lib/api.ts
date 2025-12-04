@@ -1023,6 +1023,28 @@ export const scheduleApi = {
     // 貸切公演を schedule_events 形式に変換
     const privateEvents: ScheduleEvent[] = []
     if (confirmedPrivateBookings) {
+      // N+1クエリ対策: 先にすべてのgm_staff IDを収集してバッチ取得
+      const gmStaffIds = confirmedPrivateBookings
+        .map(booking => booking.gm_staff)
+        .filter((id): id is string => !!id)
+      
+      // 重複を除去してバッチクエリ
+      const uniqueGmStaffIds = [...new Set(gmStaffIds)]
+      const gmStaffMap = new Map<string, string>()
+      
+      if (uniqueGmStaffIds.length > 0) {
+        const { data: gmStaffList } = await supabase
+          .from('staff')
+          .select('id, name')
+          .in('id', uniqueGmStaffIds)
+        
+        if (gmStaffList) {
+          gmStaffList.forEach(staff => {
+            gmStaffMap.set(staff.id, staff.name)
+          })
+        }
+      }
+      
       for (const booking of confirmedPrivateBookings) {
         if (booking.candidate_datetimes?.candidates) {
           // 確定済みの候補のみ取得（最初の1つだけ）
@@ -1041,21 +1063,12 @@ export const scheduleApi = {
               const startTime = candidate.startTime || '18:00:00'
               const endTime = candidate.endTime || '21:00:00'
               
-              // GMの名前を取得
+              // GMの名前を取得（バッチ取得済みのMapから）
               let gmNames: string[] = []
               
-              // まずgm_staffからstaffテーブルで名前を取得
-              if (booking.gm_staff) {
-                // staffテーブルからGM名を取得するクエリを実行
-                const { data: gmStaff, error: gmError } = await supabase
-                  .from('staff')
-                  .select('id, name')
-                  .eq('id', booking.gm_staff)
-                  .maybeSingle()
-                
-                if (!gmError && gmStaff) {
-                  gmNames = [gmStaff.name]
-                }
+              // まずgm_staffからMapで名前を取得
+              if (booking.gm_staff && gmStaffMap.has(booking.gm_staff)) {
+                gmNames = [gmStaffMap.get(booking.gm_staff)!]
               }
               
               // gmsから取得できなかった場合はgm_availability_responsesから取得

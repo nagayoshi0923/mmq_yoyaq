@@ -48,7 +48,7 @@ export function useScenariosQuery() {
       logger.log('✅ シナリオデータ取得完了:', scenariosWithAssignments.length)
       return scenariosWithAssignments
     },
-    staleTime: 5 * 60 * 1000, // 5分間キャッシュ
+    staleTime: 30 * 60 * 1000, // 30分間キャッシュ（マスターデータ）
   })
 }
 
@@ -83,7 +83,7 @@ export function useScenariosInfiniteQuery(pageSize: number = 20) {
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
     initialPageParam: 0,
-    staleTime: 5 * 60 * 1000, // 5分間キャッシュ
+    staleTime: 30 * 60 * 1000, // 30分間キャッシュ（マスターデータ）
   })
 }
 
