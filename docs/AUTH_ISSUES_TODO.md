@@ -154,14 +154,19 @@ if (email.includes('@mmq.co.jp')) return 'staff'
 ---
 
 ### 10. 認証状態の可視化不足
-**状態**: 未実装  
+**状態**: 修正済み（2025-12-04）  
 **症状**: 管理者がユーザーの認証状態を把握しにくい  
 **影響**: 問題発生時の原因特定が困難
 
-**解決案**:
-- [ ] 管理者向け認証ダッシュボード
-- [ ] 認証関連ログの可視化
-- [ ] 問題検出アラート
+**修正内容**:
+- [x] スタッフ管理ページに認証状態列を追加
+- [x] 状態表示: 設定済み/招待中/未ログイン/未紐付け
+- [x] ツールチップで詳細説明を表示
+
+**修正ファイル**: 
+- `src/pages/StaffManagement/hooks/useStaffAuthStatus.ts`
+- `src/pages/StaffManagement/utils/tableColumns.tsx`
+- `src/pages/StaffManagement/index.tsx`
 
 ---
 
@@ -196,9 +201,9 @@ if (email.includes('@mmq.co.jp')) return 'staff'
 | 5 | 複数タブ競合 | MEDIUM | 未調査 | - |
 | 6 | パスワードリセット | MEDIUM | 未調査 | - |
 | 7 | Edge Functionエラー | MEDIUM | 未調査 | - |
-| 8 | determineUserRole | LOW | 要改善 | - |
+| 8 | determineUserRole | LOW | ✅修正済み | - |
 | 9 | ロール変更UX | LOW | ✅修正済み | - |
-| 10 | 認証可視化 | LOW | 未実装 | - |
+| 10 | 認証可視化 | LOW | ✅修正済み | - |
 
 ---
 
@@ -209,4 +214,9 @@ if (email.includes('@mmq.co.jp')) return 'staff'
 | 2025-12-04 | 初版作成 |
 | 2025-12-04 | 自己登録時のスタッフ自動紐付け機能を実装 |
 | 2025-12-04 | OTP有効期限を24時間に延長 |
+| 2025-12-04 | 複数タブ間の認証状態同期を実装 |
+| 2025-12-04 | パスワードリセット中のロール変更防止 |
+| 2025-12-04 | invite-staff Edge Functionのエラーハンドリング強化 |
+| 2025-12-04 | determineUserRole関数を安全なフォールバックに改善 |
+| 2025-12-04 | スタッフ管理ページに認証状態列を追加 |
 
