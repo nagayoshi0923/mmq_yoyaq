@@ -290,12 +290,53 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
     }
   }, [onSuccess, onError, queryClient])
 
+  /**
+   * スタッフへの招待メールを再送信
+   */
+  const handleReinviteStaff = useCallback(async (staff: Staff) => {
+    if (!staff.email) {
+      alert('このスタッフにはメールアドレスが設定されていません')
+      return
+    }
+
+    try {
+      const request: InviteStaffRequest = {
+        email: staff.email,
+        name: staff.name,
+        phone: staff.phone,
+        line_name: staff.line_name,
+        x_account: staff.x_account,
+        discord_id: staff.discord_id,
+        discord_channel_id: staff.discord_channel_id,
+        role: staff.role || ['gm'],
+        stores: staff.stores || []
+      }
+
+      const result = await inviteStaff(request)
+      
+      if (result.success) {
+        // スタッフリストを再取得
+        await queryClient.invalidateQueries({ queryKey: staffKeys.all })
+        alert(`✅ ${staff.name}さんに招待メールを再送信しました！\n\nメールアドレス: ${staff.email}`)
+        onSuccess?.()
+      } else {
+        throw new Error(result.error || '再招待に失敗しました')
+      }
+    } catch (err: any) {
+      logger.error('Error reinviting staff:', err)
+      const errorMessage = '再招待に失敗しました: ' + err.message
+      alert(errorMessage)
+      onError?.(errorMessage)
+    }
+  }, [queryClient, onSuccess, onError])
+
   return {
     searchUserByEmail,
     handleInviteStaff,
     handleLinkExistingUser,
     handleLinkWithInvite,
-    handleUnlinkUser
+    handleUnlinkUser,
+    handleReinviteStaff
   }
 }
 

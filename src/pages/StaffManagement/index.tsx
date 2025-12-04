@@ -149,11 +149,12 @@ export function StaffManagement() {
     closeDeleteDialog
   } = useStaffModals()
 
-  // 招待・紐付け・連携解除
+  // 招待・紐付け・連携解除・再招待
   const {
     handleInviteStaff,
     handleLinkWithInvite,
-    handleUnlinkUser
+    handleUnlinkUser,
+    handleReinviteStaff
   } = useStaffInvitation({
     onSuccess: async () => {
       closeInviteModal()
@@ -224,10 +225,11 @@ export function StaffManagement() {
         onEdit: handleEditStaff, 
         onLink: openLinkModal, 
         onUnlink: openUnlinkDialog,
-        onDelete: openDeleteDialog 
+        onDelete: openDeleteDialog,
+        onReinvite: handleReinviteStaff
       }
     ),
-    [stores, getScenarioName, getAuthStatus]
+    [stores, getScenarioName, getAuthStatus, handleReinviteStaff]
   )
 
   // スタッフ保存ハンドラ

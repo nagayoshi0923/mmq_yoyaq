@@ -1,4 +1,4 @@
-import { Edit, Link2, Trash2, Unlink, CheckCircle2, AlertCircle, Clock, HelpCircle } from 'lucide-react'
+import { Edit, Link2, Trash2, Unlink, CheckCircle2, AlertCircle, Clock, HelpCircle, MailPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -13,6 +13,7 @@ interface StaffTableActions {
   onLink: (member: Staff) => void
   onUnlink: (member: Staff) => void
   onDelete: (member: Staff) => void
+  onReinvite?: (member: Staff) => void
 }
 
 interface StaffTableContext {
@@ -66,7 +67,7 @@ export function createStaffColumns(
   actions: StaffTableActions
 ): Column<Staff>[] {
   const { stores, getScenarioName, getAuthStatus } = context
-  const { onEdit, onLink, onUnlink, onDelete } = actions
+  const { onEdit, onLink, onUnlink, onDelete, onReinvite } = actions
 
   return [
     {
@@ -280,10 +281,34 @@ export function createStaffColumns(
       key: 'actions',
       header: 'アクション',
       sortable: false,
-      width: 'w-32',
+      width: 'w-40',
       align: 'center',
-      render: (staff) => (
+      render: (staff) => {
+        const authStatus = getAuthStatus ? getAuthStatus(staff.user_id) : null
+        const showReinvite = onReinvite && staff.email && 
+          (authStatus?.status === 'pending' || authStatus?.status === 'not_linked')
+        
+        return (
         <div className="flex gap-1 justify-center">
+          {/* 再招待ボタン（パスワード未設定 or 未紐付けの場合） */}
+          {showReinvite && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => onReinvite(staff)}
+                  className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                >
+                  <MailPlus className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">招待メール再送信</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          
           {!staff.user_id ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -350,7 +375,8 @@ export function createStaffColumns(
             </TooltipContent>
           </Tooltip>
         </div>
-      )
+        )
+      }
     }
   ]
 }
