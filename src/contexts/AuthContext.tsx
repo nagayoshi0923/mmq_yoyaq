@@ -448,6 +448,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             } catch {
               role = determineUserRole(supabaseUser.email)
               logger.log('🔄 例外フォールバック:', role)
+            }
           }
         }
       }
