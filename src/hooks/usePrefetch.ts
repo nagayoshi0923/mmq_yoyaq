@@ -9,7 +9,7 @@ export function usePrefetch() {
     queryClient.prefetchQuery({
       queryKey: ['scenario', scenarioId],
       queryFn: () => scenarioApi.getById?.(scenarioId),
-      staleTime: 5 * 60 * 1000,
+      staleTime: 30 * 60 * 1000, // 30分間キャッシュ（マスターデータ）
     })
   }
 
@@ -17,7 +17,7 @@ export function usePrefetch() {
     queryClient.prefetchQuery({
       queryKey: ['staff', staffId],
       queryFn: () => staffApi.getById?.(staffId),
-      staleTime: 5 * 60 * 1000,
+      staleTime: 10 * 60 * 1000, // 10分間キャッシュ（マスターデータ）
     })
   }
 
