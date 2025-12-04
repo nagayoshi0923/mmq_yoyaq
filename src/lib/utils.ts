@@ -90,6 +90,11 @@ export function getCategoryColors(category: string) {
       badge: 'bg-green-100 text-green-800',
       card: 'bg-green-50 border-green-200 text-green-800',
       accent: 'border-green-300'
+    },
+    'mtg': {
+      badge: 'bg-cyan-100 text-cyan-800',
+      card: 'bg-cyan-50 border-cyan-200 text-cyan-800',
+      accent: 'border-cyan-300'
     }
   }
   

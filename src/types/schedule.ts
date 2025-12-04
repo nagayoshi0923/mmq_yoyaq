@@ -8,7 +8,7 @@ export interface ScheduleEvent {
   gms: string[]
   start_time: string
   end_time: string
-  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package'
+  category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' | 'mtg'
   reservation_info?: string
   notes?: string
   is_cancelled: boolean

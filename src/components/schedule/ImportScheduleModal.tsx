@@ -64,10 +64,10 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
   const determineCategory = (title: string): string => {
     if (title.startsWith('貸・')) return 'private'
     if (title.startsWith('募・')) return 'open'
+    if (title.includes('MTG')) return 'mtg'
     if (title.includes('GMテスト') || title.includes('テスト')) return 'gmtest'
     if (title.includes('テストプレイ') || title.includes('テスプ')) return 'testplay'
     if (title.startsWith('出張・')) return 'offsite'
-    if (title.includes('MTG')) return 'gmtest'
     return 'open'
   }
 

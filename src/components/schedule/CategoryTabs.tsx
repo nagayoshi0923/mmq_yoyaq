@@ -16,6 +16,7 @@ const categories = [
   { id: 'gmtest', label: 'GMテスト', color: 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200' },
   { id: 'testplay', label: 'テスト', color: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200' },
   { id: 'trip', label: '出張', color: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200' },
+  { id: 'mtg', label: 'MTG', color: 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 border-cyan-200' },
 ]
 
 export const CategoryTabs = memo(function CategoryTabs({
@@ -32,7 +33,7 @@ export const CategoryTabs = memo(function CategoryTabs({
         </div>
       </div>
       
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
         {categories.map(category => (
           <button
             key={category.id}
