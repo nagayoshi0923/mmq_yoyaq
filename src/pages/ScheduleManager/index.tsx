@@ -64,11 +64,12 @@ export function ScheduleManager() {
   const modals = scheduleTableProps.modals
 
   // カテゴリーフィルター（ScheduleManager独自機能）
+  const timeSlots = ['morning', 'afternoon', 'evening'] as const
   const { selectedCategory, setSelectedCategory, categoryCounts } = useCategoryFilter(
     scheduleTableProps.viewConfig.stores.flatMap(store => 
-      ['morning', 'afternoon', 'evening'].flatMap(timeSlot => 
+      timeSlots.flatMap(timeSlot => 
         monthDays.flatMap(day => 
-          scheduleTableProps.dataProvider.getEventsForSlot(day.date, store.id, timeSlot as any)
+          scheduleTableProps.dataProvider.getEventsForSlot(day.date, store.id, timeSlot)
         )
       )
     )

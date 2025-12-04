@@ -194,7 +194,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
           ],
           license_rewards: licenseRewards,
           has_pre_reading: scenario.has_pre_reading || false,
-          gm_count: (scenario as any).gm_count || 1, // フォーム専用フィールド
+          gm_count: scenario.gm_count || 1, // フォーム専用フィールド
           gm_assignments: (scenario.gm_costs && scenario.gm_costs.length > 0) 
             ? scenario.gm_costs.map(cost => ({
                 role: cost.role,
@@ -203,10 +203,10 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
               }))
             : [{ role: 'main', category: 'normal' as const, reward: 2000 }],
           participation_costs: participationCosts,
-          use_flexible_pricing: (scenario as any).use_flexible_pricing || false, // フォーム専用フィールド
+          use_flexible_pricing: scenario.use_flexible_pricing || false, // フォーム専用フィールド
           flexible_pricing: scenario.flexible_pricing || defaultFlexiblePricing,
           key_visual_url: scenario.key_visual_url || '',
-          available_stores: (scenario as any).available_stores || []
+          available_stores: scenario.available_stores || []
         })
       }
     } else {
@@ -322,7 +322,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
       // result は mutation の戻り値だが、Supabase の戻り値が含まれているか確認が必要
       // useScenarioMutation の実装によっては result が void の可能性もあるが、
       // とりあえず編集モード (scenarioIdがある) 場合は確実に実行
-      const targetScenarioId = scenarioId || (result && (result as any).id)
+      const targetScenarioId = scenarioId || (result && typeof result === 'object' && 'id' in result ? result.id : undefined)
 
       if (targetScenarioId) {
         const originalStaffIds = currentAssignments.map(a => a.staff_id).sort()

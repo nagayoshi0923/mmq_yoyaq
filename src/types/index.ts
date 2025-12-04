@@ -150,6 +150,12 @@ export interface Scenario {
   official_site_url?: string // 公式サイトURL
   created_at: string
   updated_at: string
+  // 拡張フィールド（UIで使用）
+  experienced_staff?: string[] // このシナリオを担当できるスタッフID
+  gm_count?: number // GM配置数
+  use_flexible_pricing?: boolean // 柔軟な料金設定を使用
+  available_stores?: string[] // 公演可能店舗ID
+  gm_assignments?: Array<{ role: string; staff_id?: string; reward?: number }> // GM配置情報
 }
 
 // 顧客向け公演情報（予約サイト用）

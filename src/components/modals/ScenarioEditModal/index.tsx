@@ -574,7 +574,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   // 新規追加用の利用可能な役割を取得
   const getAvailableGmRolesForNew = () => {
     const usedRoles = formData.gm_assignments.map(assignment => assignment.role)
-    return gmRoleOptions.filter(option => !usedRoles.includes(option.value as any))
+    return gmRoleOptions.filter(option => !usedRoles.includes(option.value))
   }
 
   // 次に利用可能な役割を取得（新規追加用）
@@ -617,7 +617,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             return []
           }
           if (typeof scenario.required_props[0] === 'object') {
-            return (scenario.required_props as any[]).map(prop => ({
+            return scenario.required_props.map(prop => ({
               item: prop.item || prop,
               amount: prop.amount || 0,
               frequency: prop.frequency || 'recurring'
@@ -850,7 +850,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
       // production_costsはローカルでのみ管理（データベースには保存しない）
       if (formData.production_costs.length > 0) {
-        (updatedScenario as any).production_costs = formData.production_costs
+        updatedScenario.production_costs = formData.production_costs
       }
 
       // 担当GM関係をリレーションテーブルで更新

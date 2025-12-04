@@ -196,7 +196,7 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
             }
           },
           key_visual_url: scenario.key_visual_url || '',
-          available_stores: (scenario as any).available_stores || []
+          available_stores: scenario.available_stores || []
         })
         loadCurrentAssignments(scenarioId)
       }

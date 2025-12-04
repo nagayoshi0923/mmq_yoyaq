@@ -267,7 +267,7 @@ export function createScenarioColumns(
         width: 'w-48',
         sortable: true,
         render: (scenario) => {
-          const experiencedStaff = (scenario as any).experienced_staff || []
+          const experiencedStaff = scenario.experienced_staff || []
           const { displayed, remaining } = getDisplayGMs(experiencedStaff)
           return (
             <div className="text-sm">

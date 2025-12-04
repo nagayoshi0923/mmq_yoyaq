@@ -434,7 +434,7 @@ export function ScenarioManagement() {
             {displayedScenarios.length > 0 ? (
               displayedScenarios.map((scenario) => {
                 const gms = scenario.available_gms || []
-                const experiencedStaff = (scenario as any).experienced_staff || []
+                const experiencedStaff = scenario.experienced_staff || []
                 return (
                 <div key={scenario.id} className="bg-white border rounded-lg overflow-hidden" onClick={() => handleEditScenario(scenario)}>
                   <div className="p-3 flex items-start gap-3">
