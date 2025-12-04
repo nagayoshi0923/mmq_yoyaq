@@ -183,10 +183,16 @@ if (email.includes('@mmq.co.jp')) return 'staff'
 - 問題発生時のトレーサビリティ確保
 
 ### 13. スタッフ招待フローの改善
-**提案**:
-- 招待状態の可視化（pending/confirmed/expired）
-- ワンクリック再招待
-- 招待期限のリマインダー
+**状態**: 修正済み（2025-12-04）
+
+**修正内容**:
+- [x] 招待状態の可視化（認証状態列で表示）
+- [x] ワンクリック再招待ボタンを追加
+- [ ] 招待期限のリマインダー（未実装）
+
+**修正ファイル**:
+- `src/pages/StaffManagement/hooks/useStaffInvitation.ts`
+- `src/pages/StaffManagement/utils/tableColumns.tsx`
 
 ---
 
@@ -219,4 +225,5 @@ if (email.includes('@mmq.co.jp')) return 'staff'
 | 2025-12-04 | invite-staff Edge Functionのエラーハンドリング強化 |
 | 2025-12-04 | determineUserRole関数を安全なフォールバックに改善 |
 | 2025-12-04 | スタッフ管理ページに認証状態列を追加 |
+| 2025-12-04 | 再招待ボタンを追加 |
 
