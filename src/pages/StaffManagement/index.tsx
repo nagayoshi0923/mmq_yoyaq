@@ -240,7 +240,7 @@ export function StaffManagement() {
       await staffMutation.mutateAsync({ staff: staffData, isEdit: !!editingStaff })
       closeEditModal()
     } catch (err: any) {
-      alert(err.message)
+      showToast.error(err.message)
     }
   }
 
@@ -251,7 +251,7 @@ export function StaffManagement() {
       await deleteStaffMutation.mutateAsync(staffToDelete.id)
       closeDeleteDialog()
     } catch (err: any) {
-      alert(err.message)
+      showToast.error(err.message)
     }
   }
 
@@ -315,10 +315,10 @@ export function StaffManagement() {
       // React Queryのキャッシュを無効化して最新データを取得
       await queryClient.invalidateQueries({ queryKey: ['staff'] })
 
-      alert(`✅ ${linkingStaff.name}さんを ${searchedUser.email} と紐付けました！`)
+      showToast.success(`${linkingStaff.name}さんを${searchedUser.email}と紐付けました`)
       closeLinkModal()
     } catch (err: any) {
-      alert('紐付けに失敗しました: ' + err.message)
+      showToast.error('紐付けに失敗しました', err.message)
     } finally {
       setLinkLoading(false)
     }

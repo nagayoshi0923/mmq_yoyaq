@@ -364,7 +364,7 @@ export function ScheduleManager() {
                     if (nextVenue) {
                       addTemporaryVenue(event.date, nextVenue.id)
                     } else {
-                      alert('すべての臨時会場が使用されています')
+                      showToast.warning('すべての臨時会場が使用されています')
                     }
                     
                     modals.contextMenu.setContextMenu(null)
@@ -422,7 +422,7 @@ export function ScheduleManager() {
                     if (nextVenue) {
                       addTemporaryVenue(date, nextVenue.id)
                     } else {
-                      alert('すべての臨時会場が使用されています')
+                      showToast.warning('すべての臨時会場が使用されています')
                     }
                     
                     modals.contextMenu.setContextMenu(null)
