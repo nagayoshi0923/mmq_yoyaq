@@ -2,7 +2,13 @@ import { supabase } from './supabase'
 import { logger } from '@/utils/logger'
 import type { Store, Scenario, Staff } from '@/types'
 
-// 候補日時の型定義
+// 分割済みAPIを再エクスポート（後方互換性維持）
+export { storeApi } from './api/storeApi'
+export { authorApi, type Author } from './api/authorApi'
+export { scenarioApi } from './api/scenarioApi'
+export type { CandidateDateTime, GMAvailabilityResponse, ScheduleEvent, PaginatedResponse } from './api/types'
+
+// 候補日時の型定義（後方互換性維持、新規コードはapi/types.tsを使用）
 interface CandidateDateTime {
   order: number
   date: string
