@@ -120,6 +120,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return
         }
         
+        // パスワードリセット中はロール更新をスキップ（一時セッションでロールが変わるのを防ぐ）
+        if ((window as any).__PASSWORD_RESET_IN_PROGRESS__) {
+          logger.log('⏭️ パスワードリセット中のためスキップ:', event)
+          return
+        }
+        
         // 既に同じユーザーが設定されている場合はスキップ（重複実行防止）
         if (session?.user && userRef.current && userRef.current.id === session.user.id) {
           logger.log('⏭️ 既に同じユーザーが設定されているためスキップ:', event)

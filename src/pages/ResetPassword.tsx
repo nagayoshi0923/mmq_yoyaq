@@ -6,6 +6,14 @@ import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertCircle } from 'lucide-react'
 import { logger } from '@/utils/logger'
 
+// パスワードリセット中フラグ（AuthContextがロールを更新しないようにするため）
+// windowオブジェクトに設定して、AuthContextから参照可能にする
+declare global {
+  interface Window {
+    __PASSWORD_RESET_IN_PROGRESS__?: boolean
+  }
+}
+
 export function ResetPassword() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -105,6 +113,9 @@ export function ResetPassword() {
     
     setIsLoading(true)
     
+    // パスワードリセット中フラグを設定（AuthContextがロールを更新しないように）
+    window.__PASSWORD_RESET_IN_PROGRESS__ = true
+    
     try {
       // 1. トークンがある場合は、既存セッションを無視して強制的にセッションを再確立する
       // これにより、recoveryモードでの正しいセッション状態にする
@@ -149,9 +160,13 @@ export function ResetPassword() {
 
       logger.log('✅ パスワード更新成功:', updateData)
       setSuccess(true)
+      // フラグをクリア（成功後はsignOutするので問題ない）
+      window.__PASSWORD_RESET_IN_PROGRESS__ = false
     } catch (error: any) {
       setError('パスワードの更新に失敗しました: ' + (error.message || ''))
       logger.error('Password reset error:', error)
+      // エラー時もフラグをクリア
+      window.__PASSWORD_RESET_IN_PROGRESS__ = false
     } finally {
       setIsLoading(false)
     }
