@@ -292,20 +292,48 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (error?.code === 'PGRST116') {
           logger.log('📝 usersテーブルにレコードが存在しないため、作成します')
           
-          // 🔴 重要: スタッフテーブルに紐付けがあるか確認
-          // スタッフとして招待されている場合は staff ロールを維持
+          // 🔴 重要: スタッフテーブルにメールアドレスが存在するか確認
+          // 招待済みスタッフが自己登録した場合も、スタッフとして紐付ける
           let newRole = determineUserRole(supabaseUser.email)
           
           try {
-            const { data: staffData } = await supabase
+            // まずuser_idで検索（既に紐付けられている場合）
+            const { data: staffByUserId } = await supabase
               .from('staff')
               .select('id')
               .eq('user_id', supabaseUser.id)
               .maybeSingle()
             
-            if (staffData) {
+            if (staffByUserId) {
               newRole = 'staff'
-              logger.log('✅ スタッフテーブルに紐付けあり: staffロールを設定')
+              logger.log('✅ スタッフテーブルにuser_id紐付けあり: staffロールを設定')
+            } else {
+              // user_idで見つからない場合、メールアドレスで検索
+              // （招待済みだが自己登録したケース、または招待期限切れ後の自己登録）
+              const { data: staffByEmail } = await supabase
+                .from('staff')
+                .select('id, user_id, name')
+                .eq('email', supabaseUser.email)
+                .maybeSingle()
+              
+              if (staffByEmail) {
+                newRole = 'staff'
+                logger.log('✅ スタッフテーブルにメールアドレス一致あり:', staffByEmail.name)
+                
+                // staffテーブルのuser_idを更新して紐付ける
+                if (!staffByEmail.user_id || staffByEmail.user_id !== supabaseUser.id) {
+                  const { error: updateError } = await supabase
+                    .from('staff')
+                    .update({ user_id: supabaseUser.id, updated_at: new Date().toISOString() })
+                    .eq('id', staffByEmail.id)
+                  
+                  if (updateError) {
+                    logger.warn('⚠️ スタッフテーブルのuser_id更新エラー:', updateError)
+                  } else {
+                    logger.log('✅ スタッフテーブルにuser_idを紐付けました:', supabaseUser.id)
+                  }
+                }
+              }
             }
           } catch (staffErr) {
             logger.warn('⚠️ スタッフテーブル確認エラー:', staffErr)
@@ -352,20 +380,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
             role = existingUser.role
             logger.log('🔄 タイムアウト: 既存のロールを保持:', role)
           } else {
-            // スタッフテーブルをチェック
+            // スタッフテーブルをチェック（user_idとemailの両方で検索）
             try {
-              const { data: staffData } = await supabase
+              const { data: staffByUserId } = await supabase
                 .from('staff')
                 .select('id')
                 .eq('user_id', supabaseUser.id)
                 .maybeSingle()
               
-              if (staffData) {
+              if (staffByUserId) {
                 role = 'staff'
-                logger.log('✅ スタッフテーブルに紐付けあり: staffロールを使用')
+                logger.log('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
               } else {
-                role = determineUserRole(supabaseUser.email)
-                logger.log('🔄 タイムアウトフォールバック:', role)
+                // メールアドレスでも検索
+                const { data: staffByEmail } = await supabase
+                  .from('staff')
+                  .select('id')
+                  .eq('email', supabaseUser.email)
+                  .maybeSingle()
+                
+                if (staffByEmail) {
+                  role = 'staff'
+                  logger.log('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
+                } else {
+                  role = determineUserRole(supabaseUser.email)
+                  logger.log('🔄 タイムアウトフォールバック:', role)
+                }
               }
             } catch {
               role = determineUserRole(supabaseUser.email)
@@ -378,25 +418,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
             role = existingUser.role
             logger.log('🔄 例外発生、既存のロールを保持:', role)
           } else {
-            // スタッフテーブルをチェック
+            // スタッフテーブルをチェック（user_idとemailの両方で検索）
             try {
-              const { data: staffData } = await supabase
+              const { data: staffByUserId } = await supabase
                 .from('staff')
                 .select('id')
                 .eq('user_id', supabaseUser.id)
                 .maybeSingle()
               
-              if (staffData) {
+              if (staffByUserId) {
                 role = 'staff'
-                logger.log('✅ スタッフテーブルに紐付けあり: staffロールを使用')
+                logger.log('✅ スタッフテーブルにuser_id紐付けあり: staffロールを使用')
               } else {
-            role = determineUserRole(supabaseUser.email)
-            logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
+                // メールアドレスでも検索
+                const { data: staffByEmail } = await supabase
+                  .from('staff')
+                  .select('id')
+                  .eq('email', supabaseUser.email)
+                  .maybeSingle()
+                
+                if (staffByEmail) {
+                  role = 'staff'
+                  logger.log('✅ スタッフテーブルにメールアドレス一致あり: staffロールを使用')
+                } else {
+                  role = determineUserRole(supabaseUser.email)
+                  logger.log('🔄 例外フォールバック: メールアドレスからロール判定 ->', role)
+                }
               }
             } catch {
               role = determineUserRole(supabaseUser.email)
               logger.log('🔄 例外フォールバック:', role)
-            }
           }
         }
       }
