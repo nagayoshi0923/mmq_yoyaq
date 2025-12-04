@@ -1,5 +1,6 @@
 import { useState, Fragment, useEffect } from 'react'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -183,7 +184,7 @@ export default function AuthorReport() {
       setCopiedAuthor(author.author)
       setTimeout(() => setCopiedAuthor(null), 2000)
     } else {
-      alert('コピーに失敗しました')
+      showToast.error('コピーに失敗しました')
     }
   }
 

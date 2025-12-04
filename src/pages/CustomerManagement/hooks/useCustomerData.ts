@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Customer } from '@/types'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 export function useCustomerData() {
   const [customers, setCustomers] = useState<Customer[]>([])

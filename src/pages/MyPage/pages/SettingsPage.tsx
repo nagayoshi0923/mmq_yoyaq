@@ -16,6 +16,7 @@ import { Settings as SettingsIcon, Trash2, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { deleteMyAccount } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { customerApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 

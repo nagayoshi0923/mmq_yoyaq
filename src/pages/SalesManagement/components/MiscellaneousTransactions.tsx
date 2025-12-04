@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -164,7 +165,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       await loadTransactions()
     } catch (error) {
       logger.error('トランザクション追加エラー:', error)
-      alert('追加に失敗しました')
+      showToast.error('追加に失敗しました')
     }
   }
   
@@ -182,7 +183,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       await loadTransactions()
     } catch (error) {
       logger.error('トランザクション削除エラー:', error)
-      alert('削除に失敗しました')
+      showToast.error('削除に失敗しました')
     }
   }
   

@@ -5,6 +5,7 @@ import { scheduleApi } from '@/lib/api'
 import { TIME_SLOT_DEFAULTS, getTimeSlot } from '@/utils/scheduleUtils'
 import type { ScheduleEvent } from '@/types/schedule'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 interface Store {
   id: string

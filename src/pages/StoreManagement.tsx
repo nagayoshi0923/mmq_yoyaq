@@ -10,6 +10,7 @@ import { storeApi } from '@/lib/api'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import type { Store } from '@/types'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { 
   Store as StoreIcon, 
   Plus, 

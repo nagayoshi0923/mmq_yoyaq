@@ -17,6 +17,7 @@ import { User, Mail, Calendar as CalendarIcon, Phone, MapPin, MessageSquare, Loc
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { deleteMyAccount } from '@/lib/userApi'
 import { customerApi } from '@/lib/reservationApi'
 
@@ -108,7 +109,7 @@ export function ProfilePage() {
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      alert('名前を入力してください')
+      showToast.warning('名前を入力してください')
       return
     }
 
@@ -130,7 +131,7 @@ export function ProfilePage() {
           .eq('id', customerInfo.id)
 
         if (error) throw error
-        alert('プロフィールを更新しました')
+        showToast.success('プロフィールを更新しました')
       } else if (user?.id) {
         // 新規作成
         const { error } = await supabase
@@ -148,16 +149,16 @@ export function ProfilePage() {
           })
 
         if (error) throw error
-        alert('プロフィールを作成しました')
+        showToast.success('プロフィールを作成しました')
       } else {
-        alert('ユーザー情報が見つかりません')
+        showToast.error('ユーザー情報が見つかりません')
         return
       }
 
       fetchCustomerInfo()
     } catch (error: any) {
       logger.error('プロフィール更新エラー:', error)
-      alert(error.message || '更新に失敗しました')
+      showToast.error(error.message || '更新に失敗しました')
     } finally {
       setSaving(false)
     }
@@ -165,12 +166,12 @@ export function ProfilePage() {
 
   const handleChangeEmail = async () => {
     if (!emailFormData.newEmail || !user?.email) {
-      alert('新しいメールアドレスを入力してください')
+      showToast.warning('新しいメールアドレスを入力してください')
       return
     }
 
     if (emailFormData.newEmail === user.email) {
-      alert('現在のメールアドレスと同じです')
+      showToast.warning('現在のメールアドレスと同じです')
       return
     }
 
@@ -186,11 +187,11 @@ export function ProfilePage() {
 
       if (error) throw error
 
-      alert('確認メールを送信しました。新しいメールアドレスで確認してください。')
+      showToast.success('確認メールを送信しました', '新しいメールアドレスで確認してください')
       setEmailFormData({ newEmail: '' })
     } catch (error: any) {
       logger.error('メールアドレス変更エラー:', error)
-      alert(error.message || 'メールアドレスの変更に失敗しました')
+      showToast.error(error.message || 'メールアドレスの変更に失敗しました')
     } finally {
       setChangingEmail(false)
     }
@@ -198,17 +199,17 @@ export function ProfilePage() {
 
   const handleChangePassword = async () => {
     if (!passwordFormData.newPassword || !passwordFormData.confirmPassword) {
-      alert('新しいパスワードを入力してください')
+      showToast.warning('新しいパスワードを入力してください')
       return
     }
 
     if (passwordFormData.newPassword !== passwordFormData.confirmPassword) {
-      alert('新しいパスワードが一致しません')
+      showToast.warning('新しいパスワードが一致しません')
       return
     }
 
     if (passwordFormData.newPassword.length < 6) {
-      alert('パスワードは6文字以上にしてください')
+      showToast.warning('パスワードは6文字以上にしてください')
       return
     }
 
@@ -224,7 +225,7 @@ export function ProfilePage() {
 
       if (error) throw error
 
-      alert('パスワードを変更しました')
+      showToast.success('パスワードを変更しました')
       setPasswordFormData({
         currentPassword: '',
         newPassword: '',
@@ -232,7 +233,7 @@ export function ProfilePage() {
       })
     } catch (error: any) {
       logger.error('パスワード変更エラー:', error)
-      alert(error.message || 'パスワードの変更に失敗しました')
+      showToast.error(error.message || 'パスワードの変更に失敗しました')
     } finally {
       setChangingPassword(false)
     }
@@ -551,7 +552,7 @@ export function ProfilePage() {
               variant="destructive"
               onClick={async () => {
                 if (confirmEmail !== user?.email) {
-                  alert('メールアドレスが一致しません。正確に入力してください。')
+                  showToast.warning('メールアドレスが一致しません', '正確に入力してください')
                   return
                 }
 
@@ -570,12 +571,12 @@ export function ProfilePage() {
                   // auth.usersとpublic.usersも削除
                   await deleteMyAccount()
                   
-                  alert('アカウントを削除しました。')
+                  showToast.success('アカウントを削除しました')
                   await signOut()
                   window.location.hash = '#login'
                 } catch (error: any) {
                   logger.error('アカウント削除エラー:', error)
-                  alert('アカウントの削除に失敗しました: ' + (error.message || '不明なエラー'))
+                  showToast.error('アカウントの削除に失敗しました', error.message || '不明なエラー')
                 } finally {
                   setDeleting(false)
                   setDeleteDialogOpen(false)

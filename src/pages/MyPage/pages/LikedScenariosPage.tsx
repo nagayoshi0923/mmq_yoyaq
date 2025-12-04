@@ -6,6 +6,7 @@ import { Star, Users, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface WantToPlayScenario {
@@ -124,7 +125,7 @@ export function WantToPlayPage() {
       setWantToPlayScenarios((prev) => prev.filter((item) => item.id !== likeId))
     } catch (error) {
       logger.error('削除エラー:', error)
-      alert('削除に失敗しました')
+      showToast.error('削除に失敗しました')
     }
   }
 

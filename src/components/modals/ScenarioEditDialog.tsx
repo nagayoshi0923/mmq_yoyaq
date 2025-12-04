@@ -12,6 +12,7 @@ import { GmSettingsSection } from '@/pages/ScenarioEdit/sections/GmSettingsSecti
 import { CostsPropsSection } from '@/pages/ScenarioEdit/sections/CostsPropsSection'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 // API関連
 import { staffApi } from '@/lib/api'

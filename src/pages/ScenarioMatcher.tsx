@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -177,7 +178,7 @@ export function ScenarioMatcher() {
       setSelectedMatches({})
       loadUnmatchedEvents()
     } catch (error) {
-      alert('エラーが発生しました')
+      showToast.error('エラーが発生しました')
       logger.error(error)
     } finally {
       setIsLoading(false)

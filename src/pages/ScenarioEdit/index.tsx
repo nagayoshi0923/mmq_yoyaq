@@ -10,6 +10,7 @@ import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { getCurrentJST } from '@/utils/dateUtils'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 // 各セクションのコンポーネント
 import { BasicInfoSection } from './sections/BasicInfoSection'

@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { Button } from '@/components/ui/button'
 import { Upload, Download } from 'lucide-react'
 
@@ -85,7 +86,7 @@ export function CsvImportExport<T>({
       URL.revokeObjectURL(link.href)
     } catch (error) {
       logger.error('Export error:', error)
-      alert('エクスポートに失敗しました')
+      showToast.error('エクスポートに失敗しました')
     }
   }
 

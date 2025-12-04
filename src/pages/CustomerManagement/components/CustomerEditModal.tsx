@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
 import type { Customer } from '@/types'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 interface CustomerEditModalProps {
   isOpen: boolean
@@ -98,7 +99,7 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
       onClose()
     } catch (error) {
       logger.error('顧客保存エラー:', error)
-      alert('保存に失敗しました')
+      showToast.error('保存に失敗しました')
     } finally {
       setSaving(false)
     }

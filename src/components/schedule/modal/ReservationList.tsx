@@ -12,6 +12,7 @@ import { Mail, ChevronDown, ChevronUp } from 'lucide-react'
 import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { EmailPreview } from './EmailPreview'
@@ -474,7 +475,7 @@ export function ReservationList({
         cancellationFee: 0
       })
       
-      alert('メールを送信しました')
+      showToast.success('メールを送信しました')
     } catch (error) {
       logger.error('予約キャンセルエラー:', error)
       alert(`予約のキャンセルに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
@@ -933,7 +934,7 @@ export function ReservationList({
                     setSelectedReservations(new Set())
                   } catch (error) {
                     logger.error('メール送信エラー:', error)
-                    alert('メール送信に失敗しました')
+                    showToast.error('メール送信に失敗しました')
                   } finally {
                     setSendingEmail(false)
                   }

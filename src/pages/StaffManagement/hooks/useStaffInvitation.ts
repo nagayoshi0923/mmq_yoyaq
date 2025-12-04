@@ -6,6 +6,7 @@ import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
 import { staffKeys } from './useStaffQuery'
 import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 interface UseStaffInvitationProps {
   onSuccess?: () => void

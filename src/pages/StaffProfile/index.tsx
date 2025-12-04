@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -211,10 +212,10 @@ export function StaffProfile() {
 
       await assignmentApi.updateStaffAssignments(staffId, assignmentData)
 
-      alert('保存しました')
+      showToast.success('保存しました')
     } catch (error) {
       logger.error('保存エラー:', error)
-      alert('保存に失敗しました')
+      showToast.error('保存に失敗しました')
     } finally {
       setSaving(false)
     }

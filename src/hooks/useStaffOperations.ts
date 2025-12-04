@@ -5,6 +5,7 @@ import { staffApi, storeApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { inviteStaff, type InviteStaffRequest } from '@/lib/staffInviteApi'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import type { Staff, Store } from '@/types'
 
 export function useStaffOperations() {

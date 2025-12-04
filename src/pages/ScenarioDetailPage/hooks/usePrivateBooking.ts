@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils' // 時間帯判定用
 import type { TimeSlot, EventSchedule } from '../utils/types'
 

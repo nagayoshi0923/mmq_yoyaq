@@ -40,6 +40,7 @@ import { createScenarioColumns } from './utils/tableColumns'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 export function ScenarioManagement() {
   // UI状態

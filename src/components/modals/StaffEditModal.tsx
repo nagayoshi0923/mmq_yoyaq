@@ -13,6 +13,7 @@ import type { Staff, Store, Scenario } from '@/types'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 interface StaffEditModalProps {
   isOpen: boolean

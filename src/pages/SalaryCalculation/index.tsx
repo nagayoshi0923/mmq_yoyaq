@@ -1,4 +1,5 @@
 import { useState, Fragment } from 'react'
+import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,7 +49,7 @@ export default function SalaryCalculation() {
   // CSV エクスポート
   const handleExportCSV = () => {
     if (!salaryData || filteredStaffList.length === 0) {
-      alert('エクスポートするデータがありません')
+      showToast.warning('エクスポートするデータがありません')
       return
     }
 

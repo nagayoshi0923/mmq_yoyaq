@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -73,10 +74,10 @@ export function NotificationSettings() {
 
       if (error) throw error
 
-      alert('設定を保存しました')
+      showToast.success('設定を保存しました')
     } catch (error) {
       logger.error('設定の保存エラー:', error)
-      alert('設定の保存に失敗しました')
+      showToast.error('設定の保存に失敗しました')
     } finally {
       setSaving(false)
     }

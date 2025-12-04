@@ -6,6 +6,7 @@ import { BookOpen, Calendar, MapPin, Star, EyeOff } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface PlayedScenario {

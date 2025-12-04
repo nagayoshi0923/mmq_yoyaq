@@ -8,6 +8,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import type { Store } from '@/types'
 
 interface UseTemporaryVenuesReturn {

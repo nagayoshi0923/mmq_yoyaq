@@ -6,6 +6,7 @@ import { Images, Calendar, MapPin, Star, EyeOff, Users, Clock, User } from 'luci
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 
 interface PlayedScenario {
@@ -254,7 +255,7 @@ export function AlbumPage() {
       }
     } catch (error) {
       logger.error('削除エラー:', error)
-      alert('削除に失敗しました')
+      showToast.error('削除に失敗しました')
     }
   }
 

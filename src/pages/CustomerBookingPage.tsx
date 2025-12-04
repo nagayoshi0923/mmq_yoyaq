@@ -10,6 +10,7 @@ import { Calendar, Clock, Users, MapPin, Search } from 'lucide-react'
 import { scheduleApi, storeApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 interface PublicEvent {
   id: string

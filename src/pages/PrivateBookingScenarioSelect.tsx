@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header'
 import { ArrowLeft } from 'lucide-react'
 import { scenarioApi } from '@/lib/api'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 import { BookingNotice } from './ScenarioDetailPage/components/BookingNotice'
 
 interface Scenario {
