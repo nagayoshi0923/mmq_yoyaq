@@ -84,7 +84,7 @@ export function ReservationsPage() {
           }
           // 貸切予約の候補店舗
           if (r.candidate_datetimes) {
-            const candidateDatetimes = r.candidate_datetimes as any
+            const candidateDatetimes = r.candidate_datetimes
             if (candidateDatetimes.confirmedStore?.storeId) {
               storeIds.add(candidateDatetimes.confirmedStore.storeId)
             }
@@ -189,7 +189,7 @@ export function ReservationsPage() {
 
     // 貸切予約の確定店舗
     if (reservation.candidate_datetimes) {
-      const candidateDatetimes = reservation.candidate_datetimes as any
+      const candidateDatetimes = reservation.candidate_datetimes
       if (candidateDatetimes.confirmedStore?.storeId) {
         const storeId = candidateDatetimes.confirmedStore.storeId
         if (stores[storeId]) {

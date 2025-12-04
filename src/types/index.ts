@@ -386,7 +386,28 @@ export interface Reservation {
   customer_phone?: string | null
   // Supabaseのjoinクエリで取得される拡張フィールド
   customers?: Customer | Customer[] | null
+  // 貸切予約の候補日時情報
+  candidate_datetimes?: CandidateDatetimes | null
 }
+
+// 貸切予約の候補日時情報
+export interface CandidateDatetimes {
+  candidates?: Array<{
+    date: string
+    time_slot: string
+    start_time?: string
+    end_time?: string
+  }>
+  confirmedStore?: {
+    storeId: string
+    storeName?: string
+  }
+  confirmedDateTime?: {
+    date: string
+    time_slot: string
+    start_time?: string
+    end_time?: string
+  }
 
 // 予約サマリー（ビューから取得）
 export interface ReservationSummary {

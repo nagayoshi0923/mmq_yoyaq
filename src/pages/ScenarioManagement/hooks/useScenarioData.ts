@@ -53,7 +53,7 @@ export function useScenarioData() {
   const saveScenario = useCallback(async (scenario: Scenario, isEdit: boolean) => {
     try {
       // データベースに送信する前にproduction_costsフィールドを除外
-      const { production_costs, ...scenarioForDB } = scenario as any
+      const { production_costs, ...scenarioForDB } = scenario
       
       if (isEdit) {
         await scenarioApi.update(scenarioForDB.id, scenarioForDB)

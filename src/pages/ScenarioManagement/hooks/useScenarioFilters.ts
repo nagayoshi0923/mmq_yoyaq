@@ -15,7 +15,11 @@ export function useScenarioFilters(scenarios: Scenario[]) {
 
   // ソートハンドラー
   const handleSort = (newSortState: { field: string; direction: 'asc' | 'desc' } | undefined) => {
-    setSortState(newSortState as any)
+    if (newSortState) {
+      setSortState({ field: newSortState.field as ScenarioSortField, direction: newSortState.direction })
+    } else {
+      setSortState(undefined)
+    }
   }
 
   // フィルタリング済みシナリオ
