@@ -323,6 +323,21 @@ export const staffApi = {
     return updatedStaff
   },
 
+  // IDでスタッフを取得
+  async getById(id: string): Promise<Staff | null> {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+    
+    if (error) {
+      if (error.code === 'PGRST116') return null
+      throw error
+    }
+    return data
+  },
+
   // ユーザーIDでスタッフを取得
   async getByUserId(userId: string): Promise<Staff | null> {
     const { data, error } = await supabase

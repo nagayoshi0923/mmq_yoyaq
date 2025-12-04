@@ -18,6 +18,8 @@ interface Store {
 interface Scenario {
   id: string
   title: string
+  duration?: number
+  player_count_max?: number
 }
 
 interface UseEventOperationsProps {

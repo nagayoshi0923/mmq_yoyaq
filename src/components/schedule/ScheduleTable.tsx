@@ -17,7 +17,7 @@ interface MonthDay {
 export interface ScheduleTableViewConfig {
   currentDate: Date
   monthDays: MonthDay[]
-  stores: Array<{ id: string; name: string; short_name: string }>
+  stores: Array<{ id: string; name: string; short_name: string; is_temporary?: boolean }>
   temporaryVenues?: Store[]
 }
 

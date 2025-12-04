@@ -75,7 +75,7 @@ const variantConfig: Record<ModalVariant, { icon: typeof AlertCircle; iconColor:
 const maxWidthClasses = {
   sm: 'sm:max-w-sm',
   md: 'sm:max-w-md',
-  md: 'sm:max-w-lg',
+  lg: 'sm:max-w-lg',
   xl: 'sm:max-w-xl',
   '2xl': 'sm:max-w-2xl',
   full: 'sm:max-w-full'

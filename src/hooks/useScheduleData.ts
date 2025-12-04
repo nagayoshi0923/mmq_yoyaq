@@ -347,8 +347,13 @@ interface PrivateRequestData {
   store_id: string
   gm_staff?: string
   participant_count: number
+  customer_name?: string
   candidate_datetimes?: {
     candidates: CandidateDateTime[]
+    confirmedStore?: {
+      storeId: string
+      storeName?: string
+    }
   }
   scenarios?: { title: string; player_count_max: number }
 }

@@ -408,6 +408,7 @@ export interface CandidateDatetimes {
     start_time?: string
     end_time?: string
   }
+  requestedStores?: string[]
 }
 
 // 予約サマリー（ビューから取得）

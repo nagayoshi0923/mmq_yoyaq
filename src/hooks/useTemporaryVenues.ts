@@ -86,36 +86,40 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
           // フィルターなし: クライアント側で is_temporary をチェック
         },
         (payload) => {
+          // Realtimeのペイロードを適切な型にキャスト
+          const newData = payload.new as Partial<Store> | null
+          const oldData = payload.old as Partial<Store> | null
+          
           // 臨時会場以外は無視
-          const isTemporary = payload.new?.is_temporary || payload.old?.is_temporary
+          const isTemporary = newData?.is_temporary || oldData?.is_temporary
           if (!isTemporary) {
             return
           }
           
           logger.log('🔔 臨時会場Realtimeイベント受信:', {
             type: payload.eventType,
-            venue: payload.new?.name || payload.old?.name,
-            temporary_dates: payload.new?.temporary_dates || payload.old?.temporary_dates
+            venue: newData?.name || oldData?.name,
+            temporary_dates: newData?.temporary_dates || oldData?.temporary_dates
           })
 
-          if (payload.eventType === 'INSERT' && payload.new) {
+          if (payload.eventType === 'INSERT' && newData && newData.id) {
             setTemporaryVenues(prev => {
               // 重複チェック
-              if (prev.some(v => v.id === payload.new.id)) {
-                logger.log('⏭️ 重複をスキップ:', payload.new.id)
+              if (prev.some(v => v.id === newData.id)) {
+                logger.log('⏭️ 重複をスキップ:', newData.id)
                 return prev
               }
-              logger.log('✅ Realtime: 臨時会場を追加:', payload.new.name)
-              return [...prev, payload.new as Store].sort((a, b) => a.name.localeCompare(b.name))
+              logger.log('✅ Realtime: 臨時会場を追加:', newData.name)
+              return [...prev, newData as Store].sort((a, b) => a.name.localeCompare(b.name))
             })
-          } else if (payload.eventType === 'UPDATE' && payload.new) {
+          } else if (payload.eventType === 'UPDATE' && newData && newData.id) {
             setTemporaryVenues(prev => 
-              prev.map(v => v.id === payload.new.id ? payload.new as Store : v)
+              prev.map(v => v.id === newData.id ? newData as Store : v)
             )
-            logger.log('🔄 Realtime: 臨時会場を更新:', payload.new.name)
-          } else if (payload.eventType === 'DELETE' && payload.old) {
-            setTemporaryVenues(prev => prev.filter(v => v.id !== payload.old.id))
-            logger.log('🗑️ Realtime: 臨時会場を削除:', payload.old.name)
+            logger.log('🔄 Realtime: 臨時会場を更新:', newData.name)
+          } else if (payload.eventType === 'DELETE' && oldData && oldData.id) {
+            setTemporaryVenues(prev => prev.filter(v => v.id !== oldData.id))
+            logger.log('🗑️ Realtime: 臨時会場を削除:', oldData.name)
           }
         }
       )

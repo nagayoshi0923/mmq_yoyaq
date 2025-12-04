@@ -61,9 +61,12 @@ export function handleSupabaseError(error: unknown, context?: string): ApiError 
     return error
   }
 
+  // エラーオブジェクトからプロパティを安全に取得
+  const errorObj = error as { code?: string | number; status?: string | number; message?: string }
+  
   // Supabase エラーコードに基づいて分類
-  const code = error.code || error.status
-  const message = error.message || 'エラーが発生しました'
+  const code = errorObj.code || errorObj.status
+  const message = errorObj.message || 'エラーが発生しました'
   const contextMessage = context ? `${context}: ${message}` : message
 
   // 認証エラー
