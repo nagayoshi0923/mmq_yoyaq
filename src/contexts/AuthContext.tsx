@@ -671,8 +671,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         logger.log('📡 他タブにログインを通知')
       }
     } catch (error) {
-      setLoading(false)
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 
