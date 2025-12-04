@@ -1,4 +1,5 @@
 import { useState, Fragment, useEffect } from 'react'
+import { logger } from '@/utils/logger'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -72,7 +73,7 @@ export default function AuthorReport() {
         // テーブルがまだ作成されていない場合は空のMapで続行
         setAuthors(new Map())
       } else {
-        console.error('作者データの読み込みに失敗:', error)
+        logger.error('作者データの読み込みに失敗:', error)
       }
     }
   }
@@ -156,7 +157,7 @@ export default function AuthorReport() {
             await new Promise(resolve => setTimeout(resolve, 300))
           }
         } catch (error: any) {
-          console.error(`メール送信エラー (${author.author}):`, error)
+          logger.error(`メール送信エラー (${author.author}):`, error)
           failureCount++
         }
       }
@@ -167,7 +168,7 @@ export default function AuthorReport() {
         alert(`${successCount}件のメールを送信しました。`)
       }
     } catch (error) {
-      console.error('一括送信に失敗:', error)
+      logger.error('一括送信に失敗:', error)
       alert('一括送信に失敗しました')
     } finally {
       setIsSendingBatch(false)

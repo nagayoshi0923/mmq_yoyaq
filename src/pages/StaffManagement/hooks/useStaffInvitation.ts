@@ -117,7 +117,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
         .eq('id', users.id)
 
       if (updateError) {
-        console.warn('usersテーブルの更新に失敗しました:', updateError)
+        logger.warn('usersテーブルの更新に失敗しました:', updateError)
       }
 
       // React Queryのキャッシュを更新
@@ -254,7 +254,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
           .single()
           
         if (fetchError) {
-          console.error('ユーザー情報取得エラー:', fetchError)
+          logger.error('ユーザー情報取得エラー:', fetchError)
         } else if (userData && userData.role !== 'admin') {
         // adminでない場合のみロールを変更
           const { error: updateError } = await supabase
@@ -263,12 +263,12 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
             .eq('id', userIdToUpdate)
             
           if (updateError) {
-            console.error('usersテーブルのロール更新に失敗しました:', updateError)
+            logger.error('usersテーブルのロール更新に失敗しました:', updateError)
           } else {
-            console.log('✅ 連携解除に伴い、ユーザーロールをcustomerに変更しました')
+            logger.log('✅ 連携解除に伴い、ユーザーロールをcustomerに変更しました')
           }
         } else if (userData?.role === 'admin') {
-          console.log('ℹ️ adminユーザーのため、ロール変更をスキップしました')
+          logger.log('ℹ️ adminユーザーのため、ロール変更をスキップしました')
         }
       }
 

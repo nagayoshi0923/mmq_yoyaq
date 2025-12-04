@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { logger } from '@/utils/logger'
 import { Button } from '@/components/ui/button'
 import { Upload, Download } from 'lucide-react'
 
@@ -60,7 +61,7 @@ export function CsvImportExport<T>({
     try {
       await onImport(file)
     } catch (error) {
-      console.error('Import error:', error)
+      logger.error('Import error:', error)
     } finally {
       // ファイル選択をリセット
       if (fileInputRef.current) {
@@ -83,7 +84,7 @@ export function CsvImportExport<T>({
       link.click()
       URL.revokeObjectURL(link.href)
     } catch (error) {
-      console.error('Export error:', error)
+      logger.error('Export error:', error)
       alert('エクスポートに失敗しました')
     }
   }

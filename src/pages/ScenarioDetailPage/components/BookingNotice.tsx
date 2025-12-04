@@ -1,4 +1,5 @@
 import { memo, useState, useEffect } from 'react'
+import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { Loader2 } from 'lucide-react'
@@ -49,7 +50,7 @@ export const BookingNotice = memo(function BookingNotice({
 
         setNotices(filtered)
       } catch (error) {
-        console.error('注意事項の取得に失敗:', error)
+        logger.error('注意事項の取得に失敗:', error)
         setNotices([])
       } finally {
         setIsLoading(false)

@@ -1,4 +1,5 @@
 import { Calendar, Clock, XCircle, CheckCircle2 } from 'lucide-react'
+import { logger } from '@/utils/logger'
 
 /**
  * 候補日時の日付をフォーマット
@@ -12,7 +13,7 @@ const formatCandidateDate = (dateStr: string | undefined | null): string => {
   
   // 無効な日付の場合
   if (isNaN(date.getTime())) {
-    console.error('Invalid date string:', dateStr)
+    logger.error('Invalid date string:', dateStr)
     return '日付エラー'
   }
   

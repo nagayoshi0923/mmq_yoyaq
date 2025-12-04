@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { logger } from '@/utils/logger'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,7 +77,7 @@ export function AuthorLicenseEmailDialog({
       alert('メールを送信しました')
       onClose()
     } catch (error: any) {
-      console.error('メール送信エラー:', error)
+      logger.error('メール送信エラー:', error)
       alert(`メール送信に失敗しました: ${error?.message || '不明なエラー'}`)
     } finally {
       setSending(false)

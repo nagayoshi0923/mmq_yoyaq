@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { logger } from '@/utils/logger'
 import type { Store } from '@/types'
 
 interface UseTemporaryVenuesReturn {
@@ -52,7 +53,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         
         if (error) throw error
         
-        console.log('📍 臨時会場データ読み込み:', {
+        logger.log('📍 臨時会場データ読み込み:', {
           取得件数: data?.length || 0,
           データ: data?.map(v => ({
             id: v.id,
@@ -63,7 +64,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         
         setTemporaryVenues(data || [])
       } catch (error) {
-        console.error('臨時会場データの読み込みに失敗:', error)
+        logger.error('臨時会場データの読み込みに失敗:', error)
         setTemporaryVenues([])
       } finally {
         setLoading(false)
@@ -90,7 +91,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
             return
           }
           
-          console.log('🔔 臨時会場Realtimeイベント受信:', {
+          logger.log('🔔 臨時会場Realtimeイベント受信:', {
             type: payload.eventType,
             venue: payload.new?.name || payload.old?.name,
             temporary_dates: payload.new?.temporary_dates || payload.old?.temporary_dates
@@ -100,29 +101,29 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
             setTemporaryVenues(prev => {
               // 重複チェック
               if (prev.some(v => v.id === payload.new.id)) {
-                console.log('⏭️ 重複をスキップ:', payload.new.id)
+                logger.log('⏭️ 重複をスキップ:', payload.new.id)
                 return prev
               }
-              console.log('✅ Realtime: 臨時会場を追加:', payload.new.name)
+              logger.log('✅ Realtime: 臨時会場を追加:', payload.new.name)
               return [...prev, payload.new as Store].sort((a, b) => a.name.localeCompare(b.name))
             })
           } else if (payload.eventType === 'UPDATE' && payload.new) {
             setTemporaryVenues(prev => 
               prev.map(v => v.id === payload.new.id ? payload.new as Store : v)
             )
-            console.log('🔄 Realtime: 臨時会場を更新:', payload.new.name)
+            logger.log('🔄 Realtime: 臨時会場を更新:', payload.new.name)
           } else if (payload.eventType === 'DELETE' && payload.old) {
             setTemporaryVenues(prev => prev.filter(v => v.id !== payload.old.id))
-            console.log('🗑️ Realtime: 臨時会場を削除:', payload.old.name)
+            logger.log('🗑️ Realtime: 臨時会場を削除:', payload.old.name)
           }
         }
       )
       .subscribe((status) => {
-        console.log('📡 臨時会場Realtime購読状態:', status)
+        logger.log('📡 臨時会場Realtime購読状態:', status)
         if (status === 'SUBSCRIBED') {
-          console.log('✅ 臨時会場Realtime購読成功')
+          logger.log('✅ 臨時会場Realtime購読成功')
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ 臨時会場Realtime購読エラー')
+          logger.error('❌ 臨時会場Realtime購読エラー')
         }
       })
 
@@ -155,7 +156,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
       
       // 既に追加されているかチェック
       if (currentDates.includes(date)) {
-        console.log('⏭️ 既に追加済み:', { venueId, date })
+        logger.log('⏭️ 既に追加済み:', { venueId, date })
         return
       }
 
@@ -174,9 +175,9 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         prev.map(v => v.id === venueId ? { ...v, temporary_dates: newDates } : v)
       )
 
-      console.log('✅ 臨時会場に日付を追加:', { venue: venue.name, date })
+      logger.log('✅ 臨時会場に日付を追加:', { venue: venue.name, date })
     } catch (error) {
-      console.error('臨時会場への日付追加に失敗:', error)
+      logger.error('臨時会場への日付追加に失敗:', error)
       alert('臨時会場の追加に失敗しました')
     }
   }, [temporaryVenues])
@@ -184,7 +185,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
   // 臨時会場から日付を削除
   const removeTemporaryVenue = useCallback(async (date: string, venueId: string) => {
     try {
-      console.log('🗑️ 臨時会場から日付を削除開始:', { date, venueId })
+      logger.log('🗑️ 臨時会場から日付を削除開始:', { date, venueId })
 
       // 現在の temporary_dates を取得
       const venue = temporaryVenues.find(v => v.id === venueId)
@@ -201,11 +202,11 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         .limit(1)
 
       if (checkError) {
-        console.error('公演チェックエラー:', checkError)
+        logger.error('公演チェックエラー:', checkError)
         throw checkError
       }
 
-      console.log('公演チェック結果:', { 公演数: events?.length || 0 })
+      logger.log('公演チェック結果:', { 公演数: events?.length || 0 })
 
       if (events && events.length > 0) {
         alert('この日付には公演が登録されているため削除できません。先に公演を削除してください。')
@@ -222,7 +223,7 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         .eq('id', venueId)
 
       if (error) {
-        console.error('削除エラー:', error)
+        logger.error('削除エラー:', error)
         throw error
       }
 
@@ -231,9 +232,9 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
         prev.map(v => v.id === venueId ? { ...v, temporary_dates: newDates } : v)
       )
 
-      console.log('✅ 臨時会場から日付を削除:', { venue: venue.name, date })
+      logger.log('✅ 臨時会場から日付を削除:', { venue: venue.name, date })
     } catch (error) {
-      console.error('臨時会場からの日付削除に失敗:', error)
+      logger.error('臨時会場からの日付削除に失敗:', error)
       alert('臨時会場の削除に失敗しました: ' + (error as any).message)
     }
   }, [temporaryVenues])

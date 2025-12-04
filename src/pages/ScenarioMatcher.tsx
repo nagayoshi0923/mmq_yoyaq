@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -116,7 +117,7 @@ export function ScenarioMatcher() {
       
       setUnmatchedEvents(unmatched)
     } catch (error) {
-      console.error('エラー:', error)
+      logger.error('エラー:', error)
     } finally {
       setIsLoading(false)
     }
@@ -132,7 +133,7 @@ export function ScenarioMatcher() {
       if (error) throw error
       setAllScenarios(data || [])
     } catch (error) {
-      console.error('シナリオ取得エラー:', error)
+      logger.error('シナリオ取得エラー:', error)
     }
   }
 
@@ -163,7 +164,7 @@ export function ScenarioMatcher() {
           .eq('scenario', eventScenario)
         
         if (error) {
-          console.error('更新エラー:', error)
+          logger.error('更新エラー:', error)
           failedCount++
         } else {
           successCount++
@@ -177,7 +178,7 @@ export function ScenarioMatcher() {
       loadUnmatchedEvents()
     } catch (error) {
       alert('エラーが発生しました')
-      console.error(error)
+      logger.error(error)
     } finally {
       setIsLoading(false)
     }
@@ -288,7 +289,7 @@ export function ScenarioMatcher() {
                                           onClick={(e) => {
                                             e.preventDefault()
                                             e.stopPropagation()
-                                            console.log('Clicked:', scenario.title, scenario.id)
+                                            logger.log('Clicked:', scenario.title, scenario.id)
                                             handleSelectMatch(event.scenario, scenario.id)
                                             setOpenPopovers(prev => ({ ...prev, [event.scenario]: false }))
                                             setPopoverSearchTerms(prev => ({ ...prev, [event.scenario]: '' }))

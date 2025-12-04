@@ -349,7 +349,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
       }
       onClose()
     } catch (err: unknown) {
-      console.error('詳細エラー:', err)
+      logger.error('詳細エラー:', err)
       const message = err instanceof Error ? err.message : JSON.stringify(err)
       alert(`保存に失敗しました: ${message}`)
       logger.error('シナリオ保存エラー:', err)

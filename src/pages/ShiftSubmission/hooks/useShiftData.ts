@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 import { shiftApi } from '@/lib/shiftApi'
 import type { ShiftSubmission, DayInfo } from '../types'
@@ -29,12 +30,12 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
           .eq('user_id', user.id)
           .maybeSingle()
         
-        console.log('📋 スタッフ検索:', { userId: user.id, email: user.email, staffData, error })
+        logger.log('📋 スタッフ検索:', { userId: user.id, email: user.email, staffData, error })
         
         if (staffData) {
           setCurrentStaffId(staffData.id)
         } else {
-          console.error('❌ スタッフデータが見つかりません:', user.email)
+          logger.error('❌ スタッフデータが見つかりません:', user.email)
           alert(`スタッフ情報が見つかりません。\nログイン中: ${user.email}\n\n管理者に連絡してスタッフ登録を依頼してください。`)
         }
       }
@@ -99,13 +100,13 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
             }
           })
         } catch (e) {
-          console.error('下書きデータの復元に失敗:', e)
+          logger.error('下書きデータの復元に失敗:', e)
         }
       }
       
       setShiftData(newShiftData)
     } catch (error) {
-      console.error('シフトデータの読み込みに失敗しました:', error)
+      logger.error('シフトデータの読み込みに失敗しました:', error)
     } finally {
       setLoading(false)
     }

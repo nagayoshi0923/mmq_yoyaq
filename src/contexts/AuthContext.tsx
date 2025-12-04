@@ -84,13 +84,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const authStartTime = performance.now()
-    console.log('🚀 AuthContext 初期化開始:', new Date().toISOString())
+    logger.log('🚀 AuthContext 初期化開始:', new Date().toISOString())
     
     // パフォーマンス最適化: 認証処理を非ブロッキング化
     // 0.3秒後にloadingをfalseにして、ページを表示開始
     const loadingTimeout = setTimeout(() => {
       if (loading) {
-        console.log('⏱️ 認証処理タイムアウト（0.3秒）、ページ表示を開始')
+        logger.log('⏱️ 認証処理タイムアウト（0.3秒）、ページ表示を開始')
         setLoading(false)
       }
     }, 300)
@@ -99,7 +99,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     getInitialSession().then(() => {
       clearTimeout(loadingTimeout)
       const authEndTime = performance.now()
-      console.log(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
+      logger.log(`⏱️ AuthContext 初期認証完了: ${((authEndTime - authStartTime) / 1000).toFixed(2)}秒`)
       setLoading(false)
       setIsInitialized(true)  // 認証完了をマーク
     }).catch(() => {
@@ -247,7 +247,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const sessionStartTime = performance.now()
       const { data: { session }, error } = await supabase.auth.getSession()
       const sessionEndTime = performance.now()
-      console.log(`⏱️ getSession 完了: ${((sessionEndTime - sessionStartTime) / 1000).toFixed(2)}秒`)
+      logger.log(`⏱️ getSession 完了: ${((sessionEndTime - sessionStartTime) / 1000).toFixed(2)}秒`)
       
       if (error) {
         logger.error('❌ セッション取得エラー:', error)
@@ -265,7 +265,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       const endTime = performance.now()
       logger.log('✅ 初期セッション処理完了')
-      console.log(`⏱️ getInitialSession 総時間: ${((endTime - startTime) / 1000).toFixed(2)}秒`)
+      logger.log(`⏱️ getInitialSession 総時間: ${((endTime - startTime) / 1000).toFixed(2)}秒`)
       setLoading(false)
     }
   }
@@ -281,7 +281,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const startTime = performance.now()
     isProcessingRef.current = true
     logger.log('🔐 ユーザーセッション設定開始:', supabaseUser.email)
-    console.log(`⏱️ setUserFromSession 開始: ${supabaseUser.email} (${new Date().toISOString()})`)
+    logger.log(`⏱️ setUserFromSession 開始: ${supabaseUser.email} (${new Date().toISOString()})`)
     
     // 既存のユーザー情報を保持（エラー時のフォールバック用）
     // useStateのクロージャー問題を回避するため、refから取得
@@ -635,7 +635,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       const endTime = performance.now()
       isProcessingRef.current = false
-      console.log(`⏱️ setUserFromSession 完了: ${supabaseUser.email} (${((endTime - startTime) / 1000).toFixed(2)}秒)`)
+      logger.log(`⏱️ setUserFromSession 完了: ${supabaseUser.email} (${((endTime - startTime) / 1000).toFixed(2)}秒)`)
     }
   }
 

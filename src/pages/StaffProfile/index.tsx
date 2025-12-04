@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { logger } from '@/utils/logger'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -82,7 +83,7 @@ export function StaffProfile() {
           .single()
 
         if (staffError || !staffData) {
-          console.error('スタッフ情報が見つかりません')
+          logger.error('スタッフ情報が見つかりません')
           setLoading(false)
           return
         }
@@ -99,7 +100,7 @@ export function StaffProfile() {
         setAssignments(assignmentsData)
 
       } catch (error) {
-        console.error('データ読み込みエラー:', error)
+        logger.error('データ読み込みエラー:', error)
       } finally {
         setLoading(false)
       }
@@ -212,7 +213,7 @@ export function StaffProfile() {
 
       alert('保存しました')
     } catch (error) {
-      console.error('保存エラー:', error)
+      logger.error('保存エラー:', error)
       alert('保存に失敗しました')
     } finally {
       setSaving(false)

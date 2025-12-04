@@ -389,12 +389,12 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
 
       // デバッグ: データがない場合の警告
       if (scenarioList.length === 0) {
-        console.warn('⚠️ 表示可能なシナリオがありません')
-        console.warn('原因の可能性:')
-        console.warn('1. シナリオデータが登録されていない')
-        console.warn('2. 予約可能な公演（category=open）が登録されていない')
-        console.warn('3. is_reservation_enabledがfalseになっている')
-        console.warn('4. シナリオと公演の紐付けが正しくない')
+        logger.warn('⚠️ 表示可能なシナリオがありません')
+        logger.warn('原因の可能性:')
+        logger.warn('1. シナリオデータが登録されていない')
+        logger.warn('2. 予約可能な公演（category=open）が登録されていない')
+        logger.warn('3. is_reservation_enabledがfalseになっている')
+        logger.warn('4. シナリオと公演の紐付けが正しくない')
       }
     } catch (error) {
       logger.error('データの読み込みエラー:', error)

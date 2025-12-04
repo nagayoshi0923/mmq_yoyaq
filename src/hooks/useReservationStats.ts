@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns'
 
@@ -91,7 +92,7 @@ export function useReservationStats() {
 
         setStats(newStats)
       } catch (err) {
-        console.error('Failed to fetch reservation stats:', err)
+        logger.error('Failed to fetch reservation stats:', err)
       } finally {
         if (isMounted) setIsLoading(false)
       }

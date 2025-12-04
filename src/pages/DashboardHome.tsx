@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -58,7 +59,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         // 1. スタッフ情報の取得
         const staff = await staffApi.getByUserId(user.id)
         if (!staff) {
-           console.log('スタッフ情報が見つかりません')
+           logger.log('スタッフ情報が見つかりません')
            setLoading(false)
            return
         }
@@ -71,7 +72,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         const events = await scheduleApi.getMySchedule(staff.name, startDate, endDate)
         setMySchedule(events)
       } catch (error) {
-        console.error('データ取得エラー:', error)
+        logger.error('データ取得エラー:', error)
       } finally {
         setLoading(false)
       }

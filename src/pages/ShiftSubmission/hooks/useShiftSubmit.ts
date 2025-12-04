@@ -119,11 +119,11 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading, reloadSh
           results.forEach((result, index) => {
             const taskName = index === 0 ? 'Discord通知' : 'スプレッドシート同期'
             if (result.status === 'rejected') {
-              console.error(`❌ ${taskName} エラー:`, result.reason)
+              logger.error(`❌ ${taskName} エラー:`, result.reason)
             } else if (result.value?.error) {
-              console.error(`❌ ${taskName} エラー:`, result.value.error)
+              logger.error(`❌ ${taskName} エラー:`, result.value.error)
             } else {
-              console.log(`✅ ${taskName} 成功`)
+              logger.log(`✅ ${taskName} 成功`)
             }
           })
           logger.log('バックグラウンド処理完了（通知・同期）')

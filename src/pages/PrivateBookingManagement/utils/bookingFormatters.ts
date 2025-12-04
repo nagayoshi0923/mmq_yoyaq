@@ -60,7 +60,7 @@ export const formatDate = (dateStr: string | undefined | null): string => {
   
   // 無効な日付の場合
   if (isNaN(date.getTime())) {
-    console.error('Invalid date string:', dateStr)
+    logger.error('Invalid date string:', dateStr)
     return '日付エラー'
   }
   

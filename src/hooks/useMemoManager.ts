@@ -67,7 +67,7 @@ export function useMemoManager(currentDate: Date, stores: Store[]) {
       
       if (!venueId && store) {
         // storeIdMapにない場合は、店舗名で検索（初回保存時）
-        console.warn(`店舗ID未取得: ${venue}, 店舗名で保存を試行`)
+        logger.warn(`店舗ID未取得: ${venue}, 店舗名で保存を試行`)
         venueId = store.id // 仮のID、実際はSupabaseから取得が必要
       }
 

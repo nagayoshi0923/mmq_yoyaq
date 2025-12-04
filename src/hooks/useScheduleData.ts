@@ -28,11 +28,11 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       .single()
     
     if (customerError || !demoCustomer) {
-      console.error('デモ顧客が見つかりません:', customerError)
+      logger.error('デモ顧客が見つかりません:', customerError)
       return { success: 0, failed: 0, skipped: 0 }
     }
     
-    console.log(`デモ顧客: ${demoCustomer.name} (ID: ${demoCustomer.id})`)
+    logger.log(`デモ顧客: ${demoCustomer.name} (ID: ${demoCustomer.id})`)
     
     // 今日以前の公演を取得（中止されていない、カテゴリーがopenまたはgmtest）
     const { data: pastEvents, error: eventsError } = await supabase
@@ -56,16 +56,16 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       .order('date', { ascending: false })
     
     if (eventsError) {
-      console.error('過去の公演取得エラー:', eventsError)
+      logger.error('過去の公演取得エラー:', eventsError)
       return { success: 0, failed: 0, skipped: 0 }
     }
     
     if (!pastEvents || pastEvents.length === 0) {
-      console.log('対象の過去公演がありません')
+      logger.log('対象の過去公演がありません')
       return { success: 0, failed: 0, skipped: 0 }
     }
     
-    console.log(`対象公演: ${pastEvents.length}件`)
+    logger.log(`対象公演: ${pastEvents.length}件`)
     
     for (const event of pastEvents) {
       const currentParticipants = event.current_participants || 0
@@ -85,7 +85,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         .in('status', ['confirmed', 'pending'])
       
       if (reservationCheckError) {
-        console.error('予約チェックエラー:', reservationCheckError)
+        logger.error('予約チェックエラー:', reservationCheckError)
         failedCount++
         continue
       }
@@ -109,7 +109,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
       
       // シナリオ情報を取得（シナリオ名が空の場合はスキップ）
       if (!event.scenario || event.scenario.trim() === '') {
-        console.log('シナリオ名が空のためスキップ:', event.id)
+        logger.log('シナリオ名が空のためスキップ:', event.id)
         skippedCount++
         continue
       }
@@ -121,13 +121,13 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         .maybeSingle()
       
       if (scenarioError) {
-        console.error('シナリオ取得エラー:', scenarioError)
+        logger.error('シナリオ取得エラー:', scenarioError)
         failedCount++
         continue
       }
 
       if (!scenario) {
-        console.log('シナリオが見つかりません:', event.scenario)
+        logger.log('シナリオが見つかりません:', event.scenario)
         skippedCount++
         continue
       }
@@ -146,7 +146,7 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         .single()
       
       if (storeError) {
-        console.error('店舗ID取得エラー:', storeError)
+        logger.error('店舗ID取得エラー:', storeError)
         failedCount++
         continue
       }
@@ -191,18 +191,18 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         .insert(demoReservation)
       
       if (insertError) {
-        console.error(`デモ参加者追加エラー [${event.date} ${event.scenario}]:`, insertError)
+        logger.error(`デモ参加者追加エラー [${event.date} ${event.scenario}]:`, insertError)
         failedCount++
       } else {
-        console.log(`✅ デモ参加者追加成功: ${event.date} ${event.scenario} (${shortfall}名追加)`)
+        logger.log(`✅ デモ参加者追加成功: ${event.date} ${event.scenario} (${shortfall}名追加)`)
         successCount++
       }
     }
     
-    console.log(`処理完了 - 成功: ${successCount}, スキップ: ${skippedCount}, 失敗: ${failedCount}`)
+    logger.log(`処理完了 - 成功: ${successCount}, スキップ: ${skippedCount}, 失敗: ${failedCount}`)
     return { success: successCount, failed: failedCount, skipped: skippedCount }
   } catch (error) {
-    console.error('処理エラー:', error)
+    logger.error('処理エラー:', error)
     return { success: successCount, failed: failedCount, skipped: skippedCount }
   }
 }
@@ -223,7 +223,7 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
           .in('status', ['confirmed', 'pending'])
         
         if (reservationError) {
-          console.error('予約データの取得に失敗:', reservationError)
+          logger.error('予約データの取得に失敗:', reservationError)
           continue
         }
         
@@ -242,7 +242,7 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
             .single()
           
           if (scenarioError) {
-            console.error('シナリオ情報の取得に失敗:', scenarioError)
+            logger.error('シナリオ情報の取得に失敗:', scenarioError)
             continue
           }
           
@@ -281,10 +281,10 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
             .from('reservations')
             .insert(demoReservation)
           
-          console.log('デモ参加者の予約を作成しました:', event.id)
+          logger.log('デモ参加者の予約を作成しました:', event.id)
         }
       } catch (error) {
-        console.error('デモ参加者の追加に失敗:', error)
+        logger.error('デモ参加者の追加に失敗:', error)
       }
     }
   }

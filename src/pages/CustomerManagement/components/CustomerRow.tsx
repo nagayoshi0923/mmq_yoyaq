@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { logger } from '@/utils/logger'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronDown, ChevronUp, Edit2, Mail, Phone, Calendar } from 'lucide-react'
@@ -35,7 +36,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
       if (error) throw error
       setReservations(data || [])
     } catch (error) {
-      console.error('予約履歴の取得エラー:', error)
+      logger.error('予約履歴の取得エラー:', error)
     } finally {
       setLoading(false)
     }

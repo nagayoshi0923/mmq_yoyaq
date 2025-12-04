@@ -173,7 +173,7 @@ export function ReservationList({
         
         setCustomerNames(Array.from(names).sort())
       } catch (error) {
-        console.error('顧客名の取得に失敗:', error)
+        logger.error('顧客名の取得に失敗:', error)
       }
     }
 

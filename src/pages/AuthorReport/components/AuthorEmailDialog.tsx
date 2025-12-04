@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { logger } from '@/utils/logger'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,7 +50,7 @@ export function AuthorEmailDialog({ isOpen, onClose, authorName, onSave }: Autho
         setEmail('')
         setNotes('')
       } else {
-        console.error('作者データの読み込みに失敗:', error)
+        logger.error('作者データの読み込みに失敗:', error)
       }
     } finally {
       setLoading(false)
@@ -72,7 +73,7 @@ export function AuthorEmailDialog({ isOpen, onClose, authorName, onSave }: Autho
       } else if (error?.code === 'PGRST116' || error?.status === 404) {
         alert('レコードが見つかりませんでした。')
       } else {
-        console.error('保存に失敗:', error)
+        logger.error('保存に失敗:', error)
         alert(`保存に失敗しました: ${error?.message || '不明なエラー'}`)
       }
     } finally {

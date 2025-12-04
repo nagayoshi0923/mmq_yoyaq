@@ -1,4 +1,5 @@
 import React from 'react'
+import { logger } from '@/utils/logger'
 import { Button } from '@/components/ui/button'
 import { Download } from 'lucide-react'
 
@@ -14,13 +15,13 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   const handleExportCSV = () => {
     if (!salesData) return
     // CSVエクスポート処理
-    console.log('CSV export')
+    logger.log('CSV export')
   }
 
   const handleExportExcel = () => {
     if (!salesData) return
     // Excelエクスポート処理
-    console.log('Excel export')
+    logger.log('Excel export')
   }
 
   return (

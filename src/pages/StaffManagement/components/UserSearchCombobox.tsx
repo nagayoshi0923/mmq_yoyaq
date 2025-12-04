@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { logger } from '@/utils/logger'
 import { Check, ChevronsUpDown, Loader2, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -51,13 +52,13 @@ export function UserSearchCombobox({
         .limit(10)
 
       if (error) {
-        console.error('Error searching users:', error)
+        logger.error('Error searching users:', error)
         setUsers([])
       } else {
         setUsers(data || [])
       }
     } catch (err) {
-      console.error('Error searching users:', err)
+      logger.error('Error searching users:', err)
       setUsers([])
     } finally {
       setIsSearching(false)
@@ -84,7 +85,7 @@ export function UserSearchCombobox({
   }, [value, users])
 
   const handleSelect = (user: UserOption) => {
-    console.log('User selected:', user)
+    logger.log('User selected:', user)
     onValueChange(user.id, user)
     setOpen(false)
     setSearchTerm('')

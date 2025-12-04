@@ -3,6 +3,7 @@
  */
 
 import { supabase } from './supabase'
+import { logger } from '@/utils/logger'
 
 export interface SendEmailParams {
   to: string | string[];
@@ -27,7 +28,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailRespo
     })
 
     if (error) {
-      console.error('メール送信エラー:', error)
+      logger.error('メール送信エラー:', error)
       return {
         success: false,
         error: error.message || 'メール送信に失敗しました',
@@ -40,7 +41,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailRespo
       messageId: data.messageId,
     }
   } catch (error) {
-    console.error('メール送信エラー:', error)
+    logger.error('メール送信エラー:', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'メール送信に失敗しました',

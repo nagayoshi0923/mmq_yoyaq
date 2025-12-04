@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { logger } from '@/utils/logger'
 import { SalesData } from '@/types'
 import { SummaryCards } from './SummaryCards'
 import { EventListCard } from './EventListCard'
@@ -117,7 +118,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     const endDay = endDate.getDate()
     const endStr = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`
     
-    console.log('📅 月切り替え:', { year, month: month + 1, startStr, endStr })
+    logger.log('📅 月切り替え:', { year, month: month + 1, startStr, endStr })
     
     // 日付を更新（データ取得はcustomStartDate/customEndDateの更新後に実行される）
     onCustomStartDateChange(startStr)
@@ -151,7 +152,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     // 前回の値を更新
     prevCustomDatesRef.current = { startDate: customStartDate, endDate: customEndDate }
     
-    console.log('📅 カスタム期間変更によるデータ再取得:', { customStartDate, customEndDate })
+    logger.log('📅 カスタム期間変更によるデータ再取得:', { customStartDate, customEndDate })
     
     // データを再取得（onPeriodChangeを呼ぶとloadSalesDataが実行される）
     onPeriodChange('custom')
@@ -187,7 +188,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           availableStaffByScenario
         })
       } catch (error) {
-        console.error('モーダル用データの取得に失敗:', error)
+        logger.error('モーダル用データの取得に失敗:', error)
       }
     }
 
@@ -224,7 +225,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   const handleModalSave = async (eventData: any) => {
     try {
       if (!editingEvent?.id) {
-        console.error('編集対象のイベントIDがありません')
+        logger.error('編集対象のイベントIDがありません')
         return
       }
 
@@ -245,7 +246,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       // スケジュールを更新
       await scheduleApi.update(editingEvent.id, updateData)
       
-      console.log('スケジュール更新完了:', updateData)
+      logger.log('スケジュール更新完了:', updateData)
       
       // データ更新後にリフレッシュ
       if (onDataRefresh) {
@@ -255,7 +256,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       setIsEditModalOpen(false)
       setEditingEvent(null)
     } catch (error) {
-      console.error('保存に失敗:', error)
+      logger.error('保存に失敗:', error)
       // エラーハンドリング（トースト通知など）をここに追加可能
     }
   }

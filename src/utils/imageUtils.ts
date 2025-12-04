@@ -76,7 +76,7 @@ export function getOptimizedImageUrl(
     return `${urlObj.origin}${urlObj.pathname}?${combinedParams}`
   } catch (error) {
     // URLパースエラーの場合は元のURLを返す
-    console.warn('Failed to optimize image URL:', error)
+    logger.warn('Failed to optimize image URL:', error)
     return url
   }
 }

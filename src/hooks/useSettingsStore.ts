@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 
 interface Store {
@@ -23,7 +24,7 @@ export const useSettingsStore = () => {
         .order('name')
 
       if (error) {
-        console.error('店舗取得エラー:', error)
+        logger.error('店舗取得エラー:', error)
         return
       }
 
@@ -32,7 +33,7 @@ export const useSettingsStore = () => {
       // デフォルトで「全店舗」を選択
       setSelectedStoreId('all')
     } catch (error) {
-      console.error('店舗取得エラー:', error)
+      logger.error('店舗取得エラー:', error)
     } finally {
       setLoading(false)
     }

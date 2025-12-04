@@ -1,5 +1,6 @@
 // React
 import { useState, useEffect, useMemo } from 'react'
+import { logger } from '@/utils/logger'
 
 // API
 import { staffApi } from '@/lib/api'
@@ -80,7 +81,7 @@ export function ScheduleManager() {
         // 全スタッフを表示（ロールでフィルタリングしない）
         setGmList(staff)
       } catch (error) {
-        console.error('スタッフリストの取得に失敗しました:', error)
+        logger.error('スタッフリストの取得に失敗しました:', error)
       }
     }
     fetchStaffList()
@@ -296,7 +297,7 @@ export function ScheduleManager() {
               const isTemporaryVenue = temporaryVenues.some(v => v.id === event.venue)
               
               // デバッグログ
-              console.log('コンテキストメニュー:', {
+              logger.log('コンテキストメニュー:', {
                 eventVenue: event.venue,
                 temporaryVenues: temporaryVenues.map(v => ({ id: v.id, name: v.name })),
                 isTemporaryVenue
@@ -391,16 +392,16 @@ export function ScheduleManager() {
                   label: '公演を追加',
                   icon: <Edit className="w-4 h-4" />,
                   onClick: () => {
-                    console.log('🔵 公演を追加クリック:', { date, venue, timeSlot })
-                    console.log('🔵 modals:', modals)
-                    console.log('🔵 modals.performance:', modals.performance)
-                    console.log('🔵 modals.performance のキー:', modals.performance ? Object.keys(modals.performance) : 'undefined')
+                    logger.log('🔵 公演を追加クリック:', { date, venue, timeSlot })
+                    logger.log('🔵 modals:', modals)
+                    logger.log('🔵 modals.performance:', modals.performance)
+                    logger.log('🔵 modals.performance のキー:', modals.performance ? Object.keys(modals.performance) : 'undefined')
                     if (modals.performance && modals.performance.handleOpenPerformanceModal) {
                       modals.performance.handleOpenPerformanceModal(date, venue, timeSlot)
                       modals.contextMenu.setContextMenu(null)
                     } else {
-                      console.error('❌ modals.performance.handleOpenPerformanceModal が見つかりません')
-                      console.error('❌ 利用可能なキー:', modals.performance ? Object.keys(modals.performance) : 'なし')
+                      logger.error('❌ modals.performance.handleOpenPerformanceModal が見つかりません')
+                      logger.error('❌ 利用可能なキー:', modals.performance ? Object.keys(modals.performance) : 'なし')
                     }
                   },
                   separator: true

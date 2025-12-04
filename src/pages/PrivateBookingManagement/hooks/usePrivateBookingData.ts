@@ -180,7 +180,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
           if (req.candidate_datetimes?.candidates) {
             req.candidate_datetimes.candidates.forEach((candidate, idx) => {
               if (!candidate.date || candidate.date === 'Invalid Date' || isNaN(new Date(candidate.date).getTime())) {
-                console.warn(`[貸切予約 ${req.id}] 候補${idx + 1}の日付が無効:`, {
+                logger.warn(`[貸切予約 ${req.id}] 候補${idx + 1}の日付が無効:`, {
                   order: candidate.order,
                   date: candidate.date,
                   timeSlot: candidate.timeSlot
@@ -228,7 +228,7 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
       
       const candidateDate = new Date(firstCandidate.date)
       if (isNaN(candidateDate.getTime())) {
-        console.warn(`[貸切予約 ${req.id}] 無効な日付でフィルタリングをスキップ:`, firstCandidate.date)
+        logger.warn(`[貸切予約 ${req.id}] 無効な日付でフィルタリングをスキップ:`, firstCandidate.date)
         return false
       }
       

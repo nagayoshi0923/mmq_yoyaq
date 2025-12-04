@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { logger } from '@/utils/logger'
 
 const FAVORITES_KEY = 'scenario_favorites'
 
@@ -16,7 +17,7 @@ export function useFavorites() {
     try {
       localStorage.setItem(FAVORITES_KEY, JSON.stringify(Array.from(favorites)))
     } catch (error) {
-      console.error('Failed to save favorites:', error)
+      logger.error('Failed to save favorites:', error)
     }
   }, [favorites])
 

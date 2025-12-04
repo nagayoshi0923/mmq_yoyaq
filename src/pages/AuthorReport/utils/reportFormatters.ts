@@ -1,4 +1,5 @@
 import type { AuthorPerformance } from '../types'
+import { logger } from '@/utils/logger'
 
 /**
  * レポートテキスト生成関数
@@ -101,7 +102,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     await navigator.clipboard.writeText(text)
     return true
   } catch (err) {
-    console.error('コピーに失敗しました:', err)
+    logger.error('コピーに失敗しました:', err)
     return false
   }
 }

@@ -67,7 +67,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           const eventDate = event.date ? (typeof event.date === 'string' ? event.date.split('T')[0] : event.date) : null
           return eventDate === '2025-11-22'
         })
-        console.log(`[DEBUG] 11/22のイベント:`, {
+        logger.log(`[DEBUG] 11/22のイベント:`, {
           allEventsCount: eventsOn1122.length,
           validEventsCount: validEventsOn1122.length,
           allEvents: eventsOn1122.map((e: any) => ({
@@ -88,7 +88,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         
         setAllStoreEvents(validEvents)
       } catch (error) {
-        console.error('全店舗イベントの取得エラー:', error)
+        logger.error('全店舗イベントの取得エラー:', error)
         setAllStoreEvents([])
       }
     }
@@ -230,7 +230,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         return acc
       }, {})
       
-      console.log(`[DEBUG] checkTimeSlotAvailability 開始:`, {
+      logger.log(`[DEBUG] checkTimeSlotAvailability 開始:`, {
         date,
         slot: slot.label,
         slotStart: slot.startTime,
@@ -255,7 +255,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     
     // 店舗データがまだ読み込まれていない場合は、とりあえずtrueを返す（後で再評価される）
     if (stores.length === 0) {
-      if (isDebugTarget) console.log(`[DEBUG] 店舗データ未読み込みのためtrueを返す`)
+      if (isDebugTarget) logger.log(`[DEBUG] 店舗データ未読み込みのためtrueを返す`)
       return true
     }
     
@@ -264,10 +264,10 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     if (allStoreEvents.length === 0) {
       // 店舗が選択されている場合は、イベントデータがないのでfalseを返す（安全側に倒す）
       if (storeIds && storeIds.length > 0) {
-        if (isDebugTarget) console.log(`[DEBUG] イベントデータ未読み込み、店舗選択済みのためfalseを返す`)
+        if (isDebugTarget) logger.log(`[DEBUG] イベントデータ未読み込み、店舗選択済みのためfalseを返す`)
         return false
       }
-      if (isDebugTarget) console.log(`[DEBUG] イベントデータ未読み込みのためtrueを返す`)
+      if (isDebugTarget) logger.log(`[DEBUG] イベントデータ未読み込みのためtrueを返す`)
       return true
     }
     
@@ -288,7 +288,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         // まず営業時間設定をチェック（スケジュール管理側と同期）
         const withinBusinessHours = isWithinBusinessHours(date, slot.startTime, storeId)
         if (!withinBusinessHours) {
-          if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: 営業時間外のため受付不可`, {
+          if (isDebugTarget) logger.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: 営業時間外のため受付不可`, {
             date,
             slot: slot.label,
             startTime: slot.startTime,
@@ -324,7 +324,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         // デバッグログ（11/22の場合のみ）
         if (isDebugTarget) {
           const targetTimeSlot = getTimeSlotFromLabel(slot.label)
-          console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}のイベント（店舗選択時）:`, {
+          logger.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}のイベント（店舗選択時）:`, {
             targetTimeSlot,
             slotLabel: slot.label,
             storeEvents: storeEvents.map((e: any) => ({
@@ -356,7 +356,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         // デバッグログ（11/22の場合のみ）
         if (isDebugTarget) {
           const targetTimeSlot = getTimeSlotFromLabel(slot.label)
-          console.log(`[DEBUG] 時間衝突チェック: 店舗 ${storeId} の11/22${slot.label}の時間帯判定`, {
+          logger.log(`[DEBUG] 時間衝突チェック: 店舗 ${storeId} の11/22${slot.label}の時間帯判定`, {
             targetTimeSlot,
             slotLabel: slot.label,
             storeEvents: storeEvents.map((e: any) => ({
@@ -380,7 +380,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       
       // デバッグログ（11/22の場合のみ）
       if (isDebugTarget) {
-        console.log(`[DEBUG] 11/22${slot.label}の最終判定:`, {
+        logger.log(`[DEBUG] 11/22${slot.label}の最終判定:`, {
           date,
           slot: slot.label,
           storeIds: validStoreIds,
@@ -396,7 +396,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     const availableStoreIdsArray = Array.from(availableStoreIds)
     
     if (isDebugTarget) {
-      console.log(`[DEBUG] 店舗未選択の場合の処理:`, {
+      logger.log(`[DEBUG] 店舗未選択の場合の処理:`, {
         availableStoreIdsArray,
         availableStoreIdsArrayLength: availableStoreIdsArray.length
       })
@@ -405,7 +405,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     // availableStoreIdsが空の場合は、storesが空（まだ読み込まれていない）か、何か問題がある
     if (availableStoreIdsArray.length === 0) {
       // storesが空の場合はまだ読み込まれていないので、とりあえずtrueを返す
-      if (isDebugTarget) console.log(`[DEBUG] availableStoreIdsが空のため、stores.length === 0 の結果を返す:`, stores.length === 0)
+      if (isDebugTarget) logger.log(`[DEBUG] availableStoreIdsが空のため、stores.length === 0 の結果を返す:`, stores.length === 0)
       return stores.length === 0
     }
     
@@ -414,7 +414,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       // まず営業時間設定をチェック（スケジュール管理側と同期）
       const withinBusinessHours = isWithinBusinessHours(date, slot.startTime, storeId)
       if (!withinBusinessHours) {
-        if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: 営業時間外のため受付不可（店舗未選択時）`, {
+        if (isDebugTarget) logger.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: 営業時間外のため受付不可（店舗未選択時）`, {
           date,
           slot: slot.label,
           startTime: slot.startTime,
@@ -456,9 +456,9 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
         
         // 別館②の朝のイベントの詳細を特に詳しくログ出力
         if (storeId === '95ac6d74-56df-4cac-a67f-59fff9ab89b9' && slot.label === '朝') {
-          console.log(`[DEBUG] ⚠️⚠️⚠️ 別館②の朝のイベント詳細 ⚠️⚠️⚠️`)
+          logger.log(`[DEBUG] ⚠️⚠️⚠️ 別館②の朝のイベント詳細 ⚠️⚠️⚠️`)
           storeEvents.forEach((e: any, index: number) => {
-            console.log(`[DEBUG] イベント ${index + 1}:`, {
+            logger.log(`[DEBUG] イベント ${index + 1}:`, {
               id: e.id,
               date: e.date,
               start_time: e.start_time,
@@ -473,15 +473,15 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
               scenario: e.scenario || e.scenarios?.title,
               scenario_id: e.scenario_id
             })
-            console.log(`[DEBUG] イベント ${index + 1} の完全なデータ:`, e)
+            logger.log(`[DEBUG] イベント ${index + 1} の完全なデータ:`, e)
           })
         }
         
         const targetTimeSlot = getTimeSlotFromLabel(slot.label)
         if (storeId === '95ac6d74-56df-4cac-a67f-59fff9ab89b9' && slot.label === '夜') { // 別館②の夜の場合のみ
-          console.log(`[DEBUG] ⚠️⚠️⚠️ 別館②の夜のイベント詳細 ⚠️⚠️⚠️`)
+          logger.log(`[DEBUG] ⚠️⚠️⚠️ 別館②の夜のイベント詳細 ⚠️⚠️⚠️`)
           storeEvents.forEach((e: any, index: number) => {
-            console.log(`[DEBUG] イベント ${index + 1}:`, {
+            logger.log(`[DEBUG] イベント ${index + 1}:`, {
               id: e.id,
               date: e.date,
               start_time: e.start_time,
@@ -493,10 +493,10 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
               targetTimeSlot,
               matches: e.start_time ? getTimeSlot(e.start_time) === targetTimeSlot : false
             })
-            console.log(`[DEBUG] イベント ${index + 1} の完全なデータ:`, e)
+            logger.log(`[DEBUG] イベント ${index + 1} の完全なデータ:`, e)
           })
         }
-        console.log(`[DEBUG] 店舗 ${storeId} (${storeIdToName[storeId] || '不明'}) の11/22${slot.label}のイベント（店舗未選択時）:`, {
+        logger.log(`[DEBUG] 店舗 ${storeId} (${storeIdToName[storeId] || '不明'}) の11/22${slot.label}のイベント（店舗未選択時）:`, {
           targetTimeSlot,
           slotLabel: slot.label,
           storeEvents: storeEvents.map((e: any) => ({
@@ -516,7 +516,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       
       // イベントがない場合は空いている
       if (storeEvents.length === 0) {
-        if (isDebugTarget) console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: イベントなしのため空きあり`)
+        if (isDebugTarget) logger.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}: イベントなしのため空きあり`)
         return true
       }
       
@@ -528,7 +528,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       
       if (isDebugTarget) {
         const targetTimeSlot = getTimeSlotFromLabel(slot.label)
-        console.log(`[DEBUG] 時間衝突チェック（店舗未選択時）: 店舗 ${storeId} の11/22${slot.label}の時間帯判定`, {
+        logger.log(`[DEBUG] 時間衝突チェック（店舗未選択時）: 店舗 ${storeId} の11/22${slot.label}の時間帯判定`, {
           targetTimeSlot,
           slotLabel: slot.label,
           storeEvents: storeEvents.map((e: any) => ({
@@ -544,7 +544,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
       const isAvailable = !hasConflict
       if (isDebugTarget) {
         const targetTimeSlot = getTimeSlotFromLabel(slot.label)
-        console.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}の空き状況（店舗未選択時）:`, {
+        logger.log(`[DEBUG] 店舗 ${storeId} の11/22${slot.label}の空き状況（店舗未選択時）:`, {
           isAvailable,
           storeEventsLength: storeEvents.length,
           targetTimeSlot,
@@ -561,7 +561,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     const result = storeAvailability.some(available => available === true)
     
     if (isDebugTarget) {
-      console.log(`[DEBUG] 11/22${slot.label}の最終判定（店舗未選択時）:`, {
+      logger.log(`[DEBUG] 11/22${slot.label}の最終判定（店舗未選択時）:`, {
         date,
         slot: slot.label,
         availableStoreIdsArray,

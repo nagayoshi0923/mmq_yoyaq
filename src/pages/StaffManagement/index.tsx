@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -273,12 +274,12 @@ export function StaffManagement() {
         .neq('id', linkingStaff.id)
 
       if (searchError) {
-        console.error('既存スタッフ検索エラー:', searchError)
+        logger.error('既存スタッフ検索エラー:', searchError)
       }
 
       // 2. 既存の紐付けを解除（user_idをNULLに）
       if (existingStaff && existingStaff.length > 0) {
-        console.log(`既存の紐付けを解除: ${existingStaff.map(s => s.name).join(', ')}`)
+        logger.log(`既存の紐付けを解除: ${existingStaff.map(s => s.name).join(', ')}`)
         
         const { error: unlinkError } = await supabase
           .from('staff')
@@ -287,7 +288,7 @@ export function StaffManagement() {
           .neq('id', linkingStaff.id)
 
         if (unlinkError) {
-          console.warn('既存紐付け解除エラー:', unlinkError)
+          logger.warn('既存紐付け解除エラー:', unlinkError)
         }
       }
 
@@ -306,7 +307,7 @@ export function StaffManagement() {
         .eq('id', searchedUser.id)
 
       if (updateError) {
-        console.warn('usersテーブルの更新に失敗しました:', updateError)
+        logger.warn('usersテーブルの更新に失敗しました:', updateError)
       }
       }
 

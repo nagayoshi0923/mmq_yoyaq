@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
+import { logger } from '@/utils/logger'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
+import { logger } from '@/utils/logger'
 
 // 顧客関連のAPI
 export const customerApi = {
@@ -230,10 +232,10 @@ export const reservationApi = {
               priceDifference: priceDifference !== 0 ? priceDifference : undefined
             }
           })
-          console.log('予約変更確認メール送信成功')
+          logger.log('予約変更確認メール送信成功')
         }
       } catch (emailError) {
-        console.error('予約変更確認メール送信エラー:', emailError)
+        logger.error('予約変更確認メール送信エラー:', emailError)
         // メール送信失敗しても更新処理は続行
       }
     }
@@ -298,9 +300,9 @@ export const reservationApi = {
             cancellationFee
           }
         })
-        console.log('キャンセル確認メール送信成功')
+        logger.log('キャンセル確認メール送信成功')
       } catch (emailError) {
-        console.error('キャンセル確認メール送信エラー:', emailError)
+        logger.error('キャンセル確認メール送信エラー:', emailError)
         // メール送信失敗してもキャンセル処理は続行
       }
     }
@@ -441,7 +443,7 @@ export const reservationApi = {
         }
       }
     } catch (error) {
-      console.error('スタッフ予約同期エラー:', error)
+      logger.error('スタッフ予約同期エラー:', error)
     }
   }
 }

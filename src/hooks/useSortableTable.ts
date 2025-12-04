@@ -17,7 +17,7 @@ export function useSortableTable<T extends string, D = any>(
         }
       }
     } catch (error) {
-      console.warn(`Failed to load sort state from localStorage (${config.storageKey}):`, error)
+      logger.warn(`Failed to load sort state from localStorage (${config.storageKey}):`, error)
     }
     return {
       field: config.defaultField,
@@ -48,7 +48,7 @@ export function useSortableTable<T extends string, D = any>(
     try {
       localStorage.setItem(config.storageKey, JSON.stringify(newState))
     } catch (error) {
-      console.warn(`Failed to save sort state to localStorage (${config.storageKey}):`, error)
+      logger.warn(`Failed to save sort state to localStorage (${config.storageKey}):`, error)
     }
   }, [sortState, config.storageKey])
 

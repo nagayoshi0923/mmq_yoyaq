@@ -154,7 +154,7 @@ export function UserManagement() {
       setUserToDelete(null)
     } catch (err: any) {
       logger.error('ユーザー削除エラー:', err)
-      console.error('削除エラー詳細:', err)
+      logger.error('削除エラー詳細:', err)
       
       // 409エラーの場合は、より詳細なメッセージを表示
       if (err.code === '23503') {

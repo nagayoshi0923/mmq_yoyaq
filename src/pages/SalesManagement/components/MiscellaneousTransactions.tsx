@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { logger } from '@/utils/logger'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -77,7 +78,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
         if (error) throw error
         setScenarios(data || [])
       } catch (error) {
-        console.error('シナリオ読み込みエラー:', error)
+        logger.error('シナリオ読み込みエラー:', error)
       }
     }
     
@@ -115,7 +116,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       if (error) throw error
       setTransactions(data || [])
     } catch (error) {
-      console.error('トランザクション読み込みエラー:', error)
+      logger.error('トランザクション読み込みエラー:', error)
     } finally {
       setLoading(false)
     }
@@ -162,7 +163,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       // リロード
       await loadTransactions()
     } catch (error) {
-      console.error('トランザクション追加エラー:', error)
+      logger.error('トランザクション追加エラー:', error)
       alert('追加に失敗しました')
     }
   }
@@ -180,7 +181,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
       if (error) throw error
       await loadTransactions()
     } catch (error) {
-      console.error('トランザクション削除エラー:', error)
+      logger.error('トランザクション削除エラー:', error)
       alert('削除に失敗しました')
     }
   }

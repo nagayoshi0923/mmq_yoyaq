@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
@@ -32,13 +33,13 @@ export const StoreSelector: React.FC<StoreSelectorProps> = ({
         .order('name')
 
       if (error) {
-        console.error('店舗取得エラー:', error)
+        logger.error('店舗取得エラー:', error)
         return
       }
 
       setStores(data || [])
     } catch (error) {
-      console.error('店舗取得エラー:', error)
+      logger.error('店舗取得エラー:', error)
     } finally {
       setLoading(false)
     }

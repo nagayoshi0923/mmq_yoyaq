@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { logger } from '@/utils/logger'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -27,8 +28,8 @@ import { CATEGORY_CONFIG } from '@/utils/scheduleUtils'
 
 // シンプルな通知ヘルパー
 const notify = {
-  success: (message: string) => console.log('✅', message),
-  error: (message: string) => { console.error('❌', message); alert(message) }
+  success: (message: string) => logger.log('✅', message),
+  error: (message: string) => { logger.error('❌', message); alert(message) }
 }
 
 // 公演カテゴリの定義
@@ -97,7 +98,7 @@ export function BookingNoticeSettings() {
       setNotices(noticesRes.data || [])
       setStores(storesRes.data || [])
     } catch (error) {
-      console.error('データ取得エラー:', error)
+      logger.error('データ取得エラー:', error)
       notify.error('データの取得に失敗しました')
     } finally {
       setIsLoading(false)
@@ -183,7 +184,7 @@ export function BookingNoticeSettings() {
       setEditDialogOpen(false)
       fetchData()
     } catch (error) {
-      console.error('保存エラー:', error)
+      logger.error('保存エラー:', error)
       notify.error('保存に失敗しました')
     } finally {
       setIsSaving(false)
@@ -204,7 +205,7 @@ export function BookingNoticeSettings() {
       notify.success('注意事項を削除しました')
       fetchData()
     } catch (error) {
-      console.error('削除エラー:', error)
+      logger.error('削除エラー:', error)
       notify.error('削除に失敗しました')
     }
   }
@@ -226,7 +227,7 @@ export function BookingNoticeSettings() {
         n.id === notice.id ? { ...n, is_active: !n.is_active } : n
       ))
     } catch (error) {
-      console.error('更新エラー:', error)
+      logger.error('更新エラー:', error)
       notify.error('更新に失敗しました')
     }
   }
@@ -265,7 +266,7 @@ export function BookingNoticeSettings() {
       
       setNotices(newNotices.map((n, i) => ({ ...n, sort_order: i })))
     } catch (error) {
-      console.error('並び替えエラー:', error)
+      logger.error('並び替えエラー:', error)
       notify.error('並び替えに失敗しました')
     }
   }
@@ -294,7 +295,7 @@ export function BookingNoticeSettings() {
       
       setNotices(newNotices.map((n, i) => ({ ...n, sort_order: i })))
     } catch (error) {
-      console.error('並び替えエラー:', error)
+      logger.error('並び替えエラー:', error)
       notify.error('並び替えに失敗しました')
     }
   }

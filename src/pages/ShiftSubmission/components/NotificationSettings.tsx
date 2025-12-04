@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { logger } from '@/utils/logger'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -51,7 +52,7 @@ export function NotificationSettings() {
         })
       }
     } catch (error) {
-      console.error('設定の読み込みエラー:', error)
+      logger.error('設定の読み込みエラー:', error)
     } finally {
       setLoading(false)
     }
@@ -74,7 +75,7 @@ export function NotificationSettings() {
 
       alert('設定を保存しました')
     } catch (error) {
-      console.error('設定の保存エラー:', error)
+      logger.error('設定の保存エラー:', error)
       alert('設定の保存に失敗しました')
     } finally {
       setSaving(false)
@@ -121,7 +122,7 @@ export function NotificationSettings() {
 
       alert(message)
     } catch (error) {
-      console.error('テスト通知エラー:', error)
+      logger.error('テスト通知エラー:', error)
       alert('テスト通知の送信に失敗しました\n\n' + (error instanceof Error ? error.message : '不明なエラー'))
     } finally {
       setTesting(false)

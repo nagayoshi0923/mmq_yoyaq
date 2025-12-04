@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { logger } from '@/utils/logger'
 import type { Store, Scenario, Staff } from '@/types'
 
 // 候補日時の型定義
@@ -574,9 +575,9 @@ export const staffApi = {
         .eq('id', data.user_id)
       
       if (userRoleError) {
-        console.warn('ユーザーロールの更新に失敗しました:', userRoleError)
+        logger.warn('ユーザーロールの更新に失敗しました:', userRoleError)
       } else {
-        console.log(`スタッフ「${data.name}」の役割変更に伴い、ユーザーロールを${userRole}に更新しました`)
+        logger.log(`スタッフ「${data.name}」の役割変更に伴い、ユーザーロールを${userRole}に更新しました`)
       }
     }
     
@@ -685,7 +686,7 @@ export const staffApi = {
           .single()
         
         if (userError && userError.code !== 'PGRST116') {
-          console.warn('ユーザー情報の取得に失敗しました:', userError)
+          logger.warn('ユーザー情報の取得に失敗しました:', userError)
         }
 
         // adminでない場合のみ、customer（一般顧客）に戻す
@@ -696,15 +697,15 @@ export const staffApi = {
             .eq('id', userId)
             
            if (updateError) {
-             console.warn('ユーザーロールの更新(customer化)に失敗しました:', updateError)
+             logger.warn('ユーザーロールの更新(customer化)に失敗しました:', updateError)
            } else {
-             console.log('ユーザーロールをcustomerに戻しました:', userId)
+             logger.log('ユーザーロールをcustomerに戻しました:', userId)
            }
         } else if (userData && userData.role === 'admin') {
-          console.log('adminユーザーのため、ロール変更をスキップしました')
+          logger.log('adminユーザーのため、ロール変更をスキップしました')
         }
       } catch (err) {
-        console.warn('ユーザーロールの更新処理でエラーが発生しました:', err)
+        logger.warn('ユーザーロールの更新処理でエラーが発生しました:', err)
       }
     }
   },
@@ -959,10 +960,10 @@ export const scheduleApi = {
           .update({ current_participants: actualParticipants })
           .eq('id', event.id))
           .then(() => {
-            console.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
+            logger.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
           })
           .catch((error) => {
-            console.error('参加者数の同期に失敗:', error)
+            logger.error('参加者数の同期に失敗:', error)
           })
       }
       
@@ -1177,7 +1178,7 @@ export const scheduleApi = {
       .in('status', ['confirmed', 'pending', 'gm_confirmed'])
     
     if (reservationError) {
-      console.error('予約データの取得に失敗:', reservationError)
+      logger.error('予約データの取得に失敗:', reservationError)
     }
     
     // イベントIDごとに参加者数を集計
@@ -1200,9 +1201,9 @@ export const scheduleApi = {
           .eq('id', event.id)
           .then(({ error }) => {
             if (error) {
-              console.error('参加者数の同期に失敗:', error)
+              logger.error('参加者数の同期に失敗:', error)
             } else {
-              console.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
+              logger.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
             }
           })
       }
@@ -1258,7 +1259,7 @@ export const scheduleApi = {
       .is('schedule_event_id', null) // schedule_event_idがNULLのもののみ
     
     if (privateError) {
-      console.error('貸切公演データの取得エラー:', privateError)
+      logger.error('貸切公演データの取得エラー:', privateError)
     }
     
     // 貸切公演を schedule_events 形式に変換
@@ -1473,16 +1474,16 @@ export const scheduleApi = {
         .order('date', { ascending: true })
       
       if (eventsError) {
-        console.error('公演データの取得に失敗:', eventsError)
+        logger.error('公演データの取得に失敗:', eventsError)
         return { success: false, error: eventsError }
       }
       
       if (!events || events.length === 0) {
-        console.log('中止でない公演が見つかりません')
+        logger.log('中止でない公演が見つかりません')
         return { success: true, message: '中止でない公演が見つかりません' }
       }
       
-      console.log(`${events.length}件の公演にデモ参加者を追加します`)
+      logger.log(`${events.length}件の公演にデモ参加者を追加します`)
       
       let successCount = 0
       let errorCount = 0
@@ -1497,7 +1498,7 @@ export const scheduleApi = {
             .in('status', ['confirmed', 'pending'])
           
           if (reservationError) {
-            console.error(`予約データの取得に失敗 (${event.id}):`, reservationError)
+            logger.error(`予約データの取得に失敗 (${event.id}):`, reservationError)
             errorCount++
             continue
           }
@@ -1522,7 +1523,7 @@ export const scheduleApi = {
               .single()
             
             if (scenarioError) {
-              console.error(`シナリオ情報の取得に失敗 (${event.id}):`, scenarioError)
+              logger.error(`シナリオ情報の取得に失敗 (${event.id}):`, scenarioError)
               errorCount++
               continue
             }
@@ -1566,7 +1567,7 @@ export const scheduleApi = {
               .insert(demoReservation)
             
             if (insertError) {
-              console.error(`デモ参加者の予約作成に失敗 (${event.id}):`, insertError)
+              logger.error(`デモ参加者の予約作成に失敗 (${event.id}):`, insertError)
               errorCount++
               continue
             }
@@ -1577,20 +1578,20 @@ export const scheduleApi = {
               .update({ current_participants: event.capacity })
               .eq('id', event.id)
             
-            console.log(`デモ参加者${neededParticipants}名を追加しました: ${event.scenario} (${event.date})`)
+            logger.log(`デモ参加者${neededParticipants}名を追加しました: ${event.scenario} (${event.date})`)
             successCount++
           } else if (hasDemoParticipant) {
-            console.log(`既にデモ参加者が存在します: ${event.scenario} (${event.date})`)
+            logger.log(`既にデモ参加者が存在します: ${event.scenario} (${event.date})`)
           } else {
-            console.log(`既に満席です: ${event.scenario} (${event.date})`)
+            logger.log(`既に満席です: ${event.scenario} (${event.date})`)
           }
         } catch (error) {
-          console.error(`デモ参加者の追加に失敗 (${event.id}):`, error)
+          logger.error(`デモ参加者の追加に失敗 (${event.id}):`, error)
           errorCount++
         }
       }
       
-      console.log(`デモ参加者追加完了: 成功${successCount}件, エラー${errorCount}件`)
+      logger.log(`デモ参加者追加完了: 成功${successCount}件, エラー${errorCount}件`)
       
       return {
         success: true,
@@ -1599,7 +1600,7 @@ export const scheduleApi = {
         errorCount
       }
     } catch (error) {
-      console.error('デモ参加者追加処理でエラー:', error)
+      logger.error('デモ参加者追加処理でエラー:', error)
       return { success: false, error }
     }
   }
@@ -1697,7 +1698,7 @@ export const salesApi = {
       .select('name')
     
     if (staffError) {
-      console.error('スタッフデータの取得に失敗:', staffError)
+      logger.error('スタッフデータの取得に失敗:', staffError)
     }
     
     const staffNames = new Set(staff?.map(s => s.name) || [])
@@ -1727,7 +1728,7 @@ export const salesApi = {
         .in('status', ['confirmed', 'pending'])
       
       if (reservationError) {
-        console.error('予約データの取得に失敗:', reservationError)
+        logger.error('予約データの取得に失敗:', reservationError)
       }
       
       // 実際の参加者数と売上を計算
@@ -1889,7 +1890,7 @@ export const salesApi = {
       .select('id, title, author, license_amount, gm_test_license_amount, gm_costs')
     
     if (scenariosError) {
-      console.error('scenarios取得エラー:', scenariosError)
+      logger.error('scenarios取得エラー:', scenariosError)
     }
 
     // シナリオ名でマッピング

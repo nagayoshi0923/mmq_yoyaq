@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { logger } from '@/utils/logger'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
@@ -80,8 +81,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   // 初期データロード
   useEffect(() => {
     const pageLoadStart = performance.now()
-    console.log('🚀 PublicBookingTop ページロード開始:', new Date().toISOString())
-    console.log('📊 現在の状態:', {
+    logger.log('🚀 PublicBookingTop ページロード開始:', new Date().toISOString())
+    logger.log('📊 現在の状態:', {
       scenariosCount: scenarios.length,
       allEventsCount: allEvents.length,
       storesCount: stores.length,
@@ -90,8 +91,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     
     loadData().then(() => {
       const loadEnd = performance.now()
-      console.log(`⏱️ PublicBookingTop データ取得完了: ${((loadEnd - pageLoadStart) / 1000).toFixed(2)}秒`)
-      console.log('📊 データ取得後の状態:', {
+      logger.log(`⏱️ PublicBookingTop データ取得完了: ${((loadEnd - pageLoadStart) / 1000).toFixed(2)}秒`)
+      logger.log('📊 データ取得後の状態:', {
         scenariosCount: scenarios.length,
         allEventsCount: allEvents.length,
         storesCount: stores.length
@@ -108,8 +109,8 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
         const hasContent = document.querySelector('[data-scenario-card]') || document.querySelector('.grid')
         
         if (hasContent || checkCount > 20) {
-          console.log(`⏱️ PublicBookingTop レンダリング完了: ${elapsed.toFixed(2)}秒 (チェック回数: ${checkCount})`)
-          console.log('📊 最終状態:', {
+          logger.log(`⏱️ PublicBookingTop レンダリング完了: ${elapsed.toFixed(2)}秒 (チェック回数: ${checkCount})`)
+          logger.log('📊 最終状態:', {
             scenariosCount: scenarios.length,
             allEventsCount: allEvents.length,
             storesCount: stores.length,
@@ -121,7 +122,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       }
       setTimeout(checkRender, 0)
     }).catch((error) => {
-      console.error('❌ PublicBookingTop データ取得エラー:', error)
+      logger.error('❌ PublicBookingTop データ取得エラー:', error)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData])
