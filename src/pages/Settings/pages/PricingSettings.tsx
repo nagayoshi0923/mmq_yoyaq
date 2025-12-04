@@ -120,7 +120,7 @@ export function PricingSettings() {
 
   const addTimePricing = () => {
     if (!newTimePricing.time_slot) {
-      alert('時間帯を入力してください')
+      showToast.warning('時間帯を入力してください')
       return
     }
     setFormData(prev => ({

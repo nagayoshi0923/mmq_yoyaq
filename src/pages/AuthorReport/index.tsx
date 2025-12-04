@@ -88,7 +88,7 @@ export default function AuthorReport() {
   // 一括メール送信
   const handleBatchSend = async () => {
     if (finalData.length === 0) {
-      alert('送信するデータがありません')
+      showToast.warning('送信するデータがありません')
       return
     }
 
@@ -107,7 +107,7 @@ export default function AuthorReport() {
     })
 
     if (authorsWithEmail.length === 0) {
-      alert('メールアドレスが設定されている作者がいません。先にメールアドレスを設定してください。')
+      showToast.warning('メールアドレスが設定されている作者がいません', '先にメールアドレスを設定してください')
       return
     }
 
@@ -164,13 +164,13 @@ export default function AuthorReport() {
       }
 
       if (failureCount > 0) {
-        alert(`${successCount}件のメールを送信しました。${failureCount}件の送信に失敗しました。`)
+        showToast.warning(`${successCount}件のメールを送信しました`, `${failureCount}件の送信に失敗しました`)
       } else {
-        alert(`${successCount}件のメールを送信しました。`)
+        showToast.success(`${successCount}件のメールを送信しました`)
       }
     } catch (error) {
       logger.error('一括送信に失敗:', error)
-      alert('一括送信に失敗しました')
+      showToast.error('一括送信に失敗しました')
     } finally {
       setIsSendingBatch(false)
     }
@@ -194,7 +194,7 @@ export default function AuthorReport() {
     const email = authorInfo?.email || ''
     
     if (!email) {
-      alert('メールアドレスが設定されていません。先にメールアドレスを設定してください。')
+      showToast.warning('メールアドレスが設定されていません', '先にメールアドレスを設定してください')
       return
     }
     
@@ -220,7 +220,7 @@ export default function AuthorReport() {
   const handleEditScenarioByTitle = (title: string) => {
     const scenario = allScenarios.find((s) => s.title === title)
     if (!scenario) {
-      alert('シナリオが見つかりませんでした（タイトル重複の可能性あり）')
+      showToast.error('シナリオが見つかりませんでした', 'タイトル重複の可能性あり')
       return
     }
     setEditScenarioId(scenario.id)

@@ -292,7 +292,7 @@ export function EmailSettings() {
 
   const handleSave = async () => {
     if (!formData.from_email || !formData.from_name) {
-      alert('送信元メールアドレスと送信元名は必須です')
+      showToast.warning('送信元メールアドレスと送信元名は必須です')
       return
     }
 

@@ -68,7 +68,7 @@ export function StoreBasicSettings() {
       }
     } catch (error) {
       logger.error('店舗データ取得エラー:', error)
-      alert('店舗データの取得に失敗しました')
+      showToast.error('店舗データの取得に失敗しました')
     } finally {
       setLoading(false)
     }
@@ -84,7 +84,7 @@ export function StoreBasicSettings() {
 
   const handleSave = async () => {
     if (!formData.name || !formData.short_name) {
-      alert('店舗名と略称は必須です')
+      showToast.warning('店舗名と略称は必須です')
       return
     }
 

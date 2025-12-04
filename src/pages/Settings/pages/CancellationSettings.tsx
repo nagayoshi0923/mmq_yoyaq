@@ -126,7 +126,7 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
     try {
       // 全店舗選択時は保存しない
       if (!storeId) {
-        alert('全店舗選択時は個別の設定を保存できません。特定の店舗を選択してください。')
+        showToast.warning('全店舗選択時は個別の設定を保存できません', '特定の店舗を選択してください')
         return
       }
 

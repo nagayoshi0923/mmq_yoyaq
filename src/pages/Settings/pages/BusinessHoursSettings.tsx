@@ -120,7 +120,7 @@ export function BusinessHoursSettings() {
 
   const addSpecialOpenDay = () => {
     if (!newOpenDay.date) {
-      alert('日付を入力してください')
+      showToast.warning('日付を入力してください')
       return
     }
     setFormData(prev => ({
@@ -139,7 +139,7 @@ export function BusinessHoursSettings() {
 
   const addSpecialClosedDay = () => {
     if (!newClosedDay.date) {
-      alert('日付を入力してください')
+      showToast.warning('日付を入力してください')
       return
     }
     setFormData(prev => ({

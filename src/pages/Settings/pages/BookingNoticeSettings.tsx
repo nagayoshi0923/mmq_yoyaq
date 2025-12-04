@@ -29,8 +29,8 @@ import { CATEGORY_CONFIG } from '@/utils/scheduleUtils'
 
 // シンプルな通知ヘルパー
 const notify = {
-  success: (message: string) => logger.log('✅', message),
-  error: (message: string) => { logger.error('❌', message); alert(message) }
+  success: (message: string) => { logger.log('✅', message); showToast.success(message) },
+  error: (message: string) => { logger.error('❌', message); showToast.error(message) }
 }
 
 // 公演カテゴリの定義

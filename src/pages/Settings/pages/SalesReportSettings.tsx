@@ -99,19 +99,19 @@ export function SalesReportSettings() {
 
   const addEmail = () => {
     if (!newEmail) {
-      alert('メールアドレスを入力してください')
+      showToast.warning('メールアドレスを入力してください')
       return
     }
     
     // 簡易的なメールバリデーション
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(newEmail)) {
-      alert('有効なメールアドレスを入力してください')
+      showToast.warning('有効なメールアドレスを入力してください')
       return
     }
 
     if (formData.report_emails.includes(newEmail)) {
-      alert('このメールアドレスは既に追加されています')
+      showToast.warning('このメールアドレスは既に追加されています')
       return
     }
 
