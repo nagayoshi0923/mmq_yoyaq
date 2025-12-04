@@ -167,7 +167,7 @@ export function useStaffOperations() {
       const inviteRequest: InviteStaffRequest = {
         email,
         name,
-        role: 'staff'
+        role: ['staff']
       }
 
       await inviteStaff(inviteRequest)
@@ -230,7 +230,7 @@ export function useStaffOperations() {
       const inviteRequest: InviteStaffRequest = {
         email,
         name: linkingStaff.name,
-        role: 'staff',
+        role: ['staff'],
         staffId: linkingStaff.id
       }
 

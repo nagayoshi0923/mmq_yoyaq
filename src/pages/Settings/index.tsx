@@ -68,36 +68,33 @@ export function Settings() {
       return <GeneralSettings />
     }
 
-    // 全店舗選択時は店舗IDを空文字列に
-    const storeId = selectedStoreId === 'all' ? '' : selectedStoreId
-    
     switch (activeTab) {
       case 'store-basic':
-        return <StoreBasicSettings storeId={storeId} />
+        return <StoreBasicSettings />
       case 'business-hours':
-        return <BusinessHoursSettings storeId={storeId} />
+        return <BusinessHoursSettings />
       case 'performance-schedule':
-        return <PerformanceScheduleSettings storeId={storeId} />
+        return <PerformanceScheduleSettings />
       case 'reservation':
-        return <ReservationSettings storeId={storeId} />
+        return <ReservationSettings />
       case 'cancellation':
-        return <CancellationSettings storeId={storeId} />
+        return <CancellationSettings />
       case 'pricing':
-        return <PricingSettings storeId={storeId} />
+        return <PricingSettings />
       case 'sales-report':
-        return <SalesReportSettings storeId={storeId} />
+        return <SalesReportSettings />
       case 'notifications':
-        return <NotificationSettings storeId={storeId} />
+        return <NotificationSettings />
       case 'staff':
-        return <StaffSettings storeId={storeId} />
+        return <StaffSettings />
       case 'system':
-        return <SystemSettings storeId={storeId} />
+        return <SystemSettings />
       case 'email':
-        return <EmailSettings storeId={storeId} />
+        return <EmailSettings />
       case 'customer':
-        return <CustomerSettings storeId={storeId} />
+        return <CustomerSettings />
       case 'data':
-        return <DataManagementSettings storeId={storeId} />
+        return <DataManagementSettings />
       case 'booking-notice':
         return <BookingNoticeSettings />
       default:
