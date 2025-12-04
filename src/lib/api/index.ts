@@ -11,7 +11,10 @@ export * from './types'
 export { storeApi } from './storeApi'
 export { authorApi, type Author } from './authorApi'
 export { scenarioApi } from './scenarioApi'
+export { staffApi } from './staffApi'
+export { memoApi } from './memoApi'
+export { salesApi } from './salesApi'
 
-// 以下は旧api.tsからの再エクスポート（段階的に分割予定）
-export { staffApi, scheduleApi, memoApi, salesApi } from '../api'
+// scheduleApiは大きいため、旧api.tsに残す（段階的に分割予定）
+export { scheduleApi } from '../api'
 
