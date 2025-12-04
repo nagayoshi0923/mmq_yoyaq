@@ -27,6 +27,9 @@ interface AuthProviderProps {
   children: React.ReactNode
 }
 
+// 複数タブ間で認証状態を同期するためのチャンネル名
+const AUTH_CHANNEL_NAME = 'mmq-auth-sync'
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
@@ -38,6 +41,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const isProcessingRef = React.useRef<boolean>(false)
   // 最後のトークンリフレッシュ時間（重複リフレッシュ防止）
   const lastRefreshRef = React.useRef<number>(0)
+  // 複数タブ間の同期用BroadcastChannel
+  const broadcastChannelRef = React.useRef<BroadcastChannel | null>(null)
   
   // userが変更されたらrefも更新
   React.useEffect(() => {
@@ -185,10 +190,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     window.addEventListener('focus', handleFocus)
 
+    // 複数タブ間の認証状態同期（BroadcastChannel API）
+    if (typeof BroadcastChannel !== 'undefined') {
+      broadcastChannelRef.current = new BroadcastChannel(AUTH_CHANNEL_NAME)
+      broadcastChannelRef.current.onmessage = (event) => {
+        const { type, payload } = event.data
+        logger.log('📡 他タブからの認証イベント受信:', type)
+        
+        switch (type) {
+          case 'SIGNED_OUT':
+            // 他のタブでログアウトした場合、このタブもログアウト状態にする
+            logger.log('🚪 他タブでログアウト検出、このタブもログアウト')
+            setUser(null)
+            userRef.current = null
+            setIsInitialized(true)
+            // ページをリロードしてクリーンな状態にする
+            window.location.href = '/#customer-booking'
+            break
+          case 'SIGNED_IN':
+            // 他のタブでログインした場合、セッションをリフレッシュ
+            logger.log('🔑 他タブでログイン検出、セッションをリフレッシュ')
+            refreshSession()
+            break
+          case 'ROLE_CHANGED':
+            // ロール変更があった場合、セッションをリフレッシュ
+            logger.log('👤 他タブでロール変更検出:', payload?.role)
+            refreshSession()
+            break
+        }
+      }
+      logger.log('📡 BroadcastChannel初期化完了:', AUTH_CHANNEL_NAME)
+    }
+
     return () => {
       subscription.unsubscribe()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
+      // BroadcastChannelをクローズ
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.close()
+        broadcastChannelRef.current = null
+      }
     }
   }, [refreshSession])
 
@@ -616,6 +658,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       logger.log('✅ ログイン成功:', data.user?.email)
+      
+      // 他のタブにログインを通知
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({ type: 'SIGNED_IN' })
+        logger.log('📡 他タブにログインを通知')
+      }
     } catch (error) {
       setLoading(false)
       throw error
@@ -630,6 +678,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // ユーザー情報をクリア
       setUser(null)
+      userRef.current = null
+      
+      // 他のタブにログアウトを通知
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({ type: 'SIGNED_OUT' })
+        logger.log('📡 他タブにログアウトを通知')
+      }
       
       // 予約サイトにリダイレクト（ログインなしでも閲覧可能）
       window.location.href = '/#customer-booking'
