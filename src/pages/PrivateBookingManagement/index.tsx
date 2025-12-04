@@ -104,6 +104,7 @@ export function PrivateBookingManagement() {
 
   // 選択されたリクエストの初期化
   useEffect(() => {
+    let timer: NodeJS.Timeout | undefined
     const initializeRequest = async () => {
       if (selectedRequest) {
         loadAvailableGMs(selectedRequest.id)
@@ -117,17 +118,19 @@ export function PrivateBookingManagement() {
         }
         
         // 選択可能な最初の候補を自動選択
-        setTimeout(() => {
+        timer = setTimeout(() => {
           selectFirstAvailableCandidate()
         }, 150)
       }
     }
     
     initializeRequest()
+    return () => { if (timer) clearTimeout(timer) }
   }, [selectedRequest])
 
   // 店舗またはGMが変更されたときの競合情報更新
   useEffect(() => {
+    let timer: NodeJS.Timeout | undefined
     const updateConflicts = async () => {
       if (selectedRequest) {
         await loadConflictInfo(selectedRequest.id)
@@ -141,7 +144,7 @@ export function PrivateBookingManagement() {
             const storeConflictKey = selectedStoreId ? `${selectedStoreId}-${selectedCandidate.date}-${selectedCandidate.timeSlot}` : null
             const gmConflictKey = selectedGMId ? `${selectedGMId}-${selectedCandidate.date}-${selectedCandidate.timeSlot}` : null
             
-            setTimeout(() => {
+            timer = setTimeout(() => {
               const hasStoreConflict = storeConflictKey && conflictInfo.storeDateConflicts.has(storeConflictKey)
               const hasGMConflict = gmConflictKey && conflictInfo.gmDateConflicts.has(gmConflictKey)
               
@@ -155,6 +158,7 @@ export function PrivateBookingManagement() {
     }
     
     updateConflicts()
+    return () => { if (timer) clearTimeout(timer) }
   }, [selectedStoreId, selectedGMId])
 
   // 選択可能な最初の候補日時を自動選択

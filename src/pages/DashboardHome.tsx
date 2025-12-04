@@ -103,7 +103,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   // 統計データ取得（管理者・スタッフ共通で表示しても良いが、優先度は下げる）
   useEffect(() => {
     // モックデータ
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setStats({
         stores: 6,
         performances: 42,
@@ -111,6 +111,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         revenue: 1250000
       })
     }, 100)
+    return () => clearTimeout(timer)
   }, [])
 
   // 直近の予定（今日〜7日後まで）

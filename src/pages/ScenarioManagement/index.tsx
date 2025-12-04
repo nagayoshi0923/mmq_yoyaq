@@ -271,26 +271,30 @@ export function ScenarioManagement() {
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => {
+      clearTimeout(scrollTimer)
       window.removeEventListener('scroll', handleScroll)
     }
   }, [])
 
   // 初回レンダリング時のスクロール位置復元（早期）
   useEffect(() => {
+    let timer: NodeJS.Timeout | undefined
     const savedY = sessionStorage.getItem('scenarioScrollY')
     const savedTime = sessionStorage.getItem('scenarioScrollTime')
     if (savedY && savedTime) {
       const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
       if (timeSinceScroll < 10000) {
-        setTimeout(() => {
+        timer = setTimeout(() => {
           window.scrollTo(0, parseInt(savedY, 10))
         }, 100)
       }
     }
+    return () => { if (timer) clearTimeout(timer) }
   }, [])
 
   // 初回データロード後のスクロール位置復元（初回のみ）
   useEffect(() => {
+    let timer: NodeJS.Timeout | undefined
     if (!loading && !initialLoadComplete) {
       setInitialLoadComplete(true)
       const savedY = sessionStorage.getItem('scenarioScrollY')
@@ -298,12 +302,13 @@ export function ScenarioManagement() {
       if (savedY && savedTime) {
         const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
         if (timeSinceScroll < 10000) {
-          setTimeout(() => {
+          timer = setTimeout(() => {
             window.scrollTo(0, parseInt(savedY, 10))
           }, 200)
         }
       }
     }
+    return () => { if (timer) clearTimeout(timer) }
   }, [loading, initialLoadComplete, setInitialLoadComplete])
 
   if (loading) {
