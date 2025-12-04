@@ -317,11 +317,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 .maybeSingle()
               
               if (staffByEmail) {
-                newRole = 'staff'
                 logger.log('✅ スタッフテーブルにメールアドレス一致あり:', staffByEmail.name)
                 
-                // staffテーブルのuser_idを更新して紐付ける
-                if (!staffByEmail.user_id || staffByEmail.user_id !== supabaseUser.id) {
+                // staffテーブルのuser_idを確認
+                if (!staffByEmail.user_id) {
+                  // user_idがnullの場合のみ紐付ける
+                  newRole = 'staff'
                   const { error: updateError } = await supabase
                     .from('staff')
                     .update({ user_id: supabaseUser.id, updated_at: new Date().toISOString() })
@@ -332,6 +333,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   } else {
                     logger.log('✅ スタッフテーブルにuser_idを紐付けました:', supabaseUser.id)
                   }
+                } else if (staffByEmail.user_id === supabaseUser.id) {
+                  // 既に同じユーザーに紐付いている場合はstaffロールを維持
+                  newRole = 'staff'
+                  logger.log('✅ 既に同じユーザーに紐付け済み')
+                } else {
+                  // 既に別のユーザーに紐付いている場合は上書きしない（顧客として扱う）
+                  logger.warn('⚠️ スタッフレコードは既に別のユーザーに紐付いています。上書きしません。user_id:', staffByEmail.user_id)
                 }
               }
             }
