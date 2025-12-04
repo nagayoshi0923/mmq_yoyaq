@@ -114,6 +114,13 @@ serve(async (req) => {
       .upsert(userRecordPayload, { onConflict: 'id' })
 
     if (upsertUserError) {
+      // 新規ユーザーの場合、Authユーザーを削除してロールバック
+      if (isNewUser) {
+        console.warn('⚠️ usersテーブル更新失敗、Authユーザーを削除します')
+        await supabase.auth.admin.deleteUser(userId).catch((deleteErr) => {
+          console.error('❌ Authユーザー削除失敗:', deleteErr)
+        })
+      }
       throw new Error(`usersテーブルの更新に失敗しました: ${upsertUserError.message}`)
     }
 
@@ -267,6 +274,23 @@ serve(async (req) => {
     })
 
     if (linkError || !linkData?.properties?.action_link) {
+      // 招待リンク生成失敗時のロールバック
+      if (isNewUser) {
+        console.warn('⚠️ 招待リンク生成失敗、作成したデータをロールバックします')
+        // staffテーブルから削除
+        await supabase.from('staff').delete().eq('user_id', userId).catch((err) => {
+          console.error('❌ staffテーブル削除失敗:', err)
+        })
+        // usersテーブルから削除
+        await supabase.from('users').delete().eq('id', userId).catch((err) => {
+          console.error('❌ usersテーブル削除失敗:', err)
+        })
+        // Authユーザーを削除
+        await supabase.auth.admin.deleteUser(userId).catch((err) => {
+          console.error('❌ Authユーザー削除失敗:', err)
+        })
+        console.log('✅ ロールバック完了')
+      }
       throw new Error(`招待リンクの生成に失敗しました: ${linkError?.message || 'invalid response'}`)
     }
 
