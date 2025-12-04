@@ -1,4 +1,4 @@
-import { Edit, Link2, Trash2, Unlink } from 'lucide-react'
+import { Edit, Link2, Trash2, Unlink, CheckCircle2, AlertCircle, Clock, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -6,6 +6,7 @@ import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import type { Column } from '@/components/patterns/table'
 import type { Staff, Store } from '@/types'
 import { getRoleBadges, getStoreColors, getStatusBadge } from './staffFormatters'
+import type { StaffAuthStatus } from '../hooks/useStaffAuthStatus'
 
 interface StaffTableActions {
   onEdit: (member: Staff) => void
@@ -17,16 +18,54 @@ interface StaffTableActions {
 interface StaffTableContext {
   stores: Store[]
   getScenarioName: (scenarioId: string) => string
+  getAuthStatus?: (userId: string | null) => StaffAuthStatus
 }
 
 /**
  * StaffManagement用のテーブル列定義を生成
  */
+/**
+ * 認証状態のバッジを返す
+ */
+function getAuthStatusBadge(status: StaffAuthStatus) {
+  switch (status.status) {
+    case 'active':
+      return (
+        <div className="flex items-center gap-1">
+          <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+          <span className="text-xs text-green-700">設定済み</span>
+        </div>
+      )
+    case 'pending':
+      return (
+        <div className="flex items-center gap-1">
+          <Clock className="h-3.5 w-3.5 text-yellow-600" />
+          <span className="text-xs text-yellow-700">招待中</span>
+        </div>
+      )
+    case 'never_logged_in':
+      return (
+        <div className="flex items-center gap-1">
+          <AlertCircle className="h-3.5 w-3.5 text-orange-600" />
+          <span className="text-xs text-orange-700">未ログイン</span>
+        </div>
+      )
+    case 'not_linked':
+    default:
+      return (
+        <div className="flex items-center gap-1">
+          <HelpCircle className="h-3.5 w-3.5 text-gray-400" />
+          <span className="text-xs text-gray-500">未紐付け</span>
+        </div>
+      )
+  }
+}
+
 export function createStaffColumns(
   context: StaffTableContext,
   actions: StaffTableActions
 ): Column<Staff>[] {
-  const { stores, getScenarioName } = context
+  const { stores, getScenarioName, getAuthStatus } = context
   const { onEdit, onLink, onUnlink, onDelete } = actions
 
   return [
@@ -202,6 +241,35 @@ export function createStaffColumns(
                 {experiencedScenarios.map((scenarioId: string, index: number) => (
                   <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
                 ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        )
+      }
+    },
+    {
+      key: 'auth_status',
+      header: '認証状態',
+      sortable: false,
+      width: 'w-24',
+      render: (staff) => {
+        if (!getAuthStatus) {
+          return <span className="text-xs text-muted-foreground">-</span>
+        }
+        const authStatus = getAuthStatus(staff.user_id)
+        return (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="cursor-pointer">
+                {getAuthStatusBadge(authStatus)}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-xs">
+                {authStatus.status === 'active' && <p>パスワード設定済み</p>}
+                {authStatus.status === 'pending' && <p>招待メール送信済み、パスワード未設定</p>}
+                {authStatus.status === 'never_logged_in' && <p>パスワード設定済み、未ログイン</p>}
+                {authStatus.status === 'not_linked' && <p>ユーザーアカウントと未紐付け</p>}
               </div>
             </TooltipContent>
           </Tooltip>

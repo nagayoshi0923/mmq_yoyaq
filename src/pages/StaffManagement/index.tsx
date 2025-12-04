@@ -28,6 +28,7 @@ import { useStoresAndScenarios } from './hooks/useStoresAndScenarios'
 import { useStaffModals } from './hooks/useStaffModals'
 import { useStaffInvitation } from './hooks/useStaffInvitation'
 import { useStaffQuery, useStaffMutation, useDeleteStaffMutation } from './hooks/useStaffQuery'
+import { useStaffAuthStatus } from './hooks/useStaffAuthStatus'
 import { useQueryClient } from '@tanstack/react-query'
 
 // 分離されたコンポーネントとユーティリティ
@@ -57,6 +58,10 @@ export function StaffManagement() {
     loadScenarios,
     getScenarioName
   } = useStoresAndScenarios()
+
+  // スタッフの認証状態を取得
+  const staffUserIds = useMemo(() => staff.map(s => s.user_id), [staff])
+  const { getAuthStatus } = useStaffAuthStatus(staffUserIds)
 
   // フィルタ状態
   const [searchTerm, setSearchTerm] = useState(() => {
@@ -214,7 +219,7 @@ export function StaffManagement() {
   // テーブル列定義（メモ化）
   const tableColumns = useMemo(
     () => createStaffColumns(
-      { stores, getScenarioName },
+      { stores, getScenarioName, getAuthStatus },
       { 
         onEdit: handleEditStaff, 
         onLink: openLinkModal, 
@@ -222,7 +227,7 @@ export function StaffManagement() {
         onDelete: openDeleteDialog 
       }
     ),
-    [stores, getScenarioName]
+    [stores, getScenarioName, getAuthStatus]
   )
 
   // スタッフ保存ハンドラ
