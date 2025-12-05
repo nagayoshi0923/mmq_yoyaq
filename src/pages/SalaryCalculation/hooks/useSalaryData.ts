@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
-import type { MonthlySalaryData, StaffSalary, ShiftDetail, GMDetail } from '../types'
+import type { MonthlySalaryData, StaffSalary } from '../types'
 
 /**
  * 給与データ取得フック

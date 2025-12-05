@@ -60,7 +60,7 @@ export function ScheduleTable({
   eventHandlers,
   displayConfig
 }: ScheduleTableProps) {
-  const { currentDate, monthDays, stores, temporaryVenues = [] } = viewConfig
+  const { monthDays, stores, temporaryVenues = [] } = viewConfig
   const { getEventsForSlot, shiftData, getMemo, onSaveMemo } = dataProvider
   const {
     onAddPerformance,
@@ -118,8 +118,6 @@ export function ScheduleTable({
               const allVenues = [...stores, ...tempVenuesForDay]
               
               return allVenues.map((venue, venueIndex) => {
-                const isTemporary = venue.is_temporary === true
-                
                 return (
                 <TableRow key={`${day.date}-${venue.id}`} className="min-h-[80px] group bg-background hover:bg-muted/5">
                   {/* 日付・曜日統合セル (Sticky) */}

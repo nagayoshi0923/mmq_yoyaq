@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { HelpButton } from '@/components/ui/help-button'
-import { Users, UserPlus, Shield, Settings, AlertCircle, Search, UserCog, User as UserIcon, Trash2 } from 'lucide-react'
+import { Users, Shield, AlertCircle, Search, UserCog, User as UserIcon, Trash2 } from 'lucide-react'
 import { searchUserByEmail, getAllUsers, updateUserRole, deleteUser, type User } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
 

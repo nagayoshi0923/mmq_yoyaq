@@ -1,6 +1,6 @@
 // スケジュールデータの読み込みと管理
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
@@ -331,12 +331,6 @@ interface CandidateDateTime {
   order: number
   status?: 'confirmed' | 'pending'
   confirmedStore?: string
-}
-
-// GM応答データ
-interface GMAvailabilityResponse {
-  response_status: 'available' | 'unavailable'
-  staff?: { name: string }
 }
 
 // 貸切リクエストデータ

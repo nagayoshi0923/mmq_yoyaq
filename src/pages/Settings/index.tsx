@@ -10,7 +10,6 @@ import {
   Bell, 
   Database,
   DollarSign,
-  FileText,
   UserCog,
   Shield,
   AlertCircle

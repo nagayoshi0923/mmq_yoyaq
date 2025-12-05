@@ -1,12 +1,4 @@
 import { ReactNode, memo, useMemo } from 'react'
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  SortingState,
-  ColumnDef,
-  flexRender,
-} from '@tanstack/react-table'
 
 export interface MobileColumn<T> {
   /**

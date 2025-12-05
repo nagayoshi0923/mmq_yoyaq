@@ -11,7 +11,6 @@ import {
   Users,
   Clock,
   JapaneseYen,
-  Edit,
   Trash2
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'

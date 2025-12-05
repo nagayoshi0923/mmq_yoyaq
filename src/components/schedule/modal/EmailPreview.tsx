@@ -1,5 +1,3 @@
-import React from 'react'
-
 export interface EmailContent {
   customerEmail: string
   customerName: string

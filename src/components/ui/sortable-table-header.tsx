@@ -1,4 +1,3 @@
-import React from 'react'
 import type { SortableTableHeaderProps } from '@/types/sortable'
 
 export function SortableTableHeader<T extends string>({

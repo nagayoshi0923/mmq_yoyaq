@@ -1,6 +1,4 @@
 import React, { useState, useCallback, lazy, Suspense } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'

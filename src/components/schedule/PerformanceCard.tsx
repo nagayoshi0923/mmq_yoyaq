@@ -1,5 +1,4 @@
 import React from 'react'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Users, AlertTriangle } from 'lucide-react'
 import { useLongPress } from '@/hooks/useLongPress'
@@ -89,9 +88,6 @@ function PerformanceCardBase({
   const badgeTextColor = event.is_private_request
     ? 'text-purple-800'
     : (categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor?.split(' ').find(cls => cls.startsWith('text-')) ?? 'text-gray-800')
-  
-  // ボーダー色を取得（テキスト色から対応するボーダー色を生成）
-  const borderColorClass = badgeTextColor.replace('text-', 'ring-')
   
   // 左ボーダーの色を決定（濃いめのカラー）
   const leftBorderColor = isIncomplete 

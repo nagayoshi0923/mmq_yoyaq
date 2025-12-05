@@ -24,9 +24,6 @@ import type { ScenarioEditModalProps, ScenarioFormData } from './types'
 // 定数
 import { statusOptions, genreOptions } from './utils/constants'
 
-// ヘルパー関数
-import { convertFullWidthToHalfWidth, handleNumericInput } from './utils/helpers'
-
 // 注: formatCurrency と parseCurrency は現在未使用ですが、
 // 将来的な料金表示機能のために残しています
 
