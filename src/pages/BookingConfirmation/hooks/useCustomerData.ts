@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { CustomerInfo } from '../types'
 
 interface UseCustomerDataProps {
   userId?: string

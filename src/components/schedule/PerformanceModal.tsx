@@ -64,10 +64,7 @@ const COLOR_MAP: Record<string, string> = {
   '#ECFEFF': '#0891B2', '#F7FEE7': '#65A30D',
 }
 
-// デフォルトのアバター色（avatar_color未設定時に名前からハッシュで選択）
-const DEFAULT_AVATAR_COLORS = [
-  '#EFF6FF', '#F0FDF4', '#FFFBEB', '#FEF2F2', '#F5F3FF', '#FDF2F8', '#ECFEFF', '#F7FEE7'
-]
+// アバターの文字色
 const AVATAR_TEXT_COLORS = [
   '#2563EB', '#16A34A', '#D97706', '#DC2626', '#7C3AED', '#DB2777', '#0891B2', '#65A30D'
 ]

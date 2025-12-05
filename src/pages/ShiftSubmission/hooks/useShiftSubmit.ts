@@ -157,7 +157,6 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading, reloadSh
         monthDisplay = `${month}月分の`
       }
       
-      const totalDays = shiftsToUpsert.length + shiftsToRemove.length
       showToast.success('シフトを更新しました', `${monthDisplay}：出勤可能${totalCheckedSlots}枠`)
       
       // DBから最新データを再取得

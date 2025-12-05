@@ -27,19 +27,6 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
   const [temporaryVenues, setTemporaryVenues] = useState<Store[]>([])
   const [loading, setLoading] = useState(false)
 
-  // 月の開始日と終了日を取得
-  const getMonthRange = (date: Date) => {
-    const year = date.getFullYear()
-    const month = date.getMonth()
-    const startDate = new Date(year, month, 1, 12, 0, 0, 0)
-    const endDate = new Date(year, month + 1, 0, 12, 0, 0, 0)
-    
-    return {
-      start: `${year}-${String(month + 1).padStart(2, '0')}-01`,
-      end: `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`
-    }
-  }
-
   // Supabaseから臨時会場を読み込む + Realtime購読
   useEffect(() => {
     const loadTemporaryVenues = async () => {

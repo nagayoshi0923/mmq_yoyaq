@@ -11,7 +11,7 @@ import { Search, Filter, ChevronDown, ChevronRight, Copy, Mail, Check, MailCheck
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuthorReportData } from './hooks/useAuthorReportData'
 import { useReportFilters } from './hooks/useReportFilters'
-import { generateAuthorReportText, generateEmailUrl, copyToClipboard } from './utils/reportFormatters'
+import { generateAuthorReportText, copyToClipboard } from './utils/reportFormatters'
 import { supabase } from '@/lib/supabase'
 import { renderExpandedRow } from './utils/tableColumns'
 import { useScenariosQuery } from '../ScenarioManagement/hooks/useScenarioQuery'
@@ -44,8 +44,7 @@ export default function AuthorReport() {
     selectedStore,
     setSelectedStore,
     searchAuthor,
-    setSearchAuthor,
-    filteredMonthlyData
+    setSearchAuthor
   } = useReportFilters([])
 
   // データ取得

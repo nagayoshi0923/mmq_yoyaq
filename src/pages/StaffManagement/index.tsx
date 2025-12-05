@@ -19,7 +19,7 @@ import { supabase } from '@/lib/supabase'
 import { staffApi } from '@/lib/api'
 import type { Staff } from '@/types'
 import { 
-  Users, CheckCircle2, Link2, Trash2
+  Users, CheckCircle2
 } from 'lucide-react'
 import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import { getRoleBadges, getStatusBadge } from './utils/staffFormatters'

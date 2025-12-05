@@ -10,7 +10,6 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Search, Filter, ChevronDown, ChevronRight, Download } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useSalaryData } from './hooks/useSalaryData'
-import type { StaffSalary } from './types'
 
 export default function SalaryCalculation() {
   const [expandedStaff, setExpandedStaff] = useState<Set<string>>(new Set())
@@ -23,7 +22,7 @@ export default function SalaryCalculation() {
   const selectedMonth = currentDate.getMonth() + 1
 
   // データ取得
-  const { salaryData, loading, refresh } = useSalaryData(selectedYear, selectedMonth, selectedStore)
+  const { salaryData, loading } = useSalaryData(selectedYear, selectedMonth, selectedStore)
 
   // スタッフ展開トグル
   const toggleStaffExpand = (staffId: string) => {

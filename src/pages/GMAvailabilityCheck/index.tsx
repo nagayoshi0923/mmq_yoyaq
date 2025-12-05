@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
@@ -39,7 +38,6 @@ export function GMAvailabilityCheck() {
     currentDate,
     setCurrentDate,
     selectedCandidates,
-    setSelectedCandidates,
     notes,
     setNotes,
     loadGMRequests,

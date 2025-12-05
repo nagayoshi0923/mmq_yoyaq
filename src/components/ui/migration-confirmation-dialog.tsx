@@ -71,10 +71,6 @@ export const MigrationConfirmationDialog: React.FC<MigrationConfirmationDialogPr
     onOpenChange(false)
   }
 
-  const formatCurrency = (amount: number) => {
-    return `${amount.toLocaleString()}円`
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">

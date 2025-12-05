@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useSessionState } from '@/hooks/useSessionState'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'

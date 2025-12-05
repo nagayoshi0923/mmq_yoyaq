@@ -10,8 +10,7 @@ import {
   AlertTriangle,
   Users,
   Clock,
-  JapaneseYen,
-  Trash2
+  JapaneseYen
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/patterns/modal'

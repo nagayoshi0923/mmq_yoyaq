@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { authorApi, type Author } from '@/lib/api'
+import { authorApi } from '@/lib/api'
 
 interface AuthorEmailDialogProps {
   isOpen: boolean

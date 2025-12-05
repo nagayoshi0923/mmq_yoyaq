@@ -33,7 +33,7 @@ export function AddDemoParticipants() {
     try {
       // Supabase接続確認
       log('Supabase接続確認中...', 'info')
-      const { data: testData, error: testError } = await supabase
+      const { error: testError } = await supabase
         .from('customers')
         .select('count')
         .limit(1)
