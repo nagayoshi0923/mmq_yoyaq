@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ItemizedListWithDates, type ItemizedListColumn } from '@/components/ui/itemized-list-with-dates'
 import { Save, Trash2 } from 'lucide-react'
-import type { Store } from '@/types'
+import type { Store, StoreFixedCost } from '@/types'
 import { logger } from '@/utils/logger'
 
 interface StoreEditModalProps {

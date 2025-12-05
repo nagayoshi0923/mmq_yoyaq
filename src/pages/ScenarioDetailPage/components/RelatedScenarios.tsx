@@ -1,4 +1,6 @@
 import { memo } from 'react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Users, Clock } from 'lucide-react'
 
 interface RelatedScenario {
   id: string

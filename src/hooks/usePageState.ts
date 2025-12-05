@@ -6,6 +6,10 @@ interface UsePageStateOptions {
   stateKeys?: string[] // 保存する状態のキー（例: ['searchTerm', 'statusFilter']）
 }
 
+interface PageState {
+  [key: string]: unknown
+}
+
 /**
  * ページの状態（スクロール位置、フィルタ、検索条件など）を自動保存・復元するカスタムフック
  * 

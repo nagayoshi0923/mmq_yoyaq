@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertCircle, CheckCircle, AlertTriangle, Info } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { AlertCircle, CheckCircle, AlertTriangle, Info, X } from 'lucide-react'
 import { ReactNode, memo } from 'react'
 
 type ModalVariant = 'default' | 'danger' | 'success' | 'warning' | 'info'
