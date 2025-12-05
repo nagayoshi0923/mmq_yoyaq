@@ -56,6 +56,34 @@ const generateTimeOptions = () => {
 
 const timeOptions = generateTimeOptions()
 
+// スタッフの背景色から文字色を取得するマッピング
+const COLOR_MAP: Record<string, string> = {
+  '#EFF6FF': '#2563EB', '#F0FDF4': '#16A34A',
+  '#FFFBEB': '#D97706', '#FEF2F2': '#DC2626',
+  '#F5F3FF': '#7C3AED', '#FDF2F8': '#DB2777',
+  '#ECFEFF': '#0891B2', '#F7FEE7': '#65A30D',
+}
+
+// デフォルトのアバター色（avatar_color未設定時に名前からハッシュで選択）
+const DEFAULT_AVATAR_COLORS = [
+  '#EFF6FF', '#F0FDF4', '#FFFBEB', '#FEF2F2', '#F5F3FF', '#FDF2F8', '#ECFEFF', '#F7FEE7'
+]
+const AVATAR_TEXT_COLORS = [
+  '#2563EB', '#16A34A', '#D97706', '#DC2626', '#7C3AED', '#DB2777', '#0891B2', '#65A30D'
+]
+
+// スタッフの文字色を取得
+const getStaffTextColor = (staff: StaffType): string => {
+  if (staff.avatar_color) {
+    return COLOR_MAP[staff.avatar_color] || '#374151'
+  }
+  // avatar_color未設定の場合は名前からハッシュ値を計算して色を決定
+  const name = staff.name
+  const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  const colorIndex = hash % AVATAR_TEXT_COLORS.length
+  return AVATAR_TEXT_COLORS[colorIndex]
+}
+
 export function PerformanceModal({
   isOpen,
   onClose,
@@ -438,8 +466,22 @@ export function PerformanceModal({
                   value: scenario.title,
                   label: scenario.title,
                   displayInfo: scenarioAvailableGMs.length > 0 
-                    ? scenarioAvailableGMs.map(gm => gm.name).join(', ')
-                    : undefined
+                    ? (
+                        <span className="flex flex-wrap gap-x-1 items-center">
+                          {scenarioAvailableGMs.map((gm, index) => (
+                            <span key={gm.id}>
+                              <span 
+                                style={{ color: getStaffTextColor(gm), fontWeight: 500 }}
+                              >
+                                {gm.name}
+                              </span>
+                              {index < scenarioAvailableGMs.length - 1 && <span className="text-muted-foreground">,</span>}
+                            </span>
+                          ))}
+                        </span>
+                      )
+                    : undefined,
+                  displayInfoSearchText: scenarioAvailableGMs.map(gm => gm.name).join(', ')
                 }
               })}
               placeholder="シナリオを選択"

@@ -14,7 +14,8 @@ import { flexibleMatch } from "@/utils/kanaUtils"
 export interface SearchableSelectOption {
   value: string
   label: string
-  displayInfo?: string
+  displayInfo?: string | React.ReactNode
+  displayInfoSearchText?: string  // displayInfoがReactNodeの場合の検索用テキスト
   renderContent?: () => React.ReactNode
   searchKeywords?: string[]  // 追加の検索キーワード（読み仮名など）
 }
@@ -56,9 +57,14 @@ export function SearchableSelect({
     if (!searchTerm) return options
     
     return options.filter(option => {
+      // displayInfoがstringの場合はそれを使い、ReactNodeの場合はdisplayInfoSearchTextを使う
+      const displayInfoText = typeof option.displayInfo === 'string' 
+        ? option.displayInfo 
+        : option.displayInfoSearchText
+      
       const searchTargets = [
         option.label,
-        option.displayInfo,
+        displayInfoText,
         ...(option.searchKeywords || [])
       ].filter(Boolean) as string[]
       
@@ -170,7 +176,10 @@ export function SearchableSelect({
                   <div className="flex-1 min-w-0">
                     <div className="truncate">{option.label}</div>
                     {option.displayInfo && (
-                      <div className="text-xs text-muted-foreground truncate">
+                      <div className={cn(
+                        "text-xs text-muted-foreground",
+                        typeof option.displayInfo === 'string' && "truncate"
+                      )}>
                         {option.displayInfo}
                       </div>
                     )}
