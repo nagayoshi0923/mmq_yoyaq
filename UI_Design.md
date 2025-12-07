@@ -24,6 +24,70 @@
 
 ---
 
+### 1-1. パスワードリセットページ (`ResetPassword.tsx`)
+
+#### レイアウト
+- **背景**: `bg-background` (統一された背景色)
+- **中央配置**: `min-h-screen flex items-center justify-center`
+- **レスポンシブ**: `px-4 py-8 sm:px-6 sm:py-12`
+
+#### UI要素
+- **カードコンテナ**
+  - 種類: Card
+  - 最大幅: `max-w-md`
+  - レスポンシブパディング: `px-4 sm:px-6`, `pt-6 sm:pt-8`, `pb-4 sm:pb-6`
+
+- **フォーム要素**
+  - 新しいパスワード入力: Input (type="password", minLength=6)
+  - パスワード確認入力: Input (type="password", minLength=6)
+  - 送信ボタン: Button (disabled状態でローディング表示)
+  - 戻るボタン: Button (variant="ghost")
+
+- **状態表示**
+  - エラー表示: `border-2 border-destructive` + AlertCircleアイコン
+  - 成功表示: CheckCircle2アイコン + カウントダウン表示
+  - ローディング状態: ボタンテキスト変更 ("準備中...", "パスワードを変更中...")
+
+- **成功後の画面**
+  - カウントダウン表示: 5秒後に自動リダイレクト
+  - 即座リダイレクトボタン: "今すぐログイン画面へ"
+
+---
+
+### 1-2. パスワード設定ページ (`SetPassword.tsx`)
+
+#### レイアウト
+- **背景**: `bg-background` (統一された背景色)
+- **中央配置**: `min-h-screen flex items-center justify-center`
+- **レスポンシブ**: `px-4 py-8 sm:px-6 sm:py-12`
+
+#### UI要素
+- **カードコンテナ**
+  - 種類: Card
+  - 最大幅: `max-w-md`
+  - レスポンシブパディング: `px-4 sm:px-6`, `pt-6 sm:pt-8`, `pb-4 sm:pb-6`
+
+- **アイコン表示**
+  - Lockアイコン: パスワード設定画面
+  - CheckCircleアイコン: 成功画面
+
+- **フォーム要素**
+  - 新しいパスワード入力: Input (type="password", minLength=6)
+  - パスワード確認入力: Input (type="password", minLength=6)
+  - 送信ボタン: Button (ローディング時にアニメーション表示)
+  - 補助テキスト: "パスワードは6文字以上で設定してください"
+
+- **状態表示**
+  - エラー表示: `bg-red-50 border border-red-200` + AlertCircleアイコン
+  - 成功表示: CheckCircleアイコン + 3秒後に自動リダイレクト
+  - ローディング状態: アニメーションアイコン + "設定中..."テキスト
+
+- **成功後の画面**
+  - 自動リダイレクト: 3秒後にログイン画面へ
+  - 即座リダイレクトボタン: "今すぐログイン"
+
+---
+
 ### 2. 管理者ダッシュボード (`AdminDashboard.tsx`)
 
 #### 共通レイアウト
