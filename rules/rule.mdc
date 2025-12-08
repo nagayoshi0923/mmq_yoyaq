@@ -16,7 +16,7 @@ Pull Request（PR）には変更理由と影響範囲が明記されているこ
 
 UI変更時はスクリーンショットまたは動画を添付すること。
 
-主要導線（予約・キャンセルなど）はE2E（Playwright）テストで最低1ケース担保すること。
+主要導線（予約・キャンセルなど）はE2E（Playwright）テストで最低1ケース担保すること（テスト実装後）。
 
 「できた」と報告する前にverifyがグリーンであること。
 
@@ -49,15 +49,23 @@ PRテンプレートを必ず使用する。
 
 ## ■ 4. テスト方針（テストピラミッド）
 
-| 層 | 内容 | ツール |
+**注意**: 現在、テストツールは未実装です。将来的な方針として以下を想定しています。
+
+| 層 | 内容 | ツール（予定） |
 |----|------|--------|
-| ユニット | ロジック・小コンポーネント | Vitest / RTL |
-| 結合 | API・DB契約の整合性 | Zod / Supabase型 |
-| E2E | 主要導線（予約・キャンセルなど） | Playwright |
+| ユニット | ロジック・小コンポーネント | Vitest / RTL（未実装） |
+| 結合 | API・DB契約の整合性 | Zod / Supabase型（部分実装） |
+| E2E | 主要導線（予約・キャンセルなど） | Playwright（未実装） |
+
+**現状**: 手動テストと `npm run verify`（typecheck / lint / build）による品質担保を行っています。
 
 ## ■ 5. 型・品質ルール
 
-TypeScriptのstrictモード、exactOptionalPropertyTypes、noUncheckedIndexedAccessを有効化すること。
+**現状**: TypeScriptのstrictモードは無効化されています（`tsconfig.json`で`"strict": false`）。
+将来的には以下の設定を有効化することを推奨します：
+- `strict: true`
+- `exactOptionalPropertyTypes: true`
+- `noUncheckedIndexedAccess: true`
 
 anyの使用は禁止。ただし例外的に必要な場合は「// TODO(any): 理由」をコメントすること。
 
@@ -73,11 +81,13 @@ Supabase RLSはテストで検証すること。
 
 機密情報は.env.*に保存し、GitHub Secretsにも登録すること。
 
-依存関係の更新はpnpm up -Lで行い、重大脆弱性は即時PRを作成すること。
+依存関係の更新は`npm update`で行い、重大脆弱性は即時PRを作成すること。
 
 ## ■ 7. リリースフロー
 
-developブランチのCIがグリーンであることを確認する。
+**注意**: CIは未実装のため、現在は手動で`npm run verify`を実行して確認します。
+
+developブランチのCIがグリーンであることを確認する（CI実装後）。
 
 リリースノートを更新する。
 
@@ -91,8 +101,8 @@ mainブランチへPRを作成する。
 ## ■ 8. コントリビュートガイド
 
 ### セットアップ手順
-　pnpm i
-　pnpm dev
+　npm install
+　npm run dev
 
 ### コーディング規約
 　- TypeScript厳格。
@@ -124,15 +134,20 @@ mainブランチへPRを作成する。
 ## ■ 9. 自動検証とフック
 
 package.jsonの主要スクリプト
-　typecheck / lint / test / build / verifyを定義する。
+　typecheck / lint / build / verifyを定義する（testは未実装）。
 
-pre-pushでnpm run verifyを自動実行し、未検証状態でのpushを禁止する。
+**注意**: pre-pushフックは未実装です。コミット前に手動で`npm run verify`を実行してください。
+将来的にはpre-pushでnpm run verifyを自動実行し、未検証状態でのpushを禁止する予定です。
 
 ## ■ 10. CI設定
 
-verifyワークフローでtypecheck, lint, test, buildを自動検証する。
+**注意**: GitHub ActionsのCI設定は未実装です。
 
-e2eワークフローでPlaywrightテストを自動実行する。
+将来的な方針：
+- verifyワークフローでtypecheck, lint, buildを自動検証する。
+- e2eワークフローでPlaywrightテストを自動実行する（テスト実装後）。
+
+**現状**: 手動で`npm run verify`を実行して品質を担保しています。
 
 ## ■ 11. Pull Requestテンプレート
 
@@ -177,19 +192,23 @@ e2eワークフローでPlaywrightテストを自動実行する。
 
 ## ■ 13. CODEOWNERS（主要ファイルのレビュー責任）
 
-/src/schemas/* ：@maintainer
+**注意**: `.github/CODEOWNERS`ファイルは未実装です。
 
-/src/lib/db/* ：@maintainer
-
-/src/lib/api/* ：@maintainer
-
-/src/app/(booking)/** ：@maintainer
+将来的な方針として、以下のファイルのレビュー責任を定義する予定です：
+- /src/schemas/* ：@maintainer
+- /src/lib/db/* ：@maintainer
+- /src/lib/api/* ：@maintainer
+- /src/app/(booking)/** ：@maintainer
 
 ## ■ 14. コミットリント設定
 
-type-enum：feat, fix, docs, style, refactor, test, chore, perf, revert。
+**注意**: コミットリント設定は未実装です。
 
-subject-case：制限なし（日本語許可）。
+将来的な方針：
+- type-enum：feat, fix, docs, style, refactor, test, chore, perf, revert。
+- subject-case：制限なし（日本語許可）。
+
+**現状**: 手動で日本語Conventional Commits形式に従ってコミットメッセージを作成してください。
 
 ---
 
@@ -222,8 +241,8 @@ subject-case：制限なし（日本語許可）。
   - 管理者は全アクセス可。  
 - **PIIの最小化**：電話・住所・メールは**閲覧権限を役割別に制限**し、ログ/監視に送らない。
 
-## 5) API/フロント規約（radex式）
-- サーバーデータは **RTK Query** をSSOTに集約。コンポーネントは **selector で最小投影**（安定参照を返す）。  
+## 5) API/フロント規約
+- サーバーデータは **TanStack React Query** をSSOTに集約。コンポーネントは **selector で最小投影**（安定参照を返す）。  
 - DTO→ViewModel 変換は**mapper層**で行い、UIでのアドホック整形を禁止。  
 - フォームは **react-hook-form + zod**（型とバリデーションを一箇所に）。  
 - **削除は原則 Soft Delete**（`status` や `deleted_at`）— 履歴消滅は禁止。
