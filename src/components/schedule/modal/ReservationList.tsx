@@ -256,6 +256,19 @@ export function ReservationList({
     if (!cancellingReservation || !event) return
 
     try {
+      // スタッフ参加の場合はメール送信なしで直接削除
+      const isStaffReservation = 
+        cancellingReservation.reservation_source === 'staff_entry' ||
+        cancellingReservation.reservation_source === 'staff_participation' ||
+        cancellingReservation.payment_method === 'staff'
+      
+      if (isStaffReservation) {
+        logger.log('📝 スタッフ参加のため、メール送信なしで削除:', cancellingReservation)
+        handleExecuteCancelWithoutEmail(true)
+        setIsCancelDialogOpen(false)
+        return
+      }
+
       let customerName = cancellingReservation.customer_name || 
         (cancellingReservation.customers ? 
           (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.name : cancellingReservation.customers?.name) : 
@@ -267,15 +280,18 @@ export function ReservationList({
           (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.email : cancellingReservation.customers?.email) : 
           null)
 
-      // メールアドレスが見つからない場合、スタッフ情報から検索を試みる
+      // メールアドレスが見つからない場合、スタッフ情報から検索を試みる（スタッフ参加以外の場合のみ）
       if (!customerEmail && customerName) {
         // 名前からスタッフを検索（完全一致）
         const normalizedName = customerName.replace(/様$/, '').trim()
         const staffMember = staff.find(s => s.name === normalizedName)
         
-        if (staffMember && staffMember.email) {
-          customerEmail = staffMember.email
-          logger.log('スタッフ情報からメールアドレスを取得しました:', { name: normalizedName, email: customerEmail })
+        // スタッフとしてマッチした場合もメール送信なしで削除
+        if (staffMember) {
+          logger.log('📝 スタッフとしてマッチしたため、メール送信なしで削除:', { name: normalizedName })
+          handleExecuteCancelWithoutEmail(true)
+          setIsCancelDialogOpen(false)
+          return
         }
       }
 
@@ -328,7 +344,7 @@ export function ReservationList({
   }
 
   // メール送信なしでキャンセル処理のみを実行
-  const handleExecuteCancelWithoutEmail = async () => {
+  const handleExecuteCancelWithoutEmail = async (isStaff: boolean = false) => {
     if (!cancellingReservation || !event) return
 
     try {
@@ -378,7 +394,12 @@ export function ReservationList({
       }
 
       setCancellingReservation(null)
-      showToast.success('予約をキャンセルしました', '※ 顧客情報が不足しているため、キャンセル確認メールは送信されませんでした')
+      
+      if (isStaff) {
+        showToast.success('スタッフ参加を削除しました')
+      } else {
+        showToast.success('予約をキャンセルしました', '※ 顧客情報が不足しているため、キャンセル確認メールは送信されませんでした')
+      }
     } catch (error) {
       logger.error('予約キャンセルエラー:', error)
       showToast.error('予約のキャンセルに失敗しました')
@@ -496,7 +517,9 @@ export function ReservationList({
       const storeObj = stores.find(s => s.id === currentEventData.venue)
       
       // スタッフかどうかを判定
-      const isStaff = findMatchingStaff(participantName, null, staff) !== null
+      const matchedStaff = findMatchingStaff(participantName, null, staff)
+      const isStaff = matchedStaff !== null
+      logger.log('🔍 スタッフ判定:', { participantName, isStaff, matchedStaff, staffCount: staff.length })
       const paymentMethod = isStaff ? 'staff' : newParticipant.payment_method
       
       const participationFee = scenarioObj?.participation_fee || 0
@@ -547,21 +570,37 @@ export function ReservationList({
             current_participants: newCount
           }
           
+          logger.log('🔍 GM更新チェック:', { isStaff, participantName, eventData })
+          
           if (isStaff && participantName !== 'デモ参加者') {
             const currentGms = eventData?.gms || []
             const currentGmRoles = eventData?.gm_roles || {}
             
-            // 既にgmsに含まれていない場合のみ追加
+            logger.log('🔍 現在のGM状態:', { currentGms, currentGmRoles, hasOnGmsChange: !!onGmsChange })
+            
+            // 既にgmsに含まれていない場合は追加
             if (!currentGms.includes(participantName)) {
               const newGms = [...currentGms, participantName]
               const newGmRoles = { ...currentGmRoles, [participantName]: 'staff' }
               updateData.gms = newGms
               updateData.gm_roles = newGmRoles
-              logger.log('📝 スタッフ参加者をGM欄に追加:', participantName)
+              logger.log('📝 スタッフ参加者をGM欄に追加:', { participantName, newGms, newGmRoles })
               
               // 親コンポーネントのGM欄も更新
               if (onGmsChange) {
+                logger.log('📝 onGmsChange呼び出し（新規追加）')
                 onGmsChange(newGms, newGmRoles)
+              }
+            } else {
+              // 既にGMとして存在する場合は、役割を「スタッフ参加」に更新
+              const newGmRoles = { ...currentGmRoles, [participantName]: 'staff' }
+              updateData.gm_roles = newGmRoles
+              logger.log('📝 既存GMの役割をスタッフ参加に更新:', { participantName, currentGms, newGmRoles })
+              
+              // 親コンポーネントのGM欄も更新
+              if (onGmsChange) {
+                logger.log('📝 onGmsChange呼び出し（役割更新）')
+                onGmsChange(currentGms, newGmRoles)
               }
             }
           }
@@ -764,6 +803,7 @@ export function ReservationList({
                     </div>
                     <span className="flex-1">顧客名</span>
                     <span className="w-[60px]">人数</span>
+                    <span className="w-[100px]">予約日時</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="w-[80px]">ステータス</span>
@@ -831,8 +871,16 @@ export function ReservationList({
                                 </span>
                               )}
                             </span>
-                            <span className="text-xs text-muted-foreground flex-shrink-0">
+                            <span className="text-xs text-muted-foreground flex-shrink-0 w-[60px]">
                               {reservation.participant_count ? `${reservation.participant_count}名` : '-'}
+                            </span>
+                            <span className="hidden sm:block text-xs text-muted-foreground w-[100px]">
+                              {reservation.created_at ? new Date(reservation.created_at).toLocaleString('ja-JP', {
+                                month: 'numeric',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : '-'}
                             </span>
                           </div>
                           
