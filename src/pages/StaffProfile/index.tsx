@@ -347,7 +347,7 @@ export function StaffProfile() {
                         <CircleCheck
                           checked={experienced}
                           onChange={() => toggleExperienced(scenario.id)}
-                          color="blue"
+                          color="green"
                         />
                       </div>
                       {/* GM可能チェックボックス */}
@@ -355,7 +355,7 @@ export function StaffProfile() {
                         <CircleCheck
                           checked={gm}
                           onChange={() => toggleGM(scenario.id)}
-                          color="green"
+                          color="blue"
                         />
                       </div>
                     </div>
