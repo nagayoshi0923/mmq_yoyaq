@@ -1102,17 +1102,17 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                   スタッフデータが見つかりません。
                 </div>
               ) : (() => {
-                // 通常のGMスタッフ（安全なフィルタリング）
-                const activeGMs = staff.filter(s => {
+                // GMまたはスタッフロールを持つアクティブなスタッフ
+                const activeStaff = staff.filter(s => {
                   const roles = Array.isArray(s.role) ? s.role : (s.role ? [s.role] : [])
-                  return roles.includes('gm') && s.status === 'active'
+                  return (roles.includes('gm') || roles.includes('staff')) && s.status === 'active'
                 })
                 
                 // 既に担当GMとして設定されているスタッフ（role/statusに関係なく含める）
                 const assignedStaff = staff.filter(s => selectedStaffIds.includes(s.id))
                 
                 // 重複を除いて結合
-                const allAvailableStaff = [...activeGMs]
+                const allAvailableStaff = [...activeStaff]
                 assignedStaff.forEach(assignedStaff => {
                   if (!allAvailableStaff.some(s => s.id === assignedStaff.id)) {
                     allAvailableStaff.push(assignedStaff)
@@ -1121,16 +1121,12 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                 
                 const gmOptions = allAvailableStaff.map(staffMember => {
                   const roles = Array.isArray(staffMember.role) ? staffMember.role : (staffMember.role ? [staffMember.role] : [])
-                  const isGm = roles.includes('gm')
+                  const isGmOrStaff = roles.includes('gm') || roles.includes('staff')
                   
                   return {
                     id: staffMember.id,
                     name: staffMember.name,
-                    displayInfo: `経験値${staffMember.experience} | ${staffMember.line_name || ''}${
-                      !isGm || staffMember.status !== 'active' 
-                        ? ' (非アクティブGM)' 
-                        : ''
-                    }`
+                    displayInfo: `${staffMember.status !== 'active' ? '(非アクティブ)' : ''}`
                   }
                 })
                 

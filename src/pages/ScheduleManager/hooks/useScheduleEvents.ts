@@ -4,6 +4,19 @@ import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
 
 /**
+ * time_slot（'朝'/'昼'/'夜'）を英語形式に変換
+ */
+function convertTimeSlot(timeSlot: string | undefined): 'morning' | 'afternoon' | 'evening' | null {
+  if (!timeSlot) return null
+  switch (timeSlot) {
+    case '朝': return 'morning'
+    case '昼': return 'afternoon'
+    case '夜': return 'evening'
+    default: return null
+  }
+}
+
+/**
  * スケジュールイベント関連のロジックフック
  */
 export function useScheduleEvents(
@@ -19,8 +32,9 @@ export function useScheduleEvents(
   const getEventsForSlot = (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
     return events.filter(event => {
       const dateMatch = event.date === date
-      const detectedTimeSlot = getTimeSlot(event.start_time)
-      const timeSlotMatch = detectedTimeSlot === timeSlot
+      // time_slot（選択した枠）を優先、なければstart_timeから判定（フォールバック）
+      const eventTimeSlot = convertTimeSlot(event.timeSlot) || getTimeSlot(event.start_time)
+      const timeSlotMatch = eventTimeSlot === timeSlot
       const categoryMatch = selectedCategory === 'all' || event.category === selectedCategory
 
       // 貸切リクエストの場合
@@ -57,13 +71,19 @@ export function useScheduleEvents(
       timeSlot = eventOperations.modalInitialData.timeSlot
     } else if (eventOperations.editingEvent) {
       date = eventOperations.editingEvent.date
-      const startHour = parseInt(eventOperations.editingEvent.start_time.split(':')[0])
-      if (startHour < 12) {
-        timeSlot = 'morning'
-      } else if (startHour < 17) {
-        timeSlot = 'afternoon'
+      // time_slot（選択した枠）を優先、なければstart_timeから判定
+      const savedSlot = convertTimeSlot(eventOperations.editingEvent.timeSlot)
+      if (savedSlot) {
+        timeSlot = savedSlot
       } else {
-        timeSlot = 'evening'
+        const startHour = parseInt(eventOperations.editingEvent.start_time.split(':')[0])
+        if (startHour < 12) {
+          timeSlot = 'morning'
+        } else if (startHour < 17) {
+          timeSlot = 'afternoon'
+        } else {
+          timeSlot = 'evening'
+        }
       }
     } else {
       return {}
@@ -103,13 +123,19 @@ export function useScheduleEvents(
       timeSlot = eventOperations.modalInitialData.timeSlot
     } else if (eventOperations.editingEvent) {
       date = eventOperations.editingEvent.date
-      const startHour = parseInt(eventOperations.editingEvent.start_time.split(':')[0])
-      if (startHour < 12) {
-        timeSlot = 'morning'
-      } else if (startHour < 17) {
-        timeSlot = 'afternoon'
+      // time_slot（選択した枠）を優先、なければstart_timeから判定
+      const savedSlot = convertTimeSlot(eventOperations.editingEvent.timeSlot)
+      if (savedSlot) {
+        timeSlot = savedSlot
       } else {
-        timeSlot = 'evening'
+        const startHour = parseInt(eventOperations.editingEvent.start_time.split(':')[0])
+        if (startHour < 12) {
+          timeSlot = 'morning'
+        } else if (startHour < 17) {
+          timeSlot = 'afternoon'
+        } else {
+          timeSlot = 'evening'
+        }
       }
     } else {
       return []

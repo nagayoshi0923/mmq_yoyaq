@@ -9,6 +9,29 @@ import { showToast } from '@/utils/toast'
 import { getTimeSlot, TIME_SLOT_DEFAULTS } from '@/utils/scheduleUtils'
 import type { ScheduleEvent } from '@/types/schedule'
 
+/**
+ * time_slot（'朝'/'昼'/'夜'）を英語形式に変換
+ * 保存された枠を優先して使用するため
+ */
+function convertTimeSlot(timeSlot: string | undefined | null): 'morning' | 'afternoon' | 'evening' | null {
+  if (!timeSlot) return null
+  switch (timeSlot) {
+    case '朝': return 'morning'
+    case '昼': return 'afternoon'
+    case '夜': return 'evening'
+    default: return null
+  }
+}
+
+/**
+ * イベントの時間帯を取得（保存された枠を優先）
+ */
+function getEventTimeSlot(event: ScheduleEvent | { start_time: string; timeSlot?: string; time_slot?: string | null }): 'morning' | 'afternoon' | 'evening' {
+  const savedSlot = convertTimeSlot((event as any).timeSlot || (event as any).time_slot)
+  if (savedSlot) return savedSlot
+  return getTimeSlot(event.start_time)
+}
+
 interface Store {
   id: string
   name: string
@@ -155,7 +178,8 @@ export function useEventOperations({
         return false
       }
       
-      const eventTimeSlot = getTimeSlot(event.start_time)
+      // 保存された枠を優先して時間帯を判定
+      const eventTimeSlot = getEventTimeSlot(event)
       return event.date === date &&
              event.venue === venue &&
              eventTimeSlot === timeSlot &&
@@ -309,15 +333,20 @@ export function useEventOperations({
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData) => {
-    // タイムスロットを判定
-    const startHour = parseInt(performanceData.start_time.split(':')[0])
+    // タイムスロットを判定（保存された枠time_slotを優先、なければstart_timeから判定）
     let timeSlot: 'morning' | 'afternoon' | 'evening'
-    if (startHour < 12) {
-      timeSlot = 'morning'
-    } else if (startHour < 17) {
-      timeSlot = 'afternoon'
+    const savedSlot = convertTimeSlot(performanceData.time_slot)
+    if (savedSlot) {
+      timeSlot = savedSlot
     } else {
-      timeSlot = 'evening'
+      const startHour = parseInt(performanceData.start_time.split(':')[0])
+      if (startHour < 12) {
+        timeSlot = 'morning'
+      } else if (startHour < 17) {
+        timeSlot = 'afternoon'
+      } else {
+        timeSlot = 'evening'
+      }
     }
     
     // 重複チェック：同じ日時・店舗・時間帯に既に公演があるか
@@ -327,7 +356,8 @@ export function useEventOperations({
         return false
       }
       
-      const eventTimeSlot = getTimeSlot(event.start_time)
+      // 既存イベントの時間帯も保存された枠を優先
+      const eventTimeSlot = getEventTimeSlot(event)
       return event.date === performanceData.date &&
              event.venue === performanceData.venue &&
              eventTimeSlot === timeSlot &&
@@ -884,15 +914,20 @@ export function useEventOperations({
     if (!pendingPerformanceData || !conflictInfo) return
     
     try {
-      // タイムスロットを判定
-      const startHour = parseInt(pendingPerformanceData.start_time.split(':')[0])
+      // タイムスロットを判定（保存された枠time_slotを優先）
       let timeSlot: 'morning' | 'afternoon' | 'evening'
-      if (startHour < 12) {
-        timeSlot = 'morning'
-      } else if (startHour < 18) {
-        timeSlot = 'afternoon'
+      const savedSlot = convertTimeSlot(pendingPerformanceData.time_slot)
+      if (savedSlot) {
+        timeSlot = savedSlot
       } else {
-        timeSlot = 'evening'
+        const startHour = parseInt(pendingPerformanceData.start_time.split(':')[0])
+        if (startHour < 12) {
+          timeSlot = 'morning'
+        } else if (startHour < 18) {
+          timeSlot = 'afternoon'
+        } else {
+          timeSlot = 'evening'
+        }
       }
       
       // 既存の重複公演を削除
@@ -901,7 +936,8 @@ export function useEventOperations({
           return false
         }
         
-        const eventTimeSlot = getTimeSlot(event.start_time)
+        // 既存イベントの時間帯も保存された枠を優先
+        const eventTimeSlot = getEventTimeSlot(event)
         return event.date === pendingPerformanceData.date &&
                event.venue === pendingPerformanceData.venue &&
                eventTimeSlot === timeSlot &&
@@ -922,7 +958,8 @@ export function useEventOperations({
       
       // ローカル状態から削除
       setEvents(prev => prev.filter(event => {
-        const eventTimeSlot = getTimeSlot(event.start_time)
+        // 既存イベントの時間帯も保存された枠を優先
+        const eventTimeSlot = getEventTimeSlot(event)
         const isConflict = event.date === pendingPerformanceData.date &&
                           event.venue === pendingPerformanceData.venue &&
                           eventTimeSlot === timeSlot &&
