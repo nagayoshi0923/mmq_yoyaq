@@ -187,19 +187,33 @@ export const scheduleApi = {
       let timeSlot: string | undefined
       let isPrivateBooking = false
       
-      if (event.category !== 'private' && event.time_slot) {
+      // time_slotが保存されている場合は常にそれを優先（選択した枠を尊重）
+      if (event.time_slot) {
         timeSlot = event.time_slot
-      } else if (event.category === 'private') {
+        // デバッグ: 17時の公演を確認
+        if (event.start_time?.startsWith('17:')) {
+          console.log('🔍 api.ts getAll: 17時公演のtime_slot:', {
+            scenario: event.scenario,
+            time_slot_from_db: event.time_slot,
+            timeSlot_to_set: timeSlot
+          })
+        }
+      }
+      
+      if (event.category === 'private') {
         isPrivateBooking = true
-        const privateReservation = reservations.find(r => r.reservation_source === 'web_private')
-        if (privateReservation?.candidate_datetimes?.candidates) {
-          const confirmedCandidate = privateReservation.candidate_datetimes.candidates.find(
-            (c) => c.status === 'confirmed'
-          )
-          if (confirmedCandidate?.timeSlot) {
-            timeSlot = confirmedCandidate.timeSlot
-          } else if (privateReservation.candidate_datetimes.candidates[0]?.timeSlot) {
-            timeSlot = privateReservation.candidate_datetimes.candidates[0].timeSlot
+        // time_slotが未設定の場合のみ、予約情報から取得（フォールバック）
+        if (!timeSlot) {
+          const privateReservation = reservations.find(r => r.reservation_source === 'web_private')
+          if (privateReservation?.candidate_datetimes?.candidates) {
+            const confirmedCandidate = privateReservation.candidate_datetimes.candidates.find(
+              (c) => c.status === 'confirmed'
+            )
+            if (confirmedCandidate?.timeSlot) {
+              timeSlot = confirmedCandidate.timeSlot
+            } else if (privateReservation.candidate_datetimes.candidates[0]?.timeSlot) {
+              timeSlot = privateReservation.candidate_datetimes.candidates[0].timeSlot
+            }
           }
         }
       }
