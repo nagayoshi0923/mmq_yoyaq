@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { scenarioApi } from '@/lib/api'
+import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
 import { Loader2, Search, BookOpen, Users, Check } from 'lucide-react'
 
 // カスタム丸型チェックボックス
@@ -60,6 +62,7 @@ interface Assignment {
 
 export function StaffProfile() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [staffId, setStaffId] = useState<string | null>(null)
   const [staffName, setStaffName] = useState<string>('')
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -211,6 +214,9 @@ export function StaffProfile() {
       }))
 
       await assignmentApi.updateStaffAssignments(staffId, assignmentData)
+
+      // スタッフ管理ページのキャッシュを無効化（即座に反映されるようにする）
+      queryClient.invalidateQueries({ queryKey: staffKeys.all })
 
       showToast.success('保存しました')
     } catch (error) {
