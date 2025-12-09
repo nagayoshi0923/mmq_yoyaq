@@ -532,14 +532,6 @@ export function useScheduleData(currentDate: Date) {
         
       // Supabaseのデータを内部形式に変換
       const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => {
-        // デバッグ: 17時の公演のtime_slotを確認
-        if (event.start_time?.startsWith('17:')) {
-          logger.log('🔍 useScheduleData loadEvents: 17時公演のtime_slot:', {
-            scenario: event.scenario,
-            time_slot: event.time_slot,
-            start_time: event.start_time
-          })
-        }
         const scenarioTitle = event.scenarios?.title || event.scenario || ''
         // scenariosが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
         const isValidScenario = event.scenarios && event.scenarios.id

@@ -368,6 +368,8 @@ export const reservationApi = {
   },
 
   // スタッフ参加の予約を同期する関数
+  // GM欄の「スタッフ参加」と予約データを同期
+  // ※ 手動追加された予約（staff_participation, walk_in, web等）は削除しない
   async syncStaffReservations(
     eventId: string, 
     gms: string[], 
@@ -388,24 +390,38 @@ export const reservationApi = {
       // 2. 現在の予約を取得
       const currentReservations = await this.getByScheduleEvent(eventId)
 
-      // 3. スタッフ予約のみ抽出
-      const currentStaffReservations = currentReservations.filter(r =>
+      // 3. すべてのスタッフ予約を抽出（表示用）
+      const allStaffReservations = currentReservations.filter(r =>
         r.reservation_source === 'staff_entry' ||
-        r.payment_method === 'staff' ||
-        (r.participant_names && r.participant_names.some(name => staffParticipants.includes(name)))
+        r.reservation_source === 'staff_participation' ||
+        r.payment_method === 'staff'
       )
 
-      // 4. 追加が必要なスタッフ
+      // 4. GM欄から自動作成された予約のみ抽出（削除対象の候補）
+      const autoCreatedStaffReservations = currentReservations.filter(r =>
+        r.reservation_source === 'staff_entry'
+      )
+
+      // 5. 追加が必要なスタッフ（すべてのスタッフ予約をチェック）
       const toAdd = staffParticipants.filter(staffName =>
-        !currentStaffReservations.some(r => r.participant_names?.includes(staffName))
+        !allStaffReservations.some(r => r.participant_names?.includes(staffName))
       )
 
-      // 5. 削除が必要なスタッフ予約（スタッフリストに含まれていない予約）
-      const toRemove = currentStaffReservations.filter(r =>
+      // 6. 削除が必要なスタッフ予約
+      // ※ staff_entry（GM欄から自動作成）のみ削除対象
+      // ※ staff_participation, walk_in, web等は削除しない（手動追加や予約サイトからの予約を保護）
+      const toRemove = autoCreatedStaffReservations.filter(r =>
         !r.participant_names?.some(name => staffParticipants.includes(name))
       )
 
-      // 6. 実行
+      logger.log('🔄 スタッフ予約同期:', {
+        staffParticipants,
+        allStaffReservations: allStaffReservations.map(r => ({ name: r.participant_names, source: r.reservation_source })),
+        toAdd,
+        toRemove: toRemove.map(r => ({ name: r.participant_names, source: r.reservation_source }))
+      })
+
+      // 7. 実行
       // 追加
       if (eventDetails) {
         for (const staffName of toAdd) {
@@ -436,9 +452,10 @@ export const reservationApi = {
         }
       }
 
-      // 削除（キャンセル）
+      // 削除（キャンセル）- staff_entryのみ
       for (const res of toRemove) {
         if (res.status !== 'cancelled') {
+          logger.log('🗑️ スタッフ予約を削除:', { name: res.participant_names, source: res.reservation_source })
           await this.update(res.id, { status: 'cancelled' })
         }
       }

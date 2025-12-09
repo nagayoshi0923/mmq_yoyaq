@@ -36,20 +36,6 @@ export function useScheduleEvents(
       // event.timeSlot (camelCase) または (event as any).time_slot (snake_case) をチェック
       const savedTimeSlot = event.timeSlot || (event as any).time_slot
       const eventTimeSlot = convertTimeSlot(savedTimeSlot) || getTimeSlot(event.start_time)
-      
-      // デバッグ: 17時の公演を確認
-      if (event.start_time?.startsWith('17:')) {
-        console.log('🔍 17時公演のtime_slot確認:', {
-          scenario: event.scenario,
-          timeSlot_camel: event.timeSlot,
-          time_slot_snake: (event as any).time_slot,
-          savedTimeSlot,
-          convertedTimeSlot: convertTimeSlot(savedTimeSlot),
-          eventTimeSlot,
-          targetSlot: timeSlot
-        })
-      }
-      
       const timeSlotMatch = eventTimeSlot === timeSlot
       const categoryMatch = selectedCategory === 'all' || event.category === selectedCategory
 

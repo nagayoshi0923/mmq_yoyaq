@@ -190,14 +190,6 @@ export const scheduleApi = {
       // time_slotが保存されている場合は常にそれを優先（選択した枠を尊重）
       if (event.time_slot) {
         timeSlot = event.time_slot
-        // デバッグ: 17時の公演を確認
-        if (event.start_time?.startsWith('17:')) {
-          console.log('🔍 api.ts getAll: 17時公演のtime_slot:', {
-            scenario: event.scenario,
-            time_slot_from_db: event.time_slot,
-            timeSlot_to_set: timeSlot
-          })
-        }
       }
       
       if (event.category === 'private') {

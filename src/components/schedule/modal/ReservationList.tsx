@@ -13,6 +13,7 @@ import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { findMatchingStaff } from '@/utils/staffUtils'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
 import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { EmailPreview } from './EmailPreview'
@@ -492,9 +493,16 @@ export function ReservationList({
       const scenarioObj = scenarios.find(s => s.title === currentEventData.scenario)
       const storeObj = stores.find(s => s.id === currentEventData.venue)
       
+      // スタッフかどうかを判定
+      const isStaff = findMatchingStaff(participantName, null, staff) !== null
+      const paymentMethod = isStaff ? 'staff' : newParticipant.payment_method
+      
       const participationFee = scenarioObj?.participation_fee || 0
-      const basePrice = newParticipant.payment_method === 'staff' ? 0 : participationFee
+      const basePrice = paymentMethod === 'staff' ? 0 : participationFee
       const totalPrice = basePrice * newParticipant.participant_count
+      
+      // スタッフ参加の場合は reservation_source を 'staff_participation' に設定
+      const reservationSource = isStaff ? 'staff_participation' : 'walk_in'
       
       const reservation: Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'> = {
         schedule_event_id: event.id,
@@ -513,10 +521,10 @@ export function ReservationList({
         total_price: totalPrice,
         discount_amount: 0,
         final_price: totalPrice,
-        payment_method: participantName === 'デモ参加者' ? 'onsite' : newParticipant.payment_method,
-        payment_status: (participantName === 'デモ参加者' || newParticipant.payment_method === 'online') ? 'paid' : (newParticipant.payment_method === 'staff' ? 'paid' : 'pending'),
+        payment_method: participantName === 'デモ参加者' ? 'onsite' : paymentMethod,
+        payment_status: (participantName === 'デモ参加者' || paymentMethod === 'online') ? 'paid' : (paymentMethod === 'staff' ? 'paid' : 'pending'),
         status: 'confirmed' as const,
-        reservation_source: 'walk_in' as const
+        reservation_source: reservationSource as 'walk_in' | 'staff_participation'
       }
 
       const createdReservation = await reservationApi.create(reservation)
@@ -596,12 +604,26 @@ export function ReservationList({
                     <Label htmlFor="customer_name">参加者名 *</Label>
                     <AutocompleteInput
                       value={newParticipant.customer_name}
-                      onChange={(value) => setNewParticipant(prev => ({ ...prev, customer_name: value }))}
+                      onChange={(value) => {
+                        // スタッフかどうかを判定し、自動的にpayment_methodを設定
+                        const matchedStaff = findMatchingStaff(value, null, staff)
+                        setNewParticipant(prev => ({
+                          ...prev,
+                          customer_name: value,
+                          // スタッフの場合は自動的に「スタッフ参加」に設定
+                          payment_method: matchedStaff ? 'staff' : prev.payment_method === 'staff' ? 'onsite' : prev.payment_method
+                        }))
+                      }}
                       placeholder="参加者名を入力"
                       staffOptions={staff.map(s => ({ value: s.name, label: s.name, type: 'staff' as const }))}
                       customerOptions={customerNames.map(name => ({ value: name, label: name, type: 'customer' as const }))}
                       showStaffOnFocus={true}
                     />
+                    {findMatchingStaff(newParticipant.customer_name, null, staff) && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        ※ スタッフとして認識されました
+                      </p>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>

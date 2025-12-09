@@ -283,11 +283,6 @@ export function PerformanceModal({
   // 開始時間変更時の自動設定
   // ※開始時間を変更しても時間帯（朝/昼/夜）は変更されない
   const handleStartTimeChange = (startTime: string) => {
-    logger.log('🔍 開始時間変更:', { 
-      startTime, 
-      currentTimeSlot: timeSlot,
-      message: '時間帯は変更されません'
-    })
     const endTime = formData.scenario ? calculateEndTime(startTime, formData.scenario) : startTime
     
     setFormData((prev: EventFormData) => ({
@@ -310,12 +305,6 @@ export function PerformanceModal({
       time_slot: getTimeSlotLabel(timeSlot),
       gm_roles: formData.gmRoles
     }
-    logger.log('💾 公演保存:', { 
-      timeSlot,
-      time_slot: saveData.time_slot,
-      start_time: saveData.start_time,
-      message: `時間帯「${saveData.time_slot}」で保存します`
-    })
     onSave(saveData)
     onClose()
   }
