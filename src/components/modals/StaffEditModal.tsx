@@ -154,7 +154,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
     }
 
     try {
-      // アサインメントが読み込まれている場合のみ、special_scenariosを更新
+      // アサインメントが読み込まれている場合のみ、special_scenariosとexperienced_scenariosを更新
       // 読み込み失敗時は元のデータを維持
       const specialScenarios = assignmentsLoaded
         ? scenarioAssignments
@@ -162,7 +162,32 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             .map(a => a.scenarioId)
         : formData.special_scenarios || []
 
-      const staffData: Staff = {
+      // 体験済みシナリオ（GM不可で体験済みのみ）を抽出
+      // 注意: GM可能なシナリオは体験済みリストに含めない（GM可能 = 自動的に体験済み）
+      const experiencedScenarios = assignmentsLoaded
+        ? scenarioAssignments
+            .filter(a => {
+              // is_experiencedがtrueで、かつGM不可（can_main_gm=false AND can_sub_gm=false）のもののみ
+              return a.is_experienced === true && !a.can_main_gm && !a.can_sub_gm
+            })
+            .map(a => a.scenarioId)
+        : (staff as Staff & { experienced_scenarios?: string[] })?.experienced_scenarios || []
+
+      // デバッグログ
+      logger.log('💾 保存時のアサインメント状態:', {
+        total: scenarioAssignments.length,
+        gmScenarios: specialScenarios.length,
+        experiencedScenarios: experiencedScenarios.length,
+        assignments: scenarioAssignments.map(a => ({
+          scenarioId: a.scenarioId,
+          can_main_gm: a.can_main_gm,
+          can_sub_gm: a.can_sub_gm,
+          is_experienced: a.is_experienced,
+          status: a.status
+        }))
+      })
+
+      const staffData: Staff & { experienced_scenarios?: string[] } = {
         id: staff?.id || '',
         name: formData.name!,
         line_name: '', // 削除された項目はデフォルト値
@@ -181,28 +206,18 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         available_scenarios: [], // 削除された項目はデフォルト値
         // special_scenariosは後方互換性のために保持
         special_scenarios: specialScenarios,
+        // experienced_scenariosを追加（useStaffMutationで使用される）
+        experienced_scenarios: experiencedScenarios,
         notes: formData.notes || '',
         avatar_color: formData.avatar_color || null,
         created_at: staff?.created_at || formatDateJST(getCurrentJST()),
         updated_at: formatDateJST(getCurrentJST())
       }
 
-      // 1. スタッフ情報を保存 (onSave内でSupabase更新処理が行われる想定)
+      // スタッフ情報を保存
+      // onSave内でuseStaffMutationが実行され、special_scenariosとexperienced_scenariosから
+      // アサインメントが自動的に更新されるため、ここでの追加更新は不要
       await onSave(staffData)
-      
-      // 2. 担当シナリオ詳細を保存
-      // - 既存スタッフ編集時のみ
-      // - アサインメントが正常に読み込まれた場合のみ
-      // - アサインメントが変更された場合のみ
-      if (staff?.id && assignmentsLoaded && assignmentsChanged) {
-        try {
-        await assignmentApi.updateStaffAssignments(staff.id, scenarioAssignments)
-        } catch (assignmentError) {
-          logger.error('Error updating assignments:', assignmentError)
-          // アサインメント更新に失敗しても、スタッフ情報は保存済みなので警告のみ
-          showToast.warning('スタッフ情報は保存されました', '担当シナリオの更新に失敗しました。再度編集画面を開いて確認してください')
-        }
-      }
       
       if (closeAfterSave) {
         onClose()
@@ -264,6 +279,17 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
             updated.is_experienced = false
             break
         }
+      } else if (updates.is_experienced !== undefined) {
+        // is_experiencedが直接変更された場合
+        if (updated.is_experienced) {
+          updated.can_main_gm = false
+          updated.can_sub_gm = false
+          updated.status = 'experienced'
+        } else if (updated.can_main_gm || updated.can_sub_gm) {
+          updated.status = 'can_gm'
+        } else {
+          updated.status = 'want_to_learn'
+        }
       } else if (updates.can_main_gm !== undefined || updates.can_sub_gm !== undefined) {
          if (updated.can_main_gm || updated.can_sub_gm) {
            updated.status = 'can_gm'
@@ -274,6 +300,12 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
            updated.status = 'want_to_learn'
          }
       }
+      
+      logger.log('🔄 アサインメント更新:', {
+        scenarioId,
+        updates,
+        result: updated
+      })
       
       return updated
     }))

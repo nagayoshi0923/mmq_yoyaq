@@ -87,6 +87,20 @@ export function useStaffMutation() {
           }
         })
         
+        // デバッグログ
+        logger.log('💾 useStaffMutation: アサインメント保存', {
+          staffId: staff.id,
+          gmScenarios: gmScenarios.length,
+          expScenarios: expScenarios.length,
+          totalAssignments: assignments.length,
+          assignments: assignments.map(a => ({
+            scenarioId: a.scenarioId,
+            can_main_gm: a.can_main_gm,
+            can_sub_gm: a.can_sub_gm,
+            is_experienced: a.is_experienced
+          }))
+        })
+        
         if (assignments.length > 0 || gmScenarios.length === 0) {
           await assignmentApi.updateStaffAssignments(staff.id, assignments)
         }

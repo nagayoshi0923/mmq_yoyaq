@@ -121,35 +121,45 @@ ancr0qw.3107@gmail.com
 ---
 
 ### 7. Edge Function (invite-staff) のエラーハンドリング
-**状態**: 未調査  
+**状態**: 改善済み（要確認）  
 **症状**: 招待処理中のエラーで中途半端な状態になる  
 **影響**: 
 - `staff` テーブルに `user_id` が設定されない
 - `users` テーブルにレコードがない
 
-**解決案**:
-- [ ] トランザクション処理の導入
-- [ ] ロールバック機能
-- [ ] エラー時のクリーンアップ
+**現在の実装状況**:
+- [x] 新規ユーザー作成時のロールバック実装済み（users/staff/Auth削除）
+- [x] 招待リンク生成失敗時のロールバック実装済み
+- [x] エラーハンドリングとログ出力実装済み
+
+**改善案**:
+- [ ] エラー発生時の詳細ログ記録（監査用）
+- [ ] リトライ機能の検討
+- [ ] エラー通知機能（管理者への通知）
 
 ---
 
 ## 🟡 軽度の問題（LOW）
 
 ### 8. determineUserRole関数の精度
-**状態**: 要改善  
+**状態**: ✅修正済み（2025-12-04）  
 **症状**: メールアドレスのパターンマッチでロール判定している  
 **影響**: 特定ドメインのユーザーが誤ったロールになる可能性
 
+**修正内容**:
+- [x] `staff` テーブルの存在チェックを優先（AuthContextで実装済み）
+- [x] メールパターンマッチは最終フォールバックのみ（管理者メールリストのみ）
+- [x] セキュリティ強化：staffロールは返さず、admin/customerのみ
+
+**修正ファイル**: `src/utils/authUtils.ts`
+
 **現在のロジック**:
 ```typescript
-// 現在: メールパターンで判定（不正確）
-if (email.includes('@mmq.co.jp')) return 'staff'
+// 修正後: 管理者メールリストのみ特定、staffは返さない
+const adminEmails = ['mai.nagayoshi@gmail.com', 'queens.waltz@gmail.com']
+if (adminEmails.includes(normalizedEmail)) return 'admin'
+return 'customer' // staffの判定はAuthContextでstaffテーブルを確認
 ```
-
-**解決案**:
-- [ ] `staff` テーブルの存在チェックを優先
-- [ ] メールパターンマッチは最終フォールバックのみ
 
 ---
 
@@ -183,14 +193,46 @@ if (email.includes('@mmq.co.jp')) return 'staff'
 ## 🔵 改善提案
 
 ### 11. データ整合性の自動チェック
+**状態**: ✅実装済み（2025-12-04）
 **提案**: 
 - 定期的に `users` と `staff` テーブルの整合性をチェック
 - 不整合を検出したら管理者に通知
 
+**実装内容**:
+- [x] SQLスクリプト作成（`database/check_auth_integrity.sql`）
+- [x] Pythonスクリプト作成（`check_auth_integrity.py`）
+- [x] 幽霊スタッフ検出
+- [x] 孤立したstaffレコード検出
+- [x] 紐付け可能なstaffレコード検出
+- [x] email不一致検出
+- [x] 整合性サマリー表示
+
+**使用方法**:
+```bash
+# SQLスクリプト実行
+psql -h <host> -U <user> -d <database> -f database/check_auth_integrity.sql
+
+# Pythonスクリプト実行
+python check_auth_integrity.py
+```
+
 ### 12. 認証イベントのログ記録
+**状態**: ✅実装済み（2025-12-04）
 **提案**:
 - ログイン/ログアウト/ロール変更をログテーブルに記録
 - 問題発生時のトレーサビリティ確保
+
+**実装内容**:
+- [x] `auth_logs` テーブル作成（マイグレーション）
+- [x] ログイン成功/失敗のログ記録
+- [x] ログアウト成功/失敗のログ記録
+- [x] ロール変更のログ記録
+- [x] RLS（Row Level Security）設定
+- [x] インデックス作成（検索性能向上）
+
+**実装ファイル**:
+- `supabase/migrations/create_auth_logs_table.sql`
+- `src/contexts/AuthContext.tsx`
 
 ### 13. スタッフ招待フローの改善
 **状態**: 修正済み（2025-12-04）
@@ -216,8 +258,10 @@ if (email.includes('@mmq.co.jp')) return 'staff'
 | 4 | タイムアウト時ロール | MEDIUM | ✅修正済み | - |
 | 5 | 複数タブ競合 | MEDIUM | ✅修正済み | - |
 | 6 | パスワードリセット | MEDIUM | ✅修正済み | - |
-| 7 | Edge Functionエラー | MEDIUM | 未調査 | - |
+| 7 | Edge Functionエラー | MEDIUM | 改善済み | - |
 | 8 | determineUserRole | LOW | ✅修正済み | - |
+| 11 | データ整合性チェック | - | ✅実装済み | - |
+| 12 | 認証イベントログ | - | ✅実装済み | - |
 | 9 | ロール変更UX | LOW | ✅修正済み | - |
 | 10 | 認証可視化 | LOW | ✅修正済み | - |
 
@@ -236,4 +280,8 @@ if (email.includes('@mmq.co.jp')) return 'staff'
 | 2025-12-04 | determineUserRole関数を安全なフォールバックに改善 |
 | 2025-12-04 | スタッフ管理ページに認証状態列を追加 |
 | 2025-12-04 | 再招待ボタンを追加 |
+| 2025-12-04 | データ整合性チェックスクリプト作成（SQL + Python） |
+| 2025-12-04 | 認証イベントログ記録機能実装（auth_logsテーブル + AuthContext統合） |
+| 2025-12-04 | determineUserRole関数のTODO更新（修正済みを反映） |
+| 2025-12-04 | invite-staff Edge Functionのエラーハンドリング状況を確認・更新 |
 

@@ -1,0 +1,315 @@
+# PROJECT_RULES.md — 予約サイト プロジェクトルール（完全版）
+
+本書は、株式会社クインズワルツが開発・運用するマーダーミステリー予約サイトおよび関連システム全体に適用される開発ルールおよび運用基準を定めたものである。すべての開発者およびAIアシスタント（Cursor等）は本ルールに従うこと。
+
+---
+
+# 予約サイト プロジェクトルール（完全版）
+
+## ■ 1. Definition of Done（完成の定義）
+
+「npm run verify」（typecheck / lint / build）がすべて成功していること。
+
+**重要**: コードを変更した場合は、必ずコミット前に`npm run verify`を実行し、すべて成功することを確認すること。未検証の状態でコミット・PRを作成してはならない。
+
+Pull Request（PR）には変更理由と影響範囲が明記されていること。
+
+UI変更時はスクリーンショットまたは動画を添付すること。
+
+主要導線（予約・キャンセルなど）はE2E（Playwright）テストで最低1ケース担保すること（テスト実装後）。
+
+「できた」と報告する前にverifyがグリーンであること。
+
+### verifyの必須チェック項目
+- `npm run typecheck`: TypeScriptの型エラーがないこと
+- `npm run lint`: ESLintの警告・エラーがないこと
+- `npm run build`: ビルドが成功すること
+
+## ■ 2. ブランチ戦略
+
+| ブランチ名 | 用途 |
+|-----------|------|
+| main | 本番環境用ブランチ |
+| develop | 次リリース開発用 |
+| feature/* | 新機能・改修開発用（1機能単位） |
+| hotfix/* | 緊急修正用（main → developにも反映） |
+
+## ■ 3. Pull Request（PR）ルール
+
+1PR = 1目的（400行以内を目安とする）。
+
+タイトルは日本語Conventional Commits形式を使用する。
+　例：feat: 予約作成に確認モーダルを追加
+
+PRテンプレートを必ず使用する。
+
+提出前に必ず「npm run verify」を実行し、成功を確認すること。
+
+指摘対応は「再発防止テストを追加」で完結させること。
+
+## ■ 4. テスト方針（テストピラミッド）
+
+**注意**: 現在、テストツールは未実装です。将来的な方針として以下を想定しています。
+
+| 層 | 内容 | ツール（予定） |
+|----|------|--------|
+| ユニット | ロジック・小コンポーネント | Vitest / RTL（未実装） |
+| 結合 | API・DB契約の整合性 | Zod / Supabase型（部分実装） |
+| E2E | 主要導線（予約・キャンセルなど） | Playwright（未実装） |
+
+**現状**: 手動テストと `npm run verify`（typecheck / lint / build）による品質担保を行っています。
+
+## ■ 5. 型・品質ルール
+
+**現状**: TypeScriptのstrictモードは無効化されています（`tsconfig.json`で`"strict": false`）。
+将来的には以下の設定を有効化することを推奨します：
+- `strict: true`
+- `exactOptionalPropertyTypes: true`
+- `noUncheckedIndexedAccess: true`
+
+anyの使用は禁止。ただし例外的に必要な場合は「// TODO(any): 理由」をコメントすること。
+
+assertNever()を用いて列挙型の漏れを防止する。
+
+importの循環は警告以上で排除する。
+
+既存のZodスキーマ・Supabase型に整合していることを確認する。
+
+## ■ 6. セキュリティと環境
+
+Supabase RLSはテストで検証すること。
+
+機密情報は.env.*に保存し、GitHub Secretsにも登録すること。
+
+依存関係の更新は`npm update`で行い、重大脆弱性は即時PRを作成すること。
+
+## ■ 7. リリースフロー
+
+**注意**: CIは未実装のため、現在は手動で`npm run verify`を実行して確認します。
+
+developブランチのCIがグリーンであることを確認する（CI実装後）。
+
+リリースノートを更新する。
+
+mainブランチへPRを作成する。
+
+タグ付けルール：
+　・patch：修正
+　・minor：機能追加
+　・major：破壊的変更
+
+## ■ 8. コントリビュートガイド
+
+### セットアップ手順
+　npm install
+　npm run dev
+
+### コーディング規約
+　- TypeScript厳格。
+　- UIはshadcn/ui準拠。
+　- TanStack TableはcreateColumnHelper()で行型固定。
+　- Zodで実行時スキーマ検証＋型生成。
+
+### コミット規約（日本語Conventional Commits）
+
+| 種別 | 説明 |
+|------|------|
+| feat | 機能追加 |
+| fix | バグ修正 |
+| docs | ドキュメント更新 |
+| style | フォーマット修正 |
+| refactor | 振る舞い不変の改善 |
+| test | テスト追加・修正 |
+| chore | ツール・設定変更 |
+
+例：feat: 予約作成に確認モーダルを追加
+
+### コミット原子性ルール（1作業1コミット）
+
+- **1コミット = 1作業**（1つの論理的な変更単位）
+- 複数の無関係な変更を1つのコミットに含めない
+- コミットは独立して意味を持つ単位とする
+- 「ついでに修正」は別コミットに分離すること
+
+## ■ 9. 自動検証とフック
+
+package.jsonの主要スクリプト
+　typecheck / lint / build / verifyを定義する（testは未実装）。
+
+**注意**: pre-pushフックは未実装です。コミット前に手動で`npm run verify`を実行してください。
+将来的にはpre-pushでnpm run verifyを自動実行し、未検証状態でのpushを禁止する予定です。
+
+## ■ 10. CI設定
+
+**注意**: GitHub ActionsのCI設定は未実装です。
+
+将来的な方針：
+- verifyワークフローでtypecheck, lint, buildを自動検証する。
+- e2eワークフローでPlaywrightテストを自動実行する（テスト実装後）。
+
+**現状**: 手動で`npm run verify`を実行して品質を担保しています。
+
+## ■ 11. Pull Requestテンプレート
+
+目的（何を解決するか）
+
+変更点（箇条書き）
+
+動作確認（verify結果、E2E実施、スクショ等）
+
+型の根拠（Zodスキーマ / Supabase生成型など）
+
+影響範囲（関連機能・リスク）
+
+## ■ 12. Cursor AI開発ルール
+
+**言語設定（厳守）**:
+- **思考プロセス（Thought）を含むすべての出力は日本語で記述すること。**
+- ツール呼び出しの説明（explanation）も日本語で記述すること。
+- Gitコミットメッセージは日本語のConventional Commits形式を使用すること。
+- コード内のコメントも原則として日本語を使用すること。
+
+完成条件(DoD)：npm run verifyが成功していること。
+
+**必須ルール**: 
+- コード変更後は必ず`npm run verify`を実行すること
+- verifyが失敗している場合は「完了」「できた」と言ってはならない
+- verifyが通らない場合は、エラーを修正してから報告すること
+- **実装変更時のドキュメント更新**:
+  - 機能仕様やUIを変更した場合は、必ず対応するマニュアルページ（`/manual`）やドキュメント（`*.md`）も更新すること。
+  - 実装とドキュメントの乖離を許容しない。これを完了の定義に含める。
+
+出力フォーマット：
+　変更概要 / コード差分 / verify結果（成功・失敗）を記載。
+
+ルール：
+　既存型（Zod, Supabase生成型, DTO）に整合させる。
+　anyの安易な使用を禁止。
+　1PR=1目的で小さく原子的な差分を保つ。
+
+禁止事項：
+　未検証のまま「完了」「できた」と言うこと。
+
+## ■ 13. CODEOWNERS（主要ファイルのレビュー責任）
+
+**注意**: `.github/CODEOWNERS`ファイルは未実装です。
+
+将来的な方針として、以下のファイルのレビュー責任を定義する予定です：
+- /src/schemas/* ：@maintainer
+- /src/lib/db/* ：@maintainer
+- /src/lib/api/* ：@maintainer
+- /src/app/(booking)/** ：@maintainer
+
+## ■ 14. コミットリント設定
+
+**注意**: コミットリント設定は未実装です。
+
+将来的な方針：
+- type-enum：feat, fix, docs, style, refactor, test, chore, perf, revert。
+- subject-case：制限なし（日本語許可）。
+
+**現状**: 手動で日本語Conventional Commits形式に従ってコミットメッセージを作成してください。
+
+---
+
+# 追加の"縛り"ルール（設計レビューを反映）
+
+## 1) データの単一情報源（SSOT）
+- **スタッフ×シナリオの担当関係**は `staff_scenario_assignments` を**唯一の正**とする。  
+  - `staff.available_scenarios` / `staff.special_scenarios` は**派生/キャッシュのみ**（直接書き込み禁止）。  
+  - FE は一覧表示で必要なら **READ-ONLY** に投影（保存先は常に `staff_scenario_assignments`）。
+- **予約とスケジュールの関連**は `reservations.schedule_event_id` で**一意に紐付け**る（1予約＝1枠）。  
+  - “仮予約/問い合わせ”は `schedule_event_id = NULL` を許可、確定時に必須化。  
+  - `schedule_events` 側に予約要約を**重複保持しない**（要約列を置く場合は生成/キャッシュ扱い）。
+
+## 2) 一意制約・整合性（DBに必ず制約を張る）
+- `customers.user_id` **UNIQUE**（同一ユーザー＝1顧客プロファイル）。  
+- `customers.email` **UNIQUE**、`customers.phone` は運用方針に応じて **UNIQUE** or 正規化チェック。  
+- `reservations.reservation_number` **UNIQUE**。  
+- `staff_scenario_assignments (staff_id, scenario_id)` **PRIMARY KEY**（複合主キー）。  
+- 外部キーは **ON UPDATE RESTRICT / ON DELETE RESTRICT** を原則（履歴保持のため）。どうしても削除連鎖が必要な場合のみ PR で合意。
+
+## 3) 変更禁止・冗長禁止
+- **同一情報の重複保存禁止**（DB/DTO/UI層どこか1か所のみを正とする）。  
+- `schedule_events` に「予約カウント/要約」を持つなら**派生列**として扱い、更新は DB トリガ or サービス層のみ。  
+- “ついで変更”での**命名変更/パス変更**禁止（レビュー不能化を防止）。
+
+## 4) 権限・RLS（最低限の必須）
+- **RLS必須**。  
+  - 顧客は `reservations.customer_id = auth.uid()` のみ参照/編集可。  
+  - スタッフは自店舗/自担当枠に限定（詳細はポリシー化）。  
+  - 管理者は全アクセス可。  
+- **PIIの最小化**：電話・住所・メールは**閲覧権限を役割別に制限**し、ログ/監視に送らない。
+
+## 5) API/フロント規約
+- サーバーデータは **TanStack React Query** をSSOTに集約。コンポーネントは **selector で最小投影**（安定参照を返す）。  
+- DTO→ViewModel 変換は**mapper層**で行い、UIでのアドホック整形を禁止。  
+- フォームは **react-hook-form + zod**（型とバリデーションを一箇所に）。  
+- **削除は原則 Soft Delete**（`status` や `deleted_at`）— 履歴消滅は禁止。
+
+## 6) スキーマ運用
+- **スキーマ変更＝必ず SQL マイグレーション**（`/sql/migrations`）。PR に同梱し、ロールバックSQLも併記。  
+- ER 図（Mermaid/画像）は **PRで更新必須**。README / docs を“同時更新”しないPRは不可。
+
+## 7) 命名・型の統一
+- 連絡先カラムは全テーブルで名称統一：`email`, `phone`, `address`（`phone_number` など混在禁止）。  
+- 日時は **TIMESTAMPTZ**、日付は **DATE**。金額は **INTEGER（最小通貨単位）** とし、通貨は別管理 or 固定。  
+- 役割は当面 `staff.role TEXT[]` を維持するが、将来は `roles` マスタへ移行方針（PRで段階導入）。
+
+## 8) Tailwind / UI
+- Tailwind は **v3固定**（v4の `@apply` 制限回避）。  
+- グローバルCSSでの `@apply` は**使い過ぎない**。ユーティリティは**コンポーネント側へ付与**。  
+- コンポーネントは **Container / Presentational 分離**（ロジックはContainerに閉じ込める）。
+
+## 9) 監査・ログ
+- 予約・支払い・スタッフ割当の**監査ログ**（だれが・いつ・何を）をサービス層で記録。  
+- 例外は ErrorBoundary + 監視（Sentry等）。**PIIは送信禁止**。
+
+## 10) リリース・品質ゲート
+- `npm run typecheck && npm run lint && npm run build` を CI 必須。  
+- main 直 push 禁止、タグは SemVer。DB 変更を含むリリースは**逆マイグレーション**を同梱。
+
+## 11) 🚨 重要機能保護ルール（CRITICAL FEATURES PROTECTION）
+- **背景**: 過去に実装された重要機能が、後の修正で失われる事例が発生した。
+- **対策**: 以下のルールを厳守すること。
+
+### 保護対象の機能
+`CRITICAL_FEATURES.md` に記載されている機能は、特に慎重に扱うこと。
+
+### コード修正時のルール
+1. **🚨 CRITICAL マークがある関数・機能を修正する際は、必ずコメントを読んで理解すること**
+   - コメントに記載された要件を満たしているか確認
+   - 簡易版・退化版を実装しないこと
+
+2. **既存実装を必ず確認してから再実装すること**
+   - 「一から実装して」と依頼する前に、既存のコードを読む
+   - 既存の実装が完全版の場合、それを保持・改善すること
+
+3. **重要機能を修正した場合、`CRITICAL_FEATURES.md` に変更履歴を記録すること**
+   - 日付、変更内容、理由を明記
+   - 将来の参照資料とする
+
+4. **以下の機能は絶対に削除・劣化させないこと**
+   - **スケジュール重複防止機能**（`ScheduleManager.handleSavePerformance`）
+   - **貸切リクエスト承認時の競合チェック**（`PrivateBookingManagement.loadConflictInfo`）
+     - 特に注意: `reservations` と `schedule_events` の**両方**をチェックすること
+
+5. **AIに依頼する際の注意**
+   - 「この機能を実装して」と依頼する前に、既に実装されていないか確認
+   - ファイル全体を書き換える依頼は避け、部分的な修正を依頼すること
+   - 大規模なリファクタリング時は、重要機能が失われないか特に注意
+
+### 機能が失われた場合の対応
+1. `git log` で過去のコミットを確認
+2. `CRITICAL_FEATURES.md` を参照して、失われた機能の仕様を確認
+3. 完全版を復元し、テストして動作確認
+4. 再発防止のため、保護コメントや文書を追加
+
+---
+
+### ✅ 即時タスク（README/スキーマへ反映）
+1. `reservations` に `schedule_event_id UUID NULL` を追加（確定時 NOT NULL 運用）。  
+2. `customers.user_id` / `customers.email` に UNIQUE 制約を追加。  
+3. `staff.available_scenarios` / `special_scenarios` を **READ-ONLY（派生）と明記**。将来は削除予定の注記。  
+4. ER 図を更新（`reservations → schedule_events` のFKを追記）。  
+5. RLS ポリシーのドラフトを `docs/rls_policies.sql` に作成。

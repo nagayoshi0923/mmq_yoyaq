@@ -37,6 +37,44 @@ interface AuthProviderProps {
 // 複数タブ間で認証状態を同期するためのチャンネル名
 const AUTH_CHANNEL_NAME = 'mmq-auth-sync'
 
+/**
+ * 認証イベントをログに記録
+ */
+async function logAuthEvent(
+  eventType: 'login' | 'logout' | 'role_change' | 'password_reset' | 'password_set' | 'signup',
+  userId: string | null,
+  options?: {
+    oldRole?: 'admin' | 'staff' | 'customer'
+    newRole?: 'admin' | 'staff' | 'customer'
+    success?: boolean
+    errorMessage?: string
+    metadata?: Record<string, unknown>
+  }
+) {
+  try {
+    // クライアント側でIPアドレスとUser-Agentを取得
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null
+    
+    const { error } = await supabase.from('auth_logs').insert({
+      user_id: userId,
+      event_type: eventType,
+      old_role: options?.oldRole,
+      new_role: options?.newRole,
+      user_agent: userAgent,
+      success: options?.success ?? true,
+      error_message: options?.errorMessage,
+      metadata: options?.metadata ?? {},
+    })
+    
+    if (error) {
+      logger.warn('⚠️ 認証ログ記録エラー:', error)
+    }
+  } catch (err) {
+    // ログ記録の失敗は認証処理を阻害しない
+    logger.warn('⚠️ 認証ログ記録例外:', err)
+  }
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
@@ -589,6 +627,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       }
 
+      // ロール変更を検出してログに記録
+      if (existingUser && existingUser.role !== role) {
+        logger.log('🔄 ロール変更検出:', { 
+          old: existingUser.role, 
+          new: role 
+        })
+        await logAuthEvent('role_change', supabaseUser.id, {
+          oldRole: existingUser.role,
+          newRole: role,
+          success: true,
+        })
+      }
+      
       const userData = {
         id: supabaseUser.id,
         email: supabaseUser.email!,
@@ -667,10 +718,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (error) {
         logger.error('❌ ログインエラー:', error.message)
+        // ログイン失敗をログに記録
+        await logAuthEvent('login', data.user?.id ?? null, {
+          success: false,
+          errorMessage: error.message,
+        })
         throw error
       }
       
       logger.log('✅ ログイン成功:', data.user?.email)
+      
+      // ログイン成功をログに記録
+      if (data.user) {
+        const userData = userRef.current
+        await logAuthEvent('login', data.user.id, {
+          newRole: userData?.role,
+          success: true,
+        })
+      }
       
       // 他のタブにログインを通知
       if (broadcastChannelRef.current) {
@@ -686,9 +751,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function signOut() {
     setLoading(true)
+    const currentUserId = userRef.current?.id ?? null
+    const currentUserRole = userRef.current?.role
+    
     try {
       const { error } = await supabase.auth.signOut()
-      if (error) throw error
+      if (error) {
+        // ログアウト失敗をログに記録
+        await logAuthEvent('logout', currentUserId, {
+          success: false,
+          errorMessage: error.message,
+        })
+        throw error
+      }
+      
+      // ログアウト成功をログに記録
+      await logAuthEvent('logout', currentUserId, {
+        oldRole: currentUserRole,
+        success: true,
+      })
       
       // ユーザー情報をクリア
       setUser(null)
