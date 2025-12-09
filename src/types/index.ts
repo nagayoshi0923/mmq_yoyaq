@@ -377,7 +377,7 @@ export interface Reservation {
   cancellation_reason?: string | null
   cancelled_at?: string | null
   external_reservation_id?: string | null
-  reservation_source: 'web' | 'phone' | 'walk_in' | 'external' | 'web_private'
+  reservation_source: 'web' | 'phone' | 'walk_in' | 'external' | 'web_private' | 'staff_entry' | 'staff_participation' | 'demo_auto' | 'demo'
   created_at: string
   updated_at: string
   // 予約サイトから直接保存される顧客情報（web, web_private予約の場合）

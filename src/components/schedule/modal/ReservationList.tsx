@@ -524,7 +524,7 @@ export function ReservationList({
         payment_method: participantName === 'デモ参加者' ? 'onsite' : paymentMethod,
         payment_status: (participantName === 'デモ参加者' || paymentMethod === 'online') ? 'paid' : (paymentMethod === 'staff' ? 'paid' : 'pending'),
         status: 'confirmed' as const,
-        reservation_source: reservationSource as 'walk_in' | 'staff_participation'
+        reservation_source: reservationSource
       }
 
       const createdReservation = await reservationApi.create(reservation)
