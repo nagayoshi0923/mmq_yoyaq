@@ -26,6 +26,7 @@ interface ReservationListProps {
   scenarios: Scenario[]
   staff: StaffType[]
   onParticipantChange?: (eventId: string, newCount: number) => void
+  onGmsChange?: (gms: string[], gmRoles: Record<string, string>) => void
 }
 
 export function ReservationList({
@@ -35,7 +36,8 @@ export function ReservationList({
   stores,
   scenarios,
   staff,
-  onParticipantChange
+  onParticipantChange,
+  onGmsChange
 }: ReservationListProps) {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loadingReservations, setLoadingReservations] = useState(false)
@@ -533,16 +535,40 @@ export function ReservationList({
         try {
           const { data: eventData } = await supabase
             .from('schedule_events')
-            .select('current_participants')
+            .select('current_participants, gms, gm_roles')
             .eq('id', event.id)
             .single()
           
           const currentCount = eventData?.current_participants || 0
           const newCount = currentCount + newParticipant.participant_count
           
+          // スタッフ参加の場合、gmsとgm_rolesも更新
+          const updateData: { current_participants: number; gms?: string[]; gm_roles?: Record<string, string> } = {
+            current_participants: newCount
+          }
+          
+          if (isStaff && participantName !== 'デモ参加者') {
+            const currentGms = eventData?.gms || []
+            const currentGmRoles = eventData?.gm_roles || {}
+            
+            // 既にgmsに含まれていない場合のみ追加
+            if (!currentGms.includes(participantName)) {
+              const newGms = [...currentGms, participantName]
+              const newGmRoles = { ...currentGmRoles, [participantName]: 'staff' }
+              updateData.gms = newGms
+              updateData.gm_roles = newGmRoles
+              logger.log('📝 スタッフ参加者をGM欄に追加:', participantName)
+              
+              // 親コンポーネントのGM欄も更新
+              if (onGmsChange) {
+                onGmsChange(newGms, newGmRoles)
+              }
+            }
+          }
+          
           await supabase
             .from('schedule_events')
-            .update({ current_participants: newCount })
+            .update(updateData)
             .eq('id', event.id)
           
           if (onParticipantChange) {
@@ -783,7 +809,7 @@ export function ReservationList({
                                 setSelectedReservations(newSelected)
                               }}
                             />
-                            <span className="font-medium truncate flex-1 min-w-0">
+                            <span className="font-medium truncate flex-1 min-w-0 flex items-center gap-2">
                               {(() => {
                                 if (reservation.customer_name) {
                                   return reservation.customer_name
@@ -796,6 +822,14 @@ export function ReservationList({
                                 }
                                 return reservation.customer_notes || '顧客名なし'
                               })()}
+                              {/* スタッフ参加バッジ */}
+                              {(reservation.payment_method === 'staff' || 
+                                reservation.reservation_source === 'staff_participation' || 
+                                reservation.reservation_source === 'staff_entry') && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                                  スタッフ
+                                </span>
+                              )}
                             </span>
                             <span className="text-xs text-muted-foreground flex-shrink-0">
                               {reservation.participant_count ? `${reservation.participant_count}名` : '-'}

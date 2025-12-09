@@ -828,6 +828,7 @@ export function PerformanceModal({
               scenarios={scenarios}
               staff={staff}
               onParticipantChange={onParticipantChange}
+              onGmsChange={(gms, gmRoles) => setFormData(prev => ({ ...prev, gms, gmRoles }))}
             />
           </TabsContent>
         </Tabs>
