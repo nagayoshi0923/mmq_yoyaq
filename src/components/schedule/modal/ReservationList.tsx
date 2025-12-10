@@ -27,6 +27,8 @@ interface ReservationListProps {
   staff: StaffType[]
   onParticipantChange?: (eventId: string, newCount: number) => void
   onGmsChange?: (gms: string[], gmRoles: Record<string, string>) => void
+  // 予約データから取得したスタッフ参加者を親に通知（DBの情報を直接反映）
+  onStaffParticipantsChange?: (staffParticipants: string[]) => void
 }
 
 export function ReservationList({
@@ -37,7 +39,8 @@ export function ReservationList({
   scenarios,
   staff,
   onParticipantChange,
-  onGmsChange
+  onGmsChange,
+  onStaffParticipantsChange
 }: ReservationListProps) {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loadingReservations, setLoadingReservations] = useState(false)
@@ -194,6 +197,21 @@ export function ReservationList({
     }
   }, [newParticipant.customer_name, staff])
 
+  // 予約データからスタッフ参加者を抽出して親に通知（DBをシングルソースとする）
+  useEffect(() => {
+    if (onStaffParticipantsChange) {
+      const staffParticipants = reservations
+        .filter(r => 
+          r.payment_method === 'staff' && 
+          r.status !== 'cancelled' &&
+          r.participant_names?.length
+        )
+        .flatMap(r => r.participant_names || [])
+      
+      onStaffParticipantsChange(staffParticipants)
+    }
+  }, [reservations, onStaffParticipantsChange])
+
   // 予約ステータスを更新する関数
   const handleUpdateReservationStatus = async (reservationId: string, newStatus: Reservation['status']) => {
     try {
@@ -263,7 +281,6 @@ export function ReservationList({
         cancellingReservation.payment_method === 'staff'
       
       if (isStaffReservation) {
-        logger.log('📝 スタッフ参加のため、メール送信なしで削除:', cancellingReservation)
         handleExecuteCancelWithoutEmail(true)
         setIsCancelDialogOpen(false)
         return
@@ -288,7 +305,6 @@ export function ReservationList({
         
         // スタッフとしてマッチした場合もメール送信なしで削除
         if (staffMember) {
-          logger.log('📝 スタッフとしてマッチしたため、メール送信なしで削除:', { name: normalizedName })
           handleExecuteCancelWithoutEmail(true)
           setIsCancelDialogOpen(false)
           return
@@ -519,7 +535,6 @@ export function ReservationList({
       // スタッフかどうかを判定
       const matchedStaff = findMatchingStaff(participantName, null, staff)
       const isStaff = matchedStaff !== null
-      logger.log('🔍 スタッフ判定:', { participantName, isStaff, matchedStaff, staffCount: staff.length })
       const paymentMethod = isStaff ? 'staff' : newParticipant.payment_method
       
       const participationFee = scenarioObj?.participation_fee || 0
@@ -554,60 +569,21 @@ export function ReservationList({
 
       const createdReservation = await reservationApi.create(reservation)
       
+      // 参加者数を更新（スタッフ参加者はreservationsのみで管理、gmsには追加しない）
       if (event.id) {
         try {
           const { data: eventData } = await supabase
             .from('schedule_events')
-            .select('current_participants, gms, gm_roles')
+            .select('current_participants')
             .eq('id', event.id)
             .single()
           
           const currentCount = eventData?.current_participants || 0
           const newCount = currentCount + newParticipant.participant_count
           
-          // スタッフ参加の場合、gmsとgm_rolesも更新
-          const updateData: { current_participants: number; gms?: string[]; gm_roles?: Record<string, string> } = {
-            current_participants: newCount
-          }
-          
-          logger.log('🔍 GM更新チェック:', { isStaff, participantName, eventData })
-          
-          if (isStaff && participantName !== 'デモ参加者') {
-            const currentGms = eventData?.gms || []
-            const currentGmRoles = eventData?.gm_roles || {}
-            
-            logger.log('🔍 現在のGM状態:', { currentGms, currentGmRoles, hasOnGmsChange: !!onGmsChange })
-            
-            // 既にgmsに含まれていない場合は追加
-            if (!currentGms.includes(participantName)) {
-              const newGms = [...currentGms, participantName]
-              const newGmRoles = { ...currentGmRoles, [participantName]: 'staff' }
-              updateData.gms = newGms
-              updateData.gm_roles = newGmRoles
-              logger.log('📝 スタッフ参加者をGM欄に追加:', { participantName, newGms, newGmRoles })
-              
-              // 親コンポーネントのGM欄も更新
-              if (onGmsChange) {
-                logger.log('📝 onGmsChange呼び出し（新規追加）')
-                onGmsChange(newGms, newGmRoles)
-              }
-            } else {
-              // 既にGMとして存在する場合は、役割を「スタッフ参加」に更新
-              const newGmRoles = { ...currentGmRoles, [participantName]: 'staff' }
-              updateData.gm_roles = newGmRoles
-              logger.log('📝 既存GMの役割をスタッフ参加に更新:', { participantName, currentGms, newGmRoles })
-              
-              // 親コンポーネントのGM欄も更新
-              if (onGmsChange) {
-                logger.log('📝 onGmsChange呼び出し（役割更新）')
-                onGmsChange(currentGms, newGmRoles)
-              }
-            }
-          }
-          
           await supabase
             .from('schedule_events')
-            .update(updateData)
+            .update({ current_participants: newCount })
             .eq('id', event.id)
           
           if (onParticipantChange) {

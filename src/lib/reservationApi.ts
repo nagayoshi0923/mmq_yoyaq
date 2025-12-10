@@ -397,9 +397,12 @@ export const reservationApi = {
         r.payment_method === 'staff'
       )
 
-      // 4. GM欄から自動作成された予約のみ抽出（削除対象の候補）
-      const autoCreatedStaffReservations = currentReservations.filter(r =>
-        r.reservation_source === 'staff_entry'
+      // 4. スタッフ予約として管理している予約を抽出（削除対象の候補）
+      // ※ staff_entry（GM欄から自動作成）と staff_participation（予約者タブから追加）が対象
+      // ※ web（予約サイト）や walk_in（当日飛び込み）は保護
+      const managedStaffReservations = currentReservations.filter(r =>
+        r.reservation_source === 'staff_entry' ||
+        r.reservation_source === 'staff_participation'
       )
 
       // 5. 追加が必要なスタッフ（すべてのスタッフ予約をチェック）
@@ -408,9 +411,10 @@ export const reservationApi = {
       )
 
       // 6. 削除が必要なスタッフ予約
-      // ※ staff_entry（GM欄から自動作成）のみ削除対象
-      // ※ staff_participation, walk_in, web等は削除しない（手動追加や予約サイトからの予約を保護）
-      const toRemove = autoCreatedStaffReservations.filter(r =>
+      // GM欄のスタッフ参加リストに含まれていない予約を削除
+      // ※ staff_entry と staff_participation の両方が対象（GM欄と同期）
+      // ※ web, walk_in, onsite 等は保護（一般顧客の予約を誤削除しない）
+      const toRemove = managedStaffReservations.filter(r =>
         !r.participant_names?.some(name => staffParticipants.includes(name))
       )
 
@@ -452,7 +456,7 @@ export const reservationApi = {
         }
       }
 
-      // 削除（キャンセル）- staff_entryのみ
+      // 削除（キャンセル）- staff_entry と staff_participation が対象
       for (const res of toRemove) {
         if (res.status !== 'cancelled') {
           logger.log('🗑️ スタッフ予約を削除:', { name: res.participant_names, source: res.reservation_source })

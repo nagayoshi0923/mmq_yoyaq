@@ -439,23 +439,8 @@ export function useEventOperations({
         // Supabaseに保存
         const savedEvent = await scheduleApi.create(eventData)
 
-        // スタッフ予約の同期
-        if (performanceData.gm_roles && Object.values(performanceData.gm_roles).some(role => role === 'staff')) {
-          const scenarioObj = scenarios.find(s => s.title === performanceData.scenario)
-          await reservationApi.syncStaffReservations(
-            savedEvent.id,
-            savedEvent.gms || [],
-            performanceData.gm_roles,
-            {
-              date: savedEvent.date,
-              start_time: savedEvent.start_time,
-              scenario_id: savedEvent.scenario_id,
-              scenario_title: savedEvent.scenario,
-              store_id: savedEvent.store_id,
-              duration: scenarioObj?.duration
-            }
-          )
-        }
+        // ※ スタッフ参加者はreservationsテーブルで管理（予約タブから追加）
+        // GM欄には保存しないため、syncStaffReservationsは不要
         
         // シナリオ情報を取得（シナリオマスタ未登録チェック用）
         const matchedScenario = scenarios.find(s => s.title === performanceData.scenario)
@@ -546,26 +531,8 @@ export function useEventOperations({
             time_slot: performanceData.time_slot || null // 時間帯（朝/昼/夜）
           })
 
-          // スタッフ予約の同期
-          if (performanceData.gm_roles) {
-            const scenarioObj = scenarios.find(s => s.title === performanceData.scenario)
-            // performanceData.venue は store_id
-            const storeObj = stores.find(s => s.id === performanceData.venue)
-            
-            await reservationApi.syncStaffReservations(
-              performanceData.id!,
-              performanceData.gms,
-              performanceData.gm_roles,
-              {
-                date: performanceData.date,
-                start_time: performanceData.start_time,
-                scenario_id: scenarioId || undefined,
-                scenario_title: performanceData.scenario,
-                store_id: storeObj?.id || performanceData.venue,
-                duration: scenarioObj?.duration
-              }
-            )
-          }
+          // ※ スタッフ参加者はreservationsテーブルで管理（予約タブから追加）
+          // GM欄には保存しないため、syncStaffReservationsは不要
 
           // ローカル状態を更新（scenariosは元のデータを保持）
           setEvents(prev => prev.map(event => 

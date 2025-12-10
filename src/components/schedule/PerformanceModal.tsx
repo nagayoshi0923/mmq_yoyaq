@@ -101,6 +101,8 @@ export function PerformanceModal({
   const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false)
   const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
+  // 予約データから取得したスタッフ参加者（DBをシングルソースとする）
+  const [staffParticipantsFromDB, setStaffParticipantsFromDB] = useState<string[]>([])
   const [formData, setFormData] = useState<EventFormData>({
     id: '',
     date: '',
@@ -300,10 +302,19 @@ export function PerformanceModal({
   const handleSave = () => {
     // 時間帯を'朝'/'昼'/'夜'形式で保存
     // gmRoles (camelCase) を gm_roles (snake_case) に変換してAPIに渡す
+    // スタッフ参加者はreservationsで管理するため、gmsから除外
+    const gmsWithoutStaff = formData.gms.filter(
+      (gm: string) => formData.gmRoles?.[gm] !== 'staff'
+    )
+    const gmRolesWithoutStaff = Object.fromEntries(
+      Object.entries(formData.gmRoles || {}).filter(([_, role]) => role !== 'staff')
+    )
+    
     const saveData = {
       ...formData,
+      gms: gmsWithoutStaff,
       time_slot: getTimeSlotLabel(timeSlot),
-      gm_roles: formData.gmRoles
+      gm_roles: gmRolesWithoutStaff
     }
     onSave(saveData)
     onClose()
@@ -598,18 +609,21 @@ export function PerformanceModal({
                 onEmptyAction={() => setIsStaffModalOpen(true)}
               />
               {/* GM選択バッジ表示 */}
-              {formData.gms.length > 0 && (
+              {/* メインGM/サブGM: formData.gmsから表示 */}
+              {/* スタッフ参加: 予約データから動的表示（DBがシングルソース） */}
+              {(formData.gms.length > 0 || staffParticipantsFromDB.length > 0) && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.gms.map((gm: string, index: number) => {
+                  {/* メインGM/サブGM */}
+                  {formData.gms
+                    .filter((gm: string) => formData.gmRoles?.[gm] !== 'staff') // スタッフ参加は除外
+                    .map((gm: string, index: number) => {
                     const role = formData.gmRoles?.[gm] || 'main'
                     const badgeStyle = role === 'sub' 
                       ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' 
-                      : role === 'staff' 
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
-                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
+                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
                     
                     return (
-                      <Popover key={index}>
+                      <Popover key={`gm-${index}`}>
                         <PopoverTrigger asChild>
                           <div 
                             className={cn(
@@ -623,21 +637,20 @@ export function PerformanceModal({
                               <UserCog className="h-3 w-3 mr-1 opacity-70" />
                               {gm}
                               {role === 'sub' && <span className="text-[10px] ml-1 font-bold">(サブ)</span>}
-                              {role === 'staff' && <span className="text-[10px] ml-1 font-bold">(参加)</span>}
                             </span>
                             <div
                               role="button"
                               className="h-4 w-4 flex items-center justify-center rounded-full hover:bg-black/10 ml-1"
                               onClick={(e) => {
                                 e.stopPropagation()
-                          const newGms = formData.gms.filter((g: string) => g !== gm)
+                                const newGms = formData.gms.filter((g: string) => g !== gm)
                                 const newRoles = { ...formData.gmRoles }
                                 delete newRoles[gm]
                                 setFormData((prev: EventFormData) => ({ ...prev, gms: newGms, gmRoles: newRoles }))
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                </div>
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </div>
                           </div>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-3" align="start">
@@ -659,10 +672,6 @@ export function PerformanceModal({
                                   <RadioGroupItem value="sub" id={`role-sub-${index}`} />
                                   <Label htmlFor={`role-sub-${index}`} className="text-sm cursor-pointer">サブGM</Label>
                                 </div>
-                                <div className="flex items-center space-x-2 py-1">
-                                  <RadioGroupItem value="staff" id={`role-staff-${index}`} />
-                                  <Label htmlFor={`role-staff-${index}`} className="text-sm cursor-pointer">スタッフ参加</Label>
-                                </div>
                               </RadioGroup>
                             </div>
                             
@@ -671,16 +680,30 @@ export function PerformanceModal({
                                 ※サブGM給与が適用されます
                               </p>
                             )}
-                            {role === 'staff' && (
-                              <p className="text-[10px] text-green-600 bg-green-50 p-1 rounded">
-                                ※予約リストに追加されます(無料)
-                              </p>
-                            )}
                           </div>
                         </PopoverContent>
                       </Popover>
                     )
                   })}
+                  
+                  {/* スタッフ参加者（予約データから動的表示・読み取り専用） */}
+                  {staffParticipantsFromDB.map((staffName: string, index: number) => (
+                    <div 
+                      key={`staff-${index}`}
+                      className={cn(
+                        badgeVariants({ variant: "outline" }),
+                        "flex items-center gap-1 font-normal border rounded-[4px]",
+                        "bg-green-100 text-green-800 border-green-200"
+                      )}
+                      title="予約タブで編集できます"
+                    >
+                      <span className="flex items-center">
+                        <UserCog className="h-3 w-3 mr-1 opacity-70" />
+                        {staffName}
+                        <span className="text-[10px] ml-1 font-bold">(参加)</span>
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -829,6 +852,7 @@ export function PerformanceModal({
               staff={staff}
               onParticipantChange={onParticipantChange}
               onGmsChange={(gms, gmRoles) => setFormData(prev => ({ ...prev, gms, gmRoles }))}
+              onStaffParticipantsChange={setStaffParticipantsFromDB}
             />
           </TabsContent>
         </Tabs>

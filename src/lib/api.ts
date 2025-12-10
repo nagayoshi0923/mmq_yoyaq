@@ -54,8 +54,8 @@ interface ScheduleEvent {
 export const scheduleApi = {
   // 自分のスケジュールを取得（期間指定）
   async getMySchedule(staffName: string, startDate: string, endDate: string) {
-    // 1. 通常公演を取得（gmsに名前が含まれるもの）
-    const { data: scheduleEvents, error } = await supabase
+    // 1. GM（メインGM/サブGM）として割り当てられた公演を取得
+    const { data: gmEvents, error: gmError } = await supabase
       .from('schedule_events')
       .select(`
         *,
@@ -81,9 +81,56 @@ export const scheduleApi = {
       .order('date', { ascending: true })
       .order('start_time', { ascending: true })
     
-    if (error) throw error
+    if (gmError) throw gmError
     
-    // 2. イベントの参加者数を取得・計算
+    // 2. スタッフ参加（予約）として登録された公演を取得
+    const { data: staffReservations, error: resError } = await supabase
+      .from('reservations')
+      .select(`
+        schedule_event_id,
+        schedule_events!inner (
+          *,
+          stores:store_id (
+            id,
+            name,
+            short_name,
+            color,
+            address
+          ),
+          scenarios:scenario_id (
+            id,
+            title,
+            player_count_max,
+            duration,
+            gm_costs
+          )
+        )
+      `)
+      .contains('participant_names', [staffName])
+      .eq('payment_method', 'staff')
+      .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+    
+    // スタッフ参加の公演を抽出（日付フィルタリング）
+    const staffEvents = (staffReservations || [])
+      .map(r => r.schedule_events)
+      .filter(event => 
+        event && 
+        event.date >= startDate && 
+        event.date <= endDate && 
+        !event.is_cancelled
+      )
+    
+    // 3. 重複を除去してマージ（GMとスタッフ参加の両方に含まれる場合）
+    const eventMap = new Map<string, any>()
+    gmEvents.forEach(event => eventMap.set(event.id, event))
+    staffEvents.forEach(event => {
+      if (event && !eventMap.has(event.id)) {
+        eventMap.set(event.id, event)
+      }
+    })
+    const scheduleEvents = Array.from(eventMap.values())
+    
+    // 4. イベントの参加者数を取得・計算
     const eventIds = scheduleEvents.map(e => e.id)
     const reservationsMap = new Map<string, { participant_count: number }[]>()
     
@@ -121,7 +168,11 @@ export const scheduleApi = {
       }
     })
     
-    return myEvents
+    // 日付・時間順でソート
+    return myEvents.sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date)
+      return a.start_time.localeCompare(b.start_time)
+    })
   },
 
   // 指定月の公演を取得（通常公演 + 確定した貸切公演）

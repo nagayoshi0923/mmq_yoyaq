@@ -115,20 +115,19 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     return () => clearTimeout(timer)
   }, [])
 
-  // 直近の予定（今日〜7日後まで）
+  // 直近の予定（今日以降の直近5件）
   const upcomingEvents = useMemo(() => {
-    // 日付文字列で比較（タイムゾーンの問題を回避）
     const today = new Date()
     const todayStr = format(today, 'yyyy-MM-dd')
-    const weekLaterStr = format(addDays(today, 7), 'yyyy-MM-dd')
     
-    return mySchedule.filter(event => {
-      // 今日〜7日後までを表示
-      return event.date >= todayStr && event.date <= weekLaterStr
-    }).sort((a, b) => {
-      if (a.date !== b.date) return a.date.localeCompare(b.date)
-      return a.start_time.localeCompare(b.start_time)
-    }).slice(0, 5) // 最大5件まで表示
+    // 今日以降の予定を日付・時間順にソートして直近5件を取得
+    return mySchedule
+      .filter(event => event.date >= todayStr)
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date)
+        return a.start_time.localeCompare(b.start_time)
+      })
+      .slice(0, 5)
   }, [mySchedule])
 
   // カレンダー用の日付生成
@@ -198,6 +197,11 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         <div className="flex items-center gap-2 mb-3">
           <Clock className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-bold">直近の出勤予定</h2>
+          {upcomingEvents.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              （{upcomingEvents.length}件）
+            </span>
+          )}
         </div>
         
         {loading && staffName === '' ? (
