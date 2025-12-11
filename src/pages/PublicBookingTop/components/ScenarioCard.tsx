@@ -193,13 +193,13 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                       </span>
                     )}
                   </span>
-                  {event.store_name && (
+                  {(event.store_short_name || event.store_name) && (
                     <span 
-                      className="text-[10px] sm:text-xs truncate max-w-[60px] sm:max-w-[80px]"
+                      className="text-[10px] sm:text-xs whitespace-nowrap"
                       style={{ color: event.store_color ? getColorFromName(event.store_color) : '#6B7280' }}
                       title={event.store_name}
                     >
-                      {event.store_name}
+                      {event.store_short_name || event.store_name}
                     </span>
                   )}
                   {/* 空席がある場合は残席数を表示、満席の場合は何も表示しない */}
