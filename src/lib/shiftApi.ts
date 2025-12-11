@@ -19,7 +19,9 @@ export const shiftApi = {
   // 月間シフトを取得
   async getByMonth(staffId: string, year: number, month: number): Promise<ShiftSubmission[]> {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const endDate = new Date(year, month, 0).toISOString().split('T')[0]
+    // month月の最終日を取得（month+1月の0日 = month月の最終日）
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
     
     const { data, error } = await supabase
       .from('shift_submissions')
@@ -81,7 +83,9 @@ export const shiftApi = {
   // 月間シフトを提出
   async submitMonthly(staffId: string, year: number, month: number): Promise<void> {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const endDate = new Date(year, month, 0).toISOString().split('T')[0]
+    // month月の最終日を取得
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
     
     const { error } = await supabase
       .from('shift_submissions')
@@ -99,7 +103,9 @@ export const shiftApi = {
   // 全スタッフのシフトを取得（管理者用）
   async getAllStaffShifts(year: number, month: number): Promise<ShiftSubmission[]> {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const endDate = new Date(year, month, 0).toISOString().split('T')[0]
+    // month月の最終日を取得
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
     
     const { data, error } = await supabase
       .from('shift_submissions')
