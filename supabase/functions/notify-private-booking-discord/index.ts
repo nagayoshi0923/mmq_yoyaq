@@ -70,11 +70,12 @@ async function sendNotificationToGMChannels(booking: any) {
   console.log('📤 Sending notifications to individual GM channels...')
   console.log(`📋 Scenario ID: ${booking.scenario_id}`)
   
-  // このシナリオを担当しているGMを取得
+  // このシナリオを担当しているGMを取得（can_main_gm または can_sub_gm が true のスタッフのみ）
   const { data: assignments, error: assignmentError } = await supabase
     .from('staff_scenario_assignments')
     .select('staff_id')
     .eq('scenario_id', booking.scenario_id)
+    .or('can_main_gm.eq.true,can_sub_gm.eq.true')
   
   if (assignmentError) {
     console.error('❌ Error fetching scenario assignments:', assignmentError)
@@ -82,7 +83,7 @@ async function sendNotificationToGMChannels(booking: any) {
   }
   
   if (!assignments || assignments.length === 0) {
-    console.log('⚠️ No GMs assigned to this scenario')
+    console.log('⚠️ No GMs assigned to this scenario (with can_main_gm or can_sub_gm = true)')
     return
   }
   
@@ -92,7 +93,7 @@ async function sendNotificationToGMChannels(booking: any) {
   // 担当GMのDiscordチャンネル情報を取得
   const { data: gmStaff, error: staffError } = await supabase
     .from('staff')
-    .select('id, name, discord_channel_id')
+    .select('id, name, discord_channel_id, discord_user_id')
     .in('id', assignedStaffIds)
     .eq('status', 'active')
     .not('discord_channel_id', 'is', null)
@@ -110,14 +111,22 @@ async function sendNotificationToGMChannels(booking: any) {
   console.log(`📋 Found ${gmStaff.length} GM(s) with Discord channels:`, gmStaff.map(g => g.name).join(', '))
   
   // チャンネルIDの重複を除外（同じチャンネルに複数回送信しないため）
-  const uniqueChannels = new Map<string, { channelId: string, gmNames: string[] }>()
+  const uniqueChannels = new Map<string, { channelId: string, gmNames: string[], userIds: string[] }>()
   gmStaff.forEach(gm => {
     const channelId = gm.discord_channel_id?.trim()
     if (channelId) {
       if (uniqueChannels.has(channelId)) {
-        uniqueChannels.get(channelId)!.gmNames.push(gm.name)
+        const channel = uniqueChannels.get(channelId)!
+        channel.gmNames.push(gm.name)
+        if (gm.discord_user_id) {
+          channel.userIds.push(gm.discord_user_id)
+        }
       } else {
-        uniqueChannels.set(channelId, { channelId, gmNames: [gm.name] })
+        uniqueChannels.set(channelId, { 
+          channelId, 
+          gmNames: [gm.name],
+          userIds: gm.discord_user_id ? [gm.discord_user_id] : []
+        })
       }
     }
   })
@@ -125,9 +134,9 @@ async function sendNotificationToGMChannels(booking: any) {
   console.log(`📋 Unique channels to notify: ${uniqueChannels.size} (from ${gmStaff.length} GMs)`)
   
   // 各ユニークなチャンネルに通知を送信
-  const notificationPromises = Array.from(uniqueChannels.values()).map(async ({ channelId, gmNames }) => {
-    console.log(`📤 Sending notification to channel ${channelId} (GMs: ${gmNames.join(', ')})`)
-    return sendDiscordNotification(channelId, booking)
+  const notificationPromises = Array.from(uniqueChannels.values()).map(async ({ channelId, gmNames, userIds }) => {
+    console.log(`📤 Sending notification to channel ${channelId} (GMs: ${gmNames.join(', ')}, UserIDs: ${userIds.join(', ')})`)
+    return sendDiscordNotification(channelId, booking, userIds)
   })
   
   // 全ての通知を並行送信
@@ -153,7 +162,7 @@ function getDayOfWeek(dateString: string): string {
 }
 
 // Discord通知を送信する関数
-async function sendDiscordNotification(channelId: string, booking: any) {
+async function sendDiscordNotification(channelId: string, booking: any, userIds: string[] = []) {
   // チャンネルIDが空の場合はエラー
   if (!channelId || channelId.trim() === '') {
     throw new Error('Discord channel ID is not set. Please configure discord_channel_id in staff table.')
@@ -225,8 +234,13 @@ async function sendDiscordNotification(channelId: string, booking: any) {
     ]
   })
 
+  // ユーザーメンションを作成（discord_user_idがあればそれを使う、なければ@here）
+  const mention = userIds.length > 0 
+    ? userIds.map(id => `<@${id}>`).join(' ')
+    : '@here'
+  
   const discordPayload = {
-    content: `@here\n\n${messageContent}`,
+    content: `${mention}\n\n${messageContent}`,
     components: components
   }
 

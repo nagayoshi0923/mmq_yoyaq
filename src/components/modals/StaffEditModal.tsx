@@ -51,7 +51,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
   const [formData, setFormData] = useState<Partial<Staff>>({
     name: '',
     x_account: '',
-    discord_id: '',
+    discord_user_id: '',
     discord_channel_id: '',
     email: '',
     phone: '',
@@ -81,7 +81,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         stores: staff.stores || [],
         special_scenarios: staff.special_scenarios || [],
         x_account: staff.x_account || '',
-        discord_id: staff.discord_id || '',
+        discord_user_id: staff.discord_user_id || '',
         discord_channel_id: staff.discord_channel_id || '',
         email: staff.email || '',
         phone: staff.phone || '',
@@ -97,7 +97,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
       setFormData({
         name: '',
         x_account: '',
-        discord_id: '',
+        discord_user_id: '',
         discord_channel_id: '',
         email: '',
         phone: '',
@@ -192,7 +192,7 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
         name: formData.name!,
         line_name: '', // 削除された項目はデフォルト値
         x_account: formData.x_account || '',
-        discord_id: formData.discord_id || '',
+        discord_user_id: formData.discord_user_id || '',
         discord_channel_id: formData.discord_channel_id || '',
         email: formData.email!,
         phone: formData.phone || '',
@@ -379,11 +379,11 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
               />
             </div>
             <div>
-              <Label htmlFor="discord_id">Discord ID</Label>
+              <Label htmlFor="discord_user_id">Discord ID</Label>
               <Input
-                id="discord_id"
-                value={formData.discord_id || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, discord_id: e.target.value }))}
+                id="discord_user_id"
+                value={formData.discord_user_id || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, discord_user_id: e.target.value }))}
                 placeholder="1427064798650040472"
               />
               <p className="text-xs text-muted-foreground mt-1">

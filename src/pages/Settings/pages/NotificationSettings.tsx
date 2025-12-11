@@ -5,10 +5,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Save } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Save, Send, TestTube } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import type { Staff } from '@/types'
 
 interface NotificationSettings {
   id: string
@@ -40,10 +42,238 @@ export function NotificationSettings() {
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  
+  // Discord通知テスト用
+  const [staffList, setStaffList] = useState<Staff[]>([])
+  const [selectedStaffId, setSelectedStaffId] = useState<string>('')
+  const [testingType, setTestingType] = useState<string | null>(null)
+  
+  // シナリオリスト（貸切予約通知テスト用）
+  const [scenarioList, setScenarioList] = useState<{ id: string; title: string }[]>([])
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string>('')
 
   useEffect(() => {
     fetchData()
+    fetchStaffList()
+    fetchScenarioList()
   }, [])
+  
+  const fetchStaffList = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('id, name, discord_channel_id')
+        .eq('status', 'active')
+        .order('name')
+      
+      if (error) throw error
+      setStaffList(data || [])
+    } catch (error) {
+      logger.error('スタッフリスト取得エラー:', error)
+    }
+  }
+  
+  const fetchScenarioList = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('scenarios')
+        .select('id, title')
+        .order('title')
+      
+      if (error) throw error
+      setScenarioList(data || [])
+    } catch (error) {
+      logger.error('シナリオリスト取得エラー:', error)
+    }
+  }
+  
+  // シフト提出通知テスト
+  const handleTestShiftSubmitted = async () => {
+    if (!selectedStaffId) {
+      showToast.error('スタッフを選択してください')
+      return
+    }
+    
+    setTestingType('shift-submitted')
+    try {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = now.getMonth() + 1
+      
+      // テスト用のダミーシフトデータ
+      const testShifts = [
+        { date: `${year}-${String(month).padStart(2, '0')}-15`, morning: true, afternoon: false, evening: true, all_day: false },
+        { date: `${year}-${String(month).padStart(2, '0')}-16`, morning: false, afternoon: false, evening: false, all_day: true },
+        { date: `${year}-${String(month).padStart(2, '0')}-20`, morning: false, afternoon: true, evening: true, all_day: false },
+      ]
+      
+      const response = await supabase.functions.invoke('notify-shift-submitted-discord', {
+        body: {
+          staff_id: selectedStaffId,
+          year,
+          month,
+          shifts: testShifts
+        }
+      })
+      
+      logger.log('Edge Function response:', response)
+      
+      if (response.error) {
+        // エラーの詳細を取得
+        let errorDetail = 'Unknown error'
+        try {
+          // response.response はFetchのResponseオブジェクト
+          const res = response.response as Response | undefined
+          if (res) {
+            const text = await res.clone().text()
+            try {
+              const json = JSON.parse(text)
+              errorDetail = json.error || text
+            } catch {
+              errorDetail = text || response.error.message
+            }
+          } else {
+            errorDetail = response.data?.error || response.error.message || 'Unknown error'
+          }
+        } catch (e) {
+          errorDetail = response.error.message || 'Unknown error'
+        }
+        logger.error('Edge Function error detail:', errorDetail)
+        throw new Error(errorDetail)
+      }
+      
+      const data = response.data
+      
+      const staffName = staffList.find(s => s.id === selectedStaffId)?.name || 'スタッフ'
+      showToast.success(`「${staffName}」のシフト提出通知をテスト送信しました`)
+      logger.log('シフト提出通知テスト結果:', data)
+    } catch (error) {
+      logger.error('シフト提出通知テストエラー:', error)
+      showToast.error('テスト送信に失敗しました', error instanceof Error ? error.message : '不明なエラー')
+    } finally {
+      setTestingType(null)
+    }
+  }
+  
+  // 貸切予約通知テスト
+  const handleTestPrivateBooking = async () => {
+    if (!selectedScenarioId) {
+      showToast.error('シナリオを選択してください')
+      return
+    }
+    
+    const selectedScenario = scenarioList.find(s => s.id === selectedScenarioId)
+    
+    setTestingType('private-booking')
+    try {
+      const response = await supabase.functions.invoke('notify-private-booking-discord', {
+        body: {
+          type: 'insert',
+          table: 'private_booking_requests',
+          record: {
+            id: 'test-' + Date.now(),
+            customer_name: 'テスト顧客',
+            customer_email: 'test@example.com',
+            customer_phone: '090-0000-0000',
+            scenario_id: selectedScenarioId,
+            scenario_title: selectedScenario?.title || 'テストシナリオ',
+            participant_count: 4,
+            candidate_datetimes: {
+              candidates: [
+                { order: 1, date: '2025-01-15', timeSlot: '夜', startTime: '19:00', endTime: '22:00' },
+                { order: 2, date: '2025-01-16', timeSlot: '昼', startTime: '14:00', endTime: '17:00' }
+              ]
+            },
+            created_at: new Date().toISOString()
+          }
+        }
+      })
+      
+      logger.log('Edge Function response:', response)
+      
+      if (response.error) {
+        let errorDetail = 'Unknown error'
+        try {
+          const res = response.response as Response | undefined
+          if (res) {
+            const text = await res.clone().text()
+            try {
+              const json = JSON.parse(text)
+              errorDetail = json.error || text
+            } catch {
+              errorDetail = text || response.error.message
+            }
+          } else {
+            errorDetail = response.data?.error || response.error.message || 'Unknown error'
+          }
+        } catch {
+          errorDetail = response.error.message || 'Unknown error'
+        }
+        logger.error('Edge Function error detail:', errorDetail)
+        throw new Error(errorDetail)
+      }
+      
+      showToast.success('貸切予約通知をテスト送信しました')
+      logger.log('貸切予約通知テスト結果:', response.data)
+    } catch (error) {
+      logger.error('貸切予約通知テストエラー:', error)
+      showToast.error('テスト送信に失敗しました', error instanceof Error ? error.message : '不明なエラー')
+    } finally {
+      setTestingType(null)
+    }
+  }
+  
+  // シフト募集通知テスト
+  const handleTestShiftRequest = async () => {
+    setTestingType('shift-request')
+    try {
+      const now = new Date()
+      const nextMonth = now.getMonth() + 2
+      const year = nextMonth > 12 ? now.getFullYear() + 1 : now.getFullYear()
+      const month = nextMonth > 12 ? 1 : nextMonth
+      
+      const response = await supabase.functions.invoke('notify-shift-request-discord-simple', {
+        body: { year, month }
+      })
+      
+      logger.log('Edge Function response:', response)
+      
+      if (response.error) {
+        let errorDetail = 'Unknown error'
+        try {
+          const res = response.response as Response | undefined
+          if (res) {
+            const text = await res.clone().text()
+            try {
+              const json = JSON.parse(text)
+              errorDetail = json.error || text
+            } catch {
+              errorDetail = text || response.error.message
+            }
+          } else {
+            errorDetail = response.data?.error || response.error.message || 'Unknown error'
+          }
+        } catch {
+          errorDetail = response.error.message || 'Unknown error'
+        }
+        logger.error('Edge Function error detail:', errorDetail)
+        throw new Error(errorDetail)
+      }
+      
+      const result = response.data as { success: boolean; sent_to: number; success_count: number; failed_staff?: string[] }
+      let message = `シフト募集通知を送信しました\n成功: ${result.success_count}/${result.sent_to}名`
+      if (result.failed_staff?.length) {
+        message += `\n失敗: ${result.failed_staff.join(', ')}`
+      }
+      showToast.success(message)
+      logger.log('シフト募集通知テスト結果:', response.data)
+    } catch (error) {
+      logger.error('シフト募集通知テストエラー:', error)
+      showToast.error('テスト送信に失敗しました', error instanceof Error ? error.message : '不明なエラー')
+    } finally {
+      setTestingType(null)
+    }
+  }
 
   const fetchData = async () => {
     setLoading(true)
@@ -322,6 +552,117 @@ export function NotificationSettings() {
               Discord通知を有効にする場合は、Webhook URLを設定してください
             </p>
           </div>
+        </CardContent>
+      </Card>
+      
+      {/* Discord通知テスト */}
+      <Card className="border-purple-200 bg-purple-50/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-purple-900">
+            <TestTube className="h-5 w-5" />
+            Discord通知テスト
+          </CardTitle>
+          <CardDescription>
+            各種Discord通知をテスト送信して動作確認できます
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* シフト提出通知 */}
+          <div className="p-4 bg-white rounded-lg border">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h4 className="font-medium text-sm">シフト提出完了通知</h4>
+                <p className="text-xs text-muted-foreground">スタッフがシフトを提出した時の通知</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="スタッフを選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffList.map(staff => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      <span className="flex items-center gap-2">
+                        {staff.name}
+                        {staff.discord_channel_id && (
+                          <span className="text-[10px] px-1 py-0.5 bg-green-100 text-green-700 rounded">CH設定済</span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleTestShiftSubmitted}
+                disabled={testingType !== null || !selectedStaffId}
+                className="border-purple-300 text-purple-700 hover:bg-purple-100"
+              >
+                <Send className="h-4 w-4 mr-1" />
+                {testingType === 'shift-submitted' ? '送信中...' : 'テスト送信'}
+              </Button>
+            </div>
+          </div>
+          
+          {/* 貸切予約通知 */}
+          <div className="p-4 bg-white rounded-lg border">
+            <div className="space-y-3">
+              <div>
+                <h4 className="font-medium text-sm">貸切予約リクエスト通知</h4>
+                <p className="text-xs text-muted-foreground">貸切予約が入った時の通知（シナリオ担当GMに送信）</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="シナリオを選択..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {scenarioList.map(scenario => (
+                      <SelectItem key={scenario.id} value={scenario.id}>
+                        {scenario.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleTestPrivateBooking}
+                  disabled={testingType !== null || !selectedScenarioId}
+                  className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                >
+                  <Send className="h-4 w-4 mr-1" />
+                  {testingType === 'private-booking' ? '送信中...' : 'テスト送信'}
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {/* シフト募集通知 */}
+          <div className="p-4 bg-white rounded-lg border">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-sm">シフト募集通知</h4>
+                <p className="text-xs text-muted-foreground">全スタッフへのシフト提出依頼通知</p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleTestShiftRequest}
+                disabled={testingType !== null}
+                className="border-purple-300 text-purple-700 hover:bg-purple-100"
+              >
+                <Send className="h-4 w-4 mr-1" />
+                {testingType === 'shift-request' ? '送信中...' : 'テスト送信'}
+              </Button>
+            </div>
+          </div>
+          
+          <p className="text-xs text-muted-foreground">
+            ※ テスト通知は実際のDiscordチャンネルに送信されます。設定が正しいか確認できます。
+          </p>
         </CardContent>
       </Card>
     </div>
