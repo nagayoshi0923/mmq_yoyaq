@@ -119,9 +119,11 @@ export function ScheduleTable({
               
               return allVenues.map((venue, venueIndex) => {
                 const isTemporary = venue.is_temporary === true
+                // 日付の最初の行には太いボーダーを追加
+                const isFirstVenueOfDay = venueIndex === 0
                 
                 return (
-                <TableRow key={`${day.date}-${venue.id}`} className="min-h-[80px] group bg-background hover:bg-muted/5">
+                <TableRow key={`${day.date}-${venue.id}`} className={`min-h-[80px] group bg-background hover:bg-muted/5 ${isFirstVenueOfDay ? 'border-t-2 border-t-gray-300' : ''}`}>
                   {/* 日付・曜日統合セル (Sticky) */}
                   {venueIndex === 0 ? (
                     <TableCell 

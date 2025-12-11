@@ -24,7 +24,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 
 // UI Components
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { MultiSelect } from '@/components/ui/multi-select'
 import { HelpButton } from '@/components/ui/help-button'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 
@@ -54,7 +54,10 @@ export function ScheduleManager() {
 
   // GMリスト
   const [gmList, setGmList] = useState<Staff[]>([])
-  const [selectedGM, setSelectedGM] = useState<string>('all')
+  const [selectedGMs, setSelectedGMs] = useState<string[]>([])
+  
+  // 店舗フィルター
+  const [selectedStores, setSelectedStores] = useState<string[]>([])
 
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
@@ -99,42 +102,54 @@ export function ScheduleManager() {
         events = events.filter(event => event.category === selectedCategory)
       }
       
-      // スタッフフィルター
-      if (selectedGM !== 'all') {
+      // スタッフフィルター（複数選択対応）
+      if (selectedGMs.length > 0) {
         events = events.filter(event => {
-          // 選択したスタッフのdisplay_nameまたはnameを取得
-          const selectedStaff = gmList.find(s => s.id === selectedGM)
-          const selectedStaffName = selectedStaff?.display_name || selectedStaff?.name
-          
           // gms配列をチェック（schedule_eventsテーブルの実際の構造）
           if (!event.gms || !Array.isArray(event.gms)) {
             return false
           }
           
-          // スタッフIDまたは名前でマッチング
-          return event.gms.some(gm => 
-            String(gm) === String(selectedGM) || 
-            (selectedStaffName && String(gm) === selectedStaffName)
-          )
+          // 選択したスタッフのいずれかがイベントに含まれているかチェック
+          return selectedGMs.some(selectedId => {
+            const selectedStaff = gmList.find(s => s.id === selectedId)
+            const selectedStaffName = selectedStaff?.display_name || selectedStaff?.name
+            
+            return event.gms.some(gm => 
+              String(gm) === String(selectedId) || 
+              (selectedStaffName && String(gm) === selectedStaffName)
+            )
+          })
         })
       }
       
       return events
     }
-  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory, selectedGM, gmList])
+  }, [scheduleTableProps.dataProvider.getEventsForSlot, selectedCategory, selectedGMs, gmList])
 
-  // カテゴリーフィルター適用版のpropsを作成
+  // 店舗フィルター適用版の店舗リスト
+  const filteredStores = useMemo(() => {
+    if (selectedStores.length === 0) {
+      return scheduleTableProps.viewConfig.stores
+    }
+    return scheduleTableProps.viewConfig.stores.filter(store => 
+      selectedStores.includes(store.id)
+    )
+  }, [scheduleTableProps.viewConfig.stores, selectedStores])
+
+  // カテゴリー＋スタッフ＋店舗フィルター適用版のpropsを作成
   const filteredScheduleTableProps = useMemo(() => ({
     ...scheduleTableProps,
     viewConfig: {
       ...scheduleTableProps.viewConfig,
-      temporaryVenues
+      stores: filteredStores,
+      temporaryVenues: selectedStores.length === 0 ? temporaryVenues : []
     },
     dataProvider: {
       ...scheduleTableProps.dataProvider,
       getEventsForSlot: filteredGetEventsForSlot
     }
-  }), [scheduleTableProps, filteredGetEventsForSlot, temporaryVenues])
+  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -184,21 +199,65 @@ export function ScheduleManager() {
               enableKeyboard
             />
             
-            {/* スタッフフィルター */}
+            {/* スタッフフィルター（シフト提出済みを上に、バッジ付き、複数選択対応） */}
             {gmList.length > 0 && (
-              <Select value={selectedGM} onValueChange={setSelectedGM}>
-                <SelectTrigger className="w-36 sm:w-48 h-9">
-                  <SelectValue placeholder="スタッフ選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全スタッフ</SelectItem>
-                  {gmList.map((staff) => (
-                    <SelectItem key={staff.id} value={staff.id}>
-                      {staff.display_name || staff.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-36 sm:w-52">
+                <MultiSelect
+                  options={(() => {
+                    // シフトデータからシフト提出済みのスタッフIDを抽出
+                    const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+                    const staffWithShift = new Set<string>()
+                    Object.values(shiftData).forEach((staffList: Staff[]) => {
+                      staffList.forEach(s => staffWithShift.add(s.id))
+                    })
+                    
+                    // シフト提出済みを上に並び替え
+                    return [...gmList]
+                      .sort((a, b) => {
+                        const aHasShift = staffWithShift.has(a.id)
+                        const bHasShift = staffWithShift.has(b.id)
+                        if (aHasShift && !bHasShift) return -1
+                        if (!aHasShift && bHasShift) return 1
+                        return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
+                      })
+                      .map((staff) => {
+                        const hasShift = staffWithShift.has(staff.id)
+                        return {
+                          id: staff.id,
+                          name: staff.display_name || staff.name,
+                          displayInfo: hasShift ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 border border-green-200">
+                              提出済
+                            </span>
+                          ) : undefined,
+                          displayInfoSearchText: hasShift ? '提出済' : undefined
+                        }
+                      })
+                  })()}
+                  selectedValues={selectedGMs}
+                  onSelectionChange={setSelectedGMs}
+                  placeholder="スタッフで絞込"
+                  closeOnSelect={false}
+                  useIdAsValue={true}
+                />
+              </div>
+            )}
+            
+            {/* 店舗フィルター（複数選択対応） */}
+            {scheduleTableProps.viewConfig.stores.length > 0 && (
+              <div className="w-36 sm:w-44">
+                <MultiSelect
+                  options={scheduleTableProps.viewConfig.stores.map(store => ({
+                    id: store.id,
+                    name: store.short_name || store.name
+                  }))}
+                  selectedValues={selectedStores}
+                  onSelectionChange={setSelectedStores}
+                  placeholder="店舗で絞込"
+                  closeOnSelect={false}
+                  useIdAsValue={true}
+                />
+              </div>
             )}
 
             <Button 

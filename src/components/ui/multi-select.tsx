@@ -14,7 +14,8 @@ import { flexibleMatch } from '@/utils/kanaUtils'
 export interface MultiSelectOption {
   id: string
   name: string
-  displayInfo?: string
+  displayInfo?: string | React.ReactNode
+  displayInfoSearchText?: string  // displayInfoがReactNodeの場合の検索用テキスト
 }
 
 interface MultiSelectProps {
@@ -66,9 +67,14 @@ export function MultiSelect({
   // 検索フィルタリング（ひらがな・カタカナ・アルファベット対応）
   const filteredOptions = searchTerm
     ? normalizedOptions.filter(option => {
+        // displayInfoがstringの場合はそれを使い、ReactNodeの場合はdisplayInfoSearchTextを使う
+        const displayInfoText = typeof option.displayInfo === 'string' 
+          ? option.displayInfo 
+          : option.displayInfoSearchText
+        
         const searchTargets = [
           option.name,
-          option.displayInfo
+          displayInfoText
         ].filter(Boolean) as string[]
         
         return flexibleMatch(searchTerm, searchTargets)

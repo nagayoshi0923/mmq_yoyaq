@@ -564,7 +564,7 @@ export function PerformanceModal({
                          scenarios.find(sc => sc.title === formData.scenario)?.id &&
                          staffMember.special_scenarios?.includes(scenarios.find(sc => sc.title === formData.scenario)!.id))
                       
-                      // 出勤可能かチェック
+                      // 出勤可能かチェック（シフト提出済み）
                       // シナリオが選択されている場合: そのシナリオで出勤可能か
                       // シナリオ未選択の場合: その日時に出勤しているか
                       let isAvailable = false
@@ -576,34 +576,55 @@ export function PerformanceModal({
                         isAvailable = allAvailableStaff.some(gm => gm.id === staffMember.id)
                       }
                       
-                      // 表示情報を構築
-                      const displayParts: string[] = []
-                      if (isAvailable) displayParts.push('出勤可能')
-                      if (isAssignedGM) displayParts.push('担当GM')
+                      // バッジ形式で表示情報を構築
+                      const badges: React.ReactNode[] = []
+                      if (isAvailable) {
+                        badges.push(
+                          <span key="shift" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 border border-green-200">
+                            シフト提出済
+                          </span>
+                        )
+                      }
+                      if (isAssignedGM) {
+                        badges.push(
+                          <span key="gm" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                            担当GM
+                          </span>
+                        )
+                      }
+                      
+                      // 検索用テキスト
+                      const searchText = [
+                        isAvailable ? 'シフト提出済' : '',
+                        isAssignedGM ? '担当GM' : ''
+                      ].filter(Boolean).join(' ')
                       
                       return {
                         id: staffMember.id,
                         name: staffMember.name,
-                        displayInfo: displayParts.length > 0 ? displayParts.join(' / ') : undefined,
+                        displayInfo: badges.length > 0 ? (
+                          <span className="flex gap-1">{badges}</span>
+                        ) : undefined,
+                        displayInfoSearchText: searchText || undefined,
                         sortOrder: isAvailable ? 0 : isAssignedGM ? 1 : 2
                       }
                     })
                     .sort((a, b) => {
-                      // sortOrderで優先順位を決定
+                      // sortOrderで優先順位を決定（シフト提出済みを上に）
                       if (a.sortOrder !== b.sortOrder) {
                         return a.sortOrder - b.sortOrder
                       }
                       // 同じ優先順位の場合は名前順
                       return a.name.localeCompare(b.name, 'ja')
                     })
-                    .map(({ id, name, displayInfo }) => ({ id, name, displayInfo }))
+                    .map(({ id, name, displayInfo, displayInfoSearchText }) => ({ id, name, displayInfo, displayInfoSearchText }))
                   
                   return options
                 })()}
                 selectedValues={formData.gms}
                 onSelectionChange={(values) => setFormData((prev: any) => ({ ...prev, gms: values }))}
                 placeholder="GMを選択"
-                closeOnSelect={true}
+                closeOnSelect={false}
                 emptyText="GMが見つかりません"
                 emptyActionLabel="+ GMを作成"
                 onEmptyAction={() => setIsStaffModalOpen(true)}
