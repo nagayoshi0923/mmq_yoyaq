@@ -14,6 +14,7 @@ export interface InviteStaffRequest {
   discord_channel_id?: string
   role?: string[]
   stores?: string[]
+  staffId?: string  // 既存スタッフとリンクする場合のスタッフID
 }
 
 export interface InviteStaffResponse {

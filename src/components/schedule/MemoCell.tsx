@@ -11,10 +11,10 @@ interface MemoCellProps {
 }
 
 // デバウンス用のカスタムフック
-function useDebounce(callback: Function, delay: number) {
+function useDebounce<T extends (...args: any[]) => any>(callback: T, delay: number) {
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null)
 
-  const debouncedCallback = useCallback((...args: Parameters<typeof callback>) => {
+  const debouncedCallback = useCallback((...args: Parameters<T>) => {
     if (debounceTimer) {
       clearTimeout(debounceTimer)
     }

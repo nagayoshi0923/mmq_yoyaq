@@ -531,7 +531,8 @@ export function useScheduleData(currentDate: Date) {
         })
         
       // Supabaseのデータを内部形式に変換
-      const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => {
+      // 拡張プロパティ（scenarios, gm_roles, timeSlot等）を含むため型アサーションを使用
+      const formattedEvents = data.map((event: RawEventData) => {
         const scenarioTitle = event.scenarios?.title || event.scenario || ''
         // scenariosが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
         const isValidScenario = event.scenarios && event.scenarios.id
@@ -591,7 +592,7 @@ export function useScheduleData(currentDate: Date) {
         // 貸切リクエストをスケジュールイベントに変換
         const privateEvents: ScheduleEvent[] = []
         if (privateRequests) {
-          privateRequests.forEach((request: PrivateRequestData) => {
+          (privateRequests as unknown as PrivateRequestData[]).forEach((request: PrivateRequestData) => {
             if (request.candidate_datetimes?.candidates) {
               // GMの名前を取得
               let gmNames: string[] = []
@@ -666,7 +667,7 @@ export function useScheduleData(currentDate: Date) {
         // 満席の公演にデモ参加者を追加（パフォーマンス改善のため無効化）
         // const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
         
-        setEvents([...formattedEvents, ...privateEvents])
+        setEvents([...formattedEvents, ...privateEvents] as ScheduleEvent[])
       } catch (err) {
         logger.error('公演データの読み込みエラー:', err)
         setError('公演データの読み込みに失敗しました')
@@ -753,7 +754,8 @@ export function useScheduleData(currentDate: Date) {
       })
       
       // Supabaseのデータを内部形式に変換
-      const formattedEvents: ScheduleEvent[] = data.map((event: RawEventData) => {
+      // 拡張プロパティ（scenarios, gm_roles, timeSlot等）を含むため型アサーションを使用
+      const formattedEvents = data.map((event: RawEventData) => {
         const scenarioTitle = event.scenarios?.title || event.scenario || ''
         // scenariosが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
         const isValidScenario = event.scenarios && event.scenarios.id
@@ -813,7 +815,7 @@ export function useScheduleData(currentDate: Date) {
       // 貸切リクエストをスケジュールイベントに変換
       const privateEvents: ScheduleEvent[] = []
       if (privateRequests) {
-        privateRequests.forEach((request: PrivateRequestData) => {
+        (privateRequests as unknown as PrivateRequestData[]).forEach((request: PrivateRequestData) => {
           if (request.candidate_datetimes?.candidates) {
             let gmNames: string[] = []
             
@@ -879,7 +881,7 @@ export function useScheduleData(currentDate: Date) {
       // 満席の公演にデモ参加者を追加（パフォーマンス改善のため無効化）
       // const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
       
-      setEvents([...formattedEvents, ...privateEvents])
+      setEvents([...formattedEvents, ...privateEvents] as ScheduleEvent[])
       logger.log(`✅ fetchSchedule: ${formattedEvents.length + privateEvents.length}件のイベントを取得`)
     } catch (err) {
       logger.error('スケジュールデータの再取得エラー:', err)

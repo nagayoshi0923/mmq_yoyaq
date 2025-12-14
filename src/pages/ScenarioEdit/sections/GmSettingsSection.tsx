@@ -12,10 +12,12 @@ interface GmSettingsSectionProps {
   formData: ScenarioFormData
   setFormData: React.Dispatch<React.SetStateAction<ScenarioFormData>>
   staff: Staff[]
-  loadingStaff: boolean
+  loadingStaff?: boolean
   selectedStaffIds: string[]
-  onStaffSelectionChange: (ids: string[]) => void
-  currentAssignments: any[]
+  setSelectedStaffIds?: React.Dispatch<React.SetStateAction<string[]>>
+  onStaffSelectionChange?: (ids: string[]) => void
+  currentAssignments?: any[]
+  isNewScenario?: boolean
 }
 
 export function GmSettingsSection({ 
@@ -24,8 +26,10 @@ export function GmSettingsSection({
   staff,
   loadingStaff,
   selectedStaffIds,
+  setSelectedStaffIds,
   onStaffSelectionChange,
-  currentAssignments
+  currentAssignments,
+  isNewScenario
 }: GmSettingsSectionProps) {
   // GM報酬のカラム定義
   const gmRewardColumns: ItemizedListColumn[] = [

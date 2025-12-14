@@ -31,7 +31,11 @@ interface ReservationSettings {
   cancellation_fees: CancellationFee[]
 }
 
-export function ReservationSettings() {
+interface ReservationSettingsProps {
+  storeId?: string
+}
+
+export function ReservationSettings({ storeId }: ReservationSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<ReservationSettings>({

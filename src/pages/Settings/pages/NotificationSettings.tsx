@@ -25,7 +25,11 @@ interface NotificationSettings {
   discord_webhook_url: string
 }
 
-export function NotificationSettings() {
+interface NotificationSettingsProps {
+  storeId?: string
+}
+
+export function NotificationSettings({ storeId }: NotificationSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<NotificationSettings>({
@@ -67,7 +71,7 @@ export function NotificationSettings() {
         .order('name')
       
       if (error) throw error
-      setStaffList(data || [])
+      setStaffList((data || []) as Staff[])
     } catch (error) {
       logger.error('スタッフリスト取得エラー:', error)
     }

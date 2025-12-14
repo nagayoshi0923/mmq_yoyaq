@@ -26,7 +26,11 @@ interface StoreSettings {
   notes: string
 }
 
-export function StoreBasicSettings() {
+interface StoreBasicSettingsProps {
+  storeId?: string
+}
+
+export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
   const [stores, setStores] = useState<StoreSettings[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<StoreSettings>({

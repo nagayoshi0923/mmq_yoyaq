@@ -84,13 +84,13 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
   const storeOptions: MultiSelectOption[] = stores.map(store => ({
     id: store.id,
     name: store.name,
-    displayInfo: store.location || ''
+    displayInfo: store.address || ''
   }))
 
   const scenarioOptions: MultiSelectOption[] = scenarios.map(scenario => ({
     id: scenario.id,
     name: scenario.title,
-    displayInfo: `${scenario.min_players || 0}-${scenario.max_players || 0}人`
+    displayInfo: `${scenario.player_count_min || 0}-${scenario.player_count_max || 0}人`
   }))
 
   return (

@@ -611,13 +611,13 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         genre: scenario.genre || [],
         required_props: (() => {
           if (!Array.isArray(scenario.required_props) || scenario.required_props.length === 0) {
-            return []
+            return [] as { item: string; amount: number; frequency: 'recurring' | 'one-time' }[]
           }
           if (typeof scenario.required_props[0] === 'object') {
             return scenario.required_props.map(prop => ({
-              item: prop.item || prop,
+              item: String(prop.item || prop),
               amount: prop.amount || 0,
-              frequency: prop.frequency || 'recurring'
+              frequency: (prop.frequency || 'recurring') as 'recurring' | 'one-time'
             }))
           } else {
             return (scenario.required_props as unknown as string[]).map(prop => ({ 

@@ -207,18 +207,18 @@ export function ReservationsPage() {
         }
       }
 
-      // 希望店舗（確定前）
+      // 希望店舗（確定前） - requestedStoresは店舗ID文字列の配列
       if (candidateDatetimes.requestedStores && candidateDatetimes.requestedStores.length > 0) {
-        const firstStore = candidateDatetimes.requestedStores[0]
-        if (firstStore.storeId && stores[firstStore.storeId]) {
+        const firstStoreId = candidateDatetimes.requestedStores[0]
+        if (firstStoreId && stores[firstStoreId]) {
           return {
-            name: stores[firstStore.storeId].name,
-            address: stores[firstStore.storeId].address,
-            color: stores[firstStore.storeId].color
+            name: stores[firstStoreId].name,
+            address: stores[firstStoreId].address,
+            color: stores[firstStoreId].color
           }
         }
         return {
-          name: firstStore.storeName || '店舗未定',
+          name: '店舗未定',
           address: '',
           color: undefined
         }

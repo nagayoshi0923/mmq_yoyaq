@@ -1,6 +1,7 @@
 /**
  * 貸切予約管理 - フォーマット関数
  */
+import { logger } from '@/utils/logger'
 
 /**
  * 申込からの経過時間を取得

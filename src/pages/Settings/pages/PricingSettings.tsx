@@ -42,7 +42,11 @@ interface PricingSettings {
   cancellation_fee: CancellationFee
 }
 
-export function PricingSettings() {
+interface PricingSettingsProps {
+  storeId?: string
+}
+
+export function PricingSettings({ storeId }: PricingSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<PricingSettings>({

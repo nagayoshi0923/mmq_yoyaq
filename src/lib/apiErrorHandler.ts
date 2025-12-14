@@ -133,12 +133,13 @@ export function handleSupabaseError(error: unknown, context?: string): ApiError 
   }
 
   // サーバーエラー
-  if (code >= 500) {
+  const numericCode = typeof code === 'number' ? code : parseInt(String(code), 10)
+  if (!isNaN(numericCode) && numericCode >= 500) {
     return new ApiError(
       contextMessage,
       ApiErrorType.SERVER,
       error,
-      code
+      numericCode
     )
   }
 

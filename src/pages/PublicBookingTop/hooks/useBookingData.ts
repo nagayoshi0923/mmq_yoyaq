@@ -18,6 +18,7 @@ export interface ScenarioCard {
     date: string
     time?: string
     store_name?: string
+    store_short_name?: string
     store_color?: string
     available_seats?: number
   }>

@@ -30,7 +30,11 @@ const weekdays = [
   { value: 'sunday', label: '日曜日' }
 ]
 
-export function BusinessHoursSettings() {
+interface BusinessHoursSettingsProps {
+  storeId?: string
+}
+
+export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<BusinessHoursSettings>({

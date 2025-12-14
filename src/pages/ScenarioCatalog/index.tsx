@@ -48,7 +48,7 @@ export function ScenarioCatalog() {
         const data = await scenarioApi.getAll()
         // status='available'のシナリオのみ表示
         const availableScenarios = data.filter((s: any) => s.status === 'available')
-        setScenarios(availableScenarios)
+        setScenarios(availableScenarios as unknown as ScenarioData[])
       } catch (error) {
         logger.error('シナリオ取得エラー:', error)
       } finally {

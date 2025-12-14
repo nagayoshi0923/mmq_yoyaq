@@ -325,6 +325,12 @@ export interface SalesData {
     participant_count: number
     category?: string
   }>
+  // 月別売上推移（エクスポート用）
+  monthlyRevenue?: Array<{
+    month: string
+    revenue: number
+    events: number
+  }>
 }
 
 // 顧客関連の型定義

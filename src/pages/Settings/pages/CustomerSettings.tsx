@@ -25,7 +25,11 @@ interface CustomerSettings {
   birthday_benefit_enabled: boolean
 }
 
-export function CustomerSettings() {
+interface CustomerSettingsProps {
+  storeId?: string
+}
+
+export function CustomerSettings({ storeId }: CustomerSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<CustomerSettings>({

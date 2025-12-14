@@ -241,7 +241,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                     key={header.id}
                     className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} font-medium text-xs sm:text-xs ${alignClass} bg-gray-100 ${
                       isSortable ? 'cursor-pointer hover:bg-gray-200' : ''
-                    } ${meta?.headerClassName || ''} flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'} whitespace-nowrap`}
+                    } ${meta?.headerClassName || ''} flex items-center ${alignClass === 'text-center' ? 'justify-center' : alignClass === 'text-right' ? 'justify-end' : 'justify-start'} whitespace-nowrap`}
                     onClick={
                       isSortable
                         ? header.column.getToggleSortingHandler()
@@ -286,7 +286,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                       key={cell.id}
                       className={`${widthClass} px-1 sm:px-2 py-1.5 sm:py-2 ${shouldShowBorder ? 'border-r border-gray-200' : ''} text-xs sm:text-xs ${alignClass} ${
                         meta?.cellClassName || ''
-                      } flex items-center ${alignClass === 'center' ? 'justify-center' : alignClass === 'right' ? 'justify-end' : 'justify-start'}`}
+                      } flex items-center ${alignClass === 'text-center' ? 'justify-center' : alignClass === 'text-right' ? 'justify-end' : 'justify-start'}`}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,

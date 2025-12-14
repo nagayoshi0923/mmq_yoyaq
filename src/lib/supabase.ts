@@ -32,6 +32,7 @@ export type AuthUser = {
   name?: string
   staffName?: string
   role: 'admin' | 'staff' | 'customer'
+  created_at?: string  // ユーザー登録日
 }
 
 // ログイン関数

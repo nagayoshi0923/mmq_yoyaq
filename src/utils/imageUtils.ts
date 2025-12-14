@@ -4,6 +4,7 @@
  * Supabase Storage の画像変換機能を活用して、
  * レスポンシブ画像とWebP変換をサポートします。
  */
+import { logger } from '@/utils/logger'
 
 /**
  * 画像のリサイズオプション

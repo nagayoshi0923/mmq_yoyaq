@@ -385,7 +385,7 @@ export default function AuthorReport() {
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs sm:text-sm">{author.author}</span>
                                   {authors.get(author.author)?.email && (
-                                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" title="メールアドレス設定済み" />
+                                    <span title="メールアドレス設定済み"><Mail className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" /></span>
                                   )}
                                   <Button
                                     variant="ghost"

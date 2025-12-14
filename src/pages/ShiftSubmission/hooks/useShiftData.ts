@@ -57,7 +57,7 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
       const monthForApi = month + 1 // API用は1-12
       
       // データベースから既存のシフトを取得
-      const existingShifts = await shiftApi.getStaffShifts(currentStaffId, year, monthForApi)
+      const existingShifts = await shiftApi.getStaffShifts(currentStaffId, year, monthForApi) as ShiftSubmission[]
       
       // 月の日数を取得
       const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -69,7 +69,7 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
         // 既存のシフトがあればそれを使用、なければデフォルト値
         const existingShift = existingShifts.find((s: ShiftSubmission) => s.date === dateString)
         
-        newShiftData[dateString] = existingShift || {
+        newShiftData[dateString] = existingShift ?? {
           id: '', // 新規の場合は空
           staff_id: currentStaffId,
           date: dateString,
@@ -78,7 +78,7 @@ export function useShiftData({ currentDate, monthDays }: UseShiftDataProps) {
           evening: false,
           all_day: false,
           submitted_at: '',
-          status: 'draft'
+          status: 'draft' as const
         }
       }
       

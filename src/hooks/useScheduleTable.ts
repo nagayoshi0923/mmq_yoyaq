@@ -239,7 +239,7 @@ export function useScheduleTableModals(currentDate: Date) {
     },
     // performance 用（コンテキストメニューから使用）
     performance: {
-      handleOpenPerformanceModal: eventOperations.handleOpenPerformanceModal
+      handleOpenPerformanceModal: eventOperations.handleAddPerformance
     },
     // ConflictWarningModal用
     conflictWarning: {

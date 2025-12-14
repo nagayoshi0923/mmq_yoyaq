@@ -12,7 +12,7 @@ export interface ItemizedListItem {
   amount: number
   startDate?: string
   endDate?: string
-  status?: 'active' | 'ready' | 'legacy'
+  status?: 'active' | 'ready' | 'legacy' | 'unused'
   usageCount?: number
   
   // 可変フィールド（用途に応じて使い分け）

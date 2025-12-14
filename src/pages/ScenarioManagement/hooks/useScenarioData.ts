@@ -33,10 +33,10 @@ export function useScenarioData() {
       // シナリオにGM情報をマージ
       const scenariosWithGMs = data.map(scenario => ({
         ...scenario,
-        available_gms: gmMap.get(scenario.id) || scenario.available_gms || []
+        available_gms: (gmMap.get(scenario.id) || scenario.available_gms || []) as string[]
       }))
       
-      setScenarios(scenariosWithGMs)
+      setScenarios(scenariosWithGMs as Scenario[])
     } catch (err: unknown) {
       logger.error('Error loading scenarios:', err)
       const message = err instanceof Error ? err.message : '不明なエラー'
@@ -122,7 +122,7 @@ export function useScenarioData() {
           has_pre_reading: false
         }
         
-        await scenarioApi.create(newScenario)
+        await scenarioApi.create(newScenario as Omit<Scenario, 'id' | 'created_at' | 'updated_at'>)
       }
       
       await loadScenarios(true)

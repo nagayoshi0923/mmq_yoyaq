@@ -20,7 +20,11 @@ interface StaffSettings {
   training_period_days: number
 }
 
-export function StaffSettings() {
+interface StaffSettingsProps {
+  storeId?: string
+}
+
+export function StaffSettings({ storeId }: StaffSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<StaffSettings>({

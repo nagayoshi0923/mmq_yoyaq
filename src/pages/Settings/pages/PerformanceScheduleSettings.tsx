@@ -31,7 +31,11 @@ const timeSlotOptions = [
   { value: 'late_night', label: '深夜公演' }
 ]
 
-export function PerformanceScheduleSettings() {
+interface PerformanceScheduleSettingsProps {
+  storeId?: string
+}
+
+export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<PerformanceScheduleSettings>({

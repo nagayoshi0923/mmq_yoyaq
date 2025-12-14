@@ -21,7 +21,11 @@ interface SalesReportSettings {
   auto_send_enabled: boolean
 }
 
-export function SalesReportSettings() {
+interface SalesReportSettingsProps {
+  storeId?: string
+}
+
+export function SalesReportSettings({ storeId }: SalesReportSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<SalesReportSettings>({

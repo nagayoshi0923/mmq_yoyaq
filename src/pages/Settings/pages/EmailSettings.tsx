@@ -152,7 +152,11 @@ interface EmailSettings {
   reminder_send_time: 'morning' | 'afternoon' | 'evening'
 }
 
-export function EmailSettings() {
+interface EmailSettingsProps {
+  storeId?: string
+}
+
+export function EmailSettings({ storeId }: EmailSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<EmailSettings>({
@@ -268,16 +272,24 @@ export function EmailSettings() {
       if (error && error.code !== 'PGRST116') throw error
 
       if (data) {
-        setFormData(data)
+        setFormData(data as EmailSettings)
       } else {
         setFormData({
           id: '',
           store_id: storeId,
           from_email: '',
           from_name: '',
+          company_name: '',
+          company_phone: '',
+          company_email: '',
+          company_address: '',
           reservation_confirmation_template: getDefaultReservationTemplate(),
           cancellation_template: getDefaultCancellationTemplate(),
-          reminder_template: getDefaultReminderTemplate()
+          reminder_template: getDefaultReminderTemplate(),
+          reminder_enabled: false,
+          reminder_schedule: [],
+          reminder_time: '10:00',
+          reminder_send_time: 'morning'
         })
       }
     } catch (error) {

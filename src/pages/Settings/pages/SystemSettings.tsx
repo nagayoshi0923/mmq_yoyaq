@@ -49,7 +49,11 @@ const dateFormats = [
   { value: 'MM/DD/YYYY', label: '10/21/2025' }
 ]
 
-export function SystemSettings() {
+interface SystemSettingsProps {
+  storeId?: string
+}
+
+export function SystemSettings({ storeId }: SystemSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<SystemSettings>({

@@ -4,7 +4,8 @@ import { logger } from '@/utils/logger'
 import type { Reservation } from '@/types'
 
 // 予約管理画面用の拡張型
-export interface ReservationWithDetails extends Reservation {
+// Reservationのstatus/payment_statusを上書きするためOmitで除外してから拡張
+export interface ReservationWithDetails extends Omit<Reservation, 'status' | 'payment_status' | 'candidate_datetimes'> {
   customer_name?: string
   event_date?: string
   event_time?: string

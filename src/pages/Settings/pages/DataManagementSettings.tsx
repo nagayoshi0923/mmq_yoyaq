@@ -31,7 +31,11 @@ const exportFormats = [
   { value: 'json', label: 'JSON（.json）' }
 ]
 
-export function DataManagementSettings() {
+interface DataManagementSettingsProps {
+  storeId?: string
+}
+
+export function DataManagementSettings({ storeId }: DataManagementSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [formData, setFormData] = useState<DataManagementSettings>({

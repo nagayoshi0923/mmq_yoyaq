@@ -90,7 +90,7 @@ export function useSalaryData(year: number, month: number, storeId: string) {
       gmData?.forEach(event => {
         if (!event.gms || !Array.isArray(event.gms) || event.gms.length === 0) return
 
-        const scenario = event.scenarios
+        const scenario = event.scenarios as unknown as { title: string; gm_assignments: any; duration: number } | null
         if (!scenario) return
 
         // シナリオのgm_assignmentsから報酬情報を取得
@@ -181,7 +181,7 @@ export function useSalaryData(year: number, month: number, storeId: string) {
           staff.gmAssignments.push({
             date: event.date,
             scenarioTitle: scenario.title || '不明',
-            storeName: event.stores?.name || '不明',
+            storeName: (event.stores as unknown as { name: string } | null)?.name || '不明',
             gmRole,
             pay,
             isGMTest

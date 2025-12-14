@@ -250,15 +250,16 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
       // データベースに存在しないフィールドを除外
       const { gm_assignments, use_flexible_pricing, flexible_pricing, gm_count, ...restFormData } = formData
       
-      const scenarioData: Scenario = {
+      const scenarioData = {
         id: scenarioId || crypto.randomUUID(),
         ...restFormData,
         gm_costs: gm_assignments, // gm_assignmentsをgm_costsに変換
         available_gms: [], // 必須フィールド
+        production_cost: restFormData.production_costs?.reduce((sum, c) => sum + c.amount, 0) || 0, // production_costsから計算
         play_count: scenarioId ? scenarios.find(s => s.id === scenarioId)?.play_count || 0 : 0,
         created_at: scenarioId ? scenarios.find(s => s.id === scenarioId)?.created_at || getCurrentJST().toISOString() : getCurrentJST().toISOString(),
         updated_at: getCurrentJST().toISOString()
-      }
+      } as Scenario
 
       logger.log('保存するデータ:', scenarioData)
 

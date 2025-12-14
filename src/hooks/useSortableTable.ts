@@ -61,6 +61,8 @@ export function useSortableTable<T extends string, D = any>(
       // 文字列の場合は小文字で比較
       if (typeof aValue === 'string') {
         aValue = aValue.toLowerCase()
+      }
+      if (typeof bValue === 'string') {
         bValue = bValue.toLowerCase()
       }
       

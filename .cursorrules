@@ -9,3 +9,28 @@ style: コードスタイルを修正
 refactor: コードをリファクタリング
 test: テストを追加・修正
 chore: ビルドプロセスや補助ツールの変更
+
+---
+
+## TypeScript 型安全ルール（必須）
+
+### ビルド前の型チェック必須
+- `npm run build` は必ず `tsc --noEmit` を実行してから `vite build` を行う
+- 型エラーがある状態でのデプロイは禁止
+- 急ぎの場合のみ `npm run build:fast` を使用可（型チェックをスキップ）
+
+### コード変更時のルール
+1. **新しいプロパティを追加する場合**: 必ず対応する型定義（interface/type）も更新する
+2. **データベースカラム名を使用する場合**: types/index.ts の型定義と一致させる
+3. **Supabaseクエリの結果を使用する場合**: 適切な型アサーションを行う
+4. **コンポーネントにpropsを追加する場合**: Props interfaceを必ず定義する
+
+### 型エラーの対処
+- `Property 'xxx' does not exist` → 型定義に追加するか、プロパティ名を修正
+- `Type 'A' is not assignable to type 'B'` → 型の不整合を解消
+- `Module has no exported member` → インポート先を確認、または `npm ci` を実行
+
+### 定期チェック推奨
+```bash
+npm run typecheck  # 型チェックのみ実行
+```

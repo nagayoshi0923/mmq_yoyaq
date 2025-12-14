@@ -1,7 +1,6 @@
 import { supabase } from './supabase'
 import { logger } from '@/utils/logger'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
-import { logger } from '@/utils/logger'
 
 // 顧客関連のAPI
 export const customerApi = {

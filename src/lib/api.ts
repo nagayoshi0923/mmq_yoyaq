@@ -112,8 +112,8 @@ export const scheduleApi = {
     
     // スタッフ参加の公演を抽出（日付フィルタリング）
     const staffEvents = (staffReservations || [])
-      .map(r => r.schedule_events)
-      .filter(event => 
+      .map(r => r.schedule_events as any)
+      .filter((event: any) => 
         event && 
         event.date >= startDate && 
         event.date <= endDate && 

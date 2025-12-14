@@ -19,6 +19,8 @@ const mockStaff: Staff[] = [
     experience: 3,
     availability: ['月', '火', '水', '木', '金'],
     ng_days: ['土', '日'],
+    want_to_learn: [],
+    available_scenarios: [],
     special_scenarios: ['人狼村の悲劇', '密室の謎', '学園ミステリー'],
     notes: 'ベテランGM。新人研修も担当。',
     created_at: new Date().toISOString(),

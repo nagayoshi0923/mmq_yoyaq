@@ -4,9 +4,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { Loader2 } from 'lucide-react'
 
-interface BookingNoticeProps {
-  reservationDeadlineHours: number
-  hasPreReading: boolean
+export interface BookingNoticeProps {
+  reservationDeadlineHours?: number
+  hasPreReading?: boolean
   mode?: 'schedule' | 'private'
   storeId?: string | null
 }

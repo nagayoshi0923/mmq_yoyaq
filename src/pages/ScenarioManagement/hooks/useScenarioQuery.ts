@@ -223,7 +223,7 @@ export function useImportScenariosMutation() {
           has_pre_reading: false
         }
         
-        await scenarioApi.create(newScenario)
+        await scenarioApi.create(newScenario as Omit<Scenario, 'id' | 'created_at' | 'updated_at'>)
       }
       
       return { count: dataLines.length }
