@@ -302,20 +302,15 @@ export function PerformanceModal({
   const handleSave = () => {
     // 時間帯を'朝'/'昼'/'夜'形式で保存
     // gmRoles (camelCase) を gm_roles (snake_case) に変換してAPIに渡す
-    // スタッフ参加者はreservationsで管理するため、gmsから除外
-    const gmsWithoutStaff = formData.gms.filter(
-      (gm: string) => formData.gmRoles?.[gm] !== 'staff'
-    )
-    const gmRolesWithoutStaff = Object.fromEntries(
-      Object.entries(formData.gmRoles || {}).filter(([_, role]) => role !== 'staff')
-    )
+    // スタッフ参加/見学もGMリストに保持する（除外しない）
     
     const saveData = {
       ...formData,
-      gms: gmsWithoutStaff,
+      gms: formData.gms,
       time_slot: getTimeSlotLabel(timeSlot),
-      gm_roles: gmRolesWithoutStaff
+      gm_roles: formData.gmRoles || {}
     }
+    console.log('🔍 保存データ:', { gms: saveData.gms, gm_roles: saveData.gm_roles })
     onSave(saveData)
     onClose()
   }
