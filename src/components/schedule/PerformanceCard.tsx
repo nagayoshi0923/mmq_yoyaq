@@ -69,6 +69,7 @@ function PerformanceCardBase({
   const mainGms = event.gms.filter(gm => !gmRoles[gm] || gmRoles[gm] === 'main')
   const subGms = event.gms.filter(gm => gmRoles[gm] === 'sub')
   const staffGms = event.gms.filter(gm => gmRoles[gm] === 'staff')
+  const observerGms = event.gms.filter(gm => gmRoles[gm] === 'observer')
   
   // 表示用GMリスト（メインとサブのみ）
   const displayGms = [...mainGms, ...subGms.map(gm => `${gm}(サブ)`)]
@@ -226,12 +227,17 @@ function PerformanceCardBase({
         )}
       </div>
       
-      {/* ノート情報 + スタッフ参加GM */}
-      {(event.notes || staffGms.length > 0) && (
+      {/* ノート情報 + スタッフ参加/見学GM */}
+      {(event.notes || staffGms.length > 0 || observerGms.length > 0) && (
         <div className={`text-xs mt-0.5 truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : 'text-muted-foreground'}`}>
           {staffGms.length > 0 && (
              <span className="mr-2 text-green-700 font-medium bg-green-50 px-1 rounded text-[10px] border border-green-100">
                <span className="hidden sm:inline">スタッフ: </span>{staffGms.join(', ')}
+             </span>
+          )}
+          {observerGms.length > 0 && (
+             <span className="mr-2 text-purple-700 font-medium bg-purple-50 px-1 rounded text-[10px] border border-purple-100">
+               <span className="hidden sm:inline">見学: </span>{observerGms.join(', ')}
              </span>
           )}
           {event.notes}
