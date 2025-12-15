@@ -639,11 +639,13 @@ export function PerformanceModal({
                     .filter((gm: string) => formData.gmRoles?.[gm] !== 'staff') // スタッフ参加は除外
                     .map((gm: string, index: number) => {
                     const role = formData.gmRoles?.[gm] || 'main'
-                    const badgeStyle = role === 'staff'
-                      ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
-                      : role === 'sub' 
-                        ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' 
-                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
+                    const badgeStyle = role === 'observer'
+                      ? 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200'
+                      : role === 'staff'
+                        ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
+                        : role === 'sub' 
+                          ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' 
+                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
                     
                     return (
                       <Popover key={`gm-${index}`}>
@@ -661,6 +663,7 @@ export function PerformanceModal({
                               {gm}
                               {role === 'sub' && <span className="text-[10px] ml-1 font-bold">(サブ)</span>}
                               {role === 'staff' && <span className="text-[10px] ml-1 font-bold">(参加)</span>}
+                              {role === 'observer' && <span className="text-[10px] ml-1 font-bold">(見学)</span>}
                             </span>
                             <div
                               role="button"
@@ -700,6 +703,10 @@ export function PerformanceModal({
                                   <RadioGroupItem value="staff" id={`role-staff-${index}`} />
                                   <Label htmlFor={`role-staff-${index}`} className="text-sm cursor-pointer">スタッフ参加</Label>
                                 </div>
+                                <div className="flex items-center space-x-2 py-1">
+                                  <RadioGroupItem value="observer" id={`role-observer-${index}`} />
+                                  <Label htmlFor={`role-observer-${index}`} className="text-sm cursor-pointer">スタッフ見学</Label>
+                                </div>
                               </RadioGroup>
                             </div>
                             
@@ -710,7 +717,12 @@ export function PerformanceModal({
                             )}
                             {role === 'staff' && (
                               <p className="text-[10px] text-green-600 bg-green-50 p-1 rounded">
-                                ※スタッフ参加（GMではない）
+                                ※スタッフ参加（参加者としてカウント）
+                              </p>
+                            )}
+                            {role === 'observer' && (
+                              <p className="text-[10px] text-purple-600 bg-purple-50 p-1 rounded">
+                                ※見学のみ（参加者にカウントされない）
                               </p>
                             )}
                           </div>
