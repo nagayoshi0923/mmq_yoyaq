@@ -33,8 +33,7 @@ export function useScheduleEvents(
     return events.filter(event => {
       const dateMatch = event.date === date
       // time_slot（選択した枠）を優先、なければstart_timeから判定（フォールバック）
-      // event.timeSlot (camelCase) または (event as any).time_slot (snake_case) をチェック
-      const savedTimeSlot = event.timeSlot || (event as any).time_slot
+      const savedTimeSlot = event.time_slot
       const eventTimeSlot = convertTimeSlot(savedTimeSlot) || getTimeSlot(event.start_time)
       const timeSlotMatch = eventTimeSlot === timeSlot
       const categoryMatch = selectedCategory === 'all' || event.category === selectedCategory
@@ -70,11 +69,11 @@ export function useScheduleEvents(
 
     if (eventOperations.modalInitialData) {
       date = eventOperations.modalInitialData.date
-      timeSlot = eventOperations.modalInitialData.timeSlot
+      timeSlot = eventOperations.modalInitialData.time_slot
     } else if (eventOperations.editingEvent) {
       date = eventOperations.editingEvent.date
       // time_slot（選択した枠）を優先、なければstart_timeから判定
-      const savedSlot = convertTimeSlot(eventOperations.editingEvent.timeSlot)
+      const savedSlot = convertTimeSlot(eventOperations.editingEvent.time_slot)
       if (savedSlot) {
         timeSlot = savedSlot
       } else {
@@ -122,11 +121,11 @@ export function useScheduleEvents(
 
     if (eventOperations.modalInitialData) {
       date = eventOperations.modalInitialData.date
-      timeSlot = eventOperations.modalInitialData.timeSlot
+      timeSlot = eventOperations.modalInitialData.time_slot
     } else if (eventOperations.editingEvent) {
       date = eventOperations.editingEvent.date
       // time_slot（選択した枠）を優先、なければstart_timeから判定
-      const savedSlot = convertTimeSlot(eventOperations.editingEvent.timeSlot)
+      const savedSlot = convertTimeSlot(eventOperations.editingEvent.time_slot)
       if (savedSlot) {
         timeSlot = savedSlot
       } else {

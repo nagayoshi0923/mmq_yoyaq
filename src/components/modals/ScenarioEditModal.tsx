@@ -85,7 +85,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   // スタッフデータ用のstate
   const [staff, setStaff] = useState<Staff[]>([])
   // loadingStaff: setLoadingStaffは使用されているが、loadingStaffの値は未使用（将来のローディング表示で使用予定）
-  // @ts-expect-error - loadingStaffの値は未使用だが、setLoadingStaffは使用されているため保持
   const [loadingStaff, setLoadingStaff] = useState(false)
   
   // 担当関係データ用のstate
@@ -108,7 +107,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   // ライセンス報酬の「通常」設定バリデーション（未使用 - ItemizedSettingsコンポーネントで直接処理される）
   // validateLicenseNormalSetting: 未使用
-  // @ts-expect-error - 未使用だが将来のバリデーション表示機能で使用予定
   const validateLicenseNormalSetting = () => {
     const hasNormalSetting = formData.license_rewards.some(reward => 
       reward.item === '通常' && (reward.status === 'active' || reward.status === 'ready')
@@ -311,7 +309,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
 
   // 個別GM削除ハンドラー（未使用 - ItemizedSettingsコンポーネントで直接処理される）
-  // @ts-expect-error - 未使用だが将来の直接削除機能で使用予定
   const removeGmAssignment = (index: number) => {
     setFormData(prev => ({
       ...prev,
@@ -323,7 +320,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   // 参加費項目別管理（未使用 - ItemizedSettingsコンポーネントで直接処理される）
   // addParticipationCost: 未使用
-  // @ts-expect-error - 未使用だが将来の直接追加機能で使用予定
   const addParticipationCost = () => {
     if (newParticipationCostAmount > 0) {
       setFormData(prev => ({
@@ -356,7 +352,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
   // }
 
   // handleAddGmAssignment: 未使用（ItemizedSettingsコンポーネントで直接処理される）
-  // @ts-expect-error - 未使用だが将来の直接追加機能で使用予定
   const handleAddGmAssignment = () => {
     const nextRole = getNextAvailableRole()
     setFormData(prev => ({
@@ -388,7 +383,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   // GM役割に応じた説明文を生成（未使用）
   // getGmRoleDescription: 未使用（将来の説明表示機能で使用予定）
-  // @ts-expect-error - 未使用だが将来の説明表示機能で使用予定
   const getGmRoleDescription = (role: string) => {
     if (role === 'main') return 'ゲーム進行の主担当'
     if (role === 'sub1') return 'メインGMのサポート役'
@@ -422,7 +416,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   // ライセンス報酬の時間帯オプション（未使用）
   // licenseRewardOptions: 未使用（ライセンス報酬の追加機能は現在実装されていない）
-  // @ts-expect-error - 未使用だが将来のライセンス報酬追加機能で使用予定
   const licenseRewardOptions = [
     { value: '通常', label: '通常' },
     { value: 'GMテスト', label: 'GMテスト' },
@@ -450,7 +443,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   // 現在必要な役割数に基づいてオプションを生成（未使用）
   // getCurrentGmRoleOptions: 未使用（ItemizedSettingsコンポーネントで直接処理される）
-  // @ts-expect-error - 未使用だが将来の直接オプション生成機能で使用予定
   const getCurrentGmRoleOptions = () => {
     const currentMaxRole = Math.max(
       ...formData.gm_assignments.map(assignment => {
@@ -466,7 +458,6 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
 
   // 時間帯に応じた説明文を生成（参加費用）（未使用）
   // getTimeSlotDescription: 未使用（将来の説明表示機能で使用予定）
-  // @ts-expect-error - 未使用だが将来の説明表示機能で使用予定
   const getTimeSlotDescription = (timeSlot: string) => {
     const descriptions: { [key: string]: string } = {
       '通常': '基本の参加費',

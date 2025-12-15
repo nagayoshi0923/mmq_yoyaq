@@ -442,11 +442,11 @@ export interface ScheduleEventWithReservations {
   end_time: string
   category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' | 'mtg'
   status: string
-  participant_count?: number
-  max_participants?: number // 新規追加
-  reservation_deadline_hours?: number // 新規追加
-  is_reservation_enabled?: boolean // 新規追加
-  reservation_notes?: string // 新規追加
+  current_participants?: number // DBカラム名に統一（旧: participant_count）
+  max_participants?: number
+  reservation_deadline_hours?: number
+  is_reservation_enabled?: boolean
+  reservation_notes?: string
   current_reservations?: number // 計算値
   available_seats?: number // 計算値
   notes?: string

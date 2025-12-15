@@ -31,7 +31,7 @@ interface PerformanceModalProps {
   onSave: (eventData: EventFormData) => void
   mode: 'add' | 'edit'
   event?: ScheduleEvent | null  // 編集時のみ
-  initialData?: { date: string, venue: string, timeSlot: string }  // 追加時のみ
+  initialData?: { date: string, venue: string, time_slot: string }  // 追加時のみ（DBカラム名に統一）
   stores: Store[]
   scenarios: Scenario[]
   staff: StaffType[]
@@ -219,11 +219,11 @@ export function PerformanceModal({
       
       // time_slotが存在する場合はそれを使用、なければstart_timeから判定
       let slot: 'morning' | 'afternoon' | 'evening' = 'morning'
-      if (event.timeSlot) {
-        // timeSlotが'朝'/'昼'/'夜'形式の場合
-        if (event.timeSlot === '朝') slot = 'morning'
-        else if (event.timeSlot === '昼') slot = 'afternoon'
-        else if (event.timeSlot === '夜') slot = 'evening'
+      if (event.time_slot) {
+        // time_slotが'朝'/'昼'/'夜'形式の場合
+        if (event.time_slot === '朝') slot = 'morning'
+        else if (event.time_slot === '昼') slot = 'afternoon'
+        else if (event.time_slot === '夜') slot = 'evening'
       } else {
         // start_timeから判定（フォールバック）
         const startHour = parseInt(event.start_time.split(':')[0])
@@ -240,14 +240,14 @@ export function PerformanceModal({
       setFormData({
         ...event,
         scenario_id: selectedScenario?.id,  // IDを設定
-        time_slot: event.timeSlot || (slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'), // time_slotを設定
+        time_slot: event.time_slot || (slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'), // time_slotを設定
         max_participants: selectedScenario?.player_count_max ?? event.max_participants ?? DEFAULT_MAX_PARTICIPANTS, // シナリオの参加人数を反映
         gmRoles: event.gm_roles || {}, // 既存の役割があれば設定
         capacity: event.max_participants || 0 // capacityを追加
       })
     } else if (mode === 'add' && initialData) {
       // 追加モード：初期データで初期化
-      const slot = initialData.timeSlot as 'morning' | 'afternoon' | 'evening'
+      const slot = initialData.time_slot as 'morning' | 'afternoon' | 'evening'
       setTimeSlot(slot)
       
       const defaults = timeSlotDefaults[slot] || timeSlotDefaults.morning
@@ -387,7 +387,7 @@ export function PerformanceModal({
                   <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
                     {event.is_private_request || event.is_private_booking
                       ? '満席'
-                      : `${event.participant_count || 0}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
+                      : `${event.current_participants || 0}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
                     }
                   </Badge>
                 )}

@@ -213,7 +213,7 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
   
   for (const event of events) {
     // 満席判定（参加者数が最大参加者数以上）
-    if (event.participant_count >= event.max_participants) {
+    if ((event.current_participants || 0) >= (event.max_participants || 0)) {
       try {
         // このイベントの予約データを取得
         const { data: reservations, error: reservationError } = await supabase
@@ -557,11 +557,11 @@ export function useScheduleData(currentDate: Date) {
           end_time: event.end_time,
           category: event.category,
           is_cancelled: event.is_cancelled || false,
-          participant_count: event.current_participants || 0, // 実際の参加者数を使用
+          current_participants: event.current_participants || 0, // DBカラム名に統一
           max_participants: event.capacity || 8,
           notes: event.notes || '',
           is_reservation_enabled: event.is_reservation_enabled || false,
-          timeSlot: event.time_slot // 時間帯（朝/昼/夜）をマッピング
+          time_slot: event.time_slot
           }
         })
         
@@ -648,7 +648,7 @@ export function useScheduleData(currentDate: Date) {
                     end_time: candidate.endTime,
                     category: 'private', // 貸切
                     is_cancelled: false,
-                    participant_count: request.participant_count || 0,
+                    current_participants: request.participant_count || 0, // Reservationのparticipant_countをScheduleEventのcurrent_participantsに変換
                     max_participants: request.scenarios?.player_count_max || 8,
                     notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】${request.customer_name || ''}`,
                     is_reservation_enabled: true, // 貸切公演は常に公開中
@@ -684,7 +684,7 @@ export function useScheduleData(currentDate: Date) {
             end_time: '18:00',
             category: 'private',
             is_cancelled: false,
-            participant_count: 6,
+            current_participants: 6,
             max_participants: 8
           },
           {
@@ -697,7 +697,7 @@ export function useScheduleData(currentDate: Date) {
             end_time: '22:00',
             category: 'open',
             is_cancelled: false,
-            participant_count: 8,
+            current_participants: 8,
             max_participants: 8
           }
         ]
@@ -780,11 +780,11 @@ export function useScheduleData(currentDate: Date) {
         end_time: event.end_time,
         category: event.category,
         is_cancelled: event.is_cancelled || false,
-        participant_count: event.current_participants || 0, // 実際の参加者数を使用
+        current_participants: event.current_participants || 0, // DBカラム名に統一
         max_participants: event.capacity || 8,
         notes: event.notes || '',
         is_reservation_enabled: event.is_reservation_enabled || false,
-        timeSlot: event.time_slot // 時間帯（朝/昼/夜）をマッピング
+        time_slot: event.time_slot
         }
       })
       
@@ -862,7 +862,7 @@ export function useScheduleData(currentDate: Date) {
                   end_time: candidate.endTime,
                   category: 'private',
                   is_cancelled: false,
-                  participant_count: request.participant_count || 0,
+                  current_participants: request.participant_count || 0, // Reservationのparticipant_countをScheduleEventのcurrent_participantsに変換
                   max_participants: request.scenarios?.player_count_max || 8,
                   notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】${request.customer_name || ''}`,
                   is_reservation_enabled: true,

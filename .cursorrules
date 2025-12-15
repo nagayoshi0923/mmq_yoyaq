@@ -12,6 +12,60 @@ chore: ビルドプロセスや補助ツールの変更
 
 ---
 
+## データ命名規則（必須）
+
+### 基本原則：「既存の名前を確認してから命名する」
+
+新しいフィールド/変数を作成する前に、必ず以下を確認：
+
+1. **データベースのカラム名を確認** - Supabaseのテーブル定義が正解
+2. **型定義を確認** - `src/types/index.ts` で既存の命名パターンを確認
+3. **類似フィールドを検索** - 同じ概念に別名がないか `grep` で確認
+
+### 命名規則
+
+| 場所 | ケース | 例 |
+|------|--------|-----|
+| データベースカラム | snake_case | `participant_count`, `store_id` |
+| TypeScript型定義 | snake_case（DBに合わせる） | `participant_count: number` |
+| React state/変数 | camelCase | `participantCount`, `storeId` |
+| コンポーネントProps | camelCase | `onParticipantChange` |
+
+### 禁止事項
+
+❌ 同じ概念に複数の名前を作らない
+- 悪い例: `discord_user_id` と `discord_id` を混在
+- 悪い例: `min_players` と `player_count_min` を混在
+- 悪い例: `participant_count` と `current_participants` を混在
+
+❌ 既存のパターンを無視して新しい名前を作らない
+- 新規追加時は必ず既存の類似フィールドを確認
+
+### 新しいフィールド追加時のチェックリスト
+
+```
+□ データベースにカラムを追加した場合
+  → src/types/index.ts の該当interfaceに同じ名前で追加
+  
+□ フロントエンドで新しいプロパティを使う場合
+  → 型定義に存在するか確認（なければ追加）
+  
+□ 既存と似た名前のフィールドがある場合
+  → 既存の命名パターンに合わせる（新しい名前を作らない）
+```
+
+### 確認コマンド
+
+```bash
+# 類似の命名がないか確認
+grep -r "participant" src/types/
+
+# データベースと型定義の整合性確認
+npm run db:check
+```
+
+---
+
 ## TypeScript 型安全ルール（必須）
 
 ### ビルド前の型チェック必須

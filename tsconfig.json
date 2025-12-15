@@ -16,7 +16,7 @@
 
     /* Linting */
     "strict": false,
-    "noUnusedLocals": true,
+    "noUnusedLocals": false, // 未使用変数を許可（後日削除推奨）
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
 

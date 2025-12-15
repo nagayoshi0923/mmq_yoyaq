@@ -12,13 +12,13 @@ export interface ScheduleEvent {
   reservation_info?: string
   notes?: string
   is_cancelled: boolean
-  participant_count?: number
+  current_participants?: number // DBカラム名に統一（旧: participant_count）
   max_participants?: number
   is_reservation_enabled?: boolean
   is_private_request?: boolean // 貸切リクエストかどうか
   reservation_id?: string // 貸切リクエストの元のreservation ID
   is_private_booking?: boolean // 貸切予約かどうか
-  timeSlot?: string // 貸切予約の時間帯（朝/昼/夜）
+  time_slot?: string // 貸切予約の時間帯（朝/昼/夜）
   gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
   scenarios?: {
     id: string

@@ -62,7 +62,7 @@ const handleParticipantChange = (
   setEvents(prevEvents => 
     prevEvents.map(event => 
       event.id === eventId 
-        ? { ...event, participant_count: newCount }
+        ? { ...event, current_participants: newCount }
         : event
     )
   )
@@ -104,7 +104,7 @@ export function useEventOperations({
   const [modalInitialData, setModalInitialData] = useState<{
     date: string
     venue: string
-    timeSlot: string
+    time_slot: string  // DBカラム名に統一
   } | undefined>(undefined)
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null)
   
@@ -131,9 +131,9 @@ export function useEventOperations({
   const [isMoveOrCopyDialogOpen, setIsMoveOrCopyDialogOpen] = useState(false)
 
   // 公演追加モーダルを開く
-  const handleAddPerformance = useCallback((date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => {
+  const handleAddPerformance = useCallback((date: string, venue: string, time_slot: 'morning' | 'afternoon' | 'evening') => {
     setModalMode('add')
-    setModalInitialData({ date, venue, timeSlot })
+    setModalInitialData({ date, venue, time_slot })
     setEditingEvent(null)
     setIsPerformanceModalOpen(true)
   }, [])
@@ -462,7 +462,7 @@ export function useEventOperations({
           end_time: savedEvent.end_time,
           category: savedEvent.category,
           is_cancelled: savedEvent.is_cancelled || false,
-          participant_count: savedEvent.current_participants || 0,
+          current_participants: savedEvent.current_participants || 0,
           max_participants: savedEvent.capacity || 8,
           notes: savedEvent.notes || ''
         }
