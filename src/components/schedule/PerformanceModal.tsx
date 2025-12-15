@@ -634,9 +634,8 @@ export function PerformanceModal({
               {/* スタッフ参加: 予約データから動的表示（DBがシングルソース） */}
               {(formData.gms.length > 0 || staffParticipantsFromDB.length > 0) && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {/* メインGM/サブGM */}
+                  {/* メインGM/サブGM/スタッフ参加/見学 */}
                   {formData.gms
-                    .filter((gm: string) => formData.gmRoles?.[gm] !== 'staff') // スタッフ参加は除外
                     .map((gm: string, index: number) => {
                     const role = formData.gmRoles?.[gm] || 'main'
                     const badgeStyle = role === 'observer'
