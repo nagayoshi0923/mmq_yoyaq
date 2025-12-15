@@ -639,9 +639,11 @@ export function PerformanceModal({
                     .filter((gm: string) => formData.gmRoles?.[gm] !== 'staff') // スタッフ参加は除外
                     .map((gm: string, index: number) => {
                     const role = formData.gmRoles?.[gm] || 'main'
-                    const badgeStyle = role === 'sub' 
-                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' 
-                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
+                    const badgeStyle = role === 'staff'
+                      ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
+                      : role === 'sub' 
+                        ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' 
+                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
                     
                     return (
                       <Popover key={`gm-${index}`}>
@@ -658,6 +660,7 @@ export function PerformanceModal({
                               <UserCog className="h-3 w-3 mr-1 opacity-70" />
                               {gm}
                               {role === 'sub' && <span className="text-[10px] ml-1 font-bold">(サブ)</span>}
+                              {role === 'staff' && <span className="text-[10px] ml-1 font-bold">(参加)</span>}
                             </span>
                             <div
                               role="button"
@@ -693,12 +696,21 @@ export function PerformanceModal({
                                   <RadioGroupItem value="sub" id={`role-sub-${index}`} />
                                   <Label htmlFor={`role-sub-${index}`} className="text-sm cursor-pointer">サブGM</Label>
                                 </div>
+                                <div className="flex items-center space-x-2 py-1">
+                                  <RadioGroupItem value="staff" id={`role-staff-${index}`} />
+                                  <Label htmlFor={`role-staff-${index}`} className="text-sm cursor-pointer">スタッフ参加</Label>
+                                </div>
                               </RadioGroup>
                             </div>
                             
                             {role === 'sub' && (
                               <p className="text-[10px] text-blue-600 bg-blue-50 p-1 rounded">
                                 ※サブGM給与が適用されます
+                              </p>
+                            )}
+                            {role === 'staff' && (
+                              <p className="text-[10px] text-green-600 bg-green-50 p-1 rounded">
+                                ※スタッフ参加（GMではない）
                               </p>
                             )}
                           </div>
