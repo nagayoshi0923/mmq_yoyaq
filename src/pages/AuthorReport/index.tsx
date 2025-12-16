@@ -411,11 +411,11 @@ export default function AuthorReport() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handleCopy(author)}
-                                    className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                                    className="h-7 px-2 sm:h-8 sm:px-3"
                                     title={copiedAuthor === author.author ? 'コピー済み' : 'コピー'}
                                   >
                                     {copiedAuthor === author.author ? (
-                                      <Check className="h-3 w-3 sm:h-4 sm:w-4" />
+                                      <Check className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                                     ) : (
                                       <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
                                     )}
@@ -424,7 +424,7 @@ export default function AuthorReport() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handleSendEmail(author)}
-                                    className="h-6 w-6 sm:h-8 sm:w-8 p-0"
+                                    className="h-7 px-2 sm:h-8 sm:px-3"
                                     title="Gmail"
                                   >
                                     <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
