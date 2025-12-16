@@ -1,6 +1,7 @@
 import { useMemo, useCallback, memo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStoreConfirmationPendingCount } from '@/hooks/useStoreConfirmationPendingCount'
+import { useOrganization } from '@/hooks/useOrganization'
 import { 
   Calendar, 
   Users, 
@@ -28,6 +29,10 @@ interface NavigationBarProps {
 export const NavigationBar = memo(function NavigationBar({ currentPage, onPageChange }: NavigationBarProps) {
   const { user } = useAuth()
   const { count: storeConfirmationPendingCount } = useStoreConfirmationPendingCount()
+  const { organization } = useOrganization()
+  
+  // 組織のslugを取得（デフォルトはqueens-waltz）
+  const bookingSlug = organization?.slug || 'queens-waltz'
   
   // 顧客の場合はナビゲーションを表示しない
   if (user?.role === 'customer') {
@@ -40,7 +45,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   // 顧客: ナビゲーション非表示（予約サイトのみ）
   const allTabs = useMemo(() => [
     { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, roles: ['admin', 'staff'] },
-    { id: 'customer-booking', label: '予約サイト', icon: Globe, roles: ['admin', 'staff'] },
+    { id: `booking/${bookingSlug}`, label: '予約サイト', icon: Globe, roles: ['admin', 'staff'] },
     { id: 'stores', label: '店舗', icon: Store, roles: ['admin'] },
     { id: 'schedule', label: 'スケジュール', icon: Calendar, roles: ['admin', 'staff'] },
     { id: 'staff', label: 'スタッフ', icon: Users, roles: ['admin'] },
@@ -58,7 +63,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'license-reports', label: 'ライセンス', icon: FileCheck, roles: ['admin'] },
     { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] },
     { id: 'manual', label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff'] }
-  ], [])
+  ], [bookingSlug])
   
   // ユーザーのロールに応じてタブをフィルタリング
   const navigationTabs = useMemo(() => {
@@ -89,7 +94,10 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
         <div className="flex items-center justify-start gap-0 sm:gap-0.5 md:gap-1 min-w-max">
           {navigationTabs.map((tab) => {
             const Icon = tab.icon
-            const isActive = currentPage === tab.id
+            // 予約サイト（booking/xxx）は特別処理：currentPage が booking で始まるかどうかで判定
+            const isActive = tab.id.startsWith('booking/') 
+              ? (currentPage?.startsWith('booking') || currentPage === 'customer-booking')
+              : currentPage === tab.id
             const href = tab.id === 'dashboard' ? '#' : `#${tab.id}`
             const badgeCount = tab.id === 'private-booking-management' ? storeConfirmationPendingCount : 0
             return (
