@@ -372,11 +372,12 @@ export function ScheduleManager() {
           onClose={() => setIsImportModalOpen(false)}
           onImportComplete={(targetMonth) => {
             // インポート対象の月に切り替え
-            // currentDateが変わるとuseScheduleDataのuseEffectで自動的にデータが再取得される
             if (targetMonth) {
               const targetDate = new Date(targetMonth.year, targetMonth.month - 1, 1)
               setCurrentDate(targetDate)
             }
+            // データを再取得（同じ月の場合もあるので必ず呼び出す）
+            scheduleTableProps.fetchSchedule?.()
           }}
         />
 
