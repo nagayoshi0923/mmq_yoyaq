@@ -1,3 +1,63 @@
+// ================================================
+// マルチテナント: 組織関連の型定義
+// ================================================
+
+// 組織（会社）の型定義
+export interface Organization {
+  id: string
+  name: string
+  slug: string  // URL用識別子（例: queens-waltz, company-a）
+  plan: 'free' | 'basic' | 'pro'
+  contact_email?: string | null
+  contact_name?: string | null
+  is_license_manager: boolean  // ライセンス管理会社かどうか
+  is_active: boolean
+  settings?: Record<string, unknown>  // 組織ごとの設定
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+// 外部公演報告の型定義
+export interface ExternalPerformanceReport {
+  id: string
+  scenario_id: string
+  organization_id: string
+  reported_by: string  // staff.id
+  performance_date: string
+  performance_count: number
+  participant_count?: number | null
+  venue_name?: string | null
+  notes?: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  reviewed_by?: string | null  // staff.id
+  reviewed_at?: string | null
+  rejection_reason?: string | null
+  created_at: string
+  updated_at: string
+  // 拡張フィールド（join時に取得）
+  scenarios?: Scenario | null
+  organizations?: Organization | null
+  reporter?: Staff | null
+  reviewer?: Staff | null
+}
+
+// ライセンス集計サマリーの型定義
+export interface LicensePerformanceSummary {
+  scenario_id: string
+  scenario_title: string
+  author: string
+  license_amount: number
+  internal_performance_count: number
+  external_performance_count: number
+  total_performance_count: number
+  total_license_fee: number
+}
+
+// ================================================
+// 店舗関連の型定義
+// ================================================
+
 // 店舗固定費の型定義
 export interface StoreFixedCost {
   item: string
@@ -13,6 +73,7 @@ export interface StoreFixedCost {
 // 店舗関連の型定義
 export interface Store {
   id: string
+  organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
   name: string
   short_name: string
   address: string
@@ -38,6 +99,7 @@ export interface Store {
 // スタッフ関連の型定義
 export interface Staff {
   id: string
+  organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
   name: string
   display_name?: string // 追加
   line_name?: string
@@ -99,6 +161,8 @@ export interface FlexiblePricing {
 // シナリオ関連の型定義
 export interface Scenario {
   id: string
+  organization_id?: string | null  // マルチテナント対応（managed シナリオは NULL で共有）
+  is_shared?: boolean  // 他組織に共有するか
   title: string
   description?: string
   author: string
@@ -196,6 +260,7 @@ export interface PublicScenarioEvent {
 // スケジュール関連の型定義
 export interface ScheduleEvent {
   id: string
+  organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
   date: string
   venue: string
   scenario: string
@@ -225,6 +290,7 @@ export interface User {
 // 在庫関連の型定義
 export interface PerformanceKit {
   id: string
+  organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
   scenario_id: string
   scenario_title: string
   kit_number: number
@@ -336,6 +402,7 @@ export interface SalesData {
 // 顧客関連の型定義
 export interface Customer {
   id: string
+  organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
   user_id?: string | null
   name: string
   email?: string | null
@@ -354,6 +421,7 @@ export interface Customer {
 // 予約関連の型定義
 export interface Reservation {
   id: string
+  organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
   reservation_number: string
   reservation_page_id?: string | null
   title: string
@@ -434,6 +502,7 @@ export interface ReservationSummary {
 // スケジュールイベントに予約関連フィールドを追加
 export interface ScheduleEventWithReservations {
   id: string
+  organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
   date: string
   venue: string
   scenario: string

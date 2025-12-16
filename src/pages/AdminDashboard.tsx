@@ -42,6 +42,10 @@ const ScenarioMatcher = lazy(() => import('./ScenarioMatcher').then(m => ({ defa
 const ManualPage = lazy(() => import('./Manual/index').then(m => ({ default: m.ManualPage })))
 const DashboardHome = lazy(() => import('./DashboardHome').then(m => ({ default: m.DashboardHome })))
 const StaffProfile = lazy(() => import('./StaffProfile').then(m => ({ default: m.StaffProfile })))
+// マルチテナント対応ページ
+const OrganizationManagement = lazy(() => import('./OrganizationManagement'))
+const ExternalReports = lazy(() => import('./ExternalReports'))
+const LicenseReportManagement = lazy(() => import('./LicenseReportManagement'))
 
 export function AdminDashboard() {
   const { user, loading, isInitialized } = useAuth()
@@ -65,7 +69,10 @@ export function AdminDashboard() {
     'settings',
     'manual',
     'add-demo-participants',
-    'scenario-matcher'
+    'scenario-matcher',
+    'organizations',
+    'external-reports',
+    'license-reports'
   ]
 
   // ハッシュを解析してページとシナリオIDを返すユーティリティ
@@ -112,6 +119,15 @@ export function AdminDashboard() {
     }
     if (hash.startsWith('manual')) {
       return { page: 'manual', scenarioId: null }
+    }
+    if (hash.startsWith('organizations')) {
+      return { page: 'organizations', scenarioId: null }
+    }
+    if (hash.startsWith('external-reports')) {
+      return { page: 'external-reports', scenarioId: null }
+    }
+    if (hash.startsWith('license-reports')) {
+      return { page: 'license-reports', scenarioId: null }
     }
     // ハッシュからクエリパラメータを分離
     const hashWithoutQuery = hash.split('?')[0]
@@ -198,7 +214,7 @@ export function AdminDashboard() {
       if (isInitialized && !loading) {
         // ログアウト状態または顧客アカウントの場合、管理ツールのページへのアクセスを制限
         const isCustomerOrLoggedOut = !user || user.role === 'customer'
-        const restrictedPages = ['dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher']
+        const restrictedPages = ['dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher', 'organizations', 'external-reports', 'license-reports']
         if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
           // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
           setCurrentPage('customer-booking')
@@ -433,6 +449,33 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="ツールを読み込み中..." />}>
         <ScenarioMatcher />
+      </Suspense>
+    )
+  }
+
+  // 組織管理ページ
+  if (currentPage === 'organizations') {
+    return (
+      <Suspense fallback={<LoadingScreen message="組織管理を読み込み中..." />}>
+        <OrganizationManagement />
+      </Suspense>
+    )
+  }
+
+  // 公演報告ページ
+  if (currentPage === 'external-reports') {
+    return (
+      <Suspense fallback={<LoadingScreen message="公演報告を読み込み中..." />}>
+        <ExternalReports />
+      </Suspense>
+    )
+  }
+
+  // ライセンス報告管理ページ
+  if (currentPage === 'license-reports') {
+    return (
+      <Suspense fallback={<LoadingScreen message="ライセンス報告を読み込み中..." />}>
+        <LicenseReportManagement />
       </Suspense>
     )
   }
