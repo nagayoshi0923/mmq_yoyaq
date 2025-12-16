@@ -9,6 +9,7 @@ import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Calendar, Clock, Users, MapPin, Search } from 'lucide-react'
 import { scheduleApi, storeApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
@@ -129,10 +130,14 @@ const isWithinBusinessHours = async (date: string, startTime: string, storeId: s
 }
 
 export function CustomerBookingPage() {
+  const { organization } = useOrganization()
   const [events, setEvents] = useState<PublicEvent[]>([])
   const [filteredEvents, setFilteredEvents] = useState<PublicEvent[]>([])
   const [stores, setStores] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  
+  // 予約サイトのベースパス
+  const bookingBasePath = organization?.slug ? `booking/${organization.slug}` : 'customer-booking'
   
   // フィルター状態
   const [searchTerm, setSearchTerm] = useState('')
@@ -292,7 +297,7 @@ export function CustomerBookingPage() {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
-      <NavigationBar currentPage="customer-booking" />
+      <NavigationBar currentPage={bookingBasePath} />
 
       <div className="container mx-auto max-w-7xl px-[10px] py-6">
         <div className="space-y-6">

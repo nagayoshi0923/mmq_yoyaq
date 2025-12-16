@@ -29,9 +29,12 @@ export function BookingConfirmation({
   currentParticipants,
   participationFee,
   initialParticipantCount = 1,
+  organizationSlug,
   onBack,
   onComplete
 }: BookingConfirmationProps) {
+  // 予約サイトのベースパス
+  const bookingBasePath = organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'
   const { user } = useAuth()
   const availableSeats = maxParticipants - currentParticipants
 
@@ -103,7 +106,7 @@ export function BookingConfirmation({
     return (
       <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
-        <NavigationBar currentPage="customer-booking" />
+        <NavigationBar currentPage={bookingBasePath} />
         
         <div className="container mx-auto max-w-3xl px-2 md:px-4 py-12">
           <Card className="border-2 border-green-200 bg-green-50">
@@ -116,7 +119,7 @@ export function BookingConfirmation({
               </p>
               <div className="pt-4">
                 <Button
-                  onClick={() => window.location.hash = 'customer-booking'}
+                  onClick={() => window.location.hash = bookingBasePath}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   予約サイトトップに戻る
@@ -134,7 +137,7 @@ export function BookingConfirmation({
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
-      <NavigationBar currentPage="customer-booking" />
+      <NavigationBar currentPage={bookingBasePath} />
 
       {/* 戻るボタン */}
       <div className="bg-background border-b">

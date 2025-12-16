@@ -16,6 +16,7 @@ export interface PrivateBookingRequestProps {
   selectedTimeSlots: Array<{date: string, slot: TimeSlot}>
   selectedStoreIds: string[]
   stores: any[]
+  organizationSlug?: string  // 組織slug（パス方式用）
   onBack: () => void
   onComplete?: () => void
 }

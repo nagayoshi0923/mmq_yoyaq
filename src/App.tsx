@@ -89,7 +89,7 @@ function AppContent() {
       // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
       const adminPages = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings']
       if (adminPages.some(page => normalizedHash.startsWith(page))) {
-        window.location.hash = 'customer-booking'
+        window.location.hash = 'booking/queens-waltz'
         return <AdminDashboard />
       }
     }

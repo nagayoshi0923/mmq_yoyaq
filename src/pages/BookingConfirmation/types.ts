@@ -17,6 +17,7 @@ export interface BookingConfirmationProps {
   currentParticipants: number
   participationFee: number
   initialParticipantCount?: number
+  organizationSlug?: string  // 組織slug（パス方式用）
   onBack: () => void
   onComplete?: () => void
 }

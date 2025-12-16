@@ -135,6 +135,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         currentParticipants={selectedEvent.current_participants}
         participationFee={scenario.participation_fee}
         initialParticipantCount={participantCount}
+        organizationSlug={organizationSlug}
         onBack={handleBackFromBooking}
         onComplete={handleBookingComplete}
       />
@@ -152,6 +153,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         selectedTimeSlots={selectedTimeSlots}
         selectedStoreIds={selectedStoreIds}
         stores={stores}
+        organizationSlug={organizationSlug}
         onBack={handleBackFromPrivateBooking}
         onComplete={handlePrivateBookingCompleteWithClear}
       />
@@ -166,7 +168,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
         {shouldShowNavigation && (
-          <NavigationBar currentPage="customer-booking" />
+          <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
         )}
         <div className="flex items-center justify-center py-20">
           <p className="text-muted-foreground text-lg">読み込み中...</p>
@@ -180,7 +182,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
         {shouldShowNavigation && (
-          <NavigationBar currentPage="customer-booking" />
+          <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
         )}
         <div className="flex items-center justify-center py-20">
           <p className="text-muted-foreground text-lg">シナリオが見つかりませんでした</p>
@@ -193,7 +195,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       {shouldShowNavigation && (
-        <NavigationBar currentPage="customer-booking" />
+        <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
       )}
 
       {/* スティッキーヘッダー */}

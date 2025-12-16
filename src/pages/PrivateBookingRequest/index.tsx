@@ -23,10 +23,14 @@ export function PrivateBookingRequest({
   selectedTimeSlots,
   selectedStoreIds,
   stores,
+  organizationSlug,
   onBack,
   onComplete
 }: PrivateBookingRequestProps) {
   const { user } = useAuth()
+  
+  // 予約サイトのベースパス
+  const bookingBasePath = organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'
 
   // フック
   const {
@@ -89,7 +93,7 @@ export function PrivateBookingRequest({
     return (
       <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
-        <NavigationBar currentPage="customer-booking" />
+        <NavigationBar currentPage={bookingBasePath} />
         
         <div className="container mx-auto max-w-3xl px-2 md:px-4 py-12">
           <Card className="border-2 border-purple-200 bg-purple-50">
@@ -103,7 +107,7 @@ export function PrivateBookingRequest({
               </p>
               <div className="pt-4">
                 <Button
-                  onClick={() => window.location.hash = 'customer-booking'}
+                  onClick={() => window.location.hash = bookingBasePath}
                   className="bg-purple-600 hover:bg-purple-700"
                 >
                   予約サイトトップに戻る
@@ -121,7 +125,7 @@ export function PrivateBookingRequest({
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
-      <NavigationBar currentPage="customer-booking" />
+      <NavigationBar currentPage={bookingBasePath} />
 
       {/* 戻るボタン */}
       <div className="bg-background border-b">

@@ -18,6 +18,7 @@ import {
   HelpCircle
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 import { staffApi, scheduleApi } from '@/lib/api'
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -34,12 +35,16 @@ interface DashboardHomeProps {
 
 export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   const { user } = useAuth()
+  const { organization } = useOrganization()
   const [mySchedule, setMySchedule] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [staffName, setStaffName] = useState('')
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  
+  // 予約サイトのベースパス
+  const bookingBasePath = organization?.slug ? `booking/${organization.slug}` : 'customer-booking'
 
   // 統計情報を遅延ロード（管理者向け情報として残す）
   const [stats, setStats] = useState({
@@ -168,7 +173,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   // ナビゲーションメニュー（ロールに応じて表示）
   const navigationTabs = useMemo(() => {
     const commonTabs = [
-      { id: 'customer-booking', label: '予約サイト', icon: Globe, color: 'bg-blue-100 text-blue-800' },
+      { id: bookingBasePath, label: '予約サイト', icon: Globe, color: 'bg-blue-100 text-blue-800' },
       { id: 'schedule', label: 'スケジュール', icon: CalendarIcon, color: 'bg-green-100 text-green-800' },
       { id: 'shift-submission', label: 'シフト提出', icon: Clock, color: 'bg-indigo-100 text-indigo-800' },
       { id: 'gm-availability', label: 'GM確認', icon: Clock, color: 'bg-yellow-100 text-yellow-800' },
@@ -188,7 +193,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       return [...commonTabs, ...adminTabs]
     }
     return commonTabs
-  }, [user?.role])
+  }, [user?.role, bookingBasePath])
 
   return (
     <div className="space-y-6 pb-20">

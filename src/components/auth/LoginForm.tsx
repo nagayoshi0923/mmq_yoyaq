@@ -84,7 +84,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         // ログイン処理
         await signIn(email, password)
         // ログイン成功後、予約サイトへリダイレクト
-        window.location.hash = 'customer-booking'
+        window.location.hash = 'booking/queens-waltz'
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : ''

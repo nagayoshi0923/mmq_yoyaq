@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { PrivateBookingRequest } from './PrivateBookingRequest/index'
 import { scenarioApi, storeApi } from '@/lib/api'
+import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 
 interface TimeSlot {
@@ -10,11 +11,15 @@ interface TimeSlot {
 }
 
 export function PrivateBookingRequestPage() {
+  const { organization } = useOrganization()
   const [loading, setLoading] = useState(true)
   const [scenario, setScenario] = useState<any>(null)
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
+  
+  // 予約サイトのベースパス
+  const bookingBasePath = organization?.slug ? `booking/${organization.slug}` : 'customer-booking'
   
   // URLパラメータから情報を取得
   const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '')
@@ -103,7 +108,7 @@ export function PrivateBookingRequestPage() {
 
   const handleComplete = () => {
     // 完了後の処理（トップページへ遷移など）
-    window.location.hash = '#customer-booking'
+    window.location.hash = bookingBasePath
   }
 
   if (loading) {

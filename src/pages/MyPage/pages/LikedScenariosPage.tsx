@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Star, Users, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -31,8 +32,12 @@ interface WantToPlayScenario {
 
 export function WantToPlayPage() {
   const { user } = useAuth()
+  const { organization } = useOrganization()
   const [wantToPlayScenarios, setWantToPlayScenarios] = useState<WantToPlayScenario[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // 予約サイトのベースパス
+  const bookingBasePath = organization?.slug ? `booking/${organization.slug}` : 'customer-booking'
 
   useEffect(() => {
     if (user?.email) {
@@ -182,7 +187,7 @@ export function WantToPlayPage() {
                   key={item.id}
                   className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => {
-                    window.location.hash = `customer-booking/scenario/${item.scenario.id}`
+                    window.location.hash = `${bookingBasePath}/scenario/${item.scenario.id}`
                   }}
                 >
                   <div className="flex items-start gap-4 mb-3">

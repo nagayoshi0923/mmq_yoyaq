@@ -256,7 +256,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             userRef.current = null
             setIsInitialized(true)
             // ページをリロードしてクリーンな状態にする
-            window.location.href = '/#customer-booking'
+            window.location.href = '/#booking/queens-waltz'
             break
           case 'SIGNED_IN':
             // 他のタブでログインした場合、セッションをリフレッシュ
@@ -782,7 +782,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       // 予約サイトにリダイレクト（ログインなしでも閲覧可能）
-      window.location.href = '/#customer-booking'
+      window.location.href = '/#booking/queens-waltz'
     } catch (error) {
       setLoading(false)
       throw error

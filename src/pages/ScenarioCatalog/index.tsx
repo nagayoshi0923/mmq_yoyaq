@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 import { scenarioApi } from '@/lib/api'
 import { useFavorites } from '@/hooks/useFavorites'
 import { Search, ArrowLeft, Clock, Users, Heart, X, Filter } from 'lucide-react'
@@ -28,6 +29,10 @@ interface ScenarioData {
 
 export function ScenarioCatalog() {
   const { user } = useAuth()
+  const { organization } = useOrganization()
+  
+  // 予約サイトのベースパス
+  const bookingBasePath = organization?.slug ? `booking/${organization.slug}` : 'customer-booking'
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   
   const [scenarios, setScenarios] = useState<ScenarioData[]>([])
@@ -105,8 +110,8 @@ export function ScenarioCatalog() {
   }, [scenarios, searchTerm, selectedGenre, selectedDuration, selectedPlayerCount])
 
   const handleBack = useCallback(() => {
-    window.location.hash = 'customer-booking'
-  }, [])
+    window.location.hash = bookingBasePath
+  }, [bookingBasePath])
 
   const handleCardClick = useCallback((scenarioId: string) => {
     window.location.hash = `scenario-detail/${scenarioId}`
@@ -130,7 +135,7 @@ export function ScenarioCatalog() {
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       {shouldShowNavigation && (
-        <NavigationBar currentPage="customer-booking" />
+        <NavigationBar currentPage={bookingBasePath} />
       )}
 
       {/* ヘッダー */}
