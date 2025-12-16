@@ -141,14 +141,16 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   // タブ変更時にURLハッシュを更新（メモ化）
   const handleTabChange = useCallback((value: string) => {
     setActiveTab(value)
+    // organizationSlug がある場合は新形式、ない場合は旧形式
+    const basePath = organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'
     if (value === 'calendar') {
-      window.location.hash = 'customer-booking/calendar'
+      window.location.hash = `${basePath}/calendar`
     } else if (value === 'list') {
-      window.location.hash = 'customer-booking/list'
+      window.location.hash = `${basePath}/list`
     } else {
-      window.location.hash = 'customer-booking'
+      window.location.hash = basePath
     }
-  }, [])
+  }, [organizationSlug])
 
   // シナリオカードクリック（メモ化）
   const handleCardClick = useCallback((scenarioId: string) => {
@@ -205,7 +207,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       {shouldShowNavigation && (
-        <NavigationBar currentPage="customer-booking" />
+        <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
       )}
 
       {/* ヒーローセクション */}
