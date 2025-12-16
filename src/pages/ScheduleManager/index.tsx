@@ -58,6 +58,9 @@ export function ScheduleManager() {
   
   // 店舗フィルター
   const [selectedStores, setSelectedStores] = useState<string[]>([])
+  
+  // シフト提出者フィルター（空スロットに表示されるシフト提出者を絞り込む）
+  const [selectedShiftStaff, setSelectedShiftStaff] = useState<string[]>([])
 
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
@@ -137,7 +140,47 @@ export function ScheduleManager() {
     )
   }, [scheduleTableProps.viewConfig.stores, selectedStores])
 
-  // カテゴリー＋スタッフ＋店舗フィルター適用版のpropsを作成
+  // シフト提出者一覧を取得（MultiSelectのオプション用）
+  const shiftStaffOptions = useMemo(() => {
+    const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+    const staffMap = new Map<string, Staff>()
+    
+    // shiftDataから全てのシフト提出者を抽出
+    Object.values(shiftData).forEach((staffList: Staff[]) => {
+      staffList.forEach(s => {
+        if (!staffMap.has(s.id)) {
+          staffMap.set(s.id, s)
+        }
+      })
+    })
+    
+    // 名前順でソート
+    return Array.from(staffMap.values())
+      .sort((a, b) => (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja'))
+      .map(staff => ({
+        id: staff.id,
+        name: staff.display_name || staff.name
+      }))
+  }, [scheduleTableProps.dataProvider.shiftData])
+
+  // シフトデータのフィルタリング（選択したスタッフのみ表示）
+  const filteredShiftData = useMemo(() => {
+    const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+    
+    // フィルターが選択されていない場合はそのまま返す
+    if (selectedShiftStaff.length === 0) {
+      return shiftData
+    }
+    
+    // 選択されたスタッフのみフィルタリング
+    const filtered: Record<string, Staff[]> = {}
+    Object.entries(shiftData).forEach(([key, staffList]) => {
+      filtered[key] = staffList.filter((s: Staff) => selectedShiftStaff.includes(s.id))
+    })
+    return filtered
+  }, [scheduleTableProps.dataProvider.shiftData, selectedShiftStaff])
+
+  // カテゴリー＋スタッフ＋店舗＋シフト提出者フィルター適用版のpropsを作成
   const filteredScheduleTableProps = useMemo(() => ({
     ...scheduleTableProps,
     viewConfig: {
@@ -147,9 +190,10 @@ export function ScheduleManager() {
     },
     dataProvider: {
       ...scheduleTableProps.dataProvider,
-      getEventsForSlot: filteredGetEventsForSlot
+      getEventsForSlot: filteredGetEventsForSlot,
+      shiftData: filteredShiftData
     }
-  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores])
+  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -254,6 +298,20 @@ export function ScheduleManager() {
                   selectedValues={selectedStores}
                   onSelectionChange={setSelectedStores}
                   placeholder="店舗で絞込"
+                  closeOnSelect={false}
+                  useIdAsValue={true}
+                />
+              </div>
+            )}
+            
+            {/* シフト提出者フィルター（空スロットの提出者表示を絞り込む） */}
+            {shiftStaffOptions.length > 0 && (
+              <div className="w-36 sm:w-52">
+                <MultiSelect
+                  options={shiftStaffOptions}
+                  selectedValues={selectedShiftStaff}
+                  onSelectionChange={setSelectedShiftStaff}
+                  placeholder="出勤者で絞込"
                   closeOnSelect={false}
                   useIdAsValue={true}
                 />
