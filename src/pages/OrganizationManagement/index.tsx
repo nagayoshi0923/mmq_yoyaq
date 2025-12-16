@@ -19,12 +19,13 @@ import {
   XCircle,
   Loader2
 } from 'lucide-react'
-import { useOrganizations } from '@/hooks/useOrganization'
+import { useOrganization, useOrganizations } from '@/hooks/useOrganization'
 import { OrganizationCreateDialog } from './components/OrganizationCreateDialog'
 import { OrganizationInviteDialog } from './components/OrganizationInviteDialog'
 import type { Organization } from '@/types'
 
 export default function OrganizationManagement() {
+  const { isLicenseManager, isLoading: orgLoading } = useOrganization()
   const { organizations, isLoading, error, refetch } = useOrganizations()
   const [searchTerm, setSearchTerm] = useState('')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -45,10 +46,26 @@ export default function OrganizationManagement() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading || orgLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // ライセンス管理組織のみアクセス可能
+  if (!isLicenseManager) {
+    return (
+      <div className="p-4">
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-6 flex items-center gap-3">
+            <Building2 className="w-5 h-5 text-amber-600" />
+            <p className="text-amber-800">
+              このページはライセンス管理組織のみアクセス可能です。
+            </p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
