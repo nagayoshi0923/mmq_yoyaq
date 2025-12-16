@@ -29,9 +29,10 @@ import { RelatedScenarios } from './components/RelatedScenarios'
 interface ScenarioDetailPageProps {
   scenarioId: string
   onClose?: () => void
+  organizationSlug?: string  // 組織slug（パス方式用）
 }
 
-export function ScenarioDetailPage({ scenarioId, onClose }: ScenarioDetailPageProps) {
+export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: ScenarioDetailPageProps) {
   const { user } = useAuth()
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')

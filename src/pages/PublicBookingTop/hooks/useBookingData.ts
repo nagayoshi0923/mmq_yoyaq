@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react'
-import { scheduleApi, storeApi, scenarioApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { formatDateJST } from '@/utils/dateUtils'
@@ -43,18 +42,23 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
   /**
    * 公演データの取得と管理を行うフック
    *
+   * @param organizationSlug - 組織slug（パス方式用）指定がない場合は全組織のデータを取得
+   *
    * パフォーマンス最適化:
    * - React Queryの導入検討（キャッシュ有効活用）
    * - メモリ使用量の最適化（不要なデータは破棄）
    * - 初期表示データの制限（最初の1ヶ月のみ取得）
    */
-  export function useBookingData() {
+  export function useBookingData(organizationSlug?: string) {
     const [scenarios, setScenarios] = useState<ScenarioCard[]>([])
     const [allEvents, setAllEvents] = useState<any[]>([])
     const [blockedSlots, setBlockedSlots] = useState<any[]>([]) // GMテスト等、貸切申込を受け付けない時間帯
     const [stores, setStores] = useState<any[]>([])
     const [privateBookingDeadlineDays, setPrivateBookingDeadlineDays] = useState<number>(7) // 貸切申込締切日数
     const [isLoading, setIsLoading] = useState(true)
+    const [organizationId, setOrganizationId] = useState<string | null>(null)
+    const [organizationNotFound, setOrganizationNotFound] = useState(false)
+    const [organizationName, setOrganizationName] = useState<string | null>(null)
 
   /**
    * シナリオ・公演・店舗データを読み込む
@@ -70,28 +74,76 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       setIsLoading(true)
       const startTime = performance.now()
       
+      // 組織slugからorganization_idを取得
+      let orgId: string | null = null
+      setOrganizationNotFound(false)
+      if (organizationSlug) {
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('id, name')
+          .eq('slug', organizationSlug)
+          .eq('is_active', true)
+          .single()
+        
+        if (orgData) {
+          orgId = orgData.id
+          setOrganizationId(orgId)
+          setOrganizationName(orgData.name)
+          logger.log(`📍 組織検出: ${organizationSlug} (ID: ${orgId}, 名前: ${orgData.name})`)
+        } else {
+          logger.warn(`⚠️ 組織が見つかりません: ${organizationSlug}`)
+          setOrganizationNotFound(true)
+          setIsLoading(false)
+          return // 組織が見つからない場合は早期リターン
+        }
+      }
+      
       // 初期表示パフォーマンス最適化: 最初の1ヶ月のみ取得
       // （ユーザーが操作で追加の月を読み込むようにする）
       const currentDate = new Date()
-      const monthPromises = []
 
       // 現在の月のみ取得（1ヶ月分）- パフォーマンス最適化
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth() + 1
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+      const lastDay = new Date(year, month, 0).getDate()
+      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
       const apiStartTime = performance.now()
-        monthPromises.push(scheduleApi.getByMonth(year, month))
       logger.log(`⏱️ API呼び出し開始: ${((performance.now() - apiStartTime).toFixed(2))}ms`)
 
       // パフォーマンス最適化: 段階的データ取得
       // 1. まずシナリオと店舗データと設定を取得（軽量、即座に表示可能）
       const fetchStartTime = performance.now()
-      const [scenariosData, storesDataResult, settingsResult] = await Promise.all([
-        scenarioApi.getPublic(), // status='available'のみ、必要なフィールドのみ取得
-        storeApi.getAll().catch((error) => {
-          logger.error('店舗データの取得エラー:', error)
-          return []
-        }),
+      
+      // シナリオ取得（organization_idでフィルタリング）
+      const scenarioQuery = supabase
+        .from('scenarios')
+        .select('id, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id')
+        .eq('status', 'available')
+        .neq('scenario_type', 'gm_test')
+      
+      // 組織が指定されている場合、その組織のシナリオ OR 共有シナリオを取得
+      if (orgId) {
+        scenarioQuery.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+      }
+      
+      // 店舗取得（organization_idでフィルタリング）
+      const storeQuery = supabase.from('stores').select('*')
+      if (orgId) {
+        storeQuery.eq('organization_id', orgId)
+      }
+      
+      const [scenariosResult, storesResult, settingsResult] = await Promise.all([
+        scenarioQuery.order('title', { ascending: true }),
+        (async () => {
+          try {
+            return await storeQuery
+          } catch (error) {
+            logger.error('店舗データの取得エラー:', error)
+            return { data: [], error: null }
+          }
+        })(),
         (async () => {
           try {
             return await supabase
@@ -104,7 +156,9 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
           }
         })()
       ])
-      const storesData = storesDataResult || []
+      
+      const scenariosData = scenariosResult.data || []
+      const storesData = storesResult?.data || []
       
       // 貸切申込締切日数を設定（デフォルト7日）
       if (settingsResult?.data?.private_booking_deadline_days) {
@@ -117,9 +171,37 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       // 2. 店舗データを即座に設定（シナリオデータは公演データと一緒に処理）
       setStores(storesData)
       
-      // 3. 公演データを取得（重い処理、バックグラウンドで実行）
-      const monthResults = await Promise.all(monthPromises)
-      const allEventsData = monthResults.flat()
+      // 3. 公演データを取得（organization_idでフィルタリング）
+      const eventsQuery = supabase
+        .from('schedule_events')
+        .select(`
+          *,
+          stores:store_id (
+            id,
+            name,
+            short_name,
+            color,
+            address
+          ),
+          scenarios:scenario_id (
+            id,
+            title,
+            player_count_max
+          )
+        `)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: true })
+        .order('start_time', { ascending: true })
+      
+      // 組織が指定されている場合、その組織の公演のみ取得
+      if (orgId) {
+        eventsQuery.eq('organization_id', orgId)
+      }
+      
+      const { data: eventsData, error: eventsError } = await eventsQuery
+      if (eventsError) throw eventsError
+      const allEventsData = eventsData || []
       const fetchEndTime = performance.now()
       logger.log(`⏱️ 公演データ取得完了: ${((fetchEndTime - firstFetchEndTime) / 1000).toFixed(2)}秒`)
       logger.log(`⏱️ データ取得完了: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
@@ -401,7 +483,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       logger.error('データの読み込みエラー:', error)
       setIsLoading(false)
     }
-  }, [])
+  }, [organizationSlug])
 
   return {
     scenarios,
@@ -410,7 +492,9 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
     stores,
     privateBookingDeadlineDays, // 貸切申込締切日数
     isLoading,
-    loadData
+    loadData,
+    organizationNotFound, // 組織が見つからない場合のフラグ
+    organizationName // 組織名
   }
 }
 

@@ -75,73 +75,89 @@ export function AdminDashboard() {
     'license-reports'
   ]
 
-  // ハッシュを解析してページとシナリオIDを返すユーティリティ
-  function parseHash(hash: string, userRole?: string | null): { page: string, scenarioId: string | null } {
+  // ハッシュを解析してページ、シナリオID、組織slugを返すユーティリティ
+  function parseHash(hash: string, userRole?: string | null): { page: string, scenarioId: string | null, organizationSlug: string | null } {
     // scenario-detail/{scenarioId} のルーティング
     const scenarioDetailMatch = hash.match(/scenario-detail\/([^/?]+)/)
     if (scenarioDetailMatch) {
-      return { page: 'scenario-detail', scenarioId: scenarioDetailMatch[1] }
+      return { page: 'scenario-detail', scenarioId: scenarioDetailMatch[1], organizationSlug: null }
     }
+    
+    // booking/{slug}/scenario/{scenarioId} のルーティング（新形式）
+    const bookingScenarioMatch = hash.match(/booking\/([^/]+)\/scenario\/([^/?]+)/)
+    if (bookingScenarioMatch) {
+      return { page: 'booking', scenarioId: bookingScenarioMatch[2], organizationSlug: bookingScenarioMatch[1] }
+    }
+    
+    // booking/{slug} のルーティング（新形式）
+    const bookingMatch = hash.match(/booking\/([^/?]+)/)
+    if (bookingMatch && !hash.includes('/scenario/')) {
+      return { page: 'booking', scenarioId: null, organizationSlug: bookingMatch[1] }
+    }
+    
+    // 旧形式: customer-booking/scenario/{scenarioId}（後方互換性）
     const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/?]+)/)
     if (scenarioMatch) {
-      return { page: 'customer-booking', scenarioId: scenarioMatch[1] }
+      return { page: 'customer-booking', scenarioId: scenarioMatch[1], organizationSlug: null }
     }
     // staff/edit/{staffId} のルーティング
     if (hash.startsWith('staff/edit/') || hash.startsWith('staff-edit/')) {
-      return { page: 'staff', scenarioId: null }
+      return { page: 'staff', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('scenarios/edit')) {
-      return { page: 'scenarios-edit', scenarioId: null }
+      return { page: 'scenarios-edit', scenarioId: null, organizationSlug: null }
     }
+    // 旧形式: customer-booking（後方互換性）
     if (hash.startsWith('customer-booking')) {
-      return { page: 'customer-booking', scenarioId: null }
+      return { page: 'customer-booking', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('private-booking-select')) {
-      return { page: 'private-booking-select', scenarioId: null }
+      return { page: 'private-booking-select', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('private-booking-request')) {
-      return { page: 'private-booking-request', scenarioId: null }
+      return { page: 'private-booking-request', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('private-booking-management')) {
-      return { page: 'private-booking-management', scenarioId: null }
+      return { page: 'private-booking-management', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('user-management')) {
-      return { page: 'user-management', scenarioId: null }
+      return { page: 'user-management', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('add-demo-participants')) {
-      return { page: 'add-demo-participants', scenarioId: null }
+      return { page: 'add-demo-participants', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('scenario-matcher')) {
-      return { page: 'scenario-matcher', scenarioId: null }
+      return { page: 'scenario-matcher', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('catalog')) {
-      return { page: 'catalog', scenarioId: null }
+      return { page: 'catalog', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('manual')) {
-      return { page: 'manual', scenarioId: null }
+      return { page: 'manual', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('organizations')) {
-      return { page: 'organizations', scenarioId: null }
+      return { page: 'organizations', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('external-reports')) {
-      return { page: 'external-reports', scenarioId: null }
+      return { page: 'external-reports', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('license-reports')) {
-      return { page: 'license-reports', scenarioId: null }
+      return { page: 'license-reports', scenarioId: null, organizationSlug: null }
     }
     // ハッシュからクエリパラメータを分離
     const hashWithoutQuery = hash.split('?')[0]
     
     if (!hash && userRole === 'customer') {
-      return { page: 'customer-booking', scenarioId: null }
+      // デフォルトでクインズワルツの予約サイトへ
+      return { page: 'booking', scenarioId: null, organizationSlug: 'queens-waltz' }
     }
     
     // loginページは特別扱い
     if (hashWithoutQuery === 'login') {
-      return { page: 'login', scenarioId: null }
+      return { page: 'login', scenarioId: null, organizationSlug: null }
     }
     
-    return { page: hashWithoutQuery || 'dashboard', scenarioId: null }
+    return { page: hashWithoutQuery || 'dashboard', scenarioId: null, organizationSlug: null }
   }
 
   const [currentPage, setCurrentPage] = useState(() => {
@@ -157,24 +173,43 @@ export function AdminDashboard() {
     const { scenarioId } = parseHash(window.location.hash.slice(1), user?.role)
     return scenarioId
   })
+  
+  // 組織slug（予約サイトのパス方式用）
+  const [organizationSlug, setOrganizationSlug] = useState<string | null>(() => {
+    const { organizationSlug } = parseHash(window.location.hash.slice(1), user?.role)
+    return organizationSlug
+  })
 
   // ページ変更時にURLのハッシュを更新
   const handlePageChange = useCallback((pageId: string) => {
     setCurrentPage(pageId)
     setSelectedScenarioId(null) // ページ変更時はシナリオ選択をクリア
+    setOrganizationSlug(null) // ページ変更時は組織slugもクリア
     // キャッシュ回避のため、明示的に dashboard ハッシュを使用する
     window.location.hash = pageId
   }, [])
+  
+  // シナリオ選択（予約サイト用）
   const handleScenarioSelect = useCallback((scenarioId: string) => {
     setSelectedScenarioId(scenarioId)
-    window.location.hash = `customer-booking/scenario/${scenarioId}`
-  }, [])
+    // 組織slugがある場合は新形式、ない場合は旧形式
+    if (organizationSlug) {
+      window.location.hash = `booking/${organizationSlug}/scenario/${scenarioId}`
+    } else {
+      window.location.hash = `customer-booking/scenario/${scenarioId}`
+    }
+  }, [organizationSlug])
 
   // シナリオ詳細を閉じる
   const handleScenarioClose = useCallback(() => {
     setSelectedScenarioId(null)
-    window.location.hash = 'customer-booking'
-  }, [])
+    // 組織slugがある場合は新形式、ない場合は旧形式
+    if (organizationSlug) {
+      window.location.hash = `booking/${organizationSlug}`
+    } else {
+      window.location.hash = 'customer-booking'
+    }
+  }, [organizationSlug])
 
   // ユーザーロールが確定したときに初回リダイレクト
   // ⚠️ 重要: 認証完了後のみリダイレクト（早期表示時はリダイレクトしない）
@@ -189,8 +224,9 @@ export function AdminDashboard() {
     
     // 顧客/ログアウト状態でダッシュボードや管理ページにいる場合は予約サイトにリダイレクト
     if (isCustomerOrLoggedOut && (!currentPage || currentPage === 'dashboard' || adminOnlyPages.includes(currentPage))) {
-      setCurrentPage('customer-booking')
-      window.location.hash = 'customer-booking'
+      setCurrentPage('booking')
+      setOrganizationSlug('queens-waltz')
+      window.location.hash = 'booking/queens-waltz'
       return
     }
 
@@ -208,7 +244,7 @@ export function AdminDashboard() {
   // ブラウザの戻る/進むボタンに対応
   React.useEffect(() => {
     const handleHashChange = () => {
-      const { page, scenarioId } = parseHash(window.location.hash.slice(1), user?.role)
+      const { page, scenarioId, organizationSlug: orgSlug } = parseHash(window.location.hash.slice(1), user?.role)
       
       // ⚠️ 認証完了後かつロード完了後のみリダイレクト判定を行う
       if (isInitialized && !loading) {
@@ -217,14 +253,16 @@ export function AdminDashboard() {
         const restrictedPages = ['dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher', 'organizations', 'external-reports', 'license-reports']
         if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
           // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
-          setCurrentPage('customer-booking')
-          window.location.hash = 'customer-booking'
+          setCurrentPage('booking')
+          setOrganizationSlug('queens-waltz')
+          window.location.hash = 'booking/queens-waltz'
           return
         }
       }
       
       setCurrentPage(page)
       setSelectedScenarioId(scenarioId)
+      setOrganizationSlug(orgSlug)
     }
 
     window.addEventListener('hashchange', handleHashChange)
@@ -293,6 +331,32 @@ export function AdminDashboard() {
     )
   }
   
+  // 予約サイト（新形式: booking/{slug}）
+  if (currentPage === 'booking' && organizationSlug) {
+    // シナリオ詳細が選択されている場合
+    if (selectedScenarioId) {
+      return (
+        <Suspense fallback={<LoadingScreen message="シナリオ詳細を読み込み中..." />}>
+          <ScenarioDetailPage 
+            scenarioId={selectedScenarioId}
+            onClose={handleScenarioClose}
+            organizationSlug={organizationSlug}
+          />
+        </Suspense>
+      )
+    }
+    // トップページを表示
+    return (
+      <Suspense fallback={<LoadingScreen message="予約サイトを読み込み中..." />}>
+        <PublicBookingTop 
+          onScenarioSelect={handleScenarioSelect} 
+          organizationSlug={organizationSlug}
+        />
+      </Suspense>
+    )
+  }
+  
+  // 予約サイト（旧形式: customer-booking）- 後方互換性
   if (currentPage === 'customer-booking') {
     // シナリオ詳細が選択されている場合
     if (selectedScenarioId) {

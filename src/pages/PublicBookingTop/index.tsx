@@ -17,9 +17,10 @@ import { ListView } from './components/ListView'
 
 interface PublicBookingTopProps {
   onScenarioSelect?: (scenarioId: string) => void
+  organizationSlug?: string  // 組織slug（パス方式用）
 }
 
-export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
+export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicBookingTopProps) {
   const { user } = useAuth()
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   
@@ -36,7 +37,17 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
   const [isStoreFilterInitialized, setIsStoreFilterInitialized] = useState(false)
 
   // データ取得フック
-  const { scenarios, allEvents, blockedSlots, stores, privateBookingDeadlineDays, isLoading, loadData } = useBookingData()
+  const { 
+    scenarios, 
+    allEvents, 
+    blockedSlots, 
+    stores, 
+    privateBookingDeadlineDays, 
+    isLoading, 
+    loadData,
+    organizationNotFound,
+    organizationName
+  } = useBookingData(organizationSlug)
   
   // 店舗データがロードされたら、デフォルトで「馬場」を選択
   useEffect(() => {
@@ -167,6 +178,29 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
     return '#4F46E5'
   }, [])
 
+  // 組織が見つからない場合のエラー表示
+  if (organizationNotFound) {
+    return (
+      <div className="min-h-screen bg-background overflow-x-hidden">
+        <Header />
+        <div className="container mx-auto max-w-7xl px-[10px] py-16">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">組織が見つかりません</h1>
+            <p className="text-gray-600 mb-8">
+              指定された組織「{organizationSlug}」は存在しないか、現在利用できません。
+            </p>
+            <a 
+              href="#booking/queens-waltz" 
+              className="inline-flex items-center justify-center rounded-md bg-purple-600 px-6 py-3 text-white hover:bg-purple-700 transition-colors"
+            >
+              トップページへ戻る
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
@@ -177,7 +211,7 @@ export function PublicBookingTop({ onScenarioSelect }: PublicBookingTopProps) {
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
         <div className="container mx-auto max-w-7xl px-[10px] py-6 md:py-10 xl:py-12">
-          <h1 className="text-lg mb-2 md:mb-3">Murder Mystery Quest</h1>
+          <h1 className="text-lg mb-2 md:mb-3">{organizationName || 'Murder Mystery Quest'}</h1>
           <p className="text-base text-purple-100 leading-relaxed">
             リアルな謎解き体験。あなたは事件の真相を暴けるか？
           </p>
