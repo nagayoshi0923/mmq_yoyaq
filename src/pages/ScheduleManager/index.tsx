@@ -143,25 +143,36 @@ export function ScheduleManager() {
   // シフト提出者一覧を取得（MultiSelectのオプション用）
   const shiftStaffOptions = useMemo(() => {
     const shiftData = scheduleTableProps.dataProvider.shiftData || {}
-    const staffMap = new Map<string, Staff>()
     
-    // shiftDataから全てのシフト提出者を抽出
+    // シフト提出済みのスタッフIDを抽出
+    const staffWithShift = new Set<string>()
     Object.values(shiftData).forEach((staffList: Staff[]) => {
-      staffList.forEach(s => {
-        if (!staffMap.has(s.id)) {
-          staffMap.set(s.id, s)
-        }
-      })
+      staffList.forEach(s => staffWithShift.add(s.id))
     })
     
-    // 名前順でソート
-    return Array.from(staffMap.values())
-      .sort((a, b) => (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja'))
-      .map(staff => ({
-        id: staff.id,
-        name: staff.display_name || staff.name
-      }))
-  }, [scheduleTableProps.dataProvider.shiftData])
+    // 全スタッフを表示（シフト提出済みを上に、提出済みバッジ付き）
+    return [...gmList]
+      .sort((a, b) => {
+        const aHasShift = staffWithShift.has(a.id)
+        const bHasShift = staffWithShift.has(b.id)
+        if (aHasShift && !bHasShift) return -1
+        if (!aHasShift && bHasShift) return 1
+        return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
+      })
+      .map(staff => {
+        const hasShift = staffWithShift.has(staff.id)
+        return {
+          id: staff.id,
+          name: staff.display_name || staff.name,
+          displayInfo: hasShift ? (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 border border-green-200">
+              提出済
+            </span>
+          ) : undefined,
+          displayInfoSearchText: hasShift ? '提出済' : undefined
+        }
+      })
+  }, [scheduleTableProps.dataProvider.shiftData, gmList])
 
   // シフトデータのフィルタリング（選択したスタッフのみ表示）
   const filteredShiftData = useMemo(() => {
