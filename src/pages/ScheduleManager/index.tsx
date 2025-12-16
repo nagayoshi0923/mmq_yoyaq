@@ -184,9 +184,9 @@ export function ScheduleManager() {
     }
     
     // 選択されたスタッフのみフィルタリング
-    const filtered: Record<string, Staff[]> = {}
+    const filtered: Record<string, Array<Staff & { timeSlot: string }>> = {}
     Object.entries(shiftData).forEach(([key, staffList]) => {
-      filtered[key] = staffList.filter((s: Staff) => selectedShiftStaff.includes(s.id))
+      filtered[key] = staffList.filter(s => selectedShiftStaff.includes(s.id))
     })
     return filtered
   }, [scheduleTableProps.dataProvider.shiftData, selectedShiftStaff])
