@@ -62,6 +62,8 @@ DROP POLICY IF EXISTS stores_policy ON stores;
 DROP POLICY IF EXISTS stores_org_policy ON stores;
 CREATE POLICY stores_org_policy ON stores FOR ALL USING (
   organization_id = current_organization_id()
+  OR organization_id IS NULL  -- 移行期間中: organization_id 未設定のデータも許可
+  OR current_organization_id() IS NULL  -- 移行期間中: user_id 未設定のユーザーも許可
   OR is_admin()
 );
 
@@ -70,6 +72,8 @@ DROP POLICY IF EXISTS staff_policy ON staff;
 DROP POLICY IF EXISTS staff_org_policy ON staff;
 CREATE POLICY staff_org_policy ON staff FOR ALL USING (
   organization_id = current_organization_id()
+  OR organization_id IS NULL  -- 移行期間中
+  OR current_organization_id() IS NULL  -- 移行期間中
   OR is_admin()
 );
 
@@ -80,19 +84,26 @@ DROP POLICY IF EXISTS scenarios_org_policy ON scenarios;
 CREATE POLICY scenarios_org_policy ON scenarios FOR SELECT USING (
   organization_id = current_organization_id()
   OR is_shared = true
-  OR organization_id IS NULL  -- 管理シナリオ
+  OR organization_id IS NULL  -- 管理シナリオ or 移行期間中
+  OR current_organization_id() IS NULL  -- 移行期間中
   OR is_admin()
 );
-CREATE POLICY scenarios_org_modify_policy ON scenarios FOR INSERT USING (
+CREATE POLICY scenarios_org_modify_policy ON scenarios FOR INSERT WITH CHECK (
   organization_id = current_organization_id()
+  OR organization_id IS NULL  -- 移行期間中
+  OR current_organization_id() IS NULL  -- 移行期間中
   OR is_admin()
 );
 CREATE POLICY scenarios_org_update_policy ON scenarios FOR UPDATE USING (
   organization_id = current_organization_id()
+  OR organization_id IS NULL  -- 移行期間中
+  OR current_organization_id() IS NULL  -- 移行期間中
   OR is_admin()
 );
 CREATE POLICY scenarios_org_delete_policy ON scenarios FOR DELETE USING (
   organization_id = current_organization_id()
+  OR organization_id IS NULL  -- 移行期間中
+  OR current_organization_id() IS NULL  -- 移行期間中
   OR is_admin()
 );
 
@@ -101,6 +112,8 @@ DROP POLICY IF EXISTS customers_policy ON customers;
 DROP POLICY IF EXISTS customers_org_policy ON customers;
 CREATE POLICY customers_org_policy ON customers FOR ALL USING (
   organization_id = current_organization_id()
+  OR organization_id IS NULL  -- 移行期間中
+  OR current_organization_id() IS NULL  -- 移行期間中
   OR user_id = auth.uid()  -- 自分自身の顧客データ
   OR is_admin()
 );
@@ -110,6 +123,8 @@ DROP POLICY IF EXISTS schedule_events_policy ON schedule_events;
 DROP POLICY IF EXISTS schedule_events_org_policy ON schedule_events;
 CREATE POLICY schedule_events_org_policy ON schedule_events FOR ALL USING (
   organization_id = current_organization_id()
+  OR organization_id IS NULL  -- 移行期間中
+  OR current_organization_id() IS NULL  -- 移行期間中
   OR is_admin()
 );
 
@@ -118,6 +133,8 @@ DROP POLICY IF EXISTS reservations_policy ON reservations;
 DROP POLICY IF EXISTS reservations_org_policy ON reservations;
 CREATE POLICY reservations_org_policy ON reservations FOR ALL USING (
   organization_id = current_organization_id()
+  OR organization_id IS NULL  -- 移行期間中
+  OR current_organization_id() IS NULL  -- 移行期間中
   OR is_admin()
 );
 
@@ -126,6 +143,8 @@ DROP POLICY IF EXISTS performance_kits_policy ON performance_kits;
 DROP POLICY IF EXISTS performance_kits_org_policy ON performance_kits;
 CREATE POLICY performance_kits_org_policy ON performance_kits FOR ALL USING (
   organization_id = current_organization_id()
+  OR organization_id IS NULL  -- 移行期間中
+  OR current_organization_id() IS NULL  -- 移行期間中
   OR is_admin()
 );
 
@@ -134,6 +153,8 @@ DROP POLICY IF EXISTS shift_submissions_policy ON shift_submissions;
 DROP POLICY IF EXISTS shift_submissions_org_policy ON shift_submissions;
 CREATE POLICY shift_submissions_org_policy ON shift_submissions FOR ALL USING (
   organization_id = current_organization_id()
+  OR organization_id IS NULL  -- 移行期間中
+  OR current_organization_id() IS NULL  -- 移行期間中
   OR is_admin()
 );
 
