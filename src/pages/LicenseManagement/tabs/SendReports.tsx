@@ -25,6 +25,15 @@ import {
   ExternalLink,
   MailCheck
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
 import { scenarioApi, salesApi, storeApi } from '@/lib/api'
@@ -75,6 +84,12 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   // シナリオ編集ダイアログ
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editScenarioId, setEditScenarioId] = useState<string | null>(null)
+  
+  // 一括メール登録ダイアログ
+  const [isBulkEmailDialogOpen, setIsBulkEmailDialogOpen] = useState(false)
+  const [bulkEmailTarget, setBulkEmailTarget] = useState<ReportGroup | null>(null)
+  const [bulkEmail, setBulkEmail] = useState('')
+  const [isSavingEmail, setIsSavingEmail] = useState(false)
   
   // 月選択
   const [currentDate, setCurrentDate] = useState(() => new Date())
@@ -352,6 +367,52 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
     loadData() // データ再読み込み
   }
 
+  // 一括メール登録ダイアログを開く
+  const handleOpenBulkEmailDialog = (group: ReportGroup) => {
+    setBulkEmailTarget(group)
+    setBulkEmail('')
+    setIsBulkEmailDialogOpen(true)
+  }
+
+  // 一括メール登録を実行
+  const handleBulkEmailSave = async () => {
+    if (!bulkEmailTarget || !bulkEmail.trim()) {
+      showToast.error('メールアドレスを入力してください')
+      return
+    }
+
+    if (!bulkEmail.includes('@') || !bulkEmail.includes('.')) {
+      showToast.error('有効なメールアドレスを入力してください')
+      return
+    }
+
+    try {
+      setIsSavingEmail(true)
+
+      // 対象シナリオのIDを抽出（重複を除去）
+      const scenarioIds = [...new Set(bulkEmailTarget.items.map(item => item.scenarioId))]
+
+      // 各シナリオのauthor_emailを更新
+      const { error } = await supabase
+        .from('scenarios')
+        .update({ author_email: bulkEmail.trim() })
+        .in('id', scenarioIds)
+
+      if (error) throw error
+
+      showToast.success('一括登録完了', `${scenarioIds.length}件のシナリオにメールアドレスを登録しました`)
+      setIsBulkEmailDialogOpen(false)
+      setBulkEmailTarget(null)
+      setBulkEmail('')
+      loadData() // データ再読み込み
+    } catch (error) {
+      logger.error('一括メール登録エラー:', error)
+      showToast.error('登録に失敗しました')
+    } finally {
+      setIsSavingEmail(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -372,6 +433,65 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
         scenarioId={editScenarioId}
         onSaved={handleScenarioSaved}
       />
+
+      {/* 一括メール登録ダイアログ */}
+      <Dialog open={isBulkEmailDialogOpen} onOpenChange={setIsBulkEmailDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>作者メールアドレス一括登録</DialogTitle>
+            <DialogDescription>
+              {bulkEmailTarget?.recipientName} のシナリオにメールアドレスを一括登録します
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="bulk-email">メールアドレス</Label>
+              <Input
+                id="bulk-email"
+                type="email"
+                placeholder="author@example.com"
+                value={bulkEmail}
+                onChange={(e) => setBulkEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>対象シナリオ ({bulkEmailTarget?.items.length || 0}件)</Label>
+              <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+                {bulkEmailTarget?.items.map((item, idx) => (
+                  <div key={idx} className="text-sm text-muted-foreground">
+                    • {item.scenarioTitle}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkEmailDialogOpen(false)}
+              disabled={isSavingEmail}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleBulkEmailSave}
+              disabled={isSavingEmail || !bulkEmail.trim()}
+            >
+              {isSavingEmail ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  登録中...
+                </>
+              ) : (
+                '一括登録'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ヘッダー */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -526,14 +646,11 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation()
-                              // 最初のシナリオの編集ダイアログを開く
-                              if (group.items.length > 0) {
-                                handleEditScenario(group.items[0].scenarioId)
-                              }
+                              handleOpenBulkEmailDialog(group)
                             }}
                           >
                             <Mail className="w-4 h-4 mr-1" />
-                            登録
+                            一括登録
                           </Button>
                         )}
                         {isExpanded ? (
