@@ -51,6 +51,7 @@ const OrganizationSettings = lazy(() => import('./OrganizationSettings'))
 const OrganizationRegister = lazy(() => import('./OrganizationRegister'))
 const LandingPage = lazy(() => import('./LandingPage'))
 const AuthorDashboard = lazy(() => import('./AuthorDashboard'))
+const AuthorLogin = lazy(() => import('./AuthorLogin'))
 
 /**
  * 現在のURLからorganizationSlugを抽出するヘルパー関数
@@ -630,6 +631,14 @@ export function AdminDashboard() {
     )
   }
 
+  // 作者ログインページ（マジックリンク方式）
+  if (currentPage === 'author-login') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <AuthorLogin />
+      </Suspense>
+    )
+  }
 
   // ログアウト状態または顧客アカウントの場合は常にナビゲーションを表示しない
   // userがnull、undefined、またはcustomerロールの場合はナビゲーション非表示

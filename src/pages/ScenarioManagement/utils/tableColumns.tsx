@@ -237,19 +237,20 @@ export function createScenarioColumns(
         header: '担当GM',
         width: 'w-48',
         sortable: true,
+        cellClassName: 'overflow-hidden',
         render: (scenario) => {
           const { displayed: displayedGMs, remaining: remainingGMs } = getDisplayGMs(scenario.available_gms || [])
           return (
-            <div className="text-sm">
+            <div className="text-sm overflow-hidden">
               {displayedGMs.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                 {displayedGMs.map((gm, i) => (
-                  <Badge key={i} variant="outline" className="font-normal text-xs py-0.5 px-1.5 bg-blue-50 border-blue-200 text-blue-700">
+                  <Badge key={i} variant="outline" className="font-normal text-xs py-0.5 px-1.5 bg-blue-50 border-blue-200 text-blue-700 whitespace-nowrap">
                     {gm}
                   </Badge>
                 ))}
                 {remainingGMs > 0 && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
                     +{remainingGMs}
                   </span>
                 )}
@@ -266,20 +267,21 @@ export function createScenarioColumns(
         header: '体験済み',
         width: 'w-48',
         sortable: true,
+        cellClassName: 'overflow-hidden',
         render: (scenario) => {
           const experiencedStaff = scenario.experienced_staff || []
           const { displayed, remaining } = getDisplayGMs(experiencedStaff)
           return (
-            <div className="text-sm">
+            <div className="text-sm overflow-hidden">
               {displayed.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                 {displayed.map((staff, i) => (
-                  <Badge key={i} variant="outline" className="font-normal text-xs py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700">
+                  <Badge key={i} variant="outline" className="font-normal text-xs py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700 whitespace-nowrap">
                     {staff}
                   </Badge>
                 ))}
                 {remaining > 0 && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
                     +{remaining}
                   </span>
                 )}

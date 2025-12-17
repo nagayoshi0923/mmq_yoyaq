@@ -93,7 +93,7 @@ export function getDifficultyStars(difficulty?: number): number {
  * GM担当者リストの表示用配列を取得（最大6名まで）
  */
 export function getDisplayGMs(gms: string[]): { displayed: string[]; remaining: number } {
-  const maxDisplay = 6
+  const maxDisplay = 3
   if (gms.length <= maxDisplay) {
     return { displayed: gms, remaining: 0 }
   }

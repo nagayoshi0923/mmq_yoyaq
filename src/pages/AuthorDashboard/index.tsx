@@ -76,8 +76,8 @@ export default function AuthorDashboard() {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-4">
         <div className="text-destructive">{error}</div>
-        <Button onClick={() => window.location.hash = '#login'}>
-          ログイン
+        <Button onClick={() => window.location.hash = '#author-login'}>
+          作者ログイン
         </Button>
       </div>
     )
