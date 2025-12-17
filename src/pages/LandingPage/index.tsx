@@ -23,7 +23,9 @@ import {
   BookOpen,
   Bell,
   Shield,
-  Zap
+  Zap,
+  FileCheck,
+  Receipt
 } from 'lucide-react'
 
 export default function LandingPage() {
@@ -69,6 +71,20 @@ export default function LandingPage() {
       description: 'Discord連携で予約・シフト通知。リマインドメールも自動送信。',
       color: 'text-indigo-500',
       bgColor: 'bg-indigo-500/10'
+    },
+    {
+      icon: FileCheck,
+      title: 'ライセンス報告',
+      description: '他社シナリオの公演回数を報告。ライセンス料の自動計算で報告業務を効率化。',
+      color: 'text-emerald-500',
+      bgColor: 'bg-emerald-500/10'
+    },
+    {
+      icon: Receipt,
+      title: 'ライセンス管理',
+      description: '自社シナリオのライセンス状況を一元管理。報告の承認・集計・請求書作成まで。',
+      color: 'text-amber-500',
+      bgColor: 'bg-amber-500/10'
     }
   ]
 
@@ -220,7 +236,7 @@ export default function LandingPage() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {features.map((feature) => (
               <Card key={feature.title} className="border-0 shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
@@ -232,6 +248,82 @@ export default function LandingPage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ライセンス機能ピックアップ */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-5xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <Badge variant="secondary" className="mb-4">
+                  <FileCheck className="w-3 h-3 mr-1" />
+                  業界初
+                </Badge>
+                <h2 className="text-3xl font-bold mb-4">
+                  ライセンス報告を
+                  <br />
+                  <span className="text-primary">もっと簡単に</span>
+                </h2>
+                <p className="text-muted-foreground mb-6">
+                  他社シナリオを公演した際のライセンス報告、面倒じゃないですか？
+                  MMQなら公演記録から自動で報告書を作成。
+                  シナリオ著作者への報告業務を大幅に効率化します。
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    公演回数を自動カウント
+                  </li>
+                  <li className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    ライセンス料を自動計算
+                  </li>
+                  <li className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    ワンクリックで報告完了
+                  </li>
+                  <li className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    報告履歴を一元管理
+                  </li>
+                </ul>
+              </div>
+              <div className="bg-gradient-to-br from-emerald-50 to-amber-50 dark:from-emerald-950/20 dark:to-amber-950/20 rounded-2xl p-8">
+                <div className="space-y-4">
+                  <Card className="shadow-lg">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">シナリオA</span>
+                        <Badge>12回公演</Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        ライセンス料: ¥36,000
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-lg">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">シナリオB</span>
+                        <Badge>8回公演</Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        ライセンス料: ¥24,000
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <div className="border-t pt-4 mt-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">合計</span>
+                      <span className="text-xl font-bold text-primary">¥60,000</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
