@@ -26,6 +26,7 @@ import {
   MailCheck
 } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
+import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
 import { scenarioApi, salesApi, storeApi } from '@/lib/api'
 import { getAllExternalReports } from '@/lib/api/externalReportsApi'
 import type { Scenario } from '@/types'
@@ -70,6 +71,10 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [isSending, setIsSending] = useState(false)
+  
+  // シナリオ編集ダイアログ
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editScenarioId, setEditScenarioId] = useState<string | null>(null)
   
   // 月選択
   const [currentDate, setCurrentDate] = useState(() => new Date())
@@ -334,6 +339,19 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
 
   const getGroupKey = (group: ReportGroup) => group.recipientEmail || `company:${group.recipientName}`
 
+  // シナリオ編集
+  const handleEditScenario = (scenarioId: string) => {
+    setEditScenarioId(scenarioId)
+    setIsEditDialogOpen(true)
+  }
+
+  // シナリオ編集完了後
+  const handleScenarioSaved = () => {
+    setIsEditDialogOpen(false)
+    setEditScenarioId(null)
+    loadData() // データ再読み込み
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -344,6 +362,17 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
 
   return (
     <div className="space-y-6">
+      {/* シナリオ編集ダイアログ */}
+      <ScenarioEditDialog
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false)
+          setEditScenarioId(null)
+        }}
+        scenarioId={editScenarioId}
+        onSaved={handleScenarioSaved}
+      />
+
       {/* ヘッダー */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <MonthSwitcher value={currentDate} onChange={setCurrentDate} />
@@ -394,7 +423,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
           <CardContent className="p-4 text-center">
             <Building2 className="w-5 h-5 mx-auto mb-1 text-orange-500" />
             <div className="text-2xl font-bold">{stats.withoutEmail}</div>
-            <div className="text-sm text-muted-foreground">会社報告</div>
+            <div className="text-sm text-muted-foreground">メアド未登録</div>
           </CardContent>
         </Card>
         <Card>
@@ -464,7 +493,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                           ) : (
                             <Badge variant="secondary" className="text-xs text-orange-600">
                               <Building2 className="w-3 h-3 mr-1" />
-                              会社報告
+                              メアド未登録
                             </Badge>
                           )}
                         </div>
@@ -478,7 +507,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {group.recipientEmail && (
+                        {group.recipientEmail ? (
                           <Button
                             variant="outline"
                             size="sm"
@@ -490,6 +519,21 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                           >
                             <Send className="w-4 h-4 mr-1" />
                             送信
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // 最初のシナリオの編集ダイアログを開く
+                              if (group.items.length > 0) {
+                                handleEditScenario(group.items[0].scenarioId)
+                              }
+                            }}
+                          >
+                            <Mail className="w-4 h-4 mr-1" />
+                            登録
                           </Button>
                         )}
                         {isExpanded ? (
@@ -510,7 +554,12 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                           className="flex items-center justify-between py-2 px-3 bg-muted/30 rounded"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-sm">{item.scenarioTitle}</span>
+                            <button
+                              className="text-sm text-left hover:underline hover:text-primary transition-colors"
+                              onClick={() => handleEditScenario(item.scenarioId)}
+                            >
+                              {item.scenarioTitle}
+                            </button>
                             {item.isExternal && (
                               <Badge variant="secondary" className="text-xs">
                                 <ExternalLink className="w-3 h-3 mr-1" />
