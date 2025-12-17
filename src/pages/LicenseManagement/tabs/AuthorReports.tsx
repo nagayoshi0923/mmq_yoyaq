@@ -352,7 +352,7 @@ export function AuthorReports() {
 
       {/* ヘッダー */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <MonthSwitcher currentDate={currentDate} onDateChange={setCurrentDate} />
+        <MonthSwitcher value={currentDate} onChange={setCurrentDate} />
         <Button
           onClick={handleBatchSend}
           disabled={isSendingBatch || stats.withEmail === 0}
