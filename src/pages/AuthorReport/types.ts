@@ -17,6 +17,7 @@ export interface AuthorPerformance {
     duration: number
     totalDuration: number
     isGMTest?: boolean
+    isExternal?: boolean  // 外部公演報告（他社からの報告）
   }[]
 }
 

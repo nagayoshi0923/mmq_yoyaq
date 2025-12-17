@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { salesApi, scenarioApi, storeApi } from '@/lib/api'
+import { getAllExternalReports } from '@/lib/api/externalReportsApi'
 import { logger } from '@/utils/logger'
 import type { MonthlyAuthorData, AuthorPerformance } from '../types'
 
@@ -41,17 +42,24 @@ export function useAuthorReportData(year: number, month: number, storeId: string
 
       const { startStr, endStr } = getMonthRange(year, month)
 
-      // データを並行取得
-      const [scenariosData, storesData, performanceData] = await Promise.all([
+      // データを並行取得（外部公演報告も含む）
+      const [scenariosData, storesData, performanceData, externalReportsData] = await Promise.all([
         scenarioApi.getAll(),
         storeApi.getAll(),
-        salesApi.getScenarioPerformance(startStr, endStr, storeId === 'all' ? undefined : storeId)
+        salesApi.getScenarioPerformance(startStr, endStr, storeId === 'all' ? undefined : storeId),
+        // 承認済みの外部公演報告を取得
+        getAllExternalReports({
+          status: 'approved',
+          startDate: startStr,
+          endDate: endStr
+        }).catch(() => []) // エラー時は空配列（テーブル未作成時など）
       ])
 
       logger.log('取得データ:', {
         scenariosData: scenariosData.length,
         storesData: storesData.length,
         performanceData: performanceData.length,
+        externalReportsData: externalReportsData.length,
         performanceDataSample: performanceData.slice(0, 3)
       })
 
@@ -162,11 +170,84 @@ export function useAuthorReportData(year: number, month: number, storeId: string
         }
       })
 
+      // ========================================
+      // 外部公演報告（他社からの報告）を集計に追加
+      // ========================================
+      externalReportsData.forEach((report: any) => {
+        // scenarioデータを取得
+        const scenarioInfo = report.scenarios
+        if (!scenarioInfo) return
+
+        const author = scenarioInfo.author
+        if (!author) return
+
+        const scenario = scenariosData.find(s => s.id === report.scenario_id)
+        const events = report.performance_count || 1
+        const licenseAmountPerEvent = scenario?.license_amount ?? 0
+        const totalLicenseCost = licenseAmountPerEvent * events
+        const duration = scenario?.duration || 0
+        const totalDuration = duration * events
+        
+        // 外部報告は収益計算しない（参加費情報がないため）
+        const revenue = 0
+        
+        // 外部報告であることを示すラベル付きタイトル
+        const organizationName = report.organizations?.name || '外部'
+        const displayTitle = `${scenarioInfo.title}（${organizationName}）`
+
+        if (authorMap.has(author)) {
+          const existing = authorMap.get(author)!
+          existing.totalEvents += events
+          existing.totalRevenue += revenue
+          existing.totalLicenseCost += totalLicenseCost
+          existing.totalDuration += totalDuration
+
+          const scenarioIndex = existing.scenarios.findIndex(s => s.title === displayTitle)
+          if (scenarioIndex >= 0) {
+            existing.scenarios[scenarioIndex].events += events
+            existing.scenarios[scenarioIndex].revenue += revenue
+            existing.scenarios[scenarioIndex].licenseCost += totalLicenseCost
+            existing.scenarios[scenarioIndex].totalDuration += totalDuration
+          } else {
+            existing.scenarios.push({
+              title: displayTitle,
+              events,
+              revenue,
+              licenseCost: totalLicenseCost,
+              licenseAmountPerEvent,
+              duration,
+              totalDuration,
+              isGMTest: false,
+              isExternal: true  // 外部報告フラグ
+            })
+          }
+        } else {
+          authorMap.set(author, {
+            author,
+            totalEvents: events,
+            totalRevenue: revenue,
+            totalLicenseCost,
+            totalDuration,
+            scenarios: [{
+              title: displayTitle,
+              events,
+              revenue,
+              licenseCost: totalLicenseCost,
+              licenseAmountPerEvent,
+              duration,
+              totalDuration,
+              isGMTest: false,
+              isExternal: true  // 外部報告フラグ
+            }]
+          })
+        }
+      })
+
       const authorsArray = Array.from(authorMap.values())
         .sort((a, b) => b.totalEvents - a.totalEvents)
 
       const monthName = `${year}年${month}月`
-      logger.log('作者データ集計結果:', authorsArray)
+      logger.log('作者データ集計結果（外部報告含む）:', authorsArray)
       setMonthlyData([{
         month: monthName,
         authors: authorsArray
