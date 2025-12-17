@@ -53,6 +53,7 @@ const OrganizationRegister = lazy(() => import('./OrganizationRegister'))
 const LandingPage = lazy(() => import('./LandingPage'))
 const AuthorDashboard = lazy(() => import('./AuthorDashboard'))
 const AuthorLogin = lazy(() => import('./AuthorLogin'))
+const ExternalReportForm = lazy(() => import('./ExternalReportForm'))
 
 /**
  * 現在のURLからorganizationSlugを抽出するヘルパー関数
@@ -635,6 +636,15 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <AuthorLogin />
+      </Suspense>
+    )
+  }
+
+  // 外部公演報告フォーム（ログイン不要）
+  if (currentPage === 'report-form') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <ExternalReportForm />
       </Suspense>
     )
   }

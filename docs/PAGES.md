@@ -331,6 +331,7 @@ parseHash(hash: string): {
 | **BookingConfirmation** | (コンポーネント) | 予約確認・確定 | ログイン必須 | ✅ |
 | **PrivateBookingRequest** | (コンポーネント) | 貸切申込 | ログイン必須 | ✅ |
 | **ScenarioCatalog** | `#catalog` | 全シナリオカタログ | 全員 | ✅ |
+| **ExternalReportForm** | `#report-form` | 外部からの公演報告フォーム | 全員 | ❌ |
 
 #### PublicBookingTop 詳細
 
@@ -665,6 +666,7 @@ parseHash(hash: string): {
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2024-12-18 | 外部公演報告フォーム（ExternalReportForm）追加。ログイン不要で公演回数報告可能 | AI |
 | 2024-12-17 | 作者ポータルをメールアドレスベースに変更。AuthorRegister削除、登録不要に | AI |
 | 2024-12-17 | 作者ポータル追加（AuthorDashboard）。作者が公演報告を確認・管理可能に | AI |
 | 2024-12-17 | 新規組織登録フロー追加（OrganizationSettings, OrganizationRegister, AcceptInvitation, OrganizationEditDialog） | AI |
