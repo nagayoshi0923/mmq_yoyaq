@@ -17,11 +17,13 @@ import {
   Mail,
   CheckCircle,
   XCircle,
-  Loader2
+  Loader2,
+  Pencil
 } from 'lucide-react'
 import { useOrganization, useOrganizations } from '@/hooks/useOrganization'
 import { OrganizationCreateDialog } from './components/OrganizationCreateDialog'
 import { OrganizationInviteDialog } from './components/OrganizationInviteDialog'
+import { OrganizationEditDialog } from './components/OrganizationEditDialog'
 import type { Organization } from '@/types'
 
 export default function OrganizationManagement() {
@@ -30,6 +32,7 @@ export default function OrganizationManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [inviteTargetOrg, setInviteTargetOrg] = useState<Organization | null>(null)
+  const [editTargetOrg, setEditTargetOrg] = useState<Organization | null>(null)
 
   // 検索フィルター
   const filteredOrganizations = organizations.filter(org =>
@@ -189,6 +192,14 @@ export default function OrganizationManagement() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setEditTargetOrg(org)}
+                    >
+                      <Pencil className="w-4 h-4 mr-1" />
+                      編集
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setInviteTargetOrg(org)}
                     >
                       <Users className="w-4 h-4 mr-1" />
@@ -224,6 +235,17 @@ export default function OrganizationManagement() {
           }}
         />
       )}
+
+      {/* 編集ダイアログ */}
+      <OrganizationEditDialog
+        organization={editTargetOrg}
+        isOpen={!!editTargetOrg}
+        onClose={() => setEditTargetOrg(null)}
+        onSuccess={() => {
+          setEditTargetOrg(null)
+          refetch()
+        }}
+      />
     </div>
   )
 }

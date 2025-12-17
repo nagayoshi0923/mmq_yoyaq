@@ -57,59 +57,39 @@ export function OrganizationInviteDialog({
 
     setIsLoading(true)
     try {
-      // 1. staff テーブルにユーザーを作成（organization_id 付き）
-      const { data: staffData, error: staffError } = await supabase
-        .from('staff')
-        .insert({
+      // Edge Function を使って招待を送信（organization_id 付き）
+      const response = await supabase.functions.invoke('invite-staff', {
+        body: {
           name: formData.name.trim(),
           email: formData.email.trim(),
-          organization_id: organization.id,
           role: formData.role,
-          status: 'active',
-          stores: [],
-          ng_days: [],
-          want_to_learn: [],
-          available_scenarios: [],
-          availability: [],
-          experience: 0,
-          special_scenarios: [],
-        })
-        .select()
-        .single()
+          organization_id: organization.id,
+        },
+      })
 
-      if (staffError) {
+      if (response.error) {
+        throw response.error
+      }
+
+      const result = response.data
+      
+      if (!result.success) {
         // 重複エラーの場合
-        if (staffError.code === '23505') {
+        if (result.error?.includes('既に')) {
           toast.error('このメールアドレスは既に登録されています')
           return
         }
-        throw staffError
+        throw new Error(result.error || '招待に失敗しました')
       }
 
-      // 2. 招待メールを送信（Supabase Auth の招待機能を使用）
-      const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
-        formData.email.trim(),
-        {
-          data: {
-            staff_id: staffData.id,
-            organization_id: organization.id,
-            name: formData.name.trim(),
-          },
-          redirectTo: `${window.location.origin}/set-password`,
-        }
-      )
-
-      // 招待機能がない場合（クライアント側からは使えない場合が多い）
-      // Edge Function を使うか、手動でパスワードを設定する流れにする
-      if (inviteError) {
-        console.warn('Invite error (expected if not admin):', inviteError)
-        // 招待メールは送れないが、スタッフは作成されている
+      // 成功
+      if (result.data?.email_sent) {
+        toast.success(`${formData.name} さんに招待メールを送信しました`)
+      } else {
         toast.success(
-          `${formData.name} さんを追加しました。ログイン情報を別途お伝えください。`,
+          `${formData.name} さんを追加しました。${result.data?.email_error || 'ログイン情報を別途お伝えください。'}`,
           { duration: 5000 }
         )
-      } else {
-        toast.success(`${formData.name} さんに招待メールを送信しました`)
       }
 
       onSuccess()

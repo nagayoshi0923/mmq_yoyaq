@@ -15,11 +15,13 @@ import {
   MapPin,
   Globe,
   UserCircle,
-  HelpCircle
+  HelpCircle,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
-import { staffApi, scheduleApi } from '@/lib/api'
+import { staffApi, scheduleApi, storeApi } from '@/lib/api'
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import {
@@ -42,6 +44,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [storeCount, setStoreCount] = useState<number | null>(null)  // オンボーディング用
   
   // 予約サイトのベースパス
   const bookingBasePath = organization?.slug ? `booking/${organization.slug}` : 'customer-booking'
@@ -120,6 +123,20 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     return () => clearTimeout(timer)
   }, [])
 
+  // オンボーディング: 店舗数を取得（管理者のみ）
+  useEffect(() => {
+    const fetchStoreCount = async () => {
+      if (user?.role !== 'admin') return
+      try {
+        const stores = await storeApi.getAll()
+        setStoreCount(stores.length)
+      } catch (error) {
+        console.error('Failed to fetch store count:', error)
+      }
+    }
+    fetchStoreCount()
+  }, [user?.role])
+
   // 直近の予定（今日以降の直近5件）
   const upcomingEvents = useMemo(() => {
     const today = new Date()
@@ -195,8 +212,59 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
     return commonTabs
   }, [user?.role, bookingBasePath])
 
+  // オンボーディングが必要かどうか（管理者で店舗が0件）
+  const needsOnboarding = user?.role === 'admin' && storeCount === 0
+
   return (
     <div className="space-y-6 pb-20">
+      {/* オンボーディングバナー */}
+      {needsOnboarding && (
+        <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-full bg-primary/20">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold mb-1">ようこそ、{organization?.name}さん！</h3>
+                <p className="text-muted-foreground mb-4">
+                  MMQを始めるために、まずは基本設定を行いましょう。
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Button 
+                    size="sm" 
+                    onClick={() => onPageChange('stores')}
+                    className="gap-2"
+                  >
+                    <Store className="h-4 w-4" />
+                    店舗を登録する
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => onPageChange('scenarios')}
+                    className="gap-2"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    シナリオを登録する
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => onPageChange('organization-settings')}
+                    className="gap-2"
+                  >
+                    <Settings className="h-4 w-4" />
+                    組織設定
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 1. 直近の出勤予定 */}
       <section>
         <div className="flex items-center gap-2 mb-3">

@@ -18,6 +18,24 @@ export interface Organization {
   updated_at: string
 }
 
+// 組織招待の型定義
+export interface OrganizationInvitation {
+  id: string
+  organization_id: string
+  email: string
+  name: string
+  role: string[]
+  token: string
+  expires_at: string
+  accepted_at?: string | null
+  staff_id?: string | null
+  created_by?: string | null
+  created_at: string
+  updated_at: string
+  // 拡張フィールド（join時に取得）
+  organization?: Organization | null
+}
+
 // 外部公演報告の型定義
 export interface ExternalPerformanceReport {
   id: string

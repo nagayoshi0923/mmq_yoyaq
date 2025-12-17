@@ -30,6 +30,7 @@ interface InviteStaffRequest {
   discord_channel_id?: string
   role?: string[]
   stores?: string[]
+  organization_id?: string  // マルチテナント対応
 }
 
 serve(async (req) => {
@@ -99,10 +100,15 @@ serve(async (req) => {
     }
 
     const now = new Date().toISOString()
+    // デフォルト organization_id: クインズワルツ
+    const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
+    const userOrganizationId = payload.organization_id || DEFAULT_ORG_ID
+    
     const userRecordPayload: Record<string, unknown> = {
       id: userId,
       email,
       role: currentRole,
+      organization_id: userOrganizationId,  // マルチテナント対応
       updated_at: now,
     }
     if (isNewUser) {
@@ -156,6 +162,10 @@ serve(async (req) => {
     }
 
     let staffId: string
+    // デフォルト organization_id: クインズワルツ
+    const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
+    const organizationId = payload.organization_id || DEFAULT_ORG_ID
+    
     const staffPayload = {
       user_id: userId,
       name,
@@ -168,6 +178,7 @@ serve(async (req) => {
       role: payload.role ?? staffRecord?.role ?? ['gm'],
       stores: payload.stores ?? staffRecord?.stores ?? [],
       status: staffRecord?.status ?? 'active',
+      organization_id: organizationId,  // マルチテナント対応
       updated_at: now,
     }
 
@@ -248,6 +259,7 @@ serve(async (req) => {
               user_id: userId,
               name: name,
               email: email,
+              organization_id: organizationId,  // マルチテナント対応
               visit_count: 0,
               total_spent: 0,
               created_at: now,

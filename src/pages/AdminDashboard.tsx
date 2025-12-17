@@ -46,6 +46,9 @@ const StaffProfile = lazy(() => import('./StaffProfile').then(m => ({ default: m
 const OrganizationManagement = lazy(() => import('./OrganizationManagement'))
 const ExternalReports = lazy(() => import('./ExternalReports'))
 const LicenseReportManagement = lazy(() => import('./LicenseReportManagement'))
+const AcceptInvitation = lazy(() => import('./AcceptInvitation'))
+const OrganizationSettings = lazy(() => import('./OrganizationSettings'))
+const OrganizationRegister = lazy(() => import('./OrganizationRegister'))
 
 /**
  * 現在のURLからorganizationSlugを抽出するヘルパー関数
@@ -152,6 +155,15 @@ export function AdminDashboard() {
     }
     if (hash.startsWith('license-reports')) {
       return { page: 'license-reports', scenarioId: null, organizationSlug: null }
+    }
+    if (hash.startsWith('accept-invitation')) {
+      return { page: 'accept-invitation', scenarioId: null, organizationSlug: null }
+    }
+    if (hash.startsWith('organization-settings')) {
+      return { page: 'organization-settings', scenarioId: null, organizationSlug: null }
+    }
+    if (hash.startsWith('register')) {
+      return { page: 'register', scenarioId: null, organizationSlug: null }
     }
     // ハッシュからクエリパラメータを分離
     const hashWithoutQuery = hash.split('?')[0]
@@ -551,6 +563,36 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="ライセンス報告を読み込み中..." />}>
         <LicenseReportManagement />
+      </Suspense>
+    )
+  }
+
+  // 招待受諾ページ（未ログインでもアクセス可能）
+  if (currentPage === 'accept-invitation') {
+    // URLからトークンを取得
+    const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '')
+    const token = urlParams.get('token') || ''
+    return (
+      <Suspense fallback={<LoadingScreen message="招待情報を読み込み中..." />}>
+        <AcceptInvitation token={token} />
+      </Suspense>
+    )
+  }
+
+  // 組織設定ページ
+  if (currentPage === 'organization-settings') {
+    return (
+      <Suspense fallback={<LoadingScreen message="組織設定を読み込み中..." />}>
+        <OrganizationSettings />
+      </Suspense>
+    )
+  }
+
+  // セルフサービス登録ページ（未ログインでもアクセス可能）
+  if (currentPage === 'register') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <OrganizationRegister />
       </Suspense>
     )
   }

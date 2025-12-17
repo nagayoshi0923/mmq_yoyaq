@@ -209,7 +209,17 @@ src/pages/
 │   ├── index.tsx
 │   └── components/
 │       ├── OrganizationCreateDialog.tsx
+│       ├── OrganizationEditDialog.tsx
 │       └── OrganizationInviteDialog.tsx
+│
+├── OrganizationSettings/       # 自組織設定
+│   └── index.tsx
+│
+├── OrganizationRegister/       # セルフサービス登録
+│   └── index.tsx
+│
+├── AcceptInvitation/           # 招待受諾
+│   └── index.tsx
 │
 ├── ExternalReports/            # 外部公演報告
 │   ├── index.tsx
@@ -288,6 +298,9 @@ parseHash(hash: string): {
 
 ■ マルチテナント
 #organizations                      → OrganizationManagement
+#organization-settings              → OrganizationSettings
+#register                           → OrganizationRegister
+#accept-invitation?token=xxx        → AcceptInvitation
 #external-reports                   → ExternalReports
 #license-reports                    → LicenseReportManagement
 
@@ -372,7 +385,10 @@ parseHash(hash: string): {
 
 | ページ名 | パス | 用途 | アクセス |
 |---------|------|------|---------|
-| **OrganizationManagement** | `#organizations` | 組織一覧・作成・招待 | ライセンス管理者のみ |
+| **OrganizationManagement** | `#organizations` | 組織一覧・作成・招待・編集 | ライセンス管理者のみ |
+| **OrganizationSettings** | `#organization-settings` | 自組織の設定編集 | admin |
+| **OrganizationRegister** | `#register` | セルフサービス組織登録 | 未ログイン |
+| **AcceptInvitation** | `#accept-invitation?token=xxx` | 招待受諾・アカウント作成 | 未ログイン |
 | **ExternalReports** | `#external-reports` | 公演報告提出 | admin, staff |
 | **LicenseReportManagement** | `#license-reports` | 報告承認・集計 | ライセンス管理者のみ |
 
@@ -389,12 +405,106 @@ parseHash(hash: string): {
 │                                                                  │
 │  機能:                                                           │
 │  1. 組織一覧表示                                                 │
-│  2. 新規組織作成                                                 │
-│  3. 組織への招待（スタッフ追加）                                 │
+│  2. 新規組織作成 (OrganizationCreateDialog)                      │
+│  3. 組織編集 (OrganizationEditDialog)                            │
+│  4. 組織への招待 (OrganizationInviteDialog)                      │
 │                                                                  │
 │  関連テーブル:                                                   │
 │  - organizations                                                 │
 │  - staff (organization_id で紐付け)                              │
+│  - organization_invitations                                      │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### OrganizationSettings 詳細
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ OrganizationSettings                                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  目的:                                                           │
+│  - 自組織の基本情報を編集                                        │
+│  - 招待管理（保留中・受諾済みの一覧）                            │
+│                                                                  │
+│  編集可能項目:                                                   │
+│  - 組織名                                                        │
+│  - 担当者名                                                      │
+│  - 連絡先メールアドレス                                          │
+│  - メモ                                                          │
+│                                                                  │
+│  表示項目（編集不可）:                                           │
+│  - 識別子（slug）                                                │
+│  - プラン                                                        │
+│                                                                  │
+│  関連テーブル:                                                   │
+│  - organizations                                                 │
+│  - organization_invitations                                      │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### OrganizationRegister 詳細
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ OrganizationRegister                                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  目的:                                                           │
+│  - 新規組織のセルフサービス登録                                  │
+│  - 招待なしで組織を作成可能                                      │
+│                                                                  │
+│  登録フロー（3ステップ）:                                        │
+│  1. 組織情報入力（名前、識別子、連絡先）                         │
+│  2. 管理者情報入力（名前、メール、パスワード）                   │
+│  3. 確認・利用規約同意・登録                                     │
+│                                                                  │
+│  登録完了後:                                                     │
+│  - organizations に新規レコード作成                              │
+│  - Supabase Auth にユーザー作成                                  │
+│  - users テーブルに admin ロールで登録                           │
+│  - staff テーブルに管理者として登録                              │
+│  - 確認メール送信                                                │
+│                                                                  │
+│  関連テーブル:                                                   │
+│  - organizations                                                 │
+│  - users                                                         │
+│  - staff                                                         │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### AcceptInvitation 詳細
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ AcceptInvitation                                                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  目的:                                                           │
+│  - 招待リンクからアクセスしてアカウント作成                      │
+│  - パスワードを設定して組織に参加                                │
+│                                                                  │
+│  URLパラメータ:                                                  │
+│  - token: 招待トークン（必須）                                   │
+│                                                                  │
+│  バリデーション:                                                 │
+│  - トークン存在チェック                                          │
+│  - 有効期限チェック（7日間）                                     │
+│  - 受諾済みチェック                                              │
+│                                                                  │
+│  受諾完了後:                                                     │
+│  - Supabase Auth にユーザー作成                                  │
+│  - users テーブルに登録                                          │
+│  - staff テーブルに登録                                          │
+│  - organization_invitations を更新（accepted_at）                │
+│                                                                  │
+│  関連テーブル:                                                   │
+│  - organization_invitations                                      │
+│  - users                                                         │
+│  - staff                                                         │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -488,6 +598,7 @@ parseHash(hash: string): {
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2024-12-17 | 新規組織登録フロー追加（OrganizationSettings, OrganizationRegister, AcceptInvitation, OrganizationEditDialog） | AI |
 | 2024-12-17 | マルチテナント構造・ディレクトリ構造・ルーティング詳細を追加 | AI |
 | 2024-12-17 | 初版作成。マルチテナント対応ページを追加 | AI |
 
