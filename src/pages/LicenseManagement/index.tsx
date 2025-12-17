@@ -5,8 +5,8 @@
  * @access admin, staff（一部機能はライセンス管理組織のみ）
  */
 
-import { useState } from 'react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AppLayout } from '@/components/layout/AppLayout'
+import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { Card, CardContent } from '@/components/ui/card'
 import { 
   FileCheck, 
@@ -25,101 +25,83 @@ import { MyReports } from './tabs/MyReports'
 import { AuthorReports } from './tabs/AuthorReports'
 import { LicenseSummary } from './tabs/LicenseSummary'
 
+// サイドバーのメニュー項目定義
+const LICENSE_MENU_ITEMS: SidebarMenuItem[] = [
+  { id: 'received', label: '報告受付', icon: FileCheck, description: '外部からの公演報告を確認' },
+  { id: 'my-reports', label: '公演報告', icon: Send, description: '他社シナリオの公演を報告' },
+  { id: 'author-reports', label: '作者レポート', icon: FileText, description: '作者への支払いレポート' },
+  { id: 'summary', label: '集計', icon: BarChart3, description: 'ライセンス料の集計' },
+]
+
+// ライセンス管理組織以外用のメニュー
+const LICENSE_MENU_ITEMS_EXTERNAL: SidebarMenuItem[] = [
+  { id: 'my-reports', label: '公演報告', icon: Send, description: '他社シナリオの公演を報告' },
+]
+
 export default function LicenseManagement() {
   const { organization, staff, isLicenseManager, isLoading } = useOrganization()
   const [activeTab, setActiveTab] = useSessionState('licenseManagementTab', 'received')
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
+  // メニュー項目を権限に応じて選択
+  const menuItems = isLicenseManager ? LICENSE_MENU_ITEMS : LICENSE_MENU_ITEMS_EXTERNAL
 
-  if (!organization || !staff) {
-    return (
-      <div className="p-4">
-        <Card className="border-destructive">
-          <CardContent className="p-6 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-destructive" />
-            <p>組織情報が取得できませんでした。ログインしてください。</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
+  // ライセンス管理組織以外の場合、my-reportsタブに強制
+  const effectiveTab = isLicenseManager ? activeTab : 'my-reports'
+
+  // コンテンツの条件分岐表示
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      )
+    }
+
+    if (!organization || !staff) {
+      return (
+        <div className="p-4">
+          <Card className="border-destructive">
+            <CardContent className="p-6 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              <p>組織情報が取得できませんでした。ログインしてください。</p>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+
+    switch (effectiveTab) {
+      case 'received':
+        return isLicenseManager ? <ReportsReceived staffId={staff.id} /> : null
+      case 'my-reports':
+        return <MyReports organizationId={organization.id} staffId={staff.id} />
+      case 'author-reports':
+        return isLicenseManager ? <AuthorReports /> : null
+      case 'summary':
+        return isLicenseManager ? <LicenseSummary /> : null
+      default:
+        return <MyReports organizationId={organization.id} staffId={staff.id} />
+    }
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* ヘッダー */}
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <FileCheck className="w-6 h-6" />
-          ライセンス管理
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          公演報告の送受信と作者へのレポート管理
-        </p>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          {isLicenseManager && (
-            <TabsTrigger value="received" className="flex items-center gap-2">
-              <FileCheck className="w-4 h-4" />
-              <span className="hidden sm:inline">報告受付</span>
-              <span className="sm:hidden">受付</span>
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="my-reports" className="flex items-center gap-2">
-            <Send className="w-4 h-4" />
-            <span className="hidden sm:inline">公演報告</span>
-            <span className="sm:hidden">報告</span>
-          </TabsTrigger>
-          {isLicenseManager && (
-            <TabsTrigger value="author-reports" className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">作者レポート</span>
-              <span className="sm:hidden">作者</span>
-            </TabsTrigger>
-          )}
-          {isLicenseManager && (
-            <TabsTrigger value="summary" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">集計</span>
-              <span className="sm:hidden">集計</span>
-            </TabsTrigger>
-          )}
-        </TabsList>
-
-        {/* 報告受付タブ（ライセンス管理組織のみ） */}
-        {isLicenseManager && (
-          <TabsContent value="received">
-            <ReportsReceived staffId={staff.id} />
-          </TabsContent>
-        )}
-
-        {/* 公演報告タブ（自社→他社への報告） */}
-        <TabsContent value="my-reports">
-          <MyReports organizationId={organization.id} staffId={staff.id} />
-        </TabsContent>
-
-        {/* 作者レポートタブ（ライセンス管理組織のみ） */}
-        {isLicenseManager && (
-          <TabsContent value="author-reports">
-            <AuthorReports />
-          </TabsContent>
-        )}
-
-        {/* 集計タブ（ライセンス管理組織のみ） */}
-        {isLicenseManager && (
-          <TabsContent value="summary">
-            <LicenseSummary />
-          </TabsContent>
-        )}
-      </Tabs>
-    </div>
+    <AppLayout
+      currentPage="license-management"
+      sidebar={
+        <UnifiedSidebar
+          title="ライセンス管理"
+          mode="list"
+          menuItems={menuItems}
+          activeTab={effectiveTab}
+          onTabChange={setActiveTab}
+        />
+      }
+      maxWidth="max-w-[1440px]"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+      stickyLayout={true}
+    >
+      {renderContent()}
+    </AppLayout>
   )
 }
-
