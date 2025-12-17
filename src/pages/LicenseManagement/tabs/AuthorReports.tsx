@@ -30,7 +30,6 @@ import { logger } from '@/utils/logger'
 import type { AuthorPerformance } from '@/pages/AuthorReport/types'
 
 export function AuthorReports() {
-  const [copiedAuthor, setCopiedAuthor] = useState<string | null>(null)
   const [expandedAuthors, setExpandedAuthors] = useState<Set<string>>(new Set())
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [editScenarioId, setEditScenarioId] = useState<string | null>(null)
@@ -50,7 +49,6 @@ export function AuthorReports() {
   // フィルター
   const {
     selectedStore,
-    setSelectedStore,
     searchAuthor,
     setSearchAuthor
   } = useReportFilters([])
@@ -93,13 +91,6 @@ export function AuthorReports() {
       newExpanded.add(author)
     }
     setExpandedAuthors(newExpanded)
-  }
-
-  // コピー
-  const handleCopy = (author: string, text: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedAuthor(author)
-    setTimeout(() => setCopiedAuthor(null), 2000)
   }
 
   // メールプレビューを開く
