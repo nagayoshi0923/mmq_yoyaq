@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,6 +40,34 @@ serve(async (req) => {
       throw new Error('メール送信サービスが設定されていません')
     }
 
+    // Supabase Admin クライアントを作成（マジックリンク生成用）
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+    // マジックリンクを生成
+    let magicLinkUrl = ''
+    try {
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: to,
+        options: {
+          redirectTo: `${Deno.env.get('SITE_URL') || 'https://mmq.game'}/#author-dashboard`
+        }
+      })
+
+      if (linkError) {
+        console.warn('Magic link generation failed:', linkError.message)
+        // マジックリンク生成に失敗しても、メールは送信する
+      } else if (linkData?.properties?.action_link) {
+        magicLinkUrl = linkData.properties.action_link
+        console.log('Magic link generated successfully')
+      }
+    } catch (linkErr) {
+      console.warn('Magic link generation error:', linkErr)
+      // マジックリンク生成に失敗しても、メールは送信する
+    }
+
     // 振込予定日を計算（翌月20日）
     const nextMonth = month === 12 ? 1 : month + 1
     const nextYear = month === 12 ? year + 1 : year
@@ -61,6 +90,27 @@ serve(async (req) => {
         </tr>
       `
     }).join('')
+
+    // マジックリンクボタンのHTML
+    const magicLinkHtml = magicLinkUrl ? `
+    <div style="text-align: center; margin: 25px 0;">
+      <a href="${magicLinkUrl}" 
+         style="display: inline-block; 
+                background-color: #2563eb; 
+                color: #ffffff; 
+                padding: 14px 28px; 
+                text-decoration: none; 
+                border-radius: 8px; 
+                font-weight: 600;
+                font-size: 15px;
+                box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);">
+        📊 ダッシュボードで詳細を見る
+      </a>
+      <p style="color: #6b7280; font-size: 12px; margin-top: 10px;">
+        ※ このリンクは24時間有効です。クリックすると自動でログインします。
+      </p>
+    </div>
+    ` : ''
 
     // HTMLメール本文
     const emailHtml = `
@@ -116,6 +166,8 @@ serve(async (req) => {
       </table>
     </div>
 
+    ${magicLinkHtml}
+
     <div style="background-color: #dbeafe; border-left: 4px solid #2563eb; border-radius: 4px; padding: 15px; margin-bottom: 20px;">
       <h2 style="color: #1e40af; font-size: 16px; font-weight: 600; margin-top: 0; margin-bottom: 10px;">
         ■ お支払いについて
@@ -147,6 +199,15 @@ serve(async (req) => {
 </html>
     `
 
+    // マジックリンクのテキスト版
+    const magicLinkText = magicLinkUrl ? `
+━━━━━━━━━━━━━━━━━━━━
+📊 ダッシュボードで詳細を見る
+${magicLinkUrl}
+※ このリンクは24時間有効です
+━━━━━━━━━━━━━━━━━━━━
+` : ''
+
     // テキスト版メール本文
     const emailText = `${authorName} 様
 
@@ -164,7 +225,7 @@ ${scenarios.map(scenario => {
   const licenseInfo = `@¥${scenario.licenseAmountPerEvent.toLocaleString()}/回`
   return `・${scenario.title}${gmTestLabel}: ${scenario.events}回 × ${licenseInfo} = ¥${scenario.licenseCost.toLocaleString()}`
 }).join('\n')}
-
+${magicLinkText}
 ■ お支払いについて
 お支払い予定日: ${paymentDate}まで
 
@@ -209,6 +270,7 @@ Murder Mystery Queue (MMQ)
       authorName: authorName,
       year: year,
       month: month,
+      hasMagicLink: !!magicLinkUrl,
     })
 
     return new Response(
@@ -216,6 +278,7 @@ Murder Mystery Queue (MMQ)
         success: true,
         message: 'メールを送信しました',
         messageId: result.id,
+        hasMagicLink: !!magicLinkUrl,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -237,4 +300,3 @@ Murder Mystery Queue (MMQ)
     )
   }
 })
-
