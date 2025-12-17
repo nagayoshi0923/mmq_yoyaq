@@ -311,8 +311,10 @@ parseHash(hash: string): {
 #mypage/liked                       → LikedScenariosPage
 #mypage/profile                     → ProfilePage
 
-■ 認証
+■ ランディング・認証
+#landing                            → LandingPage
 #login                              → LoginForm
+#register                           → OrganizationRegister
 #reset-password                     → ResetPassword
 #set-password                       → SetPassword
 ```

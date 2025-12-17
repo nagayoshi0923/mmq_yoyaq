@@ -49,6 +49,7 @@ const LicenseReportManagement = lazy(() => import('./LicenseReportManagement'))
 const AcceptInvitation = lazy(() => import('./AcceptInvitation'))
 const OrganizationSettings = lazy(() => import('./OrganizationSettings'))
 const OrganizationRegister = lazy(() => import('./OrganizationRegister'))
+const LandingPage = lazy(() => import('./LandingPage'))
 
 /**
  * 現在のURLからorganizationSlugを抽出するヘルパー関数
@@ -165,6 +166,9 @@ export function AdminDashboard() {
     if (hash.startsWith('register')) {
       return { page: 'register', scenarioId: null, organizationSlug: null }
     }
+    if (hash.startsWith('landing') || hash === '') {
+      return { page: 'landing', scenarioId: null, organizationSlug: null }
+    }
     // ハッシュからクエリパラメータを分離
     const hashWithoutQuery = hash.split('?')[0]
     
@@ -243,8 +247,18 @@ export function AdminDashboard() {
     // ログアウト状態または顧客アカウントの場合
     const isCustomerOrLoggedOut = !user || user.role === 'customer'
     
+    // 未ログイン + ハッシュなし → ランディングページ
+    const hash = window.location.hash.slice(1)
+    if (!user && (!hash || hash === '' || currentPage === 'landing')) {
+      setCurrentPage('landing')
+      if (!hash) {
+        window.location.hash = 'landing'
+      }
+      return
+    }
+    
     // 顧客/ログアウト状態でダッシュボードや管理ページにいる場合は予約サイトにリダイレクト
-    if (isCustomerOrLoggedOut && (!currentPage || currentPage === 'dashboard' || adminOnlyPages.includes(currentPage))) {
+    if (isCustomerOrLoggedOut && (currentPage === 'dashboard' || adminOnlyPages.includes(currentPage))) {
       const slug = getOrganizationSlugFromUrl()
       setCurrentPage('booking')
       setOrganizationSlug(slug)
@@ -254,8 +268,7 @@ export function AdminDashboard() {
 
     // スタッフ/管理者がログインしていて、ハッシュがない場合はダッシュボードを表示
     if (user && (user.role === 'admin' || user.role === 'staff')) {
-      const hash = window.location.hash.slice(1)
-      if (!hash || hash === '') {
+      if (!hash || hash === '' || hash === 'landing') {
         setCurrentPage('dashboard')
         window.location.hash = 'dashboard'
         return
@@ -593,6 +606,15 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <OrganizationRegister />
+      </Suspense>
+    )
+  }
+
+  // ランディングページ（未ログインのトップページ）
+  if (currentPage === 'landing') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <LandingPage />
       </Suspense>
     )
   }
