@@ -119,7 +119,14 @@ export const authorApi = {
       .eq('author_email', email)
       .order('title')
     
-    if (error) throw error
+    if (error) {
+      // author_email カラムが存在しない場合は空配列を返す
+      if (error.code === 'PGRST204' || error.message?.includes('author_email')) {
+        console.warn('author_email カラムが存在しません。マイグレーション007を実行してください。')
+        return []
+      }
+      throw error
+    }
     return data || []
   },
 
@@ -200,11 +207,41 @@ export const authorApi = {
     const email = await this.getCurrentUserEmail()
     if (!email) return null
 
-    const [summary, reports, scenarios] = await Promise.all([
-      this.getSummaryByEmail(email),
-      this.getReportsByEmail(email),
-      this.getAuthorScenariosByEmail(email)
-    ])
+    // 各API呼び出しを個別にエラーハンドリング（ビューが未作成でも動作）
+    let summary: AuthorSummary = {
+      author_email: email,
+      total_scenarios: 0,
+      total_approved_reports: 0,
+      total_performance_count: 0,
+      total_license_fee: 0,
+      organizations_count: 0
+    }
+    let reports: AuthorPerformanceReport[] = []
+    let scenarios: { id: string; title: string; author: string; author_email: string | null; play_count: number }[] = []
+
+    // シナリオ一覧は scenarios テーブルから直接取得（確実に動作）
+    try {
+      scenarios = await this.getAuthorScenariosByEmail(email)
+      // summary の total_scenarios を更新
+      summary.total_scenarios = scenarios.length
+    } catch (e) {
+      console.warn('シナリオ取得エラー:', e)
+    }
+
+    // 報告一覧（ビューが必要）
+    try {
+      reports = await this.getReportsByEmail(email)
+    } catch (e) {
+      console.warn('報告取得エラー (ビュー未作成の可能性):', e)
+    }
+
+    // サマリー（ビューが必要）
+    try {
+      const summaryData = await this.getSummaryByEmail(email)
+      summary = summaryData
+    } catch (e) {
+      console.warn('サマリー取得エラー (ビュー未作成の可能性):', e)
+    }
 
     return { email, summary, reports, scenarios }
   }
