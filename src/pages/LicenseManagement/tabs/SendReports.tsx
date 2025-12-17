@@ -645,7 +645,14 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold">{group.authorName}</span>
                           {group.authorEmail ? (
-                            <Badge variant="outline" className="text-xs text-green-600">
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs text-green-600 cursor-pointer hover:bg-green-50 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenBulkEmailDialog(group)
+                              }}
+                            >
                               <Mail className="w-3 h-3 mr-1" />
                               {group.authorEmail}
                             </Badge>
