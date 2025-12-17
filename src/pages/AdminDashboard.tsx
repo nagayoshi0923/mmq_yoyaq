@@ -640,15 +640,6 @@ export function AdminDashboard() {
     )
   }
 
-  // 外部公演報告フォーム（ログイン不要）
-  if (currentPage === 'report-form') {
-    return (
-      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
-        <ExternalReportForm />
-      </Suspense>
-    )
-  }
-
   // ログアウト状態または顧客アカウントの場合は常にナビゲーションを表示しない
   // userがnull、undefined、またはcustomerロールの場合はナビゲーション非表示
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
@@ -664,12 +655,9 @@ export function AdminDashboard() {
         <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
           {currentPage === 'dashboard' ? (
             <DashboardHome onPageChange={handlePageChange} />
+          ) : currentPage === 'report-form' ? (
+            <ExternalReportForm />
           ) : (
-            // 他のページコンポーネントは上部のif文で既にリターンされているはずだが、念のためここにもロジックが必要か確認
-            // いや、上のif文でreturnされているので、ここに来るのはdashboardだけのはず
-            // しかし、念のため条件分岐を残すか、または構造を変えるか。
-            // 既存の構造では、dashboard以外は個別のif文でreturnしている。
-            // なので、ここに来る時点で currentPage === 'dashboard' または該当なしのページ
             <DashboardHome onPageChange={handlePageChange} />
           )}
         </Suspense>
