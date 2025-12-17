@@ -19,7 +19,7 @@ import {
   Calendar,
   ExternalLink
 } from 'lucide-react'
-import { MonthSwitcher } from '@/components/ui/month-switcher'
+import { MonthSwitcher } from '@/components/patterns/calendar'
 import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
 import { AuthorEmailDialog } from '@/pages/AuthorReport/components/AuthorEmailDialog'
 import { AuthorLicenseEmailDialog } from '@/pages/AuthorReport/components/AuthorLicenseEmailDialog'
