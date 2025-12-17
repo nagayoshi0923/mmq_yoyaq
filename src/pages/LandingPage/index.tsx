@@ -489,15 +489,15 @@ export default function LandingPage() {
               <Button 
                 size="lg"
                 variant="outline"
-                onClick={() => window.location.hash = 'author-register'}
+                onClick={() => window.location.hash = 'author-dashboard'}
                 className="gap-2 border-amber-500/50 hover:bg-amber-500/10"
               >
                 <Sparkles className="w-4 h-4 text-amber-600" />
-                作者アカウントを作成
+                作者ダッシュボードへ
                 <ArrowRight className="w-4 h-4" />
               </Button>
               <p className="text-sm text-muted-foreground mt-4">
-                ※ MMQを利用する会社からシナリオの公演報告を受け取るには、作者アカウントが必要です
+                ※ 登録不要！公演報告があるとメールでお知らせ。そのメールからログインできます。
               </p>
             </div>
           </div>

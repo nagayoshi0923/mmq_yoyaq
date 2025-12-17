@@ -1,40 +1,38 @@
 /**
  * @page AuthorDashboard
  * @path #author-dashboard
- * @purpose 作者（シナリオ著者）向けのダッシュボード
- * @access 作者ユーザーのみ
+ * @purpose 作者（シナリオ著者）向けのダッシュボード（メールアドレスベース）
+ * @access ログインユーザー（メールアドレスに紐づく報告があれば閲覧可能）
  * 
- * 機能:
- * - 自身のシナリオの公演回数確認
- * - 各組織からの公演報告一覧
- * - ライセンス収入の集計
- * - プロフィール編集
+ * 設計方針:
+ * - 作者は登録不要。ログイン中のメールアドレスに紐づく報告を表示
+ * - 報告者（会社）がシナリオに作者メールを登録 → 報告時に通知
+ * - 同じメールアドレス宛の全報告が一覧で見れる
  */
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
   BookOpen, 
   Building2, 
   Calendar, 
-  FileText, 
-  Settings, 
+  FileText,
+  Info,
   TrendingUp,
-  Users,
   JapaneseYen
 } from 'lucide-react'
 import { authorApi } from '@/lib/api/authorApi'
-import type { Author, AuthorPerformanceReport, AuthorSummary } from '@/types'
+import type { AuthorPerformanceReport, AuthorSummary } from '@/types'
 import { AuthorReportList } from './components/AuthorReportList'
-import { AuthorProfileSettings } from './components/AuthorProfileSettings'
 
 export default function AuthorDashboard() {
-  const [author, setAuthor] = useState<Author | null>(null)
+  const [email, setEmail] = useState<string | null>(null)
   const [summary, setSummary] = useState<AuthorSummary | null>(null)
   const [reports, setReports] = useState<AuthorPerformanceReport[]>([])
+  const [scenarios, setScenarios] = useState<{ id: string; title: string; author: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
@@ -46,23 +44,18 @@ export default function AuthorDashboard() {
   const loadAuthorData = async () => {
     try {
       setLoading(true)
+      setError(null)
       
-      const currentAuthor = await authorApi.getCurrentAuthor()
-      if (!currentAuthor) {
-        setError('作者アカウントが見つかりません。登録が必要です。')
+      const data = await authorApi.getCurrentAuthorDashboard()
+      if (!data) {
+        setError('ログインが必要です')
         return
       }
       
-      setAuthor(currentAuthor)
-      
-      // サマリーと報告を並行して取得
-      const [summaryData, reportsData] = await Promise.all([
-        authorApi.getAuthorSummary(currentAuthor.id),
-        authorApi.getAuthorReports(currentAuthor.id)
-      ])
-      
-      setSummary(summaryData)
-      setReports(reportsData)
+      setEmail(data.email)
+      setSummary(data.summary)
+      setReports(data.reports)
+      setScenarios(data.scenarios)
     } catch (err) {
       console.error('Failed to load author data:', err)
       setError('データの読み込みに失敗しました')
@@ -83,33 +76,41 @@ export default function AuthorDashboard() {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-4">
         <div className="text-destructive">{error}</div>
-        <Button onClick={() => window.location.hash = '#author-register'}>
-          作者アカウントを登録
+        <Button onClick={() => window.location.hash = '#login'}>
+          ログイン
         </Button>
       </div>
     )
   }
 
-  if (!author || !summary) return null
+  if (!email || !summary) return null
+
+  const hasNoReports = reports.length === 0 && scenarios.length === 0
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* ヘッダー */}
       <div className="mb-8">
-        <div className="flex items-center gap-4 mb-2">
-          <h1 className="text-3xl font-bold">
-            {author.display_name || author.name}さんのダッシュボード
-          </h1>
-          {author.is_verified && (
-            <Badge variant="secondary" className="bg-blue-500/10 text-blue-600">
-              ✓ 認証済み
-            </Badge>
-          )}
-        </div>
+        <h1 className="text-3xl font-bold mb-2">作者ダッシュボード</h1>
         <p className="text-muted-foreground">
-          シナリオの公演報告やライセンス収入を確認できます
+          {email} 宛のシナリオ公演報告を確認できます
         </p>
       </div>
+
+      {/* 報告がない場合のメッセージ */}
+      {hasNoReports && (
+        <Alert className="mb-8">
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            <p className="font-medium mb-2">まだ公演報告がありません</p>
+            <p className="text-sm text-muted-foreground">
+              MMQを利用している会社があなたのシナリオを登録し、公演報告を提出すると、ここに表示されます。
+              <br />
+              シナリオに登録されるメールアドレスは <strong>{email}</strong> である必要があります。
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* タブナビゲーション */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -122,9 +123,9 @@ export default function AuthorDashboard() {
             <FileText className="h-4 w-4" />
             公演報告
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2">
-            <Settings className="h-4 w-4" />
-            設定
+          <TabsTrigger value="scenarios" className="gap-2">
+            <BookOpen className="h-4 w-4" />
+            シナリオ
           </TabsTrigger>
         </TabsList>
 
@@ -186,47 +187,20 @@ export default function AuthorDashboard() {
             </Card>
           </div>
 
-          {/* 今月のサマリー */}
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="text-lg">今月の実績</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-full bg-green-500/10">
-                    <FileText className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">今月の報告件数</p>
-                    <p className="text-2xl font-bold">{summary.this_month_reports} 件</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-full bg-amber-500/10">
-                    <JapaneseYen className="h-6 w-6 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">今月のライセンス料</p>
-                    <p className="text-2xl font-bold">¥{summary.this_month_license_fee.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* 最近の報告 */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center justify-between">
                 最近の公演報告
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setActiveTab('reports')}
-                >
-                  すべて見る
-                </Button>
+                {reports.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setActiveTab('reports')}
+                  >
+                    すべて見る
+                  </Button>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -259,15 +233,41 @@ export default function AuthorDashboard() {
           </Card>
         </TabsContent>
 
-        {/* 設定タブ */}
-        <TabsContent value="settings">
-          <AuthorProfileSettings 
-            author={author} 
-            onUpdate={(updated) => setAuthor(updated)}
-          />
+        {/* シナリオタブ */}
+        <TabsContent value="scenarios">
+          <Card>
+            <CardHeader>
+              <CardTitle>登録シナリオ</CardTitle>
+              <CardDescription>
+                {email} がauthor_emailとして登録されているシナリオ
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {scenarios.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  登録されているシナリオがありません
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {scenarios.map(scenario => (
+                    <div 
+                      key={scenario.id}
+                      className="flex items-center justify-between p-4 bg-muted/30 rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{scenario.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          作者: {scenario.author}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
   )
 }
-

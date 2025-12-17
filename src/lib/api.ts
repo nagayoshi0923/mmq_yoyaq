@@ -515,6 +515,7 @@ export const scheduleApi = {
     notes?: string
     time_slot?: string | null
     is_reservation_enabled?: boolean
+    organization_id: string  // マルチテナント対応：必須
   }) {
     const { data, error } = await supabase
       .from('schedule_events')

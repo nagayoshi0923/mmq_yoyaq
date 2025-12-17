@@ -73,34 +73,22 @@ export interface LicensePerformanceSummary {
 }
 
 // ================================================
-// 作者（シナリオ著者）関連の型定義
+// 作者ポータル関連の型定義（メールアドレスベース）
 // ================================================
 
-// 作者の型定義
+// 作者の型定義（旧形式互換）
 export interface Author {
   id: string
-  user_id?: string | null  // ログイン用（Supabase auth.users.id）
-  name: string  // 本名または筆名
-  display_name?: string | null  // 表示名（公開用）
-  email?: string | null  // 連絡先メールアドレス
-  avatar_url?: string | null  // プロフィール画像
-  bio?: string | null  // 自己紹介
-  notes?: string | null  // 管理用メモ（旧形式互換）
-  website_url?: string | null  // ウェブサイト
-  twitter_url?: string | null  // X（Twitter）
-  is_verified?: boolean  // 本人確認済み
-  is_active?: boolean
-  notification_settings?: {
-    email_on_report: boolean
-    email_summary: 'daily' | 'weekly' | 'monthly' | 'none'
-  }
+  name: string
+  email?: string | null
+  notes?: string | null
   created_at: string
   updated_at: string
 }
 
-// 作者向け公演報告ビューの型定義
+// 作者向け公演報告ビューの型定義（メールアドレスベース）
 export interface AuthorPerformanceReport {
-  author_id: string
+  author_email: string
   author_name: string
   scenario_id: string
   scenario_title: string
@@ -117,15 +105,13 @@ export interface AuthorPerformanceReport {
   calculated_license_fee: number
 }
 
-// 作者ダッシュボード集計の型定義
+// 作者ダッシュボード集計の型定義（メールアドレスベース）
 export interface AuthorSummary {
-  author_id: string
+  author_email: string
   total_scenarios: number
   total_approved_reports: number
   total_performance_count: number
   total_license_fee: number
-  this_month_reports: number
-  this_month_license_fee: number
   organizations_count: number
 }
 
@@ -241,7 +227,7 @@ export interface Scenario {
   title: string
   description?: string
   author: string
-  author_id?: string | null  // 作者テーブルへの参照（作者ポータル連携用）
+  author_email?: string | null  // 作者メールアドレス（作者ポータル連携用）
   duration: number
   player_count_min: number
   player_count_max: number

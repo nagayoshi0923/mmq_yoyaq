@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { getTimeSlot, TIME_SLOT_DEFAULTS } from '@/utils/scheduleUtils'
+import { useOrganization } from '@/hooks/useOrganization'
 import type { ScheduleEvent } from '@/types/schedule'
 
 /**
@@ -98,6 +99,9 @@ export function useEventOperations({
   scenarios,
   fetchSchedule
 }: UseEventOperationsProps) {
+  // 組織IDを取得（マルチテナント対応）
+  const { organizationId } = useOrganization()
+  
   // モーダル状態
   const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
@@ -419,6 +423,12 @@ export function useEventOperations({
         // Supabaseに保存するデータ形式に変換
         // 貸切（private）はデフォルト公開、それ以外は非公開
         const isPrivateCategory = performanceData.category === 'private'
+        
+        // organization_idが取得できない場合はエラー
+        if (!organizationId) {
+          throw new Error('組織情報が取得できません。再ログインしてください。')
+        }
+        
         const eventData = {
           date: performanceData.date,
           store_id: storeData.id,
@@ -433,7 +443,8 @@ export function useEventOperations({
           gm_roles: performanceData.gm_roles || {},
           notes: performanceData.notes || null,
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
-          is_reservation_enabled: isPrivateCategory // 貸切は公開、それ以外は非公開
+          is_reservation_enabled: isPrivateCategory, // 貸切は公開、それ以外は非公開
+          organization_id: organizationId // マルチテナント対応
         }
         
         // Supabaseに保存
@@ -548,7 +559,7 @@ export function useEventOperations({
       logger.error('公演保存エラー:', error)
       showToast.error(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
     }
-  }, [modalMode, stores, scenarios, setEvents, handleCloseModal])
+  }, [modalMode, stores, scenarios, setEvents, handleCloseModal, organizationId])
 
   // 削除確認ダイアログを開く
   const handleDeletePerformance = useCallback((event: ScheduleEvent) => {

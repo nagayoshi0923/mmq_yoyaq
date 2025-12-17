@@ -14,6 +14,9 @@ interface ImportScheduleModalProps {
   onImportComplete: (targetMonth?: { year: number; month: number }) => void
 }
 
+// 組織ID（クインズワルツ）
+const ORGANIZATION_ID = 'a0000000-0000-0000-0000-000000000001'
+
 // 店舗名→store_id のマッピング
 const STORE_MAPPING: Record<string, string | null> = {
   "大久保": "bef973a7-faa2-466d-afcc-c6466f24474f",
@@ -344,7 +347,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             category: determineCategory(title),
             reservation_info: extractReservationInfo(title),
             notes: extractNotes(title),
-            is_cancelled: isCancelled(title)
+            is_cancelled: isCancelled(title),
+            organization_id: ORGANIZATION_ID
           }
 
           events.push(event)
