@@ -51,6 +51,18 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
   
   // 既存のシナリオから作者リストを取得
   const { data: scenarios = [] } = useScenariosQuery()
+  
+  // 作者 → メアドのマッピングを作成
+  const authorEmailMap = useMemo(() => {
+    const map = new Map<string, string>()
+    scenarios.forEach(scenario => {
+      if (scenario.author && scenario.author_email && !map.has(scenario.author)) {
+        map.set(scenario.author, scenario.author_email)
+      }
+    })
+    return map
+  }, [scenarios])
+  
   const authorOptions = useMemo(() => {
     const authors = new Set<string>()
     scenarios.forEach(scenario => {
@@ -64,6 +76,19 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
     }
     return Array.from(authors).sort().map(author => ({ id: author, name: author }))
   }, [scenarios, formData.author])
+
+  // 作者選択時にメアドを自動入力
+  const handleAuthorChange = (authorName: string) => {
+    setFormData(prev => {
+      const existingEmail = authorEmailMap.get(authorName)
+      return {
+        ...prev,
+        author: authorName,
+        // メアドが未入力で、既存のメアドがある場合は自動入力
+        author_email: prev.author_email || existingEmail || ''
+      }
+    })
+  }
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -182,8 +207,8 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
                   options={authorOptions}
                   selectedValues={formData.author ? [formData.author] : []}
                   onSelectionChange={(values) => {
-                    // 単一選択なので、最初の値を設定
-                    setFormData(prev => ({ ...prev, author: values[0] || '' }))
+                    // 単一選択なので、最初の値を設定し、メアドを自動入力
+                    handleAuthorChange(values[0] || '')
                   }}
                   placeholder="作者を選択"
                   showBadges={true}
@@ -206,6 +231,11 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   公演報告を作者に通知するためのメールアドレス
+                  {formData.author && authorEmailMap.has(formData.author) && (
+                    <span className="text-green-600 ml-1">
+                      （既存のメアドから自動入力）
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
