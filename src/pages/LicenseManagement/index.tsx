@@ -10,7 +10,6 @@ import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSide
 import { Card, CardContent } from '@/components/ui/card'
 import { 
   FileCheck, 
-  FileText, 
   Send, 
   BarChart3,
   Loader2,
@@ -21,21 +20,19 @@ import { useSessionState } from '@/hooks/useSessionState'
 
 // 既存コンポーネントをインポート
 import { ReportsReceived } from './tabs/ReportsReceived'
-import { MyReports } from './tabs/MyReports'
-import { AuthorReports } from './tabs/AuthorReports'
+import { SendReports } from './tabs/SendReports'
 import { LicenseSummary } from './tabs/LicenseSummary'
 
 // サイドバーのメニュー項目定義
 const LICENSE_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'received', label: '報告受付', icon: FileCheck, description: '外部からの公演報告を確認' },
-  { id: 'my-reports', label: '公演報告', icon: Send, description: '他社シナリオの公演を報告' },
-  { id: 'author-reports', label: '作者レポート', icon: FileText, description: '作者への支払いレポート' },
+  { id: 'received', label: '受信', icon: FileCheck, description: '他社からの公演報告' },
+  { id: 'send', label: '送信', icon: Send, description: '作者・会社への報告' },
   { id: 'summary', label: '集計', icon: BarChart3, description: 'ライセンス料の集計' },
 ]
 
 // ライセンス管理組織以外用のメニュー
 const LICENSE_MENU_ITEMS_EXTERNAL: SidebarMenuItem[] = [
-  { id: 'my-reports', label: '公演報告', icon: Send, description: '他社シナリオの公演を報告' },
+  { id: 'send', label: '送信', icon: Send, description: '作者・会社への報告' },
 ]
 
 export default function LicenseManagement() {
@@ -45,8 +42,8 @@ export default function LicenseManagement() {
   // メニュー項目を権限に応じて選択
   const menuItems = isLicenseManager ? LICENSE_MENU_ITEMS : LICENSE_MENU_ITEMS_EXTERNAL
 
-  // ライセンス管理組織以外の場合、my-reportsタブに強制
-  const effectiveTab = isLicenseManager ? activeTab : 'my-reports'
+  // ライセンス管理組織以外の場合、sendタブに強制
+  const effectiveTab = isLicenseManager ? activeTab : 'send'
 
   // コンテンツの条件分岐表示
   const renderContent = () => {
@@ -74,14 +71,12 @@ export default function LicenseManagement() {
     switch (effectiveTab) {
       case 'received':
         return isLicenseManager ? <ReportsReceived staffId={staff.id} /> : null
-      case 'my-reports':
-        return <MyReports organizationId={organization.id} staffId={staff.id} />
-      case 'author-reports':
-        return isLicenseManager ? <AuthorReports /> : null
+      case 'send':
+        return <SendReports organizationId={organization.id} staffId={staff.id} isLicenseManager={isLicenseManager} />
       case 'summary':
         return isLicenseManager ? <LicenseSummary /> : null
       default:
-        return <MyReports organizationId={organization.id} staffId={staff.id} />
+        return <SendReports organizationId={organization.id} staffId={staff.id} isLicenseManager={isLicenseManager} />
     }
   }
 
