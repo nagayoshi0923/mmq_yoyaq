@@ -277,6 +277,15 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       return
     }
 
+    // 確認ダイアログ
+    const confirmed = confirm(
+      `${group.authorName} (${group.authorEmail}) に\n` +
+      `${selectedYear}年${selectedMonth}月のレポートを送信しますか？\n\n` +
+      `・公演数: ${group.totalEvents}回\n` +
+      `・ライセンス料: ¥${group.totalLicenseCost.toLocaleString()}`
+    )
+    if (!confirmed) return
+
     try {
       setIsSending(true)
 
@@ -316,7 +325,17 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       return
     }
 
-    if (!confirm(`${targets.length}件を送信しますか？`)) return
+    const totalEvents = targets.reduce((sum, g) => sum + g.totalEvents, 0)
+    const totalLicense = targets.reduce((sum, g) => sum + g.totalLicenseCost, 0)
+    
+    const confirmed = confirm(
+      `${selectedYear}年${selectedMonth}月のレポートを一括送信しますか？\n\n` +
+      `・送信先: ${targets.length}名\n` +
+      `・総公演数: ${totalEvents}回\n` +
+      `・総ライセンス料: ¥${totalLicense.toLocaleString()}\n\n` +
+      `送信先一覧:\n${targets.map(g => `  - ${g.authorName}`).join('\n')}`
+    )
+    if (!confirmed) return
 
     setIsSending(true)
     let success = 0, fail = 0
