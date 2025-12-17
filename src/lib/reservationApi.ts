@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
 
@@ -17,9 +18,15 @@ export const customerApi = {
 
   // 顧客を作成
   async create(customer: Omit<Customer, 'id' | 'created_at' | 'updated_at' | 'visit_count' | 'total_spent'>): Promise<Customer> {
+    // organization_idを自動取得（マルチテナント対応）
+    const organizationId = await getCurrentOrganizationId()
+    if (!organizationId) {
+      throw new Error('組織情報が取得できません。再ログインしてください。')
+    }
+    
     const { data, error } = await supabase
       .from('customers')
-      .insert([customer])
+      .insert([{ ...customer, organization_id: organizationId }])
       .select()
       .single()
     
@@ -134,6 +141,12 @@ export const reservationApi = {
 
   // 予約を作成
   async create(reservation: Omit<Reservation, 'id' | 'created_at' | 'updated_at' | 'reservation_number'>): Promise<Reservation> {
+    // organization_idを自動取得（マルチテナント対応）
+    const organizationId = await getCurrentOrganizationId()
+    if (!organizationId) {
+      throw new Error('組織情報が取得できません。再ログインしてください。')
+    }
+    
     // 予約番号を自動生成（YYMMDD-XXXX形式: 11桁）
     const now = new Date()
     const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
@@ -142,7 +155,7 @@ export const reservationApi = {
 
     const { data, error } = await supabase
       .from('reservations')
-      .insert([{ ...reservation, reservation_number: reservationNumber }])
+      .insert([{ ...reservation, reservation_number: reservationNumber, organization_id: organizationId }])
       .select()
       .single()
     

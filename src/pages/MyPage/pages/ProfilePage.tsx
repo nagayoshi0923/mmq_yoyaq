@@ -16,6 +16,8 @@ import {
 import { User, Mail, Calendar as CalendarIcon, Phone, MapPin, MessageSquare, Lock, Trash2, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
+import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { deleteMyAccount } from '@/lib/userApi'
@@ -23,6 +25,8 @@ import { customerApi } from '@/lib/reservationApi'
 
 export function ProfilePage() {
   const { user } = useAuth()
+  // 組織IDを取得（マルチテナント対応）
+  const { organizationId } = useOrganization()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [changingEmail, setChangingEmail] = useState(false)
@@ -134,6 +138,9 @@ export function ProfilePage() {
         showToast.success('プロフィールを更新しました')
       } else if (user?.id) {
         // 新規作成
+        // organization_idを取得（ログインユーザーから、またはデフォルト）
+        const orgId = organizationId || QUEENS_WALTZ_ORG_ID
+        
         const { error } = await supabase
           .from('customers')
           .insert({
@@ -146,6 +153,7 @@ export function ProfilePage() {
             email: user.email || null,
             visit_count: 0,
             total_spent: 0,
+            organization_id: orgId,
           })
 
         if (error) throw error

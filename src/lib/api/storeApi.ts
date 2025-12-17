@@ -2,6 +2,7 @@
  * 店舗関連API
  */
 import { supabase } from '../supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import type { Store } from '@/types'
 
 export const storeApi = {
@@ -51,9 +52,15 @@ export const storeApi = {
 
   // 店舗を作成
   async create(store: Omit<Store, 'id' | 'created_at' | 'updated_at'>): Promise<Store> {
+    // organization_idを自動取得（マルチテナント対応）
+    const organizationId = await getCurrentOrganizationId()
+    if (!organizationId) {
+      throw new Error('組織情報が取得できません。再ログインしてください。')
+    }
+    
     const { data, error } = await supabase
       .from('stores')
-      .insert([store])
+      .insert([{ ...store, organization_id: organizationId }])
       .select()
       .single()
     

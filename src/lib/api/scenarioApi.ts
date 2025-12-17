@@ -2,6 +2,7 @@
  * シナリオ関連API
  */
 import { supabase } from '../supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import type { Scenario } from '@/types'
 import type { PaginatedResponse } from './types'
 
@@ -70,9 +71,13 @@ export const scenarioApi = {
 
   // シナリオを作成
   async create(scenario: Omit<Scenario, 'id' | 'created_at' | 'updated_at'>): Promise<Scenario> {
+    // organization_idを自動取得（マルチテナント対応）
+    // ※ 共有シナリオ（managed）の場合はorganization_id = NULLのままでOK
+    const organizationId = await getCurrentOrganizationId()
+    
     const { data, error } = await supabase
       .from('scenarios')
-      .insert([scenario])
+      .insert([{ ...scenario, organization_id: organizationId }])
       .select()
       .single()
     

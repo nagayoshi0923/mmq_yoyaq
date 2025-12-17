@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import type { TimeSlot } from '../types'
 
@@ -59,13 +60,17 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
             })
             .eq('id', customerId)
         } else {
+          // organization_idを取得（ログインユーザーから、またはデフォルト）
+          const organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+          
           const { data: newCustomer, error: customerError } = await supabase
             .from('customers')
             .insert({
               user_id: props.userId,
               name: customerName,
               phone: customerPhone,
-              email: customerEmail
+              email: customerEmail,
+              organization_id: organizationId
             })
             .select('id')
             .single()
@@ -120,6 +125,9 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         })
       }
       
+      // organization_idを取得（ログインユーザーから、またはデフォルト）
+      const reservationOrgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+      
       const { data: parentReservation, error: parentError } = await supabase
         .from('reservations')
         .insert({
@@ -142,7 +150,8 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
-          reservation_source: 'web_private'
+          reservation_source: 'web_private',
+          organization_id: reservationOrgId
         })
         .select()
         .single()

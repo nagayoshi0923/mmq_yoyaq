@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { supabase } from '@/lib/supabase'
+import { useOrganization } from '@/hooks/useOrganization'
 import type { Customer } from '@/types'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -23,6 +24,9 @@ interface CustomerEditModalProps {
 }
 
 export function CustomerEditModal({ isOpen, onClose, customer, onSave }: CustomerEditModalProps) {
+  // 組織IDを取得（マルチテナント対応）
+  const { organizationId } = useOrganization()
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -78,6 +82,10 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
         logger.log('顧客情報更新成功:', customer.id)
       } else {
         // 新規作成
+        if (!organizationId) {
+          throw new Error('組織情報が取得できません。再ログインしてください。')
+        }
+        
         const { error } = await supabase
           .from('customers')
           .insert({
@@ -88,6 +96,7 @@ export function CustomerEditModal({ isOpen, onClose, customer, onSave }: Custome
             notes: formData.notes || null,
             visit_count: 0,
             total_spent: 0,
+            organization_id: organizationId,
           })
 
         if (error) throw error

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { formatDate } from '../utils/bookingFormatters'
 
@@ -229,13 +230,17 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             .eq('id', customerId)
         } else {
           // 新規顧客レコードを作成
+          // organization_idを取得（ログインユーザーから、またはデフォルト）
+          const organizationId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+          
           const { data: newCustomer, error: customerError } = await supabase
             .from('customers')
             .insert({
               user_id: props.userId,
               name: customerName,
               phone: customerPhone,
-              email: customerEmail
+              email: customerEmail,
+              organization_id: organizationId
             })
             .select('id')
             .single()
@@ -249,6 +254,9 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       }
       
       // 予約データを作成
+      // organization_idを取得（ログインユーザーから、またはデフォルト）
+      const reservationOrgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
+      
       const { data: reservationData, error: reservationError } = await supabase
         .from('reservations')
         .insert({
@@ -271,7 +279,8 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
           created_by: props.userId,
           customer_name: customerName,
           customer_email: customerEmail,
-          customer_phone: customerPhone
+          customer_phone: customerPhone,
+          organization_id: reservationOrgId
         })
         .select()
         .single()

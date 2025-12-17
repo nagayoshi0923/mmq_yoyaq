@@ -2,6 +2,7 @@
  * スタッフ関連API
  */
 import { supabase } from '../supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import type { Staff } from '@/types'
 
@@ -19,9 +20,15 @@ export const staffApi = {
 
   // スタッフを作成
   async create(staff: Omit<Staff, 'id' | 'created_at' | 'updated_at'>): Promise<Staff> {
+    // organization_idを自動取得（マルチテナント対応）
+    const organizationId = await getCurrentOrganizationId()
+    if (!organizationId) {
+      throw new Error('組織情報が取得できません。再ログインしてください。')
+    }
+    
     const { data, error } = await supabase
       .from('staff')
-      .insert([staff])
+      .insert([{ ...staff, organization_id: organizationId }])
       .select()
       .single()
     
