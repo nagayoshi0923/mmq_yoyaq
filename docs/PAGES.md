@@ -311,8 +311,8 @@ parseHash(hash: string): {
 #mypage/liked                       → LikedScenariosPage
 #mypage/profile                     → ProfilePage
 
-■ ランディング・認証
-#landing                            → LandingPage
+■ サービス紹介・認証
+#about                              → LandingPage（MMQ紹介）
 #login                              → LoginForm
 #register                           → OrganizationRegister
 #reset-password                     → ResetPassword

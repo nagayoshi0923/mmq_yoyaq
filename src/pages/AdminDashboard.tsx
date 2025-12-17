@@ -166,8 +166,8 @@ export function AdminDashboard() {
     if (hash.startsWith('register')) {
       return { page: 'register', scenarioId: null, organizationSlug: null }
     }
-    if (hash.startsWith('landing') || hash === '') {
-      return { page: 'landing', scenarioId: null, organizationSlug: null }
+    if (hash.startsWith('about') || hash.startsWith('service')) {
+      return { page: 'about', scenarioId: null, organizationSlug: null }
     }
     // ハッシュからクエリパラメータを分離
     const hashWithoutQuery = hash.split('?')[0]
@@ -247,13 +247,14 @@ export function AdminDashboard() {
     // ログアウト状態または顧客アカウントの場合
     const isCustomerOrLoggedOut = !user || user.role === 'customer'
     
-    // 未ログイン + ハッシュなし → ランディングページ
     const hash = window.location.hash.slice(1)
-    if (!user && (!hash || hash === '' || currentPage === 'landing')) {
-      setCurrentPage('landing')
-      if (!hash) {
-        window.location.hash = 'landing'
-      }
+    
+    // 未ログイン + ハッシュなし → 予約サイト（デフォルト組織）
+    if (!user && (!hash || hash === '')) {
+      const slug = getOrganizationSlugFromUrl()
+      setCurrentPage('booking')
+      setOrganizationSlug(slug)
+      window.location.hash = `booking/${slug}`
       return
     }
     
@@ -268,7 +269,7 @@ export function AdminDashboard() {
 
     // スタッフ/管理者がログインしていて、ハッシュがない場合はダッシュボードを表示
     if (user && (user.role === 'admin' || user.role === 'staff')) {
-      if (!hash || hash === '' || hash === 'landing') {
+      if (!hash || hash === '') {
         setCurrentPage('dashboard')
         window.location.hash = 'dashboard'
         return
@@ -610,8 +611,8 @@ export function AdminDashboard() {
     )
   }
 
-  // ランディングページ（未ログインのトップページ）
-  if (currentPage === 'landing') {
+  // MMQ紹介ページ（サービス説明）
+  if (currentPage === 'about') {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <LandingPage />
