@@ -16,8 +16,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { CheckCircle, Loader2, Mail, PenTool } from 'lucide-react'
+import { CheckCircle, Loader2, Mail, PenTool, ShieldAlert } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { authorApi } from '@/lib/api/authorApi'
 
 export default function AuthorLogin() {
   const [email, setEmail] = useState('')
@@ -43,9 +44,19 @@ export default function AuthorLogin() {
       setLoading(true)
       setError(null)
 
+      const trimmedEmail = email.trim().toLowerCase()
+
+      // セキュリティチェック: 作者として登録されているメールアドレスかどうか確認
+      const scenarios = await authorApi.getAuthorScenariosByEmail(trimmedEmail)
+      if (scenarios.length === 0) {
+        // 登録されていないメールアドレスにはマジックリンクを送信しない
+        setError('このメールアドレスは作者として登録されていません。\nシナリオ管理者がシナリオにあなたのメールアドレスを登録する必要があります。')
+        return
+      }
+
       // Supabase Magic Link を送信
       const { error: authError } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
+        email: trimmedEmail,
         options: {
           emailRedirectTo: `${window.location.origin}/#author-dashboard`
         }
@@ -123,7 +134,8 @@ export default function AuthorLogin() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <ShieldAlert className="h-4 w-4" />
+                <AlertDescription className="whitespace-pre-line">{error}</AlertDescription>
               </Alert>
             )}
 
@@ -169,6 +181,10 @@ export default function AuthorLogin() {
               入力したメールアドレス宛にログインリンクが届きます。<br />
               リンクをクリックするだけでログイン完了！
             </p>
+            <div className="mt-4 text-xs text-muted-foreground bg-muted/50 rounded p-2">
+              <ShieldAlert className="h-3 w-3 inline mr-1" />
+              セキュリティ: シナリオに登録されているメールアドレスのみログイン可能です
+            </div>
           </div>
         </CardContent>
       </Card>
