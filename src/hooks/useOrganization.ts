@@ -57,14 +57,19 @@ export function useOrganization(): UseOrganizationResult {
       setStaff(staffData as Staff)
 
       // 組織情報を取得
-      if (staffData?.organization_id) {
-        const { data: orgData, error: orgError } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('id', staffData.organization_id)
-          .single()
+      // organization_idがない場合はクインズワルツをデフォルトで使用
+      const orgId = staffData?.organization_id || QUEENS_WALTZ_ORG_ID
+      
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', orgId)
+        .single()
 
-        if (orgError) throw orgError
+      if (orgError) {
+        // 組織が見つからない場合もエラーログのみ
+        console.warn('Organization not found:', orgId, orgError)
+      } else {
         setOrganization(orgData as Organization)
       }
     } catch (err) {
