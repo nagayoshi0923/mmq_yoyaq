@@ -47,6 +47,15 @@ const OrganizationManagement = lazy(() => import('./OrganizationManagement'))
 const ExternalReports = lazy(() => import('./ExternalReports'))
 const LicenseReportManagement = lazy(() => import('./LicenseReportManagement'))
 
+/**
+ * 現在のURLからorganizationSlugを抽出するヘルパー関数
+ */
+function getOrganizationSlugFromUrl(): string {
+  const hash = window.location.hash.replace('#', '')
+  const bookingMatch = hash.match(/^booking\/([^/]+)/)
+  return bookingMatch ? bookingMatch[1] : 'queens-waltz'
+}
+
 export function AdminDashboard() {
   const { user, loading, isInitialized } = useAuth()
 
@@ -224,9 +233,10 @@ export function AdminDashboard() {
     
     // 顧客/ログアウト状態でダッシュボードや管理ページにいる場合は予約サイトにリダイレクト
     if (isCustomerOrLoggedOut && (!currentPage || currentPage === 'dashboard' || adminOnlyPages.includes(currentPage))) {
+      const slug = getOrganizationSlugFromUrl()
       setCurrentPage('booking')
-      setOrganizationSlug('queens-waltz')
-      window.location.hash = 'booking/queens-waltz'
+      setOrganizationSlug(slug)
+      window.location.hash = `booking/${slug}`
       return
     }
 
@@ -253,9 +263,10 @@ export function AdminDashboard() {
         const restrictedPages = ['dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher', 'organizations', 'external-reports', 'license-reports']
         if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
           // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
+          const slug = getOrganizationSlugFromUrl()
           setCurrentPage('booking')
-          setOrganizationSlug('queens-waltz')
-          window.location.hash = 'booking/queens-waltz'
+          setOrganizationSlug(slug)
+          window.location.hash = `booking/${slug}`
           return
         }
       }

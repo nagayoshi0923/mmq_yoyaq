@@ -4,6 +4,15 @@ import { logger } from '@/utils/logger'
 import type { User } from '@supabase/supabase-js'
 import { determineUserRole } from '@/utils/authUtils'
 
+/**
+ * 現在のURLからorganizationSlugを抽出するヘルパー関数
+ */
+function getOrganizationSlugFromUrl(): string {
+  const hash = window.location.hash.replace('#', '')
+  const bookingMatch = hash.match(/^booking\/([^/]+)/)
+  return bookingMatch ? bookingMatch[1] : 'queens-waltz'
+}
+
 // グローバル変数の型定義
 declare global {
   interface Window {
@@ -255,8 +264,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setUser(null)
             userRef.current = null
             setIsInitialized(true)
-            // ページをリロードしてクリーンな状態にする
-            window.location.href = '/#booking/queens-waltz'
+            // ページをリロードしてクリーンな状態にする（現在の組織を維持）
+            const slug = getOrganizationSlugFromUrl()
+            window.location.href = `/#booking/${slug}`
             break
           case 'SIGNED_IN':
             // 他のタブでログインした場合、セッションをリフレッシュ
@@ -781,8 +791,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         logger.log('📡 他タブにログアウトを通知')
       }
       
-      // 予約サイトにリダイレクト（ログインなしでも閲覧可能）
-      window.location.href = '/#booking/queens-waltz'
+      // 予約サイトにリダイレクト（現在の組織を維持）
+      const slug = getOrganizationSlugFromUrl()
+      window.location.href = `/#booking/${slug}`
     } catch (error) {
       setLoading(false)
       throw error

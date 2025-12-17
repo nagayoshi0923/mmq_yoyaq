@@ -7,6 +7,15 @@ import { AdminDashboard } from '@/pages/AdminDashboard'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { SetPassword } from '@/pages/SetPassword'
 
+/**
+ * 現在のURLからorganizationSlugを抽出するヘルパー関数
+ */
+function getOrganizationSlugFromUrl(): string {
+  const hash = window.location.hash.replace('#', '')
+  const bookingMatch = hash.match(/^booking\/([^/]+)/)
+  return bookingMatch ? bookingMatch[1] : 'queens-waltz'
+}
+
 // QueryClient の設定
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -89,7 +98,8 @@ function AppContent() {
       // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
       const adminPages = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings']
       if (adminPages.some(page => normalizedHash.startsWith(page))) {
-        window.location.hash = 'booking/queens-waltz'
+        const slug = getOrganizationSlugFromUrl()
+        window.location.hash = `booking/${slug}`
         return <AdminDashboard />
       }
     }

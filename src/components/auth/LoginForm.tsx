@@ -83,8 +83,40 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
       } else {
         // ログイン処理
         await signIn(email, password)
-        // ログイン成功後、予約サイトへリダイレクト
-        window.location.hash = 'booking/queens-waltz'
+        
+        // ログイン成功後、ユーザーの組織に基づいてリダイレクト
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          // スタッフ情報から組織を取得
+          const { data: staffData } = await supabase
+            .from('staff')
+            .select('organization_id, role')
+            .eq('user_id', user.id)
+            .single()
+          
+          if (staffData?.organization_id) {
+            // 組織のslugを取得
+            const { data: orgData } = await supabase
+              .from('organizations')
+              .select('slug')
+              .eq('id', staffData.organization_id)
+              .single()
+            
+            const slug = orgData?.slug || 'queens-waltz'
+            
+            // 管理者・スタッフはダッシュボードへ、それ以外は予約サイトへ
+            if (staffData.role === 'admin' || staffData.role === 'staff') {
+              window.location.hash = 'dashboard'
+            } else {
+              window.location.hash = `booking/${slug}`
+            }
+          } else {
+            // スタッフでない場合（顧客）はデフォルトの予約サイトへ
+            window.location.hash = 'booking/queens-waltz'
+          }
+        } else {
+          window.location.hash = 'booking/queens-waltz'
+        }
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : ''

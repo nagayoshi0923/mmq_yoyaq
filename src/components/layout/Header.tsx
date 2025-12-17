@@ -1,8 +1,9 @@
 import { useCallback, memo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Bell, LogOut, User } from 'lucide-react'
+import { Bell, LogOut, User, Building2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
 
 interface HeaderProps {
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 export const Header = memo(function Header({ onPageChange }: HeaderProps) {
   const { user, signOut } = useAuth()
+  const { organization } = useOrganization()
 
   const handleSignOut = useCallback(async () => {
     try {
@@ -59,7 +61,16 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
             {user ? (
               <>
-                <div className="flex items-center gap-1 sm:gap-1.5">
+                <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                  {/* 組織名表示 */}
+                  {organization && (
+                    <div className="hidden md:flex items-center gap-1 px-2 py-0.5 rounded bg-muted border border-border">
+                      <Building2 className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {organization.name}
+                      </span>
+                    </div>
+                  )}
                   <span className="text-xs sm:text-sm font-medium text-foreground truncate max-w-[60px] sm:max-w-[80px] md:max-w-[100px] md:max-w-none">
                     {user?.staffName || user?.name}
                   </span>
