@@ -50,6 +50,8 @@ const AcceptInvitation = lazy(() => import('./AcceptInvitation'))
 const OrganizationSettings = lazy(() => import('./OrganizationSettings'))
 const OrganizationRegister = lazy(() => import('./OrganizationRegister'))
 const LandingPage = lazy(() => import('./LandingPage'))
+const AuthorDashboard = lazy(() => import('./AuthorDashboard'))
+const AuthorRegister = lazy(() => import('./AuthorRegister'))
 
 /**
  * 現在のURLからorganizationSlugを抽出するヘルパー関数
@@ -616,6 +618,24 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <LandingPage />
+      </Suspense>
+    )
+  }
+
+  // 作者ダッシュボード
+  if (currentPage === 'author-dashboard') {
+    return (
+      <Suspense fallback={<LoadingScreen message="作者ダッシュボードを読み込み中..." />}>
+        <AuthorDashboard />
+      </Suspense>
+    )
+  }
+
+  // 作者登録ページ
+  if (currentPage === 'author-register') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <AuthorRegister />
       </Suspense>
     )
   }

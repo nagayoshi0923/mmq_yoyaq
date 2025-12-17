@@ -429,6 +429,81 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* シナリオ作家向けセクション */}
+      <section className="py-20 bg-gradient-to-br from-amber-500/5 via-orange-500/5 to-red-500/5">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <Badge variant="outline" className="mb-4 text-amber-600 border-amber-500/30">
+                シナリオ作家の方へ
+              </Badge>
+              <h2 className="text-3xl font-bold mb-4">
+                作者ポータルで公演情報を一元管理
+              </h2>
+              <p className="text-muted-foreground">
+                あなたのシナリオがどの会社でどれだけ使用されているか、
+                <br />
+                リアルタイムで確認できます
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-6 mb-12">
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
+                    <Receipt className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <h3 className="font-semibold mb-2">公演報告の受取</h3>
+                  <p className="text-sm text-muted-foreground">
+                    各会社からの公演報告を自動で集計。どこで何回使用されたか一目瞭然。
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
+                    <BarChart3 className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <h3 className="font-semibold mb-2">ライセンス収入の確認</h3>
+                  <p className="text-sm text-muted-foreground">
+                    月別・シナリオ別のライセンス収入を自動計算。確定申告にも便利。
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                    <Bell className="w-6 h-6 text-red-600" />
+                  </div>
+                  <h3 className="font-semibold mb-2">通知機能</h3>
+                  <p className="text-sm text-muted-foreground">
+                    新しい報告があるとメールでお知らせ。定期サマリーも受け取れます。
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="text-center">
+              <Button 
+                size="lg"
+                variant="outline"
+                onClick={() => window.location.hash = 'author-register'}
+                className="gap-2 border-amber-500/50 hover:bg-amber-500/10"
+              >
+                <Sparkles className="w-4 h-4 text-amber-600" />
+                作者アカウントを作成
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+              <p className="text-sm text-muted-foreground mt-4">
+                ※ MMQを利用する会社からシナリオの公演報告を受け取るには、作者アカウントが必要です
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* フッター */}
       <footer className="border-t py-12">
         <div className="container mx-auto px-4">
