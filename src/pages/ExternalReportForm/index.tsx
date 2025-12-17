@@ -62,10 +62,23 @@ export default function ExternalReportForm() {
     try {
       setLoading(true)
       
-      // 全シナリオを取得（status: available のみ）
+      // ライセンス管理組織（クインズワルツ）を取得
+      const { data: licenseOrg, error: orgError } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('is_license_manager', true)
+        .single()
+      
+      if (orgError) {
+        logger.error('ライセンス管理組織取得エラー:', orgError)
+        throw orgError
+      }
+      
+      // ライセンス管理組織が管理しているシナリオのみを取得
       const { data, error } = await supabase
         .from('scenarios')
         .select('id, title, author, license_amount')
+        .eq('organization_id', licenseOrg.id)
         .eq('status', 'available')
         .order('author')
         .order('title')
