@@ -62,11 +62,11 @@ export default function ExternalReportForm() {
     try {
       setLoading(true)
       
-      // 管理シナリオを取得（scenario_type: 'managed' または is_shared: true）
+      // 全シナリオを取得（status: available のみ）
       const { data, error } = await supabase
         .from('scenarios')
         .select('id, title, author, license_amount')
-        .or('scenario_type.eq.managed,is_shared.eq.true')
+        .eq('status', 'available')
         .order('author')
         .order('title')
 
@@ -75,20 +75,7 @@ export default function ExternalReportForm() {
       setScenarios(data || [])
     } catch (error) {
       logger.error('シナリオ取得エラー:', error)
-      // フォールバック：全シナリオを取得
-      try {
-        const { data, error: fallbackError } = await supabase
-          .from('scenarios')
-          .select('id, title, author, license_amount')
-          .order('author')
-          .order('title')
-        
-        if (fallbackError) throw fallbackError
-        setScenarios(data || [])
-      } catch (fallbackError) {
-        logger.error('フォールバック取得エラー:', fallbackError)
-        showToast.error('シナリオの読み込みに失敗しました')
-      }
+      showToast.error('シナリオの読み込みに失敗しました')
     } finally {
       setLoading(false)
     }
