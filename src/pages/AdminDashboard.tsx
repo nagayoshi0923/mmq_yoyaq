@@ -46,6 +46,7 @@ const StaffProfile = lazy(() => import('./StaffProfile').then(m => ({ default: m
 const OrganizationManagement = lazy(() => import('./OrganizationManagement'))
 const ExternalReports = lazy(() => import('./ExternalReports'))
 const LicenseReportManagement = lazy(() => import('./LicenseReportManagement'))
+const LicenseManagement = lazy(() => import('./LicenseManagement'))
 const AcceptInvitation = lazy(() => import('./AcceptInvitation'))
 const OrganizationSettings = lazy(() => import('./OrganizationSettings'))
 const OrganizationRegister = lazy(() => import('./OrganizationRegister'))
@@ -87,7 +88,8 @@ export function AdminDashboard() {
     'scenario-matcher',
     'organizations',
     'external-reports',
-    'license-reports'
+    'license-reports',
+    'license-management'
   ]
 
   // ハッシュを解析してページ、シナリオID、組織slugを返すユーティリティ
@@ -153,11 +155,17 @@ export function AdminDashboard() {
     if (hash.startsWith('organizations')) {
       return { page: 'organizations', scenarioId: null, organizationSlug: null }
     }
+    if (hash.startsWith('license-management')) {
+      return { page: 'license-management', scenarioId: null, organizationSlug: null }
+    }
+    // 古いルートは新しいページにリダイレクト
     if (hash.startsWith('external-reports')) {
-      return { page: 'external-reports', scenarioId: null, organizationSlug: null }
+      window.location.hash = 'license-management'
+      return { page: 'license-management', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('license-reports')) {
-      return { page: 'license-reports', scenarioId: null, organizationSlug: null }
+      window.location.hash = 'license-management'
+      return { page: 'license-management', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('accept-invitation')) {
       return { page: 'accept-invitation', scenarioId: null, organizationSlug: null }
@@ -565,20 +573,11 @@ export function AdminDashboard() {
     )
   }
 
-  // 公演報告ページ
-  if (currentPage === 'external-reports') {
+  // ライセンス管理ページ（統合）
+  if (currentPage === 'license-management') {
     return (
-      <Suspense fallback={<LoadingScreen message="公演報告を読み込み中..." />}>
-        <ExternalReports />
-      </Suspense>
-    )
-  }
-
-  // ライセンス報告管理ページ
-  if (currentPage === 'license-reports') {
-    return (
-      <Suspense fallback={<LoadingScreen message="ライセンス報告を読み込み中..." />}>
-        <LicenseReportManagement />
+      <Suspense fallback={<LoadingScreen message="ライセンス管理を読み込み中..." />}>
+        <LicenseManagement />
       </Suspense>
     )
   }

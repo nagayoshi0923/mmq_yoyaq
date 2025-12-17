@@ -151,7 +151,7 @@ MMQは**マルチテナント型SaaS**。各組織（マーダーミステリー
 | ページ | 制限 |
 |-------|------|
 | `#organizations` | ライセンス管理組織のみ |
-| `#license-reports` | ライセンス管理組織のみ |
+| `#license-management` | admin, staff（一部タブはライセンス管理組織のみ） |
 | その他 | 組織内のユーザーのみ |
 
 ---
@@ -301,8 +301,7 @@ parseHash(hash: string): {
 #organization-settings              → OrganizationSettings
 #register                           → OrganizationRegister
 #accept-invitation?token=xxx        → AcceptInvitation
-#external-reports                   → ExternalReports
-#license-reports                    → LicenseReportManagement
+#license-management                 → LicenseManagement（統合ページ）
 
 ■ マイページ
 #mypage                             → MyPage
@@ -391,8 +390,7 @@ parseHash(hash: string): {
 | **OrganizationSettings** | `#organization-settings` | 自組織の設定編集 | admin |
 | **OrganizationRegister** | `#register` | セルフサービス組織登録 | 未ログイン |
 | **AcceptInvitation** | `#accept-invitation?token=xxx` | 招待受諾・アカウント作成 | 未ログイン |
-| **ExternalReports** | `#external-reports` | 公演報告提出 | admin, staff |
-| **LicenseReportManagement** | `#license-reports` | 報告承認・集計 | ライセンス管理者のみ |
+| **LicenseManagement** | `#license-management` | ライセンス管理統合（報告受付・公演報告・作者レポート・集計） | admin, staff |
 
 #### OrganizationManagement 詳細
 

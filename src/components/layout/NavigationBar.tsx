@@ -59,8 +59,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },
     { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin'] },
     { id: 'organizations', label: '組織管理', icon: Building2, roles: ['admin'] },
-    { id: 'external-reports', label: '公演報告', icon: FileText, roles: ['admin', 'staff'] },
-    { id: 'license-reports', label: 'ライセンス', icon: FileCheck, roles: ['admin'] },
+    { id: 'license-management', label: 'ライセンス', icon: FileCheck, roles: ['admin', 'staff'] },
     { id: 'organization-settings', label: '組織設定', icon: Building2, roles: ['admin'] },
     { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] },
     { id: 'manual', label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff'] }
