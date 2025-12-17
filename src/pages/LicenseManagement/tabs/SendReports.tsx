@@ -23,7 +23,8 @@ import {
   Users,
   Calendar,
   ExternalLink,
-  MailCheck
+  MailCheck,
+  AlertCircle
 } from 'lucide-react'
 import {
   Dialog,
@@ -63,14 +64,17 @@ interface ReportItem {
   externalOrgName?: string
 }
 
-// 報告先ごとにグループ化
+// 作者ごとにグループ化
 interface ReportGroup {
-  recipientType: 'author' | 'company'
-  recipientName: string
-  recipientEmail?: string
+  authorName: string
+  authorEmail: string | null  // 最も多く使われているメアド
   items: ReportItem[]
   totalEvents: number
   totalLicenseCost: number
+  // 一部未登録の警告用
+  itemsWithEmail: number
+  itemsWithoutEmail: number
+  hasPartialEmail: boolean  // 一部のみメアド登録
 }
 
 export function SendReports({ organizationId, staffId, isLicenseManager }: SendReportsProps) {
@@ -182,27 +186,43 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
         })
       }
 
-      // 報告先でグループ化
+      // 作者名でグループ化
       const groupMap = new Map<string, ReportGroup>()
 
       items.forEach(item => {
-        const key = item.authorEmail || `company:${item.author}`
+        const key = item.author  // 作者名でグループ化
         
         if (groupMap.has(key)) {
           const group = groupMap.get(key)!
           group.items.push(item)
           group.totalEvents += item.events
           group.totalLicenseCost += item.licenseCost
+          if (item.authorEmail) {
+            group.itemsWithEmail++
+            // 最も多く使われているメアドを採用（初回設定優先）
+            if (!group.authorEmail) {
+              group.authorEmail = item.authorEmail
+            }
+          } else {
+            group.itemsWithoutEmail++
+          }
         } else {
           groupMap.set(key, {
-            recipientType: item.authorEmail ? 'author' : 'company',
-            recipientName: item.author,
-            recipientEmail: item.authorEmail || undefined,
+            authorName: item.author,
+            authorEmail: item.authorEmail,
             items: [item],
             totalEvents: item.events,
-            totalLicenseCost: item.licenseCost
+            totalLicenseCost: item.licenseCost,
+            itemsWithEmail: item.authorEmail ? 1 : 0,
+            itemsWithoutEmail: item.authorEmail ? 0 : 1,
+            hasPartialEmail: false
           })
         }
+      })
+
+      // 一部未登録フラグを設定
+      groupMap.forEach(group => {
+        group.hasPartialEmail = group.itemsWithEmail > 0 && group.itemsWithoutEmail > 0
       })
 
       // ソートして設定
@@ -229,20 +249,20 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   }
 
   // 選択
-  const toggleSelect = (key: string) => {
+  const toggleSelect = (authorName: string) => {
     const newSet = new Set(selectedGroups)
-    if (newSet.has(key)) {
-      newSet.delete(key)
+    if (newSet.has(authorName)) {
+      newSet.delete(authorName)
     } else {
-      newSet.add(key)
+      newSet.add(authorName)
     }
     setSelectedGroups(newSet)
   }
 
-  // 全選択
+  // 全選択（メール送信可能なもののみ）
   const selectAll = () => {
-    const emailGroups = filteredGroups.filter(g => g.recipientEmail)
-    setSelectedGroups(new Set(emailGroups.map(g => g.recipientEmail!)))
+    const emailGroups = filteredGroups.filter(g => g.authorEmail)
+    setSelectedGroups(new Set(emailGroups.map(g => g.authorName)))
   }
 
   // 選択解除
@@ -252,7 +272,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
 
   // 送信
   const handleSend = async (group: ReportGroup) => {
-    if (!group.recipientEmail) {
+    if (!group.authorEmail) {
       showToast.warning('メールアドレスが登録されていません')
       return
     }
@@ -262,8 +282,8 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
 
       const { error } = await supabase.functions.invoke('send-author-report', {
         body: {
-          to: group.recipientEmail,
-          authorName: group.recipientName,
+          to: group.authorEmail,
+          authorName: group.authorName,
           year: selectedYear,
           month: selectedMonth,
           totalEvents: group.totalEvents,
@@ -279,7 +299,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       })
 
       if (error) throw error
-      showToast.success('送信完了', `${group.recipientName}に送信しました`)
+      showToast.success('送信完了', `${group.authorName}に送信しました`)
     } catch (error) {
       logger.error('送信エラー:', error)
       showToast.error('送信失敗')
@@ -290,7 +310,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
 
   // 一括送信
   const handleBatchSend = async () => {
-    const targets = filteredGroups.filter(g => g.recipientEmail && selectedGroups.has(g.recipientEmail))
+    const targets = filteredGroups.filter(g => g.authorEmail && selectedGroups.has(g.authorName))
     if (targets.length === 0) {
       showToast.warning('送信対象がありません')
       return
@@ -305,8 +325,8 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       try {
         const { error } = await supabase.functions.invoke('send-author-report', {
           body: {
-            to: group.recipientEmail,
-            authorName: group.recipientName,
+            to: group.authorEmail,
+            authorName: group.authorName,
             year: selectedYear,
             month: selectedMonth,
             totalEvents: group.totalEvents,
@@ -339,20 +359,21 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
 
   // フィルタリング
   const filteredGroups = reportGroups.filter(g => 
-    g.recipientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    g.authorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     g.items.some(item => item.scenarioTitle.toLowerCase().includes(searchQuery.toLowerCase()))
   )
 
   // 統計
   const stats = {
     totalGroups: filteredGroups.length,
-    withEmail: filteredGroups.filter(g => g.recipientEmail).length,
-    withoutEmail: filteredGroups.filter(g => !g.recipientEmail).length,
+    withEmail: filteredGroups.filter(g => g.authorEmail && g.itemsWithoutEmail === 0).length,
+    partialEmail: filteredGroups.filter(g => g.hasPartialEmail).length,
+    withoutEmail: filteredGroups.filter(g => !g.authorEmail).length,
     totalEvents: filteredGroups.reduce((sum, g) => sum + g.totalEvents, 0),
     totalLicense: filteredGroups.reduce((sum, g) => sum + g.totalLicenseCost, 0)
   }
 
-  const getGroupKey = (group: ReportGroup) => group.recipientEmail || `company:${group.recipientName}`
+  const getGroupKey = (group: ReportGroup) => group.authorName
 
   // シナリオ編集
   const handleEditScenario = (scenarioId: string) => {
@@ -370,7 +391,8 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
   // 一括メール登録ダイアログを開く
   const handleOpenBulkEmailDialog = (group: ReportGroup) => {
     setBulkEmailTarget(group)
-    setBulkEmail('')
+    // 既存のメアドがあれば初期値として設定
+    setBulkEmail(group.authorEmail || '')
     setIsBulkEmailDialogOpen(true)
   }
 
@@ -440,7 +462,12 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
           <DialogHeader>
             <DialogTitle>作者メールアドレス一括登録</DialogTitle>
             <DialogDescription>
-              {bulkEmailTarget?.recipientName} のシナリオにメールアドレスを一括登録します
+              {bulkEmailTarget?.authorName} のシナリオにメールアドレスを一括登録します
+              {bulkEmailTarget?.authorEmail && (
+                <span className="block mt-1 text-green-600">
+                  現在の登録: {bulkEmailTarget.authorEmail}
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           
@@ -460,8 +487,13 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
               <Label>対象シナリオ ({bulkEmailTarget?.items.length || 0}件)</Label>
               <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
                 {bulkEmailTarget?.items.map((item, idx) => (
-                  <div key={idx} className="text-sm text-muted-foreground">
-                    • {item.scenarioTitle}
+                  <div key={idx} className="text-sm flex items-center gap-2">
+                    <span className={item.authorEmail ? 'text-muted-foreground' : 'text-orange-600 font-medium'}>
+                      • {item.scenarioTitle}
+                    </span>
+                    {!item.authorEmail && (
+                      <span className="text-xs text-orange-500">未登録</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -524,26 +556,33 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
       </div>
 
       {/* 統計 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
             <Users className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
             <div className="text-2xl font-bold">{stats.totalGroups}</div>
-            <div className="text-sm text-muted-foreground">報告先</div>
+            <div className="text-sm text-muted-foreground">作者数</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Mail className="w-5 h-5 mx-auto mb-1 text-green-500" />
             <div className="text-2xl font-bold">{stats.withEmail}</div>
-            <div className="text-sm text-muted-foreground">メール可</div>
+            <div className="text-sm text-muted-foreground">送信可</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <AlertCircle className="w-5 h-5 mx-auto mb-1 text-yellow-500" />
+            <div className="text-2xl font-bold">{stats.partialEmail}</div>
+            <div className="text-sm text-muted-foreground">一部未登録</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Building2 className="w-5 h-5 mx-auto mb-1 text-orange-500" />
             <div className="text-2xl font-bold">{stats.withoutEmail}</div>
-            <div className="text-sm text-muted-foreground">メアド未登録</div>
+            <div className="text-sm text-muted-foreground">未登録</div>
           </CardContent>
         </Card>
         <Card>
@@ -583,17 +622,17 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
           filteredGroups.map((group) => {
             const key = getGroupKey(group)
             const isExpanded = expandedGroups.has(key)
-            const isSelected = group.recipientEmail ? selectedGroups.has(group.recipientEmail) : false
+            const isSelected = group.authorEmail ? selectedGroups.has(group.authorName) : false
 
             return (
               <Card key={key} className={isSelected ? 'ring-2 ring-primary' : ''}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     {/* チェックボックス（メールありのみ） */}
-                    {group.recipientEmail && (
+                    {group.authorEmail && (
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={() => toggleSelect(group.recipientEmail!)}
+                        onCheckedChange={() => toggleSelect(group.authorName)}
                       />
                     )}
 
@@ -603,12 +642,12 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                       onClick={() => toggleExpand(key)}
                     >
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{group.recipientName}</span>
-                          {group.recipientEmail ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold">{group.authorName}</span>
+                          {group.authorEmail ? (
                             <Badge variant="outline" className="text-xs text-green-600">
                               <Mail className="w-3 h-3 mr-1" />
-                              {group.recipientEmail}
+                              {group.authorEmail}
                             </Badge>
                           ) : (
                             <Badge 
@@ -623,6 +662,19 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                               メアド未登録
                             </Badge>
                           )}
+                          {/* 一部未登録の警告 */}
+                          {group.hasPartialEmail && (
+                            <Badge 
+                              variant="destructive" 
+                              className="text-xs cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenBulkEmailDialog(group)
+                              }}
+                            >
+                              ⚠️ {group.itemsWithoutEmail}件未登録
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                           <span>{group.totalEvents}公演</span>
@@ -634,7 +686,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {group.recipientEmail && (
+                        {group.authorEmail && (
                           <Button
                             variant="outline"
                             size="sm"
