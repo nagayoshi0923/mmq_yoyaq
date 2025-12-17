@@ -611,7 +611,14 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                               {group.recipientEmail}
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="text-xs text-orange-600">
+                            <Badge 
+                              variant="secondary" 
+                              className="text-xs text-orange-600 cursor-pointer hover:bg-orange-100 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenBulkEmailDialog(group)
+                              }}
+                            >
                               <Building2 className="w-3 h-3 mr-1" />
                               メアド未登録
                             </Badge>
@@ -627,7 +634,7 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {group.recipientEmail ? (
+                        {group.recipientEmail && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -639,18 +646,6 @@ export function SendReports({ organizationId, staffId, isLicenseManager }: SendR
                           >
                             <Send className="w-4 h-4 mr-1" />
                             送信
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenBulkEmailDialog(group)
-                            }}
-                          >
-                            <Mail className="w-4 h-4 mr-1" />
-                            一括登録
                           </Button>
                         )}
                         {isExpanded ? (
