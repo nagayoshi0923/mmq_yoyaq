@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { TIME_SLOT_DEFAULTS, getTimeSlot } from '@/utils/scheduleUtils'
+import { useOrganization } from '@/hooks/useOrganization'
 import type { ScheduleEvent } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -20,6 +21,9 @@ interface UseContextMenuActionsProps {
 }
 
 export function useContextMenuActions({ events, stores, setEvents }: UseContextMenuActionsProps) {
+  // 組織IDを取得（マルチテナント対応）
+  const { organizationId } = useOrganization()
+  
   // コンテキストメニュー状態
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -90,6 +94,11 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
       const defaults = TIME_SLOT_DEFAULTS[targetTimeSlot]
 
       // 新しい位置に公演を作成（元の公演は残す）
+      // organization_idが取得できない場合はエラー
+      if (!organizationId) {
+        throw new Error('組織情報が取得できません。再ログインしてください。')
+      }
+      
       const newEventData = {
         date: targetDate,
         store_id: targetVenue,
@@ -100,7 +109,8 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
         end_time: defaults.end_time,
         capacity: clipboardEvent.max_participants,
         gms: clipboardEvent.gms,
-        notes: clipboardEvent.notes
+        notes: clipboardEvent.notes,
+        organization_id: organizationId // マルチテナント対応
       }
 
       const savedEvent = await scheduleApi.create(newEventData)
@@ -113,7 +123,7 @@ export function useContextMenuActions({ events, stores, setEvents }: UseContextM
       logger.error('公演ペーストエラー:', error)
       showToast.error('公演のペーストに失敗しました')
     }
-  }, [clipboardEvent, stores, setEvents, checkConflict])
+  }, [clipboardEvent, stores, setEvents, checkConflict, organizationId])
 
   return {
     contextMenu,

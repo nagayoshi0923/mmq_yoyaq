@@ -232,6 +232,11 @@ export function useEventOperations({
       }
 
       // 新しい位置に公演を作成
+      // organization_idが取得できない場合はエラー
+      if (!organizationId) {
+        throw new Error('組織情報が取得できません。再ログインしてください。')
+      }
+      
       const newEventData = {
         date: dropTarget.date,
         store_id: dropTarget.venue,
@@ -243,7 +248,8 @@ export function useEventOperations({
         end_time: defaults.end_time,
         capacity: draggedEvent.max_participants,
         gms: draggedEvent.gms,
-        notes: draggedEvent.notes
+        notes: draggedEvent.notes,
+        organization_id: organizationId // マルチテナント対応
       }
 
       const savedEvent = await scheduleApi.create(newEventData)
@@ -265,7 +271,7 @@ export function useEventOperations({
       logger.error('公演移動エラー:', error)
       showToast.error('公演の移動に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict])
+  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId])
 
   // 公演を複製
   const handleCopyEvent = useCallback(async () => {
@@ -303,6 +309,11 @@ export function useEventOperations({
       }
 
       // 新しい位置に公演を作成（元の公演は残す）
+      // organization_idが取得できない場合はエラー
+      if (!organizationId) {
+        throw new Error('組織情報が取得できません。再ログインしてください。')
+      }
+      
       const newEventData = {
         date: dropTarget.date,
         store_id: dropTarget.venue,
@@ -314,7 +325,8 @@ export function useEventOperations({
         end_time: defaults.end_time,
         capacity: draggedEvent.max_participants,
         gms: draggedEvent.gms,
-        notes: draggedEvent.notes
+        notes: draggedEvent.notes,
+        organization_id: organizationId // マルチテナント対応
       }
 
       const savedEvent = await scheduleApi.create(newEventData)
@@ -333,7 +345,7 @@ export function useEventOperations({
       logger.error('公演複製エラー:', error)
       showToast.error('公演の複製に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict])
+  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId])
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData) => {
@@ -421,8 +433,7 @@ export function useEventOperations({
         }
         
         // Supabaseに保存するデータ形式に変換
-        // 貸切（private）はデフォルト公開、それ以外は非公開
-        const isPrivateCategory = performanceData.category === 'private'
+        // 全ての公演は最初は非公開、公開ボタンを押すまで公開しない
         
         // organization_idが取得できない場合はエラー
         if (!organizationId) {
@@ -443,7 +454,7 @@ export function useEventOperations({
           gm_roles: performanceData.gm_roles || {},
           notes: performanceData.notes || null,
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
-          is_reservation_enabled: isPrivateCategory, // 貸切は公開、それ以外は非公開
+          is_reservation_enabled: false, // 最初は非公開、公開ボタンで公開
           organization_id: organizationId // マルチテナント対応
         }
         

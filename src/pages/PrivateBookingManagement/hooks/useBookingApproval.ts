@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { useOrganization } from '@/hooks/useOrganization'
 import type { PrivateBookingRequest } from './usePrivateBookingData'
 
 interface UseBookingApprovalProps {
@@ -11,6 +12,9 @@ interface UseBookingApprovalProps {
  * 貸切リクエストの承認・却下処理を管理するフック
  */
 export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
+  // 組織IDを取得（マルチテナント対応）
+  const { organizationId } = useOrganization()
+  
   const [submitting, setSubmitting] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
@@ -78,7 +82,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       const selectedStore = stores.find(s => s.id === selectedStoreId)
       const storeName = selectedStore?.name || '店舗不明'
 
-      if (selectedCandidate.date && selectedCandidate.startTime && selectedCandidate.endTime && storeName) {
+      if (selectedCandidate.date && selectedCandidate.startTime && selectedCandidate.endTime && storeName && organizationId) {
         const { data: scheduleEvent, error: scheduleError } = await supabase
           .from('schedule_events')
           .insert({
@@ -93,7 +97,8 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             gms: selectedGMId ? [selectedGMId] : [],
             is_reservation_enabled: false,
             status: 'confirmed',
-            category: 'private'
+            category: 'private',
+            organization_id: organizationId // マルチテナント対応
           })
           .select('id')
           .single()
@@ -184,7 +189,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     } finally {
       setSubmitting(false)
     }
-  }, [onSuccess])
+  }, [onSuccess, organizationId])
 
   // 却下クリック
   const handleRejectClick = useCallback((requestId: string) => {
