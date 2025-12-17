@@ -14,6 +14,7 @@ export interface ScenarioEditModalProps {
 export interface ScenarioFormData {
   title: string
   author: string
+  author_email?: string  // 作者メールアドレス（作者ポータル連携用）
   description: string
   duration: number // 分単位
   player_count_min: number

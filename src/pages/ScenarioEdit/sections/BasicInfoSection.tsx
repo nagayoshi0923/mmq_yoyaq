@@ -194,6 +194,20 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
                   closeOnSelect={true}
                 />
               </div>
+              <div>
+                <Label htmlFor="author_email" className="text-sm">作者メールアドレス</Label>
+                <Input
+                  id="author_email"
+                  type="email"
+                  value={formData.author_email || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, author_email: e.target.value }))}
+                  placeholder="author@example.com"
+                  className="mt-1.5"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  公演報告を作者に通知するためのメールアドレス
+                </p>
+              </div>
             </div>
           </div>
 

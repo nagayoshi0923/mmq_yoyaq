@@ -30,6 +30,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
+    author_email: '',
     description: '',
     duration: 120,
     player_count_min: 4,
@@ -162,6 +163,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         setFormData({
           title: scenario.title || '',
           author: scenario.author || '',
+          author_email: scenario.author_email || '',
           description: scenario.description || '',
           duration: scenario.duration || 120,
           player_count_min: scenario.player_count_min || 4,
@@ -214,6 +216,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
       setFormData({
         title: '',
         author: '',
+        author_email: '',
         description: '',
         duration: 120,
         player_count_min: 4,
