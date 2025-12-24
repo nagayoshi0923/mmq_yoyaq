@@ -56,7 +56,6 @@ interface TimeSlotCellProps {
   onDrop?: (droppedEvent: ScheduleEvent, targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => void
   onContextMenuCell?: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', x: number, y: number) => void
   onContextMenuEvent?: (event: ScheduleEvent, x: number, y: number) => void
-  onNotesChange?: (eventId: string, notes: string) => Promise<void>
 }
 
 function TimeSlotCellBase({
@@ -75,8 +74,7 @@ function TimeSlotCellBase({
   onToggleReservation,
   onDrop,
   onContextMenuCell,
-  onContextMenuEvent,
-  onNotesChange
+  onContextMenuEvent
 }: TimeSlotCellProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -166,29 +164,19 @@ function TimeSlotCellBase({
       {...longPressHandlers}
     >
       {events.length > 0 ? (
-        // 公演ありの場合: カード + メモ入力欄
-        <div className="flex flex-col h-full">
-          <PerformanceCard
-            event={events[0]}
-            categoryConfig={categoryConfig}
-            getReservationBadgeClass={getReservationBadgeClass}
-            onCancelConfirm={onCancelConfirm}
-            onUncancel={onUncancel}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onClick={onEdit}
-            onToggleReservation={onToggleReservation}
-            onContextMenu={onContextMenuEvent}
-          />
-          <SlotMemoInput
-            date={date}
-            storeId={venue}
-            timeSlot={timeSlot}
-            eventNotes={events[0].notes}
-            eventId={events[0].id}
-            onNotesChange={onNotesChange}
-          />
-        </div>
+        // 公演ありの場合: カードのみ（備考はダイアログで編集）
+        <PerformanceCard
+          event={events[0]}
+          categoryConfig={categoryConfig}
+          getReservationBadgeClass={getReservationBadgeClass}
+          onCancelConfirm={onCancelConfirm}
+          onUncancel={onUncancel}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onClick={onEdit}
+          onToggleReservation={onToggleReservation}
+          onContextMenu={onContextMenuEvent}
+        />
       ) : (
         <div className="flex flex-col h-full min-h-[24px] sm:min-h-[28px]">
           <div className="flex flex-col justify-center items-center">

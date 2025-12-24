@@ -38,7 +38,6 @@ export interface ScheduleTableEventHandlers {
   onDrop: (event: ScheduleEvent, date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => void
   onContextMenuCell: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', x: number, y: number) => void
   onContextMenuEvent: (event: ScheduleEvent, x: number, y: number) => void
-  onNotesChange: (eventId: string, notes: string) => Promise<void>
 }
 
 export interface ScheduleTableDisplayConfig {
@@ -72,8 +71,7 @@ export function ScheduleTable({
     onToggleReservation,
     onDrop,
     onContextMenuCell,
-    onContextMenuEvent,
-    onNotesChange
+    onContextMenuEvent
   } = eventHandlers
   const { categoryConfig, getReservationBadgeClass } = displayConfig
 
@@ -169,7 +167,6 @@ export function ScheduleTable({
                     onDrop={onDrop}
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
-                    onNotesChange={onNotesChange}
                   />
                   
                   {/* 午後セル */}
@@ -190,7 +187,6 @@ export function ScheduleTable({
                     onToggleReservation={onToggleReservation}
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
-                    onNotesChange={onNotesChange}
                   />
                   
                   {/* 夜間セル */}
@@ -211,7 +207,6 @@ export function ScheduleTable({
                     onDrop={onDrop}
                     onContextMenuCell={onContextMenuCell}
                     onContextMenuEvent={onContextMenuEvent}
-                    onNotesChange={onNotesChange}
                   />
                   
                   {/* メモセル */}

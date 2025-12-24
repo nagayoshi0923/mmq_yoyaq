@@ -1,9 +1,9 @@
 /**
  * スロットメモ入力コンポーネント
  * 空スロット：localStorageに一時保存
- * 公演ありスロット：schedule_events.notesと同期
+ * 公演追加時に備考として引き継がれる
  */
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 
 // localStorageのキー生成
@@ -38,38 +38,36 @@ interface SlotMemoInputProps {
   date: string
   storeId: string
   timeSlot: 'morning' | 'afternoon' | 'evening'
-  // 公演がある場合はnotesを渡す（DBと同期）
-  eventNotes?: string
-  eventId?: string
-  onNotesChange?: (eventId: string, notes: string) => Promise<void>
 }
 
 export function SlotMemoInput({
   date,
   storeId,
-  timeSlot,
-  eventNotes,
-  eventId,
-  onNotesChange
+  timeSlot
 }: SlotMemoInputProps) {
-  const hasEvent = !!eventId
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   
-  // 空スロットの場合はlocalStorageから、公演ありの場合はeventNotesを使用
+  // localStorageからメモを取得
   const [memo, setMemo] = useState(() => {
-    if (hasEvent) {
-      return eventNotes || ''
-    }
     return getEmptySlotMemo(date, storeId, timeSlot)
   })
-  
-  const [isSaving, setIsSaving] = useState(false)
 
-  // eventNotesが変わったら同期
+  // テキストエリアの高さを自動調整
+  const adjustHeight = useCallback(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    
+    // 一旦最小高さにリセット
+    textarea.style.height = '20px'
+    // スクロール高さに合わせて調整
+    const scrollHeight = textarea.scrollHeight
+    textarea.style.height = `${Math.min(scrollHeight, 60)}px` // 最大60px
+  }, [])
+
+  // memoが変わったら高さ調整
   useEffect(() => {
-    if (hasEvent) {
-      setMemo(eventNotes || '')
-    }
-  }, [hasEvent, eventNotes])
+    adjustHeight()
+  }, [memo, adjustHeight])
 
   // デバウンス保存
   const debouncedSave = useCallback(
@@ -77,22 +75,12 @@ export function SlotMemoInput({
       let timer: NodeJS.Timeout
       return (newMemo: string) => {
         clearTimeout(timer)
-        timer = setTimeout(async () => {
-          if (hasEvent && eventId && onNotesChange) {
-            setIsSaving(true)
-            try {
-              await onNotesChange(eventId, newMemo)
-            } finally {
-              setIsSaving(false)
-            }
-          } else {
-            // 空スロットの場合はlocalStorageに保存
-            saveEmptySlotMemo(date, storeId, timeSlot, newMemo)
-          }
+        timer = setTimeout(() => {
+          saveEmptySlotMemo(date, storeId, timeSlot, newMemo)
         }, 500)
       }
     })(),
-    [hasEvent, eventId, onNotesChange, date, storeId, timeSlot]
+    [date, storeId, timeSlot]
   )
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -103,11 +91,12 @@ export function SlotMemoInput({
 
   return (
     <Textarea
+      ref={textareaRef}
       value={memo}
       onChange={handleChange}
       placeholder="memo"
-      className="w-full h-8 min-h-[32px] max-h-[48px] text-[10px] sm:text-[11px] p-1 resize-none border-0 bg-transparent focus:bg-gray-50 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none placeholder:text-muted-foreground/40"
-      style={{ lineHeight: '1.3' }}
+      className="w-full text-[10px] sm:text-[11px] p-1 resize-none border-0 bg-transparent focus:bg-gray-50 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none placeholder:text-muted-foreground/40"
+      style={{ lineHeight: '1.3', height: '20px', minHeight: '20px' }}
     />
   )
 }
