@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { TableCell } from '@/components/ui/table'
 import { PerformanceCard } from './PerformanceCard'
 import { EmptySlot } from './EmptySlot'
+import { SlotMemoInput } from './SlotMemoInput'
 import { Badge } from '@/components/ui/badge'
 import type { Staff } from '@/types'
 import { logger } from '@/utils/logger'
@@ -55,6 +56,7 @@ interface TimeSlotCellProps {
   onDrop?: (droppedEvent: ScheduleEvent, targetDate: string, targetVenue: string, targetTimeSlot: 'morning' | 'afternoon' | 'evening') => void
   onContextMenuCell?: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', x: number, y: number) => void
   onContextMenuEvent?: (event: ScheduleEvent, x: number, y: number) => void
+  onNotesChange?: (eventId: string, notes: string) => Promise<void>
 }
 
 function TimeSlotCellBase({
@@ -73,7 +75,8 @@ function TimeSlotCellBase({
   onToggleReservation,
   onDrop,
   onContextMenuCell,
-  onContextMenuEvent
+  onContextMenuEvent,
+  onNotesChange
 }: TimeSlotCellProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -163,49 +166,66 @@ function TimeSlotCellBase({
       {...longPressHandlers}
     >
       {events.length > 0 ? (
-        // 公演ありの場合: アバター非表示
-        <PerformanceCard
-          event={events[0]}
-          categoryConfig={categoryConfig}
-          getReservationBadgeClass={getReservationBadgeClass}
-          onCancelConfirm={onCancelConfirm}
-          onUncancel={onUncancel}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onClick={onEdit}
-          onToggleReservation={onToggleReservation}
-          onContextMenu={onContextMenuEvent}
-        />
-      ) : (
-        <div className="flex flex-col justify-center items-center h-full min-h-[24px] sm:min-h-[28px]">
-          <EmptySlot
-            date={date}
-            venue={venue}
-            timeSlot={timeSlot}
-            onAddPerformance={onAddPerformance}
+        // 公演ありの場合: カード + メモ入力欄
+        <div className="flex flex-col h-full">
+          <PerformanceCard
+            event={events[0]}
+            categoryConfig={categoryConfig}
+            getReservationBadgeClass={getReservationBadgeClass}
+            onCancelConfirm={onCancelConfirm}
+            onUncancel={onUncancel}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onClick={onEdit}
+            onToggleReservation={onToggleReservation}
+            onContextMenu={onContextMenuEvent}
           />
-          {availableStaff.length > 0 && (
-            <div className="flex flex-wrap gap-0.5 justify-center items-center mt-0.5">
-              {availableStaff.map((staff) => {
-                const { bgColor, textColor } = getStaffAvatarColors(staff)
-                return (
-                  <Badge
-                    key={staff.id}
-                    variant="outline"
-                    title={staff.name}
-                    style={{
-                      backgroundColor: bgColor as string,
-                      color: textColor as string,
-                      borderColor: (textColor as string) + '40'
-                    }}
-                    className="text-xs px-0.5 py-0 h-3 sm:h-3.5 font-normal border"
-                  >
-                    {staff.name.slice(0, 2)}
-                  </Badge>
-                )
-              })}
-            </div>
-          )}
+          <SlotMemoInput
+            date={date}
+            storeId={venue}
+            timeSlot={timeSlot}
+            eventNotes={events[0].notes}
+            eventId={events[0].id}
+            onNotesChange={onNotesChange}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-col h-full min-h-[24px] sm:min-h-[28px]">
+          <div className="flex flex-col justify-center items-center">
+            <EmptySlot
+              date={date}
+              venue={venue}
+              timeSlot={timeSlot}
+              onAddPerformance={onAddPerformance}
+            />
+            {availableStaff.length > 0 && (
+              <div className="flex flex-wrap gap-0.5 justify-center items-center mt-0.5">
+                {availableStaff.map((staff) => {
+                  const { bgColor, textColor } = getStaffAvatarColors(staff)
+                  return (
+                    <Badge
+                      key={staff.id}
+                      variant="outline"
+                      title={staff.name}
+                      style={{
+                        backgroundColor: bgColor as string,
+                        color: textColor as string,
+                        borderColor: (textColor as string) + '40'
+                      }}
+                      className="text-xs px-0.5 py-0 h-3 sm:h-3.5 font-normal border"
+                    >
+                      {staff.name.slice(0, 2)}
+                    </Badge>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          <SlotMemoInput
+            date={date}
+            storeId={venue}
+            timeSlot={timeSlot}
+          />
         </div>
       )}
     </TableCell>

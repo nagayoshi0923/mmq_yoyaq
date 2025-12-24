@@ -24,6 +24,7 @@ import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { ReservationList } from './modal/ReservationList'
+import { getEmptySlotMemo, clearEmptySlotMemo } from './SlotMemoInput'
 
 interface PerformanceModalProps {
   isOpen: boolean
@@ -252,6 +253,9 @@ export function PerformanceModal({
       
       const defaults = timeSlotDefaults[slot] || timeSlotDefaults.morning
       
+      // スロットメモを取得（localStorageから）
+      const slotMemo = getEmptySlotMemo(initialData.date, initialData.venue, slot)
+      
       setFormData({
         id: Date.now().toString(),
         date: initialData.date,
@@ -264,7 +268,7 @@ export function PerformanceModal({
         category: 'private',
         max_participants: DEFAULT_MAX_PARTICIPANTS,
         capacity: 0,
-        notes: ''
+        notes: slotMemo  // スロットメモを備考に引き継ぎ
       })
     }
   }, [mode, event, initialData])
@@ -311,6 +315,12 @@ export function PerformanceModal({
       gm_roles: formData.gmRoles || {}
     }
     console.log('🔍 保存データ:', { gms: saveData.gms, gm_roles: saveData.gm_roles })
+    
+    // 追加モードの場合、スロットメモをクリア（備考に引き継いだので不要）
+    if (mode === 'add' && initialData) {
+      clearEmptySlotMemo(initialData.date, initialData.venue, timeSlot)
+    }
+    
     onSave(saveData)
     onClose()
   }

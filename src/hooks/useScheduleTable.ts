@@ -5,7 +5,7 @@
  * 各ページで独自のカスタマイズが可能
  */
 
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useScheduleData } from './useScheduleData'
 import { useShiftData } from './useShiftData'
 import { useMemoManager } from './useMemoManager'
@@ -14,6 +14,8 @@ import { useContextMenuActions } from './useContextMenuActions'
 import { useScheduleEvents } from '@/pages/ScheduleManager/hooks/useScheduleEvents'
 import { CATEGORY_CONFIG, getReservationBadgeClass } from '@/utils/scheduleUtils'
 import { generateMonthDays } from '@/utils/scheduleUtils'
+import { scheduleApi } from '@/lib/api'
+import { logger } from '@/utils/logger'
 import type {
   ScheduleTableViewConfig,
   ScheduleTableDataProvider,
@@ -83,6 +85,20 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     eventOperations
   )
 
+  // 公演の備考を更新する関数
+  const handleNotesChange = useCallback(async (eventId: string, notes: string) => {
+    try {
+      await scheduleApi.update(eventId, { notes })
+      // ローカル状態も更新
+      setEvents(prev => prev.map(event => 
+        event.id === eventId ? { ...event, notes } : event
+      ))
+      logger.log('備考更新成功:', { eventId, notes })
+    } catch (error) {
+      logger.error('備考更新エラー:', error)
+    }
+  }, [setEvents])
+
   // ViewConfig
   const viewConfig: ScheduleTableViewConfig = useMemo(() => ({
     currentDate,
@@ -108,8 +124,9 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
     onToggleReservation: eventOperations.handleToggleReservation,
     onDrop: eventOperations.handleDrop,
     onContextMenuCell: contextMenuActions.handleCellContextMenu,
-    onContextMenuEvent: contextMenuActions.handleEventContextMenu
-  }), [eventOperations, contextMenuActions])
+    onContextMenuEvent: contextMenuActions.handleEventContextMenu,
+    onNotesChange: handleNotesChange
+  }), [eventOperations, contextMenuActions, handleNotesChange])
 
   // DisplayConfig
   const displayConfig: ScheduleTableDisplayConfig = useMemo(() => ({
