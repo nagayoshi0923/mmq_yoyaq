@@ -36,11 +36,15 @@ interface AuthorPerformance {
   totalEvents: number
   totalRevenue: number
   totalLicenseCost: number
+  totalDuration: number
   scenarios: {
     title: string
     events: number
+    revenue: number
     licenseCost: number
     licenseAmountPerEvent: number
+    duration: number
+    totalDuration: number
     isGMTest?: boolean
     isExternal?: boolean
     organizationName?: string
@@ -138,12 +142,16 @@ export function AuthorReports() {
           if (idx >= 0) {
             existing.scenarios[idx].events += events
             existing.scenarios[idx].licenseCost += licenseCost
+            existing.scenarios[idx].totalDuration += 0
           } else {
             existing.scenarios.push({
               title: displayTitle,
               events,
+              revenue: 0,
               licenseCost,
               licenseAmountPerEvent: licenseAmount,
+              duration: 0,
+              totalDuration: 0,
               isGMTest
             })
           }
@@ -153,11 +161,15 @@ export function AuthorReports() {
             totalEvents: events,
             totalRevenue: 0,
             totalLicenseCost: licenseCost,
+            totalDuration: 0,
             scenarios: [{
               title: displayTitle,
               events,
+              revenue: 0,
               licenseCost,
               licenseAmountPerEvent: licenseAmount,
+              duration: 0,
+              totalDuration: 0,
               isGMTest
             }]
           })
@@ -184,8 +196,11 @@ export function AuthorReports() {
           existing.scenarios.push({
             title: displayTitle,
             events,
+            revenue: 0,
             licenseCost,
             licenseAmountPerEvent: licenseAmount,
+            duration: 0,
+            totalDuration: 0,
             isExternal: true,
             organizationName: orgName
           })
@@ -195,11 +210,15 @@ export function AuthorReports() {
             totalEvents: events,
             totalRevenue: 0,
             totalLicenseCost: licenseCost,
+            totalDuration: 0,
             scenarios: [{
               title: displayTitle,
               events,
+              revenue: 0,
               licenseCost,
               licenseAmountPerEvent: licenseAmount,
+              duration: 0,
+              totalDuration: 0,
               isExternal: true,
               organizationName: orgName
             }]
