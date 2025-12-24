@@ -46,6 +46,7 @@ export function SlotMemoInput({
   timeSlot
 }: SlotMemoInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [isEditing, setIsEditing] = useState(false)
   
   // localStorageからメモを取得
   const [memo, setMemo] = useState(() => {
@@ -58,16 +59,18 @@ export function SlotMemoInput({
     if (!textarea) return
     
     // 一旦最小高さにリセット
-    textarea.style.height = '20px'
+    textarea.style.height = '18px'
     // スクロール高さに合わせて調整
     const scrollHeight = textarea.scrollHeight
-    textarea.style.height = `${Math.min(scrollHeight, 60)}px` // 最大60px
+    textarea.style.height = `${Math.min(scrollHeight, 54)}px` // 最大54px（約3行）
   }, [])
 
-  // memoが変わったら高さ調整
+  // 編集モードになったら高さ調整
   useEffect(() => {
-    adjustHeight()
-  }, [memo, adjustHeight])
+    if (isEditing) {
+      adjustHeight()
+    }
+  }, [isEditing, memo, adjustHeight])
 
   // デバウンス保存
   const debouncedSave = useCallback(
@@ -87,17 +90,53 @@ export function SlotMemoInput({
     const newMemo = e.target.value
     setMemo(newMemo)
     debouncedSave(newMemo)
+    adjustHeight()
+  }
+
+  const handleBlur = () => {
+    setIsEditing(false)
+    // フォーカスが外れた時も保存
+    saveEmptySlotMemo(date, storeId, timeSlot, memo)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setIsEditing(false)
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <Textarea
+        ref={textareaRef}
+        value={memo}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        placeholder="memo"
+        className="w-full text-[11px] p-0.5 resize-none border-0 focus:border-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none placeholder:text-muted-foreground/50"
+        style={{ 
+          backgroundColor: '#F6F9FB',
+          lineHeight: '1.3',
+          height: '18px',
+          minHeight: '18px'
+        }}
+        autoFocus
+      />
+    )
   }
 
   return (
-    <Textarea
-      ref={textareaRef}
-      value={memo}
-      onChange={handleChange}
-      placeholder="memo"
-      className="w-full text-[10px] sm:text-[11px] p-1 resize-none border-0 bg-transparent focus:bg-gray-50 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none placeholder:text-muted-foreground/40"
-      style={{ lineHeight: '1.3', height: '20px', minHeight: '20px' }}
-    />
+    <div
+      className={`w-full cursor-pointer p-0.5 text-[11px] whitespace-pre-wrap text-left hover:bg-gray-100 leading-tight ${memo ? 'text-gray-700' : 'text-gray-300'}`}
+      style={{ 
+        backgroundColor: '#F6F9FB',
+        minHeight: '18px'
+      }}
+      onClick={() => setIsEditing(true)}
+    >
+      {memo || 'memo'}
+    </div>
   )
 }
 
