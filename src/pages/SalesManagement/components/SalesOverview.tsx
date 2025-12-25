@@ -202,17 +202,17 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       id: event.id,
       date: event.date,
       venue: event.store_name, // 店舗名をvenueとして使用
-      store_id: stores.find(s => s.name === event.store_name)?.id || '',
+      store_id: event.store_id || stores.find(s => s.name === event.store_name)?.id || '',
       scenario: event.scenario_title,
-      scenario_id: '', // シナリオIDは後でモーダル内で設定
-      start_time: '10:00', // デフォルト値
-      end_time: '18:00', // デフォルト値
+      scenario_id: event.scenario_id || '', // シナリオIDを使用
+      start_time: event.start_time || '10:00',
+      end_time: event.end_time || '18:00',
       category: event.category || 'open',
       is_cancelled: false,
-      participant_count: event.participant_count,
-      max_participants: 8, // デフォルト値
-      capacity: 8, // デフォルト値
-      gms: [], // デフォルト値
+      current_participants: event.participant_count,
+      max_participants: event.max_participants || 8,
+      capacity: event.max_participants || 8,
+      gms: event.gms || [], // GMリストを使用
       notes: '',
       is_reservation_enabled: true
     }

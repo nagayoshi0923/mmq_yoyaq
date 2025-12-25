@@ -6,13 +6,19 @@ import { Button } from '@/components/ui/button'
 interface EventItem {
   id: string
   date: string
+  store_id?: string
   store_name: string
+  scenario_id?: string
   scenario_title: string
+  start_time?: string
+  end_time?: string
+  gms?: string[]
   revenue: number
   license_cost: number
   gm_cost: number
   net_profit: number
   participant_count: number
+  max_participants?: number
   category?: string
   has_demo_participant?: boolean
 }

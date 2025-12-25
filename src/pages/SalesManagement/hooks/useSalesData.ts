@@ -35,9 +35,13 @@ interface SalesEvent {
   id: string
   date: string
   store_id: string
+  scenario_id?: string
   scenario?: string
   category: string
+  start_time?: string
+  end_time?: string
   current_participants?: number
+  max_participants?: number
   capacity?: number
   is_cancelled: boolean
   gms?: string[]
@@ -748,13 +752,19 @@ function calculateSalesData(
     return {
       id: event.id || `${event.date}-${event.store_id}-${event.scenario}`,
       date: event.date,
+      store_id: event.store_id,
       store_name: store?.name || '不明',
+      scenario_id: event.scenario_id,
       scenario_title: event.scenario || '不明',
+      start_time: (event as SalesEvent).start_time || '10:00',
+      end_time: (event as SalesEvent).end_time || '18:00',
+      gms: (event as SalesEvent).gms || [],
       revenue: event.revenue || 0,
       license_cost: licenseCost,
       gm_cost: gmCost,
       net_profit: netProfit,
       participant_count: (event as SalesEvent).actual_participants || event.current_participants || 0,
+      max_participants: (event as SalesEvent).max_participants || (event as SalesEvent).capacity || 8,
       category: event.category,
       has_demo_participant: (event as SalesEvent).has_demo_participant || false
     }
