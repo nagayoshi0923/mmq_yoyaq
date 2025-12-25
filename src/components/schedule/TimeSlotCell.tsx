@@ -19,7 +19,7 @@ interface ScheduleEvent {
   end_time: string // HH:MM
   category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' | 'mtg' // 公演カテゴリ
   is_cancelled: boolean
-  participant_count?: number
+  current_participants?: number // DBカラム名に統一（旧: participant_count）
   max_participants?: number
   notes?: string
   is_reservation_enabled?: boolean
