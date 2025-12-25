@@ -251,7 +251,10 @@ function PerformanceCardBase({
             event.is_cancelled
               ? 'bg-gray-200 text-gray-500'  // 中止の場合はグレー
               : reservationCount >= maxCapacity 
-                ? 'bg-emerald-500 text-white font-bold'  // 満席の場合は緑で強調
+                ? // 満席の場合は背景と文字色を反転（100↔800）
+                  (categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800')
+                    .replace(/bg-(\w+)-100/, 'bg-$1-800')
+                    .replace(/text-(\w+)-800/, 'text-$1-100')
                 : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
           }`}>
             <Users className="w-3 h-3 mr-0.5 flex-shrink-0" />
