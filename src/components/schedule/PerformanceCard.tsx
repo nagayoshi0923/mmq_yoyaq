@@ -244,18 +244,18 @@ function PerformanceCardBase({
         </div>
       )}
 
-      {/* 右下：予約者数バッジ */}
-      {!event.is_cancelled && !event.is_private_request && (
+      {/* 右下：予約者数バッジ（中止でも表示） */}
+      {!event.is_private_request && (
         <div className="absolute bottom-0.5 right-0.5">
           <Badge size="sm" className={`font-normal text-xs px-1 py-0 h-4 whitespace-nowrap ${
-            reservationCount >= maxCapacity 
-              ? 'bg-red-100 text-red-800' 
-              : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
+            event.is_cancelled
+              ? 'bg-gray-200 text-gray-500'  // 中止の場合はグレー
+              : reservationCount >= maxCapacity 
+                ? 'bg-emerald-500 text-white font-bold'  // 満席の場合は緑で強調
+                : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
           }`}>
-            {reservationCount < maxCapacity && (
-              <Users className="w-3 h-3 mr-0.5 flex-shrink-0" />
-            )}
-            <span>{reservationCount >= maxCapacity ? '満席' : `${reservationCount}/${maxCapacity}`}</span>
+            <Users className="w-3 h-3 mr-0.5 flex-shrink-0" />
+            <span>{reservationCount}/{maxCapacity}</span>
           </Badge>
         </div>
       )}
