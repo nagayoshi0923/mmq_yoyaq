@@ -167,7 +167,7 @@ async function addDemoParticipant(event, scenario, storeId, demoCustomer, partic
     final_price: totalPrice,
     payment_method: 'onsite',
     payment_status: 'paid',
-    status: 'completed',
+    status: 'confirmed',  // confirmedにしてUIで表示されるようにする
     reservation_source: 'demo'
   };
   
