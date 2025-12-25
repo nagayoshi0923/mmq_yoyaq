@@ -63,6 +63,19 @@ function PerformanceCardBase({
   const reservationCount = event.current_participants || 0
   // シナリオのplayer_count_maxを最優先
   const maxCapacity = event.scenarios?.player_count_max || event.max_participants || 8
+  
+  // 満席時の反転色（Tailwindは動的クラス生成に対応していないため明示的に定義）
+  const fullBadgeColors: Record<string, string> = {
+    open: 'bg-blue-800 text-blue-100',
+    private: 'bg-purple-800 text-purple-100',
+    gmtest: 'bg-orange-800 text-orange-100',
+    testplay: 'bg-yellow-800 text-yellow-100',
+    offsite: 'bg-green-800 text-green-100',
+    venue_rental: 'bg-cyan-800 text-cyan-100',
+    venue_rental_free: 'bg-teal-800 text-teal-100',
+    package: 'bg-pink-800 text-pink-100',
+    mtg: 'bg-cyan-800 text-cyan-100',
+  }
 
   // GMの役割による分類
   const gmRoles = event.gm_roles || {}
@@ -251,10 +264,7 @@ function PerformanceCardBase({
             event.is_cancelled
               ? 'bg-gray-200 text-gray-500'  // 中止の場合はグレー
               : reservationCount >= maxCapacity 
-                ? // 満席の場合は背景と文字色を反転（100↔800）
-                  (categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800')
-                    .replace(/bg-(\w+)-100/, 'bg-$1-800')
-                    .replace(/text-(\w+)-800/, 'text-$1-100')
+                ? fullBadgeColors[event.category] || 'bg-gray-800 text-gray-100'  // 満席の場合は反転色
                 : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
           }`}>
             <Users className="w-3 h-3 mr-0.5 flex-shrink-0" />
