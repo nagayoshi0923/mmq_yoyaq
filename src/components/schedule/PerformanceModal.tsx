@@ -1000,13 +1000,13 @@ export function PerformanceModal({
                 const fee = getParticipationFee()
                 
                 return (
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-4 text-sm font-medium">
                     <span>{selectedScenario.duration}時間</span>
-                    <span className="text-muted-foreground/50">|</span>
+                    <span className="text-muted-foreground">|</span>
                     <span>最大{selectedScenario.player_count_max}名</span>
                     {fee && (
                       <>
-                        <span className="text-muted-foreground/50">|</span>
+                        <span className="text-muted-foreground">|</span>
                         <span>{fee}</span>
                       </>
                     )}
