@@ -41,24 +41,77 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
     try {
       // キャプチャ前にスクロール位置を保存
       const scrollY = window.scrollY
+      const scrollX = window.scrollX
       
-      // 一時的にページトップにスクロール（フルキャプチャのため）
+      // 一時的にページトップにスクロール
       window.scrollTo(0, 0)
       
-      // 少し待ってからキャプチャ
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // 要素のサイズを取得
+      const rect = element.getBoundingClientRect()
+      
+      // 少し待ってからキャプチャ（レンダリング待ち）
+      await new Promise(resolve => setTimeout(resolve, 300))
       
       const canvas = await html2canvas(element, {
         scale: 2, // 高解像度
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
+        width: rect.width,
+        height: element.scrollHeight,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: document.documentElement.clientWidth,
+        windowHeight: document.documentElement.clientHeight,
+        onclone: (clonedDoc) => {
+          // クローンされたドキュメントでスタイル調整
+          const clonedElement = clonedDoc.getElementById(reportContainerId)
+          if (clonedElement) {
+            clonedElement.style.width = `${rect.width}px`
+            clonedElement.style.padding = '16px'
+            clonedElement.style.backgroundColor = '#ffffff'
+            
+            // truncateクラスを持つ要素のoverflowを解除（文字切れ対策）
+            const truncatedElements = clonedElement.querySelectorAll('.truncate')
+            truncatedElements.forEach((el) => {
+              const htmlEl = el as HTMLElement
+              htmlEl.style.overflow = 'visible'
+              htmlEl.style.textOverflow = 'clip'
+              htmlEl.style.whiteSpace = 'normal'
+              htmlEl.style.wordBreak = 'break-word'
+            })
+            
+            // line-clampを持つ要素も解除
+            const lineClampElements = clonedElement.querySelectorAll('[class*="line-clamp"]')
+            lineClampElements.forEach((el) => {
+              const htmlEl = el as HTMLElement
+              htmlEl.style.overflow = 'visible'
+              htmlEl.style.display = 'block'
+              htmlEl.style.webkitLineClamp = 'unset'
+            })
+            
+            // overflow-hiddenを持つ要素のoverflowを解除（バッジ切れ対策）
+            const overflowElements = clonedElement.querySelectorAll('.overflow-hidden, .overflow-x-hidden, .overflow-y-hidden')
+            overflowElements.forEach((el) => {
+              const htmlEl = el as HTMLElement
+              htmlEl.style.overflow = 'visible'
+            })
+            
+            // バッジ（Badge）要素のスタイル調整
+            const badgeElements = clonedElement.querySelectorAll('[class*="badge"], [class*="Badge"]')
+            badgeElements.forEach((el) => {
+              const htmlEl = el as HTMLElement
+              htmlEl.style.overflow = 'visible'
+              htmlEl.style.whiteSpace = 'nowrap'
+            })
+          }
+        }
       })
       
       // スクロール位置を復元
-      window.scrollTo(0, scrollY)
+      window.scrollTo(scrollX, scrollY)
       
       // 画像としてダウンロード
       const link = document.createElement('a')
