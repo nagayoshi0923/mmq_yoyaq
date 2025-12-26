@@ -74,9 +74,17 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
             clonedElement.style.backgroundColor = '#ffffff'
             
             // truncateクラスを持つ要素のoverflowを解除（文字切れ対策）
+            // ただしバッジ要素は除外
             const truncatedElements = clonedElement.querySelectorAll('.truncate')
             truncatedElements.forEach((el) => {
               const htmlEl = el as HTMLElement
+              // バッジ要素（rounded-full, rounded-md, inline-flex）は除外
+              if (htmlEl.classList.contains('rounded-full') || 
+                  htmlEl.classList.contains('inline-flex') ||
+                  htmlEl.closest('[class*="rounded-full"]') ||
+                  htmlEl.closest('[class*="inline-flex"]')) {
+                return
+              }
               htmlEl.style.overflow = 'visible'
               htmlEl.style.textOverflow = 'clip'
               htmlEl.style.whiteSpace = 'normal'
@@ -88,23 +96,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
             lineClampElements.forEach((el) => {
               const htmlEl = el as HTMLElement
               htmlEl.style.overflow = 'visible'
-              htmlEl.style.display = 'block'
               htmlEl.style.webkitLineClamp = 'unset'
-            })
-            
-            // overflow-hiddenを持つ要素のoverflowを解除（バッジ切れ対策）
-            const overflowElements = clonedElement.querySelectorAll('.overflow-hidden, .overflow-x-hidden, .overflow-y-hidden')
-            overflowElements.forEach((el) => {
-              const htmlEl = el as HTMLElement
-              htmlEl.style.overflow = 'visible'
-            })
-            
-            // バッジ（Badge）要素のスタイル調整
-            const badgeElements = clonedElement.querySelectorAll('[class*="badge"], [class*="Badge"]')
-            badgeElements.forEach((el) => {
-              const htmlEl = el as HTMLElement
-              htmlEl.style.overflow = 'visible'
-              htmlEl.style.whiteSpace = 'nowrap'
             })
           }
         }
