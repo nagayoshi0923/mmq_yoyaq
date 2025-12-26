@@ -223,10 +223,9 @@ export function useSalesData() {
         ),
         supabase
           .from('miscellaneous_transactions')
-          .select('id, date, type, category, amount, scenario_id')
+          .select('id, date, type, category, amount, scenario_id, store_id')
           .gte('date', formatDateJST(chartStartDate))
           .lte('date', formatDateJST(chartEndDate))
-          .not('scenario_id', 'is', null)
           .eq('type', 'expense')
       ])
       
@@ -987,27 +986,25 @@ function calculateSalesData(
     })
     
     miscTransactions.forEach(transaction => {
-      if (transaction.scenario_id) {
-        const transactionDate = new Date(transaction.date)
-        const transYear = transactionDate.getFullYear()
-        const transMonth = transactionDate.getMonth()
-        
-        // 発生月が期間内に含まれるかチェック
-        const isInPeriod = 
-          (transYear > startYear || (transYear === startYear && transMonth >= startMonth)) &&
-          (transYear < endYear || (transYear === endYear && transMonth <= endMonth))
-        
-        if (isInPeriod) {
-          const key = `misc-${transaction.id}`
-          if (!processedProductionCosts.has(key)) {
-            processedProductionCosts.add(key)
-            totalProductionCost += transaction.amount
-            productionCostBreakdown.push({
-              item: transaction.category,
-              amount: transaction.amount,
-              scenario: scenarioMap.get(transaction.scenario_id) || '不明'
-            })
-          }
+      const transactionDate = new Date(transaction.date)
+      const transYear = transactionDate.getFullYear()
+      const transMonth = transactionDate.getMonth()
+      
+      // 発生月が期間内に含まれるかチェック
+      const isInPeriod = 
+        (transYear > startYear || (transYear === startYear && transMonth >= startMonth)) &&
+        (transYear < endYear || (transYear === endYear && transMonth <= endMonth))
+      
+      if (isInPeriod) {
+        const key = `misc-${transaction.id}`
+        if (!processedProductionCosts.has(key)) {
+          processedProductionCosts.add(key)
+          totalProductionCost += transaction.amount
+          productionCostBreakdown.push({
+            item: transaction.category,
+            amount: transaction.amount,
+            scenario: transaction.scenario_id ? (scenarioMap.get(transaction.scenario_id) || '不明') : '共通'
+          })
         }
       }
     })

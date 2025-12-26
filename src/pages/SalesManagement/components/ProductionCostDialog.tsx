@@ -10,10 +10,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SingleDatePopover } from '@/components/ui/single-date-popover'
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
 import { useOrganization } from '@/hooks/useOrganization'
+import { Trash2 } from 'lucide-react'
 
 interface Store {
   id: string
@@ -28,28 +30,41 @@ interface Scenario {
   author: string
 }
 
+export interface ProductionCostItem {
+  id: string
+  date: string
+  category: string
+  amount: number
+  description?: string
+  store_id?: string | null
+  scenario_id?: string | null
+}
+
 interface ProductionCostDialogProps {
   isOpen: boolean
   onClose: () => void
   onSave: () => void
   stores: Store[]
   defaultStoreId?: string
+  editingItem?: ProductionCostItem | null  // 編集モード用
 }
 
 /**
- * 制作費追加ダイアログ
- * フランチャイズ売り上げダッシュボードから制作費を追加するためのダイアログ
+ * 制作費追加・編集ダイアログ
+ * フランチャイズ売り上げダッシュボードから制作費を追加・編集するためのダイアログ
  */
 export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
   isOpen,
   onClose,
   onSave,
   stores,
-  defaultStoreId
+  defaultStoreId,
+  editingItem
 }) => {
   const { organizationId } = useOrganization()
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     category: '制作費',
@@ -58,6 +73,8 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
     store_id: defaultStoreId || '',
     scenario_id: ''
   })
+
+  const isEditMode = !!editingItem
 
   // シナリオを読み込み
   useEffect(() => {
@@ -80,19 +97,32 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
     }
   }, [isOpen])
 
-  // ダイアログが開かれた時にフォームをリセット
+  // ダイアログが開かれた時にフォームをリセット/設定
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        date: new Date().toISOString().split('T')[0],
-        category: '制作費',
-        amount: 0,
-        description: '',
-        store_id: defaultStoreId || '',
-        scenario_id: ''
-      })
+      if (editingItem) {
+        // 編集モード：既存データを設定
+        setFormData({
+          date: editingItem.date,
+          category: editingItem.category,
+          amount: editingItem.amount,
+          description: editingItem.description || '',
+          store_id: editingItem.store_id || '',
+          scenario_id: editingItem.scenario_id || ''
+        })
+      } else {
+        // 追加モード：デフォルト値
+        setFormData({
+          date: new Date().toISOString().split('T')[0],
+          category: '制作費',
+          amount: 0,
+          description: '',
+          store_id: defaultStoreId || '',
+          scenario_id: ''
+        })
+      }
     }
-  }, [isOpen, defaultStoreId])
+  }, [isOpen, defaultStoreId, editingItem])
 
   const handleSave = async () => {
     if (!formData.amount || formData.amount <= 0) {
@@ -107,29 +137,68 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
 
     setLoading(true)
     try {
-      const { error } = await supabase
-        .from('miscellaneous_transactions')
-        .insert([{
-          date: formData.date,
-          type: 'expense',
-          category: formData.category || '制作費',
-          amount: formData.amount,
-          description: formData.description,
-          store_id: formData.store_id || null,
-          scenario_id: formData.scenario_id || null,
-          organization_id: organizationId
-        }])
+      const saveData = {
+        date: formData.date,
+        type: 'expense' as const,
+        category: formData.category || '制作費',
+        amount: formData.amount,
+        description: formData.description,
+        store_id: formData.store_id || null,
+        scenario_id: formData.scenario_id || null,
+        organization_id: organizationId
+      }
       
-      if (error) throw error
+      if (isEditMode && editingItem) {
+        // 更新
+        const { error } = await supabase
+          .from('miscellaneous_transactions')
+          .update(saveData)
+          .eq('id', editingItem.id)
+        
+        if (error) throw error
+        showToast.success('制作費を更新しました')
+      } else {
+        // 新規作成
+        const { error } = await supabase
+          .from('miscellaneous_transactions')
+          .insert([saveData])
+        
+        if (error) throw error
+        showToast.success('制作費を追加しました')
+      }
       
-      showToast.success('制作費を追加しました')
       onSave()
       onClose()
     } catch (error) {
-      logger.error('制作費追加エラー:', error)
-      showToast.error('追加に失敗しました')
+      logger.error('制作費保存エラー:', error)
+      showToast.error('保存に失敗しました')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!editingItem) return
+    
+    if (!confirm('この制作費を削除しますか？')) return
+    
+    setDeleting(true)
+    try {
+      const { error } = await supabase
+        .from('miscellaneous_transactions')
+        .delete()
+        .eq('id', editingItem.id)
+      
+      if (error) throw error
+      
+      showToast.success('制作費を削除しました')
+      onSave()
+      onClose()
+    } catch (error) {
+      logger.error('制作費削除エラー:', error)
+      showToast.error('削除に失敗しました')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -137,9 +206,9 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>制作費を追加</DialogTitle>
+          <DialogTitle>{isEditMode ? '制作費を編集' : '制作費を追加'}</DialogTitle>
           <DialogDescription>
-            フランチャイズ店舗の制作費を登録します
+            {isEditMode ? '制作費の内容を編集します' : 'フランチャイズ店舗の制作費を登録します'}
           </DialogDescription>
         </DialogHeader>
 
@@ -147,10 +216,10 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>日付</Label>
-              <Input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              <SingleDatePopover
+                date={formData.date}
+                onDateChange={(date) => setFormData({ ...formData, date: date || '' })}
+                placeholder="日付を選択"
               />
             </div>
             
@@ -224,16 +293,30 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose} disabled={loading}>
-            キャンセル
-          </Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? '保存中...' : '追加'}
-          </Button>
+        <div className="flex justify-between gap-2">
+          <div>
+            {isEditMode && (
+              <Button 
+                variant="destructive" 
+                onClick={handleDelete} 
+                disabled={loading || deleting}
+                size="sm"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                {deleting ? '削除中...' : '削除'}
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} disabled={loading || deleting}>
+              キャンセル
+            </Button>
+            <Button onClick={handleSave} disabled={loading || deleting}>
+              {loading ? '保存中...' : (isEditMode ? '更新' : '追加')}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   )
 }
-
