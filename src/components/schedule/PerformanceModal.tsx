@@ -565,49 +565,6 @@ export function PerformanceModal({
               }
               return null
             })()}
-            {/* シナリオ情報表示 */}
-            {formData.scenario && (() => {
-              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
-              if (selectedScenario) {
-                // 参加費を取得（participation_costs から、なければ participation_fee）
-                const getParticipationFee = () => {
-                  if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
-                    // アクティブな料金設定のみを取得
-                    const activeCosts = selectedScenario.participation_costs.filter(c => c.status === 'active' || !c.status)
-                    if (activeCosts.length === 1) {
-                      return `¥${activeCosts[0].amount.toLocaleString()}`
-                    } else if (activeCosts.length > 1) {
-                      const amounts = activeCosts.map(c => c.amount)
-                      const min = Math.min(...amounts)
-                      const max = Math.max(...amounts)
-                      return min === max ? `¥${min.toLocaleString()}` : `¥${min.toLocaleString()}〜¥${max.toLocaleString()}`
-                    }
-                  }
-                  if (selectedScenario.participation_fee) {
-                    return `¥${selectedScenario.participation_fee.toLocaleString()}`
-                  }
-                  return '未設定'
-                }
-                
-                return (
-                  <div className="mt-2 p-2 bg-muted/50 rounded-md text-xs space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">公演時間:</span>
-                      <span className="font-medium">{selectedScenario.duration}時間</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">最大人数:</span>
-                      <span className="font-medium">{selectedScenario.player_count_max}名</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">参加費:</span>
-                      <span className="font-medium">{getParticipationFee()}</span>
-                    </div>
-                  </div>
-                )
-              }
-              return null
-            })()}
           </div>
 
           {/* 時間帯選択とGM選択 */}
@@ -1019,13 +976,56 @@ export function PerformanceModal({
         </Tabs>
 
         {/* フッターアクションボタン */}
-        <div className="flex justify-end gap-2 p-4 border-t bg-background shrink-0">
-          <Button variant="outline" onClick={onClose} className="min-w-[100px]">
-            キャンセル
-          </Button>
-          <Button onClick={handleSave} className="min-w-[100px]">
-            {mode === 'add' ? '追加' : '保存'}
-          </Button>
+        <div className="flex justify-between items-center gap-2 p-4 border-t bg-background shrink-0">
+          {/* 左側：シナリオ情報（省スペース表示） */}
+          <div className="flex-1 min-w-0">
+            {formData.scenario && (() => {
+              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+              if (selectedScenario) {
+                // 参加費を取得
+                const getParticipationFee = () => {
+                  if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
+                    const activeCosts = selectedScenario.participation_costs.filter(c => c.status === 'active' || !c.status)
+                    if (activeCosts.length === 1) {
+                      return `¥${activeCosts[0].amount.toLocaleString()}`
+                    } else if (activeCosts.length > 1) {
+                      const amounts = activeCosts.map(c => c.amount)
+                      const min = Math.min(...amounts)
+                      const max = Math.max(...amounts)
+                      return min === max ? `¥${min.toLocaleString()}` : `¥${min.toLocaleString()}〜`
+                    }
+                  }
+                  return selectedScenario.participation_fee ? `¥${selectedScenario.participation_fee.toLocaleString()}` : null
+                }
+                const fee = getParticipationFee()
+                
+                return (
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{selectedScenario.duration}時間</span>
+                    <span className="text-muted-foreground/50">|</span>
+                    <span>最大{selectedScenario.player_count_max}名</span>
+                    {fee && (
+                      <>
+                        <span className="text-muted-foreground/50">|</span>
+                        <span>{fee}</span>
+                      </>
+                    )}
+                  </div>
+                )
+              }
+              return null
+            })()}
+          </div>
+          
+          {/* 右側：ボタン */}
+          <div className="flex gap-2 shrink-0">
+            <Button variant="outline" onClick={onClose} className="min-w-[100px]">
+              キャンセル
+            </Button>
+            <Button onClick={handleSave} className="min-w-[100px]">
+              {mode === 'add' ? '追加' : '保存'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
 
