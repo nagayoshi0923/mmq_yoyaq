@@ -301,7 +301,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 md:space-y-6">
+    <div id="sales-report-container" className="space-y-3 sm:space-y-4 md:space-y-6">
       {/* ヘッダー：タイトルとエクスポートボタン */}
       <PageHeader
         title={isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}
