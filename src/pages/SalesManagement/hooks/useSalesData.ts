@@ -45,18 +45,61 @@ interface SalesEvent {
   capacity?: number
   is_cancelled: boolean
   gms?: string[]
+  gm_roles?: Record<string, string> // GM役割 { "GM名": "main" | "sub" | "reception" | "staff" | "observer" }
+  venue_rental_fee?: number // 場所貸し公演料金
   actual_participants?: number
   has_demo_participant?: boolean
 }
+
+// localStorage キー
+const STORAGE_KEY_START_DATE = 'sales-custom-start-date'
+const STORAGE_KEY_END_DATE = 'sales-custom-end-date'
+const STORAGE_KEY_PERIOD = 'sales-selected-period'
 
 export function useSalesData() {
   const [salesData, setSalesData] = useState<SalesData | null>(null)
   const [loading, setLoading] = useState(false)
   const [stores, setStores] = useState<Store[]>([])
-  const [selectedPeriod, setSelectedPeriod] = useState('thisMonth')
+  
+  // localStorage から初期値を復元
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(STORAGE_KEY_PERIOD) || 'thisMonth'
+    }
+    return 'thisMonth'
+  })
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
-  const [customStartDate, setCustomStartDate] = useState('')
-  const [customEndDate, setCustomEndDate] = useState('')
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(STORAGE_KEY_START_DATE) || ''
+    }
+    return ''
+  })
+  const [customEndDate, setCustomEndDate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(STORAGE_KEY_END_DATE) || ''
+    }
+    return ''
+  })
+
+  // localStorage に期間設定を保存
+  useEffect(() => {
+    if (typeof window !== 'undefined' && selectedPeriod) {
+      localStorage.setItem(STORAGE_KEY_PERIOD, selectedPeriod)
+    }
+  }, [selectedPeriod])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && customStartDate) {
+      localStorage.setItem(STORAGE_KEY_START_DATE, customStartDate)
+    }
+  }, [customStartDate])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && customEndDate) {
+      localStorage.setItem(STORAGE_KEY_END_DATE, customEndDate)
+    }
+  }, [customEndDate])
 
   // 店舗一覧を取得
   useEffect(() => {
@@ -703,11 +746,12 @@ function calculateSalesData(
     let licenseCost = 0
     let gmCost = 0
 
+    const eventStore = stores.find(s => s.id === event.store_id)
+    const isFranchiseStore = eventStore?.ownership_type === 'franchise'
+    const isGmTest = event.category === 'gmtest'
+
+    // ライセンス金額を取得（シナリオがある場合のみ）
     if (scenario && isPastEvent) {
-      const store = stores.find(s => s.id === event.store_id)
-      const isFranchiseStore = store?.ownership_type === 'franchise'
-      const isGmTest = event.category === 'gmtest'
-      
       // ライセンス金額を取得（優先順位: 他店用 → 他店GMテスト用 → 通常）
       if (isFranchiseStore) {
         // フランチャイズ店舗の場合（フランチャイズ料金が設定されていない場合は内部用を使用）
@@ -718,35 +762,68 @@ function calculateSalesData(
           ? (scenario.gm_test_license_amount || 0)
           : (scenario.license_amount || 0)
       }
-
-      if (scenario.gm_costs && scenario.gm_costs.length > 0) {
-        const actualGmCount = (event as SalesEvent).gms?.length || 0
-        const applicableGmCosts = scenario.gm_costs
-          .filter(gm => {
-            const gmCategory = gm.category || 'normal'
-            return gmCategory === (isGmTest ? 'gmtest' : 'normal')
-          })
-          .sort((a, b) => {
-            const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
-            const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
-            const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
-            return aOrder - bOrder
-          })
-        
-        if (actualGmCount > 0) {
-          // 実際のGM数がある場合、実際のGM数分だけ計算
-          gmCost = applicableGmCosts
-            .slice(0, actualGmCount)
-            .reduce((sum, gm) => sum + gm.reward, 0)
-        } else {
-          // 実際のGM数が0の場合でも、シナリオ設定のgm_costsから計算
-          // （シナリオ設定で必要なGM数分の給与を計算）
-          gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
-        }
-      }
     }
 
-    const store = stores.find(s => s.id === event.store_id)
+    // GM給与計算: 個別GMの役割(gm_roles)を考慮
+    // ※シナリオがなくても受付/スタッフ/見学の給与は計算する
+    const gms = (event as SalesEvent).gms || []
+    const gmRoles = (event as SalesEvent).gm_roles || {}
+    
+    // デバッグログ（NOVAK関連のみ）
+    if (event.scenario?.includes('NOVAK') || (event as any).scenario_id === null) {
+      logger.log('🔍 GM給与計算デバッグ:', {
+        scenario: event.scenario,
+        gms,
+        gmRoles: JSON.stringify(gmRoles),
+        isPastEvent,
+        eventDate: event.date
+      })
+    }
+    
+    if (gms.length > 0 && isPastEvent) {
+      // 各GMの役割に基づいて給与を計算
+      gms.forEach((gmName, index) => {
+        const role = gmRoles[gmName] || 'main' // デフォルトはmain
+        
+        if (role === 'reception') {
+          // 受付は固定2,000円
+          gmCost += 2000
+          logger.log('🎯 受付GM給与追加:', { gmName, role, gmCost })
+        } else if (role === 'staff' || role === 'observer') {
+          // スタッフ参加・見学は0円
+          gmCost += 0
+        } else if (scenario && scenario.gm_costs && scenario.gm_costs.length > 0) {
+          // main/subはシナリオのgm_costs設定から計算
+          const applicableGmCosts = scenario.gm_costs
+            .filter(gm => {
+              const gmCategory = gm.category || 'normal'
+              return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+            })
+            .sort((a, b) => {
+              const roleOrder: Record<string, number> = { main: 0, sub: 1, gm3: 2, gm4: 3 }
+              const aOrder = roleOrder[a.role.toLowerCase()] ?? 999
+              const bOrder = roleOrder[b.role.toLowerCase()] ?? 999
+              return aOrder - bOrder
+            })
+          
+          // 役割に対応するgm_cost設定を取得
+          const roleIndex = role === 'sub' ? 1 : index
+          const gmCostSetting = applicableGmCosts[roleIndex] || applicableGmCosts[0]
+          if (gmCostSetting) {
+            gmCost += gmCostSetting.reward
+          }
+        }
+      })
+    } else if (scenario && scenario.gm_costs && scenario.gm_costs.length > 0 && isPastEvent) {
+      // GMが0人の場合でも、シナリオ設定のgm_costsから計算
+      const applicableGmCosts = scenario.gm_costs
+        .filter(gm => {
+          const gmCategory = gm.category || 'normal'
+          return gmCategory === (isGmTest ? 'gmtest' : 'normal')
+        })
+      gmCost = applicableGmCosts.reduce((sum, gm) => sum + gm.reward, 0)
+    }
+
     const netProfit = (event.revenue || 0) - licenseCost - gmCost
 
     // 開始時間から終了時間を計算（シナリオのdurationを使用）
@@ -771,12 +848,14 @@ function calculateSalesData(
       id: event.id || `${event.date}-${event.store_id}-${event.scenario}`,
       date: event.date,
       store_id: event.store_id,
-      store_name: store?.name || '不明',
+      store_name: eventStore?.name || '不明',
       scenario_id: event.scenario_id,
       scenario_title: event.scenario || '不明',
       start_time: startTime,
       end_time: endTime,
       gms: (event as SalesEvent).gms || [],
+      gm_roles: (event as SalesEvent).gm_roles || {}, // GM役割を追加
+      venue_rental_fee: (event as SalesEvent).venue_rental_fee, // 場所貸し公演料金
       revenue: event.revenue || 0,
       license_cost: licenseCost,
       gm_cost: gmCost,

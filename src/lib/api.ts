@@ -515,6 +515,7 @@ export const scheduleApi = {
     notes?: string
     time_slot?: string | null
     is_reservation_enabled?: boolean
+    venue_rental_fee?: number  // 場所貸し公演料金
     organization_id: string  // マルチテナント対応：必須
   }) {
     const { data, error } = await supabase
@@ -556,6 +557,7 @@ export const scheduleApi = {
     is_cancelled: boolean
     is_reservation_enabled: boolean
     time_slot: string | null
+    venue_rental_fee: number  // 場所貸し公演料金
   }>) {
     const { data, error } = await supabase
       .from('schedule_events')

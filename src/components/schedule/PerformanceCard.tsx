@@ -81,11 +81,12 @@ function PerformanceCardBase({
   const gmRoles = event.gm_roles || {}
   const mainGms = event.gms.filter(gm => !gmRoles[gm] || gmRoles[gm] === 'main')
   const subGms = event.gms.filter(gm => gmRoles[gm] === 'sub')
+  const receptionGms = event.gms.filter(gm => gmRoles[gm] === 'reception')
   const staffGms = event.gms.filter(gm => gmRoles[gm] === 'staff')
   const observerGms = event.gms.filter(gm => gmRoles[gm] === 'observer')
   
-  // 表示用GMリスト（メインとサブのみ）
-  const displayGms = [...mainGms, ...subGms.map(gm => `${gm}(サブ)`)]
+  // 表示用GMリスト（メインとサブと受付）
+  const displayGms = [...mainGms, ...subGms.map(gm => `${gm}(サブ)`), ...receptionGms.map(gm => `${gm}(受付)`)]
   
   // シナリオマスタ未登録チェック（シナリオ名はあるがscenariosがない）
   const isUnregisteredScenario = event.scenario && !event.scenarios

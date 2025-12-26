@@ -444,14 +444,23 @@ export interface SalesData {
   eventList: Array<{
     id: string
     date: string
+    store_id?: string
     store_name: string
+    scenario_id?: string
     scenario_title: string
+    start_time?: string
+    end_time?: string
+    gms?: string[]
+    gm_roles?: Record<string, string>
+    venue_rental_fee?: number
     revenue: number
     license_cost: number
     gm_cost: number
     net_profit: number
     participant_count: number
+    max_participants?: number
     category?: string
+    has_demo_participant?: boolean
   }>
   // 月別売上推移（エクスポート用）
   monthlyRevenue?: Array<{

@@ -63,7 +63,7 @@ const SalesManagement: React.FC = () => {
     loadSalesData
   } = useSalesData()
 
-  // 店舗データ取得後にデータをロード
+  // 店舗データ取得後にデータをロード（保存された期間設定を使用）
   useEffect(() => {
     if (stores.length > 0) {
       // タブに応じて店舗タイプでフィルター
@@ -73,7 +73,8 @@ const SalesManagement: React.FC = () => {
       } else if (activeTab === 'overview') {
         ownershipFilter = 'corporate'
       }
-      loadSalesData('thisMonth', selectedStore, ownershipFilter)
+      // 保存された期間設定を使用（selectedPeriodはlocalStorageから復元済み）
+      loadSalesData(selectedPeriod, selectedStore, ownershipFilter)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stores.length, activeTab])

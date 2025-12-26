@@ -15,6 +15,7 @@ interface ScheduleEvent {
   venue: string // 店舗ID
   scenario: string
   gms: string[] // GMの名前の配列
+  gm_roles?: Record<string, string> // GMの役割 { "GM名": "main" | "sub" | "reception" | "staff" | "observer" }
   start_time: string // HH:MM
   end_time: string // HH:MM
   category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' | 'mtg' // 公演カテゴリ

@@ -76,22 +76,29 @@ export const salesApi = {
       let totalParticipants = 0
       let totalRevenue = 0
       
-      reservations?.forEach(reservation => {
-        const participantCount = reservation.participant_count || 0
-        totalParticipants += participantCount
-        
-        // 参加者名をチェックしてスタッフかどうか判定
-        const participantNames = reservation.participant_names || []
-        const hasStaffParticipant = participantNames.some(name => staffNames.has(name))
-        
-        if (hasStaffParticipant || reservation.payment_method === 'staff') {
-          // スタッフ参加の場合は参加費0円
-          totalRevenue += 0
-        } else {
-          // 通常参加の場合は実際の支払い金額を使用
-          totalRevenue += reservation.final_price || 0
-        }
-      })
+      // 場所貸しの場合は venue_rental_fee を使用
+      const isVenueRental = event.category === 'venue_rental' || event.category === 'venue_rental_free'
+      if (isVenueRental) {
+        // 場所貸し無料は0円、場所貸しは設定された料金（デフォルト12,000円）
+        totalRevenue = event.category === 'venue_rental_free' ? 0 : (event.venue_rental_fee || 12000)
+      } else {
+        reservations?.forEach(reservation => {
+          const participantCount = reservation.participant_count || 0
+          totalParticipants += participantCount
+          
+          // 参加者名をチェックしてスタッフかどうか判定
+          const participantNames = reservation.participant_names || []
+          const hasStaffParticipant = participantNames.some(name => staffNames.has(name))
+          
+          if (hasStaffParticipant || reservation.payment_method === 'staff') {
+            // スタッフ参加の場合は参加費0円
+            totalRevenue += 0
+          } else {
+            // 通常参加の場合は実際の支払い金額を使用
+            totalRevenue += reservation.final_price || 0
+          }
+        })
+      }
       
       return {
         ...event,
