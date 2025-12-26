@@ -167,8 +167,11 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
                 id="short_name"
                 value={formData.short_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, short_name: e.target.value }))}
-                placeholder="例: 渋谷店"
+                placeholder="例: 馬場、大塚、別館①"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                シナリオ一覧やスケジュール画面で表示される短い店舗名
+              </p>
             </div>
           </div>
 

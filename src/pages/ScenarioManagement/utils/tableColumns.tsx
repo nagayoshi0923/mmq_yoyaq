@@ -2,6 +2,7 @@ import { showToast } from '@/utils/toast'
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { Clock, Users, Star, Edit, Trash2, Upload, X } from 'lucide-react'
 import type { Column } from '@/components/patterns/table'
 import type { Scenario } from '@/types'
@@ -11,8 +12,7 @@ import {
   formatPlayerCount, 
   formatParticipationFee,
   getStatusLabel,
-  getDifficultyStars,
-  getDisplayGMs
+  getDifficultyStars
 } from './scenarioFormatters'
 
 interface ScenarioActionsProps {
@@ -217,30 +217,59 @@ export function createScenarioColumns(
       {
         key: 'available_stores',
         header: '対応店舗',
-        width: 'w-32',
+        width: 'w-36',
         sortable: false,
         render: (scenario) => {
           const storeIds = scenario.available_stores || []
-          if (storeIds.length === 0) {
-            return <span className="text-xs text-muted-foreground">全店舗</span>
+          // 全店舗数と比較（オフィス・臨時会場を除く通常店舗数）
+          const regularStoreCount = storeMap ? Array.from(storeMap.values()).filter(s => 
+            s.ownership_type !== 'office' && !s.is_temporary
+          ).length : 6
+          
+          if (storeIds.length === 0 || storeIds.length >= regularStoreCount) {
+            return <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">全店舗</span>
           }
+          
           const storeNames = storeIds.map(id => {
             const store = storeMap?.get(id)
-            return store?.short_name || id.slice(0, 4)
+            return store?.short_name?.slice(0, 3) || '?'
           })
-          const displayedStores = storeNames.slice(0, 2)
-          const remainingCount = storeNames.length - 2
-          return (
-            <div className="flex flex-wrap gap-1">
-              {displayedStores.map((name, i) => (
-                <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5 bg-purple-50 border-purple-200 text-purple-700">
+          const fullStoreNames = storeIds.map(id => storeMap?.get(id)?.short_name || '?')
+          
+          const maxDisplay = 4
+          const displayed = storeNames.slice(0, maxDisplay)
+          const remaining = storeNames.length - maxDisplay
+          
+          const content = (
+            <div className="flex flex-wrap gap-0.5">
+              {displayed.map((name, i) => (
+                <span key={i} className="text-[10px] px-1 py-0 bg-purple-50 text-purple-700 rounded-sm border border-purple-200">
                   {name}
-                </Badge>
+                </span>
               ))}
-              {remainingCount > 0 && (
-                <span className="text-xs text-muted-foreground">+{remainingCount}</span>
+              {remaining > 0 && (
+                <span className="text-[10px] text-muted-foreground">+{remaining}</span>
               )}
             </div>
+          )
+          
+          if (remaining <= 0) return content
+          
+          return (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="cursor-default">{content}</div>
+                </TooltipTrigger>
+                <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5">
+                  <div className="flex flex-col gap-0.5">
+                    {fullStoreNames.map((name, i) => (
+                      <span key={i} className="text-xs">{name}</span>
+                    ))}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )
         }
       },
@@ -272,61 +301,98 @@ export function createScenarioColumns(
       {
         key: 'available_gms',
         header: '担当GM',
-        width: 'w-48',
+        width: 'w-40',
         sortable: true,
         cellClassName: 'overflow-hidden',
         render: (scenario) => {
-          const { displayed: displayedGMs, remaining: remainingGMs } = getDisplayGMs(scenario.available_gms || [])
-          return (
-            <div className="text-sm overflow-hidden">
-              {displayedGMs.length > 0 ? (
-                <div className="flex flex-wrap gap-1">
-                {displayedGMs.map((gm, i) => (
-                  <Badge key={i} variant="outline" className="font-normal text-xs py-0.5 px-1.5 bg-blue-50 border-blue-200 text-blue-700 whitespace-nowrap">
-                    {gm}
-                  </Badge>
-                ))}
-                {remainingGMs > 0 && (
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    +{remainingGMs}
-                  </span>
-                )}
-                </div>
-              ) : (
-                <span className="text-muted-foreground text-xs">-</span>
+          const gms = scenario.available_gms || []
+          if (gms.length === 0) {
+            return <span className="text-muted-foreground text-[10px]">-</span>
+          }
+          
+          const maxDisplay = 4
+          const displayed = gms.slice(0, maxDisplay)
+          const remaining = gms.length - maxDisplay
+          
+          const content = (
+            <div className="flex flex-wrap gap-0.5">
+              {displayed.map((gm, i) => (
+                <span key={i} className="text-[10px] px-1 py-0 bg-blue-50 text-blue-700 rounded-sm border border-blue-200">
+                  {gm}
+                </span>
+              ))}
+              {remaining > 0 && (
+                <span className="text-[10px] text-muted-foreground">+{remaining}</span>
               )}
             </div>
+          )
+          
+          if (remaining <= 0) return content
+          
+          return (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="cursor-default">{content}</div>
+                </TooltipTrigger>
+                <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5">
+                  <div className="flex flex-col gap-0.5">
+                    {gms.map((gm, i) => (
+                      <span key={i} className="text-xs">{gm}</span>
+                    ))}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )
         }
       },
       {
         key: 'experienced_staff',
         header: '体験済み',
-        width: 'w-48',
+        width: 'w-40',
         sortable: true,
         cellClassName: 'overflow-hidden',
         render: (scenario) => {
           const experiencedStaff = scenario.experienced_staff || []
-          const { displayed, remaining } = getDisplayGMs(experiencedStaff)
-          return (
-            <div className="text-sm overflow-hidden">
-              {displayed.length > 0 ? (
-                <div className="flex flex-wrap gap-1">
-                {displayed.map((staff, i) => (
-                  <Badge key={i} variant="outline" className="font-normal text-xs py-0.5 px-1.5 bg-green-50 border-green-200 text-green-700 whitespace-nowrap">
-                    {staff}
-                  </Badge>
-                ))}
-                {remaining > 0 && (
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    +{remaining}
-                  </span>
-                )}
-                </div>
-              ) : (
-                <span className="text-muted-foreground text-xs">-</span>
+          if (experiencedStaff.length === 0) {
+            return <span className="text-muted-foreground text-[10px]">-</span>
+          }
+          
+          const maxDisplay = 4
+          const displayed = experiencedStaff.slice(0, maxDisplay)
+          const remaining = experiencedStaff.length - maxDisplay
+          
+          const content = (
+            <div className="flex flex-wrap gap-0.5">
+              {displayed.map((staff, i) => (
+                <span key={i} className="text-[10px] px-1 py-0 bg-green-50 text-green-700 rounded-sm border border-green-200">
+                  {staff}
+                </span>
+              ))}
+              {remaining > 0 && (
+                <span className="text-[10px] text-muted-foreground">+{remaining}</span>
               )}
             </div>
+          )
+          
+          if (remaining <= 0) return content
+          
+          return (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="cursor-default">{content}</div>
+                </TooltipTrigger>
+                <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5">
+                  <div className="flex flex-col gap-0.5">
+                    {experiencedStaff.map((staff, i) => (
+                      <span key={i} className="text-xs">{staff}</span>
+                    ))}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )
         }
       }

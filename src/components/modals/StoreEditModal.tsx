@@ -185,8 +185,12 @@ export function StoreEditModal({ store, isOpen, onClose, onSave, onDelete }: Sto
                           type="text"
                           value={formData.short_name || ''}
                           onChange={(e) => handleInputChange('short_name', e.target.value)}
+                          placeholder="例: 馬場、大塚、別館①"
                           required
                         />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          シナリオ一覧やスケジュール画面で表示される短い店舗名
+                        </p>
                       </div>
                     </div>
 
