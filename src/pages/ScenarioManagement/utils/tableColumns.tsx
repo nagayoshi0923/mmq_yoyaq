@@ -22,12 +22,19 @@ interface ScenarioActionsProps {
   onImageRemove?: (scenario: Scenario) => void
 }
 
+// 店舗情報の型
+interface StoreInfo {
+  id: string
+  short_name: string
+}
+
 /**
  * シナリオテーブルの列定義を生成
  */
 export function createScenarioColumns(
   displayMode: 'compact' | 'detailed',
-  actions: ScenarioActionsProps
+  actions: ScenarioActionsProps,
+  storeMap?: Map<string, StoreInfo>
 ): Column<Scenario>[] {
   const columns: Column<Scenario>[] = [
     {

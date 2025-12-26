@@ -749,6 +749,24 @@ function calculateSalesData(
     const store = stores.find(s => s.id === event.store_id)
     const netProfit = (event.revenue || 0) - licenseCost - gmCost
 
+    // 開始時間から終了時間を計算（シナリオのdurationを使用）
+    const startTime = (event as SalesEvent).start_time || '10:00'
+    let endTime = (event as SalesEvent).end_time || ''
+    
+    // end_timeが設定されていない場合、durationから計算
+    if (!endTime && scenario?.duration && startTime) {
+      const [startHour, startMinute] = startTime.split(':').map(Number)
+      const startMinutes = startHour * 60 + startMinute
+      const endMinutes = startMinutes + (scenario.duration * 60)
+      const endHour = Math.floor(endMinutes / 60) % 24
+      const endMin = endMinutes % 60
+      endTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`
+    }
+    
+    if (!endTime) {
+      endTime = startTime // フォールバック
+    }
+
     return {
       id: event.id || `${event.date}-${event.store_id}-${event.scenario}`,
       date: event.date,
@@ -756,8 +774,8 @@ function calculateSalesData(
       store_name: store?.name || '不明',
       scenario_id: event.scenario_id,
       scenario_title: event.scenario || '不明',
-      start_time: (event as SalesEvent).start_time || '10:00',
-      end_time: (event as SalesEvent).end_time || '18:00',
+      start_time: startTime,
+      end_time: endTime,
       gms: (event as SalesEvent).gms || [],
       revenue: event.revenue || 0,
       license_cost: licenseCost,
