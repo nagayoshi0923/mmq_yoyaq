@@ -58,6 +58,7 @@ export function useSalaryData(year: number, month: number, storeId: string) {
           store_id,
           scenario_id,
           gms,
+          gm_roles,
           category,
           stores:store_id (name),
           scenarios:scenario_id (
@@ -148,20 +149,33 @@ export function useSalaryData(year: number, month: number, storeId: string) {
           let pay = 0
           let gmRole = 'GM'
           
-          // 最初のGMをmain、それ以降をsubとして扱う（暫定）
-          const roleType = index === 0 ? 'main' : 'sub'
+          // gm_rolesからロールを取得、なければインデックスで判定
+          const gmRoles = event.gm_roles || {}
+          const roleType = gmRoles[gmName] || (index === 0 ? 'main' : 'sub')
           
+          // 受付の場合は固定2000円
+          if (roleType === 'reception') {
+            pay = 2000
+            gmRole = '受付'
+          }
+          // スタッフ参加・見学の場合は給与なし
+          else if (roleType === 'staff' || roleType === 'observer') {
+            pay = 0
+            gmRole = roleType === 'staff' ? 'スタッフ参加' : 'スタッフ見学'
+          }
           // gm_assignmentsから該当する役割の報酬を検索
-          const assignment = gmAssignments.find((a: any) => a.role === roleType)
-          
-          if (assignment && assignment.reward) {
-            pay = assignment.reward
-            gmRole = roleType === 'main' ? 'メインGM' : 'サブGM'
-          } else {
-            // 報酬が見つからない場合は時給計算
-            const duration = scenario.duration || 180
-            pay = calculateWage(duration)
-            gmRole = 'GM（時給計算）'
+          else {
+            const assignment = gmAssignments.find((a: any) => a.role === roleType)
+            
+            if (assignment && assignment.reward) {
+              pay = assignment.reward
+              gmRole = roleType === 'main' ? 'メインGM' : 'サブGM'
+            } else {
+              // 報酬が見つからない場合は時給計算
+              const duration = scenario.duration || 180
+              pay = calculateWage(duration)
+              gmRole = 'GM（時給計算）'
+            }
           }
 
           const isGMTest = event.category === 'gmtest'

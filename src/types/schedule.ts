@@ -45,4 +45,5 @@ export interface EventFormData {
   is_private_request?: boolean
   reservation_id?: string
   time_slot?: string
+  venue_rental_fee?: number // 場所貸し公演料金
 }

@@ -90,6 +90,7 @@ interface PerformanceData {
   is_private_request?: boolean
   reservation_id?: string
   time_slot?: string | null // 時間帯（朝/昼/夜）
+  venue_rental_fee?: number // 場所貸し公演料金
 }
 
 export function useEventOperations({
@@ -454,6 +455,7 @@ export function useEventOperations({
           gm_roles: performanceData.gm_roles || {},
           notes: performanceData.notes || null,
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
+          venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
           is_reservation_enabled: false, // 最初は非公開、公開ボタンで公開
           organization_id: organizationId // マルチテナント対応
         }
@@ -550,7 +552,8 @@ export function useEventOperations({
             gms: performanceData.gms,
             gm_roles: performanceData.gm_roles || {},
             notes: performanceData.notes,
-            time_slot: performanceData.time_slot || null // 時間帯（朝/昼/夜）
+            time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
+            venue_rental_fee: performanceData.venue_rental_fee // 場所貸し公演料金
           })
 
           // ※ スタッフ参加者はreservationsテーブルで管理（予約タブから追加）
