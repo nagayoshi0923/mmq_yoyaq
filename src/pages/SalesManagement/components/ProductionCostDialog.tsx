@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
 import { logger } from '@/utils/logger'
+import { useOrganization } from '@/hooks/useOrganization'
 
 interface Store {
   id: string
@@ -46,6 +47,7 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
   stores,
   defaultStoreId
 }) => {
+  const { organizationId } = useOrganization()
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -98,6 +100,11 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
       return
     }
 
+    if (!organizationId) {
+      showToast.error('組織情報が取得できません。再ログインしてください。')
+      return
+    }
+
     setLoading(true)
     try {
       const { error } = await supabase
@@ -109,7 +116,8 @@ export const ProductionCostDialog: React.FC<ProductionCostDialogProps> = ({
           amount: formData.amount,
           description: formData.description,
           store_id: formData.store_id || null,
-          scenario_id: formData.scenario_id || null
+          scenario_id: formData.scenario_id || null,
+          organization_id: organizationId
         }])
       
       if (error) throw error
