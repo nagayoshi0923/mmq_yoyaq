@@ -64,8 +64,10 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     scenario_id: undefined
   })
   
-  // 直営店とオフィスのみを表示
+  // 直営店とオフィス
   const corporateStores = stores.filter(s => s.ownership_type !== 'franchise')
+  // フランチャイズ店舗
+  const franchiseStores = stores.filter(s => s.ownership_type === 'franchise')
   
   // シナリオを読み込み
   useEffect(() => {
@@ -356,11 +358,26 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">全社</SelectItem>
-                    {corporateStores.map(store => (
-                      <SelectItem key={store.id} value={store.id}>
-                        {store.name}
-                      </SelectItem>
-                    ))}
+                    {corporateStores.length > 0 && (
+                      <>
+                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium">直営店・オフィス</div>
+                        {corporateStores.map(store => (
+                          <SelectItem key={store.id} value={store.id}>
+                            {store.name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                    {franchiseStores.length > 0 && (
+                      <>
+                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium border-t mt-1 pt-1">フランチャイズ</div>
+                        {franchiseStores.map(store => (
+                          <SelectItem key={store.id} value={store.id}>
+                            {store.name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -400,7 +417,7 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
           ) : (
             <div className="space-y-2">
               {transactions.map(transaction => {
-                const store = corporateStores.find(s => s.id === transaction.store_id)
+                const store = stores.find(s => s.id === transaction.store_id)
                 const scenario = scenarios.find(s => s.id === transaction.scenario_id)
                 return (
                   <div key={transaction.id} className="border rounded-lg hover:bg-gray-50 bg-white">

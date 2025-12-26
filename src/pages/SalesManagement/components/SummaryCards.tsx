@@ -1,6 +1,6 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { TrendingUp, Store, BookOpen, CreditCard, Users, DollarSign, Wrench } from 'lucide-react'
+import { TrendingUp, Store, BookOpen, CreditCard, Users, DollarSign, Wrench, Plus } from 'lucide-react'
 
 interface Store {
   id: string
@@ -38,6 +38,8 @@ interface SummaryCardsProps {
     amount: number
   }>
   netProfit: number
+  // 制作費カードクリック時のコールバック（オプション）
+  onProductionCostClick?: () => void
 }
 
 const formatCurrency = (amount: number): string => {
@@ -63,7 +65,8 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
   propsCostBreakdown,
   totalVariableCost,
   variableCostBreakdown,
-  netProfit
+  netProfit,
+  onProductionCostClick
 }) => {
   // 支出合計を計算
   const totalExpenses = totalVariableCost + totalFixedCost
@@ -193,11 +196,17 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
           </CardContent>
         </Card>
 
-        <Card className="shadow-none border">
+        <Card 
+          className={`shadow-none border ${onProductionCostClick ? 'cursor-pointer hover:bg-orange-50 transition-colors' : ''}`}
+          onClick={onProductionCostClick}
+        >
           <CardHeader className="pb-1 sm:pb-2 p-2 sm:p-3 md:p-4 md:p-6">
             <CardTitle className="text-sm flex items-center gap-1">
               <Wrench className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-4 md:w-4 text-orange-600 flex-shrink-0" />
               <span className="truncate">制作費</span>
+              {onProductionCostClick && (
+                <Plus className="h-3 w-3 ml-auto text-orange-600" />
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 md:p-6 pt-0">
@@ -222,7 +231,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             )}
             {productionCostBreakdown.length === 0 && propsCostBreakdown.length === 0 && (
               <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
-                制作費なし
+                {onProductionCostClick ? 'クリックして追加' : '制作費なし'}
               </p>
             )}
           </CardContent>

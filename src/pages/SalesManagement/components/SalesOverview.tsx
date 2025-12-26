@@ -5,6 +5,7 @@ import { SummaryCards } from './SummaryCards'
 import { EventListCard } from './EventListCard'
 import { SalesChart } from './SalesChart'
 import { ExportButtons } from './ExportButtons'
+import { ProductionCostDialog } from './ProductionCostDialog'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
@@ -69,6 +70,9 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
     staff: Staff[]
     availableStaffByScenario: Record<string, Staff[]>
   } | null>(null)
+  
+  // 制作費ダイアログの状態管理
+  const [isProductionCostDialogOpen, setIsProductionCostDialogOpen] = useState(false)
   
   // 月切り替えの状態管理
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -213,6 +217,8 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       max_participants: event.max_participants || 8,
       capacity: event.max_participants || 8,
       gms: event.gms || [], // GMリストを使用
+      gm_roles: event.gm_roles || {}, // GM役割を追加
+      venue_rental_fee: event.venue_rental_fee, // 場所貸し公演料金
       notes: '',
       is_reservation_enabled: true
     }
@@ -232,13 +238,17 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       // スケジュール更新用のデータを準備
       const updateData: any = {}
       
-      if (eventData.scenario_id) updateData.scenario_id = eventData.scenario_id
-      if (eventData.scenario) updateData.scenario = eventData.scenario
+      // scenario_id は明示的にnullも許可（場所貸しの場合クリアするため）
+      if (eventData.scenario_id !== undefined) updateData.scenario_id = eventData.scenario_id
+      // scenario は空文字も保存（場所貸しの場合クリアするため）
+      if (eventData.scenario !== undefined) updateData.scenario = eventData.scenario
       if (eventData.category) updateData.category = eventData.category
       if (eventData.start_time) updateData.start_time = eventData.start_time
       if (eventData.end_time) updateData.end_time = eventData.end_time
       if (eventData.capacity !== undefined) updateData.capacity = eventData.capacity
       if (eventData.gms) updateData.gms = eventData.gms
+      if (eventData.gm_roles) updateData.gm_roles = eventData.gm_roles // GM役割を保存
+      if (eventData.venue_rental_fee !== undefined) updateData.venue_rental_fee = eventData.venue_rental_fee // 場所貸し公演料金
       if (eventData.notes !== undefined) updateData.notes = eventData.notes
       if (eventData.is_cancelled !== undefined) updateData.is_cancelled = eventData.is_cancelled
       if (eventData.is_reservation_enabled !== undefined) updateData.is_reservation_enabled = eventData.is_reservation_enabled
@@ -411,6 +421,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           totalVariableCost={salesData.totalVariableCost}
           variableCostBreakdown={salesData.variableCostBreakdown}
           netProfit={salesData.netProfit}
+          onProductionCostClick={isFranchiseOnly ? () => setIsProductionCostDialogOpen(true) : undefined}
         />
           </div>
 
@@ -470,6 +481,22 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
               onDataRefresh()
             }
           }}
+        />
+      )}
+
+      {/* 制作費追加ダイアログ（フランチャイズ用） */}
+      {isFranchiseOnly && (
+        <ProductionCostDialog
+          isOpen={isProductionCostDialogOpen}
+          onClose={() => setIsProductionCostDialogOpen(false)}
+          onSave={() => {
+            // 保存後にデータをリフレッシュ
+            if (onDataRefresh) {
+              onDataRefresh()
+            }
+          }}
+          stores={stores}
+          defaultStoreId={selectedStore !== 'all' ? selectedStore : undefined}
         />
       )}
     </div>
