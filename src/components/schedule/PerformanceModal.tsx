@@ -137,11 +137,25 @@ export function PerformanceModal({
     }))
   }
 
+  // 店舗IDを取得（名前またはIDから）- useEffect内で使用するためにここで定義
+  const resolveStoreId = (venueValue: string): string | null => {
+    // 既にUUID形式の場合はそのまま返す
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (uuidRegex.test(venueValue)) {
+      return venueValue
+    }
+    // 店舗名から検索
+    const store = stores.find(s => s.name === venueValue)
+    return store?.id || null
+  }
+
   // 公演スケジュール設定と営業時間設定を読み込む
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const storeId = formData.venue || stores[0]?.id
+        // venueが店舗名の場合はIDに変換
+        const venueValue = formData.venue || ''
+        const storeId = resolveStoreId(venueValue) || stores[0]?.id
         if (!storeId) return
 
         // 公演スケジュール設定を取得
@@ -308,13 +322,33 @@ export function PerformanceModal({
     // gmRoles (camelCase) を gm_roles (snake_case) に変換してAPIに渡す
     // スタッフ参加/見学もGMリストに保持する（除外しない）
     
+    let scenario = formData.scenario || ''
+    let notes = formData.notes || ''
+    
+    // 場所貸しの場合、シナリオ欄の内容を備考に移動
+    const isVenueRental = formData.category === 'venue_rental' || formData.category === 'venue_rental_free'
+    if (isVenueRental && scenario) {
+      // 備考に既存の内容があれば改行して追加、なければそのまま設定
+      notes = notes ? `${scenario}\n${notes}` : scenario
+      scenario = '' // シナリオ欄はクリア
+    }
+    
+    // 場所貸しの公演料金（未設定の場合はデフォルト12,000円）
+    const venueRentalFee = isVenueRental 
+      ? (formData.venue_rental_fee ?? 12000) 
+      : undefined
+    
     const saveData = {
       ...formData,
+      scenario,
+      scenario_id: isVenueRental ? null : formData.scenario_id, // 場所貸しはシナリオIDもクリア
+      notes,
+      venue_rental_fee: venueRentalFee,
       gms: formData.gms,
       time_slot: getTimeSlotLabel(timeSlot),
       gm_roles: formData.gmRoles || {}
     }
-    console.log('🔍 保存データ:', { gms: saveData.gms, gm_roles: saveData.gm_roles })
+    console.log('🔍 保存データ:', { gms: saveData.gms, gm_roles: JSON.stringify(saveData.gm_roles), scenario: saveData.scenario, notes: saveData.notes })
     
     // 追加モードの場合、スロットメモをクリア（備考に引き継いだので不要）
     if (mode === 'add' && initialData) {
@@ -531,6 +565,49 @@ export function PerformanceModal({
               }
               return null
             })()}
+            {/* シナリオ情報表示 */}
+            {formData.scenario && (() => {
+              const selectedScenario = scenarios.find(s => s.title === formData.scenario)
+              if (selectedScenario) {
+                // 参加費を取得（participation_costs から、なければ participation_fee）
+                const getParticipationFee = () => {
+                  if (selectedScenario.participation_costs && selectedScenario.participation_costs.length > 0) {
+                    // アクティブな料金設定のみを取得
+                    const activeCosts = selectedScenario.participation_costs.filter(c => c.status === 'active' || !c.status)
+                    if (activeCosts.length === 1) {
+                      return `¥${activeCosts[0].amount.toLocaleString()}`
+                    } else if (activeCosts.length > 1) {
+                      const amounts = activeCosts.map(c => c.amount)
+                      const min = Math.min(...amounts)
+                      const max = Math.max(...amounts)
+                      return min === max ? `¥${min.toLocaleString()}` : `¥${min.toLocaleString()}〜¥${max.toLocaleString()}`
+                    }
+                  }
+                  if (selectedScenario.participation_fee) {
+                    return `¥${selectedScenario.participation_fee.toLocaleString()}`
+                  }
+                  return '未設定'
+                }
+                
+                return (
+                  <div className="mt-2 p-2 bg-muted/50 rounded-md text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">公演時間:</span>
+                      <span className="font-medium">{selectedScenario.duration}時間</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">最大人数:</span>
+                      <span className="font-medium">{selectedScenario.player_count_max}名</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">参加費:</span>
+                      <span className="font-medium">{getParticipationFee()}</span>
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            })()}
           </div>
 
           {/* 時間帯選択とGM選択 */}
@@ -645,11 +722,13 @@ export function PerformanceModal({
                     const role = formData.gmRoles?.[gm] || 'main'
                     const badgeStyle = role === 'observer'
                       ? 'bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200'
-                      : role === 'staff'
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
-                        : role === 'sub' 
-                          ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' 
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
+                      : role === 'reception'
+                        ? 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200'
+                        : role === 'staff'
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200'
+                          : role === 'sub' 
+                            ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' 
+                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
                     
                     return (
                       <Popover key={`gm-${index}`}>
@@ -666,6 +745,7 @@ export function PerformanceModal({
                               <UserCog className="h-3 w-3 mr-1 opacity-70" />
                               {gm}
                               {role === 'sub' && <span className="text-[10px] ml-1 font-bold">(サブ)</span>}
+                              {role === 'reception' && <span className="text-[10px] ml-1 font-bold">(受付)</span>}
                               {role === 'staff' && <span className="text-[10px] ml-1 font-bold">(参加)</span>}
                               {role === 'observer' && <span className="text-[10px] ml-1 font-bold">(見学)</span>}
                             </span>
@@ -704,6 +784,10 @@ export function PerformanceModal({
                                   <Label htmlFor={`role-sub-${index}`} className="text-sm cursor-pointer">サブGM</Label>
                                 </div>
                                 <div className="flex items-center space-x-2 py-1">
+                                  <RadioGroupItem value="reception" id={`role-reception-${index}`} />
+                                  <Label htmlFor={`role-reception-${index}`} className="text-sm cursor-pointer">受付</Label>
+                                </div>
+                                <div className="flex items-center space-x-2 py-1">
                                   <RadioGroupItem value="staff" id={`role-staff-${index}`} />
                                   <Label htmlFor={`role-staff-${index}`} className="text-sm cursor-pointer">スタッフ参加</Label>
                                 </div>
@@ -717,6 +801,11 @@ export function PerformanceModal({
                             {role === 'sub' && (
                               <p className="text-[10px] text-blue-600 bg-blue-50 p-1 rounded">
                                 ※サブGM給与が適用されます
+                              </p>
+                            )}
+                            {role === 'reception' && (
+                              <p className="text-[10px] text-orange-600 bg-orange-50 p-1 rounded">
+                                ※受付業務（報酬: 2,000円）
                               </p>
                             )}
                             {role === 'staff' && (
@@ -851,6 +940,29 @@ export function PerformanceModal({
                 </p>
               )}
             </div>
+            
+            {/* 場所貸しの場合、公演料金フィールドを表示 */}
+            {(formData.category === 'venue_rental' || formData.category === 'venue_rental_free') && (
+              <div>
+                <Label htmlFor="venue_rental_fee">公演料金</Label>
+                <Input
+                  id="venue_rental_fee"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  placeholder="12000"
+                  value={formData.venue_rental_fee ?? ''}
+                  onChange={(e) => setFormData((prev: any) => ({ 
+                    ...prev, 
+                    venue_rental_fee: e.target.value ? parseInt(e.target.value) : undefined 
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  ※ 未入力の場合は12,000円が適用されます
+                </p>
+              </div>
+            )}
+            
             <div>
               <Label htmlFor="max_participants">最大参加者数</Label>
               <Input
