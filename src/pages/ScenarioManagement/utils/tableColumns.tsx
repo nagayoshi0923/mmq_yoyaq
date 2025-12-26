@@ -215,9 +215,39 @@ export function createScenarioColumns(
   if (displayMode === 'compact') {
     columns.push(
       {
+        key: 'available_stores',
+        header: '対応店舗',
+        width: 'w-32',
+        sortable: false,
+        render: (scenario) => {
+          const storeIds = scenario.available_stores || []
+          if (storeIds.length === 0) {
+            return <span className="text-xs text-muted-foreground">全店舗</span>
+          }
+          const storeNames = storeIds.map(id => {
+            const store = storeMap?.get(id)
+            return store?.short_name || id.slice(0, 4)
+          })
+          const displayedStores = storeNames.slice(0, 2)
+          const remainingCount = storeNames.length - 2
+          return (
+            <div className="flex flex-wrap gap-1">
+              {displayedStores.map((name, i) => (
+                <Badge key={i} variant="outline" className="font-normal text-xs px-1 py-0.5 bg-purple-50 border-purple-200 text-purple-700">
+                  {name}
+                </Badge>
+              ))}
+              {remainingCount > 0 && (
+                <span className="text-xs text-muted-foreground">+{remainingCount}</span>
+              )}
+            </div>
+          )
+        }
+      },
+      {
         key: 'genre',
         header: 'カテゴリ',
-        width: 'w-40',
+        width: 'w-36',
         sortable: true,
         render: (scenario) => {
           if (!scenario.genre || scenario.genre.length === 0) {

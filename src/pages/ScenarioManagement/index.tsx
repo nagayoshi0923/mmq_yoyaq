@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { HelpButton } from '@/components/ui/help-button'
-import type { Scenario } from '@/types'
+import type { Scenario, Store } from '@/types'
+import { storeApi } from '@/lib/api'
 import { 
   Plus, 
   AlertTriangle,
@@ -67,6 +68,31 @@ export function ScenarioManagement() {
   
   const deleteScenarioMutation = useDeleteScenarioMutation()
   const importScenariosMutation = useImportScenariosMutation()
+  
+  // 店舗データ（対応店舗表示用）
+  const [stores, setStores] = useState<Store[]>([])
+  
+  // 店舗データ取得
+  useEffect(() => {
+    const loadStores = async () => {
+      try {
+        const data = await storeApi.getAll()
+        setStores(data)
+      } catch (error) {
+        logger.error('店舗データ取得エラー:', error)
+      }
+    }
+    loadStores()
+  }, [])
+  
+  // 店舗マップ（IDから店舗情報を取得）
+  const storeMap = useMemo(() => {
+    const map = new Map<string, { id: string; short_name: string }>()
+    stores.forEach(store => {
+      map.set(store.id, { id: store.id, short_name: store.short_name })
+    })
+    return map
+  }, [stores])
   
   // 表示用：段階的に表示する件数を管理
   const [displayCount, setDisplayCount] = useState(20)
@@ -250,7 +276,7 @@ export function ScenarioManagement() {
     onDelete: openDeleteDialog,
     onImageUpload: handleImageUpload,
     onImageRemove: handleImageRemove
-  }), [displayMode])
+  }, storeMap), [displayMode, storeMap])
 
   // スクロール位置の保存と復元
   useEffect(() => {
