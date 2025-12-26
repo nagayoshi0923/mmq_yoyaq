@@ -769,17 +769,6 @@ function calculateSalesData(
     const gms = (event as SalesEvent).gms || []
     const gmRoles = (event as SalesEvent).gm_roles || {}
     
-    // デバッグログ（NOVAK関連のみ）
-    if (event.scenario?.includes('NOVAK') || (event as any).scenario_id === null) {
-      logger.log('🔍 GM給与計算デバッグ:', {
-        scenario: event.scenario,
-        gms,
-        gmRoles: JSON.stringify(gmRoles),
-        isPastEvent,
-        eventDate: event.date
-      })
-    }
-    
     if (gms.length > 0 && isPastEvent) {
       // 各GMの役割に基づいて給与を計算
       gms.forEach((gmName, index) => {
@@ -788,7 +777,6 @@ function calculateSalesData(
         if (role === 'reception') {
           // 受付は固定2,000円
           gmCost += 2000
-          logger.log('🎯 受付GM給与追加:', { gmName, role, gmCost })
         } else if (role === 'staff' || role === 'observer') {
           // スタッフ参加・見学は0円
           gmCost += 0
