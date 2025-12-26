@@ -23,9 +23,14 @@ interface SummaryCardsProps {
     store: string
   }>
   productionCostBreakdown: Array<{
+    id?: string
     item: string
     amount: number
     scenario: string
+    date?: string
+    store_id?: string | null
+    scenario_id?: string | null
+    isEditable?: boolean
   }>
   propsCostBreakdown: Array<{
     item: string
@@ -40,6 +45,15 @@ interface SummaryCardsProps {
   netProfit: number
   // 制作費カードクリック時のコールバック（オプション）
   onProductionCostClick?: () => void
+  // 制作費項目編集時のコールバック
+  onProductionCostEdit?: (item: {
+    id: string
+    date: string
+    category: string
+    amount: number
+    store_id?: string | null
+    scenario_id?: string | null
+  }) => void
 }
 
 const formatCurrency = (amount: number): string => {
@@ -66,7 +80,8 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
   totalVariableCost,
   variableCostBreakdown,
   netProfit,
-  onProductionCostClick
+  onProductionCostClick,
+  onProductionCostEdit
 }) => {
   // 支出合計を計算
   const totalExpenses = totalVariableCost + totalFixedCost
@@ -216,7 +231,23 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             {(productionCostBreakdown.length > 0 || propsCostBreakdown.length > 0) && (
               <div className="text-xs text-muted-foreground space-y-0.5 max-h-16 sm:max-h-20 md:max-h-24 overflow-y-auto">
                 {productionCostBreakdown.map((item, index) => (
-                  <div key={`prod-${index}`} className="flex justify-between gap-1 py-0.5">
+                  <div 
+                    key={`prod-${index}`} 
+                    className={`flex justify-between gap-1 py-0.5 ${item.isEditable && onProductionCostEdit ? 'cursor-pointer hover:bg-orange-100 rounded px-1 -mx-1' : ''}`}
+                    onClick={(e) => {
+                      if (item.isEditable && item.id && item.date && onProductionCostEdit) {
+                        e.stopPropagation()
+                        onProductionCostEdit({
+                          id: item.id,
+                          date: item.date,
+                          category: item.item,
+                          amount: item.amount,
+                          store_id: item.store_id,
+                          scenario_id: item.scenario_id
+                        })
+                      }
+                    }}
+                  >
                     <span className="truncate text-xs">{item.scenario} / {item.item}</span>
                     <span className="whitespace-nowrap flex-shrink-0 text-xs">{formatCurrency(item.amount)}</span>
                   </div>

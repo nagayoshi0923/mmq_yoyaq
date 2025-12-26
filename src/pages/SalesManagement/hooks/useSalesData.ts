@@ -388,7 +388,8 @@ function calculateSalesData(
     type: 'income' | 'expense';
     category: string;
     amount: number;
-    scenario_id?: string;
+    scenario_id?: string | null;
+    store_id?: string | null;
   }>
 ): SalesData {
   const totalRevenue = events.reduce((sum, event) => sum + (event.revenue || 0), 0)
@@ -903,7 +904,16 @@ function calculateSalesData(
   // 制作費と必要道具の計算（発生月ベース）
   let totalProductionCost = 0
   let totalPropsCost = 0
-  const productionCostBreakdown: Array<{ item: string; amount: number; scenario: string }> = []
+  const productionCostBreakdown: Array<{ 
+    id?: string; 
+    item: string; 
+    amount: number; 
+    scenario: string;
+    date?: string;
+    store_id?: string | null;
+    scenario_id?: string | null;
+    isEditable?: boolean;
+  }> = []
   const propsCostBreakdown: Array<{ item: string; amount: number; scenario: string }> = []
 
   // 重複チェック用のSet（同じシナリオ・同じ項目の重複計上を防ぐ）
@@ -1001,9 +1011,14 @@ function calculateSalesData(
           processedProductionCosts.add(key)
           totalProductionCost += transaction.amount
           productionCostBreakdown.push({
+            id: transaction.id,
             item: transaction.category,
             amount: transaction.amount,
-            scenario: transaction.scenario_id ? (scenarioMap.get(transaction.scenario_id) || '不明') : '共通'
+            scenario: transaction.scenario_id ? (scenarioMap.get(transaction.scenario_id) || '不明') : '共通',
+            date: transaction.date,
+            store_id: transaction.store_id,
+            scenario_id: transaction.scenario_id,
+            isEditable: true  // miscTransactionsから追加されたものは編集可能
           })
         }
       }

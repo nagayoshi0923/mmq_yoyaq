@@ -395,9 +395,14 @@ export interface SalesData {
     store: string
   }>
   productionCostBreakdown: Array<{
+    id?: string  // miscTransactionsから追加されたもののみ
     item: string
     amount: number
     scenario: string
+    date?: string
+    store_id?: string | null
+    scenario_id?: string | null
+    isEditable?: boolean  // 編集可能かどうか
   }>
   propsCostBreakdown: Array<{
     item: string

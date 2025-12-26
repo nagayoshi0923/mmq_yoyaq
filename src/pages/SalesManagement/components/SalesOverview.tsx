@@ -73,6 +73,14 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   
   // 制作費ダイアログの状態管理
   const [isProductionCostDialogOpen, setIsProductionCostDialogOpen] = useState(false)
+  const [editingProductionCost, setEditingProductionCost] = useState<{
+    id: string
+    date: string
+    category: string
+    amount: number
+    store_id?: string | null
+    scenario_id?: string | null
+  } | null>(null)
   
   // 月切り替えの状態管理
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -421,7 +429,14 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           totalVariableCost={salesData.totalVariableCost}
           variableCostBreakdown={salesData.variableCostBreakdown}
           netProfit={salesData.netProfit}
-          onProductionCostClick={isFranchiseOnly ? () => setIsProductionCostDialogOpen(true) : undefined}
+          onProductionCostClick={isFranchiseOnly ? () => {
+            setEditingProductionCost(null)
+            setIsProductionCostDialogOpen(true)
+          } : undefined}
+          onProductionCostEdit={isFranchiseOnly ? (item) => {
+            setEditingProductionCost(item)
+            setIsProductionCostDialogOpen(true)
+          } : undefined}
         />
           </div>
 
@@ -484,11 +499,14 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
         />
       )}
 
-      {/* 制作費追加ダイアログ（フランチャイズ用） */}
+      {/* 制作費追加・編集ダイアログ（フランチャイズ用） */}
       {isFranchiseOnly && (
         <ProductionCostDialog
           isOpen={isProductionCostDialogOpen}
-          onClose={() => setIsProductionCostDialogOpen(false)}
+          onClose={() => {
+            setIsProductionCostDialogOpen(false)
+            setEditingProductionCost(null)
+          }}
           onSave={() => {
             // 保存後にデータをリフレッシュ
             if (onDataRefresh) {
@@ -497,6 +515,14 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           }}
           stores={stores}
           defaultStoreId={selectedStore !== 'all' ? selectedStore : undefined}
+          editingItem={editingProductionCost ? {
+            id: editingProductionCost.id,
+            date: editingProductionCost.date,
+            category: editingProductionCost.category,
+            amount: editingProductionCost.amount,
+            store_id: editingProductionCost.store_id,
+            scenario_id: editingProductionCost.scenario_id
+          } : null}
         />
       )}
     </div>
