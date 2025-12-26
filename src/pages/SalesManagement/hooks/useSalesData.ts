@@ -1025,11 +1025,16 @@ function calculateSalesData(
     })
   }
 
-  // 変動費の計算（ライセンス費用 + GM給与 + 事務手数料（フランチャイズ手数料）+ 制作費 + 道具費用）
-  const totalVariableCost = totalLicenseCost + totalGmCost + totalFranchiseFee + totalProductionCost + totalPropsCost
+  // FC料金の計算（1公演あたり1000円）
+  const FC_COST_PER_EVENT = 1000
+  const totalFcCost = totalEvents * FC_COST_PER_EVENT
+
+  // 変動費の計算（ライセンス費用 + GM給与 + FC料金 + 事務手数料（フランチャイズ手数料）+ 制作費 + 道具費用）
+  const totalVariableCost = totalLicenseCost + totalGmCost + totalFcCost + totalFranchiseFee + totalProductionCost + totalPropsCost
   const variableCostBreakdown = [
     { category: 'ライセンス費用', amount: totalLicenseCost },
     { category: 'GM給与', amount: totalGmCost },
+    { category: 'FC料金', amount: totalFcCost },
     ...(totalFranchiseFee > 0 ? [{ category: '事務手数料', amount: totalFranchiseFee }] : []),
     { category: '制作費', amount: totalProductionCost },
     { category: '必要道具', amount: totalPropsCost }
