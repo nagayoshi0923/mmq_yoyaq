@@ -396,14 +396,13 @@ export const assignmentApi = {
       return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
     }
 
-    // スタッフIDを50件ずつバッチ処理（URLサイズ制限対策）
-    const batchSize = 50
+    // 全データを取得（Supabaseのデフォルト1000件制限を回避）
     const allData: any[] = []
+    const pageSize = 1000
+    let offset = 0
+    let hasMore = true
     
-    for (let i = 0; i < staffIds.length; i += batchSize) {
-      const batchIds = staffIds.slice(i, i + batchSize)
-      console.log('🔍 バッチ取得:', batchIds.length, '件')
-      
+    while (hasMore) {
       const { data, error } = await supabase
         .from('staff_scenario_assignments')
         .select(`
@@ -413,12 +412,20 @@ export const assignmentApi = {
           can_sub_gm,
           is_experienced
         `)
-        .in('staff_id', batchIds)
-        .limit(10000)
+        .in('staff_id', staffIds)
+        .range(offset, offset + pageSize - 1)
       
-      console.log('🔍 バッチ結果:', data?.length, '件, エラー:', error)
+      console.log('🔍 ページ取得:', offset, '-', offset + pageSize - 1, '結果:', data?.length, '件')
+      
       if (error) throw error
-      if (data) allData.push(...data)
+      
+      if (data && data.length > 0) {
+        allData.push(...data)
+        offset += pageSize
+        hasMore = data.length === pageSize
+      } else {
+        hasMore = false
+      }
     }
     
     console.log('🔍 allData 総数:', allData.length)
