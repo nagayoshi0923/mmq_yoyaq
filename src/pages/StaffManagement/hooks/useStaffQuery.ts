@@ -34,7 +34,7 @@ export function useStaffQuery() {
       
       return staffWithAssignments
     },
-    staleTime: 10 * 60 * 1000, // 10分間キャッシュ（マスターデータ）
+    staleTime: 30 * 1000, // 30秒間キャッシュ
   })
 }
 
