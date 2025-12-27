@@ -237,40 +237,14 @@ export function createScenarioColumns(
             return store?.short_name || '?'
           })
           
-          const maxDisplay = 4
-          const displayed = storeNames.slice(0, maxDisplay)
-          const remaining = storeNames.length - maxDisplay
-          
-          const content = (
+          return (
             <div className="flex flex-wrap gap-0.5">
-              {displayed.map((name, i) => (
+              {storeNames.map((name, i) => (
                 <span key={i} className="text-[10px] px-1 py-0 bg-purple-50 text-purple-700 rounded-sm border border-purple-200">
                   {name}
                 </span>
               ))}
-              {remaining > 0 && (
-                <span className="text-[10px] text-muted-foreground">+{remaining}</span>
-              )}
             </div>
-          )
-          
-          if (remaining <= 0) return content
-          
-          return (
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="cursor-default">{content}</div>
-                </TooltipTrigger>
-                <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5">
-                  <div className="flex flex-col gap-0.5">
-                    {storeNames.map((name, i) => (
-                      <span key={i} className="text-xs">{name}</span>
-                    ))}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           )
         }
       },
