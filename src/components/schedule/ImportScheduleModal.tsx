@@ -161,11 +161,30 @@ const STAFF_NAME_MAPPING: Record<string, string> = {
   "IDA": "Ida"
 }
 
+// プレビュー用の型
+interface PreviewEvent {
+  date: string
+  venue: string
+  timeSlot: string
+  scenario: string
+  gms: string[]
+  category: string
+  isMemo: boolean
+  hasExisting: boolean
+}
+
 export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: ImportScheduleModalProps) {
   const [scheduleText, setScheduleText] = useState('')
   const [isImporting, setIsImporting] = useState(false)
   const [replaceExisting, setReplaceExisting] = useState(true)
   const [result, setResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null)
+  
+  // プレビュー用のステート
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewEvents, setPreviewEvents] = useState<PreviewEvent[]>([])
+  const [previewErrors, setPreviewErrors] = useState<string[]>([])
+  const [parsedEvents, setParsedEvents] = useState<any[]>([])
+  const [existingEventMap, setExistingEventMap] = useState<Map<string, any>>(new Map())
 
   // カテゴリを判定
   const determineCategory = (title: string): string => {
@@ -320,185 +339,19 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     return `2025-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
   }
 
-  // インポート処理
+  // インポート処理（プレビュー済みのデータを使用）
   const handleImport = async () => {
+    if (parsedEvents.length === 0) {
+      setResult({ success: 0, failed: 0, errors: ['インポートするデータがありません'] })
+      return
+    }
+    
     setIsImporting(true)
     setResult(null)
 
     try {
-      const lines = scheduleText.trim().split('\n')
-      const events: Array<{ date: string; venue: string; store_id: string | null; category: string; start_time: string; end_time: string; scenario?: string; gms?: string[] }> = []
       const errors: string[] = []
-
-      let currentDate = ''
-      let currentWeekday = ''
       
-      // インポート対象の月を特定（最初の日付から判定）
-      let targetMonth: { year: number; month: number } | null = null
-      
-      for (const line of lines) {
-        if (!line.trim()) continue
-        const parts = line.split('\t').map(p => p.trim())
-        if (parts.length < 2) continue
-        const dateStr = parts[0]
-        if (dateStr && dateStr.includes('/')) {
-          const dateParts = dateStr.split('/')
-          if (dateParts.length === 2) {
-            targetMonth = {
-              year: 2025,
-              month: parseInt(dateParts[0])
-            }
-            break
-          }
-        }
-      }
-      
-      // 既存イベントを取得（上書き用にIDも含む）
-      // 注: 削除はせず、既存イベントがある場合はマージ更新する
-      let existingEvents: Array<{ id: string; date: string; store_id: string | null; start_time: string; is_cancelled: boolean; scenario?: string; notes?: string; gms?: string[]; reservation_info?: string }> = []
-      if (targetMonth) {
-        try {
-          const startDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-01`
-          const endDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-31`
-          
-          const { data, error: fetchError } = await supabase
-            .from('schedule_events')
-            .select('id, date, store_id, start_time, is_cancelled, scenario, notes, gms, reservation_info')
-            .gte('date', startDate)
-            .lte('date', endDate)
-          
-          if (fetchError) {
-            logger.error('既存データの取得エラー:', fetchError)
-            errors.push(`既存データの取得に失敗: ${fetchError.message}`)
-          } else {
-            existingEvents = data || []
-          }
-        } catch (err) {
-          logger.error('既存データ取得処理エラー:', err)
-          errors.push(`既存データ取得処理エラー: ${String(err)}`)
-        }
-      }
-      
-      // 既存イベントをセルキーでインデックス化
-      const existingEventMap = new Map<string, typeof existingEvents[0]>()
-      for (const existing of existingEvents) {
-        if (existing.is_cancelled) continue
-        const key = `${existing.date}|${existing.store_id || 'null'}|${getTimeSlot(existing.start_time)}`
-        existingEventMap.set(key, existing)
-      }
-
-      for (const line of lines) {
-        if (!line.trim()) continue
-
-        const parts = line.split('\t').map(p => p.trim())
-        if (parts.length < 3) continue
-
-        // 日付が入っている場合は更新、空の場合は前の日付を使う
-        const dateStr = parts[0]
-        if (dateStr && dateStr.includes('/')) {
-          currentDate = dateStr
-          currentWeekday = parts[1] || currentWeekday
-        }
-        
-        // 日付がない場合はスキップ
-        if (!currentDate) continue
-        
-        // 店舗名のリスト（STORE_MAPPINGのキー）
-        const validVenues = Object.keys(STORE_MAPPING)
-        
-        // 店舗列を自動検出（parts[2]またはparts[3]のどちらかに店舗がある）
-        let venueIdx = -1
-        let venue = ''
-        
-        // まずparts[2]をチェック
-        if (parts[2] && validVenues.includes(parts[2])) {
-          venueIdx = 2
-          venue = parts[2]
-        } 
-        // 次にparts[3]をチェック
-        else if (parts[3] && validVenues.includes(parts[3])) {
-          venueIdx = 3
-          venue = parts[3]
-        }
-        // どちらにも店舗がない場合はスキップ
-        else {
-          continue
-        }
-        
-        // 店舗列に基づいて時間帯のインデックスを決定
-        // venueIdx = 2 の場合: 日付(0), 曜日(1), 店舗(2), 昼シナリオ(3), 昼GM(4), 夜シナリオ(5), 夜GM(6)
-        // venueIdx = 3 の場合: 日付(0), 曜日(1), 担当(2), 店舗(3), 朝(4,5), 昼(6,7), 夜(8,9)
-        
-        let timeSlots: Array<{ titleIdx: number; gmIdx: number; defaultStart: string; defaultEnd: string }>
-        
-        if (venueIdx === 2) {
-          // 新しい構造: 店舗が3列目（昼・夜のみ）
-          timeSlots = [
-            { titleIdx: 3, gmIdx: 4, defaultStart: '13:00', defaultEnd: '17:00' },
-            { titleIdx: 5, gmIdx: 6, defaultStart: '19:00', defaultEnd: '23:00' }
-          ]
-        } else {
-          // 既存の構造: 店舗が4列目（朝・昼・夜）
-          timeSlots = [
-            { titleIdx: 4, gmIdx: 5, defaultStart: '09:00', defaultEnd: '13:00' },
-            { titleIdx: 6, gmIdx: 7, defaultStart: currentWeekday === '土' || currentWeekday === '日' ? '14:00' : '13:00', defaultEnd: '18:00' },
-            { titleIdx: 8, gmIdx: 9, defaultStart: '19:00', defaultEnd: '23:00' }
-          ]
-        }
-
-        for (const slot of timeSlots) {
-          const title = parts[slot.titleIdx]
-          if (!title || title.trim() === '') continue
-
-          const gmText = parts[slot.gmIdx] || ''
-          const times = parseTimeFromTitle(title)
-          const storeId = STORE_MAPPING[venue]
-          const scenarioName = extractScenarioName(title)
-          
-          // メモかどうかを判定
-          // 条件: シナリオ名が空または短すぎる、かつ時間が指定されていない
-          const isMemo = (!scenarioName || scenarioName.length <= 1) && !times
-          
-          if (isMemo) {
-            // メモとして処理（既存イベントがあればそのnotesフィールドに追加）
-            const event = {
-              date: parseDate(currentDate),
-              venue,
-              store_id: storeId,
-              scenario: '',
-              gms: parseGmNames(gmText),
-              start_time: slot.defaultStart,
-              end_time: slot.defaultEnd,
-              category: 'memo' as const,
-              notes: title.trim(),  // 元のテキストをメモとして保存
-              is_cancelled: false,
-              organization_id: ORGANIZATION_ID,
-              _isMemo: true,  // メモフラグ（後で処理するため）
-              _memoText: title.trim()  // メモのテキストを保持
-            }
-            events.push(event)
-          } else {
-            // 通常の公演として処理
-            const event = {
-              date: parseDate(currentDate),
-              venue,
-              store_id: storeId,
-              scenario: scenarioName,
-              gms: parseGmNames(gmText),
-              start_time: times?.start || slot.defaultStart,
-              end_time: times?.end || slot.defaultEnd,
-              category: determineCategory(title),
-              reservation_info: extractReservationInfo(title),
-              notes: extractNotes(title),
-              is_cancelled: isCancelled(title),
-              organization_id: ORGANIZATION_ID,
-              _isMemo: false
-            }
-            events.push(event)
-          }
-        }
-      }
-
       // インポートデータ内での重複チェック（同じセルに2つのシナリオがある場合、最初のものを使用）
       const cellKey = (date: string, storeId: string | null, startTime: string) => 
         `${date}|${storeId || 'null'}|${getTimeSlot(startTime)}`
@@ -507,8 +360,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       const duplicatesInImport: string[] = []
       const duplicateIndices = new Set<number>()
       
-      for (let i = 0; i < events.length; i++) {
-        const event = events[i]
+      for (let i = 0; i < parsedEvents.length; i++) {
+        const event = parsedEvents[i]
         if (!event.date || event.is_cancelled) continue
         
         const key = cellKey(event.date, event.store_id, event.start_time)
@@ -526,7 +379,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       }
       
       // 重複したイベントを除外
-      const filteredEvents = events.filter((_, index) => !duplicateIndices.has(index))
+      const filteredEvents = parsedEvents.filter((_: any, index: number) => !duplicateIndices.has(index))
 
       // データベースに挿入/更新
       let successCount = 0
@@ -710,7 +563,171 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
   const handleClose = () => {
     setScheduleText('')
     setResult(null)
+    setShowPreview(false)
+    setPreviewEvents([])
+    setPreviewErrors([])
+    setParsedEvents([])
+    setExistingEventMap(new Map())
     onClose()
+  }
+  
+  // プレビュー処理（パースのみ）
+  const handlePreview = async () => {
+    setShowPreview(false)
+    setPreviewEvents([])
+    setPreviewErrors([])
+    
+    try {
+      const lines = scheduleText.trim().split('\n')
+      const events: any[] = []
+      const errors: string[] = []
+      let currentDate = ''
+      let currentWeekday = ''
+      
+      // インポート対象の月を特定
+      let targetMonth: { year: number; month: number } | null = null
+      
+      for (const line of lines) {
+        if (!line.trim()) continue
+        const parts = line.split('\t').map(p => p.trim())
+        if (parts.length < 2) continue
+        const dateStr = parts[0]
+        if (dateStr && dateStr.includes('/')) {
+          const dateParts = dateStr.split('/')
+          if (dateParts.length === 2) {
+            targetMonth = { year: 2025, month: parseInt(dateParts[0]) }
+            break
+          }
+        }
+      }
+      
+      // 既存イベントを取得
+      let existingEvents: Array<{ id: string; date: string; store_id: string | null; start_time: string; is_cancelled: boolean; scenario?: string; notes?: string; gms?: string[]; reservation_info?: string }> = []
+      if (targetMonth) {
+        const startDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-01`
+        const endDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-31`
+        
+        const { data } = await supabase
+          .from('schedule_events')
+          .select('id, date, store_id, start_time, is_cancelled, scenario, notes, gms, reservation_info')
+          .gte('date', startDate)
+          .lte('date', endDate)
+        
+        existingEvents = data || []
+      }
+      
+      // 既存イベントをセルキーでインデックス化
+      const existingMap = new Map<string, typeof existingEvents[0]>()
+      for (const existing of existingEvents) {
+        if (existing.is_cancelled) continue
+        const key = `${existing.date}|${existing.store_id || 'null'}|${getTimeSlot(existing.start_time)}`
+        existingMap.set(key, existing)
+      }
+      setExistingEventMap(existingMap)
+      
+      // 店舗名のリスト
+      const validVenues = Object.keys(STORE_MAPPING)
+      
+      // パース処理
+      for (const line of lines) {
+        if (!line.trim()) continue
+        const parts = line.split('\t').map(p => p.trim())
+        if (parts.length < 3) continue
+        
+        const dateStr = parts[0]
+        if (dateStr && dateStr.includes('/')) {
+          currentDate = dateStr
+          currentWeekday = parts[1] || currentWeekday
+        }
+        
+        if (!currentDate) continue
+        
+        // 店舗列を自動検出
+        let venueIdx = -1
+        let venue = ''
+        
+        if (parts[2] && validVenues.includes(parts[2])) {
+          venueIdx = 2
+          venue = parts[2]
+        } else if (parts[3] && validVenues.includes(parts[3])) {
+          venueIdx = 3
+          venue = parts[3]
+        } else {
+          continue
+        }
+        
+        // 時間帯インデックス
+        let timeSlots: Array<{ titleIdx: number; gmIdx: number; defaultStart: string; defaultEnd: string; slotName: string }>
+        
+        if (venueIdx === 2) {
+          timeSlots = [
+            { titleIdx: 3, gmIdx: 4, defaultStart: '13:00', defaultEnd: '17:00', slotName: '昼' },
+            { titleIdx: 5, gmIdx: 6, defaultStart: '19:00', defaultEnd: '23:00', slotName: '夜' }
+          ]
+        } else {
+          timeSlots = [
+            { titleIdx: 4, gmIdx: 5, defaultStart: '09:00', defaultEnd: '13:00', slotName: '朝' },
+            { titleIdx: 6, gmIdx: 7, defaultStart: '13:00', defaultEnd: '18:00', slotName: '昼' },
+            { titleIdx: 8, gmIdx: 9, defaultStart: '19:00', defaultEnd: '23:00', slotName: '夜' }
+          ]
+        }
+        
+        for (const slot of timeSlots) {
+          const title = parts[slot.titleIdx]
+          if (!title || title.trim() === '') continue
+          
+          const gmText = parts[slot.gmIdx] || ''
+          const times = parseTimeFromTitle(title)
+          const storeId = STORE_MAPPING[venue]
+          const scenarioName = extractScenarioName(title)
+          const isMemo = (!scenarioName || scenarioName.length <= 1) && !times
+          
+          const cellKey = `${parseDate(currentDate)}|${storeId || 'null'}|${getTimeSlot(times?.start || slot.defaultStart)}`
+          const hasExisting = existingMap.has(cellKey)
+          
+          events.push({
+            date: parseDate(currentDate),
+            venue,
+            store_id: storeId,
+            scenario: scenarioName,
+            gms: parseGmNames(gmText),
+            start_time: times?.start || slot.defaultStart,
+            end_time: times?.end || slot.defaultEnd,
+            category: isMemo ? 'memo' : determineCategory(title),
+            notes: extractNotes(title),
+            reservation_info: extractReservationInfo(title),
+            is_cancelled: isCancelled(title),
+            organization_id: ORGANIZATION_ID,
+            _isMemo: isMemo,
+            _memoText: isMemo ? title.trim() : undefined,
+            _slotName: slot.slotName,
+            _hasExisting: hasExisting,
+            _rawTitle: title
+          })
+        }
+      }
+      
+      // プレビュー用データ作成
+      const preview: PreviewEvent[] = events.map(e => ({
+        date: e.date,
+        venue: e.venue,
+        timeSlot: e._slotName,
+        scenario: e._isMemo ? `[メモ] ${e._rawTitle}` : e.scenario,
+        gms: e.gms,
+        category: e.category,
+        isMemo: e._isMemo,
+        hasExisting: e._hasExisting
+      }))
+      
+      setParsedEvents(events)
+      setPreviewEvents(preview)
+      setPreviewErrors(errors)
+      setShowPreview(true)
+      
+    } catch (error) {
+      setPreviewErrors([`解析エラー: ${error instanceof Error ? error.message : String(error)}`])
+      setShowPreview(true)
+    }
   }
 
   return (
@@ -724,35 +741,104 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              スケジュールデータ（Excel/Googleスプレッドシートからコピー）
-            </label>
-            <Textarea
-              value={scheduleText}
-              onChange={(e) => setScheduleText(e.target.value)}
-              placeholder="11/1&#9;土&#9;ジノ&#9;馬場&#9;GMテスト・エイダ（9-13)3000円&#9;渚咲(そら）🈵..."
-              className="min-h-[300px] font-mono text-xs"
-              disabled={isImporting}
-            />
-            <p className="text-xs text-gray-500 mt-2">
-              ※ スプレッドシートで範囲を選択してコピー（Ctrl+C / Cmd+C）し、ここに貼り付けてください
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="replaceExisting"
-              checked={replaceExisting}
-              onChange={(e) => setReplaceExisting(e.target.checked)}
-              disabled={isImporting}
-              className="w-4 h-4"
-            />
-            <label htmlFor="replaceExisting" className="text-sm font-medium">
-              既存の同月データを削除してから登録（推奨）
-            </label>
-          </div>
+          {!showPreview ? (
+            <>
+              {/* 入力フェーズ */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  スケジュールデータ（Excel/Googleスプレッドシートからコピー）
+                </label>
+                <Textarea
+                  value={scheduleText}
+                  onChange={(e) => setScheduleText(e.target.value)}
+                  placeholder="10/1&#9;火&#9;馬場&#9;シナリオ名（13:00-17:00）&#9;GM名&#9;夜シナリオ（19:00-22:00）&#9;夜GM..."
+                  className="min-h-[300px] font-mono text-xs"
+                  disabled={isImporting}
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  ※ スプレッドシートで範囲を選択してコピー（Ctrl+C / Cmd+C）し、ここに貼り付けてください
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* プレビューフェーズ */}
+              <div className="border rounded-lg p-3 bg-gray-50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm">インポートプレビュー</h3>
+                  <span className="text-xs text-gray-600">
+                    {previewEvents.length}件のイベント
+                    （上書き: {previewEvents.filter(e => e.hasExisting).length}件）
+                  </span>
+                </div>
+                
+                {previewErrors.length > 0 && (
+                  <Alert variant="destructive" className="mb-3">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <div className="text-xs">
+                        {previewErrors.map((err, i) => (
+                          <div key={i}>{err}</div>
+                        ))}
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="max-h-[400px] overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-gray-100">
+                      <tr>
+                        <th className="text-left p-1 border-b">日付</th>
+                        <th className="text-left p-1 border-b">店舗</th>
+                        <th className="text-left p-1 border-b">時間帯</th>
+                        <th className="text-left p-1 border-b">シナリオ</th>
+                        <th className="text-left p-1 border-b">GM</th>
+                        <th className="text-left p-1 border-b">状態</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewEvents.map((event, i) => (
+                        <tr key={i} className={event.hasExisting ? 'bg-yellow-50' : event.isMemo ? 'bg-blue-50' : ''}>
+                          <td className="p-1 border-b">{event.date}</td>
+                          <td className="p-1 border-b">{event.venue}</td>
+                          <td className="p-1 border-b">{event.timeSlot}</td>
+                          <td className="p-1 border-b truncate max-w-[200px]" title={event.scenario}>
+                            {event.scenario || '-'}
+                          </td>
+                          <td className="p-1 border-b">{event.gms.join(', ') || '-'}</td>
+                          <td className="p-1 border-b">
+                            {event.isMemo ? (
+                              <span className="text-blue-600">メモ</span>
+                            ) : event.hasExisting ? (
+                              <span className="text-yellow-600">上書き</span>
+                            ) : (
+                              <span className="text-green-600">新規</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="mt-3 flex gap-2 text-xs">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-3 h-3 bg-green-100 border border-green-300 rounded"></span>
+                    新規追加
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-3 h-3 bg-yellow-100 border border-yellow-300 rounded"></span>
+                    既存を上書き
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-3 h-3 bg-blue-100 border border-blue-300 rounded"></span>
+                    メモ
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
 
           {result && (
             <Alert variant={result.failed > 0 ? "destructive" : "default"}>
@@ -767,9 +853,9 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                 </div>
                 {result.errors.length > 0 && (
                   <div className="mt-2 max-h-40 overflow-y-auto text-xs">
-                    <div className="font-semibold mb-1">エラー詳細:</div>
+                    <div className="font-semibold mb-1">詳細:</div>
                     {result.errors.map((error, i) => (
-                      <div key={i} className="text-red-600">{error}</div>
+                      <div key={i} className={error.startsWith('ℹ️') || error.startsWith('⚠️') ? 'text-gray-600' : 'text-red-600'}>{error}</div>
                     ))}
                   </div>
                 )}
@@ -782,19 +868,38 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           <Button variant="outline" onClick={handleClose} disabled={isImporting}>
             キャンセル
           </Button>
-          <Button 
-            onClick={handleImport} 
-            disabled={!scheduleText.trim() || isImporting}
-          >
-            {isImporting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                インポート中...
-              </>
-            ) : (
-              'インポート実行'
-            )}
-          </Button>
+          
+          {!showPreview ? (
+            <Button 
+              onClick={handlePreview} 
+              disabled={!scheduleText.trim()}
+            >
+              プレビュー
+            </Button>
+          ) : (
+            <>
+              <Button 
+                variant="outline"
+                onClick={() => setShowPreview(false)}
+                disabled={isImporting}
+              >
+                戻る
+              </Button>
+              <Button 
+                onClick={handleImport} 
+                disabled={previewEvents.length === 0 || isImporting}
+              >
+                {isImporting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    インポート中...
+                  </>
+                ) : (
+                  `${previewEvents.length}件をインポート`
+                )}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
