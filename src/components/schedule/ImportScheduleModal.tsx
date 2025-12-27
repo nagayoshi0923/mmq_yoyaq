@@ -361,16 +361,16 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         }
       }
       
-      // 🚨 CRITICAL: 既存削除OFFの場合、既存イベントを取得して重複チェック用に使用
-      let existingEvents: Array<{ date: string; store_id: string | null; start_time: string; is_cancelled: boolean }> = []
-      if (!replaceExisting && targetMonth) {
+      // 既存イベントを取得（上書き用にIDも含む）
+      let existingEvents: Array<{ id: string; date: string; store_id: string | null; start_time: string; is_cancelled: boolean; scenario?: string; memo?: string }> = []
+      if (targetMonth) {
         try {
           const startDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-01`
           const endDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-31`
           
           const { data, error: fetchError } = await supabase
             .from('schedule_events')
-            .select('date, store_id, start_time, is_cancelled')
+            .select('id, date, store_id, start_time, is_cancelled, scenario, memo')
             .gte('date', startDate)
             .lte('date', endDate)
           
@@ -384,6 +384,14 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           logger.error('既存データ取得処理エラー:', err)
           errors.push(`既存データ取得処理エラー: ${String(err)}`)
         }
+      }
+      
+      // 既存イベントをセルキーでインデックス化
+      const existingEventMap = new Map<string, typeof existingEvents[0]>()
+      for (const existing of existingEvents) {
+        if (existing.is_cancelled) continue
+        const key = `${existing.date}|${existing.store_id || 'null'}|${getTimeSlot(existing.start_time)}`
+        existingEventMap.set(key, existing)
       }
 
       for (const line of lines) {
@@ -429,23 +437,49 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           const gmText = parts[slot.gmIdx] || ''
           const times = parseTimeFromTitle(title)
           const storeId = STORE_MAPPING[venue]
-
-          const event = {
-            date: parseDate(currentDate),
-            venue,
-            store_id: storeId,
-            scenario: extractScenarioName(title),
-            gms: parseGmNames(gmText),
-            start_time: times?.start || slot.defaultStart,
-            end_time: times?.end || slot.defaultEnd,
-            category: determineCategory(title),
-            reservation_info: extractReservationInfo(title),
-            notes: extractNotes(title),
-            is_cancelled: isCancelled(title),
-            organization_id: ORGANIZATION_ID
+          const scenarioName = extractScenarioName(title)
+          
+          // メモかどうかを判定
+          // 条件: シナリオ名が空または短すぎる、かつ時間が指定されていない
+          const isMemo = (!scenarioName || scenarioName.length <= 1) && !times
+          
+          if (isMemo) {
+            // メモとして処理（既存イベントがあればそのmemoフィールドに追加）
+            const event = {
+              date: parseDate(currentDate),
+              venue,
+              store_id: storeId,
+              scenario: '',
+              gms: parseGmNames(gmText),
+              start_time: slot.defaultStart,
+              end_time: slot.defaultEnd,
+              category: 'memo' as const,
+              memo: title.trim(),  // 元のテキストをメモとして保存
+              notes: extractNotes(title),
+              is_cancelled: false,
+              organization_id: ORGANIZATION_ID,
+              _isMemo: true  // メモフラグ（後で処理するため）
+            }
+            events.push(event)
+          } else {
+            // 通常の公演として処理
+            const event = {
+              date: parseDate(currentDate),
+              venue,
+              store_id: storeId,
+              scenario: scenarioName,
+              gms: parseGmNames(gmText),
+              start_time: times?.start || slot.defaultStart,
+              end_time: times?.end || slot.defaultEnd,
+              category: determineCategory(title),
+              reservation_info: extractReservationInfo(title),
+              notes: extractNotes(title),
+              is_cancelled: isCancelled(title),
+              organization_id: ORGANIZATION_ID,
+              _isMemo: false
+            }
+            events.push(event)
           }
-
-          events.push(event)
         }
       }
 
@@ -484,10 +518,11 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         return
       }
 
-      // データベースに挿入
+      // データベースに挿入/更新
       let successCount = 0
+      let updatedCount = 0
       let failedCount = 0
-      let skippedCount = 0
+      let memoCount = 0
       
       // 挿入済みのセルを追跡
       const insertedCells = new Set<string>()
@@ -509,42 +544,92 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           }
 
           const eventCellKey = cellKey(event.date, event.store_id, event.start_time)
-
-          // 🚨 CRITICAL: 既存削除OFFの場合、既存イベントとの重複チェック
-          if (!replaceExisting && event.store_id) {
-            const eventTimeSlot = getTimeSlot(event.start_time)
-            const hasConflict = existingEvents.some(existing => {
-              if (existing.is_cancelled) return false
-              if (existing.date !== event.date) return false
-              if (existing.store_id !== event.store_id) return false
-              const existingTimeSlot = getTimeSlot(existing.start_time)
-              return existingTimeSlot === eventTimeSlot
-            })
-            
-            if (hasConflict) {
-              skippedCount++
-              errors.push(`${event.date} ${event.venue} - ${event.scenario}: 同じセルに既存の公演があるためスキップしました`)
-              continue
+          
+          // 既存イベントを取得
+          const existingEvent = existingEventMap.get(eventCellKey)
+          
+          // _isMemoフラグを除去してDBに保存するデータを作成
+          const { _isMemo, ...eventData } = event
+          
+          // メモの場合の処理
+          if (_isMemo) {
+            if (existingEvent) {
+              // 既存イベントがある場合、memoフィールドに追加
+              const existingMemo = existingEvent.memo || ''
+              const newMemo = existingMemo ? `${existingMemo}\n${eventData.memo}` : eventData.memo
+              
+              const { error } = await supabase
+                .from('schedule_events')
+                .update({ memo: newMemo })
+                .eq('id', existingEvent.id)
+              
+              if (error) {
+                failedCount++
+                errors.push(`${event.date} ${event.venue}: メモ追加失敗 - ${error.message}`)
+              } else {
+                memoCount++
+              }
+            } else {
+              // 既存イベントがない場合、メモのみのイベントとして新規作成
+              const { error } = await supabase
+                .from('schedule_events')
+                .insert(eventData)
+              
+              if (error) {
+                failedCount++
+                errors.push(`${event.date} ${event.venue}: メモ作成失敗 - ${error.message}`)
+              } else {
+                memoCount++
+                insertedCells.add(eventCellKey)
+              }
             }
+            continue
           }
           
           // 今回のインポート内で既に同じセルに挿入済みの場合はスキップ
           if (insertedCells.has(eventCellKey)) {
-            skippedCount++
+            failedCount++
             errors.push(`${event.date} ${event.venue} - ${event.scenario}: 同じセルに既にインポート済みのためスキップ`)
             continue
           }
-
-          const { error } = await supabase
-            .from('schedule_events')
-            .insert(event)
-
-          if (error) {
-            failedCount++
-            errors.push(`${event.date} ${event.venue} - ${event.scenario}: ${error.message}`)
+          
+          // 通常の公演の処理
+          if (existingEvent && !replaceExisting) {
+            // 既存イベントがある場合、上書き更新（既存削除OFFの場合）
+            const { error } = await supabase
+              .from('schedule_events')
+              .update({
+                scenario: eventData.scenario,
+                gms: eventData.gms,
+                start_time: eventData.start_time,
+                end_time: eventData.end_time,
+                category: eventData.category,
+                reservation_info: eventData.reservation_info,
+                notes: eventData.notes,
+                is_cancelled: eventData.is_cancelled
+              })
+              .eq('id', existingEvent.id)
+            
+            if (error) {
+              failedCount++
+              errors.push(`${event.date} ${event.venue} - ${event.scenario}: 更新失敗 - ${error.message}`)
+            } else {
+              updatedCount++
+              insertedCells.add(eventCellKey)
+            }
           } else {
-            successCount++
-            insertedCells.add(eventCellKey)
+            // 新規挿入
+            const { error } = await supabase
+              .from('schedule_events')
+              .insert(eventData)
+
+            if (error) {
+              failedCount++
+              errors.push(`${event.date} ${event.venue} - ${event.scenario}: ${error.message}`)
+            } else {
+              successCount++
+              insertedCells.add(eventCellKey)
+            }
           }
         } catch (err) {
           failedCount++
@@ -552,7 +637,17 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         }
       }
 
-      setResult({ success: successCount, failed: failedCount, errors })
+      // 結果にすべての情報を含める
+      const totalSuccess = successCount + updatedCount + memoCount
+      const resultErrors = [...errors]
+      if (updatedCount > 0) {
+        resultErrors.unshift(`ℹ️ ${updatedCount}件の既存公演を上書き更新しました`)
+      }
+      if (memoCount > 0) {
+        resultErrors.unshift(`ℹ️ ${memoCount}件のメモを処理しました`)
+      }
+      
+      setResult({ success: totalSuccess, failed: failedCount, errors: resultErrors })
 
       if (successCount > 0) {
         setTimeout(() => {
