@@ -105,97 +105,102 @@ export function createStaffColumns(
       key: 'role',
       header: '役割',
       sortable: false,
-      width: 'w-32',
-      render: (staff) => (
-        <div className="flex flex-wrap gap-1">
-          {staff.role && staff.role.length > 0 ? (
-            <>
-              {getRoleBadges(staff.role.slice(0, 1))}
-              {staff.role.length > 1 && (
-                // @ts-ignore
-                <Badge size="sm" variant="gray" className="font-normal text-xs">
-                  +{staff.role.length - 1}
-                </Badge>
-              )}
-            </>
-          ) : (
-            <span className="text-xs text-muted-foreground">-</span>
-          )}
-        </div>
-      )
+      width: 'w-28',
+      render: (staff) => {
+        if (!staff.role || staff.role.length === 0) {
+          return <span className="text-[10px] text-muted-foreground">-</span>
+        }
+        
+        const roleLabels: Record<string, string> = {
+          'gm': 'GM',
+          'staff': 'スタッフ',
+          'admin': '管理者',
+          'sub_gm': 'サブGM'
+        }
+        
+        return (
+          <div className="flex flex-wrap gap-0.5">
+            {staff.role.map((role, index) => (
+              <span 
+                key={index} 
+                className="text-[10px] px-1 py-0 bg-gray-100 text-gray-700 rounded-sm border border-gray-200"
+              >
+                {roleLabels[role] || role}
+              </span>
+            ))}
+          </div>
+        )
+      }
     },
     {
       key: 'stores',
       header: '担当店舗',
       sortable: false,
-      width: 'w-32',
-      render: (staff) => (
-        <div className="flex flex-wrap gap-1">
-          {staff.stores && staff.stores.length > 0 ? (
-            <>
-              {staff.stores.slice(0, 1).map((storeId, index) => {
-                const storeObj = stores.find(s => s.id === storeId)
-                const storeName = storeObj ? storeObj.name : storeId
-                return (
-                  <Badge 
-                    key={index} 
-                    size="sm" 
-                    className={`font-normal text-xs border-0 ${getStoreColors(storeName)}`}
-                  >
-                    {storeName}
-                  </Badge>
-                )
-              })}
-              {staff.stores.length > 1 && (
-                // @ts-ignore
-                <Badge size="sm" variant="gray" className="font-normal text-xs">
-                  +{staff.stores.length - 1}
-                </Badge>
-              )}
-            </>
-          ) : (
-            <span className="text-xs text-muted-foreground">-</span>
-          )}
-        </div>
-      )
+      width: 'w-36',
+      render: (staff) => {
+        if (!staff.stores || staff.stores.length === 0) {
+          return <span className="text-[10px] text-muted-foreground">-</span>
+        }
+        
+        return (
+          <div className="flex flex-wrap gap-0.5">
+            {staff.stores.map((storeId, index) => {
+              const storeObj = stores.find(s => s.id === storeId)
+              const storeName = storeObj?.short_name || storeObj?.name || storeId
+              return (
+                <span 
+                  key={index} 
+                  className="text-[10px] px-1 py-0 bg-purple-50 text-purple-700 rounded-sm border border-purple-200"
+                >
+                  {storeName}
+                </span>
+              )
+            })}
+          </div>
+        )
+      }
     },
     {
       key: 'special_scenarios',
       header: 'GM可能',
       sortable: true,
-      width: 'w-64 max-w-64',
+      width: 'w-48',
       render: (staff) => {
         if (!staff.special_scenarios || staff.special_scenarios.length === 0) {
-          return <span className="text-xs text-muted-foreground">-</span>
+          return <span className="text-[10px] text-muted-foreground">-</span>
         }
+
+        const maxDisplay = 4
+        const displayed = staff.special_scenarios.slice(0, maxDisplay)
+        const remaining = staff.special_scenarios.length - maxDisplay
+
+        const content = (
+          <div className="flex flex-wrap gap-0.5">
+            {displayed.map((scenarioId, index) => (
+              <span 
+                key={index} 
+                className="text-[10px] px-1 py-0 bg-blue-50 text-blue-700 rounded-sm border border-blue-200"
+              >
+                {getScenarioName(scenarioId)}
+              </span>
+            ))}
+            {remaining > 0 && (
+              <span className="text-[10px] text-muted-foreground">+{remaining}</span>
+            )}
+          </div>
+        )
+
+        if (remaining <= 0) return content
 
         return (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 overflow-hidden cursor-pointer">
-                <div className="flex gap-1 overflow-hidden">
-                  {staff.special_scenarios.slice(0, 4).map((scenarioId, index) => (
-                    <Badge 
-                      key={index} 
-                      variant="outline"
-                      className="font-normal text-xs whitespace-nowrap flex-shrink-0 bg-blue-50 border-blue-200 text-blue-700 py-0.5 px-1.5"
-                    >
-                      {getScenarioName(scenarioId)}
-                    </Badge>
-                  ))}
-                </div>
-                {staff.special_scenarios.length > 4 && (
-                  <span className="text-xs text-muted-foreground flex-shrink-0">
-                    +{staff.special_scenarios.length - 4}
-                  </span>
-                )}
-              </div>
+              <div className="cursor-default">{content}</div>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs max-h-96 overflow-y-auto">
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-blue-700">GM可能シナリオ（全{staff.special_scenarios.length}件）:</p>
+            <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5 max-h-64 overflow-y-auto">
+              <div className="flex flex-col gap-0.5">
                 {staff.special_scenarios.map((scenarioId, index) => (
-                  <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
+                  <span key={index} className="text-xs">{getScenarioName(scenarioId)}</span>
                 ))}
               </div>
             </TooltipContent>
@@ -207,40 +212,44 @@ export function createStaffColumns(
       key: 'experienced_scenarios',
       header: '体験済み',
       sortable: true,
-      width: 'w-64 max-w-64',
+      width: 'w-48',
       render: (staff) => {
         const experiencedScenarios = staff.experienced_scenarios
         if (!experiencedScenarios || experiencedScenarios.length === 0) {
-          return <span className="text-xs text-muted-foreground">-</span>
+          return <span className="text-[10px] text-muted-foreground">-</span>
         }
+
+        const maxDisplay = 4
+        const displayed = experiencedScenarios.slice(0, maxDisplay)
+        const remaining = experiencedScenarios.length - maxDisplay
+
+        const content = (
+          <div className="flex flex-wrap gap-0.5">
+            {displayed.map((scenarioId: string, index: number) => (
+              <span 
+                key={index} 
+                className="text-[10px] px-1 py-0 bg-green-50 text-green-700 rounded-sm border border-green-200"
+              >
+                {getScenarioName(scenarioId)}
+              </span>
+            ))}
+            {remaining > 0 && (
+              <span className="text-[10px] text-muted-foreground">+{remaining}</span>
+            )}
+          </div>
+        )
+
+        if (remaining <= 0) return content
 
         return (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 overflow-hidden cursor-pointer">
-                <div className="flex gap-1 overflow-hidden">
-                  {experiencedScenarios.slice(0, 4).map((scenarioId: string, index: number) => (
-                    <Badge 
-                      key={index} 
-                      variant="outline"
-                      className="font-normal text-xs whitespace-nowrap flex-shrink-0 bg-green-50 border-green-200 text-green-700 py-0.5 px-1.5"
-                    >
-                      {getScenarioName(scenarioId)}
-                    </Badge>
-                  ))}
-                </div>
-                {experiencedScenarios.length > 4 && (
-                  <span className="text-xs text-muted-foreground flex-shrink-0">
-                    +{experiencedScenarios.length - 4}
-                  </span>
-                )}
-              </div>
+              <div className="cursor-default">{content}</div>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs max-h-96 overflow-y-auto">
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-green-700">体験済みシナリオ（全{experiencedScenarios.length}件）:</p>
+            <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5 max-h-64 overflow-y-auto">
+              <div className="flex flex-col gap-0.5">
                 {experiencedScenarios.map((scenarioId: string, index: number) => (
-                  <p key={index} className="text-xs">• {getScenarioName(scenarioId)}</p>
+                  <span key={index} className="text-xs">{getScenarioName(scenarioId)}</span>
                 ))}
               </div>
             </TooltipContent>
