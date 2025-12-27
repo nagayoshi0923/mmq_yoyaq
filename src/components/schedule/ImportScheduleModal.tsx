@@ -1021,7 +1021,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>スケジュールデータのインポート</DialogTitle>
           <DialogDescription>
@@ -1192,10 +1192,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                                 </SelectContent>
                               </Select>
                               {event.gmMappings.length > 0 && (
-                                <div className="text-[10px] text-purple-600">
-                                  {event.gmMappings.map((m, j) => (
-                                    <span key={j} className="mr-1">{m.from}→{m.to}</span>
-                                  ))}
+                                <div className="text-[10px] text-purple-600 mt-0.5">
+                                  {event.originalGms}→
                                 </div>
                               )}
                             </div>
