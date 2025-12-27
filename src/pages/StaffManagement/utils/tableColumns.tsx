@@ -170,40 +170,30 @@ export function createStaffColumns(
           return <span className="text-[10px] text-muted-foreground">-</span>
         }
 
-        const maxDisplay = 4
-        const displayed = staff.special_scenarios.slice(0, maxDisplay)
-        const remaining = staff.special_scenarios.length - maxDisplay
-
         const truncate = (name: string, max = 10) => 
           name.length > max ? name.slice(0, max) + '…' : name
         
-        const content = (
-          <div className="flex flex-wrap gap-0.5">
-            {displayed.map((scenarioId, index) => (
-              <span 
-                key={index} 
-                className="text-[10px] px-1 py-0 bg-blue-50 text-blue-700 rounded-sm border border-blue-200"
-                title={getScenarioName(scenarioId)}
-              >
-                {truncate(getScenarioName(scenarioId))}
-              </span>
-            ))}
-            {remaining > 0 && (
-              <span className="text-[10px] text-muted-foreground">+{remaining}</span>
-            )}
-          </div>
-        )
-
-        if (remaining <= 0) return content
-
+        const allScenarios = staff.special_scenarios
+        
         return (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="cursor-default">{content}</div>
+              <div className="cursor-default max-h-[2.2rem] overflow-hidden">
+                <div className="flex flex-wrap gap-0.5">
+                  {allScenarios.map((scenarioId, index) => (
+                    <span 
+                      key={index} 
+                      className="text-[10px] px-1 py-0 bg-blue-50 text-blue-700 rounded-sm border border-blue-200"
+                    >
+                      {truncate(getScenarioName(scenarioId))}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5 max-h-64 overflow-y-auto">
               <div className="flex flex-col gap-0.5">
-                {staff.special_scenarios.map((scenarioId, index) => (
+                {allScenarios.map((scenarioId, index) => (
                   <span key={index} className="text-xs">{getScenarioName(scenarioId)}</span>
                 ))}
               </div>
@@ -223,36 +213,24 @@ export function createStaffColumns(
           return <span className="text-[10px] text-muted-foreground">-</span>
         }
 
-        const maxDisplay = 4
-        const displayed = experiencedScenarios.slice(0, maxDisplay)
-        const remaining = experiencedScenarios.length - maxDisplay
-
         const truncate = (name: string, max = 10) => 
           name.length > max ? name.slice(0, max) + '…' : name
         
-        const content = (
-          <div className="flex flex-wrap gap-0.5">
-            {displayed.map((scenarioId: string, index: number) => (
-              <span 
-                key={index} 
-                className="text-[10px] px-1 py-0 bg-green-50 text-green-700 rounded-sm border border-green-200"
-                title={getScenarioName(scenarioId)}
-              >
-                {truncate(getScenarioName(scenarioId))}
-              </span>
-            ))}
-            {remaining > 0 && (
-              <span className="text-[10px] text-muted-foreground">+{remaining}</span>
-            )}
-          </div>
-        )
-
-        if (remaining <= 0) return content
-
         return (
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="cursor-default">{content}</div>
+              <div className="cursor-default max-h-[2.2rem] overflow-hidden">
+                <div className="flex flex-wrap gap-0.5">
+                  {experiencedScenarios.map((scenarioId: string, index: number) => (
+                    <span 
+                      key={index} 
+                      className="text-[10px] px-1 py-0 bg-green-50 text-green-700 rounded-sm border border-green-200"
+                    >
+                      {truncate(getScenarioName(scenarioId))}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5 max-h-64 overflow-y-auto">
               <div className="flex flex-col gap-0.5">
