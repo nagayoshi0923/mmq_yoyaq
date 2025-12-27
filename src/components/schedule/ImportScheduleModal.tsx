@@ -1329,14 +1329,14 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             キャンセル
           </Button>
           
-          {!showPreview && !isLoadingPreview ? (
+          {isLoadingPreview ? null : !showPreview ? (
             <Button 
               onClick={handlePreview} 
-              disabled={!scheduleText.trim() || isLoadingPreview}
+              disabled={!scheduleText.trim()}
             >
               プレビュー
             </Button>
-          ) : !isLoadingPreview ? (
+          ) : (
             <>
               <Button 
                 variant="outline"
