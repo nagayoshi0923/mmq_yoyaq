@@ -193,7 +193,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
   
   // マスターデータ
   const [staffList, setStaffList] = useState<Array<{ id: string; name: string }>>([])
-  const [scenarioList, setScenarioList] = useState<Array<{ id: string; unified_name: string }>>([])
+  const [scenarioList, setScenarioList] = useState<Array<{ id: string; title: string }>>([])
   
   // マスターデータを取得
   useEffect(() => {
@@ -210,8 +210,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       // シナリオ一覧を取得
       supabase
         .from('scenarios')
-        .select('id, unified_name')
-        .order('unified_name')
+        .select('id, title')
+        .order('title')
         .then(({ data }) => {
           if (data) setScenarioList(data)
         })
@@ -366,14 +366,14 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     
     // 2. シナリオリストから完全一致チェック
     for (const scenario of scenarioList) {
-      if (scenario.unified_name === normalizedInput) {
-        return scenario.unified_name
+      if (scenario.title === normalizedInput) {
+        return scenario.title
       }
     }
     
     // 3. 部分一致チェック（入力がシナリオ名を含む、またはシナリオ名が入力を含む）
     for (const scenario of scenarioList) {
-      const scenarioName = scenario.unified_name
+      const scenarioName = scenario.title
       // 入力がシナリオ名で始まる
       if (normalizedInput.startsWith(scenarioName)) {
         return scenarioName
@@ -395,7 +395,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       let bestLengthDiff = Infinity
       
       for (const scenario of scenarioList) {
-        const scenarioName = scenario.unified_name
+        const scenarioName = scenario.title
         const distance = getLevenshteinDistance(normalizedInput, scenarioName)
         const lengthDiff = Math.abs(normalizedInput.length - scenarioName.length)
         
@@ -1115,8 +1115,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                                   <SelectContent className="max-h-[300px]">
                                     <SelectItem value="__none__">（なし）</SelectItem>
                                     {scenarioList.map((s) => (
-                                      <SelectItem key={s.id} value={s.unified_name}>
-                                        {s.unified_name}
+                                      <SelectItem key={s.id} value={s.title}>
+                                        {s.title}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
