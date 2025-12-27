@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
@@ -187,6 +188,62 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
   const [previewErrors, setPreviewErrors] = useState<string[]>([])
   const [parsedEvents, setParsedEvents] = useState<any[]>([])
   const [existingEventMap, setExistingEventMap] = useState<Map<string, any>>(new Map())
+  
+  // マスターデータ
+  const [staffList, setStaffList] = useState<Array<{ id: string; name: string }>>([])
+  const [scenarioList, setScenarioList] = useState<Array<{ id: string; unified_name: string }>>([])
+  
+  // マスターデータを取得
+  useEffect(() => {
+    if (isOpen) {
+      // スタッフ一覧を取得
+      supabase
+        .from('staff')
+        .select('id, name')
+        .order('name')
+        .then(({ data }) => {
+          if (data) setStaffList(data)
+        })
+      
+      // シナリオ一覧を取得
+      supabase
+        .from('scenarios')
+        .select('id, unified_name')
+        .order('unified_name')
+        .then(({ data }) => {
+          if (data) setScenarioList(data)
+        })
+    }
+  }, [isOpen])
+  
+  // スタッフ名からマッピングを動的に生成
+  const dynamicStaffMapping = useMemo(() => {
+    const mapping: Record<string, string> = { ...STAFF_NAME_MAPPING }
+    
+    // スタッフリストから追加のマッピングを生成
+    for (const staff of staffList) {
+      const name = staff.name
+      // 名前がまだマッピングにない場合は追加
+      if (!mapping[name]) {
+        mapping[name] = name
+      }
+      // ひらがな・カタカナ変換も追加
+      const hiragana = name.replace(/[\u30A1-\u30F6]/g, (match) => 
+        String.fromCharCode(match.charCodeAt(0) - 0x60)
+      )
+      const katakana = name.replace(/[\u3041-\u3096]/g, (match) => 
+        String.fromCharCode(match.charCodeAt(0) + 0x60)
+      )
+      if (hiragana !== name && !mapping[hiragana]) {
+        mapping[hiragana] = name
+      }
+      if (katakana !== name && !mapping[katakana]) {
+        mapping[katakana] = name
+      }
+    }
+    
+    return mapping
+  }, [staffList])
 
   // カテゴリを判定
   const determineCategory = (title: string): string => {
@@ -297,11 +354,11 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     // カンマやスラッシュで分割
     const gms = text.split(/[,、/]/)
     
-    // マッピングで正規化
+    // マッピングで正規化（動的マッピングを使用）
     return gms
       .map(gm => gm.trim())
       .filter(gm => gm)
-      .map(gm => STAFF_NAME_MAPPING[gm] || gm)
+      .map(gm => dynamicStaffMapping[gm] || gm)
   }
   
   // マッピング情報付きでGM名をパース
@@ -324,7 +381,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     
     const mappings: Array<{ from: string; to: string }> = []
     const gms = rawGms.map(gm => {
-      const mapped = STAFF_NAME_MAPPING[gm]
+      // 動的マッピングを使用
+      const mapped = dynamicStaffMapping[gm]
       if (mapped && mapped !== gm) {
         mappings.push({ from: gm, to: mapped })
         return mapped
@@ -839,29 +897,111 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                     <tbody>
                       {previewEvents.map((event, i) => (
                         <tr key={i} className={event.hasExisting ? 'bg-yellow-50' : event.isMemo ? 'bg-blue-50' : ''}>
-                          <td className="p-1 border-b">{event.date}</td>
-                          <td className="p-1 border-b">{event.venue}</td>
-                          <td className="p-1 border-b">{event.timeSlot}</td>
-                          <td className="p-1 border-b truncate max-w-[200px]" title={event.scenario}>
-                            {event.scenario || '-'}
+                          <td className="p-1 border-b text-nowrap">{event.date}</td>
+                          <td className="p-1 border-b text-nowrap">{event.venue}</td>
+                          <td className="p-1 border-b text-nowrap">{event.timeSlot}</td>
+                          <td className="p-1 border-b min-w-[180px]">
+                            {event.isMemo ? (
+                              <span className="text-gray-500">{event.scenario}</span>
+                            ) : (
+                              <Select
+                                value={event.scenario || '__none__'}
+                                onValueChange={(value) => {
+                                  const newPreview = [...previewEvents]
+                                  newPreview[i] = { ...newPreview[i], scenario: value === '__none__' ? '' : value }
+                                  setPreviewEvents(newPreview)
+                                  // parsedEventsも更新
+                                  const newParsed = [...parsedEvents]
+                                  newParsed[i] = { ...newParsed[i], scenario: value === '__none__' ? '' : value }
+                                  setParsedEvents(newParsed)
+                                }}
+                              >
+                                <SelectTrigger className="h-6 text-xs">
+                                  <SelectValue placeholder="シナリオを選択" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[300px]">
+                                  <SelectItem value="__none__">（なし）</SelectItem>
+                                  {scenarioList.map((s) => (
+                                    <SelectItem key={s.id} value={s.unified_name}>
+                                      {s.unified_name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           </td>
-                          <td className="p-1 border-b">
-                            {event.gms.length > 0 ? (
-                              <div>
-                                <span>{event.gms.join(', ')}</span>
-                                {event.gmMappings.length > 0 && (
-                                  <div className="text-[10px] text-purple-600">
-                                    {event.gmMappings.map((m, j) => (
-                                      <span key={j} className="mr-1">
-                                        {m.from}→{m.to}
-                                      </span>
+                          <td className="p-1 border-b min-w-[140px]">
+                            <div className="space-y-1">
+                              {event.gms.map((gm, gmIdx) => (
+                                <Select
+                                  key={gmIdx}
+                                  value={gm || '__none__'}
+                                  onValueChange={(value) => {
+                                    const newGms = [...event.gms]
+                                    if (value === '__none__') {
+                                      newGms.splice(gmIdx, 1)
+                                    } else {
+                                      newGms[gmIdx] = value
+                                    }
+                                    const newPreview = [...previewEvents]
+                                    newPreview[i] = { ...newPreview[i], gms: newGms }
+                                    setPreviewEvents(newPreview)
+                                    // parsedEventsも更新
+                                    const newParsed = [...parsedEvents]
+                                    newParsed[i] = { ...newParsed[i], gms: newGms }
+                                    setParsedEvents(newParsed)
+                                  }}
+                                >
+                                  <SelectTrigger className="h-6 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[300px]">
+                                    <SelectItem value="__none__">（削除）</SelectItem>
+                                    {staffList.map((s) => (
+                                      <SelectItem key={s.id} value={s.name}>
+                                        {s.name}
+                                      </SelectItem>
                                     ))}
-                                  </div>
-                                )}
-                              </div>
-                            ) : '-'}
+                                  </SelectContent>
+                                </Select>
+                              ))}
+                              {/* GMを追加するボタン */}
+                              <Select
+                                value=""
+                                onValueChange={(value) => {
+                                  if (value && value !== '__add__') {
+                                    const newGms = [...event.gms, value]
+                                    const newPreview = [...previewEvents]
+                                    newPreview[i] = { ...newPreview[i], gms: newGms }
+                                    setPreviewEvents(newPreview)
+                                    // parsedEventsも更新
+                                    const newParsed = [...parsedEvents]
+                                    newParsed[i] = { ...newParsed[i], gms: newGms }
+                                    setParsedEvents(newParsed)
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="h-5 text-[10px] text-gray-400 border-dashed">
+                                  <span>+ GM追加</span>
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[300px]">
+                                  {staffList.map((s) => (
+                                    <SelectItem key={s.id} value={s.name}>
+                                      {s.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {event.gmMappings.length > 0 && (
+                                <div className="text-[10px] text-purple-600">
+                                  {event.gmMappings.map((m, j) => (
+                                    <span key={j} className="mr-1">{m.from}→{m.to}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </td>
-                          <td className="p-1 border-b">
+                          <td className="p-1 border-b text-nowrap">
                             {event.isMemo ? (
                               <span className="text-blue-600">メモ</span>
                             ) : event.hasExisting ? (
