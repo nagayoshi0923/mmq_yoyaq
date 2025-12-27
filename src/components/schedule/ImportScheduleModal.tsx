@@ -197,6 +197,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
   
   // プレビュー用のステート
   const [showPreview, setShowPreview] = useState(false)
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewEvents, setPreviewEvents] = useState<PreviewEvent[]>([])
   const [previewErrors, setPreviewErrors] = useState<string[]>([])
   const [parsedEvents, setParsedEvents] = useState<any[]>([])
@@ -864,6 +865,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     setScheduleText('')
     setResult(null)
     setShowPreview(false)
+    setIsLoadingPreview(false)
     setPreviewEvents([])
     setPreviewErrors([])
     setParsedEvents([])
@@ -876,6 +878,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     setShowPreview(false)
     setPreviewEvents([])
     setPreviewErrors([])
+    setIsLoadingPreview(true)
     
     try {
       const lines = scheduleText.trim().split('\n')
@@ -1045,10 +1048,12 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       setPreviewEvents(preview)
       setPreviewErrors(errors)
       setShowPreview(true)
+      setIsLoadingPreview(false)
       
     } catch (error) {
       setPreviewErrors([`解析エラー: ${error instanceof Error ? error.message : String(error)}`])
       setShowPreview(true)
+      setIsLoadingPreview(false)
     }
   }
 
@@ -1063,7 +1068,13 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         </DialogHeader>
 
         <div className="space-y-4">
-          {!showPreview ? (
+          {isLoadingPreview ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+              <p className="text-sm text-gray-600">データを解析中...</p>
+              <p className="text-xs text-gray-400 mt-1">シナリオとGMのマッピングを行っています</p>
+            </div>
+          ) : !showPreview ? (
             <>
               {/* 入力フェーズ */}
               <div>
@@ -1075,7 +1086,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                   onChange={(e) => setScheduleText(e.target.value)}
                   placeholder="10/1&#9;火&#9;馬場&#9;シナリオ名（13:00-17:00）&#9;GM名&#9;夜シナリオ（19:00-22:00）&#9;夜GM..."
                   className="min-h-[300px] font-mono text-xs"
-                  disabled={isImporting}
+                  disabled={isImporting || isLoadingPreview}
                 />
                 <p className="text-xs text-gray-500 mt-2">
                   ※ スプレッドシートで範囲を選択してコピー（Ctrl+C / Cmd+C）し、ここに貼り付けてください
@@ -1318,14 +1329,14 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             キャンセル
           </Button>
           
-          {!showPreview ? (
+          {!showPreview && !isLoadingPreview ? (
             <Button 
               onClick={handlePreview} 
-              disabled={!scheduleText.trim()}
+              disabled={!scheduleText.trim() || isLoadingPreview}
             >
               プレビュー
             </Button>
-          ) : (
+          ) : !isLoadingPreview ? (
             <>
               <Button 
                 variant="outline"
