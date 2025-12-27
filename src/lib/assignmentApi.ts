@@ -390,13 +390,11 @@ export const assignmentApi = {
 
   // 複数スタッフの担当シナリオ情報を一括取得（N+1問題の回避）
   async getBatchStaffAssignments(staffIds: string[]) {
-    console.log('🔍 getBatchStaffAssignments 開始, staffIds:', staffIds.length)
-    
     if (staffIds.length === 0) {
       return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
     }
 
-    // 全データを取得（Supabaseのデフォルト1000件制限を回避）
+    // 全データを取得（Supabaseのデフォルト1000件制限を回避するためページネーション）
     const allData: any[] = []
     const pageSize = 1000
     let offset = 0
@@ -415,8 +413,6 @@ export const assignmentApi = {
         .in('staff_id', staffIds)
         .range(offset, offset + pageSize - 1)
       
-      console.log('🔍 ページ取得:', offset, '-', offset + pageSize - 1, '結果:', data?.length, '件')
-      
       if (error) throw error
       
       if (data && data.length > 0) {
@@ -428,19 +424,10 @@ export const assignmentApi = {
       }
     }
     
-    console.log('🔍 allData 総数:', allData.length)
-    
-    // えいきちのデータを確認
-    const eikichiId = '7969ae8e-26c1-40e6-8dc3-1d2a0a49f637'
-    const eikichiData = allData.filter(row => row.staff_id === eikichiId)
-    console.log('🔍 えいきちのallData:', eikichiData.length, '件', eikichiData)
-    
     // クライアント側でフィルタリング（GM可能 OR 体験済み）
     const data = allData.filter(row => 
       row.can_main_gm === true || row.can_sub_gm === true || row.is_experienced === true
     )
-    
-    console.log('🔍 フィルタ後:', data.length, '件')
     
     // エラーチェック用の空変数（既存コードとの互換性）
     const error = null
