@@ -144,7 +144,21 @@ const STAFF_NAME_MAPPING: Record<string, string> = {
   "ミクミン": "みくみん",
   "小川はねか": "小川はねか",
   "はねか": "小川はねか",
-  "ハネカ": "小川はねか"
+  "ハネカ": "小川はねか",
+  // 追加のGM名
+  "サンジョウバ": "サンジョウバ",
+  "さんじょうば": "サンジョウバ",
+  "がっちゃん": "がっちゃん",
+  "ガッチャン": "がっちゃん",
+  "りえぞー": "りえぞー",
+  "リエゾー": "りえぞー",
+  "ソウタン": "ソウタン",
+  "そうたん": "ソウタン",
+  "ほがらか": "ほがらか",
+  "ホガラカ": "ほがらか",
+  "Ida": "Ida",
+  "ida": "Ida",
+  "IDA": "Ida"
 }
 
 export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: ImportScheduleModalProps) {
@@ -462,40 +476,34 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         }
       }
 
-      // 🚨 CRITICAL: インポートデータ内での重複チェック（同じセルに2つのシナリオは禁止）
+      // インポートデータ内での重複チェック（同じセルに2つのシナリオがある場合、最初のものを使用）
       const cellKey = (date: string, storeId: string | null, startTime: string) => 
         `${date}|${storeId || 'null'}|${getTimeSlot(startTime)}`
       
-      const importCellMap = new Map<string, { scenario: string; venue: string }>()
+      const importCellMap = new Map<string, { scenario: string; venue: string; index: number }>()
       const duplicatesInImport: string[] = []
+      const duplicateIndices = new Set<number>()
       
-      for (const event of events) {
+      for (let i = 0; i < events.length; i++) {
+        const event = events[i]
         if (!event.date || event.is_cancelled) continue
         
         const key = cellKey(event.date, event.store_id, event.start_time)
         const existing = importCellMap.get(key)
         
         if (existing) {
+          // 重複があっても警告のみ、最初のイベントを優先
           duplicatesInImport.push(
-            `${event.date} ${event.venue} ${getTimeSlot(event.start_time)}: 「${existing.scenario}」と「${event.scenario}」が重複`
+            `${event.date} ${event.venue} ${getTimeSlot(event.start_time)}: 「${event.scenario || '(空)'}」をスキップ（「${existing.scenario}」が既にあります）`
           )
+          duplicateIndices.add(i)
         } else {
-          importCellMap.set(key, { scenario: event.scenario || '', venue: event.venue })
+          importCellMap.set(key, { scenario: event.scenario || '', venue: event.venue, index: i })
         }
       }
       
-      // 重複がある場合はエラーとして報告し、インポートを中止
-      if (duplicatesInImport.length > 0) {
-        setResult({
-          success: 0,
-          failed: duplicatesInImport.length,
-          errors: [
-            '⚠️ インポートデータ内に重複があります。同じセルに複数のシナリオを登録することはできません。',
-            ...duplicatesInImport
-          ]
-        })
-        return
-      }
+      // 重複したイベントを除外
+      const filteredEvents = events.filter((_, index) => !duplicateIndices.has(index))
 
       // データベースに挿入/更新
       let successCount = 0
@@ -506,7 +514,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       // 挿入済みのセルを追跡
       const insertedCells = new Set<string>()
 
-      for (const event of events) {
+      for (const event of filteredEvents) {
         try {
           // 必須フィールドのチェック
           if (!event.date) {
@@ -641,6 +649,10 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       // 結果にすべての情報を含める
       const totalSuccess = successCount + updatedCount + memoCount
       const resultErrors = [...errors]
+      if (duplicatesInImport.length > 0) {
+        resultErrors.unshift(`⚠️ ${duplicatesInImport.length}件の重複をスキップしました`)
+        resultErrors.push(...duplicatesInImport)
+      }
       if (updatedCount > 0) {
         resultErrors.unshift(`ℹ️ ${updatedCount}件の既存公演を上書き更新しました`)
       }
