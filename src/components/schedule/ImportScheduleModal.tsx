@@ -18,6 +18,17 @@ interface ImportScheduleModalProps {
 // 組織ID（クインズワルツ）
 const ORGANIZATION_ID = 'a0000000-0000-0000-0000-000000000001'
 
+// 公演カテゴリ
+const CATEGORY_OPTIONS = [
+  { value: 'open', label: '募集' },
+  { value: 'private', label: '貸切' },
+  { value: 'gmtest', label: 'GMテスト' },
+  { value: 'testplay', label: 'テストプレイ' },
+  { value: 'offsite', label: '出張' },
+  { value: 'mtg', label: 'MTG' },
+  { value: 'memo', label: 'メモ' },
+]
+
 // 店舗名→store_id のマッピング
 const STORE_MAPPING: Record<string, string | null> = {
   "大久保": "bef973a7-faa2-466d-afcc-c6466f24474f",
@@ -309,19 +320,41 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       return dynamicStaffMapping[katakanaInput]
     }
     
-    // 3. 前方一致チェック
+    // 3. スタッフリストから完全一致チェック
+    for (const staff of staffList) {
+      if (staff.name === normalizedInput) {
+        return staff.name
+      }
+      // ひらがな/カタカナで一致
+      const staffHiragana = toHiragana(staff.name)
+      const staffKatakana = toKatakana(staff.name)
+      if (staffHiragana === hiraganaInput || staffKatakana === katakanaInput) {
+        return staff.name
+      }
+    }
+    
+    // 4. 前方一致・部分一致チェック
     for (const staff of staffList) {
       const staffHiragana = toHiragana(staff.name)
       const staffKatakana = toKatakana(staff.name)
       
-      if (staff.name.startsWith(normalizedInput) || 
-          staffHiragana.startsWith(hiraganaInput) ||
-          staffKatakana.startsWith(katakanaInput)) {
+      // 入力がスタッフ名で始まる
+      if (normalizedInput.startsWith(staff.name) && staff.name.length >= 2) {
         return staff.name
       }
-      if (normalizedInput.startsWith(staff.name) ||
-          hiraganaInput.startsWith(staffHiragana) ||
-          katakanaInput.startsWith(staffKatakana)) {
+      // スタッフ名が入力で始まる
+      if (staff.name.startsWith(normalizedInput) && normalizedInput.length >= 2) {
+        return staff.name
+      }
+      // ひらがな/カタカナで前方一致
+      if (hiraganaInput.startsWith(staffHiragana) && staffHiragana.length >= 2) {
+        return staff.name
+      }
+      if (staffHiragana.startsWith(hiraganaInput) && hiraganaInput.length >= 2) {
+        return staff.name
+      }
+      // 入力がスタッフ名を含む
+      if (normalizedInput.includes(staff.name) && staff.name.length >= 2) {
         return staff.name
       }
     }
@@ -1081,6 +1114,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                         <th className="text-left p-1 border-b">日付</th>
                         <th className="text-left p-1 border-b">店舗</th>
                         <th className="text-left p-1 border-b">時間帯</th>
+                        <th className="text-left p-1 border-b">カテゴリ</th>
                         <th className="text-left p-1 border-b">シナリオ</th>
                         <th className="text-left p-1 border-b">GM</th>
                         <th className="text-left p-1 border-b">状態</th>
@@ -1092,6 +1126,30 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                           <td className="p-1 border-b text-nowrap">{event.date}</td>
                           <td className="p-1 border-b text-nowrap">{event.venue}</td>
                           <td className="p-1 border-b text-nowrap">{event.timeSlot}</td>
+                          <td className="p-1 border-b min-w-[80px]">
+                            <Select
+                              value={event.category}
+                              onValueChange={(value) => {
+                                const newPreview = [...previewEvents]
+                                newPreview[i] = { ...newPreview[i], category: value }
+                                setPreviewEvents(newPreview)
+                                const newParsed = [...parsedEvents]
+                                newParsed[i] = { ...newParsed[i], category: value }
+                                setParsedEvents(newParsed)
+                              }}
+                            >
+                              <SelectTrigger className="h-6 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CATEGORY_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
                           <td className="p-1 border-b min-w-[180px]">
                             {event.isMemo ? (
                               <span className="text-gray-500">{event.scenario}</span>
