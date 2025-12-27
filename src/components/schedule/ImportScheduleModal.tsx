@@ -391,47 +391,60 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         if (!line.trim()) continue
 
         const parts = line.split('\t').map(p => p.trim())
-        if (parts.length < 4) continue
+        if (parts.length < 3) continue
 
         // 日付が入っている場合は更新、空の場合は前の日付を使う
         const dateStr = parts[0]
         if (dateStr && dateStr.includes('/')) {
           currentDate = dateStr
-          currentWeekday = parts[1]
+          currentWeekday = parts[1] || currentWeekday
         }
         
         // 日付がない場合はスキップ
         if (!currentDate) continue
         
-        const venue = parts[3]
-        if (!venue) continue
+        // 店舗名のリスト（STORE_MAPPINGのキー）
+        const validVenues = Object.keys(STORE_MAPPING)
         
-        // GM名のリスト（会場欄に誤って入っている可能性のある名前）
-        const gmNames = ['そら', 'じの', 'まつい', 'きゅう', 'りえぞー', 'つばめ', 'えりん', 'れみあ', 
-                          'しらやま', 'ぴよな', 'あんころ', 'ソルト', 'もりし', 'らぼ', 'さき', 'りんな',
-                          'ぶるそに', 'だいこん', 'ソラ', 'ツバメ', 'サンジョウバ', 'がっちゃん', 'ほがらか',
-                          'えなみ', 'Ida', 'れいにー', 'みずき', 'えいきち', 'N', 'kanade', 'BB', 'labo']
+        // 店舗列を自動検出（parts[2]またはparts[3]のどちらかに店舗がある）
+        let venueIdx = -1
+        let venue = ''
         
-        // 会場欄にGM名が入っている場合はその行をスキップ
-        if (gmNames.includes(venue) || venue.includes('→')) {
+        // まずparts[2]をチェック
+        if (parts[2] && validVenues.includes(parts[2])) {
+          venueIdx = 2
+          venue = parts[2]
+        } 
+        // 次にparts[3]をチェック
+        else if (parts[3] && validVenues.includes(parts[3])) {
+          venueIdx = 3
+          venue = parts[3]
+        }
+        // どちらにも店舗がない場合はスキップ
+        else {
           continue
         }
         
-        // 会場欄にシナリオ名らしきものが入っている場合はスキップ
-        // （シナリオ名の特徴: 括弧付き時間、絵文字、「・」で始まる、長すぎる）
-        if (venue.includes('(') || venue.includes('（') || 
-            venue.includes('✅') || venue.includes('🈵') ||
-            venue.startsWith('募・') || venue.startsWith('貸・') || venue.startsWith('出張・') ||
-            venue.length > 10) {
-          continue
+        // 店舗列に基づいて時間帯のインデックスを決定
+        // venueIdx = 2 の場合: 日付(0), 曜日(1), 店舗(2), 昼シナリオ(3), 昼GM(4), 夜シナリオ(5), 夜GM(6)
+        // venueIdx = 3 の場合: 日付(0), 曜日(1), 担当(2), 店舗(3), 朝(4,5), 昼(6,7), 夜(8,9)
+        
+        let timeSlots: Array<{ titleIdx: number; gmIdx: number; defaultStart: string; defaultEnd: string }>
+        
+        if (venueIdx === 2) {
+          // 新しい構造: 店舗が3列目（昼・夜のみ）
+          timeSlots = [
+            { titleIdx: 3, gmIdx: 4, defaultStart: '13:00', defaultEnd: '17:00' },
+            { titleIdx: 5, gmIdx: 6, defaultStart: '19:00', defaultEnd: '23:00' }
+          ]
+        } else {
+          // 既存の構造: 店舗が4列目（朝・昼・夜）
+          timeSlots = [
+            { titleIdx: 4, gmIdx: 5, defaultStart: '09:00', defaultEnd: '13:00' },
+            { titleIdx: 6, gmIdx: 7, defaultStart: currentWeekday === '土' || currentWeekday === '日' ? '14:00' : '13:00', defaultEnd: '18:00' },
+            { titleIdx: 8, gmIdx: 9, defaultStart: '19:00', defaultEnd: '23:00' }
+          ]
         }
-
-        // 時間帯別のデータを処理
-        const timeSlots = [
-          { titleIdx: 4, gmIdx: 5, defaultStart: '09:00', defaultEnd: '13:00' },
-          { titleIdx: 6, gmIdx: 7, defaultStart: currentWeekday === '土' || currentWeekday === '日' ? '14:00' : '13:00', defaultEnd: '18:00' },
-          { titleIdx: 8, gmIdx: 9, defaultStart: '19:00', defaultEnd: '23:00' }
-        ]
 
         for (const slot of timeSlots) {
           const title = parts[slot.titleIdx]
