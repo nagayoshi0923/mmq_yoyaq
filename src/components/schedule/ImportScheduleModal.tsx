@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
+import { MultiSelect } from '@/components/ui/multi-select'
 import { supabase } from '@/lib/supabase'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
@@ -17,6 +19,14 @@ interface ImportScheduleModalProps {
 
 // 組織ID（クインズワルツ）
 const ORGANIZATION_ID = 'a0000000-0000-0000-0000-000000000001'
+
+// 不正なUnicode文字（壊れたサロゲートペア）を除去する関数
+const sanitizeText = (text: string | null | undefined): string => {
+  if (!text) return ''
+  // サロゲートペアの壊れた文字を除去
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+}
 
 // 公演カテゴリ
 const CATEGORY_OPTIONS = [
@@ -182,18 +192,30 @@ interface PreviewEvent {
   originalScenario: string  // マッピング前の元のシナリオ名
   scenarioMapped: boolean  // マッピングが行われたか
   gms: string[]
+  gmRoles: Record<string, string>  // GM役割 { "GM名": "main" | "sub" | "reception" | "staff" | "observer" }
   originalGms: string  // マッピング前の元のGM入力
   gmMappings: Array<{ from: string; to: string }>  // マッピング情報
   category: string
   isMemo: boolean
   hasExisting: boolean
+  notes?: string  // メモ/備考
 }
+
+// GM役割オプション（公演ダイアログと色を統一）
+const GM_ROLE_OPTIONS = [
+  { value: 'main', label: 'メインGM', color: 'bg-gray-100 text-gray-800' },
+  { value: 'sub', label: 'サブGM', color: 'bg-blue-100 text-blue-800' },
+  { value: 'reception', label: '受付', color: 'bg-orange-100 text-orange-800' },
+  { value: 'staff', label: 'スタッフ', color: 'bg-green-100 text-green-800' },
+  { value: 'observer', label: '見学', color: 'bg-purple-100 text-purple-800' },
+]
 
 export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: ImportScheduleModalProps) {
   const [scheduleText, setScheduleText] = useState('')
   const [isImporting, setIsImporting] = useState(false)
   const [replaceExisting, setReplaceExisting] = useState(true)
   const [result, setResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null)
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null)
   
   // プレビュー用のステート
   const [showPreview, setShowPreview] = useState(false)
@@ -202,6 +224,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
   const [previewErrors, setPreviewErrors] = useState<string[]>([])
   const [parsedEvents, setParsedEvents] = useState<any[]>([])
   const [existingEventMap, setExistingEventMap] = useState<Map<string, any>>(new Map())
+  const [importTargetMonth, setImportTargetMonth] = useState<{ year: number; month: number } | null>(null)
+  const tableContainerRef = useRef<HTMLDivElement>(null)
   
   // マスターデータ
   const [staffList, setStaffList] = useState<Array<{ id: string; name: string }>>([])
@@ -244,30 +268,6 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     )
   }
   
-  // 文字列の類似度を計算（レーベンシュタイン距離）
-  const getLevenshteinDistance = (a: string, b: string): number => {
-    const matrix: number[][] = []
-    for (let i = 0; i <= b.length; i++) {
-      matrix[i] = [i]
-    }
-    for (let j = 0; j <= a.length; j++) {
-      matrix[0][j] = j
-    }
-    for (let i = 1; i <= b.length; i++) {
-      for (let j = 1; j <= a.length; j++) {
-        if (b.charAt(i - 1) === a.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1]
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          )
-        }
-      }
-    }
-    return matrix[b.length][a.length]
-  }
   
   // スタッフ名からマッピングを動的に生成
   const dynamicStaffMapping = useMemo(() => {
@@ -300,14 +300,35 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
   }, [staffList])
   
   // 類似度マッチングでスタッフ名を検索
+  // マッチング結果のキャッシュ
+  const staffMatchCache = useMemo(() => new Map<string, string | null>(), [])
+  const scenarioMatchCache = useMemo(() => new Map<string, string | null>(), [])
+  
+  // SearchableSelect用のオプション
+  const scenarioOptions = useMemo(() => [
+    { value: '__none__', label: '（なし）' },
+    ...scenarioList.map(s => ({ value: s.title, label: s.title }))
+  ], [scenarioList])
+  
   const findBestStaffMatch = (input: string): string | null => {
     if (!input || input.length === 0) return null
     
     const normalizedInput = input.trim()
     
+    // キャッシュをチェック
+    if (staffMatchCache.has(normalizedInput)) {
+      return staffMatchCache.get(normalizedInput) || null
+    }
+    
+    // ヘルパー関数：結果をキャッシュに保存して返す
+    const cacheAndReturn = (result: string | null): string | null => {
+      staffMatchCache.set(normalizedInput, result)
+      return result
+    }
+    
     // 1. 完全一致チェック（動的マッピング）
     if (dynamicStaffMapping[normalizedInput]) {
-      return dynamicStaffMapping[normalizedInput]
+      return cacheAndReturn(dynamicStaffMapping[normalizedInput])
     }
     
     // 2. ひらがな/カタカナ変換して完全一致チェック
@@ -315,22 +336,22 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     const katakanaInput = toKatakana(normalizedInput)
     
     if (dynamicStaffMapping[hiraganaInput]) {
-      return dynamicStaffMapping[hiraganaInput]
+      return cacheAndReturn(dynamicStaffMapping[hiraganaInput])
     }
     if (dynamicStaffMapping[katakanaInput]) {
-      return dynamicStaffMapping[katakanaInput]
+      return cacheAndReturn(dynamicStaffMapping[katakanaInput])
     }
     
     // 3. スタッフリストから完全一致チェック
     for (const staff of staffList) {
       if (staff.name === normalizedInput) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
       // ひらがな/カタカナで一致
       const staffHiragana = toHiragana(staff.name)
       const staffKatakana = toKatakana(staff.name)
       if (staffHiragana === hiraganaInput || staffKatakana === katakanaInput) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
     }
     
@@ -341,67 +362,46 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       
       // 入力がスタッフ名で始まる
       if (normalizedInput.startsWith(staff.name) && staff.name.length >= 2) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
       // スタッフ名が入力で始まる
       if (staff.name.startsWith(normalizedInput) && normalizedInput.length >= 2) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
       // ひらがな/カタカナで前方一致
       if (hiraganaInput.startsWith(staffHiragana) && staffHiragana.length >= 2) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
       if (staffHiragana.startsWith(hiraganaInput) && hiraganaInput.length >= 2) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
       if (katakanaInput.startsWith(staffKatakana) && staffKatakana.length >= 2) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
       if (staffKatakana.startsWith(katakanaInput) && katakanaInput.length >= 2) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
       // 入力がスタッフ名を含む
       if (normalizedInput.includes(staff.name) && staff.name.length >= 2) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
       // スタッフ名が入力を含む（逆方向）
       if (staff.name.includes(normalizedInput) && normalizedInput.length >= 2) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
       // ひらがな/カタカナで部分一致
       if (hiraganaInput.includes(staffHiragana) && staffHiragana.length >= 2) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
       if (staffHiragana.includes(hiraganaInput) && hiraganaInput.length >= 2) {
-        return staff.name
+        return cacheAndReturn(staff.name)
       }
     }
     
-    // 5. 類似度マッチング（2文字以上）
-    if (normalizedInput.length >= 2 && staffList.length > 0) {
-      let bestMatch: string | null = null
-      let bestDistance = Infinity
-      
-      for (const staff of staffList) {
-        // ひらがな化して比較
-        const staffHiragana = toHiragana(staff.name)
-        const distance = getLevenshteinDistance(hiraganaInput, staffHiragana)
-        
-        // 類似度閾値: より緩く、入力と名前の長さに応じて調整
-        const maxLen = Math.max(normalizedInput.length, staff.name.length)
-        const threshold = Math.max(2, Math.floor(maxLen / 2))
-        
-        if (distance <= threshold && distance < bestDistance) {
-          bestDistance = distance
-          bestMatch = staff.name
-        }
-      }
-      
-      if (bestMatch) {
-        return bestMatch
-      }
-    }
+    // 類似度マッチングは削除（パフォーマンス改善のため）
+    // 上記の完全一致・部分一致で見つからない場合はnullを返す
     
+    staffMatchCache.set(normalizedInput, null)
     return null
   }
   
@@ -411,14 +411,22 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     
     const normalizedInput = input.trim()
     
+    // キャッシュをチェック
+    if (scenarioMatchCache.has(normalizedInput)) {
+      return scenarioMatchCache.get(normalizedInput) || null
+    }
+    
     // 1. 静的マッピングチェック
     if (SCENARIO_NAME_MAPPING[normalizedInput]) {
-      return SCENARIO_NAME_MAPPING[normalizedInput]
+      const result = SCENARIO_NAME_MAPPING[normalizedInput]
+      scenarioMatchCache.set(normalizedInput, result)
+      return result
     }
     
     // 2. シナリオリストから完全一致チェック
     for (const scenario of scenarioList) {
       if (scenario.title === normalizedInput) {
+        scenarioMatchCache.set(normalizedInput, scenario.title)
         return scenario.title
       }
     }
@@ -428,47 +436,25 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       const scenarioName = scenario.title
       // 入力がシナリオ名で始まる
       if (normalizedInput.startsWith(scenarioName)) {
+        scenarioMatchCache.set(normalizedInput, scenarioName)
         return scenarioName
       }
       // シナリオ名が入力で始まる（短い入力でも長いシナリオ名にマッチ）
       if (scenarioName.startsWith(normalizedInput) && normalizedInput.length >= 3) {
+        scenarioMatchCache.set(normalizedInput, scenarioName)
         return scenarioName
       }
       // 入力がシナリオ名を含む
       if (normalizedInput.includes(scenarioName) && scenarioName.length >= 3) {
+        scenarioMatchCache.set(normalizedInput, scenarioName)
         return scenarioName
       }
     }
     
-    // 4. 類似度マッチング（3文字以上）
-    if (normalizedInput.length >= 3 && scenarioList.length > 0) {
-      let bestMatch: string | null = null
-      let bestDistance = Infinity
-      let bestLengthDiff = Infinity
-      
-      for (const scenario of scenarioList) {
-        const scenarioName = scenario.title
-        const distance = getLevenshteinDistance(normalizedInput, scenarioName)
-        const lengthDiff = Math.abs(normalizedInput.length - scenarioName.length)
-        
-        // 類似度閾値: 入力文字数の1/3以下の編集距離なら候補
-        const threshold = Math.max(2, Math.floor(normalizedInput.length / 3))
-        
-        if (distance <= threshold) {
-          // 同じ編集距離なら長さが近いものを優先
-          if (distance < bestDistance || (distance === bestDistance && lengthDiff < bestLengthDiff)) {
-            bestDistance = distance
-            bestLengthDiff = lengthDiff
-            bestMatch = scenarioName
-          }
-        }
-      }
-      
-      if (bestMatch) {
-        return bestMatch
-      }
-    }
+    // 類似度マッチングは削除（パフォーマンス改善のため）
+    // 上記の完全一致・部分一致で見つからない場合はnullを返す
     
+    scenarioMatchCache.set(normalizedInput, null)
     return null
   }
 
@@ -660,13 +646,33 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
 
   // インポート処理（プレビュー済みのデータを使用）
   const handleImport = async () => {
-    if (parsedEvents.length === 0) {
+    if (previewEvents.length === 0) {
       setResult({ success: 0, failed: 0, errors: ['インポートするデータがありません'] })
       return
     }
     
     setIsImporting(true)
     setResult(null)
+    
+    // previewEventsの変更をparsedEventsにマージ
+    const mergedEvents = parsedEvents.map((event, i) => {
+      const preview = previewEvents[i]
+      if (!preview) return event
+      return {
+        ...event,
+        scenario: preview.scenario,
+        gms: preview.gms,
+        category: preview.category,
+        notes: preview.notes || event.notes,
+        isMemo: preview.isMemo,
+        gm_roles: preview.gmRoles
+      }
+    })
+    
+    setImportProgress({ current: 0, total: mergedEvents.length })
+
+    // UIが更新されるのを待つ
+    await new Promise(resolve => setTimeout(resolve, 50))
 
     try {
       const errors: string[] = []
@@ -679,8 +685,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       const duplicatesInImport: string[] = []
       const duplicateIndices = new Set<number>()
       
-      for (let i = 0; i < parsedEvents.length; i++) {
-        const event = parsedEvents[i]
+      for (let i = 0; i < mergedEvents.length; i++) {
+        const event = mergedEvents[i]
         if (!event.date || event.is_cancelled) continue
         
         const key = cellKey(event.date, event.store_id, event.start_time)
@@ -698,7 +704,71 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       }
       
       // 重複したイベントを除外
-      const filteredEvents = parsedEvents.filter((_: any, index: number) => !duplicateIndices.has(index))
+      const filteredEvents = mergedEvents.filter((_: any, index: number) => !duplicateIndices.has(index))
+
+      // 既存データを削除するオプションが有効な場合
+      let deletedCount = 0
+      if (replaceExisting && importTargetMonth) {
+        const startDate = `${importTargetMonth.year}-${String(importTargetMonth.month).padStart(2, '0')}-01`
+        // 月末日を正しく計算（翌月の0日 = 当月の最終日）
+        const lastDay = new Date(importTargetMonth.year, importTargetMonth.month, 0).getDate()
+        const endDate = `${importTargetMonth.year}-${String(importTargetMonth.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+        
+        console.log(`🗑️ 削除対象期間: ${startDate} 〜 ${endDate}`)
+        
+        // まず対象月のschedule_eventsのIDを取得
+        const { data: eventsToDelete, error: fetchError } = await supabase
+          .from('schedule_events')
+          .select('id')
+          .gte('date', startDate)
+          .lte('date', endDate)
+        
+        if (fetchError) {
+          setResult({ success: 0, failed: 0, errors: [`❌ 既存データ取得エラー: ${fetchError.message}`] })
+          setIsImporting(false)
+          return
+        }
+        
+        console.log(`🗑️ 削除対象イベント数: ${eventsToDelete?.length || 0}件`)
+        
+        if (eventsToDelete && eventsToDelete.length > 0) {
+          const eventIds = eventsToDelete.map(e => e.id)
+          
+          // バッチサイズ（Supabaseの制限対策）
+          const BATCH_SIZE = 100
+          
+          // 関連するreservationsを先に削除（外部キー制約対策）
+          for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+            const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+            const { error: resDeleteError } = await supabase
+              .from('reservations')
+              .delete()
+              .in('schedule_event_id', batchIds)
+            
+            if (resDeleteError) {
+              console.warn('予約削除警告:', resDeleteError.message)
+            }
+          }
+          
+          // schedule_eventsを削除
+          for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+            const batchIds = eventIds.slice(i, i + BATCH_SIZE)
+            const { error: deleteError } = await supabase
+              .from('schedule_events')
+              .delete()
+              .in('id', batchIds)
+            
+            if (deleteError) {
+              setResult({ success: 0, failed: 0, errors: [`❌ 既存データ削除エラー: ${deleteError.message}。インポートを中止しました。`] })
+              setIsImporting(false)
+              return
+            }
+          }
+          
+          deletedCount = eventIds.length
+          console.log(`✅ ${deletedCount}件の既存イベントを削除しました`)
+        }
+      }
 
       // データベースに挿入/更新
       let successCount = 0
@@ -707,147 +777,230 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       let memoCount = 0
       
       // 挿入済みのセルを追跡
-      const insertedCells = new Set<string>()
-
+      const processedCells = new Set<string>()
+      
+      // イベントを分類
+      const newInserts: any[] = []
+      const updates: Array<{ id: string; data: any; label: string }>  = []
+      const memoUpdates: Array<{ id: string; notes: string; label: string }> = []
+      const memoInserts: any[] = []
+      
+      setImportProgress({ current: 0, total: filteredEvents.length })
+      await new Promise(resolve => setTimeout(resolve, 0))
+      
+      let eventIdx = 0
       for (const event of filteredEvents) {
-        try {
-          // 必須フィールドのチェック
-          if (!event.date) {
-            failedCount++
-            errors.push(`${event.venue} - ${event.scenario}: 日付が不正です`)
-            continue
-          }
-          
-          // 店舗がマッピングに存在しない場合はスキップ（警告のみ）
-          if (event.store_id === undefined && !(event.venue in STORE_MAPPING)) {
-            // 店舗名が明らかにパースエラーの場合（シナリオ名っぽい）はサイレントスキップ
-            if (event.venue.includes('(') || event.venue.includes('✅') || 
-                event.venue.length > 15 || event.venue.startsWith('募') || event.venue.startsWith('貸')) {
-              continue
-            }
-            errors.push(`⚠️ ${event.date} ${event.venue}: 店舗不明のためスキップ`)
-            continue
-          }
-
-          const eventCellKey = cellKey(event.date, event.store_id, event.start_time)
-          
-          // 既存イベントを取得
-          const existingEvent = existingEventMap.get(eventCellKey)
-          
-          // _isMemo, _memoTextフラグを除去してDBに保存するデータを作成
-          const { _isMemo, _memoText, ...eventData } = event as typeof event & { _memoText?: string }
-          
-          // メモの場合の処理
-          if (_isMemo) {
-            if (existingEvent) {
-              // 既存イベントがある場合、notesフィールドに追加
-              const existingNotes = existingEvent.notes || ''
-              const newNotes = existingNotes ? `${existingNotes}\n${_memoText}` : _memoText
-              
-              const { error } = await supabase
-                .from('schedule_events')
-                .update({ notes: newNotes })
-                .eq('id', existingEvent.id)
-              
-              if (error) {
-                failedCount++
-                errors.push(`${event.date} ${event.venue}: メモ追加失敗 - ${error.message}`)
-              } else {
-                memoCount++
-              }
-            } else {
-              // 既存イベントがない場合、メモのみのイベントとして新規作成
-              const { error } = await supabase
-                .from('schedule_events')
-                .insert(eventData)
-              
-              if (error) {
-                failedCount++
-                errors.push(`${event.date} ${event.venue}: メモ作成失敗 - ${error.message}`)
-              } else {
-                memoCount++
-                insertedCells.add(eventCellKey)
-              }
-            }
-            continue
-          }
-          
-          // 今回のインポート内で既に同じセルに挿入済みの場合はスキップ
-          if (insertedCells.has(eventCellKey)) {
-            failedCount++
-            errors.push(`${event.date} ${event.venue} - ${event.scenario}: 同じセルに既にインポート済みのためスキップ`)
-            continue
-          }
-          
-          // 通常の公演の処理
-          if (existingEvent) {
-            // 既存イベントがある場合、情報をマージして更新
-            
-            // GM情報のマージ: インポートにGMがあればそれを使用、なければ既存を保持
-            const mergedGms = (eventData.gms && eventData.gms.length > 0)
-              ? eventData.gms
-              : (existingEvent.gms || [])
-            
-            // シナリオ: インポートにあればそれを使用、なければ既存を保持
-            const mergedScenario = eventData.scenario || existingEvent.scenario || ''
-            
-            // 予約情報: インポートにあればそれを使用、なければ既存を保持
-            const mergedReservationInfo = eventData.reservation_info || existingEvent.reservation_info
-            
-            // notes: 両方あればマージ、片方だけならそれを使用
-            const mergedNotes = (() => {
-              const importNotes = eventData.notes || ''
-              const existingNotes = existingEvent.notes || ''
-              if (importNotes && existingNotes && importNotes !== existingNotes) {
-                return `${existingNotes}\n${importNotes}`
-              }
-              return importNotes || existingNotes
-            })()
-            
-            const { error } = await supabase
-              .from('schedule_events')
-              .update({
-                scenario: mergedScenario,
-                gms: mergedGms,
-                start_time: eventData.start_time,
-                end_time: eventData.end_time,
-                category: eventData.category,
-                reservation_info: mergedReservationInfo,
-                notes: mergedNotes,
-                is_cancelled: eventData.is_cancelled
-              })
-              .eq('id', existingEvent.id)
-            
-            if (error) {
-              failedCount++
-              errors.push(`${event.date} ${event.venue} - ${event.scenario}: 更新失敗 - ${error.message}`)
-            } else {
-              updatedCount++
-              insertedCells.add(eventCellKey)
-            }
-          } else {
-            // 新規挿入
-            const { error } = await supabase
-              .from('schedule_events')
-              .insert(eventData)
-
-            if (error) {
-              failedCount++
-              errors.push(`${event.date} ${event.venue} - ${event.scenario}: ${error.message}`)
-            } else {
-              successCount++
-              insertedCells.add(eventCellKey)
-            }
-          }
-        } catch (err) {
+        eventIdx++
+        // 5件ごとにUIスレッドに制御を戻す（16msでアニメーションフレームを確保）
+        if (eventIdx % 5 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 16))
+        }
+        
+        // 必須フィールドのチェック
+        if (!event.date) {
           failedCount++
-          errors.push(`${event.date} ${event.venue} - ${event.scenario}: ${String(err)}`)
+          errors.push(`${event.venue} - ${event.scenario}: 日付が不正です`)
+          continue
+        }
+        
+        // 店舗がマッピングに存在しない場合はスキップ
+        if (event.store_id === undefined && !(event.venue in STORE_MAPPING)) {
+          if (event.venue.includes('(') || event.venue.includes('✅') || 
+              event.venue.length > 15 || event.venue.startsWith('募') || event.venue.startsWith('貸')) {
+            continue
+          }
+          errors.push(`⚠️ ${event.date} ${event.venue}: 店舗不明のためスキップ`)
+          continue
+        }
+
+        const eventCellKey = cellKey(event.date, event.store_id, event.start_time)
+        
+        // 今回のインポート内で既に同じセルを処理済みの場合はスキップ
+        if (processedCells.has(eventCellKey)) {
+          continue
+        }
+        processedCells.add(eventCellKey)
+        
+        // replaceExistingがtrueの場合は既存イベントを無視（削除済みのため）
+        const existingEvent = replaceExisting ? null : existingEventMap.get(eventCellKey)
+        // 内部用フィールドを除去してDBに保存するデータを作成
+        // 必要なフィールドのみを明示的に抽出（文字列はサニタイズ）
+        const _isMemo = (event as any)._isMemo
+        const _memoText = sanitizeText((event as any)._memoText)
+        
+        // DBで許可されているカテゴリのみを使用
+        const VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package']
+        const mappedCategory = VALID_CATEGORIES.includes(event.category) ? event.category : 'open'
+        
+        const eventData: any = {
+          date: event.date,
+          venue: sanitizeText(event.venue), // venueは必須
+          store_id: event.store_id,
+          scenario: sanitizeText(event.scenario),
+          gms: Array.isArray(event.gms) ? event.gms.map(sanitizeText) : [],
+          gm_roles: event.gmRoles || {},
+          start_time: event.start_time,
+          end_time: event.end_time,
+          category: mappedCategory,
+          notes: sanitizeText(event.notes),
+          reservation_info: sanitizeText(event.reservation_info),
+          is_cancelled: event.is_cancelled,
+          organization_id: event.organization_id
+        }
+        
+        // undefined のフィールドを除去
+        Object.keys(eventData).forEach(key => {
+          if (eventData[key] === undefined) {
+            delete eventData[key]
+          }
+        })
+        
+        // メモの場合
+        if (_isMemo) {
+          if (existingEvent && !replaceExisting) {
+            const existingNotes = existingEvent.notes || ''
+            const newNotes = existingNotes ? `${existingNotes}\n${_memoText}` : _memoText
+            memoUpdates.push({ id: existingEvent.id, notes: newNotes || '', label: `${event.date} ${event.venue}` })
+          } else {
+            memoInserts.push(eventData)
+          }
+          continue
+        }
+        
+        // 通常の公演
+        if (existingEvent && !replaceExisting) {
+          const mergedGms = (eventData.gms && eventData.gms.length > 0) ? eventData.gms : (existingEvent.gms || [])
+          const mergedScenario = eventData.scenario || existingEvent.scenario || ''
+          const mergedReservationInfo = eventData.reservation_info || existingEvent.reservation_info
+          const importNotes = eventData.notes || ''
+          const existingNotes = existingEvent.notes || ''
+          const mergedNotes = (importNotes && existingNotes && importNotes !== existingNotes)
+            ? `${existingNotes}\n${importNotes}`
+            : (importNotes || existingNotes)
+          
+          updates.push({
+            id: existingEvent.id,
+            data: {
+              scenario: mergedScenario,
+              gms: mergedGms,
+              start_time: eventData.start_time,
+              end_time: eventData.end_time,
+              category: eventData.category,
+              reservation_info: mergedReservationInfo,
+              notes: mergedNotes,
+              is_cancelled: eventData.is_cancelled
+            },
+            label: `${event.date} ${event.venue} - ${event.scenario}`
+          })
+        } else {
+          newInserts.push(eventData)
+        }
+      }
+      
+      // デバッグログ
+      console.log('📊 インポート分類結果:', {
+        newInserts: newInserts.length,
+        updates: updates.length,
+        memoUpdates: memoUpdates.length,
+        memoInserts: memoInserts.length,
+        filteredEvents: filteredEvents.length
+      })
+      
+      if (newInserts.length > 0) {
+        console.log('📝 新規挿入データサンプル:', newInserts[0])
+      }
+      
+      // 1. 新規挿入（バッチ）
+      if (newInserts.length > 0) {
+        setImportProgress({ current: 0, total: newInserts.length + updates.length + memoUpdates.length + memoInserts.length })
+        await new Promise(resolve => setTimeout(resolve, 0))
+        
+        const { error, data } = await supabase
+          .from('schedule_events')
+          .insert(newInserts)
+          .select()
+        
+        console.log('📥 新規挿入結果:', { error, insertedCount: data?.length })
+        
+        if (error) {
+          console.error('❌ 新規挿入エラー詳細:', JSON.stringify(error, null, 2))
+          console.error('❌ 挿入しようとしたデータ (最初の3件):', newInserts.slice(0, 3))
+          failedCount += newInserts.length
+          errors.push(`新規挿入エラー: ${error.message}`)
+        } else {
+          successCount += newInserts.length
+        }
+      }
+      
+      // 2. 更新（並列で10件ずつ）
+      const BATCH_SIZE = 10
+      for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+        setImportProgress({ current: newInserts.length + i, total: newInserts.length + updates.length + memoUpdates.length + memoInserts.length })
+        
+        const batch = updates.slice(i, i + BATCH_SIZE)
+        const results = await Promise.all(
+          batch.map(u => 
+            supabase
+              .from('schedule_events')
+              .update(u.data)
+              .eq('id', u.id)
+              .then(({ error }) => ({ error, label: u.label }))
+          )
+        )
+        
+        for (const r of results) {
+          if (r.error) {
+            failedCount++
+            errors.push(`${r.label}: 更新失敗 - ${r.error.message}`)
+          } else {
+            updatedCount++
+          }
+        }
+      }
+      
+      // 3. メモ更新（並列で10件ずつ）
+      for (let i = 0; i < memoUpdates.length; i += BATCH_SIZE) {
+        const batch = memoUpdates.slice(i, i + BATCH_SIZE)
+        const results = await Promise.all(
+          batch.map(m => 
+            supabase
+              .from('schedule_events')
+              .update({ notes: m.notes })
+              .eq('id', m.id)
+              .then(({ error }) => ({ error, label: m.label }))
+          )
+        )
+        
+        for (const r of results) {
+          if (r.error) {
+            failedCount++
+            errors.push(`${r.label}: メモ追加失敗 - ${r.error.message}`)
+          } else {
+            memoCount++
+          }
+        }
+      }
+      
+      // 4. メモ新規挿入（バッチ）
+      if (memoInserts.length > 0) {
+        const { error } = await supabase
+          .from('schedule_events')
+          .insert(memoInserts)
+        
+        if (error) {
+          failedCount += memoInserts.length
+          errors.push(`メモ作成エラー: ${error.message}`)
+        } else {
+          memoCount += memoInserts.length
         }
       }
 
       // 結果にすべての情報を含める
       const totalSuccess = successCount + updatedCount + memoCount
       const resultErrors = [...errors]
+      if (deletedCount > 0) {
+        resultErrors.unshift(`🗑️ ${deletedCount}件の既存データを削除しました`)
+      }
       if (duplicatesInImport.length > 0) {
         resultErrors.unshift(`⚠️ ${duplicatesInImport.length}件の重複をスキップしました`)
         resultErrors.push(...duplicatesInImport)
@@ -861,10 +1014,10 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       
       setResult({ success: totalSuccess, failed: failedCount, errors: resultErrors })
 
-      if (successCount > 0) {
+      if (totalSuccess > 0) {
         setTimeout(() => {
           // インポート対象の月を通知して、その月に切り替えられるようにする
-          onImportComplete(targetMonth || undefined)
+          onImportComplete(importTargetMonth || undefined)
           handleClose()
         }, 2000)
       }
@@ -876,6 +1029,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       })
     } finally {
       setIsImporting(false)
+      setImportProgress(null)
     }
   }
 
@@ -888,6 +1042,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     setPreviewErrors([])
     setParsedEvents([])
     setExistingEventMap(new Map())
+    setImportTargetMonth(null)
     onClose()
   }
   
@@ -902,7 +1057,61 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     await new Promise(resolve => setTimeout(resolve, 50))
     
     try {
-      const lines = scheduleText.trim().split('\n')
+      // セル内改行を含むTSVを正しくパースする（行を分割）
+      const parseTsvLines = (text: string): string[] => {
+        const result: string[] = []
+        let currentLine = ''
+        let inQuotes = false
+        
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i]
+          
+          if (char === '"') {
+            inQuotes = !inQuotes
+            currentLine += char
+          } else if (char === '\n' && !inQuotes) {
+            result.push(currentLine)
+            currentLine = ''
+          } else {
+            currentLine += char
+          }
+        }
+        
+        if (currentLine) {
+          result.push(currentLine)
+        }
+        
+        return result
+      }
+      
+      // 行をタブ区切りでセルに分割（ダブルクォート内のタブも考慮）
+      const parseTsvCells = (line: string): string[] => {
+        const cells: string[] = []
+        let currentCell = ''
+        let inQuotes = false
+        
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i]
+          
+          if (char === '"') {
+            inQuotes = !inQuotes
+            // ダブルクォートは含めない（後で除去）
+          } else if (char === '\t' && !inQuotes) {
+            // セル内改行を空白に置換してトリム
+            cells.push(currentCell.replace(/\n/g, ' ').trim())
+            currentCell = ''
+          } else {
+            currentCell += char
+          }
+        }
+        
+        // 最後のセル
+        cells.push(currentCell.replace(/\n/g, ' ').trim())
+        
+        return cells
+      }
+      
+      const lines = parseTsvLines(scheduleText.trim())
       const events: any[] = []
       const errors: string[] = []
       let currentDate = ''
@@ -910,26 +1119,47 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       
       // インポート対象の月を特定
       let targetMonth: { year: number; month: number } | null = null
+      const currentYear = new Date().getFullYear()
+      const currentMonth = new Date().getMonth() + 1
       
       for (const line of lines) {
         if (!line.trim()) continue
-        const parts = line.split('\t').map(p => p.trim())
+        const parts = parseTsvCells(line)
         if (parts.length < 2) continue
         const dateStr = parts[0]
         if (dateStr && dateStr.includes('/')) {
           const dateParts = dateStr.split('/')
           if (dateParts.length === 2) {
-            targetMonth = { year: 2025, month: parseInt(dateParts[0]) }
+            const month = parseInt(dateParts[0])
+            // 月から年を推測：現在の月より4ヶ月以上先なら前年、それ以外は今年
+            const year = (month > currentMonth + 4) ? currentYear - 1 : currentYear
+            targetMonth = { year, month }
+            break
+          } else if (dateParts.length === 3) {
+            // YYYY/MM/DD または MM/DD/YYYY 形式
+            const first = parseInt(dateParts[0])
+            if (first > 100) {
+              // YYYY/MM/DD
+              targetMonth = { year: first, month: parseInt(dateParts[1]) }
+            } else {
+              // MM/DD/YYYY
+              targetMonth = { year: parseInt(dateParts[2]), month: first }
+            }
             break
           }
         }
       }
       
+      // ターゲット月をステートに保存
+      setImportTargetMonth(targetMonth)
+      
       // 既存イベントを取得
       let existingEvents: Array<{ id: string; date: string; store_id: string | null; start_time: string; is_cancelled: boolean; scenario?: string; notes?: string; gms?: string[]; reservation_info?: string }> = []
       if (targetMonth) {
         const startDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-01`
-        const endDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-31`
+        // 月末日を正しく計算（翌月の0日 = 当月の最終日）
+        const lastDay = new Date(targetMonth.year, targetMonth.month, 0).getDate()
+        const endDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
         
         const { data } = await supabase
           .from('schedule_events')
@@ -952,10 +1182,17 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       // 店舗名のリスト
       const validVenues = Object.keys(STORE_MAPPING)
       
-      // パース処理
+      // パース処理（UIスレッドをブロックしないようにチャンク分割）
+      let lineCount = 0
       for (const line of lines) {
+        lineCount++
+        // 10行ごとにUIスレッドに制御を戻す（16msでアニメーションフレームを確保）
+        if (lineCount % 10 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 16))
+        }
+        
         if (!line.trim()) continue
-        const parts = line.split('\t').map(p => p.trim())
+        const parts = parseTsvCells(line)
         if (parts.length < 3) continue
         
         const dateStr = parts[0]
@@ -997,6 +1234,9 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         }
         
         for (const slot of timeSlots) {
+          // 各スロット処理前にUIスレッドに制御を戻す（16msでアニメーションフレームを確保）
+          await new Promise(resolve => setTimeout(resolve, 16))
+          
           const title = parts[slot.titleIdx]
           if (!title || title.trim() === '') continue
           
@@ -1050,20 +1290,27 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       }
       
       // プレビュー用データ作成
-      const preview: PreviewEvent[] = events.map(e => ({
-        date: e.date,
-        venue: e.venue,
-        timeSlot: e._slotName,
-        scenario: e._isMemo ? `[メモ] ${e._rawTitle}` : e.scenario,
-        originalScenario: e._originalScenario || '',
-        scenarioMapped: e._scenarioMapped || false,
-        gms: e.gms,
-        originalGms: e._originalGmText || '',
-        gmMappings: e._gmMappings || [],
-        category: e.category,
-        isMemo: e._isMemo,
-        hasExisting: e._hasExisting
-      }))
+      const preview: PreviewEvent[] = events.map(e => {
+        // デフォルトでは全員メインGM
+        const gmRoles: Record<string, string> = {}
+        e.gms.forEach((gm: string) => { gmRoles[gm] = 'main' })
+        
+        return {
+          date: e.date,
+          venue: e.venue,
+          timeSlot: e._slotName,
+          scenario: e._isMemo ? `[メモ] ${e._rawTitle}` : e.scenario,
+          originalScenario: e._originalScenario || '',
+          scenarioMapped: e._scenarioMapped || false,
+          gms: e.gms,
+          gmRoles,
+          originalGms: e._originalGmText || '',
+          gmMappings: e._gmMappings || [],
+          category: e.category,
+          isMemo: e._isMemo,
+          hasExisting: e._hasExisting
+        }
+      })
       
       setParsedEvents(events)
       setPreviewEvents(preview)
@@ -1080,15 +1327,15 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="!max-w-[1200px] w-[1200px] max-h-[85vh] overflow-auto">
-        <DialogHeader>
+      <DialogContent className="!max-w-[1100px] w-[1100px] h-[95vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>スケジュールデータのインポート</DialogTitle>
           <DialogDescription>
             スプレッドシートからコピーしたデータを貼り付けてください（タブ区切り形式）
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 flex flex-col min-h-0 space-y-4">
           {isLoadingPreview ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -1113,13 +1360,35 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                   ※ スプレッドシートで範囲を選択してコピー（Ctrl+C / Cmd+C）し、ここに貼り付けてください
                 </p>
               </div>
+              
+              <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="replaceExisting"
+                  checked={replaceExisting}
+                  onChange={(e) => setReplaceExisting(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <label htmlFor="replaceExisting" className="text-sm">
+                  <span className="font-medium text-yellow-800">対象月の既存データを削除してインポート</span>
+                  <span className="text-xs text-yellow-600 ml-2">（チェックを外すと上書きマージ）</span>
+                </label>
+              </div>
             </>
           ) : (
             <>
               {/* プレビューフェーズ */}
-              <div className="border rounded-lg p-3 bg-gray-50">
+              <div className="border rounded-lg p-3 bg-gray-50 flex-1 flex flex-col min-h-0">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm">インポートプレビュー</h3>
+                  <div>
+                    <h3 className="font-semibold text-sm">インポートプレビュー</h3>
+                    {importTargetMonth && (
+                      <span className="text-xs text-blue-600">
+                        対象: {importTargetMonth.year}年{importTargetMonth.month}月
+                        {replaceExisting && ' （既存データ削除後にインポート）'}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-gray-600">
                     {previewEvents.length}件のイベント
                     （上書き: {previewEvents.filter(e => e.hasExisting).length}件）
@@ -1139,7 +1408,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                   </Alert>
                 )}
                 
-                <div className="max-h-[400px] overflow-y-auto">
+                <div ref={tableContainerRef} className="flex-1 overflow-y-auto min-h-0">
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-gray-100">
                       <tr>
@@ -1154,20 +1423,54 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                     </thead>
                     <tbody>
                       {previewEvents.map((event, i) => (
-                        <tr key={i} className={event.hasExisting ? 'bg-yellow-50' : event.isMemo ? 'bg-blue-50' : ''}>
-                          <td className="p-1 border-b text-nowrap">{event.date}</td>
-                          <td className="p-1 border-b text-nowrap">{event.venue}</td>
-                          <td className="p-1 border-b text-nowrap">{event.timeSlot}</td>
-                          <td className="p-1 border-b min-w-[80px]">
+                        <tr 
+                          key={i} 
+                          className={event.hasExisting ? 'bg-yellow-50' : event.isMemo ? 'bg-blue-50' : ''}
+                          style={{ contentVisibility: 'auto', containIntrinsicSize: '0 60px' }}
+                        >
+                          <td className="p-1 border-b text-nowrap align-top">
+                            <div className="min-h-[14px]">&nbsp;</div>
+                            <div>{event.date}</div>
+                          </td>
+                          <td className="p-1 border-b text-nowrap align-top">
+                            <div className="min-h-[14px]">&nbsp;</div>
+                            <div>{event.venue}</div>
+                          </td>
+                          <td className="p-1 border-b text-nowrap align-top">
+                            <div className="min-h-[14px]">&nbsp;</div>
+                            <div>{event.timeSlot}</div>
+                          </td>
+                          <td className="p-1 border-b min-w-[80px] align-top">
+                            <div className="min-h-[14px]">&nbsp;</div>
                             <Select
                               value={event.category}
                               onValueChange={(value) => {
-                                const newPreview = [...previewEvents]
-                                newPreview[i] = { ...newPreview[i], category: value }
-                                setPreviewEvents(newPreview)
-                                const newParsed = [...parsedEvents]
-                                newParsed[i] = { ...newParsed[i], category: value }
-                                setParsedEvents(newParsed)
+                                setPreviewEvents(prev => {
+                                  const newPreview = [...prev]
+                                  const updatedEvent = { ...newPreview[i], category: value }
+                                  
+                                  // メモを選択したら、シナリオをnotesに移動してisMemo=true
+                                  if (value === 'memo') {
+                                    updatedEvent.isMemo = true
+                                    if (updatedEvent.scenario && !updatedEvent.notes) {
+                                      updatedEvent.notes = updatedEvent.scenario
+                                    }
+                                  } else {
+                                    updatedEvent.isMemo = false
+                                  }
+                                  
+                                  // テストプレイを選択したら、GMの役割をすべて「参加」に設定
+                                  if (value === 'test') {
+                                    const newRoles: Record<string, string> = {}
+                                    updatedEvent.gms.forEach(gm => {
+                                      newRoles[gm] = 'staff'
+                                    })
+                                    updatedEvent.gmRoles = newRoles
+                                  }
+                                  
+                                  newPreview[i] = updatedEvent
+                                  return newPreview
+                                })
                               }}
                             >
                               <SelectTrigger className="h-6 text-xs">
@@ -1182,125 +1485,131 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                               </SelectContent>
                             </Select>
                           </td>
-                          <td className="p-1 border-b min-w-[180px]">
+                          <td className="p-1 border-b min-w-[180px] align-top">
                             {event.isMemo ? (
                               <span className="text-gray-500">{event.scenario}</span>
                             ) : (
                               <div>
-                                <Select
+                                <div className="text-[10px] text-purple-600 mb-0.5 min-h-[14px]">
+                                  {event.originalScenario ? `${event.originalScenario}${event.scenarioMapped ? '→' : ''}` : '\u00A0'}
+                                </div>
+                                <SearchableSelect
+                                  options={scenarioOptions}
                                   value={event.scenario || '__none__'}
                                   onValueChange={(value) => {
-                                    const newPreview = [...previewEvents]
-                                    newPreview[i] = { ...newPreview[i], scenario: value === '__none__' ? '' : value, scenarioMapped: true }
-                                    setPreviewEvents(newPreview)
-                                    // parsedEventsも更新
-                                    const newParsed = [...parsedEvents]
-                                    newParsed[i] = { ...newParsed[i], scenario: value === '__none__' ? '' : value }
-                                    setParsedEvents(newParsed)
+                                    setPreviewEvents(prev => {
+                                      const newPreview = [...prev]
+                                      newPreview[i] = { ...newPreview[i], scenario: value === '__none__' ? '' : value, scenarioMapped: true }
+                                      return newPreview
+                                    })
                                   }}
-                                >
-                                  <SelectTrigger className="h-6 text-xs">
-                                    <SelectValue placeholder="シナリオを選択" />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-[300px]">
-                                    <SelectItem value="__none__">（なし）</SelectItem>
-                                    {scenarioList.map((s) => (
-                                      <SelectItem key={s.id} value={s.title}>
-                                        {s.title}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                {event.scenarioMapped && event.originalScenario && (
-                                  <div className="text-[10px] text-purple-600 mt-0.5">
-                                    {event.originalScenario}→
-                                  </div>
-                                )}
+                                  placeholder="シナリオを選択"
+                                  searchPlaceholder="シナリオ検索..."
+                                  className="h-6 text-xs"
+                                />
                               </div>
                             )}
                           </td>
-                          <td className="p-1 border-b min-w-[140px]">
+                          <td className="p-1 border-b min-w-[140px] align-top">
                             <div className="space-y-1">
-                              {event.gms.map((gm, gmIdx) => (
-                                <Select
-                                  key={gmIdx}
-                                  value={gm || '__none__'}
-                                  onValueChange={(value) => {
-                                    const newGms = [...event.gms]
-                                    if (value === '__none__') {
-                                      newGms.splice(gmIdx, 1)
-                                    } else {
-                                      newGms[gmIdx] = value
-                                    }
-                                    const newPreview = [...previewEvents]
-                                    newPreview[i] = { ...newPreview[i], gms: newGms }
-                                    setPreviewEvents(newPreview)
-                                    // parsedEventsも更新
-                                    const newParsed = [...parsedEvents]
-                                    newParsed[i] = { ...newParsed[i], gms: newGms }
-                                    setParsedEvents(newParsed)
-                                  }}
-                                >
-                                  <SelectTrigger className="h-6 text-xs">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-[300px]">
-                                    <SelectItem value="__none__">（削除）</SelectItem>
-                                    {staffList.map((s) => (
-                                      <SelectItem key={s.id} value={s.name}>
-                                        {s.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ))}
-                              {/* GMを追加するボタン */}
-                              <Select
-                                value=""
-                                onValueChange={(value) => {
-                                  if (value && value !== '__add__') {
-                                    const newGms = [...event.gms, value]
-                                    const newPreview = [...previewEvents]
-                                    newPreview[i] = { ...newPreview[i], gms: newGms }
-                                    setPreviewEvents(newPreview)
-                                    // parsedEventsも更新
-                                    const newParsed = [...parsedEvents]
-                                    newParsed[i] = { ...newParsed[i], gms: newGms }
-                                    setParsedEvents(newParsed)
-                                  }
+                              <div className="text-[10px] text-purple-600 min-h-[14px]">
+                                {event.originalGms || '\u00A0'}
+                              </div>
+                              <MultiSelect
+                                options={staffList.map(s => s.name)}
+                                selectedValues={event.gms}
+                                onSelectionChange={(values) => {
+                                  setPreviewEvents(prev => {
+                                    const newPreview = [...prev]
+                                    const newRoles = { ...newPreview[i].gmRoles }
+                                    values.forEach(gm => {
+                                      if (!newRoles[gm]) newRoles[gm] = 'main'
+                                    })
+                                    Object.keys(newRoles).forEach(gm => {
+                                      if (!values.includes(gm)) delete newRoles[gm]
+                                    })
+                                    newPreview[i] = { ...newPreview[i], gms: values, gmRoles: newRoles }
+                                    return newPreview
+                                  })
                                 }}
-                              >
-                                <SelectTrigger className="h-5 text-[10px] text-gray-400 border-dashed">
-                                  <span>+ GM追加</span>
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[300px]">
-                                  {staffList.map((s) => (
-                                    <SelectItem key={s.id} value={s.name}>
-                                      {s.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              {event.gmMappings.length > 0 && (
-                                <div className="text-[10px] text-purple-600 mt-0.5">
-                                  {event.originalGms}→
+                                placeholder="GMを選択"
+                                searchPlaceholder="スタッフ検索..."
+                                className="text-xs"
+                                showBadges={false}
+                              />
+                              {/* 選択済みGM（クリックで役割変更、×で削除） */}
+                              {event.gms.length > 0 && (
+                                <div className="flex flex-wrap gap-0.5">
+                                  {event.gms.map((gm, gmIdx) => {
+                                    const role = event.gmRoles[gm] || 'main'
+                                    const roleOption = GM_ROLE_OPTIONS.find(r => r.value === role) || GM_ROLE_OPTIONS[0]
+                                    const shortLabel = role === 'main' ? '' : role === 'sub' ? 'サブ' : role === 'reception' ? '受付' : role === 'staff' ? '参加' : '見学'
+                                    return (
+                                      <span
+                                        key={gmIdx}
+                                        className={`text-[10px] px-1 py-0 rounded inline-flex items-center gap-0.5 ${roleOption.color}`}
+                                      >
+                                        <span
+                                          className="cursor-pointer hover:opacity-70"
+                                          onClick={() => {
+                                            const currentIdx = GM_ROLE_OPTIONS.findIndex(r => r.value === role)
+                                            const nextIdx = (currentIdx + 1) % GM_ROLE_OPTIONS.length
+                                            const nextRole = GM_ROLE_OPTIONS[nextIdx].value
+                                            setPreviewEvents(prev => {
+                                              const newPreview = [...prev]
+                                              newPreview[i] = {
+                                                ...newPreview[i],
+                                                gmRoles: { ...newPreview[i].gmRoles, [gm]: nextRole }
+                                              }
+                                              return newPreview
+                                            })
+                                          }}
+                                          title="クリックで役割変更"
+                                        >
+                                          {gm}{shortLabel && `(${shortLabel})`}
+                                        </span>
+                                        <span
+                                          className="cursor-pointer opacity-50 hover:opacity-100 hover:text-red-600"
+                                          onClick={() => {
+                                            setPreviewEvents(prev => {
+                                              const newPreview = [...prev]
+                                              const newGms = newPreview[i].gms.filter(g => g !== gm)
+                                              const newRoles = { ...newPreview[i].gmRoles }
+                                              delete newRoles[gm]
+                                              newPreview[i] = { ...newPreview[i], gms: newGms, gmRoles: newRoles }
+                                              return newPreview
+                                            })
+                                          }}
+                                          title="削除"
+                                        >×</span>
+                                      </span>
+                                    )
+                                  })}
                                 </div>
                               )}
                             </div>
                           </td>
-                          <td className="p-1 border-b text-nowrap">
-                            {event.isMemo ? (
-                              <span className="text-blue-600">メモ</span>
-                            ) : event.hasExisting ? (
-                              <span className="text-yellow-600">上書き</span>
-                            ) : (
-                              <span className="text-green-600">新規</span>
-                            )}
+                          <td className="p-1 border-b text-nowrap align-top">
+                            <div className="min-h-[14px]">&nbsp;</div>
+                            <div>
+                              {event.isMemo ? (
+                                <span className="text-blue-600">メモ</span>
+                              ) : event.hasExisting ? (
+                                <span className="text-yellow-600">上書き</span>
+                              ) : (
+                                <span className="text-green-600">新規</span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                </div>
+                
+                {/* 件数表示 */}
+                <div className="text-xs text-gray-500 mt-2 px-2">
+                  全{previewEvents.length}件
                 </div>
                 
                 <div className="mt-3 flex gap-2 text-xs">
@@ -1345,7 +1654,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4">
           <Button variant="outline" onClick={handleClose} disabled={isImporting}>
             キャンセル
           </Button>
@@ -1373,7 +1682,10 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                 {isImporting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    インポート中...
+                    {importProgress 
+                      ? `インポート中... ${importProgress.current}/${importProgress.total}`
+                      : 'インポート中...'
+                    }
                   </>
                 ) : (
                   `${previewEvents.length}件をインポート`

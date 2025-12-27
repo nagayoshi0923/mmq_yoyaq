@@ -261,13 +261,23 @@ export const scheduleApi = {
         }
       }
       
-      if (event.current_participants !== actualParticipants) {
+      // 予約から計算した参加者数が現在の値より大きい場合のみ更新
+      // （手動で設定した「満席」状態が上書きされないようにする）
+      // ただし、max_participantsを超えないようにする
+      const scenarioForSync = event.scenarios as { player_count_max?: number } | null
+      const maxForSync = scenarioForSync?.player_count_max ||
+                        event.max_participants ||
+                        event.capacity ||
+                        8
+      const cappedActualParticipants = Math.min(actualParticipants, maxForSync)
+      
+      if (cappedActualParticipants > (event.current_participants || 0)) {
         Promise.resolve(supabase
           .from('schedule_events')
-          .update({ current_participants: actualParticipants })
+          .update({ current_participants: cappedActualParticipants })
           .eq('id', event.id))
           .then(() => {
-            logger.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${actualParticipants})`)
+            logger.log(`参加者数を同期: ${event.id} (${event.current_participants} → ${cappedActualParticipants})`)
           })
           .catch((syncError) => {
             logger.error('参加者数の同期に失敗:', syncError)
@@ -282,9 +292,15 @@ export const scheduleApi = {
                               event.capacity ||
                               8
       
+      // 現在の値と予約から計算した値の大きい方を使用（ただしmax_participantsを超えない）
+      const effectiveParticipants = Math.min(
+        Math.max(actualParticipants, event.current_participants || 0),
+        maxParticipants
+      )
+      
       return {
         ...event,
-        current_participants: actualParticipants,
+        current_participants: effectiveParticipants,
         max_participants: maxParticipants,
         capacity: maxParticipants,
         is_private_booking: isPrivateBooking,
@@ -465,7 +481,10 @@ export const scheduleApi = {
     const eventsWithActualParticipants = scheduleEvents.map((event) => {
       const actualParticipants = participantsByEventId.get(event.id) || 0
       
-      if (event.current_participants !== actualParticipants) {
+      // 予約から計算した参加者数が現在の値より大きい場合のみ更新
+      // （手動で設定した「満席」状態が上書きされないようにする）
+      const shouldUpdate = actualParticipants > (event.current_participants || 0)
+      if (shouldUpdate) {
         supabase
           .from('schedule_events')
           .update({ current_participants: actualParticipants })
@@ -486,9 +505,12 @@ export const scheduleApi = {
                               event.capacity ||
                               8
       
+      // 現在の値と予約から計算した値の大きい方を使用
+      const effectiveParticipants = Math.max(actualParticipants, event.current_participants || 0)
+      
       return {
         ...event,
-        current_participants: actualParticipants,
+        current_participants: effectiveParticipants,
         max_participants: maxParticipants,
         capacity: maxParticipants,
         is_private_booking: false,
@@ -581,8 +603,20 @@ export const scheduleApi = {
     return data
   },
 
-  // 公演を削除
+  // 公演を削除（関連する予約も削除）
   async delete(id: string) {
+    // まず関連する予約を削除（デモ参加者含む）
+    const { error: reservationError } = await supabase
+      .from('reservations')
+      .delete()
+      .eq('schedule_event_id', id)
+    
+    if (reservationError) {
+      console.warn('予約削除エラー（続行）:', reservationError)
+      // エラーでも続行（予約がない場合もある）
+    }
+    
+    // 公演を削除
     const { error } = await supabase
       .from('schedule_events')
       .delete()

@@ -165,19 +165,29 @@ function TimeSlotCellBase({
       {...longPressHandlers}
     >
       {events.length > 0 ? (
-        // 公演ありの場合: カードのみ（備考はダイアログで編集）
-        <PerformanceCard
-          event={events[0]}
-          categoryConfig={categoryConfig}
-          getReservationBadgeClass={getReservationBadgeClass}
-          onCancelConfirm={onCancelConfirm}
-          onUncancel={onUncancel}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onClick={onEdit}
-          onToggleReservation={onToggleReservation}
-          onContextMenu={onContextMenuEvent}
-        />
+        // 公演ありの場合: カードを表示（重複がある場合は全て表示＋警告）
+        <div className={events.length > 1 ? 'border-2 border-red-500 bg-red-50 rounded' : ''}>
+          {events.length > 1 && (
+            <div className="text-[10px] text-red-600 font-bold text-center bg-red-200 py-0.5">
+              ⚠️ 重複 {events.length}件
+            </div>
+          )}
+          {events.map((event, idx) => (
+            <PerformanceCard
+              key={event.id}
+              event={event}
+              categoryConfig={categoryConfig}
+              getReservationBadgeClass={getReservationBadgeClass}
+              onCancelConfirm={onCancelConfirm}
+              onUncancel={onUncancel}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onClick={onEdit}
+              onToggleReservation={onToggleReservation}
+              onContextMenu={onContextMenuEvent}
+            />
+          ))}
+        </div>
       ) : (
         <div className="flex flex-col h-full min-h-[24px] sm:min-h-[28px]">
           <div className="flex flex-col justify-center items-center">

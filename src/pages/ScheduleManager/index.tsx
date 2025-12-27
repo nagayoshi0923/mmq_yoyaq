@@ -5,6 +5,7 @@ import { showToast } from '@/utils/toast'
 
 // API
 import { staffApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 
 // Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -64,6 +65,56 @@ export function ScheduleManager() {
 
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [isFillingSeats, setIsFillingSeats] = useState(false)
+
+  // 中止以外を満席にする処理（参加者数を定員に合わせる）
+  const handleFillAllSeats = async () => {
+    if (!confirm('中止以外の全公演を満席（参加者数＝定員）にしますか？')) return
+    
+    setIsFillingSeats(true)
+    try {
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+      // 月末日を正しく計算（翌月の0日 = 当月の最終日）
+      const lastDay = new Date(year, month, 0).getDate()
+      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+      
+      // まず対象のイベントを取得（シナリオの定員情報も含む）
+      const { data: events, error: fetchError } = await supabase
+        .from('schedule_events')
+        .select('id, max_participants, scenarios(player_count_max)')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .eq('is_cancelled', false)
+      
+      if (fetchError) {
+        showToast.error(`取得エラー: ${fetchError.message}`)
+        return
+      }
+      
+      // 各イベントの参加者数を定員に合わせる
+      let successCount = 0
+      for (const event of events || []) {
+        // シナリオの定員 → イベントの定員 → デフォルト8人 の優先順位
+        const scenarioMax = (event.scenarios as { player_count_max?: number } | null)?.player_count_max
+        const maxParticipants = scenarioMax || event.max_participants || 8
+        const { error } = await supabase
+          .from('schedule_events')
+          .update({ current_participants: maxParticipants })
+          .eq('id', event.id)
+        
+        if (!error) successCount++
+      }
+      
+      showToast.success(`${successCount}件を満席に設定しました`)
+      // Realtimeで自動的にデータが更新されるため、ページリロードは不要
+    } catch (err) {
+      showToast.error(`エラー: ${err}`)
+    } finally {
+      setIsFillingSeats(false)
+    }
+  }
 
   // スケジュールテーブルの共通フック
   const scheduleTableProps = useScheduleTable({ currentDate })
@@ -337,6 +388,17 @@ export function ScheduleManager() {
               className="h-9 w-9"
             >
               <Upload className="h-4 w-4" />
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleFillAllSeats}
+              disabled={isFillingSeats}
+              title="中止以外を満席にする"
+              className="h-9 text-xs"
+            >
+              {isFillingSeats ? '処理中...' : '全満席'}
             </Button>
           </div>
         </div>
