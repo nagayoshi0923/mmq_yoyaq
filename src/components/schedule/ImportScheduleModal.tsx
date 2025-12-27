@@ -57,6 +57,96 @@ const SCENARIO_NAME_MAPPING: Record<string, string> = {
   "MTG": "MTG（マネージャーミーティング）"
 }
 
+// スタッフ名の揺らぎを統一するマッピング
+const STAFF_NAME_MAPPING: Record<string, string> = {
+  // ひらがな・カタカナ・大文字小文字の揺らぎ
+  "そら": "ソラ",
+  "ソラ": "ソラ",
+  "じの": "じの",
+  "ジノ": "じの",
+  "まつい": "松井",
+  "マツイ": "松井",
+  "松井": "松井",
+  "きゅう": "きゅう",
+  "キュウ": "きゅう",
+  "つばめ": "つばめ",
+  "ツバメ": "つばめ",
+  "えりん": "えりん",
+  "エリン": "えりん",
+  "れみあ": "れみあ",
+  "レミア": "れみあ",
+  "しらやま": "しらやま",
+  "シラヤマ": "しらやま",
+  "ぴよな": "ぴよな",
+  "ピヨナ": "ぴよな",
+  "あんころ": "あんころ",
+  "アンコロ": "あんころ",
+  "ソルト": "ソルト",
+  "そると": "ソルト",
+  "もりし": "モリシ",
+  "モリシ": "モリシ",
+  "らぼ": "labo",
+  "ラボ": "labo",
+  "labo": "labo",
+  "Labo": "labo",
+  "LABO": "labo",
+  "りんな": "りんな",
+  "リンナ": "りんな",
+  "だいこん": "だいこん",
+  "ダイコン": "だいこん",
+  "みずき": "みずき",
+  "ミズキ": "みずき",
+  "れいにー": "れいにー",
+  "レイニー": "れいにー",
+  "さき": "崎",
+  "崎": "崎",
+  "ぽったー": "ぽったー",
+  "ポッター": "ぽったー",
+  "bb": "BB",
+  "BB": "BB",
+  "Bb": "BB",
+  "かなで": "kanade",
+  "カナデ": "kanade",
+  "kanade": "kanade",
+  "Kanade": "kanade",
+  "えいきち": "えいきち",
+  "エイキチ": "えいきち",
+  "n": "N",
+  "N": "N",
+  "おむ": "おむ",
+  "オム": "おむ",
+  "らの": "らの",
+  "ラノ": "らの",
+  "かなう": "かなう",
+  "カナウ": "かなう",
+  "凪": "凪",
+  "なぎ": "凪",
+  "ナギ": "凪",
+  "みかのは": "みかのは",
+  "ミカノハ": "みかのは",
+  "温風リン": "温風リン",
+  "おんぷりん": "温風リン",
+  "松坊": "松坊",
+  "まつぼう": "松坊",
+  "まつかさ": "まつかさ",
+  "マツカサ": "まつかさ",
+  "渚咲": "渚咲",
+  "なぎさ": "渚咲",
+  "ナギサ": "渚咲",
+  "楽": "楽",
+  "らく": "楽",
+  "ラク": "楽",
+  "ひなどり": "ひなどり",
+  "ヒナドリ": "ひなどり",
+  "えなみ": "えなみ",
+  "エナミ": "えなみ",
+  "みくみん": "みくみん",
+  "ミクミン": "みくみん",
+  "小川はねか": "小川はねか",
+  "はねか": "小川はねか",
+  "ハネカ": "小川はねか"
+}
+
 export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: ImportScheduleModalProps) {
   const [scheduleText, setScheduleText] = useState('')
   const [isImporting, setIsImporting] = useState(false)
@@ -154,7 +244,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     return title.includes('🙅‍♀️') || title.includes('🙅')
   }
 
-  // GM名を解析
+  // GM名を解析（マッピングで正規化）
   const parseGmNames = (gmText: string): string[] => {
     if (!gmText || gmText.trim() === '') return []
     
@@ -172,7 +262,11 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     // カンマやスラッシュで分割
     const gms = text.split(/[,、/]/)
     
-    return gms.map(gm => gm.trim()).filter(gm => gm)
+    // マッピングで正規化
+    return gms
+      .map(gm => gm.trim())
+      .filter(gm => gm)
+      .map(gm => STAFF_NAME_MAPPING[gm] || gm)
   }
 
   // 時間を抽出
@@ -355,10 +449,48 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         }
       }
 
+      // 🚨 CRITICAL: インポートデータ内での重複チェック（同じセルに2つのシナリオは禁止）
+      const cellKey = (date: string, storeId: string | null, startTime: string) => 
+        `${date}|${storeId || 'null'}|${getTimeSlot(startTime)}`
+      
+      const importCellMap = new Map<string, { scenario: string; venue: string }>()
+      const duplicatesInImport: string[] = []
+      
+      for (const event of events) {
+        if (!event.date || event.is_cancelled) continue
+        
+        const key = cellKey(event.date, event.store_id, event.start_time)
+        const existing = importCellMap.get(key)
+        
+        if (existing) {
+          duplicatesInImport.push(
+            `${event.date} ${event.venue} ${getTimeSlot(event.start_time)}: 「${existing.scenario}」と「${event.scenario}」が重複`
+          )
+        } else {
+          importCellMap.set(key, { scenario: event.scenario || '', venue: event.venue })
+        }
+      }
+      
+      // 重複がある場合はエラーとして報告し、インポートを中止
+      if (duplicatesInImport.length > 0) {
+        setResult({
+          success: 0,
+          failed: duplicatesInImport.length,
+          errors: [
+            '⚠️ インポートデータ内に重複があります。同じセルに複数のシナリオを登録することはできません。',
+            ...duplicatesInImport
+          ]
+        })
+        return
+      }
+
       // データベースに挿入
       let successCount = 0
       let failedCount = 0
       let skippedCount = 0
+      
+      // 挿入済みのセルを追跡
+      const insertedCells = new Set<string>()
 
       for (const event of events) {
         try {
@@ -376,7 +508,9 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             continue
           }
 
-          // 🚨 CRITICAL: 既存削除OFFの場合、重複チェック
+          const eventCellKey = cellKey(event.date, event.store_id, event.start_time)
+
+          // 🚨 CRITICAL: 既存削除OFFの場合、既存イベントとの重複チェック
           if (!replaceExisting && event.store_id) {
             const eventTimeSlot = getTimeSlot(event.start_time)
             const hasConflict = existingEvents.some(existing => {
@@ -393,6 +527,13 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
               continue
             }
           }
+          
+          // 今回のインポート内で既に同じセルに挿入済みの場合はスキップ
+          if (insertedCells.has(eventCellKey)) {
+            skippedCount++
+            errors.push(`${event.date} ${event.venue} - ${event.scenario}: 同じセルに既にインポート済みのためスキップ`)
+            continue
+          }
 
           const { error } = await supabase
             .from('schedule_events')
@@ -403,6 +544,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             errors.push(`${event.date} ${event.venue} - ${event.scenario}: ${error.message}`)
           } else {
             successCount++
+            insertedCells.add(eventCellKey)
           }
         } catch (err) {
           failedCount++
