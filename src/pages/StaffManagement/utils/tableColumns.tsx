@@ -174,14 +174,18 @@ export function createStaffColumns(
         const displayed = staff.special_scenarios.slice(0, maxDisplay)
         const remaining = staff.special_scenarios.length - maxDisplay
 
+        const truncate = (name: string, max = 10) => 
+          name.length > max ? name.slice(0, max) + '…' : name
+        
         const content = (
           <div className="flex flex-wrap gap-0.5">
             {displayed.map((scenarioId, index) => (
               <span 
                 key={index} 
                 className="text-[10px] px-1 py-0 bg-blue-50 text-blue-700 rounded-sm border border-blue-200"
+                title={getScenarioName(scenarioId)}
               >
-                {getScenarioName(scenarioId)}
+                {truncate(getScenarioName(scenarioId))}
               </span>
             ))}
             {remaining > 0 && (
@@ -223,14 +227,18 @@ export function createStaffColumns(
         const displayed = experiencedScenarios.slice(0, maxDisplay)
         const remaining = experiencedScenarios.length - maxDisplay
 
+        const truncate = (name: string, max = 10) => 
+          name.length > max ? name.slice(0, max) + '…' : name
+        
         const content = (
           <div className="flex flex-wrap gap-0.5">
             {displayed.map((scenarioId: string, index: number) => (
               <span 
                 key={index} 
                 className="text-[10px] px-1 py-0 bg-green-50 text-green-700 rounded-sm border border-green-200"
+                title={getScenarioName(scenarioId)}
               >
-                {getScenarioName(scenarioId)}
+                {truncate(getScenarioName(scenarioId))}
               </span>
             ))}
             {remaining > 0 && (
