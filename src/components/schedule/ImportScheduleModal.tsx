@@ -168,6 +168,8 @@ interface PreviewEvent {
   venue: string
   timeSlot: string
   scenario: string
+  originalScenario: string  // マッピング前の元のシナリオ名
+  scenarioMapped: boolean  // マッピングが行われたか
   gms: string[]
   originalGms: string  // マッピング前の元のGM入力
   gmMappings: Array<{ from: string; to: string }>  // マッピング情報
@@ -350,6 +352,73 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     
     return null
   }
+  
+  // 類似度マッチングでシナリオ名を検索
+  const findBestScenarioMatch = (input: string): string | null => {
+    if (!input || input.length === 0) return null
+    
+    const normalizedInput = input.trim()
+    
+    // 1. 静的マッピングチェック
+    if (SCENARIO_NAME_MAPPING[normalizedInput]) {
+      return SCENARIO_NAME_MAPPING[normalizedInput]
+    }
+    
+    // 2. シナリオリストから完全一致チェック
+    for (const scenario of scenarioList) {
+      if (scenario.unified_name === normalizedInput) {
+        return scenario.unified_name
+      }
+    }
+    
+    // 3. 部分一致チェック（入力がシナリオ名を含む、またはシナリオ名が入力を含む）
+    for (const scenario of scenarioList) {
+      const scenarioName = scenario.unified_name
+      // 入力がシナリオ名で始まる
+      if (normalizedInput.startsWith(scenarioName)) {
+        return scenarioName
+      }
+      // シナリオ名が入力で始まる（短い入力でも長いシナリオ名にマッチ）
+      if (scenarioName.startsWith(normalizedInput) && normalizedInput.length >= 3) {
+        return scenarioName
+      }
+      // 入力がシナリオ名を含む
+      if (normalizedInput.includes(scenarioName) && scenarioName.length >= 3) {
+        return scenarioName
+      }
+    }
+    
+    // 4. 類似度マッチング（3文字以上）
+    if (normalizedInput.length >= 3 && scenarioList.length > 0) {
+      let bestMatch: string | null = null
+      let bestDistance = Infinity
+      let bestLengthDiff = Infinity
+      
+      for (const scenario of scenarioList) {
+        const scenarioName = scenario.unified_name
+        const distance = getLevenshteinDistance(normalizedInput, scenarioName)
+        const lengthDiff = Math.abs(normalizedInput.length - scenarioName.length)
+        
+        // 類似度閾値: 入力文字数の1/3以下の編集距離なら候補
+        const threshold = Math.max(2, Math.floor(normalizedInput.length / 3))
+        
+        if (distance <= threshold) {
+          // 同じ編集距離なら長さが近いものを優先
+          if (distance < bestDistance || (distance === bestDistance && lengthDiff < bestLengthDiff)) {
+            bestDistance = distance
+            bestLengthDiff = lengthDiff
+            bestMatch = scenarioName
+          }
+        }
+      }
+      
+      if (bestMatch) {
+        return bestMatch
+      }
+    }
+    
+    return null
+  }
 
   // カテゴリを判定
   const determineCategory = (title: string): string => {
@@ -385,9 +454,10 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     
     text = text.trim()
     
-    // シナリオ名の揺らぎを統一
-    if (SCENARIO_NAME_MAPPING[text]) {
-      return SCENARIO_NAME_MAPPING[text]
+    // 類似度マッチングでシナリオを検索
+    const matched = findBestScenarioMatch(text)
+    if (matched) {
+      return matched
     }
     
     return text
@@ -876,7 +946,19 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           const gmText = parts[slot.gmIdx] || ''
           const times = parseTimeFromTitle(title)
           const storeId = STORE_MAPPING[venue]
+          
+          // 元のシナリオ名（マッピング前）を抽出
+          let rawScenarioText = title.replace(/^(貸・|募・|出張・|GMテスト・|テストプレイ・)/, '')
+          const scenarioMatch = rawScenarioText.match(/^([^(（]+)/)
+          if (scenarioMatch) {
+            rawScenarioText = scenarioMatch[1].trim()
+          }
+          rawScenarioText = rawScenarioText.split('※')[0].split('✅')[0].split('🈵')[0].trim()
+          
+          // マッピング後のシナリオ名
           const scenarioName = extractScenarioName(title)
+          const scenarioMapped = rawScenarioText !== scenarioName && scenarioName !== ''
+          
           const isMemo = (!scenarioName || scenarioName.length <= 1) && !times
           
           const cellKey = `${parseDate(currentDate)}|${storeId || 'null'}|${getTimeSlot(times?.start || slot.defaultStart)}`
@@ -902,6 +984,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             _slotName: slot.slotName,
             _hasExisting: hasExisting,
             _rawTitle: title,
+            _originalScenario: rawScenarioText,
+            _scenarioMapped: scenarioMapped,
             _originalGmText: gmText,
             _gmMappings: gmResult.mappings
           })
@@ -914,6 +998,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         venue: e.venue,
         timeSlot: e._slotName,
         scenario: e._isMemo ? `[メモ] ${e._rawTitle}` : e.scenario,
+        originalScenario: e._originalScenario || '',
+        scenarioMapped: e._scenarioMapped || false,
         gms: e.gms,
         originalGms: e._originalGmText || '',
         gmMappings: e._gmMappings || [],
@@ -1010,30 +1096,37 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                             {event.isMemo ? (
                               <span className="text-gray-500">{event.scenario}</span>
                             ) : (
-                              <Select
-                                value={event.scenario || '__none__'}
-                                onValueChange={(value) => {
-                                  const newPreview = [...previewEvents]
-                                  newPreview[i] = { ...newPreview[i], scenario: value === '__none__' ? '' : value }
-                                  setPreviewEvents(newPreview)
-                                  // parsedEventsも更新
-                                  const newParsed = [...parsedEvents]
-                                  newParsed[i] = { ...newParsed[i], scenario: value === '__none__' ? '' : value }
-                                  setParsedEvents(newParsed)
-                                }}
-                              >
-                                <SelectTrigger className="h-6 text-xs">
-                                  <SelectValue placeholder="シナリオを選択" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[300px]">
-                                  <SelectItem value="__none__">（なし）</SelectItem>
-                                  {scenarioList.map((s) => (
-                                    <SelectItem key={s.id} value={s.unified_name}>
-                                      {s.unified_name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <div>
+                                <Select
+                                  value={event.scenario || '__none__'}
+                                  onValueChange={(value) => {
+                                    const newPreview = [...previewEvents]
+                                    newPreview[i] = { ...newPreview[i], scenario: value === '__none__' ? '' : value, scenarioMapped: true }
+                                    setPreviewEvents(newPreview)
+                                    // parsedEventsも更新
+                                    const newParsed = [...parsedEvents]
+                                    newParsed[i] = { ...newParsed[i], scenario: value === '__none__' ? '' : value }
+                                    setParsedEvents(newParsed)
+                                  }}
+                                >
+                                  <SelectTrigger className="h-6 text-xs">
+                                    <SelectValue placeholder="シナリオを選択" />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[300px]">
+                                    <SelectItem value="__none__">（なし）</SelectItem>
+                                    {scenarioList.map((s) => (
+                                      <SelectItem key={s.id} value={s.unified_name}>
+                                        {s.unified_name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {event.scenarioMapped && event.originalScenario && (
+                                  <div className="text-[10px] text-purple-600 mt-0.5">
+                                    {event.originalScenario}→
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="p-1 border-b min-w-[140px]">
