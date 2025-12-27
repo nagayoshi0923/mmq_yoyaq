@@ -1059,7 +1059,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="!max-w-[1600px] w-[1600px] max-h-[85vh] overflow-auto">
+      <DialogContent className="!max-w-[1200px] w-[1200px] max-h-[85vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>スケジュールデータのインポート</DialogTitle>
           <DialogDescription>
