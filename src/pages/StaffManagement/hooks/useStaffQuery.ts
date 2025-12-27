@@ -14,13 +14,26 @@ export function useStaffQuery() {
     queryFn: async () => {
       // スタッフデータを取得
       const staffData = await staffApi.getAll()
+      logger.log('📊 useStaffQuery: スタッフ取得完了', staffData.length, '件')
       
       // 担当シナリオ情報を一括取得（N+1問題の回避）
       const staffIds = staffData.map(s => s.id)
+      logger.log('📊 useStaffQuery: スタッフIDs', staffIds.length, '件')
+      
       const assignmentMap = await assignmentApi.getBatchStaffAssignments(staffIds).catch((error) => {
         logger.error('Error loading batch staff assignments:', error)
         return new Map<string, { gmScenarios: string[], experiencedScenarios: string[] }>()
       })
+      
+      logger.log('📊 useStaffQuery: assignmentMap size =', assignmentMap.size)
+      
+      // デバッグ: えいきちのデータを確認
+      const eikichiStaff = staffData.find(s => s.name === 'えいきち')
+      if (eikichiStaff) {
+        const eikichiAssignment = assignmentMap.get(eikichiStaff.id)
+        logger.log('📊 えいきち ID:', eikichiStaff.id)
+        logger.log('📊 えいきち assignment:', eikichiAssignment)
+      }
       
       // スタッフデータにアサインメント情報をマージ
       const staffWithAssignments = staffData.map(staff => {
@@ -31,6 +44,10 @@ export function useStaffQuery() {
           experienced_scenarios: assignments.experiencedScenarios
         }
       })
+      
+      // デバッグ: マージ後のえいきちを確認
+      const eikichiMerged = staffWithAssignments.find(s => s.name === 'えいきち')
+      logger.log('📊 えいきち マージ後 special_scenarios:', eikichiMerged?.special_scenarios)
       
       return staffWithAssignments
     },
