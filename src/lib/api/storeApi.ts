@@ -20,8 +20,40 @@ export const storeApi = {
     
     if (error) throw error
     
-    // 指定された順序で並び替え（店舗名で判定）
-    const storeOrder = ['高田馬場店', '別館①', '別館②', '大久保店', '大塚店', '埼玉大宮店']
+    // 指定された順序で並び替え（店舗名またはshort_nameで判定）
+    // 順序: 馬場 → 別館① → 別館② → 大久保 → 大塚 → 埼玉大宮
+    const storeOrderMap: Record<string, number> = {
+      // 1. 馬場
+      '馬場': 1,
+      '高田馬場店': 1,
+      // 2. 別館①
+      '別館①': 2,
+      // 3. 別館②
+      '別館②': 3,
+      // 4. 大久保
+      '大久保': 4,
+      '大久保店': 4,
+      // 5. 大塚
+      '大塚': 5,
+      '大塚店': 5,
+      // 6. 埼玉大宮
+      '埼玉大宮': 6,
+      '埼玉大宮店': 6,
+    }
+    
+    // 店舗の優先順位を取得（nameとshort_nameの両方をチェック）
+    const getStoreIndex = (store: Store): number => {
+      // short_nameでチェック
+      if (store.short_name && storeOrderMap[store.short_name] !== undefined) {
+        return storeOrderMap[store.short_name]
+      }
+      // nameでチェック
+      if (store.name && storeOrderMap[store.name] !== undefined) {
+        return storeOrderMap[store.name]
+      }
+      return 999 // リストにない店舗は最後
+    }
+    
     const sortedData = (data || []).sort((a, b) => {
       // 臨時会場は最後に配置
       if (a.is_temporary && !b.is_temporary) return 1
@@ -36,14 +68,11 @@ export const storeApi = {
       }
       
       // 通常の店舗同士
-      const indexA = storeOrder.indexOf(a.name)
-      const indexB = storeOrder.indexOf(b.name)
-      // 両方が順序リストにある場合は順序に従う
-      if (indexA !== -1 && indexB !== -1) return indexA - indexB
-      // 一方だけが順序リストにある場合は、リストにあるものを先に
-      if (indexA !== -1) return -1
-      if (indexB !== -1) return 1
-      // どちらも順序リストにない場合は名前順
+      const indexA = getStoreIndex(a)
+      const indexB = getStoreIndex(b)
+      // 順序が異なる場合は順序に従う
+      if (indexA !== indexB) return indexA - indexB
+      // 同じ順序（またはどちらも999）の場合は名前順
       return a.name.localeCompare(b.name, 'ja')
     })
     

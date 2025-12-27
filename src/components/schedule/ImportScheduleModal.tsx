@@ -168,6 +168,8 @@ interface PreviewEvent {
   timeSlot: string
   scenario: string
   gms: string[]
+  originalGms: string  // マッピング前の元のGM入力
+  gmMappings: Array<{ from: string; to: string }>  // マッピング情報
   category: string
   isMemo: boolean
   hasExisting: boolean
@@ -300,6 +302,37 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       .map(gm => gm.trim())
       .filter(gm => gm)
       .map(gm => STAFF_NAME_MAPPING[gm] || gm)
+  }
+  
+  // マッピング情報付きでGM名をパース
+  const parseGmNamesWithMapping = (gmText: string): { gms: string[]; mappings: Array<{ from: string; to: string }> } => {
+    if (!gmText || gmText.trim() === '') return { gms: [], mappings: [] }
+    
+    // 括弧内の情報を除去
+    let text = gmText.replace(/\([^)]+\)/g, '').replace(/（[^）]+）/g, '')
+    
+    // 絵文字を除去
+    text = text.replace(/[🈵✅@]/g, '')
+    
+    // 矢印で分割（GM変更の場合）
+    if (text.includes('→')) {
+      text = text.split('→').pop() || ''
+    }
+    
+    // カンマやスラッシュで分割
+    const rawGms = text.split(/[,、/]/).map(gm => gm.trim()).filter(gm => gm)
+    
+    const mappings: Array<{ from: string; to: string }> = []
+    const gms = rawGms.map(gm => {
+      const mapped = STAFF_NAME_MAPPING[gm]
+      if (mapped && mapped !== gm) {
+        mappings.push({ from: gm, to: mapped })
+        return mapped
+      }
+      return gm
+    })
+    
+    return { gms, mappings }
   }
 
   // 時間を抽出
@@ -685,12 +718,14 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           const cellKey = `${parseDate(currentDate)}|${storeId || 'null'}|${getTimeSlot(times?.start || slot.defaultStart)}`
           const hasExisting = existingMap.has(cellKey)
           
+          const gmResult = parseGmNamesWithMapping(gmText)
+          
           events.push({
             date: parseDate(currentDate),
             venue,
             store_id: storeId,
             scenario: scenarioName,
-            gms: parseGmNames(gmText),
+            gms: gmResult.gms,
             start_time: times?.start || slot.defaultStart,
             end_time: times?.end || slot.defaultEnd,
             category: isMemo ? 'memo' : determineCategory(title),
@@ -702,7 +737,9 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             _memoText: isMemo ? title.trim() : undefined,
             _slotName: slot.slotName,
             _hasExisting: hasExisting,
-            _rawTitle: title
+            _rawTitle: title,
+            _originalGmText: gmText,
+            _gmMappings: gmResult.mappings
           })
         }
       }
@@ -714,6 +751,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         timeSlot: e._slotName,
         scenario: e._isMemo ? `[メモ] ${e._rawTitle}` : e.scenario,
         gms: e.gms,
+        originalGms: e._originalGmText || '',
+        gmMappings: e._gmMappings || [],
         category: e.category,
         isMemo: e._isMemo,
         hasExisting: e._hasExisting
@@ -806,7 +845,22 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
                           <td className="p-1 border-b truncate max-w-[200px]" title={event.scenario}>
                             {event.scenario || '-'}
                           </td>
-                          <td className="p-1 border-b">{event.gms.join(', ') || '-'}</td>
+                          <td className="p-1 border-b">
+                            {event.gms.length > 0 ? (
+                              <div>
+                                <span>{event.gms.join(', ')}</span>
+                                {event.gmMappings.length > 0 && (
+                                  <div className="text-[10px] text-purple-600">
+                                    {event.gmMappings.map((m, j) => (
+                                      <span key={j} className="mr-1">
+                                        {m.from}→{m.to}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : '-'}
+                          </td>
                           <td className="p-1 border-b">
                             {event.isMemo ? (
                               <span className="text-blue-600">メモ</span>
