@@ -898,6 +898,9 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     setPreviewErrors([])
     setIsLoadingPreview(true)
     
+    // UIが更新されるのを待ってから処理を開始
+    await new Promise(resolve => setTimeout(resolve, 50))
+    
     try {
       const lines = scheduleText.trim().split('\n')
       const events: any[] = []
