@@ -409,10 +409,20 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         // GM名のリスト（会場欄に誤って入っている可能性のある名前）
         const gmNames = ['そら', 'じの', 'まつい', 'きゅう', 'りえぞー', 'つばめ', 'えりん', 'れみあ', 
                           'しらやま', 'ぴよな', 'あんころ', 'ソルト', 'もりし', 'らぼ', 'さき', 'りんな',
-                          'ぶるそに', 'だいこん', 'ソラ', 'ツバメ']
+                          'ぶるそに', 'だいこん', 'ソラ', 'ツバメ', 'サンジョウバ', 'がっちゃん', 'ほがらか',
+                          'えなみ', 'Ida', 'れいにー', 'みずき', 'えいきち', 'N', 'kanade', 'BB', 'labo']
         
         // 会場欄にGM名が入っている場合はその行をスキップ
         if (gmNames.includes(venue) || venue.includes('→')) {
+          continue
+        }
+        
+        // 会場欄にシナリオ名らしきものが入っている場合はスキップ
+        // （シナリオ名の特徴: 括弧付き時間、絵文字、「・」で始まる、長すぎる）
+        if (venue.includes('(') || venue.includes('（') || 
+            venue.includes('✅') || venue.includes('🈵') ||
+            venue.startsWith('募・') || venue.startsWith('貸・') || venue.startsWith('出張・') ||
+            venue.length > 10) {
           continue
         }
 
@@ -523,10 +533,14 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             continue
           }
           
-          // 店舗がマッピングに存在しない場合のみエラー（nullは有効な値）
+          // 店舗がマッピングに存在しない場合はスキップ（警告のみ）
           if (event.store_id === undefined && !(event.venue in STORE_MAPPING)) {
-            failedCount++
-            errors.push(`${event.date} ${event.venue} - ${event.scenario}: 店舗が見つかりません（STORE_MAPPINGに"${event.venue}"が存在しません）`)
+            // 店舗名が明らかにパースエラーの場合（シナリオ名っぽい）はサイレントスキップ
+            if (event.venue.includes('(') || event.venue.includes('✅') || 
+                event.venue.length > 15 || event.venue.startsWith('募') || event.venue.startsWith('貸')) {
+              continue
+            }
+            errors.push(`⚠️ ${event.date} ${event.venue}: 店舗不明のためスキップ`)
             continue
           }
 
