@@ -216,6 +216,45 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     }
   }, [isOpen])
   
+  // ひらがな→カタカナ変換
+  const toKatakana = (str: string): string => {
+    return str.replace(/[\u3041-\u3096]/g, (match) => 
+      String.fromCharCode(match.charCodeAt(0) + 0x60)
+    )
+  }
+  
+  // カタカナ→ひらがな変換
+  const toHiragana = (str: string): string => {
+    return str.replace(/[\u30A1-\u30F6]/g, (match) => 
+      String.fromCharCode(match.charCodeAt(0) - 0x60)
+    )
+  }
+  
+  // 文字列の類似度を計算（レーベンシュタイン距離）
+  const getLevenshteinDistance = (a: string, b: string): number => {
+    const matrix: number[][] = []
+    for (let i = 0; i <= b.length; i++) {
+      matrix[i] = [i]
+    }
+    for (let j = 0; j <= a.length; j++) {
+      matrix[0][j] = j
+    }
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1]
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          )
+        }
+      }
+    }
+    return matrix[b.length][a.length]
+  }
+  
   // スタッフ名からマッピングを動的に生成
   const dynamicStaffMapping = useMemo(() => {
     const mapping: Record<string, string> = { ...STAFF_NAME_MAPPING }
@@ -228,22 +267,89 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         mapping[name] = name
       }
       // ひらがな・カタカナ変換も追加
-      const hiragana = name.replace(/[\u30A1-\u30F6]/g, (match) => 
-        String.fromCharCode(match.charCodeAt(0) - 0x60)
-      )
-      const katakana = name.replace(/[\u3041-\u3096]/g, (match) => 
-        String.fromCharCode(match.charCodeAt(0) + 0x60)
-      )
+      const hiragana = toHiragana(name)
+      const katakana = toKatakana(name)
       if (hiragana !== name && !mapping[hiragana]) {
         mapping[hiragana] = name
       }
       if (katakana !== name && !mapping[katakana]) {
         mapping[katakana] = name
       }
+      // 小文字も追加
+      const lower = name.toLowerCase()
+      if (lower !== name && !mapping[lower]) {
+        mapping[lower] = name
+      }
     }
     
     return mapping
   }, [staffList])
+  
+  // 類似度マッチングでスタッフ名を検索
+  const findBestStaffMatch = (input: string): string | null => {
+    if (!input || input.length === 0) return null
+    
+    const normalizedInput = input.trim()
+    
+    // 1. 完全一致チェック（動的マッピング）
+    if (dynamicStaffMapping[normalizedInput]) {
+      return dynamicStaffMapping[normalizedInput]
+    }
+    
+    // 2. ひらがな/カタカナ変換して完全一致チェック
+    const hiraganaInput = toHiragana(normalizedInput)
+    const katakanaInput = toKatakana(normalizedInput)
+    
+    if (dynamicStaffMapping[hiraganaInput]) {
+      return dynamicStaffMapping[hiraganaInput]
+    }
+    if (dynamicStaffMapping[katakanaInput]) {
+      return dynamicStaffMapping[katakanaInput]
+    }
+    
+    // 3. 前方一致チェック
+    for (const staff of staffList) {
+      const staffHiragana = toHiragana(staff.name)
+      const staffKatakana = toKatakana(staff.name)
+      
+      if (staff.name.startsWith(normalizedInput) || 
+          staffHiragana.startsWith(hiraganaInput) ||
+          staffKatakana.startsWith(katakanaInput)) {
+        return staff.name
+      }
+      if (normalizedInput.startsWith(staff.name) ||
+          hiraganaInput.startsWith(staffHiragana) ||
+          katakanaInput.startsWith(staffKatakana)) {
+        return staff.name
+      }
+    }
+    
+    // 4. 類似度マッチング（短い名前のみ、2文字以上）
+    if (normalizedInput.length >= 2 && staffList.length > 0) {
+      let bestMatch: string | null = null
+      let bestDistance = Infinity
+      
+      for (const staff of staffList) {
+        // ひらがな化して比較
+        const staffHiragana = toHiragana(staff.name)
+        const distance = getLevenshteinDistance(hiraganaInput, staffHiragana)
+        
+        // 類似度閾値: 入力文字数の半分以下の編集距離なら候補
+        const threshold = Math.max(1, Math.floor(normalizedInput.length / 2))
+        
+        if (distance <= threshold && distance < bestDistance) {
+          bestDistance = distance
+          bestMatch = staff.name
+        }
+      }
+      
+      if (bestMatch) {
+        return bestMatch
+      }
+    }
+    
+    return null
+  }
 
   // カテゴリを判定
   const determineCategory = (title: string): string => {
@@ -354,11 +460,11 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     // カンマやスラッシュで分割
     const gms = text.split(/[,、/]/)
     
-    // マッピングで正規化（動的マッピングを使用）
+    // マッピングで正規化（類似度マッチングも使用）
     return gms
       .map(gm => gm.trim())
       .filter(gm => gm)
-      .map(gm => dynamicStaffMapping[gm] || gm)
+      .map(gm => findBestStaffMatch(gm) || gm)
   }
   
   // マッピング情報付きでGM名をパース
@@ -381,11 +487,11 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     
     const mappings: Array<{ from: string; to: string }> = []
     const gms = rawGms.map(gm => {
-      // 動的マッピングを使用
-      const mapped = dynamicStaffMapping[gm]
-      if (mapped && mapped !== gm) {
-        mappings.push({ from: gm, to: mapped })
-        return mapped
+      // 類似度マッチングを使用
+      const matched = findBestStaffMatch(gm)
+      if (matched && matched !== gm) {
+        mappings.push({ from: gm, to: matched })
+        return matched
       }
       return gm
     })
