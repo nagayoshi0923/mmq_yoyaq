@@ -80,10 +80,22 @@ export function ScheduleManager() {
       const lastDay = new Date(year, month, 0).getDate()
       const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
       
+      // シナリオリストを取得（名前で定員を検索するため）
+      const { data: allScenarios } = await supabase
+        .from('scenarios')
+        .select('title, player_count_max')
+      
+      const scenarioByTitle = new Map<string, number>()
+      allScenarios?.forEach(s => {
+        if (s.title && s.player_count_max) {
+          scenarioByTitle.set(s.title, s.player_count_max)
+        }
+      })
+      
       // まず対象のイベントを取得（シナリオの定員情報も含む）
       const { data: events, error: fetchError } = await supabase
         .from('schedule_events')
-        .select('id, max_participants, scenarios(player_count_max)')
+        .select('id, scenario, max_participants, capacity, scenarios:scenario_id(player_count_max)')
         .gte('date', startDate)
         .lte('date', endDate)
         .eq('is_cancelled', false)
@@ -96,9 +108,20 @@ export function ScheduleManager() {
       // 各イベントの参加者数を定員に合わせる
       let successCount = 0
       for (const event of events || []) {
-        // シナリオの定員 → イベントの定員 → デフォルト8人 の優先順位
+        // シナリオJOIN → イベントのmax_participants → capacity → シナリオ名検索 → デフォルト8人
         const scenarioMax = (event.scenarios as { player_count_max?: number } | null)?.player_count_max
-        const maxParticipants = scenarioMax || event.max_participants || 8
+        let maxParticipants = scenarioMax || event.max_participants || event.capacity
+        
+        // JOINが効かなかった場合、シナリオ名で検索
+        if (!maxParticipants && event.scenario) {
+          maxParticipants = scenarioByTitle.get(event.scenario)
+        }
+        
+        // それでも見つからない場合はデフォルト8
+        if (!maxParticipants) {
+          maxParticipants = 8
+        }
+        
         const { error } = await supabase
           .from('schedule_events')
           .update({ current_participants: maxParticipants })
