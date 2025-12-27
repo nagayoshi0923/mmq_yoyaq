@@ -26,6 +26,8 @@ interface ScenarioActionsProps {
 interface StoreInfo {
   id: string
   short_name: string
+  ownership_type?: string
+  is_temporary?: boolean
 }
 
 /**
