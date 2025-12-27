@@ -339,30 +339,9 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         }
       }
       
-      // 既存データを削除（置き換えモードの場合）
-      if (replaceExisting && targetMonth) {
-        try {
-          const startDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-01`
-          const endDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-31`
-          
-          const { error: deleteError } = await supabase
-            .from('schedule_events')
-            .delete()
-            .gte('date', startDate)
-            .lte('date', endDate)
-          
-          if (deleteError) {
-            logger.error('既存データの削除エラー:', deleteError)
-            errors.push(`既存データの削除に失敗: ${deleteError.message}`)
-          }
-        } catch (err) {
-          logger.error('削除処理エラー:', err)
-          errors.push(`削除処理エラー: ${String(err)}`)
-        }
-      }
-      
       // 既存イベントを取得（上書き用にIDも含む）
-      let existingEvents: Array<{ id: string; date: string; store_id: string | null; start_time: string; is_cancelled: boolean; scenario?: string; memo?: string }> = []
+      // 注: 削除はせず、既存イベントがある場合は上書き更新する
+      let existingEvents: Array<{ id: string; date: string; store_id: string | null; start_time: string; is_cancelled: boolean; scenario?: string; notes?: string }> = []
       if (targetMonth) {
         try {
           const startDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-01`
@@ -370,7 +349,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           
           const { data, error: fetchError } = await supabase
             .from('schedule_events')
-            .select('id, date, store_id, start_time, is_cancelled, scenario, memo')
+            .select('id, date, store_id, start_time, is_cancelled, scenario, notes')
             .gte('date', startDate)
             .lte('date', endDate)
           
@@ -444,7 +423,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           const isMemo = (!scenarioName || scenarioName.length <= 1) && !times
           
           if (isMemo) {
-            // メモとして処理（既存イベントがあればそのmemoフィールドに追加）
+            // メモとして処理（既存イベントがあればそのnotesフィールドに追加）
             const event = {
               date: parseDate(currentDate),
               venue,
@@ -454,11 +433,11 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
               start_time: slot.defaultStart,
               end_time: slot.defaultEnd,
               category: 'memo' as const,
-              memo: title.trim(),  // 元のテキストをメモとして保存
-              notes: extractNotes(title),
+              notes: title.trim(),  // 元のテキストをメモとして保存
               is_cancelled: false,
               organization_id: ORGANIZATION_ID,
-              _isMemo: true  // メモフラグ（後で処理するため）
+              _isMemo: true,  // メモフラグ（後で処理するため）
+              _memoText: title.trim()  // メモのテキストを保持
             }
             events.push(event)
           } else {
@@ -548,19 +527,19 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           // 既存イベントを取得
           const existingEvent = existingEventMap.get(eventCellKey)
           
-          // _isMemoフラグを除去してDBに保存するデータを作成
-          const { _isMemo, ...eventData } = event
+          // _isMemo, _memoTextフラグを除去してDBに保存するデータを作成
+          const { _isMemo, _memoText, ...eventData } = event as typeof event & { _memoText?: string }
           
           // メモの場合の処理
           if (_isMemo) {
             if (existingEvent) {
-              // 既存イベントがある場合、memoフィールドに追加
-              const existingMemo = existingEvent.memo || ''
-              const newMemo = existingMemo ? `${existingMemo}\n${eventData.memo}` : eventData.memo
+              // 既存イベントがある場合、notesフィールドに追加
+              const existingNotes = existingEvent.notes || ''
+              const newNotes = existingNotes ? `${existingNotes}\n${_memoText}` : _memoText
               
               const { error } = await supabase
                 .from('schedule_events')
-                .update({ memo: newMemo })
+                .update({ notes: newNotes })
                 .eq('id', existingEvent.id)
               
               if (error) {
@@ -594,8 +573,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           }
           
           // 通常の公演の処理
-          if (existingEvent && !replaceExisting) {
-            // 既存イベントがある場合、上書き更新（既存削除OFFの場合）
+          if (existingEvent) {
+            // 既存イベントがある場合、上書き更新
             const { error } = await supabase
               .from('schedule_events')
               .update({
