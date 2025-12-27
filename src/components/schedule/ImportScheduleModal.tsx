@@ -354,13 +354,30 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       if (staffHiragana.startsWith(hiraganaInput) && hiraganaInput.length >= 2) {
         return staff.name
       }
+      if (katakanaInput.startsWith(staffKatakana) && staffKatakana.length >= 2) {
+        return staff.name
+      }
+      if (staffKatakana.startsWith(katakanaInput) && katakanaInput.length >= 2) {
+        return staff.name
+      }
       // 入力がスタッフ名を含む
       if (normalizedInput.includes(staff.name) && staff.name.length >= 2) {
         return staff.name
       }
+      // スタッフ名が入力を含む（逆方向）
+      if (staff.name.includes(normalizedInput) && normalizedInput.length >= 2) {
+        return staff.name
+      }
+      // ひらがな/カタカナで部分一致
+      if (hiraganaInput.includes(staffHiragana) && staffHiragana.length >= 2) {
+        return staff.name
+      }
+      if (staffHiragana.includes(hiraganaInput) && hiraganaInput.length >= 2) {
+        return staff.name
+      }
     }
     
-    // 4. 類似度マッチング（短い名前のみ、2文字以上）
+    // 5. 類似度マッチング（2文字以上）
     if (normalizedInput.length >= 2 && staffList.length > 0) {
       let bestMatch: string | null = null
       let bestDistance = Infinity
@@ -370,8 +387,9 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         const staffHiragana = toHiragana(staff.name)
         const distance = getLevenshteinDistance(hiraganaInput, staffHiragana)
         
-        // 類似度閾値: 入力文字数の半分以下の編集距離なら候補
-        const threshold = Math.max(1, Math.floor(normalizedInput.length / 2))
+        // 類似度閾値: より緩く、入力と名前の長さに応じて調整
+        const maxLen = Math.max(normalizedInput.length, staff.name.length)
+        const threshold = Math.max(2, Math.floor(maxLen / 2))
         
         if (distance <= threshold && distance < bestDistance) {
           bestDistance = distance
