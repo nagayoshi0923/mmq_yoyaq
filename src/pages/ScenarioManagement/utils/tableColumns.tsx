@@ -234,9 +234,8 @@ export function createScenarioColumns(
           
           const storeNames = storeIds.map(id => {
             const store = storeMap?.get(id)
-            return store?.short_name?.slice(0, 3) || '?'
+            return store?.short_name || '?'
           })
-          const fullStoreNames = storeIds.map(id => storeMap?.get(id)?.short_name || '?')
           
           const maxDisplay = 4
           const displayed = storeNames.slice(0, maxDisplay)
@@ -265,7 +264,7 @@ export function createScenarioColumns(
                 </TooltipTrigger>
                 <TooltipContent className="bg-gray-900 text-white border-gray-900 px-2 py-1.5">
                   <div className="flex flex-col gap-0.5">
-                    {fullStoreNames.map((name, i) => (
+                    {storeNames.map((name, i) => (
                       <span key={i} className="text-xs">{name}</span>
                     ))}
                   </div>
