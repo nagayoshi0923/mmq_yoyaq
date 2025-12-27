@@ -340,8 +340,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       }
       
       // 既存イベントを取得（上書き用にIDも含む）
-      // 注: 削除はせず、既存イベントがある場合は上書き更新する
-      let existingEvents: Array<{ id: string; date: string; store_id: string | null; start_time: string; is_cancelled: boolean; scenario?: string; notes?: string }> = []
+      // 注: 削除はせず、既存イベントがある場合はマージ更新する
+      let existingEvents: Array<{ id: string; date: string; store_id: string | null; start_time: string; is_cancelled: boolean; scenario?: string; notes?: string; gms?: string[]; reservation_info?: string }> = []
       if (targetMonth) {
         try {
           const startDate = `${targetMonth.year}-${String(targetMonth.month).padStart(2, '0')}-01`
@@ -349,7 +349,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           
           const { data, error: fetchError } = await supabase
             .from('schedule_events')
-            .select('id, date, store_id, start_time, is_cancelled, scenario, notes')
+            .select('id, date, store_id, start_time, is_cancelled, scenario, notes, gms, reservation_info')
             .gte('date', startDate)
             .lte('date', endDate)
           
@@ -574,17 +574,39 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           
           // 通常の公演の処理
           if (existingEvent) {
-            // 既存イベントがある場合、上書き更新
+            // 既存イベントがある場合、情報をマージして更新
+            
+            // GM情報のマージ: インポートにGMがあればそれを使用、なければ既存を保持
+            const mergedGms = (eventData.gms && eventData.gms.length > 0)
+              ? eventData.gms
+              : (existingEvent.gms || [])
+            
+            // シナリオ: インポートにあればそれを使用、なければ既存を保持
+            const mergedScenario = eventData.scenario || existingEvent.scenario || ''
+            
+            // 予約情報: インポートにあればそれを使用、なければ既存を保持
+            const mergedReservationInfo = eventData.reservation_info || existingEvent.reservation_info
+            
+            // notes: 両方あればマージ、片方だけならそれを使用
+            const mergedNotes = (() => {
+              const importNotes = eventData.notes || ''
+              const existingNotes = existingEvent.notes || ''
+              if (importNotes && existingNotes && importNotes !== existingNotes) {
+                return `${existingNotes}\n${importNotes}`
+              }
+              return importNotes || existingNotes
+            })()
+            
             const { error } = await supabase
               .from('schedule_events')
               .update({
-                scenario: eventData.scenario,
-                gms: eventData.gms,
+                scenario: mergedScenario,
+                gms: mergedGms,
                 start_time: eventData.start_time,
                 end_time: eventData.end_time,
                 category: eventData.category,
-                reservation_info: eventData.reservation_info,
-                notes: eventData.notes,
+                reservation_info: mergedReservationInfo,
+                notes: mergedNotes,
                 is_cancelled: eventData.is_cancelled
               })
               .eq('id', existingEvent.id)
