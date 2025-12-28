@@ -649,16 +649,9 @@ export const scheduleApi = {
     }
     
     // DBで許可されていないカテゴリをopenにマッピング
-    const DB_VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package']
+    const DB_VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package', 'mtg']
     
-    // MTGは privateにマッピングし、シナリオ名で識別
-    if (finalData.category === 'mtg') {
-      logger.info(`カテゴリマッピング: mtg -> private (シナリオ: MTG)`)
-      finalData.category = 'private'
-      if (!finalData.scenario || finalData.scenario === '') {
-        finalData.scenario = 'MTG（マネージャーミーティング）'
-      }
-    } else if (finalData.category && !DB_VALID_CATEGORIES.includes(finalData.category)) {
+    if (finalData.category && !DB_VALID_CATEGORIES.includes(finalData.category)) {
       logger.info(`カテゴリマッピング: ${finalData.category} -> open`)
       finalData.category = 'open'
     }
@@ -716,16 +709,9 @@ export const scheduleApi = {
     }
     
     // DBで許可されていないカテゴリをopenにマッピング
-    const DB_VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package']
+    const DB_VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package', 'mtg']
     
-    // MTGは privateにマッピングし、シナリオ名で識別
-    if (finalUpdates.category === 'mtg') {
-      logger.info(`カテゴリマッピング: mtg -> private (シナリオ: MTG)`)
-      finalUpdates.category = 'private'
-      if (!finalUpdates.scenario || finalUpdates.scenario === '') {
-        finalUpdates.scenario = 'MTG（マネージャーミーティング）'
-      }
-    } else if (finalUpdates.category && !DB_VALID_CATEGORIES.includes(finalUpdates.category)) {
+    if (finalUpdates.category && !DB_VALID_CATEGORIES.includes(finalUpdates.category)) {
       logger.info(`カテゴリマッピング: ${finalUpdates.category} -> open`)
       finalUpdates.category = 'open'
     }
