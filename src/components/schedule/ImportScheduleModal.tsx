@@ -1529,8 +1529,25 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         return acc
       }, {})
       console.log(`📊 インポート解析結果: 総行数=${lines.length}, 処理行=${processedRows}, スキップ行=${skippedRows}, イベント数=${events.length}`)
-      console.log('📊 店舗別:', venueCount)
-      console.log('📊 日付別:', dateCount)
+      console.log('📊 店舗別:', JSON.stringify(venueCount))
+      console.log('📊 日付別:', JSON.stringify(dateCount))
+      
+      // 最初の10行の構造をデバッグ表示
+      console.log('📋 最初の10行の構造:')
+      for (let i = 0; i < Math.min(10, lines.length); i++) {
+        const parts = parseTsvCells(lines[i])
+        console.log(`  行${i}: 列数=${parts.length}, 列0="${(parts[0] || '').substring(0, 10)}", 列2="${(parts[2] || '').substring(0, 15)}"`)
+      }
+      
+      // 11/9を含む行を探す
+      const line9 = lines.findIndex(l => l.includes('11/9'))
+      if (line9 >= 0) {
+        console.log(`📋 11/9が見つかった行: ${line9}`)
+        const parts = parseTsvCells(lines[line9])
+        console.log(`  列数=${parts.length}, 列0="${parts[0]}", 列2="${parts[2]}"`)
+      } else {
+        console.log('⚠️ 11/9が見つかりません - データが途中で切れている可能性')
+      }
       
       setParsedEvents(events)
       setPreviewEvents(preview)
