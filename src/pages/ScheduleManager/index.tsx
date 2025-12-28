@@ -40,7 +40,7 @@ import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText } from 'lucide-react'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -672,6 +672,16 @@ export function ScheduleManager() {
                   icon: <Trash2 className="w-4 h-4" />,
                   onClick: () => {
                     scheduleTableProps.eventHandlers.onDeletePerformance(event)
+                    modals.contextMenu.setContextMenu(null)
+                  }
+                },
+                {
+                  label: 'メモに変換',
+                  icon: <FileText className="w-4 h-4" />,
+                  onClick: () => {
+                    // 公演データをメモカテゴリで編集モーダルを開く
+                    const memoEvent = { ...event, category: 'memo' as const }
+                    scheduleTableProps.eventHandlers.onEditPerformance(memoEvent)
                     modals.contextMenu.setContextMenu(null)
                   },
                   separator: true
