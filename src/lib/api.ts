@@ -50,6 +50,103 @@ interface ScheduleEvent {
   timeSlot?: string
 }
 
+// シナリオ名のエイリアスマッピング（表記ゆれ対応）
+const SCENARIO_ALIAS: Record<string, string> = {
+  '真渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
+  '真渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
+  '渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
+  '渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
+  '真・渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
+  '土牢の悲鳴に谺して': '土牢に悲鳴は谺して',
+  '百鬼の夜月光の影': '百鬼の夜、月光の影',
+  'インビジブル亡霊列車': 'Invisible-亡霊列車-',
+  'くずの葉の森': 'くずの葉のもり',
+  'ドクターテラスの秘密の実験': 'ドクター・テラスの秘密の実験',
+  'あるミステリーについて': 'あるマーダーミステリーについて',
+  'MurderWonderLand': 'リアルマダミス-MurderWonderLand',
+  'GROLIAMEMORIES': 'グロリアメモリーズ',
+  '募SORCIER': 'SORCIER〜賢者達の物語〜',
+  'SORCIER': 'SORCIER〜賢者達の物語〜',
+  'ソルシエ': 'SORCIER〜賢者達の物語〜',
+  '藍雨': '藍雨廻逢',
+  "THEREALFOLK'30s": "TheRealFork30's",
+  'THEREALFOLK': "TheRealFork30's",
+  'TheRealFolk': "TheRealFork30's",
+  'トレタリ': '超特急の呪いの館で撮れ高足りてますか？',
+  'さきこさん': '裂き子さん',
+  '廻る弾丸輪舞': '廻る弾丸輪舞（ダンガンロンド）',
+  '狂気山脈1': '狂気山脈　陰謀の分水嶺（１）',
+  '狂気山脈2': '狂気山脈　星降る天辺（２）',
+  '狂気山脈3': '狂気山脈　薄明三角点（３）',
+  '狂気山脈2.5': '狂気山脈　2.5　頂上戦争',
+}
+
+// シナリオ名を正規化（プレフィックス除去等）
+function normalizeScenarioName(name: string): string {
+  return name
+    .replace(/^["「『📗📕]/, '')
+    .replace(/["」』]$/, '')
+    .replace(/^貸・/, '')
+    .replace(/^募・/, '')
+    .replace(/^🈵・/, '')
+    .replace(/^GMテスト・/, '')
+    .replace(/^打診・/, '')
+    .replace(/^仮/, '')
+    .replace(/^（仮）/, '')
+    .replace(/^\(仮\)/, '')
+    .replace(/\(.*?\)$/, '')
+    .replace(/（.*?）$/, '')
+    .trim()
+}
+
+// シナリオ名から自動でマッチングして scenario_id と正式名称を返す
+async function findMatchingScenario(scenarioName: string | undefined): Promise<{ id: string; title: string } | null> {
+  if (!scenarioName || scenarioName.trim() === '') return null
+  
+  const cleanName = normalizeScenarioName(scenarioName)
+  if (cleanName.length < 2) return null
+  
+  // エイリアスマッピングを適用
+  let searchName = cleanName
+  if (SCENARIO_ALIAS[cleanName]) {
+    searchName = SCENARIO_ALIAS[cleanName]
+  }
+  // 部分一致でエイリアスを探す
+  for (const [alias, formal] of Object.entries(SCENARIO_ALIAS)) {
+    if (cleanName.includes(alias)) {
+      searchName = formal
+      break
+    }
+  }
+  
+  // シナリオマスタから検索
+  const { data: scenarios } = await supabase
+    .from('scenarios')
+    .select('id, title')
+  
+  if (!scenarios || scenarios.length === 0) return null
+  
+  // 1. 完全一致
+  let match = scenarios.find(s => s.title === searchName)
+  
+  // 2. 前方一致
+  if (!match) {
+    match = scenarios.find(s => s.title.startsWith(searchName))
+  }
+  
+  // 3. シナリオタイトルが入力に含まれている
+  if (!match) {
+    match = scenarios.find(s => searchName.includes(s.title))
+  }
+  
+  // 4. 入力がシナリオタイトルに含まれている（4文字以上）
+  if (!match && searchName.length >= 4) {
+    match = scenarios.find(s => s.title.includes(searchName))
+  }
+  
+  return match || null
+}
+
 // 公演スケジュール関連のAPI（大きいため分割保留）
 export const scheduleApi = {
   // 自分のスケジュールを取得（期間指定）
@@ -540,9 +637,20 @@ export const scheduleApi = {
     venue_rental_fee?: number  // 場所貸し公演料金
     organization_id: string  // マルチテナント対応：必須
   }) {
+    // シナリオ名から自動でマッチングして scenario_id と正式名称を設定
+    const finalData = { ...eventData }
+    if (eventData.scenario && !eventData.scenario_id) {
+      const match = await findMatchingScenario(eventData.scenario)
+      if (match) {
+        finalData.scenario_id = match.id
+        finalData.scenario = match.title // 正式名称に更新
+        logger.info(`シナリオ自動マッチング: ${eventData.scenario} -> ${match.title}`)
+      }
+    }
+    
     const { data, error } = await supabase
       .from('schedule_events')
-      .insert([eventData])
+      .insert([finalData])
       .select(`
         *,
         stores:store_id (
@@ -581,9 +689,20 @@ export const scheduleApi = {
     time_slot: string | null
     venue_rental_fee: number  // 場所貸し公演料金
   }>) {
+    // シナリオ名から自動でマッチングして scenario_id と正式名称を設定
+    const finalUpdates = { ...updates }
+    if (updates.scenario && !updates.scenario_id) {
+      const match = await findMatchingScenario(updates.scenario)
+      if (match) {
+        finalUpdates.scenario_id = match.id
+        finalUpdates.scenario = match.title // 正式名称に更新
+        logger.info(`シナリオ自動マッチング: ${updates.scenario} -> ${match.title}`)
+      }
+    }
+    
     const { data, error } = await supabase
       .from('schedule_events')
-      .update(updates)
+      .update(finalUpdates)
       .eq('id', id)
       .select(`
         *,
