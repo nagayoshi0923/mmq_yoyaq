@@ -56,7 +56,14 @@ const STORE_MAPPING: Record<string, string | null> = {
   "大塚": "f94256c3-e992-4723-b965-9df5cd54ea81",
   "埼玉大宮": "8a254b6d-9293-42c6-b634-e872c83fc4fd",
   "京都出張": null,  // 出張はstore_idなし（offsite）
-  "オンライン": null  // オンラインはstore_idなし
+  "オンライン": null,  // オンラインはstore_idなし
+  // 追加の店舗・イベント種別
+  "出張": null,  // 出張公演
+  "ゲムマ": null,  // ゲームマーケット
+  "SME": null,  // SME会場
+  "制作打ち合わせ": null,  // 打ち合わせ
+  "別会場": null,  // 別会場
+  "オフィス": null  // オフィス
 }
 
 // シナリオ名の揺らぎを統一するマッピング（略称 → 正式名称）
