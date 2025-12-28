@@ -2,6 +2,7 @@ import React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Users, AlertTriangle } from 'lucide-react'
 import { useLongPress } from '@/hooks/useLongPress'
+import { getEffectiveCategory } from '@/utils/scheduleUtils'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -98,15 +99,18 @@ function PerformanceCardBase({
   // 完了状態の判定（シナリオなし、GMなし、またはメインGMなし）
   const isIncomplete = !event.scenario || event.gms.length === 0 || mainGms.length === 0
   
+  // 実際に表示するカテゴリを判定（MTGなど特殊ケースに対応）
+  const effectiveCategory = getEffectiveCategory(event.category, event.scenario)
+  
   // 貸切リクエストの場合は紫色で表示
   const categoryColors = event.is_private_request 
     ? 'bg-purple-50'
-    : (categoryConfig[event.category as keyof typeof categoryConfig]?.cardColor?.replace(/border-\S+/, '') ?? 'bg-gray-50')
+    : (categoryConfig[effectiveCategory as keyof typeof categoryConfig]?.cardColor?.replace(/border-\S+/, '') ?? 'bg-gray-50')
   
   // バッジのテキストカラーを取得（例: 'bg-blue-100 text-blue-800' から 'text-blue-800' を抽出）
   const badgeTextColor = event.is_private_request
     ? 'text-purple-800'
-    : (categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor?.split(' ').find(cls => cls.startsWith('text-')) ?? 'text-gray-800')
+    : (categoryConfig[effectiveCategory as keyof typeof categoryConfig]?.badgeColor?.split(' ').find(cls => cls.startsWith('text-')) ?? 'text-gray-800')
   
   // 左ボーダーの色を決定（濃いめのカラー）
   const leftBorderColor = isIncomplete 
@@ -115,17 +119,19 @@ function PerformanceCardBase({
       ? 'border-l-gray-500'
       : event.is_private_request
         ? 'border-l-purple-600'
-        : event.category === 'open'
+        : effectiveCategory === 'open'
           ? 'border-l-blue-600'
-          : event.category === 'private'
+          : effectiveCategory === 'private'
             ? 'border-l-purple-600'
-            : event.category === 'gmtest'
+            : effectiveCategory === 'gmtest'
               ? 'border-l-orange-600'
-              : event.category === 'testplay'
+              : effectiveCategory === 'testplay'
                 ? 'border-l-yellow-600'
-                : event.category === 'offsite'
+                : effectiveCategory === 'offsite'
                   ? 'border-l-green-600'
-                  : 'border-l-gray-500'
+                  : effectiveCategory === 'mtg'
+                    ? 'border-l-cyan-600'
+                    : 'border-l-gray-500'
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -273,8 +279,8 @@ function PerformanceCardBase({
             event.is_cancelled
               ? 'bg-gray-200 text-gray-500'  // 中止の場合はグレー
               : reservationCount >= maxCapacity 
-                ? fullBadgeColors[event.category] || 'bg-gray-800 text-gray-100'  // 満席の場合は反転色
-                : categoryConfig[event.category as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
+                ? fullBadgeColors[effectiveCategory] || 'bg-gray-800 text-gray-100'  // 満席の場合は反転色
+                : categoryConfig[effectiveCategory as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
           }`}>
             <Users className="w-3 h-3 mr-0.5 flex-shrink-0" />
             <span>{reservationCount}/{maxCapacity}</span>

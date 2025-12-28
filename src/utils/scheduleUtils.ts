@@ -102,6 +102,17 @@ export function getReservationBadgeClass(current: number, max: number): string {
 }
 
 /**
+ * 実際に表示するカテゴリを判定（MTGなど特殊ケースに対応）
+ */
+export function getEffectiveCategory(category: string, scenario?: string | null): string {
+  // シナリオ名がMTG関連の場合はmtgとして表示
+  if (scenario && (scenario.includes('MTG') || scenario.includes('マネージャーミーティング'))) {
+    return 'mtg'
+  }
+  return category
+}
+
+/**
  * 公演カテゴリの色設定
  */
 export const CATEGORY_CONFIG = {
