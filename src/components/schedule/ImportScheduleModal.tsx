@@ -863,23 +863,27 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         const scenarioName = sanitizeText(event.scenario)
         const matchedScenario = scenarioList.find(s => s.title === scenarioName)
         
-        // シナリオがマッピングされなかった場合はMEMOとして扱う
-        const isUnmappedScenario = scenarioName && scenarioName.length > 0 && !matchedScenario && !_isMemo
-        const shouldBeMemo = _isMemo || isUnmappedScenario
-        const memoText = isUnmappedScenario ? scenarioName : _memoText
+        // 明示的にMEMOカテゴリが選択された場合のみMEMOとして扱う
+        // マッピングできないシナリオはそのまま公演として作成（scenario_idは未設定）
+        const shouldBeMemo = _isMemo
+        const memoText = _memoText
+        
+        if (!matchedScenario && scenarioName && scenarioName.length > 0) {
+          console.log(`⚠️ シナリオ未マッピング（公演として作成）: ${scenarioName}`)
+        }
         
         const eventData: any = {
           date: event.date,
           venue: sanitizeText(event.venue), // venueは必須
           store_id: event.store_id,
-          scenario: shouldBeMemo ? '' : scenarioName, // MEMOの場合はシナリオを空に
-          scenario_id: matchedScenario?.id || null,
+          scenario: shouldBeMemo ? '' : scenarioName, // MEMOの場合のみシナリオを空に
+          scenario_id: matchedScenario?.id || null, // マッピングできなければnull
           gms: Array.isArray(event.gms) ? event.gms.map(sanitizeText) : [],
           gm_roles: event.gmRoles || {},
           start_time: event.start_time,
           end_time: event.end_time,
           category: mappedCategory,
-          notes: shouldBeMemo ? memoText : sanitizeText(event.notes), // MEMOの場合はnotesにシナリオ名を入れる
+          notes: shouldBeMemo ? memoText : sanitizeText(event.notes),
           reservation_info: sanitizeText(event.reservation_info),
           is_cancelled: event.is_cancelled,
           organization_id: event.organization_id
@@ -892,7 +896,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           }
         })
         
-        // メモの場合（明示的なメモ or マッピングされなかったシナリオ）
+        // メモの場合（明示的にMEMOカテゴリが選択された場合のみ）
         // メモは公演として作成せず、daily_memosテーブルに保存
         if (shouldBeMemo) {
           // daily_memosに追加するためのデータを記録
@@ -903,10 +907,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           if (memoText) {
             dailyMemoMap.get(memoKey)!.texts.push(memoText)
           }
-          
-          if (isUnmappedScenario) {
-            console.log(`⚠️ マッピングなし→MEMO変換: ${scenarioName}`)
-          }
+          console.log(`📝 MEMO: ${event.date} ${event.venue} - ${memoText}`)
           continue
         }
         
