@@ -1362,9 +1362,13 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       
       // 店舗名のリスト
       const validVenues = Object.keys(STORE_MAPPING)
+      console.log('📋 有効な店舗リスト:', validVenues.join(', '))
+      console.log(`📋 パース対象: ${lines.length}行`)
       
       // パース処理（UIスレッドをブロックしないようにチャンク分割）
       let lineCount = 0
+      let processedRows = 0
+      let skippedRows = 0
       for (const line of lines) {
         lineCount++
         // 10行ごとにUIスレッドに制御を戻す（16msでアニメーションフレームを確保）
@@ -1396,11 +1400,15 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           venue = parts[3]
         } else {
           // スキップされる行をログ出力（デバッグ用）
-          if (parts[2] && parts[2].length > 0 && parts[2].length < 20) {
-            console.log('⏭️ スキップ（店舗不明）:', parts[2], '|', parts.slice(0, 5).join(' | '))
+          const col2 = parts[2] || ''
+          const col3 = parts[3] || ''
+          if (col2.length > 0 && col2.length < 30 && !col2.includes('タイトル') && !col2.includes('時間帯')) {
+            console.log(`⏭️ スキップ: 列2="${col2.substring(0, 20)}", 列3="${col3.substring(0, 20)}"`)
+            skippedRows++
           }
           continue
         }
+        processedRows++
         
         // 時間帯インデックス
         let timeSlots: Array<{ titleIdx: number; gmIdx: number; defaultStart: string; defaultEnd: string; slotName: string }>
@@ -1508,22 +1516,17 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       })
       
       // デバッグ情報をコンソールに出力
-      console.log('📊 インポート解析結果:', {
-        総行数: lines.length,
-        イベント数: events.length,
-        店舗別: Object.entries(
-          events.reduce((acc: Record<string, number>, e: any) => {
-            acc[e.venue] = (acc[e.venue] || 0) + 1
-            return acc
-          }, {})
-        ),
-        日付別: Object.entries(
-          events.reduce((acc: Record<string, number>, e: any) => {
-            acc[e.date] = (acc[e.date] || 0) + 1
-            return acc
-          }, {})
-        )
-      })
+      const venueCount = events.reduce((acc: Record<string, number>, e: any) => {
+        acc[e.venue] = (acc[e.venue] || 0) + 1
+        return acc
+      }, {})
+      const dateCount = events.reduce((acc: Record<string, number>, e: any) => {
+        acc[e.date] = (acc[e.date] || 0) + 1
+        return acc
+      }, {})
+      console.log(`📊 インポート解析結果: 総行数=${lines.length}, 処理行=${processedRows}, スキップ行=${skippedRows}, イベント数=${events.length}`)
+      console.log('📊 店舗別:', venueCount)
+      console.log('📊 日付別:', dateCount)
       
       setParsedEvents(events)
       setPreviewEvents(preview)
