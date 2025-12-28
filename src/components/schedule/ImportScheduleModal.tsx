@@ -1232,6 +1232,10 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
     await new Promise(resolve => setTimeout(resolve, 50))
     
     try {
+      // 引用符として認識する文字（ASCII、スマートクォート、日本語引用符など）
+      const QUOTE_CHARS = new Set(['"', '"', '"', '「', '」', '『', '』'])
+      const isQuote = (char: string) => QUOTE_CHARS.has(char)
+      
       // セル内改行を含むTSVを正しくパースする（行を分割）
       const parseTsvLines = (text: string): string[] => {
         const result: string[] = []
@@ -1241,7 +1245,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         for (let i = 0; i < text.length; i++) {
           const char = text[i]
           
-          if (char === '"') {
+          if (isQuote(char)) {
             inQuotes = !inQuotes
             currentLine += char
           } else if (char === '\n' && !inQuotes) {
@@ -1268,7 +1272,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         for (let i = 0; i < line.length; i++) {
           const char = line[i]
           
-          if (char === '"') {
+          if (isQuote(char)) {
             inQuotes = !inQuotes
             // ダブルクォートは含めない（後で除去）
           } else if (char === '\t' && !inQuotes) {
