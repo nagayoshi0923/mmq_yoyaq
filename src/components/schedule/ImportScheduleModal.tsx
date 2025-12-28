@@ -1087,13 +1087,9 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       // プレビューを非表示にして結果を見やすくする
       setShowPreview(false)
       
-      // 成功した場合は5秒後に自動クローズ（ユーザーが結果を確認できるように長めに）
+      // インポート対象の月を通知（自動クローズはしない）
       if (totalSuccess > 0) {
-        setTimeout(() => {
-          // インポート対象の月を通知して、その月に切り替えられるようにする
-          onImportComplete(importTargetMonth || undefined)
-          handleClose()
-        }, 5000)
+        onImportComplete(importTargetMonth || undefined)
       }
     } catch (error) {
       setResult({ 
