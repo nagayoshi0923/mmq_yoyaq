@@ -1572,9 +1572,26 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         console.log(`📋 11/9が見つかった行: ${line9}`)
         const parts = parseTsvCells(lines[line9])
         console.log(`  列数=${parts.length}, 列0="${parts[0]}", 列2="${parts[2]}"`)
+        console.log(`  全列: ${JSON.stringify(parts.map((p, i) => `${i}:${p.substring(0, 30)}`).slice(0, 9))}`)
+        // 前後の行も表示
+        if (line9 > 0) {
+          const prevParts = parseTsvCells(lines[line9 - 1])
+          console.log(`  前行(${line9-1}): 列数=${prevParts.length}, 列2="${(prevParts[2] || '').substring(0, 20)}"`)
+        }
+        if (line9 < lines.length - 1) {
+          const nextParts = parseTsvCells(lines[line9 + 1])
+          console.log(`  次行(${line9+1}): 列数=${nextParts.length}, 列2="${(nextParts[2] || '').substring(0, 20)}"`)
+        }
       } else {
         console.log('⚠️ 11/9が見つかりません - データが途中で切れている可能性')
       }
+      
+      // 11/10以降があるか確認
+      const line10 = lines.findIndex(l => l.includes('11/10'))
+      const line15 = lines.findIndex(l => l.includes('11/15'))
+      const line20 = lines.findIndex(l => l.includes('11/20'))
+      const line30 = lines.findIndex(l => l.includes('11/30'))
+      console.log(`📋 日付存在チェック: 11/10=${line10}, 11/15=${line15}, 11/20=${line20}, 11/30=${line30}`)
       
       setParsedEvents(events)
       setPreviewEvents(preview)
