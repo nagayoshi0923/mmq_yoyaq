@@ -1,9 +1,10 @@
 // 公演の追加・編集・削除・中止・復活などの操作を管理
 
 import { useState, useCallback } from 'react'
-import { scheduleApi, memoApi } from '@/lib/api'
+import { scheduleApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi' // 追加
 import { supabase } from '@/lib/supabase'
+import { saveEmptySlotMemo } from '@/components/schedule/SlotMemoInput'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { getTimeSlot, TIME_SLOT_DEFAULTS } from '@/utils/scheduleUtils'
@@ -431,8 +432,10 @@ export function useEventOperations({
         // 店舗IDを取得
         const storeId = performanceData.venue
         
-        // daily_memosに保存
-        await memoApi.save(performanceData.date, storeId, memoText)
+        // スロットメモとして保存（localStorage）
+        const timeSlot = performanceData.time_slot || 'day'
+        saveEmptySlotMemo(performanceData.date, storeId, timeSlot, memoText)
+        console.log('✅ スロットメモ保存成功:', performanceData.date, storeId, timeSlot, memoText.substring(0, 50))
         
         // 編集モードの場合、元の公演を削除
         if (modalMode === 'edit' && performanceData.id) {
