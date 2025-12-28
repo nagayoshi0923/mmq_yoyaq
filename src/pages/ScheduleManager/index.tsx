@@ -114,7 +114,19 @@ export function ScheduleManager() {
         
         // JOINが効かなかった場合、シナリオ名で検索
         if (!maxParticipants && event.scenario) {
+          // 完全一致を試す
           maxParticipants = scenarioByTitle.get(event.scenario)
+          
+          // 見つからない場合、部分一致を試す（季節マダミス対応）
+          if (!maxParticipants) {
+            // シナリオ名に含まれるタイトルを検索（例: "カノケリ" → "季節／カノケリ"）
+            for (const [title, max] of scenarioByTitle.entries()) {
+              if (title.includes(event.scenario) || event.scenario.includes(title)) {
+                maxParticipants = max
+                break
+              }
+            }
+          }
         }
         
         // それでも見つからない場合はデフォルト8
