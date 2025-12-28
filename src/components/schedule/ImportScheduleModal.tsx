@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { supabase } from '@/lib/supabase'
+import { memoApi } from '@/lib/api/memoApi'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { getTimeSlot } from '@/utils/scheduleUtils'
@@ -793,6 +794,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       const updates: Array<{ id: string; data: any; label: string }>  = []
       const memoUpdates: Array<{ id: string; notes: string; label: string }> = []
       const memoInserts: any[] = []
+      // daily_memosテーブルに保存するメモを集約
+      const dailyMemoMap = new Map<string, { date: string; storeId: string; venue: string; texts: string[] }>()
       
       setImportProgress({ current: 0, total: filteredEvents.length })
       await new Promise(resolve => setTimeout(resolve, 0))
@@ -875,17 +878,17 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         })
         
         // メモの場合（明示的なメモ or マッピングされなかったシナリオ）
-        // メモは公演として作成せず、既存公演の備考欄に追加するだけ
+        // メモは公演として作成せず、daily_memosテーブルに保存
         if (shouldBeMemo) {
-          if (existingEvent && !replaceExisting) {
-            // 既存の公演があればその備考欄に追加
-            const existingNotes = existingEvent.notes || ''
-            const newNotes = existingNotes ? `${existingNotes}\n${memoText}` : memoText
-            memoUpdates.push({ id: existingEvent.id, notes: newNotes || '', label: `${event.date} ${event.venue}` })
-          } else {
-            // 既存の公演がない場合はスキップ（公演として作成しない）
-            console.log(`⏭️ MEMO スキップ（既存公演なし）: ${event.date} ${event.venue} - ${memoText}`)
+          // daily_memosに追加するためのデータを記録
+          const memoKey = `${event.date}_${event.store_id}`
+          if (!dailyMemoMap.has(memoKey)) {
+            dailyMemoMap.set(memoKey, { date: event.date, storeId: event.store_id, venue: event.venue, texts: [] })
           }
+          if (memoText) {
+            dailyMemoMap.get(memoKey)!.texts.push(memoText)
+          }
+          
           if (isUnmappedScenario) {
             console.log(`⚠️ マッピングなし→MEMO変換: ${scenarioName}`)
           }
@@ -931,7 +934,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         newInserts: newInserts.length,
         updates: updates.length,
         memoUpdates: memoUpdates.length,
-        memoInserts: memoInserts.length,
+        dailyMemos: dailyMemoMap.size,
         filteredEvents: filteredEvents.length
       })
       
@@ -1010,18 +1013,40 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         }
       }
       
-      // 4. メモ新規挿入（バッチ）
-      if (memoInserts.length > 0) {
-        const { error } = await supabase
-          .from('schedule_events')
-          .insert(memoInserts)
+      // 4. メモ新規挿入（バッチ） - 現在は使用しない
+      // memoInserts は常に空になる（daily_memosに保存するため）
+      
+      // 5. daily_memosテーブルにメモを保存
+      let dailyMemoSavedCount = 0
+      if (dailyMemoMap.size > 0) {
+        console.log(`📝 daily_memos保存: ${dailyMemoMap.size}件`)
         
-        if (error) {
-          failedCount += memoInserts.length
-          errors.push(`メモ作成エラー: ${error.message}`)
-        } else {
-          memoCount += memoInserts.length
+        for (const [key, memoData] of dailyMemoMap.entries()) {
+          try {
+            if (!memoData.storeId || !memoData.texts.length) continue
+            
+            // 既存のメモを取得
+            const { data: existingMemo } = await supabase
+              .from('daily_memos')
+              .select('memo_text')
+              .eq('date', memoData.date)
+              .eq('venue_id', memoData.storeId)
+              .single()
+            
+            // 既存メモがあれば追記、なければ新規
+            const existingText = existingMemo?.memo_text || ''
+            const newText = memoData.texts.join('\n')
+            const combinedText = existingText ? `${existingText}\n${newText}` : newText
+            
+            await memoApi.save(memoData.date, memoData.storeId, combinedText)
+            dailyMemoSavedCount++
+            console.log(`✅ MEMO保存: ${memoData.date} ${memoData.venue} - ${newText.substring(0, 30)}...`)
+          } catch (error) {
+            console.error(`❌ MEMO保存エラー: ${key}`, error)
+            errors.push(`メモ保存エラー (${memoData.date} ${memoData.venue}): ${error instanceof Error ? error.message : String(error)}`)
+          }
         }
+        memoCount += dailyMemoSavedCount
       }
 
       // 結果にすべての情報を含める
