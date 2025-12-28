@@ -139,6 +139,8 @@ export function ScheduleManager() {
         // ソルシエ
         'ソルシエ': 'SORCIER〜賢者達の物語〜',
         'SORCIER': 'SORCIER〜賢者達の物語〜',
+        // 藍雨
+        '藍雨': '藍雨廻逢',
       }
       
       // シナリオ名を正規化する関数

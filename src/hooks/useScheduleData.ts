@@ -560,6 +560,8 @@ export function useScheduleData(currentDate: Date) {
           // ソルシエ
           'ソルシエ': 'SORCIER〜賢者達の物語〜',
           'SORCIER': 'SORCIER〜賢者達の物語〜',
+          // 藍雨
+          '藍雨': '藍雨廻逢',
         }
         
         const normalize = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
@@ -852,6 +854,8 @@ export function useScheduleData(currentDate: Date) {
         // ソルシエ
         'ソルシエ': 'SORCIER〜賢者達の物語〜',
         'SORCIER': 'SORCIER〜賢者達の物語〜',
+        // 藍雨
+        '藍雨': '藍雨廻逢',
       }
       
       const normalize2 = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
