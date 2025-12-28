@@ -648,6 +648,13 @@ export const scheduleApi = {
       }
     }
     
+    // DBで許可されていないカテゴリをopenにマッピング
+    const DB_VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package']
+    if (finalData.category && !DB_VALID_CATEGORIES.includes(finalData.category)) {
+      logger.info(`カテゴリマッピング: ${finalData.category} -> open`)
+      finalData.category = 'open'
+    }
+    
     const { data, error } = await supabase
       .from('schedule_events')
       .insert([finalData])
@@ -698,6 +705,13 @@ export const scheduleApi = {
         finalUpdates.scenario = match.title // 正式名称に更新
         logger.info(`シナリオ自動マッチング: ${updates.scenario} -> ${match.title}`)
       }
+    }
+    
+    // DBで許可されていないカテゴリをopenにマッピング
+    const DB_VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package']
+    if (finalUpdates.category && !DB_VALID_CATEGORIES.includes(finalUpdates.category)) {
+      logger.info(`カテゴリマッピング: ${finalUpdates.category} -> open`)
+      finalUpdates.category = 'open'
     }
     
     const { data, error } = await supabase
