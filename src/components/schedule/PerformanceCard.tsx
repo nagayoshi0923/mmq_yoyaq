@@ -88,8 +88,12 @@ function PerformanceCardBase({
   // 表示用GMリスト（メインとサブと受付）
   const displayGms = [...mainGms, ...subGms.map(gm => `${gm}(サブ)`), ...receptionGms.map(gm => `${gm}(受付)`)]
   
-  // シナリオマスタ未登録チェック（シナリオ名はあるがscenariosがない）
-  const isUnregisteredScenario = event.scenario && !event.scenarios
+  // シナリオマスタ未登録チェック、または正式名称と異なる場合
+  // scenariosがない、またはシナリオ名が正式名称と一致しない場合に警告
+  const isUnregisteredScenario = event.scenario && (
+    !event.scenarios || 
+    (event.scenarios.title && event.scenario !== event.scenarios.title)
+  )
   
   // 完了状態の判定（シナリオなし、GMなし、またはメインGMなし）
   const isIncomplete = !event.scenario || event.gms.length === 0 || mainGms.length === 0
@@ -211,7 +215,11 @@ function PerformanceCardBase({
         {event.scenario ? (
           <span 
             className={`flex items-center gap-1 ${isUnregisteredScenario ? 'text-orange-600' : ''}`}
-            title={isUnregisteredScenario ? 'シナリオマスタ未登録' : undefined}
+            title={isUnregisteredScenario 
+              ? (event.scenarios?.title 
+                  ? `正式名称: ${event.scenarios.title}` 
+                  : 'シナリオマスタ未登録')
+              : undefined}
           >
             {isUnregisteredScenario && (
               <AlertTriangle className="w-3 h-3 flex-shrink-0 text-orange-500" />
