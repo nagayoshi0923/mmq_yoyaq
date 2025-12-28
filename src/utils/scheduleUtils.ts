@@ -113,6 +113,7 @@ export const CATEGORY_CONFIG = {
   venue_rental: { label: '場所貸し', badgeColor: 'bg-cyan-100 text-cyan-800', cardColor: 'bg-cyan-50 border-cyan-200' },
   venue_rental_free: { label: '場所貸無料', badgeColor: 'bg-teal-100 text-teal-800', cardColor: 'bg-teal-50 border-teal-200' },
   package: { label: 'パッケージ会', badgeColor: 'bg-pink-100 text-pink-800', cardColor: 'bg-pink-50 border-pink-200' },
-  mtg: { label: 'MTG', badgeColor: 'bg-cyan-100 text-cyan-800', cardColor: 'bg-cyan-50 border-cyan-200' }
+  mtg: { label: 'MTG', badgeColor: 'bg-cyan-100 text-cyan-800', cardColor: 'bg-cyan-50 border-cyan-200' },
+  memo: { label: 'メモ', badgeColor: 'bg-gray-100 text-gray-800', cardColor: 'bg-gray-50 border-gray-200' }
 } as const
 

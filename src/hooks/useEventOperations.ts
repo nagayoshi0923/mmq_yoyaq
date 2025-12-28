@@ -432,11 +432,7 @@ export function useEventOperations({
         const storeId = performanceData.venue
         
         // daily_memosに保存
-        await memoApi.save({
-          date: performanceData.date,
-          storeId: storeId,
-          memoText: memoText
-        })
+        await memoApi.save(performanceData.date, storeId, memoText)
         
         // 編集モードの場合、元の公演を削除
         if (modalMode === 'edit' && performanceData.id) {
