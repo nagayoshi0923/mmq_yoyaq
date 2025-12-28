@@ -433,9 +433,15 @@ export function useEventOperations({
         const storeId = performanceData.venue
         
         // スロットメモとして保存（localStorage）
-        const timeSlot = performanceData.time_slot || 'day'
-        saveEmptySlotMemo(performanceData.date, storeId, timeSlot, memoText)
-        console.log('✅ スロットメモ保存成功:', performanceData.date, storeId, timeSlot, memoText.substring(0, 50))
+        // time_slotを英語形式に変換（'朝'→'morning', '昼'→'afternoon', '夜'→'evening'）
+        let timeSlotKey: 'morning' | 'afternoon' | 'evening' = 'afternoon'
+        const ts = performanceData.time_slot
+        if (ts === '朝' || ts === 'morning') timeSlotKey = 'morning'
+        else if (ts === '昼' || ts === 'afternoon') timeSlotKey = 'afternoon'
+        else if (ts === '夜' || ts === 'evening') timeSlotKey = 'evening'
+        
+        saveEmptySlotMemo(performanceData.date, storeId, timeSlotKey, memoText)
+        console.log('✅ スロットメモ保存成功:', performanceData.date, storeId, timeSlotKey, memoText.substring(0, 50))
         
         // 編集モードの場合、元の公演を削除
         if (modalMode === 'edit' && performanceData.id) {
