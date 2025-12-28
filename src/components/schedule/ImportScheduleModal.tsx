@@ -845,18 +845,23 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         const scenarioName = sanitizeText(event.scenario)
         const matchedScenario = scenarioList.find(s => s.title === scenarioName)
         
+        // シナリオがマッピングされなかった場合はMEMOとして扱う
+        const isUnmappedScenario = scenarioName && scenarioName.length > 0 && !matchedScenario && !_isMemo
+        const shouldBeMemo = _isMemo || isUnmappedScenario
+        const memoText = isUnmappedScenario ? scenarioName : _memoText
+        
         const eventData: any = {
           date: event.date,
           venue: sanitizeText(event.venue), // venueは必須
           store_id: event.store_id,
-          scenario: scenarioName,
-          scenario_id: matchedScenario?.id || null, // シナリオIDを追加
+          scenario: shouldBeMemo ? '' : scenarioName, // MEMOの場合はシナリオを空に
+          scenario_id: matchedScenario?.id || null,
           gms: Array.isArray(event.gms) ? event.gms.map(sanitizeText) : [],
           gm_roles: event.gmRoles || {},
           start_time: event.start_time,
           end_time: event.end_time,
           category: mappedCategory,
-          notes: sanitizeText(event.notes),
+          notes: shouldBeMemo ? memoText : sanitizeText(event.notes), // MEMOの場合はnotesにシナリオ名を入れる
           reservation_info: sanitizeText(event.reservation_info),
           is_cancelled: event.is_cancelled,
           organization_id: event.organization_id
@@ -869,14 +874,17 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           }
         })
         
-        // メモの場合
-        if (_isMemo) {
+        // メモの場合（明示的なメモ or マッピングされなかったシナリオ）
+        if (shouldBeMemo) {
           if (existingEvent && !replaceExisting) {
             const existingNotes = existingEvent.notes || ''
-            const newNotes = existingNotes ? `${existingNotes}\n${_memoText}` : _memoText
+            const newNotes = existingNotes ? `${existingNotes}\n${memoText}` : memoText
             memoUpdates.push({ id: existingEvent.id, notes: newNotes || '', label: `${event.date} ${event.venue}` })
           } else {
             memoInserts.push(eventData)
+          }
+          if (isUnmappedScenario) {
+            console.log(`⚠️ マッピングなし→MEMO変換: ${scenarioName}`)
           }
           continue
         }
