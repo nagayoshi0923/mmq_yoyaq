@@ -557,6 +557,9 @@ export function useScheduleData(currentDate: Date) {
           '狂気山脈３': '狂気山脈　薄明三角点（３）',
           '狂気山脈2.5': '狂気山脈　2.5　頂上戦争',
           '狂気山脈２．５': '狂気山脈　2.5　頂上戦争',
+          // ソルシエ
+          'ソルシエ': 'SORCIER〜賢者達の物語〜',
+          'SORCIER': 'SORCIER〜賢者達の物語〜',
         }
         
         const normalize = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
@@ -846,6 +849,9 @@ export function useScheduleData(currentDate: Date) {
         '狂気山脈３': '狂気山脈　薄明三角点（３）',
         '狂気山脈2.5': '狂気山脈　2.5　頂上戦争',
         '狂気山脈２．５': '狂気山脈　2.5　頂上戦争',
+        // ソルシエ
+        'ソルシエ': 'SORCIER〜賢者達の物語〜',
+        'SORCIER': 'SORCIER〜賢者達の物語〜',
       }
       
       const normalize2 = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()

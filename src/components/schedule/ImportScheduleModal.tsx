@@ -96,6 +96,8 @@ const SCENARIO_NAME_MAPPING: Record<string, string> = {
   "TOOLS": "TOOLS〜ぎこちない椅子",
   "MTG": "MTG（マネージャーミーティング）",
   "ENIGMA CODE": "ENIGMACODE廃棄ミライの犠牲者たち",
+  "ソルシエ": "SORCIER〜賢者達の物語〜",
+  "SORCIER": "SORCIER〜賢者達の物語〜",
 }
 
 // スタッフ名の揺らぎを統一するマッピング
