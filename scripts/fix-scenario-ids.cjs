@@ -141,7 +141,10 @@ async function fixScenarioIds() {
       
       const { error: updateError } = await supabase
         .from('schedule_events')
-        .update({ scenario_id: matchedScenario.id })
+        .update({ 
+          scenario_id: matchedScenario.id,
+          scenario: matchedScenario.title  // 正式名称に更新
+        })
         .eq('id', event.id);
       
       if (updateError) {
