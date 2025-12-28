@@ -889,7 +889,7 @@ export function PerformanceModal({
                   <SelectItem value="venue_rental_free">場所貸無料</SelectItem>
                   <SelectItem value="package">パッケージ会</SelectItem>
                   <SelectItem value="mtg">MTG</SelectItem>
-                  <SelectItem value="memo">メモ</SelectItem>
+                  <SelectItem value="memo">メモに変換</SelectItem>
                 </SelectContent>
               </Select>
               {formData.is_private_request && (

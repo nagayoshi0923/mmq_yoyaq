@@ -1,7 +1,7 @@
 // 公演の追加・編集・削除・中止・復活などの操作を管理
 
 import { useState, useCallback } from 'react'
-import { scheduleApi } from '@/lib/api'
+import { scheduleApi, memoApi } from '@/lib/api'
 import { reservationApi } from '@/lib/reservationApi' // 追加
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -410,6 +410,53 @@ export function useEventOperations({
   // 実際の保存処理（重複チェックなし）
   const doSavePerformance = useCallback(async (performanceData: PerformanceData) => {
     try {
+      // メモに変換する場合の特別処理
+      if (performanceData.category === 'memo') {
+        // シナリオ名とGM名をテキストに変換
+        const memoLines: string[] = []
+        if (performanceData.scenario) {
+          memoLines.push(`【${performanceData.scenario}】`)
+        }
+        if (performanceData.gms && performanceData.gms.length > 0) {
+          const gmNames = performanceData.gms.filter((gm: string) => gm.trim() !== '')
+          if (gmNames.length > 0) {
+            memoLines.push(`GM: ${gmNames.join(', ')}`)
+          }
+        }
+        if (performanceData.notes) {
+          memoLines.push(performanceData.notes)
+        }
+        const memoText = memoLines.join('\n')
+        
+        // 店舗IDを取得
+        const storeId = performanceData.venue
+        
+        // daily_memosに保存
+        await memoApi.save({
+          date: performanceData.date,
+          storeId: storeId,
+          memoText: memoText
+        })
+        
+        // 編集モードの場合、元の公演を削除
+        if (modalMode === 'edit' && performanceData.id) {
+          await scheduleApi.delete(performanceData.id)
+          // ローカル状態から削除
+          setEvents(prev => prev.filter(e => e.id !== performanceData.id))
+          showToast('公演をメモに変換しました', 'success')
+        } else {
+          showToast('メモを保存しました', 'success')
+        }
+        
+        // モーダルを閉じる
+        setIsPerformanceModalOpen(false)
+        setEditingEvent(null)
+        
+        // スケジュールを再読み込み
+        fetchSchedule()
+        return
+      }
+      
       if (modalMode === 'add') {
         // 新規追加
         // performanceData.venueは店舗ID（UUID）
