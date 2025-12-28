@@ -9,7 +9,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // シナリオ名のエイリアスマッピング
 const SCENARIO_ALIAS = {
   '真渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
+  '真渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
   '渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
+  '渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
+  '真・渋谷陰陽綺譚': '真・渋谷陰陽奇譚',
   '土牢の悲鳴に谺して': '土牢に悲鳴は谺して',
   '百鬼の夜月光の影': '百鬼の夜、月光の影',
   'インビジブル亡霊列車': 'Invisible-亡霊列車-',
@@ -24,6 +27,9 @@ const SCENARIO_ALIAS = {
   '募SORCIER': 'SORCIER〜賢者達の物語〜',
   'SORCIER': 'SORCIER〜賢者達の物語〜',
   'ソルシエ': 'SORCIER〜賢者達の物語〜',
+  '廻る弾丸輪舞': '廻る弾丸輪舞（ダンガンロンド）',
+  'マダミスキネマ4・廻る弾丸輪舞': '廻る弾丸輪舞（ダンガンロンド）',
+  'REDRUM02「虚像のF」': 'REDRUM02虚像のF',
   '藍雨': '藍雨廻逢',
   "THEREALFOLK'30s": "TheRealFork30's",
   'THEREALFOLK': "TheRealFork30's",
