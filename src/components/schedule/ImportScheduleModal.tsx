@@ -1047,7 +1047,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
               .select('memo_text')
               .eq('date', memoData.date)
               .eq('venue_id', memoData.storeId)
-              .single()
+              .maybeSingle()
             
             // 既存メモがあれば追記、なければ新規
             const existingText = existingMemo?.memo_text || ''
