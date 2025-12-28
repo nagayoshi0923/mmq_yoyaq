@@ -105,6 +105,75 @@ export function ScheduleManager() {
         return
       }
       
+      // シナリオ略称マッピング（略称 → 正式名称の一部）
+      const SCENARIO_ALIAS: Record<string, string> = {
+        'さきこさん': '裂き子さん',
+        'サキコサン': '裂き子さん',
+        'トレタリ': '撮れ高足りてますか',
+        'ナナイロ橙': 'ナナイロの迷宮 橙',
+        'ナナイロ緑': 'ナナイロの迷宮 緑',
+        'ナナイロ黄': 'ナナイロの迷宮 黄',
+        '童話裁判': '不思議の国の童話裁判',
+        'TOOLS': 'TOOLS〜ぎこちない椅子',
+      }
+      
+      // シナリオ名を正規化する関数
+      const normalize = (s: string) => s
+        .replace(/[\s\-・／/]/g, '') // スペース、ハイフン、中点、スラッシュを除去
+        .toLowerCase()
+      
+      // シナリオ名からmax_participantsを検索する関数
+      const findScenarioMax = (eventScenario: string): number | undefined => {
+        // 0. 略称マッピングを適用
+        const mappedScenario = SCENARIO_ALIAS[eventScenario] || eventScenario
+        const normalizedEvent = normalize(mappedScenario)
+        
+        // 1. 完全一致（マッピング後）
+        if (scenarioByTitle.has(mappedScenario)) {
+          return scenarioByTitle.get(mappedScenario)
+        }
+        
+        // 1b. 元のシナリオ名でも完全一致を試す
+        if (scenarioByTitle.has(eventScenario)) {
+          return scenarioByTitle.get(eventScenario)
+        }
+        
+        // 2. 正規化後の完全一致
+        for (const [title, max] of scenarioByTitle.entries()) {
+          if (normalize(title) === normalizedEvent) {
+            return max
+          }
+        }
+        
+        // 3. 部分一致（片方が片方を含む）
+        for (const [title, max] of scenarioByTitle.entries()) {
+          if (title.includes(eventScenario) || eventScenario.includes(title)) {
+            return max
+          }
+        }
+        
+        // 4. 正規化後の部分一致
+        for (const [title, max] of scenarioByTitle.entries()) {
+          const normalizedTitle = normalize(title)
+          if (normalizedTitle.includes(normalizedEvent) || normalizedEvent.includes(normalizedTitle)) {
+            return max
+          }
+        }
+        
+        // 5. キーワード抽出マッチ（ナナイロ橙 → ナナイロの迷宮 橙）
+        // イベント名からキーワードを抽出し、シナリオタイトルに全て含まれるか確認
+        const eventKeywords = eventScenario.split(/[\s\-・／/]/).filter(k => k.length > 0)
+        for (const [title, max] of scenarioByTitle.entries()) {
+          const normalizedTitle = normalize(title)
+          const allMatch = eventKeywords.every(kw => normalizedTitle.includes(normalize(kw)))
+          if (allMatch && eventKeywords.length >= 1) {
+            return max
+          }
+        }
+        
+        return undefined
+      }
+      
       // 各イベントの参加者数を定員に合わせる
       let successCount = 0
       for (const event of events || []) {
@@ -114,19 +183,7 @@ export function ScheduleManager() {
         
         // JOINが効かなかった場合、シナリオ名で検索
         if (!maxParticipants && event.scenario) {
-          // 完全一致を試す
-          maxParticipants = scenarioByTitle.get(event.scenario)
-          
-          // 見つからない場合、部分一致を試す（季節マダミス対応）
-          if (!maxParticipants) {
-            // シナリオ名に含まれるタイトルを検索（例: "カノケリ" → "季節／カノケリ"）
-            for (const [title, max] of scenarioByTitle.entries()) {
-              if (title.includes(event.scenario) || event.scenario.includes(title)) {
-                maxParticipants = max
-                break
-              }
-            }
-          }
+          maxParticipants = findScenarioMax(event.scenario)
         }
         
         // それでも見つからない場合はデフォルト8
