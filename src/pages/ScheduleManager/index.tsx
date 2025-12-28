@@ -566,6 +566,7 @@ export function ScheduleManager() {
         <ImportScheduleModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
+          currentDisplayDate={currentDate}
           onImportComplete={(targetMonth) => {
             // インポート対象の月に切り替え
             if (targetMonth) {

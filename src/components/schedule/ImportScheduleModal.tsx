@@ -15,6 +15,7 @@ import { getTimeSlot } from '@/utils/scheduleUtils'
 interface ImportScheduleModalProps {
   isOpen: boolean
   onClose: () => void
+  currentDisplayDate?: Date  // 現在表示中の年月
   onImportComplete: (targetMonth?: { year: number; month: number }) => void
 }
 
@@ -274,7 +275,7 @@ const GM_ROLE_OPTIONS = [
   { value: 'observer', label: '見学', color: 'bg-purple-100 text-purple-800' },
 ]
 
-export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: ImportScheduleModalProps) {
+export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImportComplete }: ImportScheduleModalProps) {
   const [scheduleText, setScheduleText] = useState('')
   const [isImporting, setIsImporting] = useState(false)
   const [replaceExisting, setReplaceExisting] = useState(true)
@@ -741,8 +742,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     return null
   }
 
-  // 日付を解析
-  const parseDate = (dateStr: string): string => {
+  // 日付を解析（現在表示中の年を使用）
+  const parseDate = (dateStr: string, year?: number): string => {
     if (!dateStr || !dateStr.includes('/')) {
       return ''
     }
@@ -755,7 +756,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     if (!month || !day) {
       return ''
     }
-    return `2025-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+    const targetYear = year || currentDisplayDate?.getFullYear() || new Date().getFullYear()
+    return `${targetYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
   }
 
   // インポート処理（プレビュー済みのデータを使用）
@@ -1283,10 +1285,12 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
       let currentDate = ''
       let currentWeekday = ''
       
-      // インポート対象の月を特定
+      // インポート対象の月を特定（現在表示中の年月を使用）
       let targetMonth: { year: number; month: number } | null = null
-      const currentYear = new Date().getFullYear()
-      const currentMonth = new Date().getMonth() + 1
+      
+      // 現在表示中の年月を優先使用
+      const displayYear = currentDisplayDate?.getFullYear() || new Date().getFullYear()
+      const displayMonth = currentDisplayDate ? currentDisplayDate.getMonth() + 1 : new Date().getMonth() + 1
       
       for (const line of lines) {
         if (!line.trim()) continue
@@ -1297,9 +1301,8 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           const dateParts = dateStr.split('/')
           if (dateParts.length === 2) {
             const month = parseInt(dateParts[0])
-            // 月から年を推測：現在の月より4ヶ月以上先なら前年、それ以外は今年
-            const year = (month > currentMonth + 4) ? currentYear - 1 : currentYear
-            targetMonth = { year, month }
+            // 現在表示中の年を使用（スプレッドシートのMM/DD形式）
+            targetMonth = { year: displayYear, month }
             break
           } else if (dateParts.length === 3) {
             // YYYY/MM/DD または MM/DD/YYYY 形式
@@ -1314,6 +1317,11 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             break
           }
         }
+      }
+      
+      // 月が特定できなかった場合は表示中の年月を使用
+      if (!targetMonth) {
+        targetMonth = { year: displayYear, month: displayMonth }
       }
       
       // ターゲット月をステートに保存
@@ -1434,13 +1442,13 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           
           const isMemo = (!scenarioName || scenarioName.length <= 1) && !times
           
-          const cellKey = `${parseDate(currentDate)}|${storeId || 'null'}|${getTimeSlot(times?.start || slot.defaultStart)}`
+          const cellKey = `${parseDate(currentDate, displayYear)}|${storeId || 'null'}|${getTimeSlot(times?.start || slot.defaultStart)}`
           const hasExisting = existingMap.has(cellKey)
           
           const gmResult = parseGmNamesWithMapping(gmText)
           
           events.push({
-            date: parseDate(currentDate),
+            date: parseDate(currentDate, displayYear),
             venue,
             store_id: storeId,
             scenario: scenarioName,
@@ -1508,6 +1516,11 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           <DialogTitle>スケジュールデータのインポート</DialogTitle>
           <DialogDescription>
             スプレッドシートからコピーしたデータを貼り付けてください（タブ区切り形式）
+            {currentDisplayDate && (
+              <span className="ml-2 text-blue-600 font-medium">
+                → {currentDisplayDate.getFullYear()}年{currentDisplayDate.getMonth() + 1}月にインポート
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
