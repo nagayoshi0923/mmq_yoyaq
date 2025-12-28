@@ -124,6 +124,17 @@ const SCENARIO_NAME_MAPPING: Record<string, string> = {
   "GROLIAMEMORIES": "グロリアメモリーズ",
   "グロリアメモリーズ": "グロリアメモリーズ",
   "REDRUM02「虚像のF」": "REDRUM02虚像のF",
+  // 画像から追加
+  "女皇の書架": "女皇の書架",
+  "クロノフォビア": "クロノフォビア",
+  "人類最後の皆様へ": "人類最後の皆様へ／終末の眠り姫",
+  "人類最後の皆様へ／終末の眠り姫": "人類最後の皆様へ／終末の眠り姫",
+  "終末の眠り姫": "人類最後の皆様へ／終末の眠り姫",
+  "黒と白の狭間に": "黒と白の狭間に",
+  "ナナイロの迷宮　緑　アペイロン研究所殺人事件": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
+  "ナナイロの迷宮 緑 アペイロン研究所殺人事件": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
+  "ナナイロ　緑": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
+  "ナナイロ 緑": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
 }
 
 // スタッフ名の揺らぎを統一するマッピング
@@ -227,7 +238,13 @@ const STAFF_NAME_MAPPING: Record<string, string> = {
   "ホガラカ": "ほがらか",
   "Ida": "Ida",
   "ida": "Ida",
-  "IDA": "Ida"
+  "IDA": "Ida",
+  // 画像から追加
+  "ガッ": "がっちゃん",
+  "ガツ": "がっちゃん",
+  "ガッ経由": "がっちゃん",
+  "えなさん": "えなみ",
+  "えな": "えなみ"
 }
 
 // プレビュー用の型
@@ -507,12 +524,20 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
 
   // カテゴリを判定
   const determineCategory = (title: string): string => {
-    if (title.startsWith('貸・')) return 'private'
-    if (title.startsWith('募・')) return 'open'
+    // プレフィックスパターン（全角・半角両対応）
+    if (title.startsWith('貸・') || title.startsWith('貸 ') || title.startsWith('貸/')) return 'private'
+    if (title.startsWith('募・') || title.startsWith('募 ') || title.startsWith('募/')) return 'open'
+    if (title.startsWith('出張・') || title.startsWith('出張 ')) return 'offsite'
+    if (title.startsWith('GMテスト・') || title.startsWith('GMテスト ') || title.startsWith('GMテスト')) return 'gmtest'
+    if (title.startsWith('テストプレイ・') || title.startsWith('テストプレイ ')) return 'testplay'
+    if (title.startsWith('テスプ・') || title.startsWith('テスプ ')) return 'testplay'
+    if (title.startsWith('場所貸')) return 'venue_rental'
     if (title.includes('MTG')) return 'mtg'
-    if (title.includes('GMテスト') || title.includes('テスト')) return 'gmtest'
+    // 内容でも判定
+    if (title.includes('GMテスト')) return 'gmtest'
     if (title.includes('テストプレイ') || title.includes('テスプ')) return 'testplay'
-    if (title.startsWith('出張・')) return 'offsite'
+    // 貸切は様付き（お客様名）があれば判定
+    if (title.includes('様') && !title.startsWith('募')) return 'private'
     return 'open'
   }
 
@@ -520,22 +545,38 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
   const extractScenarioName = (title: string): string => {
     if (!title || title.trim() === '') return ''
     
-    // プレフィックスを除去
-    let text = title.replace(/^(貸・|募・|出張・|GMテスト・|テストプレイ・)/, '')
+    // プレフィックスを除去（全角・半角両対応）
+    let text = title.replace(/^(貸・|貸 |貸\/|募・|募 |募\/|出張・|出張 |GMテスト・|GMテスト |テストプレイ・|テストプレイ |テスプ・|テスプ |場所貸・|場所貸 )/, '')
     
     // MTGの場合
     if (text.includes('MTG')) return 'MTG（マネージャーミーティング）'
     
     // 時間表記の括弧で区切って、最初の部分（シナリオ名）のみを取得
-    const match = text.match(/^([^(（]+)/)
+    // 例: "女皇の書架(14.5-18)ガッ経由" → "女皇の書架"
+    const match = text.match(/^([^(（\d]+)/)
     if (match) {
       text = match[1].trim()
+    } else {
+      // 括弧がない場合は最初の括弧または数字の前まで
+      const simpleMatch = text.match(/^([^(（]+)/)
+      if (simpleMatch) {
+        text = simpleMatch[1].trim()
+      }
     }
     
     // 記号の前で切る
     text = text.split('※')[0]
     text = text.split('✅')[0]
     text = text.split('🈵')[0]
+    text = text.split('🙅')[0]
+    text = text.split('🈳')[0]
+    text = text.split('空')[0] // "空4" などを除去
+    
+    // 円表記の前で切る（価格情報）
+    text = text.split(/\d+円/)[0]
+    
+    // 様の前で切る場合は様も含める（お客様名は別途抽出）
+    // お客様名がシナリオ名の後に続く場合を考慮
     
     text = text.trim()
     
@@ -579,6 +620,18 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     
     if (title.includes('✅')) notes.push('告知済み')
     if (title.includes('🈵')) notes.push('満席')
+    if (title.includes('🈳')) {
+      const emptyMatch = title.match(/🈳\s*(\d+)/)
+      if (emptyMatch) {
+        notes.push(`空き${emptyMatch[1]}`)
+      } else {
+        notes.push('空きあり')
+      }
+    }
+    if (title.match(/空\s*(\d+)/)) {
+      const emptyMatch = title.match(/空\s*(\d+)/)
+      if (emptyMatch) notes.push(`空き${emptyMatch[1]}`)
+    }
     if (title.includes('🙅‍♀️') || title.includes('🙅')) notes.push('中止')
     
     if (title.includes('@') && title.includes('人')) {
@@ -588,6 +641,20 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
     
     if (title.includes('指定')) notes.push('GM指定')
     if (title.includes('見学')) notes.push('見学あり')
+    if (title.includes('完了')) notes.push('完了')
+    if (title.includes('確認')) notes.push('要確認')
+    if (title.includes('印刷')) notes.push('印刷必須')
+    if (title.includes('経由')) {
+      const viaMatch = title.match(/([^(\s]+)経由/)
+      if (viaMatch) notes.push(`${viaMatch[1]}経由`)
+    }
+    
+    // 金額情報を抽出
+    const priceMatch = title.match(/(\d+)円/)
+    if (priceMatch) notes.push(`${priceMatch[1]}円`)
+    
+    // 集まりました等のメモ
+    if (title.includes('集まりました')) notes.push('集まりました')
     
     return notes.length > 0 ? notes.join(' / ') : undefined
   }
@@ -1344,12 +1411,19 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
           const storeId = STORE_MAPPING[venue]
           
           // 元のシナリオ名（マッピング前）を抽出
-          let rawScenarioText = title.replace(/^(貸・|募・|出張・|GMテスト・|テストプレイ・)/, '')
-          const scenarioMatch = rawScenarioText.match(/^([^(（]+)/)
+          let rawScenarioText = title.replace(/^(貸・|貸 |貸\/|募・|募 |募\/|出張・|出張 |GMテスト・|GMテスト |テストプレイ・|テストプレイ |テスプ・|テスプ |場所貸・|場所貸 )/, '')
+          const scenarioMatch = rawScenarioText.match(/^([^(（\d]+)/)
           if (scenarioMatch) {
             rawScenarioText = scenarioMatch[1].trim()
+          } else {
+            const simpleMatch = rawScenarioText.match(/^([^(（]+)/)
+            if (simpleMatch) {
+              rawScenarioText = simpleMatch[1].trim()
+            }
           }
-          rawScenarioText = rawScenarioText.split('※')[0].split('✅')[0].split('🈵')[0].trim()
+          rawScenarioText = rawScenarioText.split('※')[0].split('✅')[0].split('🈵')[0].split('🙅')[0].split('🈳')[0].trim()
+          // 円表記の前で切る
+          rawScenarioText = rawScenarioText.split(/\d+円/)[0].trim()
           
           // マッピング後のシナリオ名
           const scenarioName = extractScenarioName(title)
