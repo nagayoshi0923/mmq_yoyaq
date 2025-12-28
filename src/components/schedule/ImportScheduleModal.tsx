@@ -1395,6 +1395,10 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           venueIdx = 3
           venue = parts[3]
         } else {
+          // スキップされる行をログ出力（デバッグ用）
+          if (parts[2] && parts[2].length > 0 && parts[2].length < 20) {
+            console.log('⏭️ スキップ（店舗不明）:', parts[2], '|', parts.slice(0, 5).join(' | '))
+          }
           continue
         }
         
@@ -1501,6 +1505,24 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           isMemo: e._isMemo,
           hasExisting: e._hasExisting
         }
+      })
+      
+      // デバッグ情報をコンソールに出力
+      console.log('📊 インポート解析結果:', {
+        総行数: lines.length,
+        イベント数: events.length,
+        店舗別: Object.entries(
+          events.reduce((acc: Record<string, number>, e: any) => {
+            acc[e.venue] = (acc[e.venue] || 0) + 1
+            return acc
+          }, {})
+        ),
+        日付別: Object.entries(
+          events.reduce((acc: Record<string, number>, e: any) => {
+            acc[e.date] = (acc[e.date] || 0) + 1
+            return acc
+          }, {})
+        )
       })
       
       setParsedEvents(events)
