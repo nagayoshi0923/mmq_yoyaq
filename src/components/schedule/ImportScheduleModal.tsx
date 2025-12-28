@@ -54,29 +54,38 @@ const STORE_MAPPING: Record<string, string | null> = {
   "オンライン": null  // オンラインはstore_idなし
 }
 
-// シナリオ名の揺らぎを統一するマッピング
+// シナリオ名の揺らぎを統一するマッピング（略称 → 正式名称）
 const SCENARIO_NAME_MAPPING: Record<string, string> = {
+  // 季節マダミス
+  "カノケリ": "季節／カノケリ",
+  "アニクシィ": "季節／アニクシィ",
+  "シノポロ": "季節／シノポロ",
+  "キモナス": "季節／キモナス",
+  "ニィホン": "季節／ニィホン",
+  // 略称
+  "さきこさん": "裂き子さん",
+  "サキコサン": "裂き子さん",
+  "トレタリ": "超特急の呪いの館で撮れ高足りてますか？",
   "赤鬼": "赤鬼が泣いた夜",
-  "さきこ": "裂き子",
-  "裂き子": "裂き子",
-  "さん": "さん",
   "invisible": "Invisible-亡霊列車-",
   "Invisible": "Invisible-亡霊列車-",
-  "エイダ": "エイダ",
-  "カノケリ": "カノケリ",
-  "ユートピアース": "ユートピアース",
-  "燔祭のジェミニ": "燔祭のジェミニ",
-  "ツグミドリ": "ツグミドリ",
-  "電脳の檻のアリス": "電脳の檻のアリス",
-  "ニィホン": "ニィホン",
-  "機巧人形の心臓": "機巧人形の心臓",
-  "黒と白の狭間に": "黒と白の狭間に",
-  "新世界のユキサキ": "新世界のユキサキ",
-  "銀世界のアシアト": "銀世界のアシアト",
-  "この闇をあなたと": "この闇をあなたと",
-  "あるマーダーミステリーについて": "あるマーダーミステリーについて",
-  "或ル胡蝶ノ夢": "或ル胡蝶ノ夢",
-  "MTG": "MTG（マネージャーミーティング）"
+  "童話裁判": "傲慢女王とアリスの不条理裁判",
+  "傲慢な女王とアリスの不条理裁判": "傲慢女王とアリスの不条理裁判",
+  // 数字の揺らぎ
+  "凍てつくあなたに6つの灯火": "凍てつくあなたに６つの灯火",
+  // REDRUM
+  "REDRUM1": "REDRUM01泉涌館の変転",
+  "REDRUM2": "REDRUM02虚像のF",
+  "REDRUM3": "REDRUM03致命的観測をもう一度",
+  "REDRUM4": "REDRUM4アルテミスの断罪",
+  // ナナイロ
+  "ナナイロ橙": "ナナイロの迷宮 橙 オンラインゲーム殺人事件",
+  "ナナイロ緑": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
+  "ナナイロ黄": "ナナイロの迷宮 黄 エレクトリカル吹奏楽部殺人事件",
+  // その他
+  "TOOLS": "TOOLS〜ぎこちない椅子",
+  "MTG": "MTG（マネージャーミーティング）",
+  "ENIGMA CODE": "ENIGMACODE廃棄ミライの犠牲者たち",
 }
 
 // スタッフ名の揺らぎを統一するマッピング
@@ -832,11 +841,16 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         const VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package']
         const mappedCategory = VALID_CATEGORIES.includes(event.category) ? event.category : 'open'
         
+        // シナリオIDを検索
+        const scenarioName = sanitizeText(event.scenario)
+        const matchedScenario = scenarioList.find(s => s.title === scenarioName)
+        
         const eventData: any = {
           date: event.date,
           venue: sanitizeText(event.venue), // venueは必須
           store_id: event.store_id,
-          scenario: sanitizeText(event.scenario),
+          scenario: scenarioName,
+          scenario_id: matchedScenario?.id || null, // シナリオIDを追加
           gms: Array.isArray(event.gms) ? event.gms.map(sanitizeText) : [],
           gm_roles: event.gmRoles || {},
           start_time: event.start_time,
@@ -878,10 +892,14 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
             ? `${existingNotes}\n${importNotes}`
             : (importNotes || existingNotes)
           
+          // 更新用のシナリオIDを検索
+          const updatedMatchedScenario = scenarioList.find(s => s.title === mergedScenario)
+          
           updates.push({
             id: existingEvent.id,
             data: {
               scenario: mergedScenario,
+              scenario_id: updatedMatchedScenario?.id || null,
               gms: mergedGms,
               start_time: eventData.start_time,
               end_time: eventData.end_time,
