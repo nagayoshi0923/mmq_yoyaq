@@ -530,16 +530,70 @@ export function useScheduleData(currentDate: Date) {
           scenarioByTitle.set(s.title, s)
         })
         
+        // シナリオ略称マッピング
+        const SCENARIO_ALIAS: Record<string, string> = {
+          'さきこさん': '裂き子さん',
+          'サキコサン': '裂き子さん',
+          'トレタリ': '撮れ高足りてますか',
+          'ナナイロ橙': 'ナナイロの迷宮 橙',
+          'ナナイロ緑': 'ナナイロの迷宮 緑',
+          'ナナイロ黄': 'ナナイロの迷宮 黄',
+          '童話裁判': '不思議の国の童話裁判',
+          'TOOLS': 'TOOLS〜ぎこちない椅子',
+          'カノケリ': '季節マーダー／カノケリ',
+          'アニクシィ': '季節マーダー／アニクシィ',
+          'シノポロ': '季節マーダー／シノポロ',
+          'キモナス': '季節マーダー／キモナス',
+          'ニィホン': '季節のマーダーミステリー／ニィホン',
+        }
+        
+        const normalize = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
+        
+        // シナリオ名からシナリオ情報を検索
+        const findScenario = (eventScenario: string) => {
+          const mapped = SCENARIO_ALIAS[eventScenario] || eventScenario
+          const norm = normalize(mapped)
+          
+          // 1. 完全一致
+          if (scenarioByTitle.has(mapped)) return scenarioByTitle.get(mapped)
+          if (scenarioByTitle.has(eventScenario)) return scenarioByTitle.get(eventScenario)
+          
+          // 2. 正規化後の完全一致
+          for (const [t, s] of scenarioByTitle.entries()) {
+            if (normalize(t) === norm) return s
+          }
+          
+          // 3. 部分一致
+          for (const [t, s] of scenarioByTitle.entries()) {
+            if (t.includes(mapped) || mapped.includes(t)) return s
+          }
+          
+          // 4. 正規化後の部分一致
+          for (const [t, s] of scenarioByTitle.entries()) {
+            const nt = normalize(t)
+            if (nt.includes(norm) || norm.includes(nt)) return s
+          }
+          
+          // 5. キーワードマッチ
+          const kws = eventScenario.split(/[\s\-・／/]/).filter(k => k.length > 0)
+          for (const [t, s] of scenarioByTitle.entries()) {
+            const nt = normalize(t)
+            if (kws.every(kw => nt.includes(normalize(kw))) && kws.length >= 1) return s
+          }
+          
+          return null
+        }
+        
       // Supabaseのデータを内部形式に変換
       // 拡張プロパティ（scenarios, gm_roles, timeSlot等）を含むため型アサーションを使用
       const formattedEvents = data.map((event: RawEventData) => {
         const scenarioTitle = event.scenarios?.title || event.scenario || ''
         // scenariosが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
         const isValidScenario = event.scenarios && event.scenarios.id
-        // scenariosが無効な場合はシナリオリストからタイトルで検索
+        // scenariosが無効な場合はシナリオリストからタイトルで検索（略称マッピング対応）
         const scenarioInfo = isValidScenario 
           ? event.scenarios 
-          : (scenarioTitle ? scenarioByTitle.get(scenarioTitle) : null)
+          : (scenarioTitle ? findScenario(scenarioTitle) : null)
         
         return {
         id: event.id,
@@ -558,7 +612,7 @@ export function useScheduleData(currentDate: Date) {
           category: event.category,
           is_cancelled: event.is_cancelled || false,
           current_participants: event.current_participants || 0, // DBカラム名に統一
-          max_participants: event.capacity || 8,
+          max_participants: scenarioInfo?.player_count_max || event.capacity || 8,
           notes: event.notes || '',
           is_reservation_enabled: event.is_reservation_enabled || false,
           time_slot: event.time_slot
@@ -748,10 +802,54 @@ export function useScheduleData(currentDate: Date) {
       
       // シナリオリストを取得（player_count_max取得用のフォールバック）
       const scenarioList = await scenarioApi.getAll()
-      const scenarioByTitle = new Map<string, any>()
+      const scenarioByTitle2 = new Map<string, any>()
       scenarioList.forEach((s: any) => {
-        scenarioByTitle.set(s.title, s)
+        scenarioByTitle2.set(s.title, s)
       })
+      
+      // シナリオ略称マッピング（fetchSchedule用）
+      const SCENARIO_ALIAS2: Record<string, string> = {
+        'さきこさん': '裂き子さん',
+        'サキコサン': '裂き子さん',
+        'トレタリ': '撮れ高足りてますか',
+        'ナナイロ橙': 'ナナイロの迷宮 橙',
+        'ナナイロ緑': 'ナナイロの迷宮 緑',
+        'ナナイロ黄': 'ナナイロの迷宮 黄',
+        '童話裁判': '不思議の国の童話裁判',
+        'TOOLS': 'TOOLS〜ぎこちない椅子',
+        'カノケリ': '季節マーダー／カノケリ',
+        'アニクシィ': '季節マーダー／アニクシィ',
+        'シノポロ': '季節マーダー／シノポロ',
+        'キモナス': '季節マーダー／キモナス',
+        'ニィホン': '季節のマーダーミステリー／ニィホン',
+      }
+      
+      const normalize2 = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
+      
+      const findScenario2 = (eventScenario: string) => {
+        const mapped = SCENARIO_ALIAS2[eventScenario] || eventScenario
+        const norm = normalize2(mapped)
+        
+        if (scenarioByTitle2.has(mapped)) return scenarioByTitle2.get(mapped)
+        if (scenarioByTitle2.has(eventScenario)) return scenarioByTitle2.get(eventScenario)
+        
+        for (const [t, s] of scenarioByTitle2.entries()) {
+          if (normalize2(t) === norm) return s
+        }
+        for (const [t, s] of scenarioByTitle2.entries()) {
+          if (t.includes(mapped) || mapped.includes(t)) return s
+        }
+        for (const [t, s] of scenarioByTitle2.entries()) {
+          const nt = normalize2(t)
+          if (nt.includes(norm) || norm.includes(nt)) return s
+        }
+        const kws = eventScenario.split(/[\s\-・／/]/).filter(k => k.length > 0)
+        for (const [t, s] of scenarioByTitle2.entries()) {
+          const nt = normalize2(t)
+          if (kws.every(kw => nt.includes(normalize2(kw))) && kws.length >= 1) return s
+        }
+        return null
+      }
       
       // Supabaseのデータを内部形式に変換
       // 拡張プロパティ（scenarios, gm_roles, timeSlot等）を含むため型アサーションを使用
@@ -759,10 +857,10 @@ export function useScheduleData(currentDate: Date) {
         const scenarioTitle = event.scenarios?.title || event.scenario || ''
         // scenariosが有効かどうかをチェック（nullまたはidがない場合はフォールバック）
         const isValidScenario = event.scenarios && event.scenarios.id
-        // scenariosが無効な場合はシナリオリストからタイトルで検索
+        // scenariosが無効な場合はシナリオリストからタイトルで検索（略称マッピング対応）
         const scenarioInfo = isValidScenario 
           ? event.scenarios 
-          : (scenarioTitle ? scenarioByTitle.get(scenarioTitle) : null)
+          : (scenarioTitle ? findScenario2(scenarioTitle) : null)
         
         return {
         id: event.id,
@@ -781,7 +879,7 @@ export function useScheduleData(currentDate: Date) {
         category: event.category,
         is_cancelled: event.is_cancelled || false,
         current_participants: event.current_participants || 0, // DBカラム名に統一
-        max_participants: event.capacity || 8,
+        max_participants: scenarioInfo?.player_count_max || event.capacity || 8,
         notes: event.notes || '',
         is_reservation_enabled: event.is_reservation_enabled || false,
         time_slot: event.time_slot
