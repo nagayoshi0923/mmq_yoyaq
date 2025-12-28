@@ -875,13 +875,16 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         })
         
         // メモの場合（明示的なメモ or マッピングされなかったシナリオ）
+        // メモは公演として作成せず、既存公演の備考欄に追加するだけ
         if (shouldBeMemo) {
           if (existingEvent && !replaceExisting) {
+            // 既存の公演があればその備考欄に追加
             const existingNotes = existingEvent.notes || ''
             const newNotes = existingNotes ? `${existingNotes}\n${memoText}` : memoText
             memoUpdates.push({ id: existingEvent.id, notes: newNotes || '', label: `${event.date} ${event.venue}` })
           } else {
-            memoInserts.push(eventData)
+            // 既存の公演がない場合はスキップ（公演として作成しない）
+            console.log(`⏭️ MEMO スキップ（既存公演なし）: ${event.date} ${event.venue} - ${memoText}`)
           }
           if (isUnmappedScenario) {
             console.log(`⚠️ マッピングなし→MEMO変換: ${scenarioName}`)
