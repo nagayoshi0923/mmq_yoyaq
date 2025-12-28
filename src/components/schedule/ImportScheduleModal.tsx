@@ -868,12 +868,20 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         const existingEvent = replaceExisting ? null : existingEventMap.get(eventCellKey)
         // 内部用フィールドを除去してDBに保存するデータを作成
         // 必要なフィールドのみを明示的に抽出（文字列はサニタイズ）
-        const _isMemo = (event as any)._isMemo
-        const _memoText = sanitizeText((event as any)._memoText)
+        // isMemo はプレビューでカテゴリを「メモ」に変更した場合に true になる
+        const isMemo = (event as any).isMemo || (event as any)._isMemo
+        const memoText = sanitizeText((event as any)._memoText || event.notes || event.scenario)
         
         // DBで許可されているカテゴリのみを使用
-        const VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package']
-        const mappedCategory = VALID_CATEGORIES.includes(event.category) ? event.category : 'open'
+        // memo と mtg は open にマッピング（DBに存在しないため）
+        const DB_VALID_CATEGORIES = ['open', 'private', 'gmtest', 'testplay', 'offsite', 'venue_rental', 'venue_rental_free', 'package']
+        let mappedCategory = event.category
+        if (mappedCategory === 'memo' || mappedCategory === 'mtg') {
+          mappedCategory = 'open'
+        }
+        if (!DB_VALID_CATEGORIES.includes(mappedCategory)) {
+          mappedCategory = 'open'
+        }
         
         // シナリオIDを検索
         const scenarioName = sanitizeText(event.scenario)
@@ -881,8 +889,7 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         
         // 明示的にMEMOカテゴリが選択された場合のみMEMOとして扱う
         // マッピングできないシナリオはそのまま公演として作成（scenario_idは未設定）
-        const shouldBeMemo = _isMemo
-        const memoText = _memoText
+        const shouldBeMemo = isMemo || event.category === 'memo'
         
         if (!matchedScenario && scenarioName && scenarioName.length > 0) {
           console.log(`⚠️ シナリオ未マッピング（公演として作成）: ${scenarioName}`)
