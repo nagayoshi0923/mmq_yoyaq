@@ -36,6 +36,9 @@ const CATEGORY_OPTIONS = [
   { value: 'gmtest', label: 'GMテスト' },
   { value: 'testplay', label: 'テストプレイ' },
   { value: 'offsite', label: '出張' },
+  { value: 'venue_rental', label: '場所貸し' },
+  { value: 'venue_rental_free', label: '場所貸し(無料)' },
+  { value: 'package', label: 'パッケージ' },
   { value: 'mtg', label: 'MTG' },
   { value: 'memo', label: 'メモ' },
 ]
