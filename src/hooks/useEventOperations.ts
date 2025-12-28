@@ -439,9 +439,9 @@ export function useEventOperations({
           await scheduleApi.delete(performanceData.id)
           // ローカル状態から削除
           setEvents(prev => prev.filter(e => e.id !== performanceData.id))
-          showToast('公演をメモに変換しました', 'success')
+          showToast.success('公演をメモに変換しました')
         } else {
-          showToast('メモを保存しました', 'success')
+          showToast.success('メモを保存しました')
         }
         
         // モーダルを閉じる
