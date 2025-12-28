@@ -1387,11 +1387,14 @@ export function ImportScheduleModal({ isOpen, onClose, onImportComplete }: Impor
         let timeSlots: Array<{ titleIdx: number; gmIdx: number; defaultStart: string; defaultEnd: string; slotName: string }>
         
         if (venueIdx === 2) {
+          // 店舗が3列目(index 2)の場合: 日付|曜日|店舗|朝タイトル|朝GM|昼タイトル|昼GM|夜タイトル|夜GM
           timeSlots = [
-            { titleIdx: 3, gmIdx: 4, defaultStart: '13:00', defaultEnd: '17:00', slotName: '昼' },
-            { titleIdx: 5, gmIdx: 6, defaultStart: '19:00', defaultEnd: '23:00', slotName: '夜' }
+            { titleIdx: 3, gmIdx: 4, defaultStart: '09:00', defaultEnd: '13:00', slotName: '朝' },
+            { titleIdx: 5, gmIdx: 6, defaultStart: '13:00', defaultEnd: '18:00', slotName: '昼' },
+            { titleIdx: 7, gmIdx: 8, defaultStart: '19:00', defaultEnd: '23:00', slotName: '夜' }
           ]
         } else {
+          // 店舗が4列目(index 3)の場合: 日付|曜日|担当Mg|店舗|朝タイトル|朝GM|昼タイトル|昼GM|夜タイトル|夜GM
           timeSlots = [
             { titleIdx: 4, gmIdx: 5, defaultStart: '09:00', defaultEnd: '13:00', slotName: '朝' },
             { titleIdx: 6, gmIdx: 7, defaultStart: '13:00', defaultEnd: '18:00', slotName: '昼' },
