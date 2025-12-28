@@ -566,6 +566,15 @@ export function useScheduleData(currentDate: Date) {
           "THEREALFOLK'30s": "TheRealFork30's",
           'THEREALFOLK': "TheRealFork30's",
           'TheRealFolk': "TheRealFork30's",
+          // 表記ゆれ
+          '真渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
+          '渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
+          '土牢の悲鳴に谺して': '土牢に悲鳴は谺して',
+          '百鬼の夜月光の影': '百鬼の夜、月光の影',
+          'インビジブル亡霊列車': 'Invisible-亡霊列車-',
+          'くずの葉の森': 'くずの葉のもり',
+          'ドクターテラスの秘密の実験': 'ドクター・テラスの秘密の実験',
+          'あるミステリーについて': 'あるマーダーミステリーについて',
         }
         
         const normalize = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
@@ -864,6 +873,15 @@ export function useScheduleData(currentDate: Date) {
         "THEREALFOLK'30s": "TheRealFork30's",
         'THEREALFOLK': "TheRealFork30's",
         'TheRealFolk': "TheRealFork30's",
+        // 表記ゆれ
+        '真渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
+        '渋谷陰陽奇譚': '真・渋谷陰陽奇譚',
+        '土牢の悲鳴に谺して': '土牢に悲鳴は谺して',
+        '百鬼の夜月光の影': '百鬼の夜、月光の影',
+        'インビジブル亡霊列車': 'Invisible-亡霊列車-',
+        'くずの葉の森': 'くずの葉のもり',
+        'ドクターテラスの秘密の実験': 'ドクター・テラスの秘密の実験',
+        'あるミステリーについて': 'あるマーダーミステリーについて',
       }
       
       const normalize2 = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
