@@ -99,6 +99,9 @@ const SCENARIO_NAME_MAPPING: Record<string, string> = {
   "ソルシエ": "SORCIER〜賢者達の物語〜",
   "SORCIER": "SORCIER〜賢者達の物語〜",
   "藍雨": "藍雨廻逢",
+  "THEREALFOLK'30s": "TheRealFork30's",
+  "THEREALFOLK": "TheRealFork30's",
+  "TheRealFolk": "TheRealFork30's",
 }
 
 // スタッフ名の揺らぎを統一するマッピング

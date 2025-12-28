@@ -562,6 +562,10 @@ export function useScheduleData(currentDate: Date) {
           'SORCIER': 'SORCIER〜賢者達の物語〜',
           // 藍雨
           '藍雨': '藍雨廻逢',
+          // TheRealFork
+          "THEREALFOLK'30s": "TheRealFork30's",
+          'THEREALFOLK': "TheRealFork30's",
+          'TheRealFolk': "TheRealFork30's",
         }
         
         const normalize = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()
@@ -856,6 +860,10 @@ export function useScheduleData(currentDate: Date) {
         'SORCIER': 'SORCIER〜賢者達の物語〜',
         // 藍雨
         '藍雨': '藍雨廻逢',
+        // TheRealFork
+        "THEREALFOLK'30s": "TheRealFork30's",
+        'THEREALFOLK': "TheRealFork30's",
+        'TheRealFolk': "TheRealFork30's",
       }
       
       const normalize2 = (s: string) => s.replace(/[\s\-・／/]/g, '').toLowerCase()

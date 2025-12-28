@@ -141,6 +141,10 @@ export function ScheduleManager() {
         'SORCIER': 'SORCIER〜賢者達の物語〜',
         // 藍雨
         '藍雨': '藍雨廻逢',
+        // TheRealFork
+        "THEREALFOLK'30s": "TheRealFork30's",
+        'THEREALFOLK': "TheRealFork30's",
+        'TheRealFolk': "TheRealFork30's",
       }
       
       // シナリオ名を正規化する関数
