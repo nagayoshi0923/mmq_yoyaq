@@ -1290,7 +1290,34 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         return cells
       }
       
-      const lines = parseTsvLines(scheduleText.trim())
+      const rawLines = parseTsvLines(scheduleText.trim())
+      
+      // 日付またはヘッダーで始まらない行を前の行に結合する
+      // （セル内改行が引用符で囲まれていない場合の対処）
+      const lines: string[] = []
+      const datePattern = /^\d{1,2}\/\d{1,2}/  // MM/DD形式
+      const headerPattern = /^(日付|曜日|\s*$)/  // ヘッダー行
+      const venuePattern = /^\t*\t(馬場|大久保|大塚|別館|出張|ゲムマ|SME|制作|別会場)/  // 店舗で始まる行
+      
+      for (let i = 0; i < rawLines.length; i++) {
+        const line = rawLines[i]
+        const trimmed = line.trim()
+        
+        // 行が日付、ヘッダー、空白、または店舗名で始まる場合は新しい行
+        const isNewRow = datePattern.test(trimmed) || 
+                         headerPattern.test(trimmed) || 
+                         venuePattern.test(line) ||
+                         trimmed === ''
+        
+        if (isNewRow || lines.length === 0) {
+          lines.push(line)
+        } else {
+          // 前の行に結合（スペースで区切る）
+          lines[lines.length - 1] += ' ' + trimmed
+        }
+      }
+      
+      console.log(`📋 行結合: ${rawLines.length}行 → ${lines.length}行`)
       const events: any[] = []
       const errors: string[] = []
       let currentDate = ''
