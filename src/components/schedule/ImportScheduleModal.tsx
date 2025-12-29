@@ -1622,7 +1622,31 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         </DialogHeader>
 
         <div className="flex-1 flex flex-col min-h-0 space-y-4">
-          {isLoadingPreview ? (
+          {result ? (
+            // インポート完了後は結果のみ表示
+            <div className="flex flex-col items-center justify-center py-20">
+              {result.failed > 0 ? (
+                <AlertCircle className="h-12 w-12 text-orange-500 mb-4" />
+              ) : (
+                <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
+              )}
+              <h3 className="text-lg font-semibold mb-2">インポート完了</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                成功: <span className="font-bold text-green-600">{result.success}件</span>
+                {result.failed > 0 && (
+                  <> / 失敗: <span className="font-bold text-red-600">{result.failed}件</span></>
+                )}
+              </p>
+              {result.errors.length > 0 && (
+                <div className="w-full max-w-md max-h-40 overflow-y-auto text-xs bg-gray-50 rounded p-3 border">
+                  <div className="font-semibold mb-1">詳細:</div>
+                  {result.errors.map((error, i) => (
+                    <div key={i} className={error.startsWith('ℹ️') || error.startsWith('⚠️') ? 'text-gray-600' : 'text-red-600'}>{error}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : isLoadingPreview ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
               <p className="text-sm text-gray-600">データを解析中...</p>
@@ -1916,42 +1940,31 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
             </>
           )}
 
-          {result && (
-            <Alert variant={result.failed > 0 ? "destructive" : "default"}>
-              {result.failed > 0 ? (
-                <AlertCircle className="h-4 w-4" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4" />
-              )}
-              <AlertDescription>
-                <div className="font-semibold mb-2">
-                  インポート完了: 成功 {result.success}件 / 失敗 {result.failed}件
-                </div>
-                {result.errors.length > 0 && (
-                  <div className="mt-2 max-h-40 overflow-y-auto text-xs">
-                    <div className="font-semibold mb-1">詳細:</div>
-                    {result.errors.map((error, i) => (
-                      <div key={i} className={error.startsWith('ℹ️') || error.startsWith('⚠️') ? 'text-gray-600' : 'text-red-600'}>{error}</div>
-                    ))}
-                  </div>
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
         </div>
 
         <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4">
-          <Button variant="outline" onClick={handleClose} disabled={isImporting}>
-            キャンセル
-          </Button>
-          
-          {isLoadingPreview ? null : !showPreview ? (
-            <Button 
-              onClick={handlePreview} 
-              disabled={!scheduleText.trim()}
-            >
-              プレビュー
+          {result ? (
+            // インポート完了後は「完了」ボタンのみ表示
+            <Button onClick={handleClose}>
+              完了
             </Button>
+          ) : isLoadingPreview ? (
+            <Button disabled>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              解析中...
+            </Button>
+          ) : !showPreview ? (
+            <>
+              <Button variant="outline" onClick={handleClose}>
+                キャンセル
+              </Button>
+              <Button 
+                onClick={handlePreview} 
+                disabled={!scheduleText.trim()}
+              >
+                プレビュー
+              </Button>
+            </>
           ) : (
             <>
               <Button 
