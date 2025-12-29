@@ -627,8 +627,16 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
     // 円表記の前で切る（価格情報）
     text = text.split(/\d+円/)[0]
     
-    // 様の前で切る場合は様も含める（お客様名は別途抽出）
-    // お客様名がシナリオ名の後に続く場合を考慮
+    // お客様名を除去（「○○様」パターン）
+    // 例: "シノポロ 後藤茜様" → "シノポロ"
+    // 例: "ニィホン 田中様DM" → "ニィホン"
+    const customerMatch = text.match(/^(.+?)[\s　]+[^(（\s]+様/)
+    if (customerMatch) {
+      text = customerMatch[1].trim()
+    } else {
+      // スペースの後に「様」がある場合も除去
+      text = text.replace(/[\s　]+[^\s（(]+様.*$/, '').trim()
+    }
     
     text = text.trim()
     
