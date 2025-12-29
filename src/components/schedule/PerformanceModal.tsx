@@ -543,6 +543,20 @@ export function PerformanceModal({
                 ※ 貸切リクエストのシナリオは変更できません
               </p>
             )}
+            {/* 未紐付けシナリオの警告表示 */}
+            {formData.scenario && !scenarios.find(s => s.title === formData.scenario) && (
+              <div className="mt-1 p-2 bg-orange-50 border border-orange-200 rounded text-xs">
+                <div className="flex items-center gap-1 text-orange-700">
+                  <span className="font-semibold">⚠️ 未登録のシナリオ名:</span>
+                </div>
+                <div className="mt-1 text-orange-600 font-mono break-all">
+                  {formData.scenario}
+                </div>
+                <p className="mt-1 text-orange-500">
+                  上のプルダウンからシナリオを選択してください
+                </p>
+              </div>
+            )}
             {/* シナリオ編集へのリンク */}
             {formData.scenario && (() => {
               const selectedScenario = scenarios.find(s => s.title === formData.scenario)
