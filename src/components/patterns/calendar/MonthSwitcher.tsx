@@ -206,9 +206,13 @@ export const MonthSwitcher = memo(function MonthSwitcher({
   }, [value, year, month, urlSync])
 
   /**
-   * 年の範囲を生成 (現在年の前後2年、計5年)
+   * 年の範囲を生成 (2021年から現在年+2年まで)
+   * 過去のデータ（2021年〜）も表示できるように固定開始年を設定
    */
-  const yearRange = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i)
+  const currentYear = new Date().getFullYear()
+  const startYear = 2021
+  const endYear = currentYear + 2
+  const yearRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
 
   return (
     <div className={`flex items-center gap-2 ${className}`} role="group" aria-label="月選択">
