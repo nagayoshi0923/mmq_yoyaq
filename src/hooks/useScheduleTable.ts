@@ -40,7 +40,7 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
   // データ取得
   const scheduleData = useScheduleData(currentDate)
   const shiftDataHook = useShiftData(currentDate, scheduleData.staff, scheduleData.staffLoading)
-  const memoManager = useMemoManager(currentDate, scheduleData.stores)
+  const memoManager = useMemoManager(currentDate)
 
   // 分割代入
   const { 
