@@ -446,8 +446,6 @@ export function useEventOperations({
         // 編集モードの場合、元の公演を削除
         if (modalMode === 'edit' && performanceData.id) {
           await scheduleApi.delete(performanceData.id)
-          // ローカル状態から削除
-          setEvents(prev => prev.filter(e => e.id !== performanceData.id))
           showToast.success('公演をメモに変換しました')
         } else {
           showToast.success('メモを保存しました')
@@ -457,8 +455,8 @@ export function useEventOperations({
         setIsPerformanceModalOpen(false)
         setEditingEvent(null)
         
-        // スケジュールを再読み込み
-        fetchSchedule()
+        // スケジュールを再読み込み（fetchScheduleがsetEventsを行うので重複を避ける）
+        await fetchSchedule()
         return
       }
       
