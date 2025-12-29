@@ -35,6 +35,7 @@ export interface ScheduleTableEventHandlers {
   onCancelConfirm: (event: ScheduleEvent) => void
   onUncancel: (event: ScheduleEvent) => void
   onToggleReservation: (event: ScheduleEvent) => void
+  onConvertToMemo: (event: ScheduleEvent) => void
   onDrop: (event: ScheduleEvent, date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => void
   onContextMenuCell: (date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening', x: number, y: number) => void
   onContextMenuEvent: (event: ScheduleEvent, x: number, y: number) => void

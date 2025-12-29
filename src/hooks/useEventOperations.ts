@@ -1021,6 +1021,47 @@ export function useEventOperations({
     }
   }, [pendingPerformanceData, conflictInfo, events, modalMode, setEvents, doSavePerformance])
 
+  // 公演をメモに変換（モーダルなしで直接変換）
+  const handleConvertToMemo = useCallback(async (event: ScheduleEvent) => {
+    try {
+      // シナリオ名とGM名をテキストに変換
+      const memoLines: string[] = []
+      if (event.scenario) {
+        memoLines.push(`【${event.scenario}】`)
+      }
+      if (event.gms && event.gms.length > 0) {
+        const gmNames = event.gms.filter((gm: string) => gm.trim() !== '')
+        if (gmNames.length > 0) {
+          memoLines.push(`GM: ${gmNames.join(', ')}`)
+        }
+      }
+      if (event.notes) {
+        memoLines.push(event.notes)
+      }
+      const memoText = memoLines.join('\n')
+      
+      // 店舗IDを取得（venueがstore_idの場合とstore名の場合がある）
+      const storeId = event.store_id || event.venue
+      
+      // 時間帯を取得
+      const timeSlotKey = getEventTimeSlot(event)
+      
+      // スロットメモとして保存
+      saveEmptySlotMemo(event.date, storeId, timeSlotKey, memoText)
+      console.log('✅ スロットメモ保存成功:', event.date, storeId, timeSlotKey, memoText.substring(0, 50))
+      
+      // 公演を削除
+      await scheduleApi.delete(event.id)
+      showToast.success('公演をメモに変換しました')
+      
+      // スケジュールを再読み込み
+      await fetchSchedule()
+    } catch (error) {
+      logger.error('メモ変換エラー:', error)
+      showToast.error('メモへの変換に失敗しました')
+    }
+  }, [fetchSchedule])
+
   return {
     // モーダル状態
     isPerformanceModalOpen,
@@ -1067,6 +1108,7 @@ export function useEventOperations({
     handleToggleReservation,
     handleConfirmPublishToggle,
     handleConflictContinue,
+    handleConvertToMemo,
     
     // ダイアログクローズ
     setIsDeleteDialogOpen,

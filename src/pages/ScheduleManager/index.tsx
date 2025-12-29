@@ -679,9 +679,8 @@ export function ScheduleManager() {
                   label: 'メモに変換',
                   icon: <FileText className="w-4 h-4" />,
                   onClick: () => {
-                    // 公演データをメモカテゴリで編集モーダルを開く
-                    const memoEvent = { ...event, category: 'memo' as const }
-                    scheduleTableProps.eventHandlers.onEditPerformance(memoEvent)
+                    // 直接メモに変換（モーダルなし）
+                    scheduleTableProps.eventHandlers.onConvertToMemo(event)
                     modals.contextMenu.setContextMenu(null)
                   },
                   separator: true
