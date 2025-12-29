@@ -1040,8 +1040,8 @@ export function useEventOperations({
       }
       const memoText = memoLines.join('\n')
       
-      // 店舗IDを取得（venueがstore_idの場合とstore名の場合がある）
-      const storeId = event.store_id || event.venue
+      // 店舗IDを取得（venueにstore_idが入っている）
+      const storeId = event.venue
       
       // 時間帯を取得
       const timeSlotKey = getEventTimeSlot(event)
