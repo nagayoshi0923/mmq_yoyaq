@@ -68,12 +68,32 @@ const STORE_MAPPING: Record<string, string | null> = {
 
 // シナリオ名の揺らぎを統一するマッピング（略称 → 正式名称）
 const SCENARIO_NAME_MAPPING: Record<string, string> = {
-  // 季節マダミス
+  // 季節マダミス（全バリエーション）
   "カノケリ": "季節／カノケリ",
   "アニクシィ": "季節／アニクシィ",
   "シノポロ": "季節／シノポロ",
   "キモナス": "季節／キモナス",
   "ニィホン": "季節／ニィホン",
+  "季節カノケリ": "季節／カノケリ",
+  "季節アニクシィ": "季節／アニクシィ",
+  "季節シノポロ": "季節／シノポロ",
+  "季節キモナス": "季節／キモナス",
+  "季節ニィホン": "季節／ニィホン",
+  "季節／カノケリ": "季節／カノケリ",
+  "季節／アニクシィ": "季節／アニクシィ",
+  "季節／シノポロ": "季節／シノポロ",
+  "季節／キモナス": "季節／キモナス",
+  "季節／ニィホン": "季節／ニィホン",
+  "季節/カノケリ": "季節／カノケリ",
+  "季節/アニクシィ": "季節／アニクシィ",
+  "季節/シノポロ": "季節／シノポロ",
+  "季節/キモナス": "季節／キモナス",
+  "季節/ニィホン": "季節／ニィホン",
+  "季節マーダー／カノケリ": "季節／カノケリ",
+  "季節マーダー／アニクシィ": "季節／アニクシィ",
+  "季節マーダー／シノポロ": "季節／シノポロ",
+  "季節マーダー／キモナス": "季節／キモナス",
+  "季節のマーダーミステリー／ニィホン": "季節／ニィホン",
   // 略称
   "さきこさん": "裂き子さん",
   "サキコサン": "裂き子さん",
@@ -523,8 +543,32 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       }
     }
     
-    // 類似度マッチングは削除（パフォーマンス改善のため）
-    // 上記の完全一致・部分一致で見つからない場合はnullを返す
+    // 4. 「季節」プレフィックスを除去してリトライ
+    const seasonStripped = normalizedInput.replace(/^季節(マーダー)?[／/・]?/, '')
+    if (seasonStripped !== normalizedInput && seasonStripped.length >= 2) {
+      // 季節マダミスの場合、プレフィックスを追加して検索
+      const seasonalMatch = `季節／${seasonStripped}`
+      if (SCENARIO_NAME_MAPPING[seasonStripped]) {
+        const result = SCENARIO_NAME_MAPPING[seasonStripped]
+        scenarioMatchCache.set(normalizedInput, result)
+        return result
+      }
+      for (const scenario of scenarioList) {
+        if (scenario.title.includes(seasonStripped)) {
+          scenarioMatchCache.set(normalizedInput, scenario.title)
+          return scenario.title
+        }
+      }
+    }
+    
+    // 5. シナリオ名に入力が含まれる（逆引き）
+    for (const scenario of scenarioList) {
+      const scenarioName = scenario.title
+      if (scenarioName.includes(normalizedInput) && normalizedInput.length >= 3) {
+        scenarioMatchCache.set(normalizedInput, scenarioName)
+        return scenarioName
+      }
+    }
     
     scenarioMatchCache.set(normalizedInput, null)
     return null
