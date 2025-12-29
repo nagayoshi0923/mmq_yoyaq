@@ -1798,27 +1798,39 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
                           <td className="p-1 border-b min-w-[180px] align-top">
                             {event.isMemo ? (
                               <span className="text-gray-500">{event.scenario}</span>
-                            ) : (
-                              <div>
-                                <div className="text-[10px] text-purple-600 mb-0.5 min-h-[14px]">
-                                  {event.originalScenario ? `${event.originalScenario}${event.scenarioMapped ? '→' : ''}` : '\u00A0'}
+                            ) : (() => {
+                              // シナリオがマスタに存在するかチェック
+                              const isLinked = event.scenario && scenarioList.some(s => s.title === event.scenario)
+                              const hasOriginal = event.originalScenario && event.originalScenario.trim().length > 0
+                              return (
+                                <div className={`rounded p-1 ${isLinked ? 'bg-green-50 border border-green-200' : hasOriginal ? 'bg-orange-50 border border-orange-200' : ''}`}>
+                                  <div className="text-[10px] mb-0.5 min-h-[14px] flex items-center gap-1">
+                                    {isLinked ? (
+                                      <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                    ) : hasOriginal ? (
+                                      <AlertCircle className="h-3 w-3 text-orange-500 flex-shrink-0" />
+                                    ) : null}
+                                    <span className="text-purple-600 truncate">
+                                      {event.originalScenario || '\u00A0'}
+                                    </span>
+                                  </div>
+                                  <SearchableSelect
+                                    options={scenarioOptions}
+                                    value={event.scenario || '__none__'}
+                                    onValueChange={(value) => {
+                                      setPreviewEvents(prev => {
+                                        const newPreview = [...prev]
+                                        newPreview[i] = { ...newPreview[i], scenario: value === '__none__' ? '' : value, scenarioMapped: true }
+                                        return newPreview
+                                      })
+                                    }}
+                                    placeholder="シナリオを選択"
+                                    searchPlaceholder="シナリオ検索..."
+                                    className="h-6 text-xs"
+                                  />
                                 </div>
-                                <SearchableSelect
-                                  options={scenarioOptions}
-                                  value={event.scenario || '__none__'}
-                                  onValueChange={(value) => {
-                                    setPreviewEvents(prev => {
-                                      const newPreview = [...prev]
-                                      newPreview[i] = { ...newPreview[i], scenario: value === '__none__' ? '' : value, scenarioMapped: true }
-                                      return newPreview
-                                    })
-                                  }}
-                                  placeholder="シナリオを選択"
-                                  searchPlaceholder="シナリオ検索..."
-                                  className="h-6 text-xs"
-                                />
-                              </div>
-                            )}
+                              )
+                            })()}
                           </td>
                           <td className="p-1 border-b min-w-[140px] align-top">
                             <div className="space-y-1">
@@ -1922,9 +1934,10 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
                   全{previewEvents.length}件
                 </div>
                 
-                <div className="mt-3 flex gap-2 text-xs">
+                <div className="mt-3 flex flex-wrap gap-3 text-xs">
+                  <span className="font-semibold text-gray-600">行:</span>
                   <span className="inline-flex items-center gap-1">
-                    <span className="w-3 h-3 bg-green-100 border border-green-300 rounded"></span>
+                    <span className="w-3 h-3 bg-white border border-gray-300 rounded"></span>
                     新規追加
                   </span>
                   <span className="inline-flex items-center gap-1">
@@ -1934,6 +1947,16 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
                   <span className="inline-flex items-center gap-1">
                     <span className="w-3 h-3 bg-blue-100 border border-blue-300 rounded"></span>
                     メモ
+                  </span>
+                  <span className="mx-2 border-l border-gray-300"></span>
+                  <span className="font-semibold text-gray-600">シナリオ:</span>
+                  <span className="inline-flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-green-600" />
+                    紐付け成功
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 text-orange-500" />
+                    未紐付け
                   </span>
                 </div>
               </div>
