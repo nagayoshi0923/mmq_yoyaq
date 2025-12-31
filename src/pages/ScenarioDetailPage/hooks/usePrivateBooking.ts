@@ -11,12 +11,13 @@ interface UsePrivateBookingProps {
   stores: any[]
   scenarioId: string
   scenario?: any // シナリオデータ（available_storesを含む）
+  organizationSlug?: string // 組織slug（マルチテナント対応）
 }
 
 /**
  * 貸切リクエスト関連のロジックを管理するフック
  */
-export function usePrivateBooking({ events, stores, scenarioId, scenario }: UsePrivateBookingProps) {
+export function usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug }: UsePrivateBookingProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
@@ -29,6 +30,21 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
   useEffect(() => {
     const loadAllStoreEvents = async () => {
       try {
+        // organizationSlugからorganization_idを取得
+        let orgId: string | undefined = undefined
+        if (organizationSlug) {
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('id')
+            .eq('slug', organizationSlug)
+            .eq('is_active', true)
+            .single()
+          
+          if (orgData) {
+            orgId = orgData.id
+          }
+        }
+        
         const currentDate = new Date()
         const monthPromises = []
         
@@ -40,7 +56,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
           const year = targetDate.getFullYear()
           const month = targetDate.getMonth() + 1
           
-          monthPromises.push(scheduleApi.getByMonth(year, month))
+          // organization_idでフィルタリング
+          monthPromises.push(scheduleApi.getByMonth(year, month, orgId))
         }
         
         const monthResults = await Promise.all(monthPromises)
@@ -95,7 +112,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario }: UseP
     }
     
     loadAllStoreEvents()
-  }, [])
+  }, [organizationSlug])
 
   // 営業時間設定を一括で取得してキャッシュ
   useEffect(() => {

@@ -3,18 +3,28 @@
  */
 import { supabase } from '../supabase'
 import { logger } from '@/utils/logger'
+import { getCurrentOrganizationId } from '@/lib/organization'
 
 export const salesApi = {
   // 期間別売上データを取得
-  async getSalesByPeriod(startDate: string, endDate: string) {
+  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  async getSalesByPeriod(startDate: string, endDate: string, organizationId?: string) {
+    // 組織フィルタリング
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
     // まずschedule_eventsを取得
-    const { data: events, error } = await supabase
+    let query = supabase
       .from('schedule_events')
       .select('*')
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)
-      .order('date', { ascending: true })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data: events, error } = await query.order('date', { ascending: true })
     
     if (error) {
       throw error
@@ -24,19 +34,31 @@ export const salesApi = {
       return []
     }
     
-    // 全シナリオを取得
-    const { data: scenarios, error: scenariosError } = await supabase
+    // シナリオを取得（組織フィルタ適用）
+    let scenarioQuery = supabase
       .from('scenarios')
       .select('id, title, author, duration, participation_fee, gm_test_participation_fee, participation_costs, license_amount, gm_test_license_amount, franchise_license_amount, franchise_gm_test_license_amount, scenario_type, gm_costs, production_costs, required_props')
     
-    if (scenariosError) {
-      // scenarios fetch error
+    if (orgId) {
+      scenarioQuery = scenarioQuery.or(`organization_id.eq.${orgId},is_shared.eq.true`)
     }
     
-    // 全スタッフを取得（スタッフ参加の判定用）
-    const { data: staff, error: staffError } = await supabase
+    const { data: scenarios, error: scenariosError } = await scenarioQuery
+    
+    if (scenariosError) {
+      logger.error('シナリオデータの取得に失敗:', scenariosError)
+    }
+    
+    // スタッフを取得（組織フィルタ適用）
+    let staffQuery = supabase
       .from('staff')
       .select('name')
+    
+    if (orgId) {
+      staffQuery = staffQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: staff, error: staffError } = await staffQuery
     
     if (staffError) {
       logger.error('スタッフデータの取得に失敗:', staffError)

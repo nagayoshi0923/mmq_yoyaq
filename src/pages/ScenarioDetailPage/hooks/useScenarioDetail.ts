@@ -7,13 +7,16 @@ import type { ScenarioDetail, EventSchedule } from '../utils/types'
 
 /**
  * シナリオ詳細とスケジュールデータを管理するフック
+ * @param scenarioId - シナリオID
+ * @param organizationSlug - 組織slug（マルチテナント対応）
  */
-export function useScenarioDetail(scenarioId: string) {
+export function useScenarioDetail(scenarioId: string, organizationSlug?: string) {
   const [scenario, setScenario] = useState<ScenarioDetail | null>(null)
   const [events, setEvents] = useState<EventSchedule[]>([])
   const [stores, setStores] = useState<any[]>([])
   const [relatedScenarios, setRelatedScenarios] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
 
   const loadScenarioDetail = useCallback(async () => {
     try {
@@ -24,8 +27,24 @@ export function useScenarioDetail(scenarioId: string) {
       
       setIsLoading(true)
       
-      // シナリオを取得
-      const scenarioDataResult = await scenarioApi.getById(scenarioId).catch((error) => {
+      // organizationSlugからorganization_idを取得
+      let orgId: string | undefined = undefined
+      if (organizationSlug) {
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('slug', organizationSlug)
+          .eq('is_active', true)
+          .single()
+        
+        if (orgData) {
+          orgId = orgData.id
+          setOrganizationId(orgId)
+        }
+      }
+      
+      // シナリオを取得（organization_idでフィルタリング）
+      const scenarioDataResult = await scenarioApi.getById(scenarioId, orgId).catch((error) => {
         logger.error('シナリオデータの取得エラー:', error)
         return null
       })
@@ -49,7 +68,8 @@ export function useScenarioDetail(scenarioId: string) {
         const year = targetDate.getFullYear()
         const month = targetDate.getMonth() + 1
         
-        monthPromises.push(scheduleApi.getByMonth(year, month))
+        // organization_idでフィルタリング
+        monthPromises.push(scheduleApi.getByMonth(year, month, orgId))
       }
       
       // 3ヶ月分のデータを並列取得
@@ -70,8 +90,8 @@ export function useScenarioDetail(scenarioId: string) {
       // 店舗データを取得（貸切リクエストタブでも使用するため、全店舗を取得）
       let storesData: any[] = []
       try {
-        // 貸切リクエストタブでも使用するため、常に全店舗を取得
-        storesData = await storeApi.getAll()
+        // organization_idでフィルタリング
+        storesData = await storeApi.getAll(false, orgId)
       } catch (error) {
         logger.error('店舗データの取得エラー:', error)
         // エラー時は空配列を設定
@@ -194,7 +214,7 @@ export function useScenarioDetail(scenarioId: string) {
     } finally {
       setIsLoading(false)
     }
-  }, [scenarioId])
+  }, [scenarioId, organizationSlug])
 
   useEffect(() => {
     loadScenarioDetail()

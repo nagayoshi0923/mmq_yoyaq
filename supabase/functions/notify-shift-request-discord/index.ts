@@ -1,14 +1,16 @@
 // Discord Botで1ヶ月分のシフト募集通知を送信
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getDiscordSettings } from '../_shared/organization-settings.ts'
 
-const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const FALLBACK_DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 interface ShiftRequestPayload {
+  organizationId?: string  // マルチテナント対応
   year: number
   month: number
   deadline?: string
@@ -100,7 +102,8 @@ async function sendDiscordShiftRequest(
   year: number,
   month: number,
   deadline: string,
-  notificationId: string
+  notificationId: string,
+  discordBotToken: string
 ): Promise<string[]> {
   const daysInMonth = new Date(year, month, 0).getDate()
   const messageIds: string[] = []
@@ -132,7 +135,7 @@ async function sendDiscordShiftRequest(
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+          'Authorization': `Bot ${discordBotToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
@@ -162,7 +165,7 @@ serve(async (req) => {
     const payload: ShiftRequestPayload = await req.json()
     console.log('📨 Shift request payload:', payload)
     
-    const { year, month, deadline, targetChannelId } = payload
+    const { organizationId, year, month, deadline, targetChannelId } = payload
     
     // 年月のバリデーション
     if (!year || !month || month < 1 || month > 12) {
@@ -170,6 +173,19 @@ serve(async (req) => {
         JSON.stringify({ error: 'Invalid year or month' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
+    }
+    
+    // 組織設定からDiscord設定を取得
+    let discordBotToken = FALLBACK_DISCORD_BOT_TOKEN
+    if (organizationId) {
+      const discordSettings = await getDiscordSettings(supabase, organizationId)
+      if (discordSettings.botToken) {
+        discordBotToken = discordSettings.botToken
+      }
+    }
+    
+    if (!discordBotToken) {
+      throw new Error('Discord Bot Token is not configured')
     }
     
     // 締切日のデフォルト設定（前月25日）
@@ -216,7 +232,7 @@ serve(async (req) => {
     const notificationId = notification.id
     
     // Discord通知を送信（週ごとに分割）
-    const messageIds = await sendDiscordShiftRequest(channelId, year, month, deadlineDate, notificationId)
+    const messageIds = await sendDiscordShiftRequest(channelId, year, month, deadlineDate, notificationId, discordBotToken!)
     
     // メッセージIDを保存
     await supabase

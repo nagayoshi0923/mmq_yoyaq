@@ -1,10 +1,12 @@
 // Discord Bot経由で通知を送信（ボタン付き）
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getDiscordSettings, getNotificationSettings } from '../_shared/organization-settings.ts'
 
-const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+// フォールバック用（組織設定がない場合）
+const FALLBACK_DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
 
 // CORSヘッダー
 const corsHeaders = {
@@ -21,6 +23,7 @@ interface PrivateBookingNotification {
   table: string
   record: {
     id: string
+    organization_id?: string  // マルチテナント対応
     customer_name: string
     customer_email: string
     customer_phone: string
@@ -66,7 +69,7 @@ async function fetchScenarioTitle(scenarioId: string): Promise<string | null> {
 }
 
 // 個別チャンネルに通知を送信する関数
-async function sendNotificationToGMChannels(booking: any) {
+async function sendNotificationToGMChannels(booking: any, discordBotToken: string) {
   console.log('📤 Sending notifications to individual GM channels...')
   console.log(`📋 Scenario ID: ${booking.scenario_id}`)
   
@@ -136,7 +139,7 @@ async function sendNotificationToGMChannels(booking: any) {
   // 各ユニークなチャンネルに通知を送信
   const notificationPromises = Array.from(uniqueChannels.values()).map(async ({ channelId, gmNames, userIds }) => {
     console.log(`📤 Sending notification to channel ${channelId} (GMs: ${gmNames.join(', ')}, UserIDs: ${userIds.join(', ')})`)
-    return sendDiscordNotification(channelId, booking, userIds)
+    return sendDiscordNotification(channelId, booking, userIds, discordBotToken)
   })
   
   // 全ての通知を並行送信
@@ -162,7 +165,7 @@ function getDayOfWeek(dateString: string): string {
 }
 
 // Discord通知を送信する関数
-async function sendDiscordNotification(channelId: string, booking: any, userIds: string[] = []) {
+async function sendDiscordNotification(channelId: string, booking: any, userIds: string[] = [], discordBotToken: string) {
   // チャンネルIDが空の場合はエラー
   if (!channelId || channelId.trim() === '') {
     throw new Error('Discord channel ID is not set. Please configure discord_channel_id in staff table.')
@@ -247,7 +250,7 @@ async function sendDiscordNotification(channelId: string, booking: any, userIds:
   const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+      'Authorization': `Bot ${discordBotToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(discordPayload)
@@ -300,34 +303,54 @@ serve(async (req) => {
       }
     }
 
-    // 通知設定をチェック
-    const { data: notificationSettings, error: settingsError } = await supabase
-      .from('notification_settings')
-      .select('new_reservation_discord')
-      .eq('store_id', 'default') // デフォルト設定を使用
-      .maybeSingle()
-
-    if (settingsError) {
-      console.error('通知設定取得エラー:', settingsError)
+    // 組織IDを取得（payloadまたはシナリオから）
+    let organizationId = booking.organization_id
+    if (!organizationId && booking.scenario_id) {
+      const { data: scenario } = await supabase
+        .from('scenarios')
+        .select('organization_id')
+        .eq('id', booking.scenario_id)
+        .single()
+      organizationId = scenario?.organization_id
     }
-
-    // Discord通知が無効の場合はスキップ
-    if (notificationSettings && !notificationSettings.new_reservation_discord) {
-      console.log('⚠️ Discord notifications are disabled in settings')
+    
+    // 組織設定を取得
+    let discordBotToken = FALLBACK_DISCORD_BOT_TOKEN
+    if (organizationId) {
+      const discordSettings = await getDiscordSettings(supabase, organizationId)
+      if (discordSettings.botToken) {
+        discordBotToken = discordSettings.botToken
+        console.log('✅ Using organization-specific Discord settings')
+      }
+      
+      // 通知設定をチェック
+      const notificationSettings = await getNotificationSettings(supabase, organizationId)
+      if (!notificationSettings.privateBookingDiscord) {
+        console.log('⚠️ Discord notifications are disabled for this organization')
+        return new Response(
+          JSON.stringify({ message: 'Discord notifications are disabled' }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        )
+      }
+    }
+    
+    if (!discordBotToken) {
+      console.error('❌ Discord Bot Token not configured')
       return new Response(
-        JSON.stringify({ message: 'Discord notifications are disabled' }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        JSON.stringify({ error: 'Discord Bot Token not configured' }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       )
     }
+    
     console.log('📋 Booking data:', {
       id: booking.id,
       customer_name: booking.customer_name,
       scenario_title: booking.scenario_title,
-      reservation_source: booking.reservation_source
+      organization_id: organizationId
     })
     
     // 各GMの個別チャンネルに通知を送信
-    await sendNotificationToGMChannels(booking)
+    await sendNotificationToGMChannels(booking, discordBotToken)
 
     return new Response(
       JSON.stringify({ 

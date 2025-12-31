@@ -48,7 +48,8 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         category,
         is_cancelled,
         current_participants,
-        capacity
+        capacity,
+        organization_id
       `)
       .lte('date', today.toISOString().split('T')[0])
       .eq('is_cancelled', false)
@@ -183,7 +184,8 @@ export async function addDemoParticipantsToPastUnderfullEvents(): Promise<{ succ
         payment_method: 'onsite',
         payment_status: 'paid',
         status: 'confirmed',
-        reservation_source: 'demo_auto'
+        reservation_source: 'demo_auto',
+        organization_id: event.organization_id // マルチテナント対応
       }
       
       const { error: insertError } = await supabase
@@ -273,7 +275,8 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
             payment_method: 'onsite',
             payment_status: 'paid',
             status: 'confirmed',
-            reservation_source: 'demo'
+            reservation_source: 'demo',
+            organization_id: event.organization_id // マルチテナント対応
           }
           
           // デモ参加者の予約を作成

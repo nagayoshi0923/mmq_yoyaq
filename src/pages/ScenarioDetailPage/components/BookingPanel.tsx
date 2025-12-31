@@ -87,8 +87,15 @@ export const BookingPanel = memo(function BookingPanel({
       {/* 予約確認ボタン */}
       <Button 
         className="w-full h-10 text-base"
-        onClick={onBooking}
-        disabled={!selectedEventId || !isLoggedIn}
+        onClick={() => {
+          if (!isLoggedIn) {
+            // 未ログイン時はログインページへ遷移
+            window.location.hash = 'login'
+            return
+          }
+          onBooking()
+        }}
+        disabled={!selectedEventId}
       >
         {!isLoggedIn ? 'ログインして予約する' : !selectedEventId ? '日付を選択してください' : '予約確認へ進む'}
       </Button>

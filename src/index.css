@@ -74,6 +74,16 @@
 }
 
 @layer utilities {
+  /* 数値入力のスピナーを非表示 */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
   /* テキスト省略 */
   .line-clamp-1 {
     overflow: hidden;

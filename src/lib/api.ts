@@ -5,6 +5,7 @@
  */
 import { supabase } from './supabase'
 import { logger } from '@/utils/logger'
+import { getCurrentOrganizationId } from '@/lib/organization'
 
 // 分割済みAPIを再エクスポート（後方互換性維持）
 export { storeApi } from './api/storeApi'
@@ -273,13 +274,15 @@ export const scheduleApi = {
   },
 
   // 指定月の公演を取得（通常公演 + 確定した貸切公演）
-  async getByMonth(year: number, month: number) {
+  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  // skipOrgFilter: trueの場合、組織フィルタをスキップ（全組織のデータを取得）
+  async getByMonth(year: number, month: number, organizationId?: string, skipOrgFilter?: boolean) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const lastDay = new Date(year, month, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     
     // 通常公演を取得
-    const { data: scheduleEvents, error } = await supabase
+    let query = supabase
       .from('schedule_events')
       .select(`
         *,
@@ -298,6 +301,17 @@ export const scheduleApi = {
       `)
       .gte('date', startDate)
       .lte('date', endDate)
+    
+    // 組織フィルタリング
+    if (!skipOrgFilter) {
+      // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
+      const orgId = organizationId || await getCurrentOrganizationId()
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+    }
+    
+    const { data: scheduleEvents, error } = await query
       .order('date', { ascending: true })
       .order('start_time', { ascending: true })
     

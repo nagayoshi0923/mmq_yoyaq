@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getEmailSettings } from '../_shared/organization-settings.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,6 +8,7 @@ const corsHeaders = {
 }
 
 interface PrivateBookingRejectionRequest {
+  organizationId?: string  // マルチテナント対応
   reservationId: string
   customerEmail: string
   customerName: string
@@ -39,8 +41,24 @@ serve(async (req) => {
     // リクエストボディを取得
     const rejectionData: PrivateBookingRejectionRequest = await req.json()
 
-    // Resend APIキーを取得
-    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    // 組織設定からメール設定を取得
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+    
+    let resendApiKey = Deno.env.get('RESEND_API_KEY')
+    let senderEmail = 'noreply@example.com'
+    let senderName = 'MMQ予約システム'
+    
+    if (rejectionData.organizationId) {
+      const emailSettings = await getEmailSettings(serviceClient, rejectionData.organizationId)
+      if (emailSettings.resendApiKey) {
+        resendApiKey = emailSettings.resendApiKey
+        senderEmail = emailSettings.senderEmail
+        senderName = emailSettings.senderName
+      }
+    }
     
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getEmailSettings } from '../_shared/organization-settings.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,7 @@ const corsHeaders = {
 
 interface BookingConfirmationRequest {
   reservationId: string
+  organizationId?: string  // マルチテナント対応
   customerEmail: string
   customerName: string
   scenarioTitle: string
@@ -41,8 +43,25 @@ serve(async (req) => {
     // リクエストボディを取得
     const bookingData: BookingConfirmationRequest = await req.json()
 
-    // Resend APIキーを取得
-    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    // 組織設定からメール設定を取得
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+    
+    let resendApiKey = Deno.env.get('RESEND_API_KEY')
+    let senderEmail = 'noreply@example.com'
+    let senderName = 'MMQ予約システム'
+    
+    if (bookingData.organizationId) {
+      const emailSettings = await getEmailSettings(serviceClient, bookingData.organizationId)
+      if (emailSettings.resendApiKey) {
+        resendApiKey = emailSettings.resendApiKey
+        senderEmail = emailSettings.senderEmail
+        senderName = emailSettings.senderName
+        console.log('✅ Using organization-specific email settings')
+      }
+    }
     
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')
@@ -184,7 +203,7 @@ Murder Mystery Queue (MMQ)
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'MMQ予約システム <noreply@mmq.game>',
+        from: `${senderName} <${senderEmail}>`,
         to: [bookingData.customerEmail],
         subject: `【予約完了】${bookingData.scenarioTitle} - ${formatDate(bookingData.eventDate)}`,
         html: emailHtml,

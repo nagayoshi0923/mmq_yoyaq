@@ -8,8 +8,19 @@ import type { Store } from '@/types'
 export const storeApi = {
   // 全店舗を取得
   // @param includeTemporary - 臨時会場を含めるかどうか（デフォルト: false）
-  async getAll(includeTemporary: boolean = false): Promise<Store[]> {
+  // @param organizationId - 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  // @param skipOrgFilter - trueの場合、組織フィルタをスキップ（全組織のデータを取得）
+  async getAll(includeTemporary: boolean = false, organizationId?: string, skipOrgFilter?: boolean): Promise<Store[]> {
     let query = supabase.from('stores').select('*')
+    
+    // 組織フィルタリング
+    if (!skipOrgFilter) {
+      // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
+      const orgId = organizationId || await getCurrentOrganizationId()
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+    }
     
     // 臨時会場を除外する場合
     if (!includeTemporary) {

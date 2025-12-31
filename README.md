@@ -1,8 +1,24 @@
-# 🎯 マーダーミステリー店舗管理システム 完全版作成指示書
+# 🎯 マーダーミステリー店舗管理システム
 
 [![Deploy Status](https://api.netlify.com/api/v1/badges/your-site-id/deploy-status)](https://app.netlify.com/sites/your-site/deploys)
 
-6店舗対応のマーダーミステリー店舗管理システム - 完全版作成指示書
+6店舗対応のマーダーミステリー店舗管理システム
+
+## 📚 ドキュメント
+
+詳細なドキュメントは `docs/` フォルダにあります。
+
+| ドキュメント | 説明 |
+|-------------|------|
+| **[docs/index.md](./docs/index.md)** | ドキュメント目次（ここから始める） |
+| [docs/system-overview.md](./docs/system-overview.md) | システム全体像・技術スタック |
+| [docs/features.md](./docs/features.md) | 各機能の概要 |
+| [docs/pages.md](./docs/pages.md) | 全ページ一覧・ルーティング |
+| [docs/development/](./docs/development/) | 開発ルール・コーディング規約 |
+| [docs/setup/](./docs/setup/) | 各種セットアップガイド |
+| [docs/features/](./docs/features/) | 機能別詳細ドキュメント |
+
+---
 
 ## 🎨 デザインシステム制約（必読・最重要）
 
@@ -640,20 +656,23 @@ supabase secrets set RESEND_API_KEY=re_your_api_key
 
 ## 🔗 関連ドキュメント
 
-### システム設計
-- `Guidelines.md`: デザインシステム詳細仕様
+> **📚 全ドキュメントの目次は [docs/INDEX.md](./docs/INDEX.md) を参照**
 
-### メール設定
-- **`EMAIL_USAGE_SCENARIOS.md`**: 📧 **全メール使用シーンと実装状況の一覧**
-- **`RESEND_QUICK_SETUP.md`**: パスワードリセットメール クイックセットアップ（5分）
-- **`EMAIL_SETUP.md`**: 完全なメール送信機能セットアップガイド
-- **`RESEND_PASSWORD_RESET_SETUP.md`**: パスワードリセット詳細ガイド
-- ~~`AWS_SES_*.md`~~: （非推奨）旧AWS SES設定ドキュメント
+### 必読ドキュメント
+- **[docs/INDEX.md](./docs/INDEX.md)**: 📚 **ドキュメント目次（まずここから）**
+- **[docs/PAGES.md](./docs/PAGES.md)**: ページ一覧・要件定義書
+- **[docs/development/Guidelines.md](./docs/development/Guidelines.md)**: デザインシステム詳細仕様
+- **[docs/development/CRITICAL_FEATURES.md](./docs/development/CRITICAL_FEATURES.md)**: 重要機能保護リスト
 
-### データベース・デプロイ
-- `SUPABASE_SETUP.md`: データベース設定ガイド
-- `DEPLOYMENT_GUIDE.md`: 本番環境デプロイ手順
-- `BRANCH_MANAGEMENT.md`: 開発ブランチ管理規則
+### セットアップ
+- **[docs/setup/email/](./docs/setup/email/)**: メール機能設定
+- **[docs/setup/discord/](./docs/setup/discord/)**: Discord通知設定
+- **[docs/setup/google-sheets/](./docs/setup/google-sheets/)**: Google Sheets連携
+- **[docs/setup/supabase/](./docs/setup/supabase/)**: Supabase設定
+
+### デプロイ・データベース
+- **[docs/deployment/](./docs/deployment/)**: デプロイ手順
+- **[database/README.md](./database/README.md)**: データベース設計
 
 ## 📄 ライセンス
 
@@ -665,7 +684,7 @@ Queens Waltz マーダーミステリー店舗管理システム
 ## 🎯 開発者向けクイックガイド
 
 ### 新規開発者のオンボーディング
-1. **必読ドキュメント**: `Guidelines.md`の完全理解
+1. **必読ドキュメント**: `docs/INDEX.md` → `docs/development/Guidelines.md`の完全理解
 2. **環境構築**: Node.js 18以降 + Supabase接続確認
 3. **デザインシステム**: globals.cssの制約システム理解
 4. **既存コード確認**: ScheduleManager.tsxの複雑な構造把握

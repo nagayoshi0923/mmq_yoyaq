@@ -677,7 +677,8 @@ parseHash(hash: string): {
 
 ## 関連ドキュメント
 
-- `UI_Design.md` - UI要素・コンポーネント詳細
-- `CRITICAL_FEATURES.md` - 重要機能保護
-- `rules/rurle.mdc` - プロジェクトルール
-- `database/migrations/` - データベースマイグレーション
+- [docs/index.md](./index.md) - ドキュメント目次
+- [docs/development/ui-design.md](./development/ui-design.md) - UI要素・コンポーネント詳細
+- [docs/development/critical-features.md](./development/critical-features.md) - 重要機能保護
+- [rules/rurle.mdc](../rules/rurle.mdc) - プロジェクトルール
+- [database/](../database/) - データベースマイグレーション

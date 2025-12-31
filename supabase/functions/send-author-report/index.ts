@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getEmailSettings } from '../_shared/organization-settings.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,7 @@ const corsHeaders = {
 }
 
 interface AuthorReportRequest {
+  organizationId?: string  // マルチテナント対応
   to: string
   authorName: string
   year: number
@@ -30,20 +32,31 @@ serve(async (req) => {
   }
 
   try {
-    const { to, authorName, year, month, totalEvents, totalLicenseCost, scenarios }: AuthorReportRequest = await req.json()
+    const { organizationId, to, authorName, year, month, totalEvents, totalLicenseCost, scenarios }: AuthorReportRequest = await req.json()
 
-    // Resend APIキーを取得
-    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    // Supabase Admin クライアントを作成
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+    // 組織設定からメール設定を取得
+    let resendApiKey = Deno.env.get('RESEND_API_KEY')
+    let senderEmail = 'noreply@example.com'
+    let senderName = 'MMQ予約システム'
+    
+    if (organizationId) {
+      const emailSettings = await getEmailSettings(supabaseAdmin, organizationId)
+      if (emailSettings.resendApiKey) {
+        resendApiKey = emailSettings.resendApiKey
+        senderEmail = emailSettings.senderEmail
+        senderName = emailSettings.senderName
+      }
+    }
     
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')
       throw new Error('メール送信サービスが設定されていません')
     }
-
-    // Supabase Admin クライアントを作成（マジックリンク生成用）
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
     // マジックリンクを生成
     let magicLinkUrl = ''

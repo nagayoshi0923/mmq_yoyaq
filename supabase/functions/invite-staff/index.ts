@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getEmailSettings } from '../_shared/organization-settings.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -309,12 +310,25 @@ serve(async (req) => {
     const inviteLink = linkData.properties.action_link
     console.log('🔗 Invitation link generated (type=%s)', linkType)
 
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'MMQ <noreply@mmq.game>'
+    // 組織設定からメール設定を取得
+    let resendApiKey = Deno.env.get('RESEND_API_KEY')
+    let senderEmail = 'noreply@example.com'
+    let senderName = 'MMQ'
+    
+    if (organizationId) {
+      const emailSettings = await getEmailSettings(supabase, organizationId)
+      if (emailSettings.resendApiKey) {
+        resendApiKey = emailSettings.resendApiKey
+        senderEmail = emailSettings.senderEmail
+        senderName = emailSettings.senderName
+      }
+    }
+    
+    const fromEmail = `${senderName} <${senderEmail}>`
     let emailSent = false
     let emailError: string | null = null
 
-    if (!RESEND_API_KEY) {
+    if (!resendApiKey) {
       emailError = 'RESEND_API_KEY が未設定のためメール送信をスキップしました'
       console.warn(emailError)
     } else {
@@ -350,7 +364,7 @@ serve(async (req) => {
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Authorization': `Bearer ${resendApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({

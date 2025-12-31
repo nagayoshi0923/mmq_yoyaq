@@ -267,7 +267,7 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  管理シナリオは管理側が使用するシナリオです
+                  管理シナリオは自分の団体がライセンス料を管理するシナリオです
                 </p>
               </div>
 

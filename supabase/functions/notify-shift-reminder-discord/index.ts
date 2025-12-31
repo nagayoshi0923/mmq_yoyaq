@@ -1,14 +1,16 @@
 // シフト未提出者へのリマインダー通知
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getDiscordSettings } from '../_shared/organization-settings.ts'
 
-const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const FALLBACK_DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 interface ReminderPayload {
+  organizationId?: string  // マルチテナント対応
   year: number
   month: number
   deadline: string

@@ -1,15 +1,17 @@
 // Discord Botでシンプルなシフト募集通知を送信（リンク誘導型）
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getDiscordSettings } from '../_shared/organization-settings.ts'
 
-const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const FALLBACK_DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://mmq-yoyaq-git-main-nagayoshi0923s-projects.vercel.app'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 interface ShiftRequestPayload {
+  organizationId?: string  // マルチテナント対応
   year: number
   month: number
   deadline?: string
@@ -38,7 +40,8 @@ async function sendDiscordShiftRequest(
   channelId: string,
   year: number,
   month: number,
-  deadline: string
+  deadline: string,
+  discordBotToken: string
 ): Promise<string> {
   const message = generateShiftRequestMessage(year, month, deadline)
   
@@ -67,7 +70,7 @@ async function sendDiscordShiftRequest(
     {
       method: 'POST',
       headers: {
-        'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+        'Authorization': `Bot ${discordBotToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
@@ -97,9 +100,6 @@ serve(async (req) => {
 
   try {
     // 環境変数チェック
-    if (!DISCORD_BOT_TOKEN) {
-      throw new Error('DISCORD_BOT_TOKEN is not set')
-    }
     if (!SUPABASE_URL) {
       throw new Error('SUPABASE_URL is not set')
     }
@@ -110,7 +110,20 @@ serve(async (req) => {
     const payload: ShiftRequestPayload = await req.json()
     console.log('📨 Shift request payload:', payload)
     
-    const { year, month, deadline, targetChannelId } = payload
+    const { organizationId, year, month, deadline, targetChannelId } = payload
+    
+    // 組織設定からDiscord設定を取得
+    let discordBotToken = FALLBACK_DISCORD_BOT_TOKEN
+    if (organizationId) {
+      const discordSettings = await getDiscordSettings(supabase, organizationId)
+      if (discordSettings.botToken) {
+        discordBotToken = discordSettings.botToken
+      }
+    }
+    
+    if (!discordBotToken) {
+      throw new Error('DISCORD_BOT_TOKEN is not set')
+    }
     
     // 年月のバリデーション
     if (!year || !month || month < 1 || month > 12) {
@@ -167,7 +180,8 @@ serve(async (req) => {
           staff.discord_channel_id,
           year,
           month,
-          deadlineDate
+          deadlineDate,
+          discordBotToken!
         )
         messageIds.push(messageId)
         

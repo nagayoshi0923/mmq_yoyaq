@@ -41,6 +41,7 @@ export interface ScheduleEvent {
   scenarios?: unknown
   is_private_booking?: boolean
   timeSlot?: string // 時間帯（朝/昼/夜）
+  organization_id?: string // マルチテナント対応
 }
 
 // ページネーション用のレスポンス型

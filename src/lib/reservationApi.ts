@@ -6,11 +6,20 @@ import type { Reservation, Customer, ReservationSummary } from '@/types'
 // 顧客関連のAPI
 export const customerApi = {
   // 全顧客を取得
-  async getAll(): Promise<Customer[]> {
-    const { data, error } = await supabase
+  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  async getAll(organizationId?: string): Promise<Customer[]> {
+    // 組織フィルタリング
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('customers')
       .select('*')
-      .order('created_at', { ascending: false })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false })
     
     if (error) throw error
     return data || []
@@ -91,24 +100,42 @@ export const customerApi = {
 // 予約関連のAPI
 export const reservationApi = {
   // 全予約を取得
-  async getAll(): Promise<Reservation[]> {
-    const { data, error } = await supabase
+  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  async getAll(organizationId?: string): Promise<Reservation[]> {
+    // 組織フィルタリング
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('reservations')
       .select('*')
-      .order('requested_datetime', { ascending: false })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query.order('requested_datetime', { ascending: false })
     
     if (error) throw error
     return data || []
   },
 
   // 特定期間の予約を取得
-  async getByDateRange(startDate: string, endDate: string): Promise<Reservation[]> {
-    const { data, error } = await supabase
+  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  async getByDateRange(startDate: string, endDate: string, organizationId?: string): Promise<Reservation[]> {
+    // 組織フィルタリング
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('reservations')
       .select('*')
       .gte('requested_datetime', startDate)
       .lte('requested_datetime', endDate)
-      .order('requested_datetime', { ascending: true })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query.order('requested_datetime', { ascending: true })
     
     if (error) throw error
     return data || []

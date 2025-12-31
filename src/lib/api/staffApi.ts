@@ -8,11 +8,22 @@ import type { Staff } from '@/types'
 
 export const staffApi = {
   // 全スタッフを取得
-  async getAll(): Promise<Staff[]> {
-    const { data, error } = await supabase
+  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  // skipOrgFilter: trueの場合、組織フィルタをスキップ（全組織のデータを取得）
+  async getAll(organizationId?: string, skipOrgFilter?: boolean): Promise<Staff[]> {
+    let query = supabase
       .from('staff')
       .select('*')
-      .order('name', { ascending: true })
+    
+    // 組織フィルタリング
+    if (!skipOrgFilter) {
+      const orgId = organizationId || await getCurrentOrganizationId()
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+    }
+    
+    const { data, error } = await query.order('name', { ascending: true })
     
     if (error) throw error
     return data || []

@@ -14,9 +14,12 @@ import {
   JapaneseYen
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { ConfirmModal } from '@/components/patterns/modal'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
+import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 
 // 分離されたコンポーネント
 import { ScenarioStats } from './components/ScenarioStats'
@@ -52,6 +55,12 @@ export function ScenarioManagement() {
   // 編集モーダル状態
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
+  
+  // V2ダイアログ使用フラグ（localStorageで永続化）
+  const [useV2Dialog, setUseV2Dialog] = useState(() => {
+    const saved = localStorage.getItem('scenarioEditDialogV2')
+    return saved === 'true'
+  })
   
   // スクロール監視用
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
@@ -364,7 +373,21 @@ export function ScenarioManagement() {
             <HelpButton topic="scenario" label="シナリオ管理マニュアル" />
           </PageHeader>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex items-center justify-end gap-2 sm:gap-4">
+            {/* V2ダイアログ切り替え */}
+            <div className="flex items-center gap-2 text-sm">
+              <Switch
+                id="use-v2-dialog"
+                checked={useV2Dialog}
+                onCheckedChange={(checked) => {
+                  setUseV2Dialog(checked)
+                  localStorage.setItem('scenarioEditDialogV2', String(checked))
+                }}
+              />
+              <Label htmlFor="use-v2-dialog" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+                新UI
+              </Label>
+            </div>
             <CsvImportExport
               data={allScenarios}
               onImport={handleImport}
@@ -599,12 +622,21 @@ export function ScenarioManagement() {
           confirmLabel="削除"
         />
 
-        {/* シナリオ編集ダイアログ */}
-        <ScenarioEditDialog
-          isOpen={editDialogOpen}
-          onClose={handleCloseEditDialog}
-          scenarioId={editingScenarioId}
-        />
+        {/* シナリオ編集ダイアログ（V1/V2切り替え可能） */}
+        {useV2Dialog ? (
+          <ScenarioEditDialogV2
+            isOpen={editDialogOpen}
+            onClose={handleCloseEditDialog}
+            scenarioId={editingScenarioId}
+            onScenarioChange={setEditingScenarioId}
+          />
+        ) : (
+          <ScenarioEditDialog
+            isOpen={editDialogOpen}
+            onClose={handleCloseEditDialog}
+            scenarioId={editingScenarioId}
+          />
+        )}
       </AppLayout>
     )
 }

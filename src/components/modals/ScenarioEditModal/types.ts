@@ -24,6 +24,7 @@ export interface ScenarioFormData {
   status: string
   participation_fee: number
   production_costs: { item: string; amount: number }[]
+  depreciation_per_performance?: number // 1公演あたりの償却金額
   genre: string[]
   required_props: { item: string; amount: number; frequency: 'recurring' | 'one-time' }[]
   license_rewards: { 
@@ -81,5 +82,7 @@ export interface ScenarioFormData {
   }[]
   // 公演可能店舗（UUID配列）
   available_stores?: string[]
+  // キット数（制作費自動計算用）
+  kit_count?: number
 }
 

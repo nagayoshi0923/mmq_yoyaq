@@ -47,8 +47,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
   
-  // データ取得フック
-  const { scenario, events, stores, relatedScenarios, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId)
+  // データ取得フック（organization_idでフィルタリング）
+  const { scenario, events, stores, relatedScenarios, isLoading, loadScenarioDetail } = useScenarioDetail(scenarioId, organizationSlug)
   
   // 予約・貸切リクエストアクションフック
   const {
@@ -79,7 +79,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     generatePrivateDates,
     changeMonth,
     toggleTimeSlot
-  } = usePrivateBooking({ events, stores, scenarioId, scenario })
+  } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug })
 
   useEffect(() => {
     // URLパラメータを処理して貸切リクエストタブを開く
@@ -161,9 +161,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   }
 
   if (isLoading) {
-    const { user } = useAuth()
-    const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
-    
     return (
       <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />

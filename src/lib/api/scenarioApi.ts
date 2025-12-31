@@ -8,36 +8,64 @@ import type { PaginatedResponse } from './types'
 
 export const scenarioApi = {
   // 全シナリオを取得
-  async getAll(): Promise<Scenario[]> {
-    const { data, error } = await supabase
+  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  // skipOrgFilter: trueの場合、組織フィルタをスキップ（全組織のデータを取得）
+  async getAll(organizationId?: string, skipOrgFilter?: boolean): Promise<Scenario[]> {
+    let query = supabase
       .from('scenarios')
       .select('*')
-      .order('title', { ascending: true })
+    
+    // 組織フィルタリング
+    if (!skipOrgFilter) {
+      // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
+      const orgId = organizationId || await getCurrentOrganizationId()
+      if (orgId) {
+        query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+      }
+    }
+    
+    const { data, error } = await query.order('title', { ascending: true })
     
     if (error) throw error
     return data || []
   },
 
   // 公開用シナリオを取得（status='available'のみ、必要なフィールドのみ）
-  async getPublic(): Promise<Partial<Scenario>[]> {
-    const { data, error } = await supabase
+  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  async getPublic(organizationId?: string): Promise<Partial<Scenario>[]> {
+    let query = supabase
       .from('scenarios')
-      .select('id, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type')
+      .select('id, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, organization_id, is_shared')
       .eq('status', 'available')
       .neq('scenario_type', 'gm_test') // GMテストを除外
-      .order('title', { ascending: true })
+    
+    // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
+    const orgId = organizationId || await getCurrentOrganizationId()
+    if (orgId) {
+      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+    }
+    
+    const { data, error } = await query.order('title', { ascending: true })
     
     if (error) throw error
     return data || []
   },
 
   // IDでシナリオを取得
-  async getById(id: string): Promise<Scenario | null> {
-    const { data, error } = await supabase
+  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
+  async getById(id: string, organizationId?: string): Promise<Scenario | null> {
+    let query = supabase
       .from('scenarios')
       .select('*')
       .eq('id', id)
-      .single()
+    
+    // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
+    const orgId = organizationId || await getCurrentOrganizationId()
+    if (orgId) {
+      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+    }
+    
+    const { data, error } = await query.single()
     
     if (error) {
       if (error.code === 'PGRST116') {
@@ -176,6 +204,91 @@ export const scenarioApi = {
     
     if (error) throw error
     return data
+  },
+
+  // シナリオの累計公演回数を取得
+  async getPerformanceCount(scenarioId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from('schedule_events')
+      .select('*', { count: 'exact', head: true })
+      .eq('scenario_id', scenarioId)
+      .not('status', 'eq', 'cancelled') // キャンセルを除外
+    
+    if (error) throw error
+    return count || 0
+  },
+
+  // シナリオの統計情報を取得（公演回数、中止回数、売上、利益など）
+  async getScenarioStats(scenarioId: string): Promise<{
+    performanceCount: number
+    cancelledCount: number
+    totalRevenue: number
+    totalParticipants: number
+    totalGmCost: number
+    totalLicenseCost: number
+    firstPerformanceDate: string | null
+  }> {
+    // 公演回数（中止以外）
+    const { count: performanceCount, error: perfError } = await supabase
+      .from('schedule_events')
+      .select('*', { count: 'exact', head: true })
+      .eq('scenario_id', scenarioId)
+      .or('is_cancelled.is.null,is_cancelled.eq.false')
+    
+    if (perfError) throw perfError
+
+    // 中止回数
+    const { count: cancelledCount, error: cancelError } = await supabase
+      .from('schedule_events')
+      .select('*', { count: 'exact', head: true })
+      .eq('scenario_id', scenarioId)
+      .eq('is_cancelled', true)
+    
+    if (cancelError) throw cancelError
+
+    // 初公演日を取得
+    const { data: firstEvent, error: firstError } = await supabase
+      .from('schedule_events')
+      .select('date')
+      .eq('scenario_id', scenarioId)
+      .or('is_cancelled.is.null,is_cancelled.eq.false')
+      .order('date', { ascending: true })
+      .limit(1)
+      .single()
+    
+    const firstPerformanceDate = firstError ? null : firstEvent?.date || null
+
+    // 公演イベントを取得して売上・コストを集計（中止以外）
+    const { data: events, error: eventsError } = await supabase
+      .from('schedule_events')
+      .select('current_participants, total_revenue, gm_cost, license_cost')
+      .eq('scenario_id', scenarioId)
+      .or('is_cancelled.is.null,is_cancelled.eq.false')
+    
+    if (eventsError) throw eventsError
+
+    // 集計
+    let totalRevenue = 0
+    let totalParticipants = 0
+    let totalGmCost = 0
+    let totalLicenseCost = 0
+
+    events?.forEach(event => {
+      totalParticipants += event.current_participants || 0
+      totalRevenue += event.total_revenue || 0
+      totalGmCost += event.gm_cost || 0
+      totalLicenseCost += event.license_cost || 0
+    })
+
+    return {
+      performanceCount: performanceCount || 0,
+      cancelledCount: cancelledCount || 0,
+      totalRevenue,
+      totalParticipants,
+      totalGmCost,
+      totalLicenseCost,
+      firstPerformanceDate
+    }
   },
 
   // シナリオの担当GMを更新（スタッフのspecial_scenariosも同期更新）
