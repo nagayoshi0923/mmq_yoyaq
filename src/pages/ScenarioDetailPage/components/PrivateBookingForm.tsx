@@ -21,11 +21,21 @@ interface PrivateBookingFormProps {
   onTimeSlotToggle: (date: string, slot: TimeSlot) => void
   checkTimeSlotAvailability: (date: string, slot: TimeSlot, storeIds?: string[]) => Promise<boolean>
   maxSelections: number
+  scenarioDuration: number // シナリオの所要時間（分）
 }
 
 /**
  * 貸切リクエストフォーム
  */
+// 開始時間から終了時間を計算する関数
+const calculateEndTime = (startTime: string, durationMinutes: number): string => {
+  const [hours, minutes] = startTime.split(':').map(Number)
+  const totalMinutes = hours * 60 + minutes + durationMinutes
+  const endHours = Math.floor(totalMinutes / 60) % 24
+  const endMinutes = totalMinutes % 60
+  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`
+}
+
 export const PrivateBookingForm = memo(function PrivateBookingForm({
   stores,
   selectedStoreIds,
@@ -37,7 +47,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   selectedSlots,
   onTimeSlotToggle,
   checkTimeSlotAvailability,
-  maxSelections
+  maxSelections,
+  scenarioDuration
 }: PrivateBookingFormProps) {
   const remainingSelections = maxSelections - selectedSlots.length
   // 各時間枠の可用性を管理する状態
@@ -180,6 +191,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                     {timeSlots.map((slot) => {
                       const isAvailable = getAvailability(date, slot)
                       const isSelected = isTimeSlotSelected(date, slot)
+                      const endTime = calculateEndTime(slot.startTime, scenarioDuration)
                       
                       return (
                         <button
@@ -195,7 +207,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                           onClick={() => isAvailable && onTimeSlotToggle(date, slot)}
                         >
                           <div className="text-xs font-medium">{slot.label}</div>
-                          <div className="text-xs opacity-70">{slot.startTime}</div>
+                          <div className="text-xs opacity-70">{slot.startTime}〜{endTime}</div>
                         </button>
                       )
                     })}
