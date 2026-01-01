@@ -29,7 +29,7 @@ export const BookingPanel = memo(function BookingPanel({
     <div className="space-y-6">
       {/* 人数を選択 */}
       <div>
-        <h3 className="text-base md:text-lg font-semibold mb-4">人数を選択</h3>
+        <h3 className="text-sm text-muted-foreground mb-3">人数を選択</h3>
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -61,21 +61,21 @@ export const BookingPanel = memo(function BookingPanel({
 
       {/* 料金情報 */}
       <div>
-        <h3 className="text-base md:text-lg font-semibold mb-4">料金</h3>
+        <h3 className="text-sm text-muted-foreground mb-3">料金</h3>
         <Card>
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">参加費（1名）</span>
-              <span>¥{participationFee.toLocaleString()}</span>
+              <span className="font-medium">¥{participationFee.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">人数</span>
-              <span>{participantCount}名</span>
+              <span className="font-medium">{participantCount}名</span>
             </div>
-            <div className="border-t pt-3">
+            <div className="border-t pt-2 mt-2">
               <div className="flex justify-between items-center">
-                <span className="text-base font-bold">合計</span>
-                <span className="text-lg text-primary font-bold">
+                <span className="text-sm text-muted-foreground">合計</span>
+                <span className="text-base font-bold text-primary">
                   ¥{(participationFee * participantCount).toLocaleString()}
                 </span>
               </div>

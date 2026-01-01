@@ -21,25 +21,25 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
     <div className="space-y-6">
       {/* 貸切料金情報 */}
       <div>
-        <h3 className="text-base md:text-lg font-semibold mb-4">料金（目安）</h3>
+        <h3 className="text-sm text-muted-foreground mb-3">料金（目安）</h3>
         <Card>
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">参加費（1名）</span>
-              <span>¥{participationFee.toLocaleString()}</span>
+              <span className="font-medium">¥{participationFee.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">最大人数</span>
-              <span>{maxParticipants}名</span>
+              <span className="font-medium">{maxParticipants}名</span>
             </div>
-            <div className="border-t pt-3">
+            <div className="border-t pt-2 mt-2">
               <div className="flex justify-between items-center">
-                <span className="text-base font-bold">合計</span>
-                <span className="text-lg text-purple-600 font-bold">
+                <span className="text-sm text-muted-foreground">合計</span>
+                <span className="text-base font-bold text-purple-600">
                   ¥{(participationFee * maxParticipants).toLocaleString()}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-1">
                 ※ 実際の料金は店舗との調整により変動する場合があります
               </p>
             </div>

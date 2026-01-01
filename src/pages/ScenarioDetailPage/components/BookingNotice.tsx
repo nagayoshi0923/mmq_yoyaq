@@ -63,9 +63,9 @@ export const BookingNotice = memo(function BookingNotice({
   if (isLoading) {
     return (
       <div>
-        <h3 className="mb-4 text-base md:text-lg font-semibold">
+        <h3 className="mb-3 text-sm text-muted-foreground">
           注意事項
-          <span className="text-xs font-normal text-red-500 ml-2">※必ずご確認ください</span>
+          <span className="text-red-500 ml-2">※必ずご確認ください</span>
         </h3>
         <Card>
           <CardContent className="p-4 flex items-center justify-center">
@@ -83,9 +83,9 @@ export const BookingNotice = memo(function BookingNotice({
 
   return (
     <div>
-      <h3 className="mb-4 text-base md:text-lg font-semibold">
+      <h3 className="mb-3 text-sm text-muted-foreground">
         注意事項
-        <span className="text-xs font-normal text-red-500 ml-2">※必ずご確認ください</span>
+        <span className="text-red-500 ml-2">※必ずご確認ください</span>
       </h3>
       <Card>
         <CardContent className="p-4">
