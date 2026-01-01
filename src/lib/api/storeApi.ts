@@ -37,63 +37,43 @@ export const storeApi = {
     
     if (error) throw error
     
-    // 指定された順序で並び替え（店舗名またはshort_nameで判定）
-    // 順序: 馬場 → 別館① → 別館② → 大久保 → 大塚 → 埼玉大宮
-    const storeOrderMap: Record<string, number> = {
-      // 1. 馬場
-      '馬場': 1,
-      '高田馬場店': 1,
-      // 2. 別館①
-      '別館①': 2,
-      // 3. 別館②
-      '別館②': 3,
-      // 4. 大久保
-      '大久保': 4,
-      '大久保店': 4,
-      // 5. 大塚
-      '大塚': 5,
-      '大塚店': 5,
-      // 6. 埼玉大宮
-      '埼玉大宮': 6,
-      '埼玉大宮店': 6,
-    }
-    
-    // 店舗の優先順位を取得（nameとshort_nameの両方をチェック）
-    const getStoreIndex = (store: Store): number => {
-      // short_nameでチェック
-      if (store.short_name && storeOrderMap[store.short_name] !== undefined) {
-        return storeOrderMap[store.short_name]
-      }
-      // nameでチェック
-      if (store.name && storeOrderMap[store.name] !== undefined) {
-        return storeOrderMap[store.name]
-      }
-      return 999 // リストにない店舗は最後
-    }
-    
+    // display_order順にソート（DBのカラムを使用）
+    // 臨時会場は最後に配置
     const sortedData = (data || []).sort((a, b) => {
       // 臨時会場は最後に配置
       if (a.is_temporary && !b.is_temporary) return 1
       if (!a.is_temporary && b.is_temporary) return -1
       if (a.is_temporary && b.is_temporary) {
-        // 臨時会場同士は日付順、名前順
-        if (a.temporary_date && b.temporary_date) {
-          const dateCompare = a.temporary_date.localeCompare(b.temporary_date)
-          if (dateCompare !== 0) return dateCompare
-        }
+        // 臨時会場同士はdisplay_order順、なければ名前順
+        const orderA = a.display_order ?? 999
+        const orderB = b.display_order ?? 999
+        if (orderA !== orderB) return orderA - orderB
         return a.name.localeCompare(b.name, 'ja')
       }
       
-      // 通常の店舗同士
-      const indexA = getStoreIndex(a)
-      const indexB = getStoreIndex(b)
-      // 順序が異なる場合は順序に従う
-      if (indexA !== indexB) return indexA - indexB
-      // 同じ順序（またはどちらも999）の場合は名前順
+      // 通常の店舗同士はdisplay_order順
+      const orderA = a.display_order ?? 999
+      const orderB = b.display_order ?? 999
+      if (orderA !== orderB) return orderA - orderB
+      // 同じ順序の場合は名前順
       return a.name.localeCompare(b.name, 'ja')
     })
     
     return sortedData
+  },
+
+  // 店舗の表示順序を一括更新
+  async updateDisplayOrder(storeOrders: { id: string; display_order: number }[]): Promise<void> {
+    // 並列で更新
+    const updates = storeOrders.map(({ id, display_order }) =>
+      supabase.from('stores').update({ display_order }).eq('id', id)
+    )
+    
+    const results = await Promise.all(updates)
+    const errors = results.filter(r => r.error)
+    if (errors.length > 0) {
+      throw new Error('表示順序の更新に失敗しました')
+    }
   },
 
   // 店舗を作成

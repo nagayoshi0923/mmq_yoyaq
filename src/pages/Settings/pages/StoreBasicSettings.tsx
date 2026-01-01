@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
-import { Save } from 'lucide-react'
+import { Save, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
@@ -24,6 +25,9 @@ interface StoreSettings {
   rooms: number
   color: string
   notes: string
+  display_order?: number
+  is_temporary?: boolean
+  ownership_type?: string
 }
 
 interface StoreBasicSettingsProps {
@@ -61,6 +65,7 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
       const { data, error } = await supabase
         .from('stores')
         .select('*')
+        .order('display_order', { ascending: true, nullsFirst: false })
         .order('name')
 
       if (error) throw error
@@ -75,6 +80,36 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
       showToast.error('店舗データの取得に失敗しました')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 店舗の並び順を変更
+  const moveStore = async (index: number, direction: 'up' | 'down') => {
+    // 通常店舗のみ（臨時会場とオフィスは除外）
+    const regularStores = stores.filter(s => !s.is_temporary && s.ownership_type !== 'office')
+    const targetIndex = regularStores.findIndex(s => s.id === stores[index].id)
+    
+    if (targetIndex === -1) return
+    if (direction === 'up' && targetIndex === 0) return
+    if (direction === 'down' && targetIndex === regularStores.length - 1) return
+    
+    const swapIndex = direction === 'up' ? targetIndex - 1 : targetIndex + 1
+    const newOrder = [...regularStores]
+    ;[newOrder[targetIndex], newOrder[swapIndex]] = [newOrder[swapIndex], newOrder[targetIndex]]
+    
+    // display_orderを再計算
+    const updates = newOrder.map((store, i) => ({
+      id: store.id,
+      display_order: i + 1
+    }))
+    
+    try {
+      await storeApi.updateDisplayOrder(updates)
+      showToast.success('表示順を更新しました')
+      fetchStores() // リロード
+    } catch (error) {
+      logger.error('表示順更新エラー:', error)
+      showToast.error('表示順の更新に失敗しました')
     }
   }
 
@@ -143,6 +178,59 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
+
+      {/* 店舗表示順 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>店舗の表示順序</CardTitle>
+          <CardDescription>スケジュール管理や予約サイトでの店舗の表示順を設定します（通常店舗のみ）</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {stores
+              .filter(s => !s.is_temporary && s.ownership_type !== 'office')
+              .map((store, index, filteredStores) => (
+                <div 
+                  key={store.id} 
+                  className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"
+                >
+                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                  <div 
+                    className="w-3 h-3 rounded-full flex-shrink-0" 
+                    style={{ backgroundColor: store.color || '#gray' }} 
+                  />
+                  <span className="flex-1 font-medium">{store.short_name || store.name}</span>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const originalIndex = stores.findIndex(s => s.id === store.id)
+                        moveStore(originalIndex, 'up')
+                      }}
+                      disabled={index === 0}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const originalIndex = stores.findIndex(s => s.id === store.id)
+                        moveStore(originalIndex, 'down')
+                      }}
+                      disabled={index === filteredStores.length - 1}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 基本情報 */}
       <Card>
