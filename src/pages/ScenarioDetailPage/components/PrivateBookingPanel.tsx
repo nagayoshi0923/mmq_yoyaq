@@ -21,7 +21,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
     <div className="space-y-6">
       {/* 貸切料金情報 */}
       <div>
-        <h3 className="text-sm text-muted-foreground mb-3">料金（目安）</h3>
+        <h3 className="text-sm font-medium text-muted-foreground mb-3">料金（目安）</h3>
         <Card>
           <CardContent className="p-4 space-y-2">
             <div className="flex justify-between text-sm">

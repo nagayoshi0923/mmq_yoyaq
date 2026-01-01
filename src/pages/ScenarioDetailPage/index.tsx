@@ -285,7 +285,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    <h3 className="mb-3 text-sm text-muted-foreground">日付を選択</h3>
+                    <h3 className="mb-3 text-sm font-medium text-muted-foreground">日付を選択</h3>
                     <EventList
                       events={events}
                       selectedEventId={selectedEventId}

@@ -63,7 +63,7 @@ export const BookingNotice = memo(function BookingNotice({
   if (isLoading) {
     return (
       <div>
-        <h3 className="mb-3 text-sm text-muted-foreground">
+        <h3 className="mb-3 text-sm font-medium text-muted-foreground">
           注意事項
           <span className="text-red-500 ml-2">※必ずご確認ください</span>
         </h3>
@@ -83,7 +83,7 @@ export const BookingNotice = memo(function BookingNotice({
 
   return (
     <div>
-      <h3 className="mb-3 text-sm text-muted-foreground">
+      <h3 className="mb-3 text-sm font-medium text-muted-foreground">
         注意事項
         <span className="text-red-500 ml-2">※必ずご確認ください</span>
       </h3>
