@@ -47,10 +47,10 @@ export const EventList = memo(function EventList({
         return (
           <Card 
             key={event.event_id}
-            className={`transition-all overflow-hidden ${
+            className={`transition-all ${
               event.available_seats === 0
                 ? 'opacity-50 cursor-not-allowed bg-gray-50'
-                : `cursor-pointer ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-accent'}`
+                : `cursor-pointer ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'border border-gray-200 hover:bg-accent'}`
             }`}
             onClick={() => {
               if (event.available_seats === 0) return
