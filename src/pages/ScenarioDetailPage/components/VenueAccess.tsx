@@ -63,7 +63,7 @@ export const VenueAccess = memo(function VenueAccess({
 
   return (
     <div>
-      <h3 className="text-base font-semibold mb-3">
+      <h3 className="text-base font-semibold mb-4">
         {mode === 'schedule' ? '会場アクセス' : '選択店舗'}
       </h3>
       <Card>

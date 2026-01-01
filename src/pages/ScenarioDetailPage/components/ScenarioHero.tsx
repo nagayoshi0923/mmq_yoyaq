@@ -26,8 +26,8 @@ interface ScenarioHeroProps {
 export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }: ScenarioHeroProps) {
   return (
     <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white -mx-4">
-      <div className="container mx-auto max-w-7xl px-4 py-6 md:py-8">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
+      <div className="container mx-auto max-w-7xl px-4 py-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* キービジュアル */}
           <div className="md:col-span-4">
             <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden border">
@@ -52,10 +52,10 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
           </div>
 
           {/* タイトル・基本情報 */}
-          <div className="md:col-span-8 space-y-3 md:space-y-4">
+          <div className="md:col-span-8 space-y-4">
             <div>
-              <p className="text-sm opacity-80 mb-1">{scenario.author}</p>
-              <h1 className="text-xl md:text-2xl font-bold mb-3">{scenario.scenario_title}</h1>
+              <p className="text-sm opacity-80 mb-2">{scenario.author}</p>
+              <h1 className="text-xl md:text-2xl font-bold mb-4">{scenario.scenario_title}</h1>
               
               <div className="flex flex-wrap gap-1.5 items-center">
                 <div className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-full text-sm sm:text-base">
@@ -85,12 +85,12 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
             </div>
 
             {scenario.description && (
-              <p className="opacity-90 leading-relaxed text-sm sm:text-base mt-3 sm:mt-4">
+              <p className="opacity-90 leading-relaxed text-sm sm:text-base">
                 {scenario.description}
               </p>
             )}
 
-            <div className="flex flex-wrap gap-1.5 mt-3 sm:mt-4">
+            <div className="flex flex-wrap gap-2">
               {scenario.genre.map((g, i) => (
                 <Badge key={i} variant="outline" className="bg-white/20 text-white border-white/30 text-xs px-1.5 py-0.5 rounded-sm">
                   {g}

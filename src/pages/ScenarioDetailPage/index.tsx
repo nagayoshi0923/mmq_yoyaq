@@ -197,7 +197,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
       {/* スティッキーヘッダー */}
       <div className="bg-background border-b sticky top-0 z-10">
-        <div className="container mx-auto max-w-7xl px-[10px]">
+        <div className="container mx-auto max-w-7xl px-4">
           {/* 1行目: 戻るボタン */}
           <div className="py-2">
             <Button
@@ -253,10 +253,10 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       </div>
 
       {/* メインコンテンツ */}
-      <div className="container mx-auto max-w-7xl px-[10px] py-4 md:py-6">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6">
+      <div className="container mx-auto max-w-7xl px-4 py-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* メインエリア - 詳細情報 */}
-          <div className="md:col-span-8 space-y-4 md:space-y-6">
+          <div className="md:col-span-8 space-y-6">
             <ScenarioHero scenario={scenario} events={events} />
             {/* PC版: 注意事項をここに表示（タブに応じて内容切り替え） */}
             <div className="hidden md:block">
@@ -270,14 +270,14 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
           {/* 右サイドバー - チケット購入 */}
           <div className="md:col-span-4">
-            <div className="md:sticky md:top-[60px] space-y-4 md:space-y-6">
+            <div className="md:sticky md:top-[60px] space-y-6">
               {/* タブ: 公演日程 / 貸切リクエスト */}
               <Tabs 
                 defaultValue="schedule" 
                 className="w-full" 
                 onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
               >
-                <TabsList className="grid w-full grid-cols-2 mb-3 md:mb-4 h-auto p-1">
+                <TabsList className="grid w-full grid-cols-2 mb-4 h-auto p-1">
                   <TabsTrigger value="schedule" className="text-sm md:text-base px-2 md:px-4 py-2 md:py-3">公演日程</TabsTrigger>
                   <TabsTrigger value="private" className="text-sm md:text-base px-2 md:px-4 py-2 md:py-3">貸切リクエスト</TabsTrigger>
                 </TabsList>
@@ -285,7 +285,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    <h3 className="mb-3 md:mb-4 text-base md:text-lg font-semibold">日付を選択</h3>
+                    <h3 className="mb-4 text-base md:text-lg font-semibold">日付を選択</h3>
                     <EventList
                       events={events}
                       selectedEventId={selectedEventId}
@@ -312,8 +312,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   
                   {/* 選択された時間枠の表示 */}
                   {selectedTimeSlots.length > 0 && (
-                    <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-purple-50 border border-purple-200 rounded">
-                      <div className="text-xs sm:text-sm text-purple-900 mb-1.5 sm:mb-2">
+                    <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
+                      <div className="text-xs sm:text-sm text-purple-900 mb-2">
                         選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                       </div>
                       <div className="space-y-1">
@@ -396,7 +396,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
         {/* 関連シナリオ（2カラムレイアウトの外、全幅で表示） */}
         {relatedScenarios.length > 0 && (
-          <div className="mt-8 pt-6 border-t">
+          <div className="mt-8 pt-8 border-t">
             <RelatedScenarios
               scenarios={relatedScenarios}
               authorName={scenario.author}
