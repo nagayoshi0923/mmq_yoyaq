@@ -32,7 +32,7 @@ export const EventList = memo(function EventList({
   }
 
   return (
-    <div className="space-y-2 max-h-96 overflow-y-auto">
+    <div className="space-y-3 max-h-96 overflow-y-auto">
       {events.map((event) => {
         const isSelected = selectedEventId === event.event_id
         const eventDate = new Date(event.date)
@@ -41,75 +41,73 @@ export const EventList = memo(function EventList({
         const weekdays = ['日', '月', '火', '水', '木', '金', '土']
         const weekday = weekdays[eventDate.getDay()]
         const dayOfWeek = eventDate.getDay()
-        const weekdayColor = dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
+        const weekdayColor = dayOfWeek === 0 ? 'text-red-500' : dayOfWeek === 6 ? 'text-blue-500' : 'text-gray-500'
+        const storeColor = event.store_color || '#6B7280'
         
         return (
           <Card 
             key={event.event_id}
             className={`transition-all overflow-hidden ${
               event.available_seats === 0
-                ? 'opacity-50 cursor-not-allowed bg-gray-50 border-2 border-gray-200'
-                : `cursor-pointer ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'hover:bg-accent border-2 border-gray-200'}`
+                ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                : `cursor-pointer ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-accent'}`
             }`}
             onClick={() => {
               if (event.available_seats === 0) return
               onEventSelect(isSelected ? null : event.event_id)
             }}
           >
-            <div className="flex items-center gap-2 p-3 md:p-4 touch-manipulation">
-              {/* 一番左：店舗 */}
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <span 
-                  className="text-sm whitespace-nowrap"
-                  style={{ 
-                    color: event.store_color || '#6B7280'
-                  }}
-                >
-                  {event.store_short_name}
-                </span>
+            <div className="flex items-center gap-3 p-3 touch-manipulation">
+              {/* 左：カレンダー風日付 */}
+              <div className="flex-shrink-0 w-14 text-center">
+                <div className="text-xs text-muted-foreground">{month}月</div>
+                <div className="text-2xl font-bold leading-tight">{day}</div>
+                <div className={`text-xs font-medium ${weekdayColor}`}>{weekday}</div>
               </div>
               
-              {/* 左側：日付+時間(上) + タイトル(下) */}
-              <div className="flex flex-col gap-1 flex-1 min-w-0">
-                {/* 日付 + 時間（同じ行） */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm whitespace-nowrap">
-                    {month}/{day} <span className={`text-sm ${weekdayColor}`}>({weekday})</span>
-                  </span>
-                  <span className="text-sm whitespace-nowrap">
+              {/* 中央：時間 + 店舗バッジ + タイトル */}
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium">
                     {formatTime(event.start_time)}〜
                   </span>
+                  <span 
+                    className="text-xs px-2 py-0.5 rounded-full"
+                    style={{ 
+                      backgroundColor: `${storeColor}20`,
+                      color: storeColor
+                    }}
+                  >
+                    {event.store_short_name}
+                  </span>
                 </div>
-                {/* タイトル */}
                 <div className="text-xs text-muted-foreground truncate">
                   {event.scenario_title || scenarioTitle}
                 </div>
               </div>
               
-              {/* 右側：残り人数 / 満席バッジ + ボタン */}
-              <div className="flex items-center gap-2 flex-shrink-0">
+              {/* 右：残り人数 + ボタン */}
+              <div className="flex-shrink-0 flex flex-col items-end gap-1">
                 {event.available_seats === 0 ? (
-                  <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-300 text-sm px-2 py-1 whitespace-nowrap">
+                  <Badge variant="secondary" className="text-xs">
                     満席
                   </Badge>
                 ) : (
-                  <div className="text-right whitespace-nowrap">
-                    <div className="text-sm">
-                      残り{event.available_seats}人
+                  <>
+                    <div className="text-xs text-muted-foreground">
+                      残り<span className="font-semibold text-foreground">{event.available_seats}</span>人
                     </div>
-                  </div>
+                    <Button
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      className={`h-8 px-4 text-sm touch-manipulation ${
+                        isSelected ? "bg-blue-500 hover:bg-blue-600" : ""
+                      }`}
+                    >
+                      {isSelected ? '選択中' : '選択'}
+                    </Button>
+                  </>
                 )}
-                
-                <Button
-                  variant={isSelected ? "default" : "outline"}
-                  size="sm"
-                  disabled={event.available_seats === 0}
-                  className={`min-w-[50px] whitespace-nowrap text-sm h-9 px-3 touch-manipulation ${
-                    isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""
-                  }`}
-                >
-                  {event.available_seats === 0 ? '満席' : '選択'}
-                </Button>
               </div>
             </div>
           </Card>
