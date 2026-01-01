@@ -356,7 +356,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               </div>
 
               {/* タブの内容に応じて表示を切り替え */}
-              <div className="mt-6">
+              <div>
                 {activeTab === 'schedule' && (
                   <BookingPanel
                     participantCount={participantCount}

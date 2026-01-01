@@ -26,7 +26,7 @@ export const BookingPanel = memo(function BookingPanel({
   onBooking
 }: BookingPanelProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* 人数を選択 */}
       <div>
         <h3 className="text-base font-semibold mb-4">人数を選択</h3>
