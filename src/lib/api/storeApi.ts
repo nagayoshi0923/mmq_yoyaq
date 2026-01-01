@@ -10,7 +10,8 @@ export const storeApi = {
   // @param includeTemporary - 臨時会場を含めるかどうか（デフォルト: false）
   // @param organizationId - 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
   // @param skipOrgFilter - trueの場合、組織フィルタをスキップ（全組織のデータを取得）
-  async getAll(includeTemporary: boolean = false, organizationId?: string, skipOrgFilter?: boolean): Promise<Store[]> {
+  // @param excludeOffice - trueの場合、オフィス（ownership_type='office'）を除外（デフォルト: false）
+  async getAll(includeTemporary: boolean = false, organizationId?: string, skipOrgFilter?: boolean, excludeOffice: boolean = false): Promise<Store[]> {
     let query = supabase.from('stores').select('*')
     
     // 組織フィルタリング
@@ -25,6 +26,11 @@ export const storeApi = {
     // 臨時会場を除外する場合
     if (!includeTemporary) {
       query = query.or('is_temporary.is.null,is_temporary.eq.false')
+    }
+    
+    // オフィスを除外する場合
+    if (excludeOffice) {
+      query = query.neq('ownership_type', 'office')
     }
     
     const { data, error } = await query

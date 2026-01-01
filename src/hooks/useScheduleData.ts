@@ -459,8 +459,9 @@ export function useScheduleData(currentDate: Date) {
         
         // 店舗・スタッフを並列で読み込み（シナリオはReact Queryが管理）
         // includeTemporary: false で通常の店舗のみ取得（臨時会場は useTemporaryVenues で管理）
+        // excludeOffice: true でオフィスを除外（スケジュール管理では会場として使わない）
         const [storeData, staffData] = await Promise.all([
-          storeApi.getAll(false).catch(err => {
+          storeApi.getAll(false, undefined, undefined, true).catch(err => {
             logger.error('店舗データの読み込みエラー:', err)
             return []
           }),

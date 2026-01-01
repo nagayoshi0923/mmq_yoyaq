@@ -28,6 +28,22 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
   }, [])
 
   /**
+   * イベントを日付×店舗でインデックス化（臨時会場の表示判定用）
+   */
+  const eventDateStoreSet = useMemo(() => {
+    const set = new Set<string>()
+    allEvents.forEach(event => {
+      const dateStr = event.date
+      const eventStoreId = event.store_id || event.venue
+      // オープン公演のみカウント（category === 'open'）
+      if (event.category === 'open' && !event.is_cancelled) {
+        set.add(`${dateStr}:${eventStoreId}`)
+      }
+    })
+    return set
+  }, [allEvents])
+
+  /**
    * 月の日付と店舗の組み合わせを生成
    */
   const listViewData = useMemo((): ListViewDataItem[] => {
@@ -46,13 +62,20 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
     // 日付と店舗の組み合わせを生成
     const combinations: ListViewDataItem[] = []
     dates.forEach(date => {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
+      
       filteredStores.forEach(store => {
+        // 臨時会場はオープン公演がある日のみ表示
+        if (store.is_temporary) {
+          const hasOpenEvent = eventDateStoreSet.has(`${dateStr}:${store.id}`)
+          if (!hasOpenEvent) return // オープン公演がなければスキップ
+        }
         combinations.push({ date, store })
       })
     })
     
     return combinations
-  }, [listViewMonth, stores, selectedStoreFilter])
+  }, [listViewMonth, stores, selectedStoreFilter, eventDateStoreSet])
 
   /**
    * 最適化: 店舗データをMapに変換（O(1)アクセス）
