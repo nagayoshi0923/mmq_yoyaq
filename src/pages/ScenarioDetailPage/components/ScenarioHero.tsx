@@ -25,8 +25,8 @@ interface ScenarioHeroProps {
  */
 export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }: ScenarioHeroProps) {
   return (
-    <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white -mx-4">
-      <div className="container mx-auto max-w-7xl px-4 py-6">
+    <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white rounded-lg overflow-hidden">
+      <div className="px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* キービジュアル */}
           <div className="md:col-span-4">
