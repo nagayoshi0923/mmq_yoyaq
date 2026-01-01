@@ -58,17 +58,14 @@ export const EventList = memo(function EventList({
             }}
           >
             <div className="flex items-center gap-3 p-3 touch-manipulation">
-              {/* 左：カレンダー風日付 */}
-              <div className="flex-shrink-0 w-14 text-center">
-                <div className="text-xs text-muted-foreground">{month}月</div>
-                <div className="text-2xl font-bold leading-tight">{day}</div>
-                <div className={`text-xs font-medium ${weekdayColor}`}>{weekday}</div>
-              </div>
-              
-              {/* 中央：時間 + 店舗バッジ + タイトル */}
+              {/* 左：日付 + 時間 + 店舗 + タイトル */}
               <div className="flex-1 min-w-0 space-y-1">
+                {/* 1行目: 日付・時間・店舗 */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium">
+                  <span className="font-semibold">
+                    {month}/{day}<span className={`ml-0.5 ${weekdayColor}`}>({weekday})</span>
+                  </span>
+                  <span className="text-muted-foreground">
                     {formatTime(event.start_time)}〜
                   </span>
                   <span 
@@ -81,20 +78,21 @@ export const EventList = memo(function EventList({
                     {event.store_short_name}
                   </span>
                 </div>
+                {/* 2行目: タイトル */}
                 <div className="text-xs text-muted-foreground truncate">
                   {event.scenario_title || scenarioTitle}
                 </div>
               </div>
               
               {/* 右：残り人数 + ボタン */}
-              <div className="flex-shrink-0 flex flex-col items-end gap-1">
+              <div className="flex-shrink-0 flex items-center gap-3">
                 {event.available_seats === 0 ? (
                   <Badge variant="secondary" className="text-xs">
                     満席
                   </Badge>
                 ) : (
                   <>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-sm text-muted-foreground whitespace-nowrap">
                       残り<span className="font-semibold text-foreground">{event.available_seats}</span>人
                     </div>
                     <Button
