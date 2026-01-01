@@ -138,7 +138,17 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
             const maxPlayers = formData.player_count_max || 6
             const normalFee = formData.participation_costs?.find(c => c.time_slot === 'normal')?.amount || formData.participation_fee || 0
             const gmTestFee = formData.participation_costs?.find(c => c.time_slot === 'gmtest')?.amount || 0
-            const gmReward = formData.gm_assignments?.reduce((sum, a) => sum + (a.reward || 0), 0) || 0
+            
+            // GM報酬をカテゴリ別に集計
+            const normalGmReward = formData.gm_assignments
+              ?.filter(a => (a.category || 'normal') === 'normal')
+              .reduce((sum, a) => sum + (a.reward || 0), 0) || 0
+            const gmTestGmRewardRaw = formData.gm_assignments
+              ?.filter(a => a.category === 'gmtest')
+              .reduce((sum, a) => sum + (a.reward || 0), 0) || 0
+            // GMテスト報酬が未設定の場合、通常報酬-2000円をデフォルトに
+            const gmTestGmReward = gmTestGmRewardRaw > 0 ? gmTestGmRewardRaw : Math.max(0, normalGmReward - 2000)
+            
             const normalLicense = formData.license_rewards?.find(r => r.item === 'normal')?.amount || 0
             const gmTestLicense = formData.license_rewards?.find(r => r.item === 'gmtest')?.amount || 0
             const depPerPerf = depreciationPerPerformance || 0
@@ -147,8 +157,8 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
             const normalRevenue = normalFee * maxPlayers
             const gmTestRevenue = gmTestFee * maxPlayers
             
-            const normalProfit = normalRevenue - gmReward - normalLicense - depPerPerf
-            const gmTestProfit = gmTestRevenue - gmReward - gmTestLicense - depPerPerf
+            const normalProfit = normalRevenue - normalGmReward - normalLicense - depPerPerf
+            const gmTestProfit = gmTestRevenue - gmTestGmReward - gmTestLicense - depPerPerf
             
             return (
               <div className="text-xs mt-2 space-y-1">
@@ -156,7 +166,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
                 <div className="flex flex-wrap items-center gap-x-1 text-muted-foreground">
                   <span className="font-medium text-foreground">通常：</span>
                   <span>¥{normalFee.toLocaleString()}×{maxPlayers}人=¥{normalRevenue.toLocaleString()}</span>
-                  <span>− GM¥{gmReward.toLocaleString()}</span>
+                  <span>− GM¥{normalGmReward.toLocaleString()}</span>
                   <span>− ライセンス¥{normalLicense.toLocaleString()}</span>
                   {depPerPerf > 0 && <span>− 償却¥{depPerPerf.toLocaleString()}</span>}
                   <span>=</span>
@@ -168,7 +178,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
                 <div className="flex flex-wrap items-center gap-x-1 text-muted-foreground">
                   <span className="font-medium text-foreground">GMテスト：</span>
                   <span>¥{gmTestFee.toLocaleString()}×{maxPlayers}人=¥{gmTestRevenue.toLocaleString()}</span>
-                  <span>− GM¥{gmReward.toLocaleString()}</span>
+                  <span>− GM¥{gmTestGmReward.toLocaleString()}</span>
                   <span>− ライセンス¥{gmTestLicense.toLocaleString()}</span>
                   {depPerPerf > 0 && <span>− 償却¥{depPerPerf.toLocaleString()}</span>}
                   <span>=</span>

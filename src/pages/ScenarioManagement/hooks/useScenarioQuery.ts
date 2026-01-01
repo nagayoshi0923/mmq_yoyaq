@@ -18,6 +18,7 @@ export const scenarioKeys = {
   all: ['scenarios'] as const,
   paginated: (pageSize: number) => ['scenarios', 'paginated', pageSize] as const,
   detail: (id: string) => ['scenarios', id] as const,
+  stats: ['scenarios', 'stats'] as const,
 }
 
 /**
@@ -49,6 +50,27 @@ export function useScenariosQuery() {
       return scenariosWithAssignments
     },
     staleTime: 30 * 60 * 1000, // 30分間キャッシュ（マスターデータ）
+  })
+}
+
+/**
+ * 全シナリオの統計情報を一括取得（リスト表示用）
+ */
+export function useAllScenarioStatsQuery() {
+  return useQuery({
+    queryKey: scenarioKeys.stats,
+    queryFn: async () => {
+      logger.log('📊 シナリオ統計一括取得開始')
+      try {
+        const data = await scenarioApi.getAllScenarioStats()
+        logger.log('✅ シナリオ統計取得完了:', Object.keys(data).length, '件')
+        return data
+      } catch (error) {
+        logger.error('❌ シナリオ統計取得エラー:', error)
+        throw error
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5分間キャッシュ
   })
 }
 

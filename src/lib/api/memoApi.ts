@@ -6,16 +6,13 @@ import { getCurrentOrganizationId } from '@/lib/organization'
 
 export const memoApi = {
   // 指定月のメモを取得
-  // organizationId: 指定した場合そのIDを使用、未指定の場合はログインユーザーの組織で自動フィルタ
-  async getByMonth(year: number, month: number, organizationId?: string) {
+  // 注意: daily_memosテーブルにはorganization_idカラムがないため、組織フィルタは無効
+  async getByMonth(year: number, month: number, _organizationId?: string) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const lastDay = new Date(year, month, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     
-    // 組織フィルタリング
-    const orgId = organizationId || await getCurrentOrganizationId()
-    
-    let query = supabase
+    const { data, error } = await supabase
       .from('daily_memos')
       .select(`
         *,
@@ -27,12 +24,7 @@ export const memoApi = {
       `)
       .gte('date', startDate)
       .lte('date', endDate)
-    
-    if (orgId) {
-      query = query.eq('organization_id', orgId)
-    }
-    
-    const { data, error } = await query.order('date', { ascending: true })
+      .order('date', { ascending: true })
     
     if (error) throw error
     return data || []

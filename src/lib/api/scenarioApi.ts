@@ -5,6 +5,7 @@ import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import type { Scenario } from '@/types'
 import type { PaginatedResponse } from './types'
+import { logger } from '@/utils/logger'
 
 export const scenarioApi = {
   // 全シナリオを取得
@@ -219,6 +220,7 @@ export const scenarioApi = {
   },
 
   // シナリオの統計情報を取得（公演回数、中止回数、売上、利益など）
+  // 今日までの公演のみ計算（未来の公演は含めない）
   async getScenarioStats(scenarioId: string): Promise<{
     performanceCount: number
     cancelledCount: number
@@ -227,57 +229,130 @@ export const scenarioApi = {
     totalGmCost: number
     totalLicenseCost: number
     firstPerformanceDate: string | null
+    performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null }>
   }> {
-    // 公演回数（中止以外）
+    // 今日の日付（YYYY-MM-DD形式）
+    const today = new Date().toISOString().split('T')[0]
+
+    // 公演回数（中止以外、今日まで、出張公演除外）
     const { count: performanceCount, error: perfError } = await supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
       .eq('scenario_id', scenarioId)
-      .or('is_cancelled.is.null,is_cancelled.eq.false')
+      .lte('date', today)
+      .neq('category', 'offsite')
+      .neq('is_cancelled', true)
     
     if (perfError) throw perfError
 
-    // 中止回数
+    // 中止回数（今日まで、出張公演除外）
     const { count: cancelledCount, error: cancelError } = await supabase
       .from('schedule_events')
       .select('*', { count: 'exact', head: true })
       .eq('scenario_id', scenarioId)
+      .lte('date', today)
+      .neq('category', 'offsite')
       .eq('is_cancelled', true)
     
     if (cancelError) throw cancelError
 
-    // 初公演日を取得
+    // 初公演日を取得（今日までの公演から、中止以外、出張公演除外）
     const { data: firstEvent, error: firstError } = await supabase
       .from('schedule_events')
-      .select('date')
+      .select('date, scenario_id')
       .eq('scenario_id', scenarioId)
-      .or('is_cancelled.is.null,is_cancelled.eq.false')
+      .lte('date', today)
+      .neq('category', 'offsite')
+      .neq('is_cancelled', true)
       .order('date', { ascending: true })
       .limit(1)
       .single()
     
     const firstPerformanceDate = firstError ? null : firstEvent?.date || null
 
-    // 公演イベントを取得して売上・コストを集計（中止以外）
+    // 公演イベントを取得して売上・コストを集計（中止以外、今日まで、出張公演除外）
     const { data: events, error: eventsError } = await supabase
       .from('schedule_events')
-      .select('current_participants, total_revenue, gm_cost, license_cost')
+      .select('id, date, category, current_participants, total_revenue, gm_cost, license_cost, start_time, store_id')
       .eq('scenario_id', scenarioId)
-      .or('is_cancelled.is.null,is_cancelled.eq.false')
+      .lte('date', today)
+      .neq('category', 'offsite')
+      .neq('is_cancelled', true)
+      .order('date', { ascending: false })
     
     if (eventsError) throw eventsError
+
+    // 各イベントの予約情報を取得（実際の予約から参加者数を計算）
+    const eventIds = events?.map(e => e.id) || []
+    let demoParticipantsMap: Record<string, number> = {}
+    let actualParticipantsMap: Record<string, number> = {}
+    let staffParticipantsMap: Record<string, number> = {}
+    
+    if (eventIds.length > 0) {
+      // 全予約を取得（確定済みのみ）
+      const { data: allReservations, error: resError } = await supabase
+        .from('reservations')
+        .select('schedule_event_id, participant_count, reservation_source, payment_method')
+        .in('schedule_event_id', eventIds)
+        .in('status', ['confirmed', 'gm_confirmed'])
+      
+      if (!resError && allReservations) {
+        allReservations.forEach(res => {
+          if (res.schedule_event_id) {
+            const count = res.participant_count || 0
+            
+            // デモ予約
+            if (res.reservation_source === 'demo' || res.reservation_source === 'demo_auto') {
+              demoParticipantsMap[res.schedule_event_id] = 
+                (demoParticipantsMap[res.schedule_event_id] || 0) + count
+            }
+            // スタッフ参加
+            else if (res.reservation_source === 'staff_entry' || 
+                     res.reservation_source === 'staff_participation' || 
+                     res.payment_method === 'staff') {
+              staffParticipantsMap[res.schedule_event_id] = 
+                (staffParticipantsMap[res.schedule_event_id] || 0) + count
+            }
+            // 通常予約（有料）
+            else {
+              actualParticipantsMap[res.schedule_event_id] = 
+                (actualParticipantsMap[res.schedule_event_id] || 0) + count
+            }
+          }
+        })
+      }
+    }
 
     // 集計
     let totalRevenue = 0
     let totalParticipants = 0
     let totalGmCost = 0
     let totalLicenseCost = 0
+    const performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null }> = []
 
     events?.forEach(event => {
-      totalParticipants += event.current_participants || 0
+      const demoCount = demoParticipantsMap[event.id] || 0
+      const staffCount = staffParticipantsMap[event.id] || 0
+      const actualCount = actualParticipantsMap[event.id] || 0
+      // スタッフ参加は無料なので売上からは除外、参加者数は別表示
+      
+      // 有料参加者 = 有料予約 + デモ（スタッフ除外）
+      const paidParticipants = actualCount + demoCount
+      
+      totalParticipants += paidParticipants
       totalRevenue += event.total_revenue || 0
       totalGmCost += event.gm_cost || 0
       totalLicenseCost += event.license_cost || 0
+      performanceDates.push({
+        date: event.date,
+        category: event.category || 'open',
+        participants: paidParticipants,  // 有料参加者（スタッフ除外）
+        demoParticipants: demoCount,  // 内訳用に保持
+        staffParticipants: staffCount,  // スタッフ参加者数
+        revenue: event.total_revenue || 0,
+        startTime: event.start_time || '',
+        storeId: event.store_id || null
+      })
     })
 
     return {
@@ -287,8 +362,77 @@ export const scenarioApi = {
       totalParticipants,
       totalGmCost,
       totalLicenseCost,
-      firstPerformanceDate
+      firstPerformanceDate,
+      performanceDates
     }
+  },
+
+  // 全シナリオの統計情報を一括取得（リスト表示用、ページネーションで全件取得）
+  async getAllScenarioStats(): Promise<Record<string, {
+    performanceCount: number
+    cancelledCount: number
+    totalRevenue: number
+  }>> {
+    const today = new Date().toISOString().split('T')[0]
+
+    // ページネーションで全件取得（Supabaseのmax_rows制限を回避）
+    const pageSize = 1000
+    let allEvents: any[] = []
+    let page = 0
+    let hasMore = true
+
+    while (hasMore) {
+      const from = page * pageSize
+      const to = from + pageSize - 1
+      
+      const { data: events, error } = await supabase
+        .from('schedule_events')
+        .select('scenario_id, is_cancelled, total_revenue, date, category')
+        .lte('date', today)
+        .neq('category', 'offsite')
+        .range(from, to)
+        .order('date', { ascending: false })
+
+      if (error) throw error
+
+      if (events && events.length > 0) {
+        allEvents = allEvents.concat(events)
+        hasMore = events.length === pageSize
+        page++
+      } else {
+        hasMore = false
+      }
+    }
+
+    const events = allEvents
+
+    // scenario_idごとに集計
+    const statsMap: Record<string, {
+      performanceCount: number
+      cancelledCount: number
+      totalRevenue: number
+    }> = {}
+
+    events?.forEach(event => {
+      if (!event.scenario_id) return
+
+      if (!statsMap[event.scenario_id]) {
+        statsMap[event.scenario_id] = {
+          performanceCount: 0,
+          cancelledCount: 0,
+          totalRevenue: 0
+        }
+      }
+
+      if (event.is_cancelled) {
+        statsMap[event.scenario_id].cancelledCount++
+      } else {
+        statsMap[event.scenario_id].performanceCount++
+        statsMap[event.scenario_id].totalRevenue += event.total_revenue || 0
+      }
+    })
+
+    return statsMap
   },
 
   // シナリオの担当GMを更新（スタッフのspecial_scenariosも同期更新）

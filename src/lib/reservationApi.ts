@@ -502,6 +502,29 @@ export const reservationApi = {
           await this.update(res.id, { status: 'cancelled' })
         }
       }
+
+      // current_participants を更新
+      const addedCount = toAdd.length
+      const removedCount = toRemove.filter(r => r.status !== 'cancelled').length
+      const diff = addedCount - removedCount
+      
+      if (diff !== 0) {
+        const { data: eventData } = await supabase
+          .from('schedule_events')
+          .select('current_participants')
+          .eq('id', eventId)
+          .single()
+        
+        const currentCount = eventData?.current_participants || 0
+        const newCount = Math.max(0, currentCount + diff)
+        
+        await supabase
+          .from('schedule_events')
+          .update({ current_participants: newCount })
+          .eq('id', eventId)
+        
+        logger.log('📊 current_participants更新:', { eventId, oldCount: currentCount, newCount, diff })
+      }
     } catch (error) {
       logger.error('スタッフ予約同期エラー:', error)
     }

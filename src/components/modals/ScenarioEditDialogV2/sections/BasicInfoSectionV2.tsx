@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Upload, X } from 'lucide-react'
+import { Upload, X, Trash2 } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
@@ -25,9 +25,11 @@ const inputStyle = "h-10 text-sm"
 interface BasicInfoSectionV2Props {
   formData: ScenarioFormData
   setFormData: React.Dispatch<React.SetStateAction<ScenarioFormData>>
+  scenarioId?: string | null
+  onDelete?: () => void
 }
 
-export function BasicInfoSectionV2({ formData, setFormData }: BasicInfoSectionV2Props) {
+export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete }: BasicInfoSectionV2Props) {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [isAddAuthorDialogOpen, setIsAddAuthorDialogOpen] = useState(false)
@@ -360,6 +362,30 @@ export function BasicInfoSectionV2({ formData, setFormData }: BasicInfoSectionV2
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 削除ボタン（既存シナリオの場合のみ表示） */}
+      {scenarioId && onDelete && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-medium text-destructive">シナリオを削除</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  この操作は取り消せません。関連する公演データは残ります。
+                </p>
+              </div>
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={onDelete}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                削除
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

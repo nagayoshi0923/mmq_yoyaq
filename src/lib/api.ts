@@ -787,7 +787,7 @@ export const scheduleApi = {
     return data
   },
 
-  // 中止でない全公演にデモ参加者を満席まで追加
+  // 中止でない全公演にデモ参加者を満席まで追加（既存データの修復も含む）
   async addDemoParticipantsToAllActiveEvents() {
     try {
       const { data: events, error: eventsError } = await supabase
@@ -806,7 +806,7 @@ export const scheduleApi = {
         return { success: true, message: '中止でない公演が見つかりません' }
       }
       
-      logger.log(`${events.length}件の公演にデモ参加者を追加します`)
+      logger.log(`${events.length}件の公演をチェックします`)
       
       let successCount = 0
       let errorCount = 0
@@ -825,15 +825,29 @@ export const scheduleApi = {
             continue
           }
           
-          const currentParticipants = reservations?.reduce((sum, reservation) => 
+          // 予約レコードの合計参加者数
+          const reservedParticipants = reservations?.reduce((sum, reservation) => 
             sum + (reservation.participant_count || 0), 0) || 0
           
+          // 定員
+          const capacity = event.capacity || event.max_participants || 8
+          
+          // デモ参加者が既に存在するかチェック
           const hasDemoParticipant = reservations?.some(r => 
             r.participant_names?.includes('デモ参加者') || 
             r.participant_names?.some((name: string) => name.includes('デモ'))
           )
           
-          if (currentParticipants < event.capacity && !hasDemoParticipant) {
+          // 足りない参加者数を計算（定員 - 実際の予約人数）
+          // ※ current_participantsの値は無視し、定員のみを基準とする
+          const neededParticipants = capacity - reservedParticipants
+          
+          if (neededParticipants > 0 && !hasDemoParticipant) {
+            // scenario_idがnullの場合はスキップ
+            if (!event.scenario_id) {
+              continue
+            }
+            
             const { data: scenario, error: scenarioError } = await supabase
               .from('scenarios')
               .select('id, title, duration, participation_fee, gm_test_participation_fee')
@@ -851,19 +865,20 @@ export const scheduleApi = {
               ? (scenario?.gm_test_participation_fee || scenario?.participation_fee || 0)
               : (scenario?.participation_fee || 0)
             
-            const neededParticipants = event.capacity - currentParticipants
-            
             const demoReservation = {
               schedule_event_id: event.id,
+              organization_id: event.organization_id || 'a0000000-0000-0000-0000-000000000001',
               title: event.scenario || '',
-              scenario_id: event.scenario_id || null,
+              scenario_id: event.scenario_id,
               store_id: event.store_id || null,
               customer_id: null,
-              customer_notes: `デモ参加者${neededParticipants}名`,
+              customer_notes: neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${neededParticipants}名`,
               requested_datetime: `${event.date}T${event.start_time}+09:00`,
               duration: scenario?.duration || 120,
               participant_count: neededParticipants,
-              participant_names: Array(neededParticipants).fill(null).map((_, i) => `デモ参加者${i + 1}`),
+              participant_names: Array(neededParticipants).fill(null).map((_, i) => 
+                neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
+              ),
               assigned_staff: event.gms || [],
               base_price: participationFee * neededParticipants,
               options_price: 0,
@@ -886,17 +901,14 @@ export const scheduleApi = {
               continue
             }
             
+            // current_participantsも更新（定員に設定）
             await supabase
               .from('schedule_events')
-              .update({ current_participants: event.capacity })
+              .update({ current_participants: capacity })
               .eq('id', event.id)
             
             logger.log(`デモ参加者${neededParticipants}名を追加しました: ${event.scenario} (${event.date})`)
             successCount++
-          } else if (hasDemoParticipant) {
-            logger.log(`既にデモ参加者が存在します: ${event.scenario} (${event.date})`)
-          } else {
-            logger.log(`既に満席です: ${event.scenario} (${event.date})`)
           }
         } catch (err) {
           logger.error(`デモ参加者の追加に失敗 (${event.id}):`, err)
@@ -914,6 +926,31 @@ export const scheduleApi = {
       }
     } catch (err) {
       logger.error('デモ参加者追加処理でエラー:', err)
+      return { success: false, error: err }
+    }
+  },
+
+  // 誤って追加されたデモ予約を全削除
+  async removeAllDemoReservations() {
+    try {
+      // reservation_source = 'demo' の予約をすべて削除
+      const { data: deleted, error } = await supabase
+        .from('reservations')
+        .delete()
+        .eq('reservation_source', 'demo')
+        .select('id')
+      
+      if (error) {
+        logger.error('デモ予約の削除に失敗:', error)
+        return { success: false, error }
+      }
+      
+      const count = deleted?.length || 0
+      logger.log(`${count}件のデモ予約を削除しました`)
+      
+      return { success: true, deletedCount: count }
+    } catch (err) {
+      logger.error('デモ予約削除処理でエラー:', err)
       return { success: false, error: err }
     }
   }

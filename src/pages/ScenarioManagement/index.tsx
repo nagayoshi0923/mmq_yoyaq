@@ -28,7 +28,8 @@ import { useScenarioFilters } from './hooks/useScenarioFilters'
 import {
   useScenariosQuery,
   useDeleteScenarioMutation,
-  useImportScenariosMutation
+  useImportScenariosMutation,
+  useAllScenarioStatsQuery
 } from './hooks/useScenarioQuery'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -65,6 +66,9 @@ export function ScenarioManagement() {
     isLoading: loading,
     error: queryError
   } = useScenariosQuery()
+  
+  // 全シナリオの統計情報（公演回数、売上など）
+  const { data: scenarioStats = {} } = useAllScenarioStatsQuery()
   
   const deleteScenarioMutation = useDeleteScenarioMutation()
   const importScenariosMutation = useImportScenariosMutation()
@@ -112,7 +116,7 @@ export function ScenarioManagement() {
     sortState,
     handleSort,
     filteredAndSortedScenarios
-  } = useScenarioFilters(allScenarios)
+  } = useScenarioFilters(allScenarios, scenarioStats)
   
   // 表示用：フィルタ・ソート後のデータから表示件数分だけ切り出す
   const displayedScenarios = useMemo(() => {
@@ -276,7 +280,7 @@ export function ScenarioManagement() {
     onDelete: openDeleteDialog,
     onImageUpload: handleImageUpload,
     onImageRemove: handleImageRemove
-  }, storeMap), [displayMode, storeMap])
+  }, storeMap, scenarioStats), [displayMode, storeMap, scenarioStats])
 
   // スクロール位置の保存と復元
   useEffect(() => {
@@ -605,6 +609,7 @@ export function ScenarioManagement() {
           onClose={handleCloseEditDialog}
           scenarioId={editingScenarioId}
           onScenarioChange={setEditingScenarioId}
+          sortedScenarioIds={displayedScenarios.map(s => s.id)}
         />
       </AppLayout>
     )

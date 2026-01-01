@@ -104,6 +104,8 @@ export function PerformanceModal({
   const [timeSlot, setTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
   // 予約データから取得したスタッフ参加者（DBをシングルソースとする）
   const [staffParticipantsFromDB, setStaffParticipantsFromDB] = useState<string[]>([])
+  // ローカルで参加者数を管理（リアルタイム表示用）
+  const [localCurrentParticipants, setLocalCurrentParticipants] = useState<number>(0)
   const [formData, setFormData] = useState<EventFormData>({
     id: '',
     date: '',
@@ -260,6 +262,8 @@ export function PerformanceModal({
         gmRoles: event.gm_roles || {}, // 既存の役割があれば設定
         capacity: event.max_participants || 0 // capacityを追加
       })
+      // ローカル参加者数を初期化
+      setLocalCurrentParticipants(event.current_participants || 0)
     } else if (mode === 'add' && initialData) {
       // 追加モード：初期データで初期化
       const slot = initialData.time_slot as 'morning' | 'afternoon' | 'evening'
@@ -356,7 +360,7 @@ export function PerformanceModal({
     }
     
     onSave(saveData)
-    onClose()
+    // ダイアログは閉じない（ユーザーが明示的に閉じる）
   }
 
   const handleScenarioSaved = async () => {
@@ -426,8 +430,13 @@ export function PerformanceModal({
                   <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
                     {event.is_private_request || event.is_private_booking
                       ? '満席'
-                      : `${event.current_participants || 0}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
+                      : `${localCurrentParticipants}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
                     }
+                    {staffParticipantsFromDB.length > 0 && (
+                      <span className="text-blue-600 ml-1">
+                        (+{staffParticipantsFromDB.length}スタッフ)
+                      </span>
+                    )}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -796,7 +805,10 @@ export function PerformanceModal({
                   })}
                   
                   {/* スタッフ参加者（予約データから動的表示・読み取り専用） */}
-                  {staffParticipantsFromDB.map((staffName: string, index: number) => (
+                  {/* GM欄でスタッフ参加として設定されているスタッフは除外（重複防止） */}
+                  {staffParticipantsFromDB
+                    .filter((staffName: string) => !formData.gms.includes(staffName) || formData.gmRoles?.[staffName] !== 'staff')
+                    .map((staffName: string, index: number) => (
                     <div 
                       key={`staff-${index}`}
                       className={cn(
@@ -983,7 +995,10 @@ export function PerformanceModal({
               stores={stores}
               scenarios={scenarios}
               staff={staff}
-              onParticipantChange={onParticipantChange}
+              onParticipantChange={(eventId, newCount) => {
+                setLocalCurrentParticipants(newCount)
+                onParticipantChange?.(eventId, newCount)
+              }}
               onGmsChange={(gms, gmRoles) => setFormData(prev => ({ ...prev, gms, gmRoles }))}
               onStaffParticipantsChange={setStaffParticipantsFromDB}
             />

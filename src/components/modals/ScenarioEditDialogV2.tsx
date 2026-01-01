@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useScenariosQuery, useScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { useScenariosQuery, useScenarioMutation, useDeleteScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 
 // V2セクションコンポーネント（カード形式でレイアウト改善）
 import { BasicInfoSectionV2 } from './ScenarioEditDialogV2/sections/BasicInfoSectionV2'
@@ -12,6 +12,7 @@ import { GameInfoSectionV2 } from './ScenarioEditDialogV2/sections/GameInfoSecti
 import { PricingSectionV2 } from './ScenarioEditDialogV2/sections/PricingSectionV2'
 import { GmSettingsSectionV2 } from './ScenarioEditDialogV2/sections/GmSettingsSectionV2'
 import { CostsPropsSectionV2 } from './ScenarioEditDialogV2/sections/CostsPropsSectionV2'
+import { PerformancesSectionV2 } from './ScenarioEditDialogV2/sections/PerformancesSectionV2'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -28,6 +29,8 @@ interface ScenarioEditDialogV2Props {
   scenarioId: string | null
   onSaved?: () => void
   onScenarioChange?: (scenarioId: string | null) => void
+  /** ソートされたシナリオIDリスト（矢印キーでの切り替えに使用） */
+  sortedScenarioIds?: string[]
 }
 
 // タブ定義
@@ -37,12 +40,31 @@ const TABS = [
   { id: 'pricing', label: '料金', icon: Coins },
   { id: 'gm', label: 'GM', icon: Users },
   { id: 'costs', label: '売上', icon: TrendingUp },
+  { id: 'performances', label: '公演実績', icon: CalendarDays },
 ] as const
 
 type TabId = typeof TABS[number]['id']
 
-export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onScenarioChange }: ScenarioEditDialogV2Props) {
-  const [activeTab, setActiveTab] = useState<TabId>('basic')
+// localStorageからタブを取得する関数
+const getSavedTab = (): TabId => {
+  const saved = localStorage.getItem('scenarioEditDialogTab')
+  if (saved && ['basic', 'game', 'pricing', 'gm', 'costs', 'performances'].includes(saved)) {
+    return saved as TabId
+  }
+  return 'basic'
+}
+
+export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onScenarioChange, sortedScenarioIds }: ScenarioEditDialogV2Props) {
+  // 初期値をlocalStorageから取得（コンポーネントマウント時に正しいタブを表示）
+  const [activeTab, setActiveTab] = useState<TabId>(getSavedTab)
+  
+  // ダイアログを開く度、またはシナリオが変わった時にタブを復元
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(getSavedTab())
+    }
+  }, [isOpen, scenarioId])
+
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
@@ -93,6 +115,44 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
   const { data: scenarios = [] } = useScenariosQuery()
   const scenarioMutation = useScenarioMutation()
+  const deleteMutation = useDeleteScenarioMutation()
+
+  // ソートされたシナリオIDリスト（sortedScenarioIdsがあればそれを使用、なければscenariosから生成）
+  const scenarioIdList = sortedScenarioIds ?? scenarios.map(s => s.id)
+
+  // 物理矢印キーでシナリオを切り替え（captureフェーズで登録）
+  useEffect(() => {
+    if (!isOpen || !onScenarioChange || !scenarioId || scenarioIdList.length <= 1) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 入力フィールドにフォーカスがある場合は無視
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+        return
+      }
+      
+      // contenteditable要素も無視
+      if (target.isContentEditable) {
+        return
+      }
+
+      const currentIndex = scenarioIdList.indexOf(scenarioId)
+
+      if (e.key === 'ArrowLeft' && currentIndex > 0) {
+        e.preventDefault()
+        e.stopPropagation()
+        onScenarioChange(scenarioIdList[currentIndex - 1])
+      } else if (e.key === 'ArrowRight' && currentIndex < scenarioIdList.length - 1) {
+        e.preventDefault()
+        e.stopPropagation()
+        onScenarioChange(scenarioIdList[currentIndex + 1])
+      }
+    }
+
+    // captureフェーズで登録して、他のコンポーネントより先にキャッチ
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [isOpen, onScenarioChange, scenarioId, scenarioIdList])
 
   // スタッフデータ用のstate
   const [staff, setStaff] = useState<Staff[]>([])
@@ -104,6 +164,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   // ローディング状態
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false)
   
+  // 保存成功メッセージ
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  
+  // 削除確認ダイアログ
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  
   // シナリオ統計情報
   const [scenarioStats, setScenarioStats] = useState({
     performanceCount: 0,
@@ -112,7 +178,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     totalParticipants: 0,
     totalGmCost: 0,
     totalLicenseCost: 0,
-    firstPerformanceDate: null as string | null
+    firstPerformanceDate: null as string | null,
+    performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; revenue: number; startTime: string; storeId: string | null }>
   })
 
   // 担当GMのメイン/サブ設定を更新するハンドラ
@@ -134,12 +201,6 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     })
   }
 
-  // ダイアログが開いたらタブをリセット
-  useEffect(() => {
-    if (isOpen) {
-      setActiveTab('basic')
-    }
-  }, [isOpen])
 
   // スタッフデータと担当関係データを取得
   useEffect(() => {
@@ -197,7 +258,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           totalParticipants: 0,
           totalGmCost: 0,
           totalLicenseCost: 0,
-          firstPerformanceDate: null
+          firstPerformanceDate: null,
+          performanceDates: []
         })
       }
     }
@@ -489,7 +551,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           logger.error('onSavedコールバックエラー:', err)
         }
       }
-      onClose()
+      // 保存成功メッセージを表示（3秒後に消える）
+      setSaveMessage('保存しました')
+      setTimeout(() => setSaveMessage(null), 3000)
+      // ダイアログは閉じない（保存後も編集を続けられるように）
     } catch (err: unknown) {
       logger.error('詳細エラー:', err)
       const message = err instanceof Error ? err.message : JSON.stringify(err)
@@ -498,11 +563,29 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     }
   }
 
+  // シナリオ削除ハンドラ
+  const handleDelete = async () => {
+    if (!scenarioId) return
+    
+    if (!window.confirm(`「${formData.title}」を削除しますか？\nこの操作は取り消せません。`)) {
+      return
+    }
+    
+    try {
+      await deleteMutation.mutateAsync(scenarioId)
+      showToast.success('シナリオを削除しました')
+      onClose()
+    } catch (err) {
+      logger.error('シナリオ削除エラー:', err)
+      showToast.error('削除に失敗しました')
+    }
+  }
+
   // タブコンテンツをレンダリング（V2セクション使用）
   const renderTabContent = (tabId: TabId) => {
     switch (tabId) {
       case 'basic':
-        return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} />
+        return <BasicInfoSectionV2 formData={formData} setFormData={setFormData} scenarioId={scenarioId} onDelete={handleDelete} />
       case 'game':
         return <GameInfoSectionV2 formData={formData} setFormData={setFormData} />
       case 'pricing':
@@ -522,6 +605,14 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         )
       case 'costs':
         return <CostsPropsSectionV2 formData={formData} setFormData={setFormData} scenarioStats={scenarioStats} />
+      case 'performances':
+        return (
+          <PerformancesSectionV2 
+            performanceDates={scenarioStats.performanceDates}
+            participationCosts={formData.participation_costs || []}
+            scenarioParticipationFee={formData.participation_fee || 0}
+          />
+        )
       default:
         return null
     }
@@ -536,19 +627,21 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
             </DialogTitle>
             {/* シナリオ切り替え */}
-            {onScenarioChange && scenarioId && scenarios.length > 1 && (
+            {onScenarioChange && scenarioId && scenarioIdList.length > 1 && (
               <div className="flex items-center gap-1 flex-1 max-w-md">
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 shrink-0"
-                  onClick={() => {
-                    const currentIndex = scenarios.findIndex(s => s.id === scenarioId)
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    const currentIndex = scenarioIdList.indexOf(scenarioId)
                     if (currentIndex > 0) {
-                      onScenarioChange(scenarios[currentIndex - 1].id)
+                      onScenarioChange(scenarioIdList[currentIndex - 1])
                     }
                   }}
-                  disabled={scenarios.findIndex(s => s.id === scenarioId) === 0}
+                  disabled={scenarioIdList.indexOf(scenarioId) === 0}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -571,13 +664,15 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 shrink-0"
-                  onClick={() => {
-                    const currentIndex = scenarios.findIndex(s => s.id === scenarioId)
-                    if (currentIndex < scenarios.length - 1) {
-                      onScenarioChange(scenarios[currentIndex + 1].id)
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    const currentIndex = scenarioIdList.indexOf(scenarioId)
+                    if (currentIndex < scenarioIdList.length - 1) {
+                      onScenarioChange(scenarioIdList[currentIndex + 1])
                     }
                   }}
-                  disabled={scenarios.findIndex(s => s.id === scenarioId) === scenarios.length - 1}
+                  disabled={scenarioIdList.indexOf(scenarioId) === scenarioIdList.length - 1}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -597,9 +692,32 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         </DialogHeader>
 
         {/* タブナビゲーション */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)} className="flex-1 flex flex-col overflow-hidden">
+        <Tabs 
+          value={activeTab} 
+          onValueChange={(v) => {
+            setActiveTab(v as TabId)
+            localStorage.setItem('scenarioEditDialogTab', v)
+          }} 
+          className="flex-1 flex flex-col overflow-hidden"
+          onKeyDown={(e) => {
+            // 矢印キーでのタブ切り替えを無効化（シナリオ切り替えに使用するため）
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+              e.preventDefault()
+              e.stopPropagation()
+            }
+          }}
+        >
           <div className="px-4 sm:px-6 pt-4 shrink-0 border-b">
-            <TabsList className="w-full h-auto flex flex-wrap gap-1 bg-transparent p-0 justify-start">
+            <TabsList 
+              className="w-full h-auto flex flex-wrap gap-1 bg-transparent p-0 justify-start"
+              onKeyDown={(e) => {
+                // 矢印キーでのタブ切り替えを無効化（シナリオ切り替えに使用するため）
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }
+              }}
+            >
               {TABS.map((tab) => {
                 const Icon = tab.icon
                 return (
@@ -607,6 +725,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                     key={tab.id}
                     value={tab.id}
                     className="flex items-center gap-1.5 px-3 py-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-t-md rounded-b-none border-b-2 border-transparent data-[state=active]:border-primary transition-colors"
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }
+                    }}
                   >
                     <Icon className="h-4 w-4" />
                     <span className="hidden sm:inline">{tab.label}</span>
@@ -661,12 +785,17 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
           {/* アクションボタン */}
           <div className="flex items-center gap-2 shrink-0">
+            {saveMessage && (
+              <span className="text-green-600 font-medium text-sm animate-pulse">
+                ✓ {saveMessage}
+              </span>
+            )}
             <Button type="button" variant="outline" onClick={onClose}>
-              キャンセル
+              閉じる
             </Button>
             <Button onClick={handleSave} disabled={scenarioMutation.isPending || isLoadingAssignments} className="w-24">
               <Save className="h-4 w-4 mr-2" />
-              {isLoadingAssignments ? '読込中' : scenarioMutation.isPending ? '保存中' : '保存'}
+              保存
             </Button>
           </div>
         </div>

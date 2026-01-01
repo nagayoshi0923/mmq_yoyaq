@@ -34,6 +34,10 @@ export interface Column<T> {
    */
   render: (item: T) => ReactNode
   /**
+   * ソート用の値を返す関数（オプション、指定しない場合はkeyで取得）
+   */
+  sortValue?: (item: T) => string | number | null | undefined
+  /**
    * ヘッダーのカスタムレンダリング（オプション）
    */
   renderHeader?: () => ReactNode
@@ -132,10 +136,18 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
     () =>
       columns.map((col) => ({
         id: col.key,
-        accessorFn: (row) => row,
+        // sortValueがある場合はソート用の値を返す、なければ行のkeyプロパティを使用
+        accessorFn: (row) => {
+          if (col.sortValue) {
+            return col.sortValue(row)
+          }
+          // デフォルトはkeyでプロパティを取得
+          return (row as Record<string, unknown>)[col.key]
+        },
         header: () => col.renderHeader?.() || col.header,
         cell: ({ row }) => col.render(row.original),
         enableSorting: col.sortable ?? false,
+        sortingFn: col.sortValue ? 'auto' : 'alphanumeric',
         meta: {
           width: col.width,
           align: col.align,

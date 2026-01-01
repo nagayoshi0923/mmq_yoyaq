@@ -1,12 +1,18 @@
 import { useState, useMemo } from 'react'
 import type { Scenario } from '@/types'
 
-type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count' | 'player_count_min' | 'difficulty' | 'participation_fee' | 'status' | 'available_gms' | 'genre'
+type ScenarioSortField = 'title' | 'author' | 'duration' | 'player_count' | 'player_count_min' | 'difficulty' | 'participation_fee' | 'status' | 'available_gms' | 'genre' | 'performance_count'
+
+interface ScenarioStats {
+  performanceCount: number
+  cancelledCount: number
+  totalRevenue: number
+}
 
 /**
  * シナリオのフィルタリング・検索・ソート機能を管理するフック
  */
-export function useScenarioFilters(scenarios: Scenario[]) {
+export function useScenarioFilters(scenarios: Scenario[], scenarioStats?: Record<string, ScenarioStats>) {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   
@@ -85,6 +91,10 @@ export function useScenarioFilters(scenarios: Scenario[]) {
         case 'genre':
           aValue = a.genre?.[0]?.toLowerCase() || ''
           bValue = b.genre?.[0]?.toLowerCase() || ''
+          break
+        case 'performance_count':
+          aValue = scenarioStats?.[a.id]?.performanceCount ?? 0
+          bValue = scenarioStats?.[b.id]?.performanceCount ?? 0
           break
         default:
           return 0

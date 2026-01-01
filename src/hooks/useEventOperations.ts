@@ -513,8 +513,21 @@ export function useEventOperations({
         // Supabaseに保存
         const savedEvent = await scheduleApi.create(eventData)
 
-        // ※ スタッフ参加者はreservationsテーブルで管理（予約タブから追加）
-        // GM欄には保存しないため、syncStaffReservationsは不要
+        // GM欄で「スタッフ参加」を選択した場合、予約も作成する
+        if (performanceData.gm_roles && Object.values(performanceData.gm_roles).includes('staff')) {
+          await reservationApi.syncStaffReservations(
+            savedEvent.id,
+            performanceData.gms || [],
+            performanceData.gm_roles,
+            {
+              date: performanceData.date,
+              start_time: performanceData.start_time,
+              scenario_id: scenarioId || undefined,
+              scenario_title: performanceData.scenario,
+              store_id: storeId || undefined
+            }
+          )
+        }
         
         // シナリオ情報を取得（シナリオマスタ未登録チェック用）
         const matchedScenario = scenarios.find(s => s.title === performanceData.scenario)
@@ -606,8 +619,21 @@ export function useEventOperations({
             venue_rental_fee: performanceData.venue_rental_fee // 場所貸し公演料金
           })
 
-          // ※ スタッフ参加者はreservationsテーブルで管理（予約タブから追加）
-          // GM欄には保存しないため、syncStaffReservationsは不要
+          // GM欄で「スタッフ参加」を選択した場合、予約も同期する
+          if (performanceData.gm_roles) {
+            await reservationApi.syncStaffReservations(
+              performanceData.id!,
+              performanceData.gms || [],
+              performanceData.gm_roles,
+              {
+                date: performanceData.date,
+                start_time: performanceData.start_time,
+                scenario_id: scenarioId || undefined,
+                scenario_title: performanceData.scenario,
+                store_id: performanceData.venue || undefined
+              }
+            )
+          }
 
           // ローカル状態を更新（scenariosは元のデータを保持）
           setEvents(prev => prev.map(event => 
@@ -618,7 +644,8 @@ export function useEventOperations({
         }
       }
 
-      handleCloseModal()
+      showToast.success('保存しました')
+      // ダイアログは閉じない（ユーザーが明示的に閉じる）
     } catch (error) {
       logger.error('公演保存エラー:', error)
       showToast.error(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')

@@ -4,7 +4,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
 // API
-import { staffApi } from '@/lib/api'
+import { staffApi, scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
 // Custom Hooks
@@ -66,6 +66,7 @@ export function ScheduleManager() {
   // その他の状態
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isFillingSeats, setIsFillingSeats] = useState(false)
+  const [isFixingData, setIsFixingData] = useState(false)
 
   // 中止以外を満席にする処理（参加者数を定員に合わせる）
   const handleFillAllSeats = async () => {
@@ -216,7 +217,7 @@ export function ScheduleManager() {
         return undefined
       }
       
-      // 各イベントの参加者数を定員に合わせる
+      // 各イベントの参加者数を定員に合わせ、デモ参加者の予約レコードも作成
       let successCount = 0
       for (const event of events || []) {
         // シナリオJOIN → イベントのmax_participants → capacity → シナリオ名検索 → デフォルト8人
@@ -233,6 +234,73 @@ export function ScheduleManager() {
           maxParticipants = 8
         }
         
+        // 現在の予約を取得して実際の参加者数を確認
+        const { data: reservations } = await supabase
+          .from('reservations')
+          .select('participant_count, participant_names')
+          .eq('schedule_event_id', event.id)
+          .in('status', ['confirmed', 'pending'])
+        
+        const currentReservedCount = reservations?.reduce((sum, r) => sum + (r.participant_count || 0), 0) || 0
+        const neededParticipants = maxParticipants - currentReservedCount
+        
+        // デモ参加者が既に存在するかチェック
+        const hasDemoParticipant = reservations?.some(r => 
+          r.participant_names?.includes('デモ参加者') || 
+          r.participant_names?.some((name: string) => name.includes('デモ'))
+        )
+        
+        // 足りない分だけデモ参加者を追加
+        if (neededParticipants > 0 && !hasDemoParticipant) {
+          // イベントの詳細情報を取得
+          const { data: eventDetails } = await supabase
+            .from('schedule_events')
+            .select('date, start_time, scenario_id, store_id, gms')
+            .eq('id', event.id)
+            .single()
+          
+          if (eventDetails) {
+            // シナリオ情報を取得
+            const { data: scenario } = await supabase
+              .from('scenarios')
+              .select('id, duration, participation_fee')
+              .eq('id', eventDetails.scenario_id)
+              .single()
+            
+            const participationFee = scenario?.participation_fee || 0
+            
+            // デモ参加者の予約を作成
+            const demoReservation = {
+              schedule_event_id: event.id,
+              organization_id: 'a0000000-0000-0000-0000-000000000001',
+              title: event.scenario || '',
+              scenario_id: eventDetails.scenario_id || null,
+              store_id: eventDetails.store_id || null,
+              customer_id: null,
+              customer_notes: `デモ参加者${neededParticipants}名`,
+              requested_datetime: `${eventDetails.date}T${eventDetails.start_time}+09:00`,
+              duration: scenario?.duration || 120,
+              participant_count: neededParticipants,
+              participant_names: Array(neededParticipants).fill(null).map((_, i) => 
+                neededParticipants === 1 ? 'デモ参加者' : `デモ参加者${i + 1}`
+              ),
+              assigned_staff: eventDetails.gms || [],
+              base_price: participationFee * neededParticipants,
+              options_price: 0,
+              total_price: participationFee * neededParticipants,
+              discount_amount: 0,
+              final_price: participationFee * neededParticipants,
+              payment_method: 'onsite',
+              payment_status: 'paid',
+              status: 'confirmed',
+              reservation_source: 'demo'
+            }
+            
+            await supabase.from('reservations').insert(demoReservation)
+          }
+        }
+        
+        // current_participantsを更新
         const { error } = await supabase
           .from('schedule_events')
           .update({ current_participants: maxParticipants })
@@ -247,6 +315,26 @@ export function ScheduleManager() {
       showToast.error(`エラー: ${err}`)
     } finally {
       setIsFillingSeats(false)
+    }
+  }
+
+  // 全期間のデータ修復（予約レコードがないのにcurrent_participantsが設定されている公演を修復）
+  const handleFixAllData = async () => {
+    if (!confirm('全期間の公演データを修復しますか？\n（予約レコードがない公演にデモ参加者を追加します）')) return
+    
+    setIsFixingData(true)
+    try {
+      const result = await scheduleApi.addDemoParticipantsToAllActiveEvents()
+      if (result.success) {
+        showToast.success(result.message || 'データ修復完了')
+        scheduleTableProps.fetchSchedule?.()
+      } else {
+        showToast.error('データ修復に失敗しました')
+      }
+    } catch (err) {
+      showToast.error(`エラー: ${err}`)
+    } finally {
+      setIsFixingData(false)
     }
   }
 
@@ -533,6 +621,16 @@ export function ScheduleManager() {
               className="h-9 text-xs"
             >
               {isFillingSeats ? '処理中...' : '全満席'}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleFixAllData}
+              disabled={isFixingData}
+              title="予約レコードがない公演にデモ参加者を追加"
+              className="h-9 text-xs"
+            >
+              {isFixingData ? '処理中...' : 'データ修復'}
             </Button>
           </div>
         </div>

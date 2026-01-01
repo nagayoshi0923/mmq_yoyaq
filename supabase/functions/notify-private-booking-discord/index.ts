@@ -292,6 +292,15 @@ serve(async (req) => {
 
     console.log('✅ Processing insert operation')
     const booking = payload.record
+    
+    // デモ予約の場合は通知をスキップ
+    if (booking.reservation_source === 'demo' || booking.reservation_source === 'demo_auto') {
+      console.log('⏭️ Skipping notification for demo reservation')
+      return new Response(
+        JSON.stringify({ message: 'Demo reservation - notification skipped' }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      )
+    }
 
     // 予約データにscenario_titleがない場合（reservationsテーブルなど）、DBから取得を試みる
     if (!booking.scenario_title && !booking.title && booking.scenario_id) {

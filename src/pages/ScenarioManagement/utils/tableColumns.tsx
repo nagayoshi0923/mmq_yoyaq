@@ -1,9 +1,8 @@
 import { showToast } from '@/utils/toast'
 import React from 'react'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
-import { Clock, Users, Star, Edit, Trash2, Upload, X } from 'lucide-react'
+import { Clock, Users, Star, Upload, X } from 'lucide-react'
 import type { Column } from '@/components/patterns/table'
 import type { Scenario } from '@/types'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -30,13 +29,21 @@ interface StoreInfo {
   is_temporary?: boolean
 }
 
+// シナリオ統計の型
+interface ScenarioStats {
+  performanceCount: number
+  cancelledCount: number
+  totalRevenue: number
+}
+
 /**
  * シナリオテーブルの列定義を生成
  */
 export function createScenarioColumns(
   displayMode: 'compact' | 'detailed',
   actions: ScenarioActionsProps,
-  storeMap?: Map<string, StoreInfo>
+  storeMap?: Map<string, StoreInfo>,
+  scenarioStats?: Record<string, ScenarioStats>
 ): Column<Scenario>[] {
   const columns: Column<Scenario>[] = [
     {
@@ -210,7 +217,22 @@ export function createScenarioColumns(
           {formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}
         </p>
       )
-    }
+    },
+    // 公演回数（統計データがある場合のみ表示）
+    {
+      key: 'performance_count',
+      header: '公演',
+      width: 'w-16',
+      sortable: true,
+      sortValue: (scenario) => scenarioStats?.[scenario.id]?.performanceCount ?? 0,
+      render: (scenario) => {
+        const stats = scenarioStats?.[scenario.id]
+        if (!stats) return <span className="text-xs text-muted-foreground">-</span>
+        return (
+          <span className="text-sm font-medium">{stats.performanceCount}</span>
+        )
+      }
+    },
   ]
 
   // displayMode に応じて列を追加
@@ -373,45 +395,78 @@ export function createScenarioColumns(
       }
     )
   } else {
-    // detailed モード
+    // detailed モード（売上情報を表示）
     columns.push(
       {
-        key: 'difficulty',
-        header: '難易度',
-        width: 'w-24',
-        sortable: true,
-        render: (scenario) => (
-          <div className="flex items-center gap-1">
-            {[...Array(5)].map((_, i) => (
-              <Star 
-                key={i} 
-                className={`h-3 w-3 ${i < getDifficultyStars(scenario.difficulty) ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} 
-              />
-            ))}
-          </div>
-        )
-      },
-      {
-        key: 'license',
-        header: 'ライセンス料',
-        width: 'w-28',
+        key: 'revenue_breakdown',
+        header: '1公演利益',
+        width: 'w-44',
         render: (scenario) => {
-          const normalLicense = scenario.license_amount || 0
-          const gmTestLicense = scenario.gm_test_license_amount || 0
+          // 売上計算用のデータ
+          const maxPlayers = scenario.player_count_max || 6
+          const normalFee = scenario.participation_fee || 0
+          const gmTestFee = Math.max(0, normalFee - 1000) // GMテストは通常-1000円
           
-          if (normalLicense === 0 && gmTestLicense === 0) {
-            return <p className="text-sm text-right text-muted-foreground">¥0</p>
-          }
+          // GM報酬（gm_assignmentsから計算、なければ推定）
+          const gmReward = scenario.gm_assignments?.reduce((sum: number, a: { reward?: number }) => sum + (a.reward || 0), 0) || 7000
+          
+          // ライセンス料
+          const normalLicense = scenario.license_amount || 0
+          
+          // 利益計算
+          const normalProfit = (normalFee * maxPlayers) - gmReward - normalLicense
+          const gmTestProfit = (gmTestFee * maxPlayers) - gmReward - normalLicense
           
           return (
             <div className="text-xs space-y-0.5">
-              <p className="text-right">
-                通常: ¥{normalLicense.toLocaleString()}
+              <p className="flex justify-between">
+                <span className="text-muted-foreground">通常:</span>
+                <span className={normalProfit >= 0 ? 'text-green-600 font-medium' : 'text-red-500'}>
+                  ¥{normalProfit.toLocaleString()}
+                </span>
               </p>
-              <p className="text-right text-muted-foreground">
-                GMテスト: ¥{gmTestLicense.toLocaleString()}
+              <p className="flex justify-between">
+                <span className="text-muted-foreground">GMテスト:</span>
+                <span className={gmTestProfit >= 0 ? 'text-green-600 font-medium' : 'text-red-500'}>
+                  ¥{gmTestProfit.toLocaleString()}
+                </span>
               </p>
             </div>
+          )
+        }
+      },
+      {
+        key: 'depreciation_remaining',
+        header: '償却残',
+        width: 'w-20',
+        headerClassName: 'text-right',
+        cellClassName: 'text-right',
+        render: (scenario) => {
+          const stats = scenarioStats?.[scenario.id]
+          const performanceCount = stats?.performanceCount || 0
+          
+          // 制作費を計算
+          const productionCosts = scenario.production_costs as Array<{item: string, amount: number}> | undefined
+          const totalProductionCost = productionCosts?.reduce((sum, cost) => sum + (cost.amount || 0), 0) || 0
+          
+          // 減価償却設定
+          const depPerPerf = scenario.depreciation_per_performance || 0
+          
+          if (totalProductionCost === 0 || depPerPerf === 0) {
+            return <span className="text-xs text-muted-foreground">-</span>
+          }
+          
+          // 償却済み額と残り回数を計算
+          const depreciated = Math.min(depPerPerf * performanceCount, totalProductionCost)
+          const remaining = totalProductionCost - depreciated
+          const remainingPerformances = remaining > 0 ? Math.ceil(remaining / depPerPerf) : 0
+          
+          if (remainingPerformances === 0) {
+            return <span className="text-xs text-green-600 font-medium">完了</span>
+          }
+          
+          return (
+            <span className="text-sm font-medium">{remainingPerformances}回</span>
           )
         }
       }
@@ -475,36 +530,6 @@ export function createScenarioColumns(
       }
     })
   }
-
-  // アクション列
-  columns.push({
-    key: 'actions',
-      header: 'アクション',
-    width: 'w-24',
-    headerClassName: 'text-center',
-    render: (scenario) => (
-      <div className="flex gap-1 justify-center">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="h-6 w-6 p-0"
-          title="編集"
-          onClick={() => actions.onEdit(scenario)}
-        >
-          <Edit className="h-4 w-4" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-          title="削除"
-          onClick={() => actions.onDelete(scenario)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    )
-  })
 
   return columns
 }

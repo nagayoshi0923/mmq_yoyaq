@@ -136,6 +136,12 @@ export function ReservationList({
             const data = await reservationApi.getByScheduleEvent(event.id)
             logger.log('通常予約データ取得:', { eventId: event.id, count: data.length })
             setReservations(data)
+            
+            // 予約リストから合計人数を計算して同期
+            const totalParticipants = data.reduce((sum, r) => sum + (r.participant_count || 0), 0)
+            if (onParticipantChange && event.id) {
+              onParticipantChange(event.id, totalParticipants)
+            }
           }
         } catch (error) {
           logger.error('予約データの取得に失敗:', error)
@@ -411,7 +417,39 @@ export function ReservationList({
 
       setCancellingReservation(null)
       
-      if (isStaff) {
+      // スタッフ参加の場合、GM欄からも連動して削除（再作成防止）
+      if (isStaff && onGmsChange && cancellingReservation.participant_names?.length) {
+        const staffName = cancellingReservation.participant_names[0]
+        // 現在のGM欄の情報を取得してスタッフ参加を解除
+        const { data: eventData } = await supabase
+          .from('schedule_events')
+          .select('gms, gm_roles')
+          .eq('id', event.id)
+          .single()
+        
+        if (eventData) {
+          const currentGms = eventData.gms || []
+          const currentRoles = eventData.gm_roles || {}
+          
+          // このスタッフがGM欄でスタッフ参加として設定されている場合、GMリストから削除
+          if (currentRoles[staffName] === 'staff') {
+            const newGms = currentGms.filter((g: string) => g !== staffName)
+            const newRoles = { ...currentRoles }
+            delete newRoles[staffName]
+            
+            // DB更新
+            await supabase
+              .from('schedule_events')
+              .update({ gms: newGms, gm_roles: newRoles })
+              .eq('id', event.id)
+            
+            // 親コンポーネントに通知
+            onGmsChange(newGms, newRoles)
+            logger.log('GM欄からスタッフ参加を削除:', staffName)
+          }
+        }
+        showToast.success('スタッフ参加を削除しました')
+      } else if (isStaff) {
         showToast.success('スタッフ参加を削除しました')
       } else {
         showToast.success('予約をキャンセルしました', '※ 顧客情報が不足しているため、キャンセル確認メールは送信されませんでした')
@@ -847,9 +885,66 @@ export function ReservationList({
                                 </span>
                               )}
                             </span>
-                            <span className="text-xs text-muted-foreground flex-shrink-0 w-[60px]">
-                              {reservation.participant_count ? `${reservation.participant_count}名` : '-'}
-                            </span>
+                            <Select 
+                              value={String(reservation.participant_count || 1)}
+                              onValueChange={async (value) => {
+                                const newCount = parseInt(value)
+                                const oldCount = reservation.participant_count || 0
+                                const diff = newCount - oldCount
+                                
+                                // 予約の人数を更新
+                                const { error } = await supabase
+                                  .from('reservations')
+                                  .update({ 
+                                    participant_count: newCount,
+                                    participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者')
+                                  })
+                                  .eq('id', reservation.id)
+                                
+                                if (error) {
+                                  showToast.error('人数の更新に失敗しました')
+                                  return
+                                }
+                                
+                                // current_participantsも更新
+                                if (event?.id) {
+                                  const { data: eventData } = await supabase
+                                    .from('schedule_events')
+                                    .select('current_participants')
+                                    .eq('id', event.id)
+                                    .single()
+                                  
+                                  const currentCount = eventData?.current_participants || 0
+                                  const newEventCount = Math.max(0, currentCount + diff)
+                                  
+                                  await supabase
+                                    .from('schedule_events')
+                                    .update({ current_participants: newEventCount })
+                                    .eq('id', event.id)
+                                  
+                                  onParticipantChange?.(event.id, newEventCount)
+                                }
+                                
+                                // ローカルの予約データを更新
+                                setReservations(prev => 
+                                  prev.map(r => r.id === reservation.id 
+                                    ? { ...r, participant_count: newCount }
+                                    : r
+                                  )
+                                )
+                                
+                                showToast.success('人数を更新しました')
+                              }}
+                            >
+                              <SelectTrigger className="w-[60px] h-7 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                                  <SelectItem key={n} value={String(n)}>{n}名</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <span className="hidden sm:block text-xs text-muted-foreground w-[100px]">
                               {reservation.created_at ? new Date(reservation.created_at).toLocaleString('ja-JP', {
                                 month: 'numeric',
@@ -890,10 +985,86 @@ export function ReservationList({
                         {isExpanded && (
                           <div className="px-3 pb-3 pt-0 border-t">
                             <div className="grid grid-cols-2 gap-3 text-sm mt-3">
-                              {/* TODO: customer_emailは別途実装が必要 */}
-                              {/* TODO: customer_phoneは別途実装が必要 */}
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">人数</Label>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    max={20}
+                                    value={reservation.participant_count}
+                                    onChange={async (e) => {
+                                      const newCount = parseInt(e.target.value) || 1
+                                      if (newCount < 1 || newCount > 20) return
+                                      
+                                      const oldCount = reservation.participant_count
+                                      const diff = newCount - oldCount
+                                      
+                                      // 予約の人数を更新
+                                      const { error } = await supabase
+                                        .from('reservations')
+                                        .update({ 
+                                          participant_count: newCount,
+                                          participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者')
+                                        })
+                                        .eq('id', reservation.id)
+                                      
+                                      if (error) {
+                                        showToast.error('人数の更新に失敗しました')
+                                        return
+                                      }
+                                      
+                                      // current_participantsも更新
+                                      if (event?.id) {
+                                        const { data: eventData } = await supabase
+                                          .from('schedule_events')
+                                          .select('current_participants')
+                                          .eq('id', event.id)
+                                          .single()
+                                        
+                                        const currentCount = eventData?.current_participants || 0
+                                        const newEventCount = Math.max(0, currentCount + diff)
+                                        
+                                        await supabase
+                                          .from('schedule_events')
+                                          .update({ current_participants: newEventCount })
+                                          .eq('id', event.id)
+                                        
+                                        onParticipantChange?.(event.id, newEventCount)
+                                      }
+                                      
+                                      // ローカルの予約データを更新
+                                      setReservations(prev => 
+                                        prev.map(r => r.id === reservation.id 
+                                          ? { ...r, participant_count: newCount }
+                                          : r
+                                        )
+                                      )
+                                      
+                                      showToast.success('人数を更新しました')
+                                    }}
+                                    className="w-20 h-8 text-sm"
+                                  />
+                                  <span className="text-xs text-muted-foreground">名</span>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">予約ソース</Label>
+                                <div className="text-sm">
+                                  {reservation.reservation_source === 'demo' ? 'デモ' : 
+                                   reservation.reservation_source === 'staff_participation' ? 'スタッフ参加' :
+                                   reservation.reservation_source === 'web' ? 'Web予約' :
+                                   reservation.reservation_source === 'walk_in' ? '当日予約' :
+                                   reservation.reservation_source || '-'}
+                                </div>
+                              </div>
                             </div>
-                            {/* TODO: notesは別途実装が必要 */}
+                            {reservation.customer_notes && (
+                              <div className="mt-3">
+                                <Label className="text-xs text-muted-foreground">備考</Label>
+                                <div className="text-sm mt-1">{reservation.customer_notes}</div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
