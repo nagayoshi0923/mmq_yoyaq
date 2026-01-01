@@ -86,24 +86,24 @@ export const EventList = memo(function EventList({
               </div>
               
               {/* 右：残り人数 + ボタン */}
-              <div className="flex-shrink-0 flex flex-col items-end gap-1">
+              <div className="flex-shrink-0 flex items-center gap-3">
                 {event.available_seats === 0 ? (
                   <Badge variant="secondary" className="text-xs">
                     満席
                   </Badge>
                 ) : (
                   <>
-                    <div className="text-xs text-muted-foreground whitespace-nowrap">
-                      残り{event.available_seats}人
+                    <div className="text-sm text-muted-foreground whitespace-nowrap">
+                      残り<span className="font-semibold text-foreground">{event.available_seats}</span>人
                     </div>
                     <Button
                       variant={isSelected ? "default" : "outline"}
                       size="sm"
-                      className={`h-7 px-3 text-xs touch-manipulation ${
+                      className={`h-8 px-4 text-sm touch-manipulation ${
                         isSelected ? "bg-blue-500 hover:bg-blue-600" : ""
                       }`}
                     >
-                      {isSelected ? '✓ 選択中' : '選択'}
+                      {isSelected ? '選択中' : '選択'}
                     </Button>
                   </>
                 )}
