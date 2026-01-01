@@ -129,9 +129,12 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       }
       
       // 店舗取得（organization_idでフィルタリング）
-      const storeQuery = supabase.from('stores').select('*')
+      // オフィスと臨時会場を除外（予約サイトでは会場として使用しない）
+      let storeQuery = supabase.from('stores').select('*')
+        .neq('ownership_type', 'office')
+        .or('is_temporary.is.null,is_temporary.eq.false')
       if (orgId) {
-        storeQuery.eq('organization_id', orgId)
+        storeQuery = storeQuery.eq('organization_id', orgId)
       }
       
       const [scenariosResult, storesResult, settingsResult] = await Promise.all([
