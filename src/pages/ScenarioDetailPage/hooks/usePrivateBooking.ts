@@ -24,7 +24,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   const [allStoreEvents, setAllStoreEvents] = useState<any[]>([])
   // 営業時間設定のキャッシュ（店舗IDをキーにする）
   const [businessHoursCache, setBusinessHoursCache] = useState<Map<string, any>>(new Map())
-  const MAX_SELECTIONS = 10
+  const MAX_SELECTIONS = 6
 
   // 現在の月から3ヶ月先までの全店舗のイベントを取得（貸切申込可能日判定用）
   useEffect(() => {

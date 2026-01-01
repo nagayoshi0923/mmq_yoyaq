@@ -20,6 +20,7 @@ interface PrivateBookingFormProps {
   selectedSlots: Array<{ date: string; slot: TimeSlot }>
   onTimeSlotToggle: (date: string, slot: TimeSlot) => void
   checkTimeSlotAvailability: (date: string, slot: TimeSlot, storeIds?: string[]) => Promise<boolean>
+  maxSelections: number
 }
 
 /**
@@ -35,8 +36,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   timeSlots,
   selectedSlots,
   onTimeSlotToggle,
-  checkTimeSlotAvailability
+  checkTimeSlotAvailability,
+  maxSelections
 }: PrivateBookingFormProps) {
+  const remainingSelections = maxSelections - selectedSlots.length
   // 各時間枠の可用性を管理する状態
   const [availabilityMap, setAvailabilityMap] = useState<Record<string, boolean>>({})
   
@@ -115,8 +118,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         )}
       </div>
       
-      {/* 月切り替え */}
-      <div className="flex items-center justify-between mb-3">
+      {/* 月切り替え + 選択状況 */}
+      <div className="flex items-center justify-between mb-2">
         <button
           onClick={() => onMonthChange(-1)}
           disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
@@ -133,6 +136,21 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         >
           次月 →
         </button>
+      </div>
+      
+      {/* 選択状況 */}
+      <div className="text-xs text-muted-foreground mb-3 text-center">
+        {selectedSlots.length === 0 ? (
+          <span>候補日時を選択してください（最大{maxSelections}件）</span>
+        ) : remainingSelections > 0 ? (
+          <span>
+            <span className="font-medium text-purple-600">{selectedSlots.length}件</span>選択中
+            <span className="mx-1">･</span>
+            あと<span className="font-medium">{remainingSelections}件</span>選択可能
+          </span>
+        ) : (
+          <span className="text-orange-600 font-medium">選択上限に達しました（{maxSelections}件）</span>
+        )}
       </div>
       
       <div className="space-y-2 max-h-96 overflow-y-auto">

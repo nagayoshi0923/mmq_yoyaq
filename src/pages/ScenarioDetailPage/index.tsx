@@ -308,6 +308,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     selectedSlots={selectedTimeSlots}
                     onTimeSlotToggle={toggleTimeSlot}
                     checkTimeSlotAvailability={checkTimeSlotAvailability}
+                    maxSelections={MAX_SELECTIONS}
                   />
                   
                   {/* 選択された時間枠の表示 */}
