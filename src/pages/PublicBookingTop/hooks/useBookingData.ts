@@ -129,10 +129,10 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       }
       
       // 店舗取得（organization_idでフィルタリング）
-      // オフィスと臨時会場を除外（予約サイトでは会場として使用しない）
+      // オフィスのみ除外（臨時会場はオープン公演がある日のみ表示するため、取得は行う）
       let storeQuery = supabase.from('stores').select('*')
         .neq('ownership_type', 'office')
-        .or('is_temporary.is.null,is_temporary.eq.false')
+        .order('display_order', { ascending: true, nullsFirst: false })
       if (orgId) {
         storeQuery = storeQuery.eq('organization_id', orgId)
       }
