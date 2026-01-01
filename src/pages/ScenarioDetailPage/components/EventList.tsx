@@ -58,14 +58,16 @@ export const EventList = memo(function EventList({
             }}
           >
             <div className="flex items-center gap-3 p-3 touch-manipulation">
-              {/* 左：日付 + 時間 + 店舗 + タイトル */}
+              {/* 左：日付（縦並び） */}
+              <div className="flex-shrink-0 w-12 text-center">
+                <div className="text-base font-semibold leading-tight">{month}/{day}</div>
+                <div className={`text-sm ${weekdayColor}`}>({weekday})</div>
+              </div>
+              
+              {/* 中央：時間 + 店舗 + タイトル */}
               <div className="flex-1 min-w-0 space-y-1">
-                {/* 1行目: 日付・時間・店舗 */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold">
-                    {month}/{day}<span className={`ml-0.5 ${weekdayColor}`}>({weekday})</span>
-                  </span>
-                  <span className="text-muted-foreground">
+                  <span className="text-sm">
                     {formatTime(event.start_time)}〜
                   </span>
                   <span 
@@ -78,7 +80,6 @@ export const EventList = memo(function EventList({
                     {event.store_short_name}
                   </span>
                 </div>
-                {/* 2行目: タイトル */}
                 <div className="text-xs text-muted-foreground truncate">
                   {event.scenario_title || scenarioTitle}
                 </div>
