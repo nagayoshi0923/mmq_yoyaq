@@ -204,7 +204,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     return (
       <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
-        <div className="container mx-auto max-w-7xl px-[10px] py-16">
+        <div className="container mx-auto max-w-7xl px-4 md:px-6 py-16">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">組織が見つかりません</h1>
             <p className="text-gray-600 mb-8">
@@ -231,9 +231,9 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
 
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-        <div className="container mx-auto max-w-7xl px-[10px] py-5 md:py-4">
-          <h1 className="text-lg md:text-base font-medium mb-1">{organizationName || 'Murder Mystery Quest'}</h1>
-          <p className="text-sm md:text-xs text-purple-100">
+        <div className="container mx-auto max-w-7xl px-4 md:px-6 py-4 md:py-3">
+          <h1 className="text-base font-medium mb-0.5">{organizationName || 'Murder Mystery Quest'}</h1>
+          <p className="text-sm text-purple-100/90">
             リアルな謎解き体験。あなたは事件の真相を暴けるか？
           </p>
         </div>
@@ -241,18 +241,18 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
 
       {/* 検索バー */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="container mx-auto max-w-7xl px-[10px] py-2 md:py-1.5">
+        <div className="container mx-auto max-w-7xl px-4 md:px-6 py-2">
           <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-[10px] py-4 md:py-4">
+      <div className="container mx-auto max-w-7xl px-4 md:px-6 py-4">
         {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-4 md:mb-5 p-0.5 md:p-1 h-auto">
-              <TabsTrigger value="lineup" className="text-sm px-3 py-2 md:py-1.5">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar" className="text-sm px-3 py-2 md:py-1.5">カレンダー</TabsTrigger>
-              <TabsTrigger value="list" className="text-sm px-3 py-2 md:py-1.5">リスト</TabsTrigger>
+            <TabsList className="grid w-full max-w-sm mx-auto grid-cols-3 mb-4 p-0.5 h-auto">
+              <TabsTrigger value="lineup" className="text-sm px-2 py-1.5">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-sm px-2 py-1.5">カレンダー</TabsTrigger>
+              <TabsTrigger value="list" className="text-sm px-2 py-1.5">リスト</TabsTrigger>
             </TabsList>
 
             {/* ラインナップ表示 */}
