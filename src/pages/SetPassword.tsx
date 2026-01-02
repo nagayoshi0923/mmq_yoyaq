@@ -196,7 +196,7 @@ export function SetPassword() {
           <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
             <Button
               className="w-full h-10 sm:h-11 text-sm sm:text-base"
-              onClick={() => window.location.hash = '#login'}
+              onClick={() => window.location.href = '/login'}
             >
               今すぐログイン
             </Button>

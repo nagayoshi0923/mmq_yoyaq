@@ -56,7 +56,7 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
   // 貸切リクエスト開始
   const handlePrivateBookingRequest = useCallback((isLoggedIn: boolean) => {
     if (!isLoggedIn) {
-      window.location.hash = 'login'
+      window.location.href = '/login'
       return
     }
     setShowPrivateBookingRequest(true)

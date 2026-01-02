@@ -34,7 +34,7 @@ export function BookingConfirmation({
   onComplete
 }: BookingConfirmationProps) {
   // 予約サイトのベースパス
-  const bookingBasePath = organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'
+  const bookingBasePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
   const { user } = useAuth()
   const availableSeats = maxParticipants - currentParticipants
 
@@ -119,7 +119,7 @@ export function BookingConfirmation({
               </p>
               <div className="pt-4">
                 <Button
-                  onClick={() => window.location.hash = bookingBasePath}
+                  onClick={() => window.location.href = bookingBasePath}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   予約サイトトップに戻る

@@ -142,7 +142,7 @@ export default function AcceptInvitation({ token }: AcceptInvitationProps) {
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-muted-foreground mb-6">{error}</p>
-            <Button onClick={() => window.location.hash = 'login'}>
+            <Button onClick={() => window.location.href = '/login'}>
               ログインページへ
             </Button>
           </CardContent>
@@ -169,7 +169,7 @@ export default function AcceptInvitation({ token }: AcceptInvitationProps) {
             <p className="text-sm text-muted-foreground mb-6">
               メール認証後、設定したパスワードでログインできます。
             </p>
-            <Button onClick={() => window.location.hash = 'login'}>
+            <Button onClick={() => window.location.href = '/login'}>
               ログインページへ
             </Button>
           </CardContent>
@@ -274,7 +274,7 @@ export default function AcceptInvitation({ token }: AcceptInvitationProps) {
 
           <p className="text-xs text-center text-muted-foreground mt-4">
             既にアカウントをお持ちの場合は
-            <a href="#login" className="text-primary hover:underline ml-1">
+            <a href="/login" className="text-primary hover:underline ml-1">
               ログイン
             </a>
           </p>

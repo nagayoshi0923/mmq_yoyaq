@@ -36,7 +36,7 @@ export const LineupView = memo(function LineupView({
   const displayedNewScenarios = newScenarios.slice(0, 10)
   
   const handleCatalogClick = () => {
-    window.location.hash = 'catalog'
+    window.location.href = '/catalog'
   }
   
   // 検索中は全シナリオから検索結果を表示

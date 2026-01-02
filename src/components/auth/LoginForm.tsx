@@ -106,16 +106,16 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
             
             // 管理者・スタッフはダッシュボードへ、それ以外は予約サイトへ
             if (staffData.role === 'admin' || staffData.role === 'staff') {
-              window.location.hash = 'dashboard'
+              window.location.href = '/dashboard'
             } else {
-              window.location.hash = `booking/${slug}`
+              window.location.href = `/${slug}`
             }
           } else {
             // スタッフでない場合（顧客）はデフォルトの予約サイトへ
-            window.location.hash = 'booking/queens-waltz'
+            window.location.href = '/queens-waltz'
           }
         } else {
-          window.location.hash = 'booking/queens-waltz'
+          window.location.href = '/queens-waltz'
         }
       }
     } catch (error: unknown) {
@@ -234,10 +234,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 onClick={() => {
                   if (isSignUp) {
                     // 新規登録からログインに戻る場合はログインページに遷移
-                    window.location.hash = 'login'
+                    window.location.href = '/login'
                   } else {
                     // ログインから新規登録に切り替える場合は新規登録ページに遷移
-                    window.location.hash = 'signup'
+                    window.location.href = '/signup'
                   }
                 }}
               >

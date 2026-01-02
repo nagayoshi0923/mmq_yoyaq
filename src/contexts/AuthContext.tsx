@@ -266,7 +266,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setIsInitialized(true)
             // ページをリロードしてクリーンな状態にする（現在の組織を維持）
             const slug = getOrganizationSlugFromUrl()
-            window.location.href = `/#booking/${slug}`
+            window.location.href = `/${slug}`
             break
           case 'SIGNED_IN':
             // 他のタブでログインした場合、セッションをリフレッシュ

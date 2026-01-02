@@ -302,7 +302,7 @@ export const CalendarView = memo(function CalendarView({
                               key={slot}
                               className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 rounded text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
                               onClick={() => {
-                                window.location.hash = `#private-booking-select?date=${dateStr}&store=${selectedStore.id}&slot=${slot}`
+                                window.location.href = `/private-booking-select?date=${dateStr}&store=${selectedStore.id}&slot=${slot}`
                               }}
                             >
                               {label} 貸切申込

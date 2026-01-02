@@ -1,4 +1,5 @@
-import React, { useState, useCallback, lazy, Suspense } from 'react'
+import React, { useState, useCallback, lazy, Suspense, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/Header'
@@ -17,7 +18,6 @@ import {
 } from 'lucide-react'
 
 // コード分割：各ページを動的インポート
-// v1.1: DashboardHomeの読み込み問題を解消するためのキャッシュバスター
 const StoreManagement = lazy(() => import('./StoreManagement').then(m => ({ default: m.StoreManagement })))
 const ScenarioManagement = lazy(() => import('./ScenarioManagement').then(m => ({ default: m.ScenarioManagement })))
 const ScenarioEdit = lazy(() => import('./ScenarioEdit'))
@@ -41,7 +41,6 @@ const ScenarioMatcher = lazy(() => import('./ScenarioMatcher').then(m => ({ defa
 const ManualPage = lazy(() => import('./Manual/index').then(m => ({ default: m.ManualPage })))
 const DashboardHome = lazy(() => import('./DashboardHome').then(m => ({ default: m.DashboardHome })))
 const StaffProfile = lazy(() => import('./StaffProfile').then(m => ({ default: m.StaffProfile })))
-// マルチテナント対応ページ
 const OrganizationManagement = lazy(() => import('./OrganizationManagement'))
 const ExternalReports = lazy(() => import('./ExternalReports'))
 const LicenseReportManagement = lazy(() => import('./LicenseReportManagement'))
@@ -54,277 +53,148 @@ const AuthorDashboard = lazy(() => import('./AuthorDashboard'))
 const AuthorLogin = lazy(() => import('./AuthorLogin'))
 const ExternalReportForm = lazy(() => import('./ExternalReportForm'))
 
-/**
- * 現在のURLからorganizationSlugを抽出するヘルパー関数
- */
-function getOrganizationSlugFromUrl(): string {
-  const hash = window.location.hash.replace('#', '')
-  const bookingMatch = hash.match(/^booking\/([^/]+)/)
-  return bookingMatch ? bookingMatch[1] : 'queens-waltz'
+// 管理ページのパス一覧
+const ADMIN_PATHS = [
+  'dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
+  'schedule', 'shift-submission', 'gm-availability', 'private-booking-management',
+  'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants',
+  'scenario-matcher', 'organizations', 'external-reports', 'license-reports', 'license-management'
+]
+
+// パスを解析してページ情報を返す
+function parsePath(pathname: string): { page: string, scenarioId: string | null, organizationSlug: string | null } {
+  // 先頭のスラッシュを除去
+  const path = pathname.startsWith('/') ? pathname.substring(1) : pathname
+  const segments = path.split('/')
+  
+  // 空パスはダッシュボード
+  if (!path || path === '') {
+    return { page: 'dashboard', scenarioId: null, organizationSlug: null }
+  }
+  
+  // /scenario-detail/{scenarioId}
+  if (segments[0] === 'scenario-detail' && segments[1]) {
+    return { page: 'scenario-detail', scenarioId: segments[1], organizationSlug: null }
+  }
+  
+  // /{slug}/scenario/{scenarioId} - 予約サイトのシナリオ詳細
+  if (segments.length >= 3 && segments[1] === 'scenario' && !ADMIN_PATHS.includes(segments[0])) {
+    return { page: 'booking', scenarioId: segments[2], organizationSlug: segments[0] }
+  }
+  
+  // /{slug}/calendar, /{slug}/private-booking など
+  if (segments.length >= 2 && !ADMIN_PATHS.includes(segments[0])) {
+    const subPage = segments[1]
+    if (subPage === 'calendar' || subPage === 'private-booking' || subPage === 'private-booking-request') {
+      return { page: 'booking', scenarioId: null, organizationSlug: segments[0] }
+    }
+  }
+  
+  // /{slug} - 予約サイトトップ（管理パス以外）
+  if (segments.length === 1 && !ADMIN_PATHS.includes(segments[0])) {
+    // 特殊ページのチェック
+    const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'register', 'about', 
+      'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'catalog', 'my-page']
+    if (specialPages.includes(segments[0])) {
+      return { page: segments[0], scenarioId: null, organizationSlug: null }
+    }
+    return { page: 'booking', scenarioId: null, organizationSlug: segments[0] }
+  }
+  
+  // /scenarios/edit/{scenarioId}
+  if (segments[0] === 'scenarios' && segments[1] === 'edit') {
+    return { page: 'scenarios-edit', scenarioId: segments[2] || null, organizationSlug: null }
+  }
+  
+  // /private-booking-select, /private-booking-request など
+  if (segments[0] === 'private-booking-select') {
+    return { page: 'private-booking-select', scenarioId: null, organizationSlug: null }
+  }
+  if (segments[0] === 'private-booking-request') {
+    return { page: 'private-booking-request', scenarioId: null, organizationSlug: null }
+  }
+  
+  // 管理ページ
+  if (ADMIN_PATHS.includes(segments[0])) {
+    return { page: segments[0], scenarioId: null, organizationSlug: null }
+  }
+  
+  // デフォルト
+  return { page: segments[0] || 'dashboard', scenarioId: null, organizationSlug: null }
 }
 
 export function AdminDashboard() {
   const { user, loading, isInitialized } = useAuth()
-
-  // 管理ツールのページ一覧（顧客がアクセスできないページ）
-  const adminOnlyPages = [
-    'dashboard',
-    'stores',
-    'staff',
-    'staff-profile',
-    'scenarios',
-    'scenarios-edit',
-    'schedule',
-    'shift-submission',
-    'gm-availability',
-    'private-booking-management',
-    'reservations',
-    'accounts',
-    'sales',
-    'settings',
-    'manual',
-    'add-demo-participants',
-    'scenario-matcher',
-    'organizations',
-    'external-reports',
-    'license-reports',
-    'license-management'
-  ]
-
-  // ハッシュを解析してページ、シナリオID、組織slugを返すユーティリティ
-  function parseHash(hash: string, userRole?: string | null): { page: string, scenarioId: string | null, organizationSlug: string | null } {
-    // scenario-detail/{scenarioId} のルーティング
-    const scenarioDetailMatch = hash.match(/scenario-detail\/([^/?]+)/)
-    if (scenarioDetailMatch) {
-      return { page: 'scenario-detail', scenarioId: scenarioDetailMatch[1], organizationSlug: null }
-    }
-    
-    // booking/{slug}/scenario/{scenarioId} のルーティング（新形式）
-    const bookingScenarioMatch = hash.match(/booking\/([^/]+)\/scenario\/([^/?]+)/)
-    if (bookingScenarioMatch) {
-      return { page: 'booking', scenarioId: bookingScenarioMatch[2], organizationSlug: bookingScenarioMatch[1] }
-    }
-    
-    // booking/{slug} のルーティング（新形式）
-    const bookingMatch = hash.match(/booking\/([^/?]+)/)
-    if (bookingMatch && !hash.includes('/scenario/')) {
-      return { page: 'booking', scenarioId: null, organizationSlug: bookingMatch[1] }
-    }
-    
-    // 旧形式: customer-booking/scenario/{scenarioId}（後方互換性）
-    const scenarioMatch = hash.match(/customer-booking\/scenario\/([^/?]+)/)
-    if (scenarioMatch) {
-      return { page: 'customer-booking', scenarioId: scenarioMatch[1], organizationSlug: null }
-    }
-    // staff/edit/{staffId} のルーティング
-    if (hash.startsWith('staff/edit/') || hash.startsWith('staff-edit/')) {
-      return { page: 'staff', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('scenarios/edit')) {
-      return { page: 'scenarios-edit', scenarioId: null, organizationSlug: null }
-    }
-    // 旧形式: customer-booking（後方互換性）
-    if (hash.startsWith('customer-booking')) {
-      return { page: 'customer-booking', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('private-booking-select')) {
-      return { page: 'private-booking-select', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('private-booking-request')) {
-      return { page: 'private-booking-request', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('private-booking-management')) {
-      return { page: 'private-booking-management', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('accounts')) {
-      return { page: 'accounts', scenarioId: null, organizationSlug: null }
-    }
-    // 旧URL互換: user-management, customer-management → accounts にリダイレクト
-    if (hash.startsWith('user-management') || hash.startsWith('customer-management')) {
-      return { page: 'accounts', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('add-demo-participants')) {
-      return { page: 'add-demo-participants', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('scenario-matcher')) {
-      return { page: 'scenario-matcher', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('catalog')) {
-      return { page: 'catalog', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('manual')) {
-      return { page: 'manual', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('organizations')) {
-      return { page: 'organizations', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('license-management')) {
-      return { page: 'license-management', scenarioId: null, organizationSlug: null }
-    }
-    // 古いルートは新しいページにリダイレクト
-    if (hash.startsWith('external-reports')) {
-      window.location.hash = 'license-management'
-      return { page: 'license-management', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('license-reports')) {
-      window.location.hash = 'license-management'
-      return { page: 'license-management', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('accept-invitation')) {
-      return { page: 'accept-invitation', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('organization-settings')) {
-      return { page: 'organization-settings', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('register')) {
-      return { page: 'register', scenarioId: null, organizationSlug: null }
-    }
-    if (hash.startsWith('about') || hash.startsWith('service')) {
-      return { page: 'about', scenarioId: null, organizationSlug: null }
-    }
-    // ハッシュからクエリパラメータを分離
-    const hashWithoutQuery = hash.split('?')[0]
-    
-    if (!hash && userRole === 'customer') {
-      // デフォルトでクインズワルツの予約サイトへ
-      return { page: 'booking', scenarioId: null, organizationSlug: 'queens-waltz' }
-    }
-    
-    // loginページは特別扱い
-    if (hashWithoutQuery === 'login') {
-      return { page: 'login', scenarioId: null, organizationSlug: null }
-    }
-    
-    return { page: hashWithoutQuery || 'dashboard', scenarioId: null, organizationSlug: null }
-  }
-
-  const [currentPage, setCurrentPage] = useState(() => {
-    const hash = window.location.hash.slice(1)
-    // ⚠️ 初期化時はユーザー状態を参照せず、ハッシュをそのまま使用
-    // ユーザー状態によるリダイレクトはuseEffect内で処理
-    if (!hash) return 'dashboard'
-    const { page } = parseHash(hash, undefined)  // userRoleは渡さない
-    return page
-  })
+  const location = useLocation()
+  const navigate = useNavigate()
   
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(() => {
-    const { scenarioId } = parseHash(window.location.hash.slice(1), user?.role)
-    return scenarioId
-  })
-  
-  // 組織slug（予約サイトのパス方式用）
-  const [organizationSlug, setOrganizationSlug] = useState<string | null>(() => {
-    const { organizationSlug } = parseHash(window.location.hash.slice(1), user?.role)
-    return organizationSlug
-  })
+  // パスを解析
+  const { page: currentPage, scenarioId: initialScenarioId, organizationSlug } = parsePath(location.pathname)
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(initialScenarioId)
 
-  // ページ変更時にURLのハッシュを更新
+  // パス変更時にシナリオIDを更新
+  useEffect(() => {
+    const { scenarioId } = parsePath(location.pathname)
+    setSelectedScenarioId(scenarioId)
+  }, [location.pathname])
+
+  // ユーザーロールが確定したときに初回リダイレクト
+  useEffect(() => {
+    if (!isInitialized || loading) return
+
+    const isCustomerOrLoggedOut = !user || user.role === 'customer'
+    
+    // 未ログイン + ルートパス → 予約サイト（デフォルト組織）
+    if (!user && location.pathname === '/') {
+      navigate('/queens-waltz', { replace: true })
+      return
+    }
+    
+    // 顧客/ログアウト状態で管理ページにいる場合は予約サイトにリダイレクト
+    if (isCustomerOrLoggedOut && ADMIN_PATHS.includes(currentPage)) {
+      navigate('/queens-waltz', { replace: true })
+      return
+    }
+
+    // スタッフ/管理者がルートパスにいる場合はダッシュボードへ
+    if (user && (user.role === 'admin' || user.role === 'staff') && location.pathname === '/') {
+      navigate('/dashboard', { replace: true })
+      return
+    }
+  }, [user, currentPage, isInitialized, loading, location.pathname, navigate])
+
+  // ページ変更ハンドラ
   const handlePageChange = useCallback((pageId: string) => {
-    setCurrentPage(pageId)
-    setSelectedScenarioId(null) // ページ変更時はシナリオ選択をクリア
-    setOrganizationSlug(null) // ページ変更時は組織slugもクリア
-    // キャッシュ回避のため、明示的に dashboard ハッシュを使用する
-    window.location.hash = pageId
-  }, [])
+    setSelectedScenarioId(null)
+    navigate(`/${pageId}`)
+  }, [navigate])
   
   // シナリオ選択（予約サイト用）
   const handleScenarioSelect = useCallback((scenarioId: string) => {
     setSelectedScenarioId(scenarioId)
-    // 組織slugがある場合は新形式、ない場合は旧形式
     if (organizationSlug) {
-      window.location.hash = `booking/${organizationSlug}/scenario/${scenarioId}`
+      navigate(`/${organizationSlug}/scenario/${scenarioId}`)
     } else {
-      window.location.hash = `customer-booking/scenario/${scenarioId}`
+      navigate(`/queens-waltz/scenario/${scenarioId}`)
     }
-  }, [organizationSlug])
+  }, [navigate, organizationSlug])
 
   // シナリオ詳細を閉じる
   const handleScenarioClose = useCallback(() => {
     setSelectedScenarioId(null)
-    // 組織slugがある場合は新形式、ない場合は旧形式
     if (organizationSlug) {
-      window.location.hash = `booking/${organizationSlug}`
+      navigate(`/${organizationSlug}`)
     } else {
-      window.location.hash = 'customer-booking'
+      navigate('/queens-waltz')
     }
-  }, [organizationSlug])
+  }, [navigate, organizationSlug])
 
-  // ユーザーロールが確定したときに初回リダイレクト
-  // ⚠️ 重要: 認証完了後のみリダイレクト（早期表示時はリダイレクトしない）
-  React.useEffect(() => {
-    // 認証が完了していない場合、またはまだロード中の場合は何もしない
-    if (!isInitialized || loading) {
-      return
-    }
-
-    // ログアウト状態または顧客アカウントの場合
-    const isCustomerOrLoggedOut = !user || user.role === 'customer'
-    
-    const hash = window.location.hash.slice(1)
-    
-    // 未ログイン + ハッシュなし → 予約サイト（デフォルト組織）
-    if (!user && (!hash || hash === '')) {
-      const slug = getOrganizationSlugFromUrl()
-      setCurrentPage('booking')
-      setOrganizationSlug(slug)
-      window.location.hash = `booking/${slug}`
-      return
-    }
-    
-    // 顧客/ログアウト状態でダッシュボードや管理ページにいる場合は予約サイトにリダイレクト
-    if (isCustomerOrLoggedOut && (currentPage === 'dashboard' || adminOnlyPages.includes(currentPage))) {
-      const slug = getOrganizationSlugFromUrl()
-      setCurrentPage('booking')
-      setOrganizationSlug(slug)
-      window.location.hash = `booking/${slug}`
-      return
-    }
-
-    // スタッフ/管理者がログインしていて、ハッシュがない場合はダッシュボードを表示
-    if (user && (user.role === 'admin' || user.role === 'staff')) {
-      if (!hash || hash === '') {
-        setCurrentPage('dashboard')
-        window.location.hash = 'dashboard'
-        return
-      }
-    }
-  }, [user, currentPage, isInitialized, loading])
-
-  // ブラウザの戻る/進むボタンに対応
-  React.useEffect(() => {
-    const handleHashChange = () => {
-      const { page, scenarioId, organizationSlug: orgSlug } = parseHash(window.location.hash.slice(1), user?.role)
-      
-      // ⚠️ 認証完了後かつロード完了後のみリダイレクト判定を行う
-      if (isInitialized && !loading) {
-        // ログアウト状態または顧客アカウントの場合、管理ツールのページへのアクセスを制限
-        const isCustomerOrLoggedOut = !user || user.role === 'customer'
-        const restrictedPages = ['dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher', 'organizations', 'external-reports', 'license-reports']
-        if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
-          // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
-          const slug = getOrganizationSlugFromUrl()
-          setCurrentPage('booking')
-          setOrganizationSlug(slug)
-          window.location.hash = `booking/${slug}`
-          return
-        }
-      }
-      
-      setCurrentPage(page)
-      setSelectedScenarioId(scenarioId)
-      setOrganizationSlug(orgSlug)
-    }
-
-    window.addEventListener('hashchange', handleHashChange)
-    return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [user?.role, user, isInitialized, loading])
-
-  // ログインページはAdminDashboardで表示しない（App.tsxで処理される）
+  // ログインページはAdminDashboardで表示しない
   if (currentPage === 'login') {
     return null
   }
 
-  // ページ切り替え処理（Suspense でラップ）
+  // ページ切り替え処理
   if (currentPage === 'stores') {
     return (
       <Suspense fallback={<LoadingScreen message="店舗管理を読み込み中..." />}>
@@ -381,9 +251,8 @@ export function AdminDashboard() {
     )
   }
   
-  // 予約サイト（新形式: booking/{slug}）
+  // 予約サイト
   if (currentPage === 'booking' && organizationSlug) {
-    // シナリオ詳細が選択されている場合
     if (selectedScenarioId) {
       return (
         <Suspense fallback={<LoadingScreen message="シナリオ詳細を読み込み中..." />}>
@@ -395,34 +264,12 @@ export function AdminDashboard() {
         </Suspense>
       )
     }
-    // トップページを表示
     return (
       <Suspense fallback={<LoadingScreen message="予約サイトを読み込み中..." />}>
         <PublicBookingTop 
           onScenarioSelect={handleScenarioSelect} 
           organizationSlug={organizationSlug}
         />
-      </Suspense>
-    )
-  }
-  
-  // 予約サイト（旧形式: customer-booking）- 後方互換性
-  if (currentPage === 'customer-booking') {
-    // シナリオ詳細が選択されている場合
-    if (selectedScenarioId) {
-      return (
-        <Suspense fallback={<LoadingScreen message="シナリオ詳細を読み込み中..." />}>
-          <ScenarioDetailPage 
-            scenarioId={selectedScenarioId}
-            onClose={handleScenarioClose}
-          />
-        </Suspense>
-      )
-    }
-    // トップページを表示
-    return (
-      <Suspense fallback={<LoadingScreen message="予約サイトを読み込み中..." />}>
-        <PublicBookingTop onScenarioSelect={handleScenarioSelect} />
       </Suspense>
     )
   }
@@ -435,18 +282,14 @@ export function AdminDashboard() {
     )
   }
   
-  // シナリオ詳細ページ（カタログからの遷移）
   if (currentPage === 'scenario-detail') {
-    const hash = window.location.hash.slice(1)
-    const scenarioDetailMatch = hash.match(/scenario-detail\/([^/?]+)/)
-    const scenarioId = scenarioDetailMatch ? scenarioDetailMatch[1] : null
-    
+    const { scenarioId } = parsePath(location.pathname)
     if (scenarioId) {
       return (
         <Suspense fallback={<LoadingScreen message="シナリオ詳細を読み込み中..." />}>
           <ScenarioDetailPage 
             scenarioId={scenarioId}
-            onClose={() => window.history.back()}
+            onClose={() => navigate(-1)}
           />
         </Suspense>
       )
@@ -525,8 +368,7 @@ export function AdminDashboard() {
     )
   }
 
-  if (currentPage === 'my-page') {
-    // ログアウト状態または顧客アカウントの場合はナビゲーションを表示しない
+  if (currentPage === 'my-page' || currentPage === 'mypage') {
     const isCustomerOrLoggedOut = !user || user.role === 'customer'
     const shouldShowNavigation = !isCustomerOrLoggedOut
     
@@ -559,13 +401,12 @@ export function AdminDashboard() {
     )
   }
 
-  // 組織管理ページ → 設定ページに統合済み、リダイレクト
-  if (currentPage === 'organizations') {
-    window.location.hash = 'settings'
+  // 組織管理ページ → 設定ページにリダイレクト
+  if (currentPage === 'organizations' || currentPage === 'organization-settings') {
+    navigate('/settings', { replace: true })
     return null
   }
 
-  // ライセンス管理ページ（統合）
   if (currentPage === 'license-management') {
     return (
       <Suspense fallback={<LoadingScreen message="ライセンス管理を読み込み中..." />}>
@@ -574,10 +415,8 @@ export function AdminDashboard() {
     )
   }
 
-  // 招待受諾ページ（未ログインでもアクセス可能）
   if (currentPage === 'accept-invitation') {
-    // URLからトークンを取得
-    const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '')
+    const urlParams = new URLSearchParams(location.search)
     const token = urlParams.get('token') || ''
     return (
       <Suspense fallback={<LoadingScreen message="招待情報を読み込み中..." />}>
@@ -586,13 +425,6 @@ export function AdminDashboard() {
     )
   }
 
-  // 組織設定ページ → 設定ページに統合済み、リダイレクト
-  if (currentPage === 'organization-settings') {
-    window.location.hash = 'settings'
-    return null
-  }
-
-  // セルフサービス登録ページ（未ログインでもアクセス可能）
   if (currentPage === 'register') {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
@@ -601,7 +433,6 @@ export function AdminDashboard() {
     )
   }
 
-  // MMQ紹介ページ（サービス説明）
   if (currentPage === 'about') {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
@@ -610,7 +441,6 @@ export function AdminDashboard() {
     )
   }
 
-  // 作者ダッシュボード
   if (currentPage === 'author-dashboard') {
     return (
       <Suspense fallback={<LoadingScreen message="作者ダッシュボードを読み込み中..." />}>
@@ -619,7 +449,6 @@ export function AdminDashboard() {
     )
   }
 
-  // 作者ログインページ（マジックリンク方式）
   if (currentPage === 'author-login') {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
@@ -628,8 +457,7 @@ export function AdminDashboard() {
     )
   }
 
-  // ログアウト状態または顧客アカウントの場合は常にナビゲーションを表示しない
-  // userがnull、undefined、またはcustomerロールの場合はナビゲーション非表示
+  // ナビゲーション表示判定
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
 
   return (

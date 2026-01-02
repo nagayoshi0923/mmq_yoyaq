@@ -47,7 +47,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   const [storeCount, setStoreCount] = useState<number | null>(null)  // オンボーディング用
   
   // 予約サイトのベースパス
-  const bookingBasePath = organization?.slug ? `booking/${organization.slug}` : 'customer-booking'
+  const bookingBasePath = organization?.slug ? `/${organization.slug}` : '/queens-waltz'
 
   // 統計情報を遅延ロード（管理者向け情報として残す）
   const [stats, setStats] = useState({

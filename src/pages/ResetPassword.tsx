@@ -295,7 +295,7 @@ export function ResetPassword() {
               type="button"
               variant="ghost"
               className="w-full h-10 sm:h-11 text-sm sm:text-base"
-              onClick={() => window.location.hash = 'login'}
+              onClick={() => window.location.href = '/login'}
             >
               ログイン画面に戻る
             </Button>

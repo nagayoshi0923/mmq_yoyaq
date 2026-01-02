@@ -192,7 +192,7 @@ export default function AuthorLogin() {
       {/* フッターリンク */}
       <div className="fixed bottom-4 left-0 right-0 text-center">
         <button
-          onClick={() => window.location.hash = '#about'}
+          onClick={() => window.location.href = '/about'}
           className="text-sm text-muted-foreground hover:text-foreground"
         >
           MMQについて

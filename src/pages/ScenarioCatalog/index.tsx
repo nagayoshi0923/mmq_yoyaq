@@ -32,7 +32,7 @@ export function ScenarioCatalog() {
   const { organization } = useOrganization()
   
   // 予約サイトのベースパス
-  const bookingBasePath = organization?.slug ? `booking/${organization.slug}` : 'customer-booking'
+  const bookingBasePath = organization?.slug ? `/${organization.slug}` : '/queens-waltz'
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   
   const [scenarios, setScenarios] = useState<ScenarioData[]>([])
@@ -110,11 +110,11 @@ export function ScenarioCatalog() {
   }, [scenarios, searchTerm, selectedGenre, selectedDuration, selectedPlayerCount])
 
   const handleBack = useCallback(() => {
-    window.location.hash = bookingBasePath
+    window.location.href = bookingBasePath
   }, [bookingBasePath])
 
   const handleCardClick = useCallback((scenarioId: string) => {
-    window.location.hash = `scenario-detail/${scenarioId}`
+    window.location.href = `/scenario-detail/${scenarioId}`
   }, [])
 
   const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {

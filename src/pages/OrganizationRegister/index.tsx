@@ -304,7 +304,7 @@ export default function OrganizationRegister() {
             </code>
             <Button 
               className="w-full" 
-              onClick={() => window.location.hash = 'login'}
+              onClick={() => window.location.href = '/login'}
             >
               ログインページへ
             </Button>
@@ -534,7 +534,7 @@ export default function OrganizationRegister() {
 
           <p className="text-xs text-center text-muted-foreground mt-4">
             既にアカウントをお持ちの場合は
-            <a href="#login" className="text-primary hover:underline ml-1">
+            <a href="/login" className="text-primary hover:underline ml-1">
               ログイン
             </a>
           </p>

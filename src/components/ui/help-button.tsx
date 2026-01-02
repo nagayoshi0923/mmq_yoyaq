@@ -17,7 +17,7 @@ interface HelpButtonProps {
 export function HelpButton({ topic, label = 'マニュアルを開く' }: HelpButtonProps) {
   const handleClick = () => {
     // 新しいタブで開くのではなく、現在のウィンドウで遷移
-    window.location.hash = `manual?tab=${topic}`
+    window.location.href = `/manual?tab=${topic}`
   }
 
   return (

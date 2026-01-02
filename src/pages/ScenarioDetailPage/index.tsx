@@ -405,7 +405,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               scenarios={relatedScenarios}
               authorName={scenario.author}
               onScenarioClick={(id) => {
-                window.location.hash = `scenario-detail/${id}`
+                window.location.href = `/scenario-detail/${id}`
               }}
             />
           </div>

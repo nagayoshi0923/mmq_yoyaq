@@ -1,4 +1,5 @@
 import React from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
@@ -6,15 +7,6 @@ import { LoginForm } from '@/components/auth/LoginForm'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { SetPassword } from '@/pages/SetPassword'
-
-/**
- * 現在のURLからorganizationSlugを抽出するヘルパー関数
- */
-function getOrganizationSlugFromUrl(): string {
-  const hash = window.location.hash.replace('#', '')
-  const bookingMatch = hash.match(/^booking\/([^/]+)/)
-  return bookingMatch ? bookingMatch[1] : 'queens-waltz'
-}
 
 // QueryClient の設定
 const queryClient = new QueryClient({
@@ -33,34 +25,63 @@ const queryClient = new QueryClient({
   },
 })
 
-function AppContent() {
-  const { user, loading, isInitialized } = useAuth()
-  const [rawHash, setRawHash] = React.useState(() => window.location.hash)
+/**
+ * 現在のURLからorganizationSlugを抽出するヘルパー関数
+ */
+export function getOrganizationSlugFromPath(): string {
+  const pathname = window.location.pathname
+  // /queens-waltz や /queens-waltz/scenario/xxx などから抽出
+  const match = pathname.match(/^\/([^/]+)/)
+  if (match) {
+    // 管理ページのパスは除外
+    const adminPaths = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 
+      'gm-availability', 'private-booking-management', 'reservations', 'accounts', 'sales', 
+      'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
+      'staff-profile', 'mypage', 'author', 'external-reports', 'accept-invitation', 'organization-register']
+    if (!adminPaths.includes(match[1])) {
+      return match[1]
+    }
+  }
+  return 'queens-waltz'
+}
 
-  const parseHashPath = React.useCallback((hashValue: string) => {
-    if (!hashValue) return ''
-    const withoutHash = hashValue.startsWith('#') ? hashValue.substring(1) : hashValue
-    const [path] = withoutHash.split('?')
-    if (!path) return ''
-    return path.startsWith('/') ? path.substring(1) : path
-  }, [])
-
+// 後方互換性: ハッシュURLをパスURLにリダイレクト
+function HashRedirect() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  
   React.useEffect(() => {
-    const handleHashChange = () => setRawHash(window.location.hash)
-    window.addEventListener('hashchange', handleHashChange)
-    return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [])
+    const hash = window.location.hash
+    if (hash && hash.startsWith('#')) {
+      const hashPath = hash.substring(1)
+      // booking/xxx を /xxx に変換
+      const newPath = hashPath.replace(/^booking\//, '/')
+      // ハッシュをクリアしてパスに変換
+      window.history.replaceState(null, '', newPath.startsWith('/') ? newPath : `/${newPath}`)
+      navigate(newPath.startsWith('/') ? newPath : `/${newPath}`, { replace: true })
+    }
+  }, [location, navigate])
+  
+  return null
+}
 
-  const hashPath = parseHashPath(rawHash)
-  const combinedLocation = `${window.location.search}${rawHash}`
-  const hasInviteTokens = combinedLocation.includes('type=signup') || combinedLocation.includes('type=invite')
-  const hasRecoveryTokens = combinedLocation.includes('type=recovery')
+function AppRoutes() {
+  const { user, loading, isInitialized } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
 
-  if (hashPath === 'set-password' || hashPath === '/set-password' || hasInviteTokens) {
+  // クエリパラメータからトークンタイプを確認
+  const searchParams = new URLSearchParams(location.search)
+  const hasInviteTokens = searchParams.get('type') === 'signup' || searchParams.get('type') === 'invite'
+  const hasRecoveryTokens = searchParams.get('type') === 'recovery'
+
+  // 招待トークンがある場合はSetPasswordへ
+  if (hasInviteTokens || location.pathname === '/set-password') {
     return <SetPassword />
   }
 
-  if (hashPath === 'reset-password' || hashPath === '/reset-password' || hasRecoveryTokens) {
+  // リカバリートークンがある場合はResetPasswordへ
+  if (hasRecoveryTokens || location.pathname === '/reset-password') {
     return <ResetPassword />
   }
 
@@ -78,28 +99,25 @@ function AppContent() {
     )
   }
 
-  const normalizedHash = rawHash.startsWith('#') ? rawHash.substring(1) : rawHash
-  const hashWithoutQuery = normalizedHash.split('?')[0]
-  if (hashWithoutQuery === 'login') {
+  // ログインページ
+  if (location.pathname === '/login') {
     return <LoginForm />
   }
 
   // 新規登録ページ
-  if (hashWithoutQuery === 'signup') {
+  if (location.pathname === '/signup') {
     return <LoginForm signup={true} />
   }
 
   // 未ログインまたは顧客アカウントの場合は予約サイトを表示
-  // AdminDashboard内で管理ツールへのアクセスを制限する
-  // ⚠️ 重要: 認証完了後のみリダイレクト判定を行う（早期表示時はリダイレクトしない）
   if (!user || (user && user.role === 'customer')) {
-    // 認証完了後のみリダイレクト（認証中は現在のページを維持）
     if (isInitialized) {
       // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
-      const adminPages = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings']
-      if (adminPages.some(page => normalizedHash.startsWith(page))) {
-        const slug = getOrganizationSlugFromUrl()
-        window.location.hash = `booking/${slug}`
+      const adminPaths = ['/dashboard', '/stores', '/staff', '/scenarios', '/schedule', '/shift-submission', 
+        '/gm-availability', '/private-booking-management', '/reservations', '/accounts', '/sales', '/settings']
+      if (adminPaths.some(path => location.pathname.startsWith(path))) {
+        const slug = getOrganizationSlugFromPath()
+        navigate(`/${slug}`, { replace: true })
         return <AdminDashboard />
       }
     }
@@ -110,19 +128,30 @@ function AppContent() {
   return <AdminDashboard />
 }
 
+function AppContent() {
+  return (
+    <>
+      <HashRedirect />
+      <AppRoutes />
+    </>
+  )
+}
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppContent />
-        <Toaster 
-          position="top-center"
-          richColors
-          closeButton
-          duration={4000}
-        />
-      </AuthProvider>
-    </QueryClientProvider>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AppContent />
+          <Toaster 
+            position="top-center"
+            richColors
+            closeButton
+            duration={4000}
+          />
+        </AuthProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   )
 }
 

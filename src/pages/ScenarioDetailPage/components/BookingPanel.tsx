@@ -90,7 +90,7 @@ export const BookingPanel = memo(function BookingPanel({
         onClick={() => {
           if (!isLoggedIn) {
             // 未ログイン時はログインページへ遷移
-            window.location.hash = 'login'
+            window.location.href = '/login'
             return
           }
           onBooking()

@@ -26,9 +26,8 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
     if (onPageChange) {
       onPageChange('dashboard')
     } else {
-      // 各機能ページから呼ばれた場合はハッシュを変更
-      // 明示的に dashboard を指定してルートURLのキャッシュ回避を試みる
-      window.location.hash = 'dashboard'
+      // 各機能ページから呼ばれた場合はパスを変更
+      window.location.href = '/dashboard'
     }
   }, [onPageChange])
 
@@ -37,8 +36,8 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
     if (onPageChange) {
       onPageChange('my-page')
     } else {
-      // フォールバック: 直接URLハッシュを変更
-      window.location.hash = 'my-page'
+      // フォールバック: 直接パスを変更
+      window.location.href = '/mypage'
     }
   }, [onPageChange])
 

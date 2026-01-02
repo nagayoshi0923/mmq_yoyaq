@@ -179,10 +179,10 @@ export default function LandingPage() {
             <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground hidden sm:inline">
               料金
             </a>
-            <Button variant="ghost" size="sm" onClick={() => window.location.hash = 'login'}>
+            <Button variant="ghost" size="sm" onClick={() => window.location.href = '/login'}>
               ログイン
             </Button>
-            <Button size="sm" onClick={() => window.location.hash = 'register'}>
+            <Button size="sm" onClick={() => window.location.href = '/register'}>
               無料で始める
             </Button>
           </div>
@@ -211,11 +211,11 @@ export default function LandingPage() {
               マーダーミステリー店舗の運営を一元管理するSaaS。
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" onClick={() => window.location.hash = 'register'} className="gap-2">
+              <Button size="lg" onClick={() => window.location.href = '/register'} className="gap-2">
                 無料で始める
                 <ArrowRight className="w-4 h-4" />
               </Button>
-              <Button size="lg" variant="outline" onClick={() => window.location.hash = 'booking/queens-waltz'}>
+              <Button size="lg" variant="outline" onClick={() => window.location.href = '/queens-waltz'}>
                 デモを見る
               </Button>
             </div>
@@ -390,7 +390,7 @@ export default function LandingPage() {
                   <Button 
                     className="w-full" 
                     variant={plan.buttonVariant}
-                    onClick={() => window.location.hash = 'register'}
+                    onClick={() => window.location.href = '/register'}
                   >
                     {plan.buttonText}
                   </Button>
@@ -418,7 +418,7 @@ export default function LandingPage() {
               <Button 
                 size="lg" 
                 variant="secondary"
-                onClick={() => window.location.hash = 'register'}
+                onClick={() => window.location.href = '/register'}
                 className="gap-2"
               >
                 無料で始める
@@ -489,7 +489,7 @@ export default function LandingPage() {
               <Button 
                 size="lg"
                 variant="outline"
-                onClick={() => window.location.hash = 'author-login'}
+                onClick={() => window.location.href = '/author-login'}
                 className="gap-2 border-amber-500/50 hover:bg-amber-500/10"
               >
                 <Sparkles className="w-4 h-4 text-amber-600" />

@@ -157,17 +157,16 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData])
 
-  // タブ変更時にURLハッシュを更新（メモ化）
+  // タブ変更時にURL更新（メモ化）
   const handleTabChange = useCallback((value: string) => {
     setActiveTab(value)
-    // organizationSlug がある場合は新形式、ない場合は旧形式
-    const basePath = organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'
+    const basePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
     if (value === 'calendar') {
-      window.location.hash = `${basePath}/calendar`
+      window.location.href = `${basePath}/calendar`
     } else if (value === 'list') {
-      window.location.hash = `${basePath}/list`
+      window.location.href = `${basePath}/list`
     } else {
-      window.location.hash = basePath
+      window.location.href = basePath
     }
   }, [organizationSlug])
 
@@ -176,7 +175,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     if (onScenarioSelect) {
       onScenarioSelect(scenarioId)
     } else {
-      window.location.hash = `scenario-detail/${scenarioId}`
+      window.location.href = `/scenario-detail/${scenarioId}`
     }
   }, [onScenarioSelect])
 
@@ -211,7 +210,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
               指定された組織「{organizationSlug}」は存在しないか、現在利用できません。
             </p>
             <a 
-              href="#booking/queens-waltz" 
+              href="/queens-waltz" 
               className="inline-flex items-center justify-center rounded-md bg-purple-600 px-6 py-3 text-white hover:bg-purple-700 transition-colors"
             >
               トップページへ戻る

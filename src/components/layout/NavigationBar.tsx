@@ -1,4 +1,5 @@
 import { useMemo, useCallback, memo } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStoreConfirmationPendingCount } from '@/hooks/useStoreConfirmationPendingCount'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -28,6 +29,7 @@ interface NavigationBarProps {
 
 export const NavigationBar = memo(function NavigationBar({ currentPage, onPageChange }: NavigationBarProps) {
   const { user } = useAuth()
+  const location = useLocation()
   const { count: storeConfirmationPendingCount } = useStoreConfirmationPendingCount()
   const { organization } = useOrganization()
   
@@ -39,51 +41,70 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     return null
   }
   
-  // 全タブ定義（定数なのでメモ化）
-  // 管理者のみ: 店舗、スタッフ、シナリオ、予約管理、顧客管理、ユーザー、売上、設定
-  // スタッフも: ダッシュボード、スケジュール、シフト提出、GM確認、マイプロフィール、マニュアル
-  // 顧客: ナビゲーション非表示（予約サイトのみ）
+  // 全タブ定義
   const allTabs = useMemo(() => [
-    { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, roles: ['admin', 'staff'] },
-    { id: `booking/${bookingSlug}`, label: '予約サイト', icon: Globe, roles: ['admin', 'staff'] },
-    { id: 'stores', label: '店舗', icon: Store, roles: ['admin'] },
-    { id: 'schedule', label: 'スケジュール', icon: CalendarDays, roles: ['admin', 'staff'] },
-    { id: 'staff', label: 'スタッフ', icon: Users, roles: ['admin'] },
-    { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin'] },
-    { id: 'shift-submission', label: 'シフト提出', icon: CalendarClock, roles: ['admin', 'staff'] },
-    { id: 'gm-availability', label: 'GM確認', icon: UserCheck, roles: ['admin', 'staff'] },
-    { id: 'staff-profile', label: '担当作品', icon: UserCircle, roles: ['admin', 'staff'] },
-    { id: 'private-booking-management', label: '貸切管理', icon: ClipboardCheck, roles: ['admin'] },
-    { id: 'reservations', label: '予約管理', icon: Ticket, roles: ['admin'] },
-    { id: 'accounts', label: 'アカウント', icon: UserCog, roles: ['admin'] },
-    { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin'] },
-    { id: 'license-management', label: '公演報告', icon: FileCheck, roles: ['admin', 'staff'] },
-    { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] },
-    { id: 'manual', label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff'] }
+    { id: 'dashboard', path: '/dashboard', label: 'ダッシュボード', icon: LayoutDashboard, roles: ['admin', 'staff'] },
+    { id: 'booking', path: `/${bookingSlug}`, label: '予約サイト', icon: Globe, roles: ['admin', 'staff'] },
+    { id: 'stores', path: '/stores', label: '店舗', icon: Store, roles: ['admin'] },
+    { id: 'schedule', path: '/schedule', label: 'スケジュール', icon: CalendarDays, roles: ['admin', 'staff'] },
+    { id: 'staff', path: '/staff', label: 'スタッフ', icon: Users, roles: ['admin'] },
+    { id: 'scenarios', path: '/scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin'] },
+    { id: 'shift-submission', path: '/shift-submission', label: 'シフト提出', icon: CalendarClock, roles: ['admin', 'staff'] },
+    { id: 'gm-availability', path: '/gm-availability', label: 'GM確認', icon: UserCheck, roles: ['admin', 'staff'] },
+    { id: 'staff-profile', path: '/staff-profile', label: '担当作品', icon: UserCircle, roles: ['admin', 'staff'] },
+    { id: 'private-booking-management', path: '/private-booking-management', label: '貸切管理', icon: ClipboardCheck, roles: ['admin'] },
+    { id: 'reservations', path: '/reservations', label: '予約管理', icon: Ticket, roles: ['admin'] },
+    { id: 'accounts', path: '/accounts', label: 'アカウント', icon: UserCog, roles: ['admin'] },
+    { id: 'sales', path: '/sales', label: '売上', icon: TrendingUp, roles: ['admin'] },
+    { id: 'license-management', path: '/license-management', label: '公演報告', icon: FileCheck, roles: ['admin', 'staff'] },
+    { id: 'settings', path: '/settings', label: '設定', icon: Settings, roles: ['admin'] },
+    { id: 'manual', path: '/manual', label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff'] }
   ], [bookingSlug])
   
   // ユーザーのロールに応じてタブをフィルタリング
   const navigationTabs = useMemo(() => {
-    // ユーザーがいない場合は何も表示しない
     if (!user || !user.role) {
       return []
     }
-    // ユーザーのロールに基づいてフィルタリング
     return allTabs.filter(tab => tab.roles.includes(user.role))
   }, [allTabs, user])
 
-  // 最適化: タブクリックハンドラをメモ化
-  const handleTabClick = useCallback((tabId: string, e: React.MouseEvent<HTMLAnchorElement>) => {
+  // アクティブ判定
+  const isTabActive = useCallback((tab: typeof allTabs[0]) => {
+    const pathname = location.pathname
+    
+    // 予約サイトは特別処理：スラッグで判定
+    if (tab.id === 'booking') {
+      // パスが /xxx で始まり、管理ページでない場合
+      const adminPaths = ['/dashboard', '/stores', '/staff', '/scenarios', '/schedule', 
+        '/shift-submission', '/gm-availability', '/private-booking-management', '/reservations',
+        '/accounts', '/sales', '/settings', '/manual', '/staff-profile', '/license-management',
+        '/login', '/signup', '/mypage', '/accept-invitation', '/register', '/about']
+      return !adminPaths.some(p => pathname.startsWith(p)) && pathname !== '/'
+    }
+    
+    // 通常のパスマッチング
+    return pathname === tab.path || pathname.startsWith(tab.path + '/')
+  }, [location.pathname])
+
+  // タブクリックハンドラ
+  const handleTabClick = useCallback((tab: typeof allTabs[0], e: React.MouseEvent) => {
     // 中クリック、Cmd+クリック、Ctrl+クリックの場合は通常のリンク動作
     if (e.button === 1 || e.metaKey || e.ctrlKey) {
       return
     }
     
+    // onPageChangeが渡されている場合はそれを使用
     if (onPageChange) {
       e.preventDefault()
-      onPageChange(tabId)
+      // booking の場合はスラッグを渡す
+      if (tab.id === 'booking') {
+        onPageChange(bookingSlug)
+      } else {
+        onPageChange(tab.id)
+      }
     }
-  }, [onPageChange])
+  }, [onPageChange, bookingSlug])
 
   return (
     <nav className="border-b border-border bg-muted/30">
@@ -91,17 +112,14 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
         <div className="flex items-center justify-start gap-0 sm:gap-0.5 md:gap-1 min-w-max">
           {navigationTabs.map((tab) => {
             const Icon = tab.icon
-            // 予約サイト（booking/xxx）は特別処理：currentPage が booking で始まるかどうかで判定
-            const isActive = tab.id.startsWith('booking/') 
-              ? (currentPage?.startsWith('booking') || currentPage === 'customer-booking')
-              : currentPage === tab.id
-            const href = tab.id === 'dashboard' ? '#' : `#${tab.id}`
+            const isActive = isTabActive(tab)
             const badgeCount = tab.id === 'private-booking-management' ? storeConfirmationPendingCount : 0
+            
             return (
-              <a
+              <Link
                 key={tab.id}
-                href={href}
-                onClick={(e) => handleTabClick(tab.id, e)}
+                to={tab.path}
+                onClick={(e) => handleTabClick(tab, e)}
                 className={`relative inline-flex flex-col items-center justify-center gap-0.5 sm:flex-row sm:gap-1 md:gap-1 px-2 sm:px-2.5 md:px-2.5 py-1.5 sm:py-2 md:py-2 text-xs sm:text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-none min-w-[48px] sm:min-w-[56px] md:min-w-auto touch-manipulation ${
                   isActive 
                     ? 'text-foreground border-b-[2px] sm:border-b-[3px] border-primary bg-accent/50' 
@@ -117,7 +135,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
                     {badgeCount > 99 ? '99+' : badgeCount}
                   </span>
                 )}
-              </a>
+              </Link>
             )
           })}
         </div>

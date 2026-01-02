@@ -30,7 +30,7 @@ export function PrivateBookingRequest({
   const { user } = useAuth()
   
   // 予約サイトのベースパス
-  const bookingBasePath = organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'
+  const bookingBasePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
 
   // フック
   const {
@@ -107,7 +107,7 @@ export function PrivateBookingRequest({
               </p>
               <div className="pt-4">
                 <Button
-                  onClick={() => window.location.hash = bookingBasePath}
+                  onClick={() => window.location.href = bookingBasePath}
                   className="bg-purple-600 hover:bg-purple-700"
                 >
                   予約サイトトップに戻る

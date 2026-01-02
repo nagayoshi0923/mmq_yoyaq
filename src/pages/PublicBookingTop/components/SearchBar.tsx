@@ -16,7 +16,7 @@ export const SearchBar = memo(function SearchBar({
   onSearchChange 
 }: SearchBarProps) {
   const handleCatalogClick = () => {
-    window.location.hash = 'catalog'
+    window.location.href = '/catalog'
   }
 
   return (

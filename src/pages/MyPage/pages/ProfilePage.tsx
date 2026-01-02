@@ -581,7 +581,7 @@ export function ProfilePage() {
                   
                   showToast.success('アカウントを削除しました')
                   await signOut()
-                  window.location.hash = '#login'
+                  window.location.href = '/login'
                 } catch (error: any) {
                   logger.error('アカウント削除エラー:', error)
                   showToast.error('アカウントの削除に失敗しました', error.message || '不明なエラー')

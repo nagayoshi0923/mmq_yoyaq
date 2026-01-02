@@ -63,7 +63,7 @@ export function PrivateBookingScenarioSelect() {
     }
     
     // 貸切リクエスト確認ページへ遷移
-    window.location.hash = `#private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${preselectedStore}&slot=${preselectedSlot}`
+    window.location.href = `/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${preselectedStore}&slot=${preselectedSlot}`
   }
 
   return (

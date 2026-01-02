@@ -230,7 +230,7 @@ export function ScenarioEdit({ scenarioId: propScenarioId, onClose, isDialog = f
     if (isDialog && onClose) {
       onClose()
     } else {
-      window.location.hash = 'scenarios'
+      window.location.href = '/scenarios'
     }
   }
 

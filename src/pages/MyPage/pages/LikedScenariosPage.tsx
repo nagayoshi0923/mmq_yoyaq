@@ -37,7 +37,7 @@ export function WantToPlayPage() {
   const [loading, setLoading] = useState(true)
   
   // 予約サイトのベースパス
-  const bookingBasePath = organization?.slug ? `booking/${organization.slug}` : 'customer-booking'
+  const bookingBasePath = organization?.slug ? `/${organization.slug}` : '/queens-waltz'
 
   useEffect(() => {
     if (user?.email) {
@@ -187,7 +187,7 @@ export function WantToPlayPage() {
                   key={item.id}
                   className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => {
-                    window.location.hash = `${bookingBasePath}/scenario/${item.scenario.id}`
+                    window.location.href = `${bookingBasePath}/scenario/${item.scenario.id}`
                   }}
                 >
                   <div className="flex items-start gap-4 mb-3">
