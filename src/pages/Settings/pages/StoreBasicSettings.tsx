@@ -15,16 +15,16 @@ interface StoreSettings {
   id: string
   name: string
   short_name: string
-  address: string
-  phone_number: string
-  email: string
-  opening_date: string
-  manager_name: string
-  status: 'active' | 'temporarily_closed' | 'closed'
-  capacity: number
-  rooms: number
-  color: string
-  notes: string
+  address?: string
+  phone_number?: string
+  email?: string
+  opening_date?: string
+  manager_name?: string
+  status?: 'active' | 'temporarily_closed' | 'closed'
+  capacity?: number
+  rooms?: number
+  color?: string
+  notes?: string
   display_order?: number
   is_temporary?: boolean
   ownership_type?: string
@@ -62,13 +62,8 @@ export function StoreBasicSettings({ storeId }: StoreBasicSettingsProps) {
   const fetchStores = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('stores')
-        .select('*')
-        .order('display_order', { ascending: true, nullsFirst: false })
-        .order('name')
-
-      if (error) throw error
+      // 組織対応済みの店舗取得
+      const data = await storeApi.getAll()
       
       if (data && data.length > 0) {
         setStores(data)

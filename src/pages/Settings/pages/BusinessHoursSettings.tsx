@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Plus, X, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
@@ -127,14 +128,8 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
   const fetchData = async () => {
     setLoading(true)
     try {
-      // 店舗データを取得
-      const { data: storesData, error: storesError } = await supabase
-        .from('stores')
-        .select('*')
-        .neq('ownership_type', 'office')
-        .order('display_order', { ascending: true, nullsFirst: false })
-
-      if (storesError) throw storesError
+      // 店舗データを取得（組織対応済み、オフィス除外）
+      const storesData = await storeApi.getAll(false, undefined, false, true)
 
       if (storesData && storesData.length > 0) {
         setStores(storesData)

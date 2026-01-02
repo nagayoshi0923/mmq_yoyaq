@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
@@ -56,12 +57,8 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
   const fetchData = async () => {
     setLoading(true)
     try {
-      const { data: storesData, error: storesError } = await supabase
-        .from('stores')
-        .select('*')
-        .order('name')
-
-      if (storesError) throw storesError
+      // 組織対応済みの店舗取得
+      const storesData = await storeApi.getAll()
 
       if (storesData && storesData.length > 0) {
         setStores(storesData)

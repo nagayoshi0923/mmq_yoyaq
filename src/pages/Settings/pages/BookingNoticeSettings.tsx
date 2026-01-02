@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select'
 import { Plus, Pencil, Trash2, Save, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { storeApi } from '@/lib/api/storeApi'
 import { CATEGORY_CONFIG } from '@/utils/scheduleUtils'
 
 // シンプルな通知ヘルパー
@@ -83,22 +84,19 @@ export function BookingNoticeSettings() {
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [noticesRes, storesRes] = await Promise.all([
+      // 並列で取得（店舗は組織対応済み）
+      const [noticesRes, storesData] = await Promise.all([
         supabase
           .from('booking_notices')
           .select('*')
           .order('sort_order', { ascending: true }),
-        supabase
-          .from('stores')
-          .select('id, name, short_name, organization_id')
-          .order('name')
+        storeApi.getAll()
       ])
 
       if (noticesRes.error) throw noticesRes.error
-      if (storesRes.error) throw storesRes.error
 
       setNotices(noticesRes.data || [])
-      setStores(storesRes.data || [])
+      setStores(storesData || [])
     } catch (error) {
       logger.error('データ取得エラー:', error)
       notify.error('データの取得に失敗しました')
