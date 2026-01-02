@@ -8,6 +8,8 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { supabase } from '@/lib/supabase'
 import { memoApi } from '@/lib/api/memoApi'
+import { staffApi } from '@/lib/api/staffApi'
+import { scenarioApi } from '@/lib/api/scenarioApi'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { getTimeSlot } from '@/utils/scheduleUtils'
@@ -321,26 +323,18 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
   const [staffList, setStaffList] = useState<Array<{ id: string; name: string }>>([])
   const [scenarioList, setScenarioList] = useState<Array<{ id: string; title: string }>>([])
   
-  // マスターデータを取得
+  // マスターデータを取得（組織対応済み）
   useEffect(() => {
     if (isOpen) {
       // スタッフ一覧を取得
-      supabase
-        .from('staff')
-        .select('id, name')
-        .order('name')
-        .then(({ data }) => {
-          if (data) setStaffList(data)
-        })
+      staffApi.getAll().then((data) => {
+        setStaffList(data.map(s => ({ id: s.id, name: s.name })))
+      })
       
       // シナリオ一覧を取得
-      supabase
-        .from('scenarios')
-        .select('id, title')
-        .order('title')
-        .then(({ data }) => {
-          if (data) setScenarioList(data)
-        })
+      scenarioApi.getAll().then((data) => {
+        setScenarioList(data.map(s => ({ id: s.id, title: s.title })))
+      })
     }
   }, [isOpen])
   
