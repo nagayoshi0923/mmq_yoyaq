@@ -303,14 +303,28 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return validStoreIds.some(storeId => checkStoreAvailability(storeId))
     }
     
-    // 店舗が選択されていない場合：デフォルト設定を適用
-    // 平日は昼・夜のみ、土日は全枠
+    // 店舗が選択されていない場合：営業時間設定があればそれを使用、なければデフォルト
     const targetTimeSlot = getTimeSlotFromLabel(slot.label)
     const dayOfWeek = new Date(date).getDay()
-    const defaultSlots = getDefaultAvailableSlots(dayOfWeek)
     
-    // デフォルト設定で許可されていない時間枠は無効
-    if (!defaultSlots.includes(targetTimeSlot)) {
+    // キャッシュに設定があれば最初の設定を使用（全店舗共通設定として）
+    let allowedSlots: ('morning' | 'afternoon' | 'evening')[] = getDefaultAvailableSlots(dayOfWeek)
+    
+    if (businessHoursCache.size > 0) {
+      const firstStoreId = businessHoursCache.keys().next().value
+      const settings = businessHoursCache.get(firstStoreId)
+      if (settings?.opening_hours) {
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+        const dayName = dayNames[dayOfWeek]
+        const dayHours = settings.opening_hours[dayName]
+        if (dayHours?.available_slots && dayHours.available_slots.length > 0) {
+          allowedSlots = dayHours.available_slots
+        }
+      }
+    }
+    
+    // 許可されていない時間枠は無効
+    if (!allowedSlots.includes(targetTimeSlot)) {
       return false
     }
     
@@ -374,8 +388,14 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
     
     // 選択された店舗がある場合は、その店舗の設定を使用
-    // 複数店舗選択時は最初の店舗の設定を使用
-    const targetStoreId = selectedStoreIds.length > 0 ? selectedStoreIds[0] : null
+    // 店舗未選択時はキャッシュの最初の店舗の設定を使用（全店舗共通設定として）
+    let targetStoreId = selectedStoreIds.length > 0 ? selectedStoreIds[0] : null
+    
+    // 店舗未選択時、キャッシュに設定があれば最初の設定を使用
+    if (!targetStoreId && businessHoursCache.size > 0) {
+      targetStoreId = businessHoursCache.keys().next().value
+    }
+    
     const settings = targetStoreId ? businessHoursCache.get(targetStoreId) : null
     
     // デフォルトの開始時間
