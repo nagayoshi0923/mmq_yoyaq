@@ -253,3 +253,63 @@ function calculateGmWageFromSettings(
   }
   return settings.gm_base_pay + Math.round(settings.gm_hourly_rate * hours)
 }
+
+/**
+ * 特定の日付時点で有効だった報酬設定を取得
+ * @param performanceDate 公演日（YYYY-MM-DD形式）
+ * @returns その日付時点で有効だった報酬設定
+ */
+export async function fetchSalarySettingsForDate(performanceDate: string): Promise<SalarySettings> {
+  try {
+    const organizationId = await getCurrentOrganizationId()
+    if (!organizationId) {
+      logger.error('組織IDが取得できませんでした')
+      return DEFAULT_SETTINGS
+    }
+
+    // 履歴テーブルから、公演日以前で最新の設定を取得
+    const { data: historyData, error: historyError } = await supabase
+      .from('salary_settings_history')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .lte('effective_from', performanceDate)
+      .order('effective_from', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (!historyError && historyData) {
+      return {
+        gm_base_pay: historyData.gm_base_pay ?? DEFAULT_SETTINGS.gm_base_pay,
+        gm_hourly_rate: historyData.gm_hourly_rate ?? DEFAULT_SETTINGS.gm_hourly_rate,
+        gm_test_base_pay: historyData.gm_test_base_pay ?? DEFAULT_SETTINGS.gm_test_base_pay,
+        gm_test_hourly_rate: historyData.gm_test_hourly_rate ?? DEFAULT_SETTINGS.gm_test_hourly_rate,
+        reception_fixed_pay: historyData.reception_fixed_pay ?? DEFAULT_SETTINGS.reception_fixed_pay,
+        use_hourly_table: historyData.use_hourly_table ?? DEFAULT_SETTINGS.use_hourly_table,
+        hourly_rates: (historyData.hourly_rates as HourlyRate[] | null) ?? DEFAULT_SETTINGS.hourly_rates,
+        gm_test_hourly_rates: (historyData.gm_test_hourly_rates as HourlyRate[] | null) ?? DEFAULT_SETTINGS.gm_test_hourly_rates
+      }
+    }
+
+    // 履歴がない場合は現在の設定を使用
+    return fetchSalarySettings()
+  } catch (error) {
+    logger.error('報酬設定履歴取得エラー:', error)
+    return DEFAULT_SETTINGS
+  }
+}
+
+/**
+ * 特定の日付時点で有効だった報酬を計算
+ * @param durationMinutes 公演時間（分）
+ * @param isGmTest GMテストかどうか
+ * @param performanceDate 公演日（YYYY-MM-DD形式）
+ * @returns 報酬額
+ */
+export async function calculateGmWageForDate(
+  durationMinutes: number,
+  isGmTest: boolean,
+  performanceDate: string
+): Promise<number> {
+  const settings = await fetchSalarySettingsForDate(performanceDate)
+  return calculateGmWageFromSettings(durationMinutes, isGmTest, settings)
+}

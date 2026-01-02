@@ -167,11 +167,12 @@ export function SalarySettings() {
   }
 
   const handleSave = async () => {
-    if (!settings) return
+    if (!settings || !organizationId) return
 
     try {
       setSaving(true)
 
+      // 1. global_settingsを更新（現在の設定）
       const { error } = await supabase
         .from('global_settings')
         .update({
@@ -190,6 +191,30 @@ export function SalarySettings() {
         logger.error('設定保存エラー:', error)
         showToast.error('設定の保存に失敗しました')
         return
+      }
+
+      // 2. 履歴テーブルにも保存（有効開始日は今日）
+      const today = new Date().toISOString().split('T')[0]
+      const { error: historyError } = await supabase
+        .from('salary_settings_history')
+        .upsert({
+          organization_id: organizationId,
+          effective_from: today,
+          use_hourly_table: formData.use_hourly_table,
+          gm_base_pay: formData.gm_base_pay,
+          gm_hourly_rate: formData.gm_hourly_rate,
+          gm_test_base_pay: formData.gm_test_base_pay,
+          gm_test_hourly_rate: formData.gm_test_hourly_rate,
+          reception_fixed_pay: formData.reception_fixed_pay,
+          hourly_rates: formData.hourly_rates,
+          gm_test_hourly_rates: formData.gm_test_hourly_rates
+        }, {
+          onConflict: 'organization_id,effective_from'
+        })
+
+      if (historyError) {
+        // 履歴テーブルがまだ存在しない場合はスキップ（警告のみ）
+        logger.warn('報酬設定履歴の保存に失敗（テーブルが未作成の可能性）:', historyError)
       }
 
       showToast.success('設定を保存しました')
