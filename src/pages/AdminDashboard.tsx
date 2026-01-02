@@ -33,8 +33,7 @@ const GMAvailabilityCheck = lazy(() => import('./GMAvailabilityCheck').then(m =>
 const PrivateBookingScenarioSelect = lazy(() => import('./PrivateBookingScenarioSelect').then(m => ({ default: m.PrivateBookingScenarioSelect })))
 const PrivateBookingRequestPage = lazy(() => import('./PrivateBookingRequestPage').then(m => ({ default: m.PrivateBookingRequestPage })))
 const PrivateBookingManagement = lazy(() => import('./PrivateBookingManagement').then(m => ({ default: m.PrivateBookingManagement })))
-const UserManagement = lazy(() => import('./UserManagement').then(m => ({ default: m.UserManagement })))
-const CustomerManagement = lazy(() => import('./CustomerManagement'))
+const AccountManagement = lazy(() => import('./AccountManagement').then(m => ({ default: m.AccountManagement })))
 const MyPage = lazy(() => import('./MyPage'))
 const SettingsPage = lazy(() => import('./Settings'))
 const AddDemoParticipants = lazy(() => import('./AddDemoParticipants').then(m => ({ default: m.AddDemoParticipants })))
@@ -80,8 +79,7 @@ export function AdminDashboard() {
     'gm-availability',
     'private-booking-management',
     'reservations',
-    'customer-management',
-    'user-management',
+    'accounts',
     'sales',
     'settings',
     'manual',
@@ -138,8 +136,12 @@ export function AdminDashboard() {
     if (hash.startsWith('private-booking-management')) {
       return { page: 'private-booking-management', scenarioId: null, organizationSlug: null }
     }
-    if (hash.startsWith('user-management')) {
-      return { page: 'user-management', scenarioId: null, organizationSlug: null }
+    if (hash.startsWith('accounts')) {
+      return { page: 'accounts', scenarioId: null, organizationSlug: null }
+    }
+    // 旧URL互換: user-management, customer-management → accounts にリダイレクト
+    if (hash.startsWith('user-management') || hash.startsWith('customer-management')) {
+      return { page: 'accounts', scenarioId: null, organizationSlug: null }
     }
     if (hash.startsWith('add-demo-participants')) {
       return { page: 'add-demo-participants', scenarioId: null, organizationSlug: null }
@@ -297,7 +299,7 @@ export function AdminDashboard() {
       if (isInitialized && !loading) {
         // ログアウト状態または顧客アカウントの場合、管理ツールのページへのアクセスを制限
         const isCustomerOrLoggedOut = !user || user.role === 'customer'
-        const restrictedPages = ['dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'customer-management', 'user-management', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher', 'organizations', 'external-reports', 'license-reports']
+        const restrictedPages = ['dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit', 'schedule', 'shift-submission', 'gm-availability', 'private-booking-management', 'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants', 'scenario-matcher', 'organizations', 'external-reports', 'license-reports']
         if (isCustomerOrLoggedOut && restrictedPages.includes(page)) {
           // 管理ツールのページにアクセスしようとした場合は予約サイトにリダイレクト
           const slug = getOrganizationSlugFromUrl()
@@ -491,18 +493,10 @@ export function AdminDashboard() {
     )
   }
   
-  if (currentPage === 'user-management') {
+  if (currentPage === 'accounts') {
     return (
-      <Suspense fallback={<LoadingScreen message="ユーザー管理を読み込み中..." />}>
-        <UserManagement />
-      </Suspense>
-    )
-  }
-
-  if (currentPage === 'customer-management') {
-    return (
-      <Suspense fallback={<LoadingScreen message="顧客管理を読み込み中..." />}>
-        <CustomerManagement />
+      <Suspense fallback={<LoadingScreen message="アカウント管理を読み込み中..." />}>
+        <AccountManagement />
       </Suspense>
     )
   }
