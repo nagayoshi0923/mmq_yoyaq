@@ -11,12 +11,15 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConditionalSetting } from '@/components/ui/conditional-settings'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { ItemizedSettings } from '@/components/ui/itemized-settings'
+import { Card, CardContent } from '@/components/ui/card'
+import { Info } from 'lucide-react'
 import type { Scenario, Staff } from '@/types'
 import { staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { formatDateJST, getCurrentJST } from '@/utils/dateUtils'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { useSalarySettings } from '@/hooks/useSalarySettings'
 
 // 型定義
 import type { ScenarioEditModalProps, ScenarioFormData } from './types'
@@ -28,6 +31,9 @@ import { statusOptions, genreOptions } from './utils/constants'
 // 将来的な料金表示機能のために残しています
 
 export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: ScenarioEditModalProps) {
+  // デフォルト報酬設定を取得
+  const { settings: salarySettings, calculateGmWage } = useSalarySettings()
+  
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
     author: '',
@@ -1192,39 +1198,73 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
             </div>
 
             <div className="space-y-6">
-                {/* GM報酬 */}
-                <ItemizedSettings
-                  title="GM報酬"
-                  subtitle="役割に応じて異なる報酬を設定できます"
-                  items={formData.gm_assignments.map(assignment => ({
-                    item: getGmRoleLabel(assignment.role),
-                    amount: assignment.reward,
-                    type: 'fixed',
-                    status: assignment.status,
-                    usageCount: assignment.usageCount,
-                    originalRole: assignment.role, // 元の英語値を保持
-                    startDate: assignment.startDate, // 開始日を保持
-                    endDate: assignment.endDate // 終了日を保持
-                  }))}
-                  conditionOptions={gmRoleOptions}
-                  showTypeSelector={false}
-                  showHideLegacyToggle={true}
-                  itemType="GM報酬"
-                  scenarioName={formData.title}
-                  getItemStatus={getItemStatus}
-                  validateNormalSetting={(items) => validateGmMainSetting(items)}
-                  onItemsChange={(items) => setFormData(prev => ({ 
-                    ...prev, 
-                    gm_assignments: items.map(item => ({
-                      role: item.originalRole || item.item, // 元の英語値を使用
-                      reward: item.amount,
-                      status: item.status,
-                      usageCount: item.usageCount,
-                      startDate: item.startDate, // 開始日を保持
-                      endDate: item.endDate // 終了日を保持
-                    }))
-                  }))}
-                />
+                {/* GM報酬 - デフォルト設定表示 */}
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-gray-800">GM報酬</h4>
+                    <p className="text-xs text-muted-foreground">
+                      個別設定がない場合、設定ページのデフォルト報酬が適用されます
+                    </p>
+                  </div>
+                  
+                  {/* デフォルト報酬の表示 */}
+                  <Card className="bg-blue-50 border-blue-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-2">
+                        <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="space-y-2 text-sm">
+                          <p className="font-medium text-blue-900">
+                            デフォルト報酬（設定ページで変更可能）
+                          </p>
+                          <div className="text-blue-700">
+                            <p>
+                              このシナリオ（{formData.duration}分）の報酬: <span className="font-bold">{calculateGmWage(formData.duration, false).toLocaleString()}円</span>
+                            </p>
+                            <p className="text-xs text-blue-600 mt-1">
+                              ※ GMテストの場合: {calculateGmWage(formData.duration, true).toLocaleString()}円
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* 個別設定（オプション） */}
+                  {formData.gm_assignments.length > 0 && (
+                    <ItemizedSettings
+                      title="個別設定（デフォルトより優先）"
+                      subtitle="役割に応じて異なる報酬を設定できます"
+                      items={formData.gm_assignments.map(assignment => ({
+                        item: getGmRoleLabel(assignment.role),
+                        amount: assignment.reward,
+                        type: 'fixed',
+                        status: assignment.status,
+                        usageCount: assignment.usageCount,
+                        originalRole: assignment.role,
+                        startDate: assignment.startDate,
+                        endDate: assignment.endDate
+                      }))}
+                      conditionOptions={gmRoleOptions}
+                      showTypeSelector={false}
+                      showHideLegacyToggle={true}
+                      itemType="GM報酬"
+                      scenarioName={formData.title}
+                      getItemStatus={getItemStatus}
+                      validateNormalSetting={(items) => validateGmMainSetting(items)}
+                      onItemsChange={(items) => setFormData(prev => ({ 
+                        ...prev, 
+                        gm_assignments: items.map(item => ({
+                          role: item.originalRole || item.item,
+                          reward: item.amount,
+                          status: item.status,
+                          usageCount: item.usageCount,
+                          startDate: item.startDate,
+                          endDate: item.endDate
+                        }))
+                      }))}
+                    />
+                  )}
+                </div>
 
 
                 {/* 必要道具 */}
