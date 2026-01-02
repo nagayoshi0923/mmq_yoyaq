@@ -272,6 +272,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 onCardClick={handleCardClick}
                 isFavorite={isFavorite}
                 onToggleFavorite={handleToggleFavorite}
+                searchTerm={searchTerm}
               />
             </TabsContent>
 

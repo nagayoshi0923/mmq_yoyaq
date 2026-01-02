@@ -12,11 +12,13 @@ interface LineupViewProps {
   onCardClick: (scenarioId: string) => void
   isFavorite: (scenarioId: string) => boolean
   onToggleFavorite: (scenarioId: string, e: React.MouseEvent) => void
+  searchTerm?: string
 }
 
 /**
  * ラインナップビューコンポーネント
  * 新着・直近公演を表示（全タイトルはカタログページへ）
+ * 検索時は全シナリオから検索結果を表示
  */
 export const LineupView = memo(function LineupView({
   newScenarios,
@@ -24,8 +26,12 @@ export const LineupView = memo(function LineupView({
   allScenarios,
   onCardClick,
   isFavorite,
-  onToggleFavorite
+  onToggleFavorite,
+  searchTerm = ''
 }: LineupViewProps) {
+  // 検索中かどうか
+  const isSearching = searchTerm.length > 0
+  
   // 新着は10件まで、直近公演は全て表示
   const displayedNewScenarios = newScenarios.slice(0, 10)
   
@@ -33,6 +39,39 @@ export const LineupView = memo(function LineupView({
     window.location.hash = 'catalog'
   }
   
+  // 検索中は全シナリオから検索結果を表示
+  if (isSearching) {
+    return (
+      <div className="space-y-6 md:space-y-8">
+        <section>
+          <h2 className="text-lg mb-3 md:mb-4">
+            「{searchTerm}」の検索結果
+            <span className="text-xs font-normal text-gray-500 ml-1">
+              ({allScenarios.length}件)
+            </span>
+          </h2>
+          {allScenarios.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
+              {allScenarios.map((scenario) => (
+                <ScenarioCard 
+                  key={scenario.scenario_id} 
+                  scenario={scenario} 
+                  onClick={onCardClick}
+                  isFavorite={isFavorite(scenario.scenario_id)}
+                  onToggleFavorite={onToggleFavorite}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>該当するシナリオが見つかりませんでした</p>
+            </div>
+          )}
+        </section>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 md:space-y-8">
       {/* 新着公演セクション */}
