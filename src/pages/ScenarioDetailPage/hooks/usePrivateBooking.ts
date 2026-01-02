@@ -299,11 +299,21 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       return validStoreIds.some(storeId => checkStoreAvailability(storeId))
     }
     
-    // 店舗が選択されていない場合：そのシナリオを公演可能な店舗のみを対象
+    // 店舗が選択されていない場合：デフォルト設定を適用
+    // 平日は昼・夜のみ、土日は全枠
+    const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+    const dayOfWeek = new Date(date).getDay()
+    const defaultSlots = getDefaultAvailableSlots(dayOfWeek)
+    
+    // デフォルト設定で許可されていない時間枠は無効
+    if (!defaultSlots.includes(targetTimeSlot)) {
+      return false
+    }
+    
+    // いずれかの店舗で空きがあればtrue
     const availableStoreIdsArray = Array.from(availableStoreIds)
     if (availableStoreIdsArray.length === 0) return stores.length === 0
     
-    // いずれかの店舗で空きがあればtrue
     return availableStoreIdsArray.some(storeId => checkStoreAvailability(storeId))
   }, [allStoreEvents, getAvailableStoreIds, getEventStoreId, getTimeSlotFromLabel, stores, isWithinBusinessHours])
 
