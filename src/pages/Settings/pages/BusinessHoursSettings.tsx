@@ -152,47 +152,25 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
 
   const fetchBusinessHours = async (targetStoreId: string) => {
     try {
-      // 必須カラムのみ選択（special_open_days, special_closed_daysはオプション）
-      const { data, error } = await supabase
+      // まず基本カラムのみで取得（確実に動作する）
+      const { data: basicData, error: basicError } = await supabase
         .from('business_hours_settings')
-        .select('id, store_id, opening_hours, holidays, special_open_days, special_closed_days')
+        .select('id, store_id, opening_hours, holidays')
         .eq('store_id', targetStoreId)
         .maybeSingle()
 
-      // カラムが存在しない場合のエラーをハンドリング
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // データが存在しない
-        } else if (error.message?.includes('column') || error.code === '42703') {
-          // カラムが存在しない場合、基本カラムのみで再取得
-          logger.warn('新しいカラムが未追加です。基本設定のみ取得します。')
-          const { data: basicData } = await supabase
-            .from('business_hours_settings')
-            .select('id, store_id, opening_hours, holidays')
-            .eq('store_id', targetStoreId)
-            .maybeSingle()
-          if (basicData) {
-            setFormData({
-              ...basicData,
-              opening_hours: basicData.opening_hours || getDefaultOpeningHours(),
-              holidays: basicData.holidays || [],
-              special_open_days: [],
-              special_closed_days: []
-            })
-            return
-          }
-        } else {
-          throw error
-        }
+      if (basicError && basicError.code !== 'PGRST116') {
+        throw basicError
       }
 
-      if (data) {
+      if (basicData) {
+        // 基本データがあれば設定
         setFormData({
-          ...data,
-          opening_hours: data.opening_hours || getDefaultOpeningHours(),
-          holidays: data.holidays || [],
-          special_open_days: data.special_open_days || [],
-          special_closed_days: data.special_closed_days || []
+          ...basicData,
+          opening_hours: basicData.opening_hours || getDefaultOpeningHours(),
+          holidays: basicData.holidays || [],
+          special_open_days: [],
+          special_closed_days: []
         })
       } else {
         // データが存在しない場合はデフォルト値
@@ -296,17 +274,13 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
     setSaving(true)
     try {
       const store = stores.find(s => s.id === selectedStoreId)
+      // 基本カラムのみで保存（special_open_days/special_closed_daysはDBマイグレーション後に対応）
       const saveData = {
         store_id: selectedStoreId,
         organization_id: store?.organization_id,
         opening_hours: formData.opening_hours,
-        holidays: formData.holidays,
-        special_open_days: formData.special_open_days,
-        special_closed_days: formData.special_closed_days
+        holidays: formData.holidays
       }
-
-      // まず全カラムで保存を試みる
-      let saveError = null
       
       if (formData.id) {
         // 既存データを更新
@@ -314,53 +288,20 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
           .from('business_hours_settings')
           .update(saveData)
           .eq('id', formData.id)
-        saveError = error
+        if (error) throw error
       } else {
-        // 新規作成
+        // 新規作成 - IDのみ取得
         const { data, error } = await supabase
           .from('business_hours_settings')
           .insert(saveData)
-          .select()
+          .select('id')
           .single()
 
-        if (!error && data) {
+        if (error) throw error
+        if (data) {
           setFormData(prev => ({ ...prev, id: data.id }))
         }
-        saveError = error
       }
-      
-      // カラムが存在しない場合は基本カラムのみで再試行
-      if (saveError && (saveError.message?.includes('column') || saveError.code === '42703')) {
-        logger.warn('新しいカラムが未追加です。基本設定のみ保存します。')
-        const basicSaveData = {
-          store_id: selectedStoreId,
-          organization_id: store?.organization_id,
-          opening_hours: formData.opening_hours,
-          holidays: formData.holidays
-        }
-        
-        if (formData.id) {
-          const { error } = await supabase
-            .from('business_hours_settings')
-            .update(basicSaveData)
-            .eq('id', formData.id)
-          if (error) throw error
-        } else {
-          const { data, error } = await supabase
-            .from('business_hours_settings')
-            .insert(basicSaveData)
-            .select()
-            .single()
-          if (error) throw error
-          if (data) {
-            setFormData(prev => ({ ...prev, id: data.id }))
-          }
-        }
-        showToast.success('保存しました（特別営業日/休業日は未対応）')
-        return
-      }
-      
-      if (saveError) throw saveError
 
       showToast.success('保存しました')
     } catch (error) {
