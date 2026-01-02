@@ -63,12 +63,12 @@ export const BookingNotice = memo(function BookingNotice({
   if (isLoading) {
     return (
       <div>
-        <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+        <h3 className="mb-2 text-sm font-medium text-muted-foreground">
           注意事項
           <span className="text-red-500 ml-2">※必ずご確認ください</span>
         </h3>
         <Card>
-          <CardContent className="p-4 flex items-center justify-center">
+          <CardContent className="p-3 flex items-center justify-center">
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           </CardContent>
         </Card>
@@ -83,13 +83,13 @@ export const BookingNotice = memo(function BookingNotice({
 
   return (
     <div>
-      <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+      <h3 className="mb-2 text-sm font-medium text-muted-foreground">
         注意事項
         <span className="text-red-500 ml-2">※必ずご確認ください</span>
       </h3>
       <Card>
-        <CardContent className="p-4">
-          <ul className="space-y-1.5 text-xs md:text-sm text-muted-foreground">
+        <CardContent className="p-3">
+          <ul className="space-y-1 text-xs text-muted-foreground">
             {notices.map((notice) => (
               <li key={notice.id}>• {notice.content}</li>
             ))}

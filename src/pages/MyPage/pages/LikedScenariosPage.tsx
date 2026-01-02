@@ -16,6 +16,7 @@ interface WantToPlayScenario {
   created_at: string
   scenario: {
     id: string
+    slug?: string  // URL用のslug（あればこちらを使用）
     title: string
     description: string
     author: string
@@ -81,7 +82,7 @@ export function WantToPlayPage() {
       const scenarioIds = likesData.map(like => like.scenario_id)
       const { data: scenariosData, error: scenariosError } = await supabase
         .from('scenarios')
-        .select('id, title, description, author, duration, player_count_min, player_count_max, difficulty, genre, rating, play_count, key_visual_url')
+        .select('id, slug, title, description, author, duration, player_count_min, player_count_max, difficulty, genre, rating, play_count, key_visual_url')
         .in('id', scenarioIds)
 
       if (scenariosError) throw scenariosError
@@ -187,7 +188,7 @@ export function WantToPlayPage() {
                   key={item.id}
                   className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => {
-                    window.location.href = `${bookingBasePath}/scenario/${item.scenario.id}`
+                    window.location.href = `${bookingBasePath}/scenario/${item.scenario.slug || item.scenario.id}`
                   }}
                 >
                   <div className="flex items-start gap-4 mb-3">

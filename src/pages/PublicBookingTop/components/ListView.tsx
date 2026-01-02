@@ -23,6 +23,7 @@ interface ListViewProps {
   onCardClick: (scenarioId: string) => void
   blockedSlots?: any[]
   privateBookingDeadlineDays?: number
+  organizationSlug?: string
 }
 
 /**
@@ -40,7 +41,8 @@ export const ListView = memo(function ListView({
   scenarios,
   onCardClick,
   blockedSlots = [],
-  privateBookingDeadlineDays = 7
+  privateBookingDeadlineDays = 7,
+  organizationSlug
 }: ListViewProps) {
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
@@ -110,7 +112,8 @@ export const ListView = memo(function ListView({
           <button
             className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
             onClick={() => {
-              window.location.href = `/private-booking-select?date=${dateStr}&store=${store.id}&slot=${timeSlot}`
+              const basePath = organizationSlug ? `/${organizationSlug}` : ''
+              window.location.href = `${basePath}/private-booking-select?date=${dateStr}&store=${store.id}&slot=${timeSlot}`
             }}
           >
             貸切申込

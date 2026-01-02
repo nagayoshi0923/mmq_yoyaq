@@ -174,16 +174,32 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
 
             {/* タイトル・作者・メール */}
             <div className="flex-1 space-y-3">
-              {/* タイトル */}
-              <div>
-                <Label className={labelStyle}>タイトル *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="シナリオの正式名称を入力"
-                  className={inputStyle}
-                />
+              {/* タイトル・Slug（横並び） */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className={labelStyle}>タイトル *</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="シナリオの正式名称"
+                    className={inputStyle}
+                  />
+                </div>
+                <div>
+                  <Label className={labelStyle}>Slug（URL用）</Label>
+                  <Input
+                    id="slug"
+                    value={formData.slug || ''}
+                    onChange={(e) => {
+                      // 小文字、英数字、ハイフンのみ許可
+                      const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
+                      setFormData(prev => ({ ...prev, slug: value }))
+                    }}
+                    placeholder="aiu-kairo（英数字とハイフン）"
+                    className={inputStyle}
+                  />
+                </div>
               </div>
               
               {/* 作者・メール（横並び） */}

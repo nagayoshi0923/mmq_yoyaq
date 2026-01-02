@@ -88,7 +88,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
   return (
     <Card 
       className="overflow-hidden transition-colors cursor-pointer border border-gray-200 hover:bg-gray-50"
-      onClick={() => onClick(scenario.scenario_id)}
+      onClick={() => onClick(scenario.scenario_slug || scenario.scenario_id)}
       onMouseEnter={() => prefetchScenario(scenario.scenario_id)}
     >
       {/* キービジュアル */}

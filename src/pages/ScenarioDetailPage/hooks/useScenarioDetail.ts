@@ -43,8 +43,8 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
         }
       }
       
-      // シナリオを取得（organization_idでフィルタリング）
-      const scenarioDataResult = await scenarioApi.getById(scenarioId, orgId).catch((error) => {
+      // シナリオを取得（IDまたはslugで、organization_idでフィルタリング）
+      const scenarioDataResult = await scenarioApi.getByIdOrSlug(scenarioId, orgId).catch((error) => {
         logger.error('シナリオデータの取得エラー:', error)
         return null
       })
@@ -113,17 +113,18 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
           // キャンセルされていないもの
           if (event.is_cancelled) return false
           
-          // 通常公演の場合：予約可能なもののみ
+          // 通常公演の場合：予約可能なもののみ表示
           if (event.category === 'open') {
             return event.is_reservation_enabled !== false
           }
           
-          // 貸切公演の場合：常に表示
+          // 貸切公演は予約サイトには表示しない（貸切は個別に申し込むため）
           if (event.category === 'private') {
-            return true
+            return false
           }
           
-          return false
+          // カテゴリが未設定の場合は表示（後方互換性）
+          return event.is_reservation_enabled !== false
         })
         .map((event: any) => {
           // 店舗データを取得（優先順位：event.stores > storesDataから検索）
@@ -198,7 +199,7 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
         try {
           const { data: relatedData } = await supabase
             .from('scenarios')
-            .select('id, title, key_visual_url, author, player_count_min, player_count_max, duration')
+            .select('id, slug, title, key_visual_url, author, player_count_min, player_count_max, duration')
             .eq('author', scenarioData.author)
             .neq('id', scenarioData.id)
             .limit(6)

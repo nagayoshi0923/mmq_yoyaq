@@ -10,7 +10,11 @@ interface TimeSlot {
   endTime: string
 }
 
-export function PrivateBookingRequestPage() {
+interface PrivateBookingRequestPageProps {
+  organizationSlug?: string
+}
+
+export function PrivateBookingRequestPage({ organizationSlug }: PrivateBookingRequestPageProps) {
   const { organization } = useOrganization()
   const [loading, setLoading] = useState(true)
   const [scenario, setScenario] = useState<any>(null)
@@ -18,11 +22,11 @@ export function PrivateBookingRequestPage() {
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
   
-  // 予約サイトのベースパス
-  const bookingBasePath = organization?.slug ? `/${organization.slug}` : '/queens-waltz'
+  // 予約サイトのベースパス（propsから優先）
+  const bookingBasePath = organizationSlug ? `/${organizationSlug}` : (organization?.slug ? `/${organization.slug}` : '/queens-waltz')
   
-  // URLパラメータから情報を取得
-  const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '')
+  // URLパラメータから情報を取得（パスベース）
+  const urlParams = new URLSearchParams(window.location.search)
   const scenarioId = urlParams.get('scenario') || ''
   const dateParam = urlParams.get('date') || ''
   const storeId = urlParams.get('store') || ''

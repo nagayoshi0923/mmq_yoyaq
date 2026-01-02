@@ -49,29 +49,31 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     })
   }, [setSavedStoreIds])
   
+  // 初回フォールバック済みフラグ
+  const [hasInitialized, setHasInitialized] = useState(false)
+  
   // 保存された店舗選択を復元（stores読み込み後に検証）
-  // 貸切用の選択が空の場合、カレンダー/リストの選択をフォールバック
+  // 初回のみ：貸切用の選択が空の場合、カレンダー/リストの選択をフォールバック
   useEffect(() => {
-    if (stores.length > 0) {
+    if (stores.length > 0 && !hasInitialized) {
+      setHasInitialized(true)
+      
       // 貸切用に保存された店舗がある場合はそれを使用
       if (savedStoreIds.length > 0) {
         const validStoreIds = savedStoreIds.filter(id => 
           stores.some(s => s.id === id)
         )
-        if (validStoreIds.length !== selectedStoreIds.length || 
-            !validStoreIds.every(id => selectedStoreIds.includes(id))) {
-          setSelectedStoreIdsInternal(validStoreIds)
-        }
+        setSelectedStoreIdsInternal(validStoreIds)
       } else if (storeFilter && storeFilter !== 'all') {
-        // 貸切用が空で、カレンダー/リストで店舗が選択されている場合
+        // 初回のみ：貸切用が空で、カレンダー/リストで店舗が選択されている場合
         const storeExists = stores.some(s => s.id === storeFilter)
-        if (storeExists && selectedStoreIds.length === 0) {
+        if (storeExists) {
           setSelectedStoreIdsInternal([storeFilter])
           setSavedStoreIds([storeFilter])
         }
       }
     }
-  }, [stores, savedStoreIds, storeFilter, selectedStoreIds, setSavedStoreIds])
+  }, [stores, savedStoreIds, storeFilter, hasInitialized, setSavedStoreIds])
 
   // 現在の月から3ヶ月先までの全店舗のイベントを取得（貸切申込可能日判定用）
   useEffect(() => {

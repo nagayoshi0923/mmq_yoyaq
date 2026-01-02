@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { logger } from '@/utils/logger'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
@@ -23,15 +24,29 @@ interface PublicBookingTopProps {
 
 export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicBookingTopProps) {
   const { user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   
-  // タブ状態（URLハッシュと連携）
+  // タブ状態（URLパスと連携）
   const [activeTab, setActiveTab] = useState(() => {
-    const hash = window.location.hash
-    if (hash.includes('calendar')) return 'calendar'
-    if (hash.includes('list')) return 'list'
+    const pathname = window.location.pathname
+    if (pathname.includes('/calendar')) return 'calendar'
+    if (pathname.includes('/list')) return 'list'
     return 'lineup'
   })
+
+  // URLパス変更時にタブ状態を同期（ブラウザバック対応）
+  useEffect(() => {
+    const pathname = location.pathname
+    if (pathname.includes('/calendar')) {
+      setActiveTab('calendar')
+    } else if (pathname.includes('/list')) {
+      setActiveTab('list')
+    } else {
+      setActiveTab('lineup')
+    }
+  }, [location.pathname])
 
   // 店舗フィルター（アカウントごとに保存）
   const [selectedStoreFilter, setSelectedStoreFilter] = useStoreFilterPreference('all')
@@ -162,22 +177,27 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     setActiveTab(value)
     const basePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
     if (value === 'calendar') {
-      window.location.href = `${basePath}/calendar`
+      navigate(`${basePath}/calendar`)
     } else if (value === 'list') {
-      window.location.href = `${basePath}/list`
+      navigate(`${basePath}/list`)
     } else {
-      window.location.href = basePath
+      navigate(basePath)
     }
-  }, [organizationSlug])
+  }, [organizationSlug, navigate])
 
   // シナリオカードクリック（メモ化）
   const handleCardClick = useCallback((scenarioId: string) => {
     if (onScenarioSelect) {
       onScenarioSelect(scenarioId)
     } else {
-      window.location.href = `/scenario-detail/${scenarioId}`
+      // 組織slugがあれば予約サイト形式、なければグローバル形式
+      if (organizationSlug) {
+        window.location.href = `/${organizationSlug}/scenario/${scenarioId}`
+      } else {
+        window.location.href = `/scenario-detail/${scenarioId}`
+      }
     }
-  }, [onScenarioSelect])
+  }, [onScenarioSelect, organizationSlug])
 
   // 店舗名取得（メモ化）
   const getStoreName = useCallback((event: any): string => {
@@ -241,7 +261,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
       {/* 検索バー - スクロール時に固定 */}
       <div className="bg-white border-b sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-2">
-          <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+          <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} organizationSlug={organizationSlug} />
         </div>
       </div>
 
@@ -264,6 +284,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 isFavorite={isFavorite}
                 onToggleFavorite={handleToggleFavorite}
                 searchTerm={searchTerm}
+                organizationSlug={organizationSlug}
               />
             </TabsContent>
 
@@ -283,6 +304,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 getStoreColor={getStoreColor}
                 blockedSlots={blockedSlots}
                 privateBookingDeadlineDays={privateBookingDeadlineDays}
+                organizationSlug={organizationSlug}
               />
             </TabsContent>
 
@@ -301,6 +323,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 onCardClick={handleCardClick}
                 blockedSlots={blockedSlots}
                 privateBookingDeadlineDays={privateBookingDeadlineDays}
+                organizationSlug={organizationSlug}
               />
             </TabsContent>
           </Tabs>

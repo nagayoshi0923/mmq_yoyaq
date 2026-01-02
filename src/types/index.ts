@@ -223,6 +223,7 @@ export interface FlexiblePricing {
 // シナリオ関連の型定義
 export interface Scenario {
   id: string
+  slug?: string  // URL用の短い識別子（英数字とハイフン）
   organization_id?: string | null  // マルチテナント対応（managed シナリオは NULL で共有）
   is_shared?: boolean  // 他組織に共有するか
   title: string

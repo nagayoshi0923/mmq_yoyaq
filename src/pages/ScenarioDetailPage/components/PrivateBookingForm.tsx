@@ -103,22 +103,18 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   return (
     <div>
       {/* 店舗選択 */}
-      <div className="mb-4">
-        <label className="text-sm font-medium text-muted-foreground mb-2 block">店舗を選択</label>
+      <div className="mb-3">
+        <label className="text-sm font-medium text-muted-foreground mb-1.5 block">店舗を選択</label>
         <MultiSelect
           options={stores.map(store => ({
             id: store.id,
             name: store.name
           }))}
-          selectedValues={selectedStoreIds.map(id => stores.find(s => s.id === id)?.name || '').filter(Boolean)}
-          onSelectionChange={(storeNames) => {
-            const storeIds = storeNames.map(name => 
-              stores.find(s => s.name === name)?.id || ''
-            ).filter(Boolean)
-            onStoreIdsChange(storeIds)
-          }}
+          selectedValues={selectedStoreIds}
+          onSelectionChange={onStoreIdsChange}
           placeholder="店舗を選択（未選択=すべて）"
           showBadges={false}
+          useIdAsValue={true}
         />
         {/* 選択された店舗を小さいバッジで表示 */}
         {selectedStoreIds.length > 0 && (
@@ -128,9 +124,18 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
               return store ? (
                 <span 
                   key={id} 
-                  className="text-xs border border-gray-200 px-2 py-0.5 rounded bg-gray-50"
+                  className="text-xs border border-gray-200 px-2 py-0.5 rounded bg-gray-50 flex items-center gap-1"
                 >
                   {store.short_name || store.name}
+                  <button
+                    type="button"
+                    className="hover:bg-red-100 rounded-full p-0.5"
+                    onClick={() => onStoreIdsChange(selectedStoreIds.filter(sid => sid !== id))}
+                  >
+                    <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
                 </span>
               ) : null
             })}
@@ -159,7 +164,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       </div>
       
       {/* 選択状況 */}
-      <div className="text-xs text-muted-foreground mb-3 text-center">
+      <div className="text-xs text-muted-foreground mb-2 text-center">
         {selectedSlots.length === 0 ? (
           <span>候補日時を選択してください（最大{maxSelections}件）</span>
         ) : remainingSelections > 0 ? (
@@ -173,7 +178,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         )}
       </div>
       
-      <div className="space-y-2 max-h-96 overflow-y-auto">
+      <div className="max-h-[280px] overflow-y-auto border rounded-lg p-2">
         {availableDates.map((date) => {
           const dateObj = new Date(date)
           const month = dateObj.getMonth() + 1
@@ -191,47 +196,46 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const slotTimesMap = new Map(slotsForDate.map(s => [s.label, s.startTime]))
           
           return (
-            <Card key={date}>
-              <CardContent className="p-3">
-                <div className="flex items-center gap-3">
-                  {/* 日付 */}
-                  <div className="flex-shrink-0 w-10 text-center">
-                    <div className="text-sm font-medium">{month}/{day}</div>
-                    <div className={`text-xs ${weekdayColor}`}>({weekday})</div>
-                  </div>
+            <div 
+              key={date}
+              className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0"
+            >
+              {/* 日付 */}
+              <div className="flex-shrink-0 w-10 text-center">
+                <div className="text-sm font-medium">{month}/{day}</div>
+                <div className={`text-xs ${weekdayColor}`}>({weekday})</div>
+              </div>
+              
+              {/* 時間枠ボタン（常に3枠表示、幅固定） */}
+              <div className="flex gap-1.5 flex-1">
+                {timeSlots.map((slot) => {
+                  // 日付ごとの開始時間を取得（設定がなければデフォルト）
+                  const startTime = slotTimesMap.get(slot.label) || slot.startTime
+                  const slotWithTime = { ...slot, startTime }
+                  const isAvailable = getAvailability(date, slotWithTime)
+                  const isSelected = isTimeSlotSelected(date, slotWithTime)
+                  const endTime = calculateEndTime(startTime, scenarioDuration)
                   
-                  {/* 時間枠ボタン（常に3枠表示、幅固定） */}
-                  <div className="flex gap-2 flex-1">
-                    {timeSlots.map((slot) => {
-                      // 日付ごとの開始時間を取得（設定がなければデフォルト）
-                      const startTime = slotTimesMap.get(slot.label) || slot.startTime
-                      const slotWithTime = { ...slot, startTime }
-                      const isAvailable = getAvailability(date, slotWithTime)
-                      const isSelected = isTimeSlotSelected(date, slotWithTime)
-                      const endTime = calculateEndTime(startTime, scenarioDuration)
-                      
-                      return (
-                        <button
-                          key={slot.label}
-                          className={`flex-1 py-2 px-1 rounded border text-center transition-colors ${
-                            !isAvailable 
-                              ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
-                              : isSelected
-                              ? 'bg-purple-500 text-white border-purple-500'
-                              : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
-                          }`}
-                          disabled={!isAvailable}
-                          onClick={() => isAvailable && onTimeSlotToggle(date, slotWithTime)}
-                        >
-                          <div className="text-xs font-medium">{slot.label}</div>
-                          <div className="text-xs opacity-70">{startTime}〜{endTime}</div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  return (
+                    <button
+                      key={slot.label}
+                      className={`flex-1 py-1 px-1 rounded border text-center transition-colors ${
+                        !isAvailable 
+                          ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
+                          : isSelected
+                          ? 'bg-purple-500 text-white border-purple-500'
+                          : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                      }`}
+                      disabled={!isAvailable}
+                      onClick={() => isAvailable && onTimeSlotToggle(date, slotWithTime)}
+                    >
+                      <div className="text-xs font-medium">{slot.label}</div>
+                      <div className="text-[10px] opacity-70">{startTime}〜{endTime}</div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           )
         })}
       </div>

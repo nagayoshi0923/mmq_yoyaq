@@ -15,6 +15,7 @@ import { logger } from '@/utils/logger'
 
 interface ScenarioData {
   id: string
+  slug?: string  // URL用のslug（あればこちらを使用）
   title: string
   author: string
   key_visual_url?: string
@@ -27,12 +28,16 @@ interface ScenarioData {
   release_date?: string
 }
 
-export function ScenarioCatalog() {
+interface ScenarioCatalogProps {
+  organizationSlug?: string
+}
+
+export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const { user } = useAuth()
   const { organization } = useOrganization()
   
-  // 予約サイトのベースパス
-  const bookingBasePath = organization?.slug ? `/${organization.slug}` : '/queens-waltz'
+  // 予約サイトのベースパス（propsから優先、なければorganizationから）
+  const bookingBasePath = organizationSlug ? `/${organizationSlug}` : (organization?.slug ? `/${organization.slug}` : '/queens-waltz')
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   
   const [scenarios, setScenarios] = useState<ScenarioData[]>([])
@@ -114,8 +119,14 @@ export function ScenarioCatalog() {
   }, [bookingBasePath])
 
   const handleCardClick = useCallback((scenarioId: string) => {
-    window.location.href = `/scenario-detail/${scenarioId}`
-  }, [])
+    // 組織slugがあれば予約サイト形式、なければグローバル形式
+    if (organizationSlug || organization?.slug) {
+      const slug = organizationSlug || organization?.slug
+      window.location.href = `/${slug}/scenario/${scenarioId}`
+    } else {
+      window.location.href = `/scenario-detail/${scenarioId}`
+    }
+  }, [organizationSlug, organization?.slug])
 
   const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -257,7 +268,7 @@ export function ScenarioCatalog() {
               <Card
                 key={scenario.id}
                 className="overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors"
-                onClick={() => handleCardClick(scenario.id)}
+                onClick={() => handleCardClick(scenario.slug || scenario.id)}
               >
                 {/* キービジュアル */}
                 <div className="relative w-full aspect-[1/1.4] bg-gray-200 overflow-hidden">

@@ -23,13 +23,17 @@ interface Scenario {
   participation_fee?: number
 }
 
-export function PrivateBookingScenarioSelect() {
+interface PrivateBookingScenarioSelectProps {
+  organizationSlug?: string
+}
+
+export function PrivateBookingScenarioSelect({ organizationSlug }: PrivateBookingScenarioSelectProps) {
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('')
   const [loading, setLoading] = useState(true)
   
-  // URLパラメータから日付、店舗、時間帯を取得
-  const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '')
+  // URLパラメータから日付、店舗、時間帯を取得（パスベース）
+  const urlParams = new URLSearchParams(window.location.search)
   const preselectedDate = urlParams.get('date') || ''
   const preselectedStore = urlParams.get('store') || ''
   const preselectedSlot = urlParams.get('slot') || ''
@@ -62,8 +66,9 @@ export function PrivateBookingScenarioSelect() {
       return
     }
     
-    // 貸切リクエスト確認ページへ遷移
-    window.location.href = `/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${preselectedStore}&slot=${preselectedSlot}`
+    // 貸切リクエスト確認ページへ遷移（組織slugがあれば予約サイト形式）
+    const basePath = organizationSlug ? `/${organizationSlug}` : ''
+    window.location.href = `${basePath}/private-booking-request?scenario=${selectedScenarioId}&date=${preselectedDate}&store=${preselectedStore}&slot=${preselectedSlot}`
   }
 
   return (

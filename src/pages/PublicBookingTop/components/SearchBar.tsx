@@ -6,6 +6,7 @@ import { memo } from 'react'
 interface SearchBarProps {
   searchTerm: string
   onSearchChange: (value: string) => void
+  organizationSlug?: string
 }
 
 /**
@@ -13,10 +14,12 @@ interface SearchBarProps {
  */
 export const SearchBar = memo(function SearchBar({ 
   searchTerm, 
-  onSearchChange 
+  onSearchChange,
+  organizationSlug
 }: SearchBarProps) {
   const handleCatalogClick = () => {
-    window.location.href = '/catalog'
+    const catalogPath = organizationSlug ? `/${organizationSlug}/catalog` : '/catalog'
+    window.location.href = catalogPath
   }
 
   return (

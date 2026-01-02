@@ -5,6 +5,7 @@ import { formatDateJST } from '@/utils/dateUtils'
 
 export interface ScenarioCard {
   scenario_id: string
+  scenario_slug?: string  // URL用のslug（あればこちらを使用）
   scenario_title: string
   key_visual_url?: string
   author: string
@@ -119,7 +120,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       // シナリオ取得（organization_idでフィルタリング）
       const scenarioQuery = supabase
         .from('scenarios')
-        .select('id, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id')
+        .select('id, slug, title, key_visual_url, author, duration, player_count_min, player_count_max, genre, release_date, status, participation_fee, scenario_type, is_shared, organization_id')
         .eq('status', 'available')
         .neq('scenario_type', 'gm_test')
       
@@ -219,17 +220,18 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       logger.log(`⏱️ データ取得完了: ${((fetchEndTime - fetchStartTime) / 1000).toFixed(2)}秒`)
       logger.log(`📊 取得データ: シナリオ${scenariosData.length}件, 店舗${storesData.length}件, 公演${allEventsData.length}件`)
       
-      // 予約可能な公演 + 確定貸切公演をフィルタリング
+      // 予約可能な通常公演のみフィルタリング（貸切公演は除外）
       const publicEvents = allEventsData.filter((event: any) => {
         const isNotCancelled = !event.is_cancelled
+        
+        // 貸切公演は予約サイトには表示しない
+        const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
+        if (isPrivateBooking) return false
         
         // 通常公演: category='open' かつ is_reservation_enabled=true
         const isOpenAndEnabled = (event.is_reservation_enabled !== false) && (event.category === 'open')
         
-        // 貸切公演: category='private' または is_private_booking=true（予約不可として表示）
-        const isPrivateBooking = event.category === 'private' || event.is_private_booking === true
-        
-        return isNotCancelled && (isOpenAndEnabled || isPrivateBooking)
+        return isNotCancelled && isOpenAndEnabled
       })
       
       // GMテスト等、貸切申込を受け付けない時間帯をフィルタリング
@@ -399,6 +401,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
           if (nextEvents.length > 0 || targetEvents.length > 0) {
             scenarioMap.set(scenario.id, {
               scenario_id: scenario.id,
+              scenario_slug: scenario.slug || undefined,
               scenario_title: scenario.title,
               key_visual_url: scenario.key_visual_url,
               author: scenario.author,
@@ -416,6 +419,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
             // 未来の公演がない場合でも、全タイトル用にシナリオ情報を追加
             scenarioMap.set(scenario.id, {
               scenario_id: scenario.id,
+              scenario_slug: scenario.slug || undefined,
               scenario_title: scenario.title,
               key_visual_url: scenario.key_visual_url,
               author: scenario.author,
@@ -432,6 +436,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
           // 公演がない場合でも、全タイトル用にシナリオ情報を追加
           scenarioMap.set(scenario.id, {
             scenario_id: scenario.id,
+            scenario_slug: scenario.slug || undefined,
             scenario_title: scenario.title,
             key_visual_url: scenario.key_visual_url,
             author: scenario.author,

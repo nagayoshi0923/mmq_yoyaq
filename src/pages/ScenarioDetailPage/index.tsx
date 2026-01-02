@@ -84,7 +84,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
   useEffect(() => {
     // URLパラメータを処理して貸切リクエストタブを開く
-    const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '')
+    const urlParams = new URLSearchParams(window.location.search)
     const tabParam = urlParams.get('tab')
     const dateParam = urlParams.get('date')
     const storeParam = urlParams.get('store')
@@ -254,10 +254,10 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       </div>
 
       {/* メインコンテンツ */}
-      <div className="container mx-auto max-w-7xl px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div className="container mx-auto max-w-7xl px-4 py-3">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* メインエリア - 詳細情報 */}
-          <div className="md:col-span-8 space-y-6">
+          <div className="md:col-span-7 space-y-3">
             <ScenarioHero scenario={scenario} events={events} />
             {/* PC版: 注意事項をここに表示（タブに応じて内容切り替え） */}
             <div className="hidden md:block">
@@ -270,23 +270,23 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
           </div>
 
           {/* 右サイドバー - チケット購入 */}
-          <div className="md:col-span-4">
-            <div className="md:sticky md:top-[60px] space-y-6">
+          <div className="md:col-span-5">
+            <div className="md:sticky md:top-[50px] space-y-3">
               {/* タブ: 公演日程 / 貸切リクエスト */}
               <Tabs 
                 defaultValue="schedule" 
                 className="w-full" 
                 onValueChange={(value) => setActiveTab(value as 'schedule' | 'private')}
               >
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="schedule" className="text-sm">公演日程</TabsTrigger>
-                  <TabsTrigger value="private" className="text-sm">貸切リクエスト</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 mb-2">
+                  <TabsTrigger value="schedule" className="text-sm py-1.5">公演日程</TabsTrigger>
+                  <TabsTrigger value="private" className="text-sm py-1.5">貸切リクエスト</TabsTrigger>
                 </TabsList>
                 
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
-                    <h3 className="mb-3 text-sm font-medium text-muted-foreground">日付を選択</h3>
+                    <h3 className="mb-2 text-sm font-medium text-muted-foreground">日付を選択</h3>
                     <EventList
                       events={events}
                       selectedEventId={selectedEventId}
@@ -405,7 +405,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               scenarios={relatedScenarios}
               authorName={scenario.author}
               onScenarioClick={(id) => {
-                window.location.href = `/scenario-detail/${id}`
+                // 組織slugがあれば予約サイト形式、なければグローバル形式
+                if (organizationSlug) {
+                  window.location.href = `/${organizationSlug}/scenario/${id}`
+                } else {
+                  window.location.href = `/scenario-detail/${id}`
+                }
               }}
             />
           </div>

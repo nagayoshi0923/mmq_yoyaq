@@ -32,7 +32,7 @@ export const EventList = memo(function EventList({
   }
 
   return (
-    <div className="space-y-3 max-h-96 overflow-y-auto">
+    <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
       {events.map((event) => {
         const isSelected = selectedEventId === event.event_id
         const eventDate = new Date(event.date)
@@ -57,7 +57,7 @@ export const EventList = memo(function EventList({
               onEventSelect(isSelected ? null : event.event_id)
             }}
           >
-            <div className="flex items-center gap-3 p-3 touch-manipulation">
+            <div className="flex items-center gap-2 p-2 touch-manipulation">
               {/* 左：日付（縦並び） */}
               <div className="flex-shrink-0 w-12 text-center">
                 <div className="text-base font-semibold leading-tight">{month}/{day}</div>

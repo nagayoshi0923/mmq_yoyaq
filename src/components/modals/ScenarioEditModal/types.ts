@@ -13,6 +13,7 @@ export interface ScenarioEditModalProps {
 
 export interface ScenarioFormData {
   title: string
+  slug?: string  // URL用の短い識別子（英数字とハイフン）
   author: string
   author_email?: string  // 作者メールアドレス（作者ポータル連携用）
   description: string

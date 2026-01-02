@@ -13,6 +13,7 @@ interface LineupViewProps {
   isFavorite: (scenarioId: string) => boolean
   onToggleFavorite: (scenarioId: string, e: React.MouseEvent) => void
   searchTerm?: string
+  organizationSlug?: string
 }
 
 /**
@@ -27,7 +28,8 @@ export const LineupView = memo(function LineupView({
   onCardClick,
   isFavorite,
   onToggleFavorite,
-  searchTerm = ''
+  searchTerm = '',
+  organizationSlug
 }: LineupViewProps) {
   // 検索中かどうか
   const isSearching = searchTerm.length > 0
@@ -36,7 +38,8 @@ export const LineupView = memo(function LineupView({
   const displayedNewScenarios = newScenarios.slice(0, 10)
   
   const handleCatalogClick = () => {
-    window.location.href = '/catalog'
+    const catalogPath = organizationSlug ? `/${organizationSlug}/catalog` : '/catalog'
+    window.location.href = catalogPath
   }
   
   // 検索中は全シナリオから検索結果を表示

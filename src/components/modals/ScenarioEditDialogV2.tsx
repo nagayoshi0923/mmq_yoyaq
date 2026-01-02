@@ -67,6 +67,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
   const [formData, setFormData] = useState<ScenarioFormData>({
     title: '',
+    slug: '',
     author: '',
     author_email: '',
     description: '',
@@ -314,6 +315,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         
         setFormData({
           title: scenario.title || '',
+          slug: scenario.slug || '',
           author: scenario.author || '',
           author_email: scenario.author_email || '',
           description: scenario.description || '',
@@ -374,6 +376,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       // 新規作成時は初期値にリセット
       setFormData({
         title: '',
+        slug: '',
         author: '',
         author_email: '',
         description: '',
@@ -460,6 +463,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       
       const scenarioData: any = {
         ...dbFields,
+        // slugが空文字列の場合はnullとして保存
+        slug: dbFields.slug?.trim() || null,
         participation_fee: normalParticipationCost?.amount || formData.participation_fee || 3000,
         // 参加費設定（時間帯別料金）を保存
         participation_costs: formData.participation_costs || [],

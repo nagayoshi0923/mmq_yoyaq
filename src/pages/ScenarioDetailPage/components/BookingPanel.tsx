@@ -26,12 +26,12 @@ export const BookingPanel = memo(function BookingPanel({
   onBooking
 }: BookingPanelProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* 人数を選択 */}
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-3">人数を選択</h3>
+        <h3 className="text-sm font-medium text-muted-foreground mb-2">人数を選択</h3>
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm">予約人数</span>
               <select 
@@ -61,9 +61,9 @@ export const BookingPanel = memo(function BookingPanel({
 
       {/* 料金情報 */}
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-3">料金</h3>
+        <h3 className="text-sm font-medium text-muted-foreground mb-2">料金</h3>
         <Card>
-          <CardContent className="p-4 space-y-2">
+          <CardContent className="p-3 space-y-1.5">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">参加費（1名）</span>
               <span className="font-medium">¥{participationFee.toLocaleString()}</span>

@@ -4,6 +4,7 @@ import { Users, Clock } from 'lucide-react'
 
 interface RelatedScenario {
   id: string
+  slug?: string  // URL用のslug（あればこちらを使用）
   title: string
   key_visual_url?: string
   author: string
@@ -36,7 +37,7 @@ export const RelatedScenarios = memo(function RelatedScenarios({
           <div
             key={scenario.id}
             className="cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => onScenarioClick(scenario.id)}
+            onClick={() => onScenarioClick(scenario.slug || scenario.id)}
           >
             {/* キービジュアル */}
             <div className="aspect-[1/1.4] bg-gray-200 rounded overflow-hidden mb-1">

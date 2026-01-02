@@ -82,11 +82,20 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
     return { page: 'booking', scenarioId: segments[2], organizationSlug: segments[0] }
   }
   
-  // /{slug}/calendar, /{slug}/private-booking など
+  // /{slug}/calendar, /{slug}/list, /{slug}/catalog, /{slug}/private-booking など
   if (segments.length >= 2 && !ADMIN_PATHS.includes(segments[0])) {
     const subPage = segments[1]
-    if (subPage === 'calendar' || subPage === 'private-booking' || subPage === 'private-booking-request') {
+    if (subPage === 'calendar' || subPage === 'list' || subPage === 'private-booking') {
       return { page: 'booking', scenarioId: null, organizationSlug: segments[0] }
+    }
+    if (subPage === 'catalog') {
+      return { page: 'catalog', scenarioId: null, organizationSlug: segments[0] }
+    }
+    if (subPage === 'private-booking-select') {
+      return { page: 'private-booking-select', scenarioId: null, organizationSlug: segments[0] }
+    }
+    if (subPage === 'private-booking-request') {
+      return { page: 'private-booking-request', scenarioId: null, organizationSlug: segments[0] }
     }
   }
   
@@ -275,9 +284,10 @@ export function AdminDashboard() {
   }
   
   if (currentPage === 'catalog') {
+    const { organizationSlug: catalogOrgSlug } = parsePath(location.pathname)
     return (
       <Suspense fallback={<LoadingScreen message="カタログを読み込み中..." />}>
-        <ScenarioCatalog />
+        <ScenarioCatalog organizationSlug={catalogOrgSlug || undefined} />
       </Suspense>
     )
   }
@@ -315,7 +325,7 @@ export function AdminDashboard() {
   if (currentPage === 'private-booking-select') {
     return (
       <Suspense fallback={<LoadingScreen message="貸切予約を読み込み中..." />}>
-        <PrivateBookingScenarioSelect />
+        <PrivateBookingScenarioSelect organizationSlug={organizationSlug || undefined} />
       </Suspense>
     )
   }
@@ -323,7 +333,7 @@ export function AdminDashboard() {
   if (currentPage === 'private-booking-request') {
     return (
       <Suspense fallback={<LoadingScreen message="貸切予約リクエストを読み込み中..." />}>
-        <PrivateBookingRequestPage />
+        <PrivateBookingRequestPage organizationSlug={organizationSlug || undefined} />
       </Suspense>
     )
   }

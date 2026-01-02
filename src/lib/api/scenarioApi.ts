@@ -77,6 +77,49 @@ export const scenarioApi = {
     return data
   },
 
+  // slugでシナリオを取得
+  async getBySlug(slug: string, organizationId?: string): Promise<Scenario | null> {
+    let query = supabase
+      .from('scenarios')
+      .select('*')
+      .eq('slug', slug)
+    
+    // organizationIdが指定されていない場合、現在のユーザーの組織を自動取得
+    const orgId = organizationId || await getCurrentOrganizationId()
+    if (orgId) {
+      query = query.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+    }
+    
+    const { data, error } = await query.single()
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null // レコードが見つからない
+      }
+      throw error
+    }
+    return data
+  },
+
+  // IDまたはslugでシナリオを取得（slugを優先、見つからなければIDで検索）
+  async getByIdOrSlug(idOrSlug: string, organizationId?: string): Promise<Scenario | null> {
+    // UUIDパターンかどうかをチェック
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const isUuid = uuidPattern.test(idOrSlug)
+    
+    // UUIDの場合はIDで検索
+    if (isUuid) {
+      return this.getById(idOrSlug, organizationId)
+    }
+    
+    // slugで検索
+    const bySlug = await this.getBySlug(idOrSlug, organizationId)
+    if (bySlug) return bySlug
+    
+    // slugで見つからなければIDでも試す（後方互換）
+    return this.getById(idOrSlug, organizationId)
+  },
+
   // ページネーション対応：シナリオを取得
   async getPaginated(page: number = 0, pageSize: number = 20): Promise<PaginatedResponse<Scenario>> {
     const from = page * pageSize
