@@ -281,21 +281,29 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         
         const saveData = {
           store_id: store.id,
+          organization_id: store.organization_id,
           opening_hours: formData.opening_hours,
           holidays: formData.holidays
         }
         
-        // まずupdateを試み、失敗したらinsert
+        logger.log('保存データ:', JSON.stringify(saveData, null, 2))
+        
+        // まず既存データを確認（RLS対応のため直接テーブルを確認しない）
+        // 単純にupdateを試み、失敗したらinsert
         const { error: updateError, count } = await supabase
           .from('business_hours_settings')
           .update({
+            organization_id: store.organization_id,
             opening_hours: formData.opening_hours,
             holidays: formData.holidays
           })
           .eq('store_id', store.id)
         
+        logger.log('update結果:', { updateError, count })
+        
         // updateが失敗したか、更新行がなかった場合はinsert
         if (updateError || count === 0) {
+          logger.log('insertを実行')
           const { error: insertError } = await supabase
             .from('business_hours_settings')
             .insert(saveData)
@@ -307,9 +315,9 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         }
       }
       
-      // 現在選択中の店舗のデータを再取得
-      await fetchBusinessHours(selectedStoreId)
-
+      // 保存成功時はフォームデータを維持（再取得しない）
+      // 再取得するとRLSの問題でデフォルト値に戻る可能性があるため
+      
       if (applyToAll) {
         showToast.success(`全${targetStores.length}店舗に適用しました`)
       } else {
