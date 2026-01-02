@@ -1,7 +1,7 @@
 import React from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, Trash2 } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import type { Staff } from '@/types'
+import { useSalarySettings } from '@/hooks/useSalarySettings'
 
 // 統一スタイル
 const labelStyle = "text-sm font-medium mb-1 block"
@@ -27,6 +28,15 @@ interface GmSettingsSectionV2Props {
   onAssignmentUpdate?: (staffId: string, field: 'can_main_gm' | 'can_sub_gm', value: boolean) => void
 }
 
+// 時間フォーマット用ヘルパー
+const formatDurationDisplay = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  if (hours === 0) return `${mins}分`
+  if (mins === 0) return `${hours}時間`
+  return `${hours}時間${mins}分`
+}
+
 export function GmSettingsSectionV2({ 
   formData, 
   setFormData,
@@ -37,6 +47,9 @@ export function GmSettingsSectionV2({
   currentAssignments = [],
   onAssignmentUpdate
 }: GmSettingsSectionV2Props) {
+  // デフォルト報酬設定を取得
+  const { settings: salarySettings, loading: salaryLoading, calculateGmWage } = useSalarySettings()
+
   // GM報酬の操作
   const handleAddGmReward = () => {
     setFormData(prev => ({
@@ -191,11 +204,38 @@ export function GmSettingsSectionV2({
         </CardContent>
       </Card>
 
-      {/* GM報酬 */}
+      {/* デフォルト報酬（設定ページから） */}
+      {!salaryLoading && formData.duration > 0 && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-blue-900 text-sm font-medium">デフォルト報酬（設定ページより）</CardTitle>
+            <CardDescription className="text-blue-700 text-xs">
+              個別設定がない場合、以下の報酬が適用されます（{salarySettings.use_hourly_table ? '時間別テーブル方式' : '計算式方式'}）
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0 pb-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex justify-between items-center bg-white/60 rounded px-3 py-2">
+                <span className="text-blue-800">通常公演GM:</span>
+                <span className="font-bold text-blue-900">{calculateGmWage(formData.duration, false).toLocaleString()}円</span>
+              </div>
+              <div className="flex justify-between items-center bg-white/60 rounded px-3 py-2">
+                <span className="text-blue-800">GMテストGM:</span>
+                <span className="font-bold text-blue-900">{calculateGmWage(formData.duration, true).toLocaleString()}円</span>
+              </div>
+            </div>
+            <p className="text-xs text-blue-600 mt-2">
+              ※ 公演時間 {formatDurationDisplay(formData.duration)} に基づく
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* GM報酬（個別設定） */}
       <Card>
         <CardContent className="p-5">
-          <Label className={labelStyle}>GM報酬</Label>
-          <p className={hintStyle}>役割（メイン/サブ等）とカテゴリ（通常/GMテスト）別の報酬金額を設定</p>
+          <Label className={labelStyle}>GM報酬（個別設定）</Label>
+          <p className={hintStyle}>デフォルトより優先される個別設定。役割（メイン/サブ等）とカテゴリ（通常/GMテスト）別の報酬金額</p>
           <div className="space-y-3 mt-1.5">
             {(formData.gm_assignments || []).map((assignment, index) => (
               <div key={index} className={rowStyle}>
