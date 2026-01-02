@@ -239,8 +239,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         </div>
       </div>
 
-      {/* 検索バー */}
-      <div className="bg-white border-b sticky top-0 z-10">
+      {/* 検索バー - スクロール時に固定 */}
+      <div className="bg-white border-b sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-2">
           <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         </div>

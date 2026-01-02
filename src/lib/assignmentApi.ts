@@ -151,7 +151,7 @@ export const assignmentApi = {
   },
 
   // 担当関係を追加
-  async addAssignment(staffId: string, scenarioId: string, notes?: string) {
+  async addAssignment(staffId: string, scenarioId: string, notes?: string, organizationId?: string) {
     const { data, error } = await supabase
       .from('staff_scenario_assignments')
       .insert({
@@ -161,7 +161,8 @@ export const assignmentApi = {
         can_main_gm: true,
         can_sub_gm: true,
         is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
-        assigned_at: new Date().toISOString()
+        assigned_at: new Date().toISOString(),
+        organization_id: organizationId
       })
       .select()
       .single()

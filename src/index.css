@@ -59,14 +59,13 @@
   /* スクロール位置の即座復元のため、アニメーションを無効化 */
   html {
     scroll-behavior: auto !important;
-    overflow-x: hidden;
     overscroll-behavior-x: none;
   }
   
   body {
     @apply bg-background text-foreground;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    overflow-x: hidden;
+    overflow-x: clip; /* hiddenの代わりにclipを使用（stickyに影響しない） */
     overscroll-behavior-x: none;
   }
   
