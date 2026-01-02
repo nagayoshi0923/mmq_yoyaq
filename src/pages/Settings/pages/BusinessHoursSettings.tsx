@@ -270,38 +270,53 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
     }))
   }
 
-  const handleSave = async () => {
+  const handleSave = async (applyToAll: boolean = false) => {
     setSaving(true)
     try {
-      const store = stores.find(s => s.id === selectedStoreId)
-      // 基本カラムのみで保存（special_open_days/special_closed_daysはDBマイグレーション後に対応）
-      const saveData = {
-        store_id: selectedStoreId,
-        organization_id: store?.organization_id,
-        opening_hours: formData.opening_hours,
-        holidays: formData.holidays
+      // 対象店舗リスト（全店舗に適用する場合はすべての店舗）
+      const targetStores = applyToAll ? stores : [stores.find(s => s.id === selectedStoreId)].filter(Boolean)
+      
+      for (const store of targetStores) {
+        if (!store) continue
+        
+        const saveData = {
+          store_id: store.id,
+          organization_id: store.organization_id,
+          opening_hours: formData.opening_hours,
+          holidays: formData.holidays
+        }
+        
+        // 既存データがあるか確認
+        const { data: existingData } = await supabase
+          .from('business_hours_settings')
+          .select('id')
+          .eq('store_id', store.id)
+          .maybeSingle()
+        
+        if (existingData) {
+          // 既存データを更新
+          const { error } = await supabase
+            .from('business_hours_settings')
+            .update(saveData)
+            .eq('id', existingData.id)
+          if (error) throw error
+        } else {
+          // 新規作成
+          const { error } = await supabase
+            .from('business_hours_settings')
+            .insert(saveData)
+          if (error) throw error
+        }
       }
       
-      if (formData.id) {
-        // 既存データを更新
-        const { error } = await supabase
-          .from('business_hours_settings')
-          .update(saveData)
-          .eq('id', formData.id)
-        if (error) throw error
+      // 現在選択中の店舗のデータを再取得
+      await fetchBusinessHours(selectedStoreId)
+
+      if (applyToAll) {
+        showToast.success(`全${targetStores.length}店舗に適用しました`)
       } else {
-        // 新規作成
-        const { error } = await supabase
-          .from('business_hours_settings')
-          .insert(saveData)
-
-        if (error) throw error
-        
-        // 保存後に再取得してIDを設定
-        await fetchBusinessHours(selectedStoreId)
+        showToast.success('保存しました')
       }
-
-      showToast.success('保存しました')
     } catch (error) {
       logger.error('保存エラー:', error)
       showToast.error('保存に失敗しました')
@@ -320,10 +335,15 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         title="営業時間設定"
         description="店舗ごとの曜日別営業時間と特別営業日を設定"
       >
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? '保存中...' : '保存'}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => handleSave(true)} disabled={saving}>
+            全店舗に適用
+          </Button>
+          <Button onClick={() => handleSave(false)} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? '保存中...' : '保存'}
+          </Button>
+        </div>
       </PageHeader>
 
       {/* 曜日ごとの営業時間 */}
