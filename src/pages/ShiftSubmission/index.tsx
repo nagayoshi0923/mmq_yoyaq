@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Clock } from 'lucide-react'
+import { CalendarClock } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { useShiftData } from './hooks/useShiftData'
@@ -152,7 +152,7 @@ export function ShiftSubmission() {
         <PageHeader
           title={
             <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
+              <CalendarClock className="h-5 w-5 text-primary" />
               <span className="text-lg font-bold">シフト提出 - {formatMonthYear()}</span>
             </div>
           }

@@ -3,11 +3,11 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useStoreConfirmationPendingCount } from '@/hooks/useStoreConfirmationPendingCount'
 import { useOrganization } from '@/hooks/useOrganization'
 import { 
-  Calendar, 
+  CalendarDays,
   Users, 
   BookOpen, 
   TrendingUp,
-  Clock,
+  CalendarClock,
   Settings,
   ClipboardCheck,
   UserCog,
@@ -16,8 +16,8 @@ import {
   Globe,
   LayoutDashboard,
   UserCircle,
-  Building2,
-  FileText,
+  UserCheck,
+  Ticket,
   FileCheck
 } from 'lucide-react'
 
@@ -47,15 +47,15 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'dashboard', label: 'ダッシュボード', icon: LayoutDashboard, roles: ['admin', 'staff'] },
     { id: `booking/${bookingSlug}`, label: '予約サイト', icon: Globe, roles: ['admin', 'staff'] },
     { id: 'stores', label: '店舗', icon: Store, roles: ['admin'] },
-    { id: 'schedule', label: 'スケジュール', icon: Calendar, roles: ['admin', 'staff'] },
+    { id: 'schedule', label: 'スケジュール', icon: CalendarDays, roles: ['admin', 'staff'] },
     { id: 'staff', label: 'スタッフ', icon: Users, roles: ['admin'] },
     { id: 'scenarios', label: 'シナリオ', icon: BookOpen, roles: ['admin'] },
-    { id: 'shift-submission', label: 'シフト提出', icon: Clock, roles: ['admin', 'staff'] },
-    { id: 'gm-availability', label: 'GM確認', icon: Clock, roles: ['admin', 'staff'] },
+    { id: 'shift-submission', label: 'シフト提出', icon: CalendarClock, roles: ['admin', 'staff'] },
+    { id: 'gm-availability', label: 'GM確認', icon: UserCheck, roles: ['admin', 'staff'] },
     { id: 'staff-profile', label: '担当作品', icon: UserCircle, roles: ['admin', 'staff'] },
     { id: 'private-booking-management', label: '貸切管理', icon: ClipboardCheck, roles: ['admin'] },
-    { id: 'reservations', label: '予約管理', icon: Calendar, roles: ['admin'] },
-    { id: 'accounts', label: 'アカウント', icon: Users, roles: ['admin'] },
+    { id: 'reservations', label: '予約管理', icon: Ticket, roles: ['admin'] },
+    { id: 'accounts', label: 'アカウント', icon: UserCog, roles: ['admin'] },
     { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin'] },
     { id: 'license-management', label: '公演報告', icon: FileCheck, roles: ['admin', 'staff'] },
     { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] },

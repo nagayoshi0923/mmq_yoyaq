@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
-import { CheckCircle, Clock, Calendar, Settings } from 'lucide-react'
+import { CheckCircle, Clock, Calendar, Settings, UserCheck } from 'lucide-react'
 
 // サイドバーのメニュー項目定義
 const GM_MENU_ITEMS: SidebarMenuItem[] = [
@@ -113,7 +113,7 @@ export function GMAvailabilityCheck() {
         <PageHeader
           title={
             <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
+              <UserCheck className="h-5 w-5 text-primary" />
               <span className="text-lg font-bold">GM可否確認</span>
             </div>
           }

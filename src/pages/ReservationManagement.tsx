@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { 
-  Calendar, Search, Filter, Download, FileText, X, Mail
+  Ticket, Search, Filter, Download, FileText, X, Mail
 } from 'lucide-react'
 import { 
   Dialog, DialogContent
@@ -139,7 +139,7 @@ export function ReservationManagement() {
         <PageHeader
           title={
             <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
+              <Ticket className="h-5 w-5 text-primary" />
               <span className="text-lg font-bold">予約一覧</span>
             </div>
           }
