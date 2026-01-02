@@ -65,15 +65,20 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
     const updateAvailability = async () => {
       const newAvailabilityMap: Record<string, boolean> = {}
       
-      // 各日付・時間枠の可用性を並列で取得
+      // 各日付・時間枠の可用性を並列で取得（常に3枠チェック）
       const promises = availableDates.flatMap(date => {
-        // 日付ごとの時間枠を取得（営業時間設定反映）
+        // 日付ごとの開始時間を取得
         const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
-        return slotsForDate.map(async (slot) => {
+        const slotTimesMap = new Map(slotsForDate.map(s => [s.label, s.startTime]))
+        
+        return timeSlots.map(async (slot) => {
+          // 日付ごとの開始時間を適用
+          const startTime = slotTimesMap.get(slot.label) || slot.startTime
+          const slotWithTime = { ...slot, startTime }
           const key = `${date}-${slot.label}`
           const isAvailable = await checkTimeSlotAvailability(
             date,
-            slot,
+            slotWithTime,
             selectedStoreIds.length > 0 ? selectedStoreIds : undefined
           )
           newAvailabilityMap[key] = isAvailable
@@ -181,7 +186,9 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const weekdayColor = dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
           
           // 日付ごとの時間枠を取得（営業時間設定反映）
+          // 開始時間のみ取得（表示は常に3枠固定）
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
+          const slotTimesMap = new Map(slotsForDate.map(s => [s.label, s.startTime]))
           
           return (
             <Card key={date}>
@@ -193,12 +200,15 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                     <div className={`text-xs ${weekdayColor}`}>({weekday})</div>
                   </div>
                   
-                  {/* 時間枠ボタン */}
+                  {/* 時間枠ボタン（常に3枠表示、幅固定） */}
                   <div className="flex gap-2 flex-1">
-                    {slotsForDate.map((slot) => {
-                      const isAvailable = getAvailability(date, slot)
-                      const isSelected = isTimeSlotSelected(date, slot)
-                      const endTime = calculateEndTime(slot.startTime, scenarioDuration)
+                    {timeSlots.map((slot) => {
+                      // 日付ごとの開始時間を取得（設定がなければデフォルト）
+                      const startTime = slotTimesMap.get(slot.label) || slot.startTime
+                      const slotWithTime = { ...slot, startTime }
+                      const isAvailable = getAvailability(date, slotWithTime)
+                      const isSelected = isTimeSlotSelected(date, slotWithTime)
+                      const endTime = calculateEndTime(startTime, scenarioDuration)
                       
                       return (
                         <button
@@ -211,10 +221,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                               : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
                           }`}
                           disabled={!isAvailable}
-                          onClick={() => isAvailable && onTimeSlotToggle(date, slot)}
+                          onClick={() => isAvailable && onTimeSlotToggle(date, slotWithTime)}
                         >
                           <div className="text-xs font-medium">{slot.label}</div>
-                          <div className="text-xs opacity-70">{slot.startTime}〜{endTime}</div>
+                          <div className="text-xs opacity-70">{startTime}〜{endTime}</div>
                         </button>
                       )
                     })}
