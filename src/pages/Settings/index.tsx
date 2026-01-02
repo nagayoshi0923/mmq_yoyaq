@@ -56,7 +56,7 @@ const BASE_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'performance-schedule', label: '公演スケジュール', icon: Calendar, description: 'スケジュール設定' },
   { id: 'reservation', label: '予約設定', icon: Users, description: '予約ルール' },
   { id: 'pricing', label: '料金設定', icon: DollarSign, description: '料金体系' },
-  { id: 'salary', label: '給与設定', icon: Calculator, description: 'GM給与の計算式' },
+  { id: 'salary', label: '報酬', icon: Calculator, description: 'GM報酬の設定' },
   { id: 'staff', label: 'スタッフ設定', icon: UserCog, description: 'スタッフ管理' },
   { id: 'email', label: 'メール設定', icon: Mail, description: 'メールテンプレート' },
   { id: 'notifications', label: '通知設定', icon: Bell, description: '通知の設定' },
