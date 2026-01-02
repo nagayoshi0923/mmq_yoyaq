@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { fetchSalarySettings, calculateGmWage, type SalarySettings } from '@/hooks/useSalarySettings'
 import type { MonthlySalaryData, StaffSalary, ShiftDetail, GMDetail } from '../types'
 
 /**
@@ -40,6 +41,9 @@ export function useSalaryData(year: number, month: number, storeId: string) {
       setLoading(true)
 
       const { startStr, endStr } = getMonthRange(year, month)
+
+      // 給与設定を取得
+      const salarySettings = await fetchSalarySettings()
 
       // スタッフデータ取得
       const { data: staffData, error: staffError } = await supabase
@@ -96,25 +100,7 @@ export function useSalaryData(year: number, month: number, storeId: string) {
 
         // シナリオのgm_assignmentsから報酬情報を取得
         const gmAssignments = scenario.gm_assignments || []
-        
-        // 時給計算（デフォルト: 5時間まで時給1750円、超過分は1000円）
-        const calculateWage = (durationMinutes: number): number => {
-          const roundedMinutes = Math.ceil(durationMinutes / 30) * 30
-          const halfHourUnits = roundedMinutes / 30
-          
-          const RATE_PER_30MIN_FIRST_5H = 875
-          const RATE_PER_30MIN_AFTER_5H = 500
-          const THRESHOLD_UNITS = 10
-          
-          if (halfHourUnits <= THRESHOLD_UNITS) {
-            return RATE_PER_30MIN_FIRST_5H * halfHourUnits
-          } else {
-            const first5Hours = RATE_PER_30MIN_FIRST_5H * THRESHOLD_UNITS
-            const additionalUnits = halfHourUnits - THRESHOLD_UNITS
-            const additionalPay = RATE_PER_30MIN_AFTER_5H * additionalUnits
-            return first5Hours + additionalPay
-          }
-        }
+        const isGMTest = event.category === 'gmtest'
 
         // GMごとに報酬を計算
         event.gms.forEach((gmName: string, index: number) => {
@@ -153,9 +139,9 @@ export function useSalaryData(year: number, month: number, storeId: string) {
           const gmRoles = event.gm_roles || {}
           const roleType = gmRoles[gmName] || (index === 0 ? 'main' : 'sub')
           
-          // 受付の場合は固定2000円
+          // 受付の場合は設定から固定給与を取得
           if (roleType === 'reception') {
-            pay = 2000
+            pay = salarySettings.reception_fixed_pay
             gmRole = '受付'
           }
           // スタッフ参加・見学の場合は給与なし
@@ -171,14 +157,13 @@ export function useSalaryData(year: number, month: number, storeId: string) {
               pay = assignment.reward
               gmRole = roleType === 'main' ? 'メインGM' : 'サブGM'
             } else {
-              // 報酬が見つからない場合は時給計算
+              // 報酬が見つからない場合は新しい計算式を使用
+              // 計算式: 基本給 + 時給 × 公演時間（時間単位）
               const duration = scenario.duration || 180
-              pay = calculateWage(duration)
-              gmRole = 'GM（時給計算）'
+              pay = calculateGmWage(duration, isGMTest, salarySettings)
+              gmRole = isGMTest ? 'GM（GMテスト）' : 'GM（時給計算）'
             }
           }
-
-          const isGMTest = event.category === 'gmtest'
           
           staff.totalGMCount += 1
           staff.totalGMPay += pay

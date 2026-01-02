@@ -3,6 +3,7 @@ import { salesApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { SalesData } from '@/types'
 import { logger } from '@/utils/logger'
+import { fetchSalarySettings, calculateGmWage, type SalarySettings } from '@/hooks/useSalarySettings'
 import {
   getThisMonthRangeJST,
   getLastMonthRangeJST,
@@ -189,6 +190,9 @@ export function useSalesData() {
     }
 
     try {
+      // 給与設定を取得
+      const salarySettings = await fetchSalarySettings()
+      
       // 期間に応じてグラフ用のデータ取得期間を決定
       logger.log('📊 日付変換:', { rangeStart: range.startDate, rangeEnd: range.endDate })
       const startDate = new Date(range.startDate + 'T00:00:00+09:00')
@@ -272,7 +276,7 @@ export function useSalesData() {
       
       // 売上データを計算
       logger.log('📊 イベントデータ取得完了:', { eventsCount: events.length, filteredStoresCount: filteredStores.length })
-      const data = calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions || [])
+      const data = calculateSalesData(events, filteredStores, startDate, endDate, miscTransactions || [], salarySettings)
       logger.log('📊 売上データ計算完了:', { totalRevenue: data.totalRevenue })
       setSalesData(data)
     } catch (error) {
@@ -331,29 +335,20 @@ function getFranchiseLicenseAmount(
 }
 
 /**
- * 時給ベースのGM給与を計算（30分単位）
- * - 5時間まで: 時給1750円（30分あたり875円）
- * - 5時間超: 30分あたり500円
+ * GM給与を計算（新方式）
+ * 計算式: 基本給 + 時給 × 公演時間（時間単位）
+ * 
+ * @param durationMinutes 公演時間（分）
+ * @param isGmTest GMテストかどうか
+ * @param salarySettings 給与設定
+ * @returns 給与額
  */
-function calculateHourlyWage(durationMinutes: number): number {
-  // 30分単位に切り上げ
-  const roundedMinutes = Math.ceil(durationMinutes / 30) * 30
-  const halfHourUnits = roundedMinutes / 30
-  
-  const RATE_PER_30MIN_FIRST_5H = 875   // 最初の5時間の30分あたり料金（1750円 / 2）
-  const RATE_PER_30MIN_AFTER_5H = 500   // 5時間超の30分あたり料金（1000円 / 2）
-  const THRESHOLD_UNITS = 10            // 閾値（5時間 = 10単位）
-  
-  if (halfHourUnits <= THRESHOLD_UNITS) {
-    // 5時間以内（10単位以内）
-    return RATE_PER_30MIN_FIRST_5H * halfHourUnits
-  } else {
-    // 5時間超
-    const first5Hours = RATE_PER_30MIN_FIRST_5H * THRESHOLD_UNITS  // 8,750円
-    const additionalUnits = halfHourUnits - THRESHOLD_UNITS
-    const additionalPay = RATE_PER_30MIN_AFTER_5H * additionalUnits
-    return first5Hours + additionalPay
-  }
+function calculateHourlyWage(
+  durationMinutes: number, 
+  isGmTest: boolean, 
+  salarySettings: SalarySettings
+): number {
+  return calculateGmWage(durationMinutes, isGmTest, salarySettings)
 }
 
 // 売上データ計算関数
@@ -390,7 +385,8 @@ function calculateSalesData(
     amount: number;
     scenario_id?: string | null;
     store_id?: string | null;
-  }>
+  }>,
+  salarySettings: SalarySettings
 ): SalesData {
   const totalRevenue = events.reduce((sum, event) => sum + (event.revenue || 0), 0)
   const totalEvents = events.length
@@ -453,8 +449,9 @@ function calculateSalesData(
         // 所要時間を取得（分単位）
         const durationMinutes = scenario.duration || 180 // デフォルト3時間
         
-        // 時給ベースで1人あたりの給与を計算
-        const wagePerGm = calculateHourlyWage(durationMinutes)
+        // 新しい計算式で1人あたりの給与を計算
+        // 計算式: 基本給 + 時給 × 公演時間
+        const wagePerGm = calculateHourlyWage(durationMinutes, isGmTest, salarySettings)
         
         // GM数分の給与を計上
         const gmCost = wagePerGm * gmCount

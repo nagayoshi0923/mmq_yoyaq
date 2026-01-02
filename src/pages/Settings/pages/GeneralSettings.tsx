@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Save, Calendar, Bell, Shield } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
 interface GlobalSettings {
   id: string
+  organization_id: string
   shift_submission_start_day: number
   shift_submission_end_day: number
   shift_submission_target_months_ahead: number
@@ -50,9 +52,18 @@ export function GeneralSettings() {
     try {
       setLoading(true)
       
+      // 現在の組織IDを取得
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) {
+        logger.error('組織IDが取得できませんでした')
+        showToast.error('組織情報の取得に失敗しました')
+        return
+      }
+      
       const { data, error } = await supabase
         .from('global_settings')
         .select('*')
+        .eq('organization_id', orgId)
         .single()
 
       if (error) {

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
 export interface GlobalSettings {
   id: string
+  organization_id: string
   shift_submission_start_day: number
   shift_submission_end_day: number
   shift_submission_target_months_ahead: number
@@ -17,6 +19,7 @@ export interface GlobalSettings {
 
 /**
  * 全体設定を取得するフック
+ * 組織ごとの設定を取得
  */
 export function useGlobalSettings() {
   const [settings, setSettings] = useState<GlobalSettings | null>(null)
@@ -32,9 +35,17 @@ export function useGlobalSettings() {
       setLoading(true)
       setError(null)
 
+      // 現在の組織IDを取得
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) {
+        logger.error('組織IDが取得できませんでした')
+        throw new Error('組織IDが取得できませんでした')
+      }
+
       const { data, error: fetchError } = await supabase
         .from('global_settings')
         .select('*')
+        .eq('organization_id', orgId)
         .single()
 
       if (fetchError) {
@@ -55,6 +66,7 @@ export function useGlobalSettings() {
       // デフォルト値を設定
       setSettings({
         id: '',
+        organization_id: '',
         shift_submission_start_day: 1,
         shift_submission_end_day: 15,
         shift_submission_target_months_ahead: 1,

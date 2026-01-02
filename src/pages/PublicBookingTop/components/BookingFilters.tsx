@@ -41,11 +41,13 @@ export function BookingFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">すべて</SelectItem>
-            {stores.map(store => (
-              <SelectItem key={store.id} value={store.id}>
-                {store.short_name || store.name}
-              </SelectItem>
-            ))}
+            {stores
+              .filter(store => !store.is_temporary) // 臨時会場はプルダウンに表示しない
+              .map(store => (
+                <SelectItem key={store.id} value={store.id}>
+                  {store.short_name || store.name}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </div>

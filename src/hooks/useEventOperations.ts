@@ -524,7 +524,7 @@ export function useEventOperations({
               start_time: performanceData.start_time,
               scenario_id: scenarioId || undefined,
               scenario_title: performanceData.scenario,
-              store_id: storeId || undefined
+              store_id: storeData.id
             }
           )
         }

@@ -116,10 +116,12 @@ export function StaffSettings({ storeId }: StaffSettingsProps) {
 
         if (error) throw error
       } else {
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('staff_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             default_main_gm_reward: formData.default_main_gm_reward,
             default_sub_gm_reward: formData.default_sub_gm_reward,
             shift_deadline_days: formData.shift_deadline_days,

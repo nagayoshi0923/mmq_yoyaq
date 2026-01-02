@@ -150,10 +150,12 @@ export function SalesReportSettings({ storeId }: SalesReportSettingsProps) {
 
         if (error) throw error
       } else {
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('sales_report_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             closing_day: formData.closing_day,
             author_report_day: formData.author_report_day,
             report_emails: formData.report_emails,

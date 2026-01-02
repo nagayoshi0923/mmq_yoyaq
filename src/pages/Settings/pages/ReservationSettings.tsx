@@ -152,10 +152,12 @@ export function ReservationSettings({ storeId }: ReservationSettingsProps) {
 
         if (error) throw error
       } else {
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('reservation_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             max_participants_per_booking: formData.max_participants_per_booking,
             advance_booking_days: formData.advance_booking_days,
             same_day_booking_cutoff: formData.same_day_booking_cutoff,

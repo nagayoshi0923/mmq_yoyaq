@@ -124,10 +124,12 @@ export function DataManagementSettings({ storeId }: DataManagementSettingsProps)
 
         if (error) throw error
       } else {
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('data_management_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             backup_frequency: formData.backup_frequency,
             data_retention_years: formData.data_retention_years,
             auto_archive_enabled: formData.auto_archive_enabled,

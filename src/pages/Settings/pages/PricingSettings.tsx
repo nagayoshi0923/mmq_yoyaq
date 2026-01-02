@@ -158,10 +158,13 @@ export function PricingSettings({ storeId }: PricingSettingsProps) {
 
         if (error) throw error
       } else {
+        // 店舗からorganization_idを取得
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('pricing_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             default_participation_fee: formData.default_participation_fee,
             time_based_pricing: formData.time_based_pricing,
             early_bird_discount: formData.early_bird_discount,

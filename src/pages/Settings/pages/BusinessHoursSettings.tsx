@@ -179,10 +179,12 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         if (error) throw error
       } else {
         // 新規作成
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('business_hours_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             business_start_time: formData.business_start_time,
             business_end_time: formData.business_end_time,
             regular_holidays: formData.regular_holidays,

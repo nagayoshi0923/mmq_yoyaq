@@ -295,7 +295,8 @@ export const ListView = memo(function ListView({
             })
 
             const isFirstRowOfDate = index === 0 || listViewData[index - 1]?.date !== date
-            const rowSpan = stores.filter(s => selectedStoreFilter === 'all' || s.id === selectedStoreFilter).length
+            // 同じ日付の店舗数を計算（臨時会場のフィルタリングを考慮）
+            const rowSpan = listViewData.filter(item => item.date === date).length
 
             return (
               <React.Fragment key={`${date}-${store.id}`}>

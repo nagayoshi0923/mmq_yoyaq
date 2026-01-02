@@ -324,10 +324,12 @@ export function EmailSettings({ storeId }: EmailSettingsProps) {
 
         if (error) throw error
       } else {
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('email_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             from_email: formData.from_email,
             from_name: formData.from_name,
             reservation_confirmation_template: formData.reservation_confirmation_template,

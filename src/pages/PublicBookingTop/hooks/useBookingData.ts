@@ -130,18 +130,27 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
       
       // 店舗取得（organization_idでフィルタリング）
       // オフィスのみ除外（臨時会場はオープン公演がある日のみ表示するため、取得は行う）
+      // 注意: neq()はnull値も除外するため、or()で明示的にnullを含める
       let storeQuery = supabase.from('stores').select('*')
-        .neq('ownership_type', 'office')
-        .order('display_order', { ascending: true, nullsFirst: false })
+        .or('ownership_type.is.null,ownership_type.neq.office')
       if (orgId) {
         storeQuery = storeQuery.eq('organization_id', orgId)
       }
+      // display_orderでソート
+      storeQuery = storeQuery.order('display_order', { ascending: true, nullsFirst: false })
       
       const [scenariosResult, storesResult, settingsResult] = await Promise.all([
         scenarioQuery.order('title', { ascending: true }),
         (async () => {
           try {
-            return await storeQuery
+            const result = await storeQuery
+            console.log('📍 店舗取得結果 詳細:', {
+              count: result.data?.length,
+              error: result.error,
+              temporary: result.data?.filter((s: any) => s.is_temporary).length,
+              stores: result.data?.map((s: any) => ({ id: s.id, name: s.name, is_temporary: s.is_temporary }))
+            })
+            return result
           } catch (error) {
             logger.error('店舗データの取得エラー:', error)
             return { data: [], error: null }

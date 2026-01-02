@@ -145,10 +145,12 @@ export function SystemSettings({ storeId }: SystemSettingsProps) {
 
         if (error) throw error
       } else {
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('system_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             timezone: formData.timezone,
             language: formData.language,
             currency: formData.currency,

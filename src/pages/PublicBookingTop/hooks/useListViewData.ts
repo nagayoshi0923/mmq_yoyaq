@@ -47,8 +47,13 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
         }
       }
     })
+    // デバッグ: 臨時会場のオープン公演を確認
+    console.log('📍 eventDateStoreSet:', Array.from(set).filter(k => k.includes('9729') || k.includes('臨時')))
     return set
   }, [allEvents])
+
+  // デバッグ: 臨時会場の店舗情報
+  console.log('📍 stores with is_temporary:', stores.filter(s => s.is_temporary).map(s => ({ id: s.id, name: s.name })))
 
   /**
    * 月の日付と店舗の組み合わせを生成
@@ -61,27 +66,34 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
     const daysInMonth = new Date(year, month + 1, 0).getDate()
     const dates = Array.from({ length: daysInMonth }, (_, i) => i + 1)
     
-    // 店舗フィルター適用
-    const filteredStores = selectedStoreFilter === 'all' 
-      ? stores 
-      : stores.filter(store => store.id === selectedStoreFilter)
+    // 通常店舗はフィルター適用、臨時会場は別処理
+    const regularStores = stores.filter(store => !store.is_temporary)
+    const temporaryStores = stores.filter(store => store.is_temporary)
+    
+    const filteredRegularStores = selectedStoreFilter === 'all' 
+      ? regularStores 
+      : regularStores.filter(store => store.id === selectedStoreFilter)
     
     // 日付と店舗の組み合わせを生成
     const combinations: ListViewDataItem[] = []
     dates.forEach(date => {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
       
-      filteredStores.forEach(store => {
-        // 臨時会場はオープン公演がある日のみ表示
-        if (store.is_temporary) {
-          // id、short_name、nameのいずれかでマッチするかチェック
-          const hasOpenEvent = 
-            eventDateStoreSet.has(`${dateStr}:${store.id}`) ||
-            (store.short_name && eventDateStoreSet.has(`${dateStr}:${store.short_name}`)) ||
-            (store.name && eventDateStoreSet.has(`${dateStr}:${store.name}`))
-          if (!hasOpenEvent) return // オープン公演がなければスキップ
-        }
+      // 通常店舗（フィルター適用）
+      filteredRegularStores.forEach(store => {
         combinations.push({ date, store })
+      })
+      
+      // 臨時会場（フィルターに関係なく、オープン公演がある日は表示）
+      temporaryStores.forEach(store => {
+        // id、short_name、nameのいずれかでマッチするかチェック
+        const hasOpenEvent = 
+          eventDateStoreSet.has(`${dateStr}:${store.id}`) ||
+          (store.short_name && eventDateStoreSet.has(`${dateStr}:${store.short_name}`)) ||
+          (store.name && eventDateStoreSet.has(`${dateStr}:${store.name}`))
+        if (hasOpenEvent) {
+          combinations.push({ date, store })
+        }
       })
     })
     

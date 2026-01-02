@@ -60,6 +60,7 @@ interface Store {
   id: string
   name: string
   short_name: string
+  organization_id?: string
 }
 
 export function BookingNoticeSettings() {
@@ -89,7 +90,7 @@ export function BookingNoticeSettings() {
           .order('sort_order', { ascending: true }),
         supabase
           .from('stores')
-          .select('id, name, short_name')
+          .select('id, name, short_name, organization_id')
           .order('name')
       ])
 
@@ -167,6 +168,11 @@ export function BookingNoticeSettings() {
         const maxSortOrder = notices.length > 0 
           ? Math.max(...notices.map(n => n.sort_order)) 
           : 0
+        
+        // store_idが指定されている場合はそのstore、なければ最初のstoreからorganization_idを取得
+        const store = editForm.store_id 
+          ? stores.find(s => s.id === editForm.store_id)
+          : stores[0]
 
         const { error } = await supabase
           .from('booking_notices')
@@ -174,6 +180,7 @@ export function BookingNoticeSettings() {
             content: editForm.content.trim(),
             applicable_types: editForm.applicable_types,
             store_id: editForm.store_id || null,
+            organization_id: store?.organization_id,
             is_active: editForm.is_active,
             sort_order: maxSortOrder + 1
           })

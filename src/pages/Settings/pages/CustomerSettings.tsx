@@ -118,10 +118,12 @@ export function CustomerSettings({ storeId }: CustomerSettingsProps) {
 
         if (error) throw error
       } else {
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('customer_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             member_rank_enabled: formData.member_rank_enabled,
             points_enabled: formData.points_enabled,
             repeat_customer_discount: formData.repeat_customer_discount,

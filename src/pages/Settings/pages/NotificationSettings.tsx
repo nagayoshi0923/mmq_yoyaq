@@ -358,10 +358,13 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
 
         if (error) throw error
       } else {
+        // 店舗からorganization_idを取得
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('notification_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             new_reservation_email: formData.new_reservation_email,
             new_reservation_discord: formData.new_reservation_discord,
             cancellation_email: formData.cancellation_email,

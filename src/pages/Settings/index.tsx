@@ -13,7 +13,8 @@ import {
   FileText,
   UserCog,
   Shield,
-  AlertCircle
+  AlertCircle,
+  Calculator
 } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
@@ -35,6 +36,7 @@ import { EmailSettings } from './pages/EmailSettings'
 import { CustomerSettings } from './pages/CustomerSettings'
 import { DataManagementSettings } from './pages/DataManagementSettings'
 import { BookingNoticeSettings } from './pages/BookingNoticeSettings'
+import { SalarySettings } from './pages/SalarySettings'
 
 // サイドバーのメニュー項目定義（2025-11-22 更新: 全体設定追加）
 const SETTINGS_MENU_ITEMS: SidebarMenuItem[] = [
@@ -47,6 +49,7 @@ const SETTINGS_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'performance-schedule', label: '公演スケジュール', icon: Calendar, description: 'スケジュール設定' },
   { id: 'reservation', label: '予約設定', icon: Users, description: '予約ルール' },
   { id: 'pricing', label: '料金設定', icon: DollarSign, description: '料金体系' },
+  { id: 'salary', label: '給与設定', icon: Calculator, description: 'GM給与の計算式' },
   { id: 'staff', label: 'スタッフ設定', icon: UserCog, description: 'スタッフ管理' },
   { id: 'email', label: 'メール設定', icon: Mail, description: 'メールテンプレート' },
   { id: 'notifications', label: '通知設定', icon: Bell, description: '通知の設定' },
@@ -84,6 +87,8 @@ export function Settings() {
         return <CancellationSettings storeId={storeId} />
       case 'pricing':
         return <PricingSettings storeId={storeId} />
+      case 'salary':
+        return <SalarySettings />
       case 'sales-report':
         return <SalesReportSettings storeId={storeId} />
       case 'notifications':

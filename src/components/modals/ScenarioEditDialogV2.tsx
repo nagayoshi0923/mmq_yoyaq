@@ -179,7 +179,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     totalGmCost: 0,
     totalLicenseCost: 0,
     firstPerformanceDate: null as string | null,
-    performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; revenue: number; startTime: string; storeId: string | null }>
+    performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null }>
   })
 
   // 担当GMのメイン/サブ設定を更新するハンドラ

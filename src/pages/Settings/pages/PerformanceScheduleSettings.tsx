@@ -167,10 +167,12 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
 
         if (error) throw error
       } else {
+        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('performance_schedule_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: store?.organization_id,
             performances_per_day: formData.performances_per_day,
             performance_times: formData.performance_times,
             preparation_time: formData.preparation_time,

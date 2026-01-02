@@ -145,10 +145,18 @@ export function CancellationSettings({ storeId }: CancellationSettingsProps) {
 
         if (error) throw error
       } else {
+        // storeからorganization_idを取得
+        const { data: storeData } = await supabase
+          .from('stores')
+          .select('organization_id')
+          .eq('id', formData.store_id)
+          .single()
+        
         const { data, error } = await supabase
           .from('reservation_settings')
           .insert({
             store_id: formData.store_id,
+            organization_id: storeData?.organization_id,
             cancellation_policy: formData.cancellation_policy,
             cancellation_deadline_hours: formData.cancellation_deadline_hours,
             cancellation_fees: sortedFees
