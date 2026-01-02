@@ -67,14 +67,14 @@ export default function OrganizationManagement() {
   if (!isLicenseManager) {
     return (
       <AppLayout currentPage="organizations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-6 flex items-center gap-3">
-            <Building2 className="w-5 h-5 text-amber-600" />
-            <p className="text-amber-800">
-              このページはライセンス管理組織のみアクセス可能です。
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-6 flex items-center gap-3">
+              <Building2 className="w-5 h-5 text-amber-600" />
+              <p className="text-amber-800">
+                このページはライセンス管理組織のみアクセス可能です。
+              </p>
+            </CardContent>
+          </Card>
       </AppLayout>
     )
   }
@@ -82,14 +82,14 @@ export default function OrganizationManagement() {
   if (error) {
     return (
       <AppLayout currentPage="organizations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
-        <Card className="border-destructive">
-          <CardContent className="p-6">
-            <p className="text-destructive">エラーが発生しました: {error.message}</p>
-            <Button variant="outline" onClick={refetch} className="mt-4">
-              再試行
-            </Button>
-          </CardContent>
-        </Card>
+          <Card className="border-destructive">
+            <CardContent className="p-6">
+              <p className="text-destructive">エラーが発生しました: {error.message}</p>
+              <Button variant="outline" onClick={refetch} className="mt-4">
+                再試行
+              </Button>
+            </CardContent>
+          </Card>
       </AppLayout>
     )
   }
@@ -102,7 +102,7 @@ export default function OrganizationManagement() {
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-primary" />
             <span className="text-lg font-bold">テナント管理</span>
-          </div>
+        </div>
         }
         description="MMQシステムを利用する加盟店（組織）の一覧管理"
       >

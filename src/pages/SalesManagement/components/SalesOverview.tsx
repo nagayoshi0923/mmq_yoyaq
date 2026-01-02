@@ -294,8 +294,8 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
               <span className="text-lg font-bold">{isFranchiseOnly ? 'フランチャイズ売上管理' : '売上管理'}</span>
             </div>
           }
-          description="期間別の売上・予約実績と分析"
-        />
+        description="期間別の売上・予約実績と分析"
+      />
         <Card className="shadow-none border">
           <CardContent className="p-4 sm:p-6 md:p-8">
             <div className="text-center text-muted-foreground text-xs sm:text-sm">読み込み中...</div>

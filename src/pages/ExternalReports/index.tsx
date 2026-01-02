@@ -71,7 +71,7 @@ export default function ExternalReports() {
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
             <span className="text-lg font-bold">公演報告</span>
-          </div>
+        </div>
         }
         description="管理シナリオの公演実績を報告"
       >

@@ -138,12 +138,12 @@ export default function OrganizationSettings() {
   if (!organization) {
     return (
       <AppLayout currentPage="organization-settings" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-6 flex items-center gap-3">
-            <Building2 className="w-5 h-5 text-amber-600" />
-            <p className="text-amber-800">組織情報が取得できません</p>
-          </CardContent>
-        </Card>
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-6 flex items-center gap-3">
+              <Building2 className="w-5 h-5 text-amber-600" />
+              <p className="text-amber-800">組織情報が取得できません</p>
+            </CardContent>
+          </Card>
       </AppLayout>
     )
   }
@@ -172,7 +172,7 @@ export default function OrganizationSettings() {
               <strong>このページでできること：</strong>
               会社名・連絡先の編集、新しい管理者の招待。
               招待されたユーザーはこの組織の管理者として店舗・スタッフ・シナリオなどを管理できます。
-            </p>
+          </p>
           </CardContent>
         </Card>
 

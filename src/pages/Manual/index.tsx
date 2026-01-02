@@ -70,10 +70,10 @@ export function ManualPage() {
               <span className="text-lg font-bold">操作マニュアル</span>
             </div>
           }
-          description="システムの操作方法と使用シーンについてのガイド"
+              description="システムの操作方法と使用シーンについてのガイド"
         />
 
-        {/* メインコンテンツ */}
+          {/* メインコンテンツ */}
         {renderContent()}
       </div>
     </AppLayout>

@@ -250,9 +250,9 @@ export function StaffProfile() {
   if (!staffId) {
     return (
       <AppLayout currentPage="staff-profile" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
-        <Card>
-          <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground">
+          <Card>
+            <CardContent className="p-8 text-center">
+              <p className="text-muted-foreground">
                 スタッフ登録がされていません。<br />
                 管理者に連絡してスタッフ登録を依頼してください。
               </p>
