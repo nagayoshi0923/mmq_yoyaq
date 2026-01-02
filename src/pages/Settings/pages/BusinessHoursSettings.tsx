@@ -286,27 +286,12 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
           holidays: formData.holidays
         }
         
-        // 既存データがあるか確認
-        const { data: existingData } = await supabase
+        // upsertで保存（store_idで一意性を判定）
+        const { error } = await supabase
           .from('business_hours_settings')
-          .select('id')
-          .eq('store_id', store.id)
-          .maybeSingle()
+          .upsert(saveData, { onConflict: 'store_id' })
         
-        if (existingData) {
-          // 既存データを更新
-          const { error } = await supabase
-            .from('business_hours_settings')
-            .update(saveData)
-            .eq('id', existingData.id)
-          if (error) throw error
-        } else {
-          // 新規作成
-          const { error } = await supabase
-            .from('business_hours_settings')
-            .insert(saveData)
-          if (error) throw error
-        }
+        if (error) throw error
       }
       
       // 現在選択中の店舗のデータを再取得
@@ -317,9 +302,15 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       } else {
         showToast.success('保存しました')
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error('保存エラー:', error)
-      showToast.error('保存に失敗しました')
+      logger.error('エラー詳細:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint
+      })
+      showToast.error(`保存に失敗しました: ${error?.message || '不明なエラー'}`)
     } finally {
       setSaving(false)
     }
