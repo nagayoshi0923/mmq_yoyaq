@@ -111,9 +111,13 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         // キャッシュに保存
         const cache = new Map<string, any>()
         if (data) {
+          logger.log('[営業時間設定] 取得データ:', data.length, '件')
           for (const setting of data) {
+            logger.log('[営業時間設定] 店舗:', setting.store_id, 'opening_hours:', setting.opening_hours ? '設定あり' : 'なし')
             cache.set(setting.store_id, setting)
           }
+        } else {
+          logger.log('[営業時間設定] データなし')
         }
         setBusinessHoursCache(cache)
       } catch (error) {
@@ -392,14 +396,24 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       const dayName = dayNames[dayOfWeek]
       const dayHours = settings.opening_hours[dayName]
       
+      logger.log('[getTimeSlotsForDate] 店舗設定あり:', {
+        storeId: targetStoreId,
+        dayName,
+        slot_start_times: dayHours?.slot_start_times,
+        available_slots: dayHours?.available_slots
+      })
+      
       if (dayHours) {
         if (dayHours.slot_start_times) {
           slotTimes = { ...defaultTimes, ...dayHours.slot_start_times }
+          logger.log('[getTimeSlotsForDate] 適用する開始時間:', slotTimes)
         }
         if (dayHours.available_slots && dayHours.available_slots.length > 0) {
           availableSlots = dayHours.available_slots
         }
       }
+    } else {
+      logger.log('[getTimeSlotsForDate] 設定なし、デフォルト使用:', { targetStoreId, defaultTimes })
     }
     
     // 時間枠を生成（有効な公演枠のみ）
