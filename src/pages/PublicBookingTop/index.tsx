@@ -202,7 +202,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   // 組織が見つからない場合のエラー表示
   if (organizationNotFound) {
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden">
+      <div className="min-h-screen bg-background">
         <Header />
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-16">
           <div className="text-center">
@@ -223,7 +223,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div className="min-h-screen bg-background">
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
