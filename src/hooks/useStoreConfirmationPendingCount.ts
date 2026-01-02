@@ -16,12 +16,12 @@ export function useStoreConfirmationPendingCount() {
         // 組織フィルタリング
         const orgId = await getCurrentOrganizationId()
         
-        // gm_confirmed または pending_store のステータスをカウント
+        // 未対応の貸切リクエストをすべてカウント
         let query = supabase
           .from('reservations')
           .select('*', { count: 'exact', head: true })
           .eq('reservation_source', 'web_private')
-          .in('status', ['gm_confirmed', 'pending_store'])
+          .in('status', ['pending', 'pending_gm', 'gm_confirmed', 'pending_store'])
         
         if (orgId) {
           query = query.eq('organization_id', orgId)
