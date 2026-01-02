@@ -10,6 +10,7 @@ import { useCalendarData } from './hooks/useCalendarData'
 import { useListViewData } from './hooks/useListViewData'
 import { useBookingFilters } from './hooks/useBookingFilters'
 import { useFavorites } from '@/hooks/useFavorites'
+import { useStoreFilterPreference } from '@/hooks/useUserPreference'
 import { SearchBar } from './components/SearchBar'
 import { LineupView } from './components/LineupView'
 import { CalendarView } from './components/CalendarView'
@@ -32,14 +33,9 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     return 'lineup'
   })
 
-  // 店舗フィルター（localStorageから復元、デフォルトは馬場）
-  const [selectedStoreFilter, setSelectedStoreFilter] = useState<string>(() => {
-    const saved = localStorage.getItem('booking_store_filter')
-    return saved || 'all'
-  })
-  const [isStoreFilterInitialized, setIsStoreFilterInitialized] = useState(() => {
-    return !!localStorage.getItem('booking_store_filter')
-  })
+  // 店舗フィルター（アカウントごとに保存）
+  const [selectedStoreFilter, setSelectedStoreFilter] = useStoreFilterPreference('all')
+  const [isStoreFilterInitialized, setIsStoreFilterInitialized] = useState(false)
 
   // データ取得フック
   const { 
@@ -57,35 +53,31 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   // 店舗データがロードされたら、保存されたフィルターを検証（存在しない店舗IDの場合はリセット）
   useEffect(() => {
     if (stores.length > 0 && !isStoreFilterInitialized) {
-      const savedFilter = localStorage.getItem('booking_store_filter')
       // 保存されたフィルターが有効か確認
-      if (savedFilter && savedFilter !== 'all') {
-        const storeExists = stores.some(s => s.id === savedFilter)
+      if (selectedStoreFilter && selectedStoreFilter !== 'all') {
+        const storeExists = stores.some(s => s.id === selectedStoreFilter)
         if (!storeExists) {
           // 店舗が存在しない場合はデフォルト（馬場）を選択
           const babaStore = stores.find(s => s.name?.includes('馬場') || s.short_name?.includes('馬場'))
           if (babaStore) {
             setSelectedStoreFilter(babaStore.id)
-            localStorage.setItem('booking_store_filter', babaStore.id)
           }
         }
-      } else if (!savedFilter) {
+      } else if (!selectedStoreFilter || selectedStoreFilter === 'all') {
         // 保存がない場合はデフォルト（馬場）を選択
         const babaStore = stores.find(s => s.name?.includes('馬場') || s.short_name?.includes('馬場'))
         if (babaStore) {
           setSelectedStoreFilter(babaStore.id)
-          localStorage.setItem('booking_store_filter', babaStore.id)
         }
       }
       setIsStoreFilterInitialized(true)
     }
-  }, [stores, isStoreFilterInitialized])
+  }, [stores, isStoreFilterInitialized, selectedStoreFilter, setSelectedStoreFilter])
 
-  // 店舗フィルター変更時にlocalStorageに保存
-  const handleStoreFilterChange = (storeId: string) => {
+  // 店舗フィルター変更ハンドラ（useStoreFilterPreferenceで自動保存）
+  const handleStoreFilterChange = useCallback((storeId: string) => {
     setSelectedStoreFilter(storeId)
-    localStorage.setItem('booking_store_filter', storeId)
-  }
+  }, [setSelectedStoreFilter])
 
   // カレンダーデータフック
   const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(

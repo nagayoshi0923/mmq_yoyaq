@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils' // 時間帯判定用
+import { usePrivateBookingStorePreference } from '@/hooks/useUserPreference'
 import type { TimeSlot, EventSchedule } from '../utils/types'
 
 // 開始時間から終了時間を計算する関数
@@ -28,12 +29,37 @@ interface UsePrivateBookingProps {
  */
 export function usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug }: UsePrivateBookingProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
+  // 店舗選択をアカウントごとに記憶
+  const [savedStoreIds, setSavedStoreIds] = usePrivateBookingStorePreference()
+  const [selectedStoreIds, setSelectedStoreIdsInternal] = useState<string[]>(savedStoreIds)
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
   const [allStoreEvents, setAllStoreEvents] = useState<any[]>([])
   // 営業時間設定のキャッシュ（店舗IDをキーにする）
   const [businessHoursCache, setBusinessHoursCache] = useState<Map<string, any>>(new Map())
   const MAX_SELECTIONS = 6
+  
+  // 店舗選択を変更し、保存する
+  const setSelectedStoreIds = useCallback((storeIds: string[] | ((prev: string[]) => string[])) => {
+    setSelectedStoreIdsInternal(prev => {
+      const newIds = typeof storeIds === 'function' ? storeIds(prev) : storeIds
+      setSavedStoreIds(newIds)
+      return newIds
+    })
+  }, [setSavedStoreIds])
+  
+  // 保存された店舗選択を復元（stores読み込み後に検証）
+  useEffect(() => {
+    if (stores.length > 0 && savedStoreIds.length > 0) {
+      // 保存された店舗IDが有効か確認
+      const validStoreIds = savedStoreIds.filter(id => 
+        stores.some(s => s.id === id)
+      )
+      if (validStoreIds.length !== selectedStoreIds.length || 
+          !validStoreIds.every(id => selectedStoreIds.includes(id))) {
+        setSelectedStoreIdsInternal(validStoreIds)
+      }
+    }
+  }, [stores, savedStoreIds])
 
   // 現在の月から3ヶ月先までの全店舗のイベントを取得（貸切申込可能日判定用）
   useEffect(() => {
