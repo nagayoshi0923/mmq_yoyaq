@@ -150,7 +150,7 @@ MMQは**マルチテナント型SaaS**。各組織（マーダーミステリー
 
 | ページ | 制限 |
 |-------|------|
-| `#organizations` | ライセンス管理組織のみ |
+| `#settings` テナント管理タブ | ライセンス管理組織のみ（QW専用） |
 | `#license-management` | admin, staff（一部タブはライセンス管理組織のみ） |
 | その他 | 組織内のユーザーのみ |
 
@@ -205,15 +205,22 @@ src/pages/
 │   ├── components/
 │   └── hooks/
 │
-├── OrganizationManagement/     # テナント管理（ライセンス管理者専用）
-│   ├── index.tsx
+├── OrganizationManagement/     # テナント管理用コンポーネント（設定ページから利用）
+│   ├── index.tsx               # ★ 非推奨：#settingsテナント管理タブに統合
 │   └── components/
 │       ├── OrganizationCreateDialog.tsx
 │       ├── OrganizationEditDialog.tsx
 │       └── OrganizationInviteDialog.tsx
 │
-├── OrganizationSettings/       # 自組織設定
+├── OrganizationSettings/       # ★ 非推奨：#settings組織情報タブに統合
 │   └── index.tsx
+│
+├── Settings/                   # 設定ページ（統合）
+│   ├── index.tsx
+│   └── pages/
+│       ├── OrganizationInfoSettings.tsx  # 組織情報（会社情報）
+│       ├── TenantManagementSettings.tsx  # テナント管理（QW専用）
+│       └── ...（他の設定ページ）
 │
 ├── OrganizationRegister/       # セルフサービス登録
 │   └── index.tsx
@@ -297,8 +304,8 @@ parseHash(hash: string): {
 #manual                             → ManualPage
 
 ■ マルチテナント
-#organizations                      → OrganizationManagement
-#organization-settings              → OrganizationSettings
+#organizations                      → Settings（リダイレクト・テナント管理タブへ）
+#organization-settings              → Settings（リダイレクト・組織情報タブへ）
 #register                           → OrganizationRegister
 #accept-invitation?token=xxx        → AcceptInvitation
 #license-management                 → LicenseManagement（統合ページ）
@@ -374,9 +381,10 @@ parseHash(hash: string): {
 | **ScenarioEdit** | `#scenarios/edit?id={id}` | シナリオ編集 | admin |
 | **ReservationManagement** | `#reservations` | 予約管理 | admin |
 | **PrivateBookingManagement** | `#private-booking-management` | 貸切管理 | admin |
-| **CustomerManagement** | `#customer-management` | 顧客管理 | admin |
+| **AccountManagement** | `#accounts` | アカウント管理（ユーザー・顧客統合） | admin |
+| ├─ ユーザータブ | `#accounts` | スタッフ・管理者のアカウント・ロール管理 | admin |
+| └─ 顧客タブ | `#accounts` | 予約顧客の管理 | admin |
 | **SalesManagement** | `#sales` | 売上分析 | admin |
-| **UserManagement** | `#user-management` | ユーザー管理 | admin |
 | **Settings** | `#settings` | 設定 | admin |
 | ├─ **SalarySettings** | `#settings` (給与設定タブ) | GM給与計算式の設定（基本給・時給） | admin |
 | **StaffProfile** | `#staff-profile` | 担当作品 | admin, staff |
@@ -388,25 +396,30 @@ parseHash(hash: string): {
 
 | ページ名 | パス | 用途 | アクセス |
 |---------|------|------|---------|
-| **OrganizationManagement** | `#organizations` | テナント管理（組織一覧・作成・招待・編集） | ライセンス管理者のみ |
-| **OrganizationSettings** | `#organization-settings` | 会社情報（自組織の基本情報・管理者招待） | admin |
+| **Settings > 組織情報** | `#settings` (組織情報タブ) | 自組織の基本情報・管理者招待 | admin |
+| **Settings > テナント管理** | `#settings` (テナント管理タブ) | 全組織の一覧・作成・招待・編集 | ライセンス管理者のみ（QW専用） |
 | **OrganizationRegister** | `#register` | セルフサービス組織登録 | 未ログイン |
 | **AcceptInvitation** | `#accept-invitation?token=xxx` | 招待受諾・アカウント作成 | 未ログイン |
 | **LicenseManagement** | `#license-management` | 公演報告（MMQへの実績報告・ライセンス料集計） | admin, staff |
 
-#### OrganizationManagement 詳細
+> **NOTE**: `#organizations` と `#organization-settings` は設定ページに統合されました（2026-01-02）。
+> 古いURLにアクセスした場合は `#settings` にリダイレクトされます。
+
+#### 設定ページ > テナント管理タブ 詳細
+
+> **NOTE**: 以前の `#organizations` (OrganizationManagement) は設定ページに統合されました。
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ OrganizationManagement                                          │
+│ Settings > テナント管理 (TenantManagementSettings)              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  アクセス制限:                                                   │
-│  - is_license_manager = true の組織のみ                          │
-│  - それ以外はアクセス拒否メッセージ                              │
+│  - is_license_manager = true の組織のみ（QW専用）                │
+│  - サイドバーにこのタブはライセンス管理者のみ表示                │
 │                                                                  │
 │  機能:                                                           │
-│  1. 組織一覧表示                                                 │
+│  1. 組織一覧表示（統計情報含む）                                 │
 │  2. 新規組織作成 (OrganizationCreateDialog)                      │
 │  3. 組織編集 (OrganizationEditDialog)                            │
 │  4. 組織への招待 (OrganizationInviteDialog)                      │
@@ -419,11 +432,13 @@ parseHash(hash: string): {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-#### OrganizationSettings 詳細
+#### 設定ページ > 組織情報タブ 詳細
+
+> **NOTE**: 以前の `#organization-settings` (OrganizationSettings) は設定ページに統合されました。
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ OrganizationSettings                                            │
+│ Settings > 組織情報 (OrganizationInfoSettings)                  │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  目的:                                                           │
@@ -667,6 +682,8 @@ parseHash(hash: string): {
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-01-02 | ユーザー管理・顧客管理をアカウント管理に統合（#accounts）。サイドバーで切り替え | AI |
+| 2026-01-02 | 組織情報・テナント管理を設定ページに統合。#organizations, #organization-settingsは#settingsにリダイレクト | AI |
 | 2026-01-01 | 給与設定ページ（SalarySettings）追加。GM給与計算式（基本給・時給）を設定画面から変更可能に | AI |
 | 2024-12-18 | 外部公演報告フォーム（ExternalReportForm）追加。ログイン不要で公演回数報告可能 | AI |
 | 2024-12-17 | 作者ポータルをメールアドレスベースに変更。AuthorRegister削除、登録不要に | AI |

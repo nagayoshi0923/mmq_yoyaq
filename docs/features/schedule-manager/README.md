@@ -340,3 +340,4 @@ const handleDrop = useCallback((
 - [critical-features.md](../../development/critical-features.md) - 重複チェックの詳細
 - [features/README.md](../README.md) - 機能概要一覧
 
+

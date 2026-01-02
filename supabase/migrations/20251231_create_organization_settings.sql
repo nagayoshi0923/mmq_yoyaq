@@ -136,3 +136,4 @@ COMMENT ON COLUMN public.organization_settings.notification_settings IS '通知�
 -- 完了
 -- =============================================================================
 
+

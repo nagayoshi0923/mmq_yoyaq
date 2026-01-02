@@ -407,3 +407,4 @@ if (event.current_participants + participantCount > event.max_participants) {
 - [notifications/](../notifications/) - 通知機能
 - [features/README.md](../README.md) - 機能概要一覧
 
+

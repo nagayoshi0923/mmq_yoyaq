@@ -320,3 +320,4 @@ const getTimeSlot = (startTime: string): string => {
 - [features/README.md](../README.md) - 機能概要一覧
 - [discord/DISCORD_BOT_SETUP.md](../../setup/discord/DISCORD_BOT_SETUP.md) - Discord設定
 
+

@@ -321,3 +321,4 @@ interface OrganizationInvitation {
 - [shift-management/](../shift-management/) - シフト管理
 - [features/README.md](../README.md) - 機能概要一覧
 
+

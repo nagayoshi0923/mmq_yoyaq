@@ -17,6 +17,9 @@ export interface SalarySettings {
   use_hourly_table: boolean
   hourly_rates: HourlyRate[]
   gm_test_hourly_rates: HourlyRate[]
+  updated_at?: string  // 設定の最終更新日時
+  effective_from?: string  // 有効開始日
+  effective_until?: string | null  // 有効終了日（nullは現在まで有効）
 }
 
 // デフォルト値
@@ -76,6 +79,44 @@ export function useSalarySettings() {
         return
       }
 
+      // 履歴から有効期間を取得
+      let effectiveFrom: string | undefined
+      let effectiveUntil: string | null = null
+
+      const today = new Date().toISOString().split('T')[0]
+      
+      // 現在有効な設定を取得（effective_from <= 今日 で最新）
+      const { data: currentHistory } = await supabase
+        .from('salary_settings_history')
+        .select('effective_from')
+        .eq('organization_id', organizationId)
+        .lte('effective_from', today)
+        .order('effective_from', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (currentHistory) {
+        effectiveFrom = currentHistory.effective_from
+        
+        // 次の設定があれば、その日の前日が終了日
+        const { data: nextHistory } = await supabase
+          .from('salary_settings_history')
+          .select('effective_from')
+          .eq('organization_id', organizationId)
+          .gt('effective_from', currentHistory.effective_from)
+          .order('effective_from', { ascending: true })
+          .limit(1)
+          .single()
+
+        if (nextHistory) {
+          // 次の設定のeffective_fromの前日
+          const nextDate = new Date(nextHistory.effective_from)
+          nextDate.setDate(nextDate.getDate() - 1)
+          effectiveUntil = nextDate.toISOString().split('T')[0]
+        }
+        // nextHistoryがなければnull = 現在まで有効
+      }
+
       if (data) {
         setSettings({
           gm_base_pay: data.gm_base_pay ?? DEFAULT_SETTINGS.gm_base_pay,
@@ -85,7 +126,10 @@ export function useSalarySettings() {
           reception_fixed_pay: data.reception_fixed_pay ?? DEFAULT_SETTINGS.reception_fixed_pay,
           use_hourly_table: data.use_hourly_table ?? DEFAULT_SETTINGS.use_hourly_table,
           hourly_rates: (data.hourly_rates as HourlyRate[] | null) ?? DEFAULT_SETTINGS.hourly_rates,
-          gm_test_hourly_rates: (data.gm_test_hourly_rates as HourlyRate[] | null) ?? DEFAULT_SETTINGS.gm_test_hourly_rates
+          gm_test_hourly_rates: (data.gm_test_hourly_rates as HourlyRate[] | null) ?? DEFAULT_SETTINGS.gm_test_hourly_rates,
+          updated_at: data.updated_at,
+          effective_from: effectiveFrom,
+          effective_until: effectiveUntil
         })
       }
     } catch (error) {

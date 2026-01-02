@@ -181,3 +181,4 @@ interface PerformanceBreakdown {
 - [sales-management/](../sales-management/) - 売上管理
 - [features/README.md](../README.md) - 機能概要一覧
 
+

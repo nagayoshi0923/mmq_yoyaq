@@ -204,98 +204,153 @@ export function GmSettingsSectionV2({
         </CardContent>
       </Card>
 
-      {/* デフォルト報酬（設定ページから） */}
-      {!salaryLoading && formData.duration > 0 && (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-blue-900 text-sm font-medium">デフォルト報酬（設定ページより）</CardTitle>
-            <CardDescription className="text-blue-700 text-xs">
-              個別設定がない場合、以下の報酬が適用されます（{salarySettings.use_hourly_table ? '時間別テーブル方式' : '計算式方式'}）
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0 pb-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex justify-between items-center bg-white/60 rounded px-3 py-2">
-                <span className="text-blue-800">通常公演GM:</span>
-                <span className="font-bold text-blue-900">{calculateGmWage(formData.duration, false).toLocaleString()}円</span>
-              </div>
-              <div className="flex justify-between items-center bg-white/60 rounded px-3 py-2">
-                <span className="text-blue-800">GMテストGM:</span>
-                <span className="font-bold text-blue-900">{calculateGmWage(formData.duration, true).toLocaleString()}円</span>
-              </div>
-            </div>
-            <p className="text-xs text-blue-600 mt-2">
-              ※ 公演時間 {formatDurationDisplay(formData.duration)} に基づく
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* GM報酬（個別設定） */}
+      {/* GM報酬 */}
       <Card>
         <CardContent className="p-5">
-          <Label className={labelStyle}>GM報酬（個別設定）</Label>
-          <p className={hintStyle}>デフォルトより優先される個別設定。役割（メイン/サブ等）とカテゴリ（通常/GMテスト）別の報酬金額</p>
-          <div className="space-y-3 mt-1.5">
-            {(formData.gm_assignments || []).map((assignment, index) => (
-              <div key={index} className={rowStyle}>
-                <Select
-                  value={assignment.role}
-                  onValueChange={(value) => handleUpdateGmReward(index, 'role', value)}
-                >
-                  <SelectTrigger className={`${inputStyle} w-32`}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="main">メインGM</SelectItem>
-                    <SelectItem value="sub">サブGM</SelectItem>
-                    <SelectItem value="gm3">GM3</SelectItem>
-                    <SelectItem value="gm4">GM4</SelectItem>
-                    <SelectItem value="gm5">GM5</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={assignment.category || 'normal'}
-                  onValueChange={(value) => handleUpdateGmReward(index, 'category', value)}
-                >
-                  <SelectTrigger className={`${inputStyle} w-28`}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">通常</SelectItem>
-                    <SelectItem value="gmtest">GMテスト</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex-1 relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
-                  <Input
-                    type="number"
-                    value={assignment.reward}
-                    onChange={(e) => handleUpdateGmReward(index, 'reward', parseInt(e.target.value) || 0)}
-                    className={`${inputStyle} !pl-7`}
-                  />
+          <Label className={labelStyle}>GM報酬</Label>
+          
+          {/* 個別設定がない場合：デフォルトを使用 */}
+          {(!formData.gm_assignments || formData.gm_assignments.length === 0) ? (
+            <div className="space-y-3 mt-1.5">
+              {/* デフォルト報酬表示 */}
+              {!salaryLoading && formData.duration > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-medium text-blue-800 bg-blue-100 px-2 py-0.5 rounded">デフォルト使用中</span>
+                    <span className="text-xs text-blue-600">
+                      {salarySettings.use_hourly_table ? '時間別テーブル方式' : '計算式方式'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="flex justify-between items-center bg-white/70 rounded px-3 py-2">
+                      <span className="text-blue-800">通常公演:</span>
+                      <span className="font-bold text-blue-900">{calculateGmWage(formData.duration, false).toLocaleString()}円</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white/70 rounded px-3 py-2">
+                      <span className="text-blue-800">GMテスト:</span>
+                      <span className="font-bold text-blue-900">{calculateGmWage(formData.duration, true).toLocaleString()}円</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-2">
+                    公演時間 {formatDurationDisplay(formData.duration)} に基づく
+                    {salarySettings.effective_from && (
+                      <span className="ml-2">
+                        ・有効期間: {new Date(salarySettings.effective_from).toLocaleDateString('ja-JP')}
+                        〜{salarySettings.effective_until 
+                          ? new Date(salarySettings.effective_until).toLocaleDateString('ja-JP')
+                          : '現在'}
+                      </span>
+                    )}
+                  </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => handleRemoveGmReward(index)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              )}
+              
+              <p className={hintStyle}>個別設定を追加すると、デフォルトより優先されます</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-10"
+                onClick={handleAddGmReward}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                個別設定を追加
+              </Button>
+            </div>
+          ) : (
+            /* 個別設定がある場合 */
+            <div className="space-y-3 mt-1.5">
+              {/* 個別設定あり表示 */}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-medium text-amber-800 bg-amber-100 px-2 py-0.5 rounded">個別設定あり</span>
+                <span className="text-xs text-muted-foreground">デフォルトより優先</span>
               </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-10"
-              onClick={handleAddGmReward}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              GM報酬を追加
-            </Button>
-          </div>
+              
+              {(formData.gm_assignments || []).map((assignment, index) => (
+                <div key={index} className={rowStyle}>
+                  <Select
+                    value={assignment.role}
+                    onValueChange={(value) => handleUpdateGmReward(index, 'role', value)}
+                  >
+                    <SelectTrigger className={`${inputStyle} w-32`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="main">メインGM</SelectItem>
+                      <SelectItem value="sub">サブGM</SelectItem>
+                      <SelectItem value="gm3">GM3</SelectItem>
+                      <SelectItem value="gm4">GM4</SelectItem>
+                      <SelectItem value="gm5">GM5</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={assignment.category || 'normal'}
+                    onValueChange={(value) => handleUpdateGmReward(index, 'category', value)}
+                  >
+                    <SelectTrigger className={`${inputStyle} w-28`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">通常</SelectItem>
+                      <SelectItem value="gmtest">GMテスト</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex-1 relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                    <Input
+                      type="number"
+                      value={assignment.reward}
+                      onChange={(e) => handleUpdateGmReward(index, 'reward', parseInt(e.target.value) || 0)}
+                      className={`${inputStyle} !pl-7`}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleRemoveGmReward(index)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-10"
+                onClick={handleAddGmReward}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                個別設定を追加
+              </Button>
+              
+              {/* デフォルト参考表示（折りたたみ） */}
+              {!salaryLoading && formData.duration > 0 && (
+                <details className="mt-2">
+                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                    デフォルト報酬を参照
+                  </summary>
+                  <div className="mt-2 bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground">
+                    <div className="grid grid-cols-2 gap-2">
+                      <span>通常: {calculateGmWage(formData.duration, false).toLocaleString()}円</span>
+                      <span>GMテスト: {calculateGmWage(formData.duration, true).toLocaleString()}円</span>
+                    </div>
+                    <p className="mt-1">
+                      {formatDurationDisplay(formData.duration)}・{salarySettings.use_hourly_table ? 'テーブル方式' : '計算式方式'}
+                      {salarySettings.effective_from && (
+                        <span>
+                          ・{new Date(salarySettings.effective_from).toLocaleDateString('ja-JP')}
+                          〜{salarySettings.effective_until 
+                            ? new Date(salarySettings.effective_until).toLocaleDateString('ja-JP')
+                            : '現在'}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
