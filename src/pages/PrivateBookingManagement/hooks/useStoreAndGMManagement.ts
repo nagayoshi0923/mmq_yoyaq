@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { storeApi } from '@/lib/api/storeApi'
 import { logger } from '@/utils/logger'
 
 interface ConflictInfo {
@@ -19,15 +20,10 @@ export function useStoreAndGMManagement() {
     gmDateConflicts: new Set()
   })
 
-  // 店舗データの読み込み
+  // 店舗データの読み込み（組織対応済み）
   const loadStores = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('stores')
-        .select('id, name, short_name')
-        .order('name')
-
-      if (error) throw error
+      const data = await storeApi.getAll()
       setStores(data || [])
     } catch (error) {
       logger.error('店舗情報取得エラー:', error)

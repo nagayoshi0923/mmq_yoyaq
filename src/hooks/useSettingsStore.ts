@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
-import { supabase } from '@/lib/supabase'
+import { storeApi } from '@/lib/api/storeApi'
 
 interface Store {
   id: string
@@ -18,15 +18,8 @@ export const useSettingsStore = () => {
 
   const fetchStores = async () => {
     try {
-      const { data, error } = await supabase
-        .from('stores')
-        .select('id, name')
-        .order('name')
-
-      if (error) {
-        logger.error('店舗取得エラー:', error)
-        return
-      }
+      // 組織対応済みの店舗取得
+      const data = await storeApi.getAll()
 
       setStores(data || [])
       

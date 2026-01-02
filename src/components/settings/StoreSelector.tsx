@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { supabase } from '@/lib/supabase'
+import { storeApi } from '@/lib/api/storeApi'
 
 interface Store {
   id: string
@@ -27,16 +27,8 @@ export const StoreSelector: React.FC<StoreSelectorProps> = ({
 
   const fetchStores = async () => {
     try {
-      const { data, error } = await supabase
-        .from('stores')
-        .select('id, name')
-        .order('name')
-
-      if (error) {
-        logger.error('店舗取得エラー:', error)
-        return
-      }
-
+      // 組織対応済みの店舗取得
+      const data = await storeApi.getAll()
       setStores(data || [])
     } catch (error) {
       logger.error('店舗取得エラー:', error)
