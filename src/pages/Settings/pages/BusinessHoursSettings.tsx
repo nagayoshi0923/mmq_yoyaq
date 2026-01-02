@@ -152,13 +152,39 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
 
   const fetchBusinessHours = async (targetStoreId: string) => {
     try {
+      // 必須カラムのみ選択（special_open_days, special_closed_daysはオプション）
       const { data, error } = await supabase
         .from('business_hours_settings')
-        .select('*')
+        .select('id, store_id, opening_hours, holidays, special_open_days, special_closed_days')
         .eq('store_id', targetStoreId)
         .maybeSingle()
 
-      if (error && error.code !== 'PGRST116') throw error
+      // カラムが存在しない場合のエラーをハンドリング
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // データが存在しない
+        } else if (error.message?.includes('column') || error.code === '42703') {
+          // カラムが存在しない場合、基本カラムのみで再取得
+          logger.warn('新しいカラムが未追加です。基本設定のみ取得します。')
+          const { data: basicData } = await supabase
+            .from('business_hours_settings')
+            .select('id, store_id, opening_hours, holidays')
+            .eq('store_id', targetStoreId)
+            .maybeSingle()
+          if (basicData) {
+            setFormData({
+              ...basicData,
+              opening_hours: basicData.opening_hours || getDefaultOpeningHours(),
+              holidays: basicData.holidays || [],
+              special_open_days: [],
+              special_closed_days: []
+            })
+            return
+          }
+        } else {
+          throw error
+        }
+      }
 
       if (data) {
         setFormData({
@@ -279,14 +305,16 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         special_closed_days: formData.special_closed_days
       }
 
+      // まず全カラムで保存を試みる
+      let saveError = null
+      
       if (formData.id) {
         // 既存データを更新
         const { error } = await supabase
           .from('business_hours_settings')
           .update(saveData)
           .eq('id', formData.id)
-
-        if (error) throw error
+        saveError = error
       } else {
         // 新規作成
         const { data, error } = await supabase
@@ -295,11 +323,44 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
           .select()
           .single()
 
-        if (error) throw error
-        if (data) {
+        if (!error && data) {
           setFormData(prev => ({ ...prev, id: data.id }))
         }
+        saveError = error
       }
+      
+      // カラムが存在しない場合は基本カラムのみで再試行
+      if (saveError && (saveError.message?.includes('column') || saveError.code === '42703')) {
+        logger.warn('新しいカラムが未追加です。基本設定のみ保存します。')
+        const basicSaveData = {
+          store_id: selectedStoreId,
+          organization_id: store?.organization_id,
+          opening_hours: formData.opening_hours,
+          holidays: formData.holidays
+        }
+        
+        if (formData.id) {
+          const { error } = await supabase
+            .from('business_hours_settings')
+            .update(basicSaveData)
+            .eq('id', formData.id)
+          if (error) throw error
+        } else {
+          const { data, error } = await supabase
+            .from('business_hours_settings')
+            .insert(basicSaveData)
+            .select()
+            .single()
+          if (error) throw error
+          if (data) {
+            setFormData(prev => ({ ...prev, id: data.id }))
+          }
+        }
+        showToast.success('保存しました（特別営業日/休業日は未対応）')
+        return
+      }
+      
+      if (saveError) throw saveError
 
       showToast.success('保存しました')
     } catch (error) {
