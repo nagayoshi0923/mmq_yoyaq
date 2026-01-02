@@ -50,7 +50,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
     ],
     has_pre_reading: false,
     gm_count: 1,
-    gm_assignments: [{ role: 'main', category: 'normal' as const, reward: 2000 }],
+    gm_assignments: [],  // 空配列 = デフォルト報酬を使用
     participation_costs: [{ time_slot: 'normal', amount: 3000, type: 'fixed' }],
     use_flexible_pricing: false,
     flexible_pricing: {
@@ -203,7 +203,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
                 reward: cost.reward,
                 category: cost.category || 'normal' as 'normal' | 'gmtest'
               }))
-            : [{ role: 'main', category: 'normal' as const, reward: 2000 }],
+            : [],  // 空配列 = デフォルト報酬を使用
           participation_costs: participationCosts,
           use_flexible_pricing: scenario.use_flexible_pricing || false, // フォーム専用フィールド
           flexible_pricing: scenario.flexible_pricing || defaultFlexiblePricing,
@@ -244,7 +244,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
         ],
         has_pre_reading: false,
         gm_count: 1,
-        gm_assignments: [{ role: 'main', category: 'normal' as const, reward: 2000 }],
+        gm_assignments: [],  // 空配列 = デフォルト報酬を使用
         participation_costs: [{ time_slot: 'normal', amount: 3000, type: 'fixed' }],
         use_flexible_pricing: false,
         flexible_pricing: {

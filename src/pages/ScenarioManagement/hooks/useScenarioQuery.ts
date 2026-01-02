@@ -236,7 +236,7 @@ export function useImportScenariosMutation() {
           available_gms: [],
           play_count: 0,
           required_props: [],
-          gm_costs: [{ role: 'main', reward: 2000, status: 'active' }],
+          gm_costs: [],  // 空配列 = デフォルト報酬を使用
           license_amount: 0,
           gm_test_license_amount: 0,
           license_rewards: [],

@@ -55,7 +55,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     license_rewards: [],
     has_pre_reading: false,
     gm_count: 1,
-    gm_assignments: [{ role: 'main', reward: 2000 }],
+    gm_assignments: [],  // 空配列 = デフォルト報酬を使用
     // 項目別料金設定
     participation_costs: [{ time_slot: '通常', amount: 3000, type: 'fixed' }],
     use_flexible_pricing: false,
