@@ -16,12 +16,13 @@ interface PrivateBookingFormProps {
   currentMonth: Date
   onMonthChange: (delta: number) => void
   availableDates: string[]
-  timeSlots: TimeSlot[]
+  timeSlots: TimeSlot[] // フォールバック用（デフォルト時間枠）
   selectedSlots: Array<{ date: string; slot: TimeSlot }>
   onTimeSlotToggle: (date: string, slot: TimeSlot) => void
   checkTimeSlotAvailability: (date: string, slot: TimeSlot, storeIds?: string[]) => Promise<boolean>
   maxSelections: number
   scenarioDuration: number // シナリオの所要時間（分）
+  getTimeSlotsForDate?: (date: string) => TimeSlot[] // 日付ごとの時間枠取得（営業時間設定反映）
 }
 
 /**
@@ -48,7 +49,8 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   onTimeSlotToggle,
   checkTimeSlotAvailability,
   maxSelections,
-  scenarioDuration
+  scenarioDuration,
+  getTimeSlotsForDate
 }: PrivateBookingFormProps) {
   const remainingSelections = maxSelections - selectedSlots.length
   // 各時間枠の可用性を管理する状態
@@ -64,8 +66,10 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
       const newAvailabilityMap: Record<string, boolean> = {}
       
       // 各日付・時間枠の可用性を並列で取得
-      const promises = availableDates.flatMap(date =>
-        timeSlots.map(async (slot) => {
+      const promises = availableDates.flatMap(date => {
+        // 日付ごとの時間枠を取得（営業時間設定反映）
+        const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
+        return slotsForDate.map(async (slot) => {
           const key = `${date}-${slot.label}`
           const isAvailable = await checkTimeSlotAvailability(
             date,
@@ -74,14 +78,14 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           )
           newAvailabilityMap[key] = isAvailable
         })
-      )
+      })
       
       await Promise.all(promises)
       setAvailabilityMap(newAvailabilityMap)
     }
     
     updateAvailability()
-  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability])
+  }, [availableDates, timeSlots, selectedStoreIds, checkTimeSlotAvailability, getTimeSlotsForDate])
   
   // 時間枠の可用性を取得
   const getAvailability = (date: string, slot: TimeSlot): boolean => {
@@ -176,6 +180,9 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const dayOfWeek = dateObj.getDay()
           const weekdayColor = dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
           
+          // 日付ごとの時間枠を取得（営業時間設定反映）
+          const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
+          
           return (
             <Card key={date}>
               <CardContent className="p-3">
@@ -188,7 +195,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                   
                   {/* 時間枠ボタン */}
                   <div className="flex gap-2 flex-1">
-                    {timeSlots.map((slot) => {
+                    {slotsForDate.map((slot) => {
                       const isAvailable = getAvailability(date, slot)
                       const isSelected = isTimeSlotSelected(date, slot)
                       const endTime = calculateEndTime(slot.startTime, scenarioDuration)

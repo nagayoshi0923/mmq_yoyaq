@@ -78,7 +78,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     checkTimeSlotAvailability,
     generatePrivateDates,
     changeMonth,
-    toggleTimeSlot
+    toggleTimeSlot,
+    getTimeSlotsForDate
   } = usePrivateBooking({ events, stores, scenarioId, scenario, organizationSlug })
 
   useEffect(() => {
@@ -310,6 +311,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                     checkTimeSlotAvailability={checkTimeSlotAvailability}
                     maxSelections={MAX_SELECTIONS}
                     scenarioDuration={scenario.duration}
+                    getTimeSlotsForDate={getTimeSlotsForDate}
                   />
                   
                   {/* 選択された時間枠の表示 */}

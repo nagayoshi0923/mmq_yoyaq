@@ -6,6 +6,15 @@ import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils' // 時間帯判定用
 import type { TimeSlot, EventSchedule } from '../utils/types'
 
+// 開始時間から終了時間を計算する関数
+const calculateEndTime = (startTime: string, durationMinutes: number): string => {
+  const [hours, minutes] = startTime.split(':').map(Number)
+  const totalMinutes = hours * 60 + minutes + durationMinutes
+  const endHours = Math.floor(totalMinutes / 60) % 24
+  const endMinutes = totalMinutes % 60
+  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`
+}
+
 interface UsePrivateBookingProps {
   events: EventSchedule[]
   stores: any[]
@@ -345,6 +354,60 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
   }, [selectedTimeSlots])
 
+  // 日付に基づいて時間枠を取得（営業時間設定を反映）
+  const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => {
+    const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+    
+    // 選択された店舗がある場合は、その店舗の設定を使用
+    // 複数店舗選択時は最初の店舗の設定を使用
+    const targetStoreId = selectedStoreIds.length > 0 ? selectedStoreIds[0] : null
+    const settings = targetStoreId ? businessHoursCache.get(targetStoreId) : null
+    
+    // デフォルトの開始時間
+    const defaultTimes = {
+      morning: '10:00',
+      afternoon: isWeekend ? '14:00' : '13:00',
+      evening: '18:00'
+    }
+    
+    // 営業時間設定がある場合、曜日ごとの設定を取得
+    let slotTimes = defaultTimes
+    let availableSlots: ('morning' | 'afternoon' | 'evening')[] = isWeekend 
+      ? ['morning', 'afternoon', 'evening'] 
+      : ['afternoon', 'evening']
+    
+    if (settings?.opening_hours) {
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+      const dayName = dayNames[dayOfWeek]
+      const dayHours = settings.opening_hours[dayName]
+      
+      if (dayHours) {
+        if (dayHours.slot_start_times) {
+          slotTimes = { ...defaultTimes, ...dayHours.slot_start_times }
+        }
+        if (dayHours.available_slots && dayHours.available_slots.length > 0) {
+          availableSlots = dayHours.available_slots
+        }
+      }
+    }
+    
+    // 時間枠を生成（有効な公演枠のみ）
+    const slotDefinitions: { key: 'morning' | 'afternoon' | 'evening'; label: string }[] = [
+      { key: 'morning', label: '朝公演' },
+      { key: 'afternoon', label: '昼公演' },
+      { key: 'evening', label: '夜公演' }
+    ]
+    
+    return slotDefinitions
+      .filter(def => availableSlots.includes(def.key))
+      .map(def => ({
+        label: def.label,
+        startTime: slotTimes[def.key],
+        endTime: calculateEndTime(slotTimes[def.key], 3 * 60) // 3時間後を終了時間とする（仮）
+      }))
+  }, [selectedStoreIds, businessHoursCache])
+
   return {
     currentMonth,
     selectedStoreIds,
@@ -355,7 +418,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     checkTimeSlotAvailability,
     generatePrivateDates,
     changeMonth,
-    toggleTimeSlot
+    toggleTimeSlot,
+    getTimeSlotsForDate
   }
 }
 
