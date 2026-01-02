@@ -290,17 +290,15 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
           .eq('id', formData.id)
         if (error) throw error
       } else {
-        // 新規作成 - IDのみ取得
-        const { data, error } = await supabase
+        // 新規作成
+        const { error } = await supabase
           .from('business_hours_settings')
           .insert(saveData)
-          .select('id')
-          .single()
 
         if (error) throw error
-        if (data) {
-          setFormData(prev => ({ ...prev, id: data.id }))
-        }
+        
+        // 保存後に再取得してIDを設定
+        await fetchBusinessHours(selectedStoreId)
       }
 
       showToast.success('保存しました')
