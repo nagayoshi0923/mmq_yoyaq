@@ -615,7 +615,7 @@ export function ScenarioManagement() {
           onClose={handleCloseEditDialog}
           scenarioId={editingScenarioId}
           onScenarioChange={setEditingScenarioId}
-          sortedScenarioIds={displayedScenarios.map(s => s.id)}
+          sortedScenarioIds={filteredAndSortedScenarios.map(s => s.id)}
         />
       </AppLayout>
     )
