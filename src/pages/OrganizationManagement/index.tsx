@@ -1,8 +1,10 @@
 /**
- * 組織管理ページ
- * - 組織一覧の表示
- * - 新規組織の作成
- * - 組織への招待
+ * テナント管理ページ
+ * @page OrganizationManagement
+ * @path #organizations
+ * @purpose 全組織の一覧表示・新規作成・招待（ライセンス管理者専用）
+ * @access ライセンス管理者のみ
+ * @organization ライセンス管理組織のみ
  */
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -95,10 +97,10 @@ export default function OrganizationManagement() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Building2 className="w-6 h-6" />
-            組織管理
+            テナント管理
           </h1>
           <p className="text-muted-foreground mt-1">
-            MMQを利用する組織の管理
+            MMQを利用する全組織の管理（ライセンス管理者専用）
           </p>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)}>

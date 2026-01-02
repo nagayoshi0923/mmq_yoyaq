@@ -205,7 +205,7 @@ src/pages/
 │   ├── components/
 │   └── hooks/
 │
-├── OrganizationManagement/     # 組織管理（マルチテナント）
+├── OrganizationManagement/     # テナント管理（ライセンス管理者専用）
 │   ├── index.tsx
 │   └── components/
 │       ├── OrganizationCreateDialog.tsx
@@ -388,7 +388,7 @@ parseHash(hash: string): {
 
 | ページ名 | パス | 用途 | アクセス |
 |---------|------|------|---------|
-| **OrganizationManagement** | `#organizations` | 組織一覧・作成・招待・編集 | ライセンス管理者のみ |
+| **OrganizationManagement** | `#organizations` | テナント管理（組織一覧・作成・招待・編集） | ライセンス管理者のみ |
 | **OrganizationSettings** | `#organization-settings` | 自組織の設定編集 | admin |
 | **OrganizationRegister** | `#register` | セルフサービス組織登録 | 未ログイン |
 | **AcceptInvitation** | `#accept-invitation?token=xxx` | 招待受諾・アカウント作成 | 未ログイン |
