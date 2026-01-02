@@ -5,15 +5,45 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Save, Calculator, Users, GraduationCap, Clock, Plus, Trash2, Coins } from 'lucide-react'
+
+// 30分刻みの時間オプション（0.5時間〜8時間）
+const DURATION_OPTIONS = [
+  { value: 0.5, label: '30分' },
+  { value: 1, label: '1時間' },
+  { value: 1.5, label: '1時間30分' },
+  { value: 2, label: '2時間' },
+  { value: 2.5, label: '2時間30分' },
+  { value: 3, label: '3時間' },
+  { value: 3.5, label: '3時間30分' },
+  { value: 4, label: '4時間' },
+  { value: 4.5, label: '4時間30分' },
+  { value: 5, label: '5時間' },
+  { value: 5.5, label: '5時間30分' },
+  { value: 6, label: '6時間' },
+  { value: 6.5, label: '6時間30分' },
+  { value: 7, label: '7時間' },
+  { value: 7.5, label: '7時間30分' },
+  { value: 8, label: '8時間' },
+]
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
 interface HourlyRate {
-  hours: number
+  hours: number  // 0.5 = 30分、1 = 1時間、1.5 = 1時間30分...
   amount: number
+}
+
+// 時間を表示用にフォーマット（0.5 → "30分", 1 → "1時間", 1.5 → "1時間30分"）
+const formatDuration = (hours: number): string => {
+  const h = Math.floor(hours)
+  const m = (hours - h) * 60
+  if (h === 0) return `${m}分`
+  if (m === 0) return `${h}時間`
+  return `${h}時間${m}分`
 }
 
 interface SalarySettingsData {
@@ -52,17 +82,21 @@ export function SalarySettings() {
     use_hourly_table: false,
     hourly_rates: [
       { hours: 1, amount: 3300 },
+      { hours: 1.5, amount: 3950 },
       { hours: 2, amount: 4600 },
+      { hours: 2.5, amount: 5250 },
       { hours: 3, amount: 5900 },
+      { hours: 3.5, amount: 6550 },
       { hours: 4, amount: 7200 },
-      { hours: 5, amount: 8500 },
     ] as HourlyRate[],
     gm_test_hourly_rates: [
       { hours: 1, amount: 1300 },
+      { hours: 1.5, amount: 1950 },
       { hours: 2, amount: 2600 },
+      { hours: 2.5, amount: 3250 },
       { hours: 3, amount: 3900 },
+      { hours: 3.5, amount: 4550 },
       { hours: 4, amount: 5200 },
-      { hours: 5, amount: 6500 },
     ] as HourlyRate[]
   })
 
@@ -106,17 +140,21 @@ export function SalarySettings() {
           use_hourly_table: data.use_hourly_table ?? false,
           hourly_rates: (data.hourly_rates as HourlyRate[] | null) ?? [
             { hours: 1, amount: 3300 },
+            { hours: 1.5, amount: 3950 },
             { hours: 2, amount: 4600 },
+            { hours: 2.5, amount: 5250 },
             { hours: 3, amount: 5900 },
+            { hours: 3.5, amount: 6550 },
             { hours: 4, amount: 7200 },
-            { hours: 5, amount: 8500 },
           ],
           gm_test_hourly_rates: (data.gm_test_hourly_rates as HourlyRate[] | null) ?? [
             { hours: 1, amount: 1300 },
+            { hours: 1.5, amount: 1950 },
             { hours: 2, amount: 2600 },
+            { hours: 2.5, amount: 3250 },
             { hours: 3, amount: 3900 },
+            { hours: 3.5, amount: 4550 },
             { hours: 4, amount: 5200 },
-            { hours: 5, amount: 6500 },
           ]
         })
       }
@@ -163,17 +201,18 @@ export function SalarySettings() {
     }
   }
 
-  // 時間別報酬を追加
+  // 時間別報酬を追加（30分刻み）
   const addHourlyRate = (isGmTest: boolean) => {
     const key = isGmTest ? 'gm_test_hourly_rates' : 'hourly_rates'
     const rates = formData[key]
-    const maxHours = rates.length > 0 ? Math.max(...rates.map(r => r.hours)) : 0
+    const maxHours = rates.length > 0 ? Math.max(...rates.map(r => r.hours)) : 0.5
     const lastAmount = rates.length > 0 ? rates[rates.length - 1].amount : 0
-    const increment = isGmTest ? formData.gm_test_hourly_rate : formData.gm_hourly_rate
+    const hourlyRate = isGmTest ? formData.gm_test_hourly_rate : formData.gm_hourly_rate
+    const increment = hourlyRate * 0.5  // 30分分の報酬増加
     
     setFormData(prev => ({
       ...prev,
-      [key]: [...prev[key], { hours: maxHours + 1, amount: lastAmount + increment }]
+      [key]: [...prev[key], { hours: maxHours + 0.5, amount: lastAmount + increment }]
     }))
   }
 
@@ -281,14 +320,21 @@ export function SalarySettings() {
                   <div key={index} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <Input
-                        type="number"
-                        min="1"
-                        value={rate.hours}
-                        onChange={(e) => updateHourlyRate(false, index, 'hours', parseInt(e.target.value) || 1)}
-                        className="w-16 text-center"
-                      />
-                      <span className="text-sm text-muted-foreground">時間</span>
+                      <Select
+                        value={String(rate.hours)}
+                        onValueChange={(value) => updateHourlyRate(false, index, 'hours', parseFloat(value))}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DURATION_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={String(opt.value)}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <span className="text-muted-foreground">→</span>
                     <div className="flex items-center gap-2 flex-1">
@@ -406,14 +452,21 @@ export function SalarySettings() {
                   <div key={index} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <Input
-                        type="number"
-                        min="1"
-                        value={rate.hours}
-                        onChange={(e) => updateHourlyRate(true, index, 'hours', parseInt(e.target.value) || 1)}
-                        className="w-16 text-center"
-                      />
-                      <span className="text-sm text-muted-foreground">時間</span>
+                      <Select
+                        value={String(rate.hours)}
+                        onValueChange={(value) => updateHourlyRate(true, index, 'hours', parseFloat(value))}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DURATION_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={String(opt.value)}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <span className="text-muted-foreground">→</span>
                     <div className="flex items-center gap-2 flex-1">
@@ -552,21 +605,21 @@ export function SalarySettings() {
               <>
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <p className="font-medium text-blue-900 mb-2">通常公演（時間別テーブル）</p>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm text-blue-700">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-blue-700">
                     {formData.hourly_rates
                       .sort((a, b) => a.hours - b.hours)
                       .map((rate, i) => (
-                      <div key={i}>{rate.hours}時間: <span className="font-bold">{rate.amount.toLocaleString()}円</span></div>
+                      <div key={i}>{formatDuration(rate.hours)}: <span className="font-bold">{rate.amount.toLocaleString()}円</span></div>
                     ))}
                   </div>
                 </div>
                 <div className="p-3 bg-orange-50 rounded-lg">
                   <p className="font-medium text-orange-900 mb-2">GMテスト（時間別テーブル）</p>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm text-orange-700">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-orange-700">
                     {formData.gm_test_hourly_rates
                       .sort((a, b) => a.hours - b.hours)
                       .map((rate, i) => (
-                      <div key={i}>{rate.hours}時間: <span className="font-bold">{rate.amount.toLocaleString()}円</span></div>
+                      <div key={i}>{formatDuration(rate.hours)}: <span className="font-bold">{rate.amount.toLocaleString()}円</span></div>
                     ))}
                   </div>
                 </div>
