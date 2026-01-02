@@ -14,6 +14,7 @@ interface DayHours {
   is_open: boolean
   open_time: string
   close_time: string
+  available_slots: ('morning' | 'afternoon' | 'evening')[] // 受付可能な公演枠
 }
 
 interface OpeningHours {
@@ -45,9 +46,26 @@ const weekdays = [
   { value: 'sunday', label: '日曜日', short: '日' }
 ] as const
 
+// 公演枠の定義
+const slotOptions = [
+  { value: 'morning' as const, label: '朝公演', time: '10:00〜' },
+  { value: 'afternoon' as const, label: '昼公演', time: '14:00〜' },
+  { value: 'evening' as const, label: '夜公演', time: '18:00〜' }
+]
+
 // デフォルトの営業時間設定
-const defaultWeekdayHours: DayHours = { is_open: true, open_time: '13:00', close_time: '23:00' }
-const defaultWeekendHours: DayHours = { is_open: true, open_time: '09:00', close_time: '23:00' }
+const defaultWeekdayHours: DayHours = { 
+  is_open: true, 
+  open_time: '13:00', 
+  close_time: '23:00',
+  available_slots: ['afternoon', 'evening'] // 平日は昼・夜のみ
+}
+const defaultWeekendHours: DayHours = { 
+  is_open: true, 
+  open_time: '09:00', 
+  close_time: '23:00',
+  available_slots: ['morning', 'afternoon', 'evening'] // 土日は全公演
+}
 
 const getDefaultOpeningHours = (): OpeningHours => ({
   monday: { ...defaultWeekdayHours },
@@ -148,7 +166,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
     await fetchBusinessHours(newStoreId)
   }
 
-  const updateDayHours = (day: keyof OpeningHours, field: keyof DayHours, value: string | boolean) => {
+  const updateDayHours = (day: keyof OpeningHours, field: keyof DayHours, value: string | boolean | string[]) => {
     setFormData(prev => ({
       ...prev,
       opening_hours: {
@@ -159,6 +177,14 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         }
       }
     }))
+  }
+  
+  const toggleSlot = (day: keyof OpeningHours, slot: 'morning' | 'afternoon' | 'evening') => {
+    const currentSlots = formData.opening_hours?.[day]?.available_slots || []
+    const newSlots = currentSlots.includes(slot)
+      ? currentSlots.filter(s => s !== slot)
+      : [...currentSlots, slot]
+    updateDayHours(day, 'available_slots', newSlots)
   }
 
   const addSpecialOpenDay = () => {
@@ -292,51 +318,80 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
           {weekdays.map(day => {
             const dayHours = formData.opening_hours?.[day.value as keyof OpeningHours] || defaultWeekdayHours
             const isWeekend = day.value === 'saturday' || day.value === 'sunday'
+            const availableSlots = dayHours.available_slots || (isWeekend ? ['morning', 'afternoon', 'evening'] : ['afternoon', 'evening'])
             
             return (
               <div 
                 key={day.value} 
-                className={`flex items-center gap-4 p-3 rounded-lg ${isWeekend ? 'bg-blue-50' : 'bg-gray-50'}`}
+                className={`p-3 rounded-lg ${isWeekend ? 'bg-blue-50' : 'bg-gray-50'}`}
               >
-                <div className="w-16 font-medium">
-                  <span className={isWeekend ? 'text-blue-600' : ''}>{day.short}</span>
-                </div>
-                
-                <Switch
-                  checked={dayHours.is_open}
-                  onCheckedChange={(checked) => updateDayHours(day.value as keyof OpeningHours, 'is_open', checked)}
-                />
-                
-                <span className={`text-sm ${dayHours.is_open ? '' : 'text-muted-foreground'}`}>
-                  {dayHours.is_open ? '営業' : '休業'}
-                </span>
-                
-                {dayHours.is_open && (
-                  <div className="flex items-center gap-2 ml-auto">
-                    <Input
-                      type="time"
-                      value={dayHours.open_time}
-                      onChange={(e) => updateDayHours(day.value as keyof OpeningHours, 'open_time', e.target.value)}
-                      className="w-28"
-                    />
-                    <span>〜</span>
-                    <Input
-                      type="time"
-                      value={dayHours.close_time}
-                      onChange={(e) => updateDayHours(day.value as keyof OpeningHours, 'close_time', e.target.value)}
-                      className="w-28"
-                    />
+                <div className="flex items-center gap-4">
+                  <div className="w-12 font-medium">
+                    <span className={isWeekend ? 'text-blue-600' : ''}>{day.short}</span>
                   </div>
-                )}
+                  
+                  <Switch
+                    checked={dayHours.is_open}
+                    onCheckedChange={(checked) => updateDayHours(day.value as keyof OpeningHours, 'is_open', checked)}
+                  />
+                  
+                  <span className={`text-sm w-10 ${dayHours.is_open ? '' : 'text-muted-foreground'}`}>
+                    {dayHours.is_open ? '営業' : '休業'}
+                  </span>
+                  
+                  {dayHours.is_open && (
+                    <>
+                      {/* 公演枠選択 */}
+                      <div className="flex gap-1">
+                        {slotOptions.map(slot => {
+                          const isActive = availableSlots.includes(slot.value)
+                          return (
+                            <button
+                              key={slot.value}
+                              type="button"
+                              onClick={() => toggleSlot(day.value as keyof OpeningHours, slot.value)}
+                              className={`px-2 py-1 text-xs rounded border transition-colors ${
+                                isActive 
+                                  ? 'bg-purple-500 text-white border-purple-500' 
+                                  : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              {slot.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      
+                      {/* 営業時間（折りたたみ可能） */}
+                      <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
+                        <span>営業</span>
+                        <Input
+                          type="time"
+                          value={dayHours.open_time}
+                          onChange={(e) => updateDayHours(day.value as keyof OpeningHours, 'open_time', e.target.value)}
+                          className="w-24 h-7 text-xs"
+                        />
+                        <span>〜</span>
+                        <Input
+                          type="time"
+                          value={dayHours.close_time}
+                          onChange={(e) => updateDayHours(day.value as keyof OpeningHours, 'close_time', e.target.value)}
+                          className="w-24 h-7 text-xs"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )
           })}
           
           <div className="text-sm text-muted-foreground mt-4 p-3 bg-amber-50 rounded-lg">
-            <p className="font-medium text-amber-800">💡 営業時間と貸切リクエストの関係</p>
+            <p className="font-medium text-amber-800">💡 公演枠と貸切リクエストの関係</p>
             <ul className="mt-2 space-y-1 text-amber-700">
-              <li>• 営業時間外の公演枠は貸切リクエストで選択不可になります</li>
-              <li>• 例：平日13:00〜なら朝公演（10:00開始）は受付不可</li>
+              <li>• 選択した公演枠のみ貸切リクエストで選択可能になります</li>
+              <li>• 例：平日は昼・夜のみ → 朝公演は選択不可</li>
+              <li>• 特別営業日は全ての公演枠が選択可能になります</li>
             </ul>
           </div>
         </CardContent>
