@@ -7,11 +7,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Upload, X, Trash2 } from 'lucide-react'
+import { Upload, X, Trash2, Wand2 } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { generateSlugFromTitle } from '@/utils/toRomaji'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { storeApi } from '@/lib/api'
@@ -188,17 +189,37 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
                 </div>
                 <div>
                   <Label className={labelStyle}>Slug（URL用）</Label>
-                  <Input
-                    id="slug"
-                    value={formData.slug || ''}
-                    onChange={(e) => {
-                      // 小文字、英数字、ハイフンのみ許可
-                      const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
-                      setFormData(prev => ({ ...prev, slug: value }))
-                    }}
-                    placeholder="aiu-kairo（英数字とハイフン）"
-                    className={inputStyle}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="slug"
+                      value={formData.slug || ''}
+                      onChange={(e) => {
+                        // 小文字、英数字、ハイフンのみ許可
+                        const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
+                        setFormData(prev => ({ ...prev, slug: value }))
+                      }}
+                      placeholder="aiu-kairo（英数字とハイフン）"
+                      className={`${inputStyle} flex-1`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-10 px-3"
+                      onClick={() => {
+                        if (formData.title) {
+                          const generatedSlug = generateSlugFromTitle(formData.title)
+                          setFormData(prev => ({ ...prev, slug: generatedSlug }))
+                          showToast.success('タイトルからslugを生成しました')
+                        } else {
+                          showToast.error('タイトルを先に入力してください')
+                        }
+                      }}
+                      title="タイトルから自動生成"
+                    >
+                      <Wand2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
               
