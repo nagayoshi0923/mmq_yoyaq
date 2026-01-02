@@ -26,6 +26,8 @@ import { useOrganization, useOrganizations } from '@/hooks/useOrganization'
 import { OrganizationCreateDialog } from './components/OrganizationCreateDialog'
 import { OrganizationInviteDialog } from './components/OrganizationInviteDialog'
 import { OrganizationEditDialog } from './components/OrganizationEditDialog'
+import { Header } from '@/components/layout/Header'
+import { NavigationBar } from '@/components/layout/NavigationBar'
 import type { Organization } from '@/types'
 
 export default function OrganizationManagement() {
@@ -53,45 +55,60 @@ export default function OrganizationManagement() {
 
   if (isLoading || orgLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
+      <>
+        <Header />
+        <NavigationBar currentPage="organizations" />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </>
     )
   }
 
   // ライセンス管理組織のみアクセス可能
   if (!isLicenseManager) {
     return (
-      <div className="p-4">
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-6 flex items-center gap-3">
-            <Building2 className="w-5 h-5 text-amber-600" />
-            <p className="text-amber-800">
-              このページはライセンス管理組織のみアクセス可能です。
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <Header />
+        <NavigationBar currentPage="organizations" />
+        <div className="p-4">
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-6 flex items-center gap-3">
+              <Building2 className="w-5 h-5 text-amber-600" />
+              <p className="text-amber-800">
+                このページはライセンス管理組織のみアクセス可能です。
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </>
     )
   }
 
   if (error) {
     return (
-      <div className="p-4">
-        <Card className="border-destructive">
-          <CardContent className="p-6">
-            <p className="text-destructive">エラーが発生しました: {error.message}</p>
-            <Button variant="outline" onClick={refetch} className="mt-4">
-              再試行
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <Header />
+        <NavigationBar currentPage="organizations" />
+        <div className="p-4">
+          <Card className="border-destructive">
+            <CardContent className="p-6">
+              <p className="text-destructive">エラーが発生しました: {error.message}</p>
+              <Button variant="outline" onClick={refetch} className="mt-4">
+                再試行
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </>
     )
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <>
+      <Header />
+      <NavigationBar currentPage="organizations" />
+      <div className="p-4 md:p-6 space-y-6">
       {/* ヘッダー */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -248,7 +265,8 @@ export default function OrganizationManagement() {
           refetch()
         }}
       />
-    </div>
+      </div>
+    </>
   )
 }
 
