@@ -281,7 +281,6 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         
         const saveData = {
           store_id: store.id,
-          organization_id: store.organization_id,
           opening_hours: formData.opening_hours,
           holidays: formData.holidays
         }
@@ -293,7 +292,6 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         const { error: updateError, count } = await supabase
           .from('business_hours_settings')
           .update({
-            organization_id: store.organization_id,
             opening_hours: formData.opening_hours,
             holidays: formData.holidays
           })
