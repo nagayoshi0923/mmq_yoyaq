@@ -426,7 +426,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
             <ul className="mt-2 space-y-1 text-amber-700">
               <li>• 選択した公演枠のみ貸切リクエストで選択可能になります</li>
               <li>• 例：平日は昼・夜のみ → 朝公演は選択不可</li>
-              <li>• 特別営業日は全ての公演枠が選択可能になります</li>
+              <li>• 特別営業日に登録した日は、平日でも土日の設定を適用</li>
             </ul>
           </div>
         </CardContent>
@@ -435,8 +435,12 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       {/* 特別営業日（祝日など） */}
       <Card>
         <CardHeader>
-          <CardTitle>特別営業日</CardTitle>
-          <CardDescription>定休日でも営業する日（祝日、年末年始、お盆など）</CardDescription>
+          <CardTitle>特別営業日（土日営業）</CardTitle>
+          <CardDescription>
+            平日でも土日と同じ営業時間を適用する日（祝日、年末年始、お盆など）
+            <br />
+            <span className="text-xs">→ 朝公演10:00〜、昼公演14:00〜、夜公演18:00〜 が選択可能に</span>
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
