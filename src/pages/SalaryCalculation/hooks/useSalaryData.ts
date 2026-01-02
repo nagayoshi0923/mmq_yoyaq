@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { fetchSalarySettings, calculateGmWage, type SalarySettings } from '@/hooks/useSalarySettings'
 import type { MonthlySalaryData, StaffSalary, ShiftDetail, GMDetail } from '../types'
@@ -45,11 +46,19 @@ export function useSalaryData(year: number, month: number, storeId: string) {
       // 給与設定を取得
       const salarySettings = await fetchSalarySettings()
 
-      // スタッフデータ取得
-      const { data: staffData, error: staffError } = await supabase
+      // 組織IDを取得
+      const orgId = await getCurrentOrganizationId()
+
+      // スタッフデータ取得（組織対応）
+      let staffQuery = supabase
         .from('staff')
         .select('id, name, role')
-        .order('name')
+      
+      if (orgId) {
+        staffQuery = staffQuery.eq('organization_id', orgId)
+      }
+      
+      const { data: staffData, error: staffError } = await staffQuery.order('name')
 
       if (staffError) throw staffError
 

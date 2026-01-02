@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Save, Send, TestTube } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import type { Staff } from '@/types'
@@ -65,11 +66,17 @@ export function NotificationSettings({ storeId }: NotificationSettingsProps) {
   
   const fetchStaffList = async () => {
     try {
-      const { data, error } = await supabase
+      const orgId = await getCurrentOrganizationId()
+      let query = supabase
         .from('staff')
         .select('id, name, discord_channel_id')
         .eq('status', 'active')
-        .order('name')
+      
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+      
+      const { data, error } = await query.order('name')
       
       if (error) throw error
       setStaffList((data || []) as Staff[])

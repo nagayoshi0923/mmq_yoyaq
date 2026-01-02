@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
 interface ConflictInfo {
@@ -103,14 +104,20 @@ export function useStoreAndGMManagement() {
     }
   }, [])
 
-  // 全GMの読み込み
+  // 全GMの読み込み（組織対応）
   const loadAllGMs = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const orgId = await getCurrentOrganizationId()
+      let query = supabase
         .from('staff')
         .select('id, name')
         .contains('role', ['gm'])
-        .order('name')
+      
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+      
+      const { data, error } = await query.order('name')
 
       if (error) throw error
       setAllGMs(data || [])

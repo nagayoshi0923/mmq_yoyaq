@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import type { Customer } from '@/types'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
@@ -13,10 +14,17 @@ export function useCustomerData() {
     try {
       logger.log('顧客データ取得開始')
       
-      const { data, error } = await supabase
+      // 組織フィルタリング
+      const orgId = await getCurrentOrganizationId()
+      let query = supabase
         .from('customers')
         .select('*')
-        .order('created_at', { ascending: false })
+      
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false })
 
       if (error) throw error
 
