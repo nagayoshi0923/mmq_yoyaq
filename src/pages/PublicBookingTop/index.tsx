@@ -231,9 +231,9 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
 
       {/* ヒーローセクション */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-        <div className="container mx-auto max-w-7xl px-[10px] py-6 md:py-10 xl:py-12">
-          <h1 className="text-lg mb-2 md:mb-3">{organizationName || 'Murder Mystery Quest'}</h1>
-          <p className="text-base text-purple-100 leading-relaxed">
+        <div className="container mx-auto max-w-7xl px-[10px] py-5 md:py-4">
+          <h1 className="text-lg md:text-base font-medium mb-1">{organizationName || 'Murder Mystery Quest'}</h1>
+          <p className="text-sm md:text-xs text-purple-100">
             リアルな謎解き体験。あなたは事件の真相を暴けるか？
           </p>
         </div>
@@ -241,18 +241,18 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
 
       {/* 検索バー */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="container mx-auto max-w-7xl px-[10px] py-2 md:py-3">
+        <div className="container mx-auto max-w-7xl px-[10px] py-2 md:py-1.5">
           <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-[10px] py-4 md:py-6">
+      <div className="container mx-auto max-w-7xl px-[10px] py-4 md:py-4">
         {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4 md:mb-6 p-1">
-              <TabsTrigger value="lineup" className="text-sm px-3 md:px-4 py-1.5 md:py-2">ラインナップ</TabsTrigger>
-              <TabsTrigger value="calendar" className="text-sm px-3 md:px-4 py-1.5 md:py-2">カレンダー</TabsTrigger>
-              <TabsTrigger value="list" className="text-sm px-3 md:px-4 py-1.5 md:py-2">リスト</TabsTrigger>
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-4 md:mb-5 p-0.5 md:p-1 h-auto">
+              <TabsTrigger value="lineup" className="text-sm px-3 py-2 md:py-1.5">ラインナップ</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-sm px-3 py-2 md:py-1.5">カレンダー</TabsTrigger>
+              <TabsTrigger value="list" className="text-sm px-3 py-2 md:py-1.5">リスト</TabsTrigger>
             </TabsList>
 
             {/* ラインナップ表示 */}
