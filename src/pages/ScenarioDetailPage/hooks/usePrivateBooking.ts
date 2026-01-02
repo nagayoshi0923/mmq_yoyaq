@@ -91,7 +91,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         const storeIds = stores.map(s => s.id)
         const { data, error } = await supabase
           .from('business_hours_settings')
-          .select('store_id, opening_hours, holidays, time_restrictions')
+          .select('store_id, opening_hours, holidays, special_open_days, special_closed_days')
           .in('store_id', storeIds)
         
         if (error) {
@@ -164,32 +164,50 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   const isWithinBusinessHours = useCallback((date: string, startTime: string, storeId: string): boolean => {
     // キャッシュから営業時間設定を取得
     const data = businessHoursCache.get(storeId)
-
-      if (!data) return true // 設定がない場合は制限しない
-
-      // 休日チェック
-      if (data.holidays && data.holidays.includes(date)) {
-        return false
+    
+    if (!data) return true // 設定がない場合は制限しない
+    
+    const targetDate = date.split('T')[0] // YYYY-MM-DD形式に統一
+    
+    // 特別休業日チェック（優先度最高）
+    if (data.special_closed_days && Array.isArray(data.special_closed_days)) {
+      const isSpecialClosed = data.special_closed_days.some(
+        (d: { date: string }) => d.date === targetDate
+      )
+      if (isSpecialClosed) return false
+    }
+    
+    // 特別営業日チェック（通常休業日でも営業）
+    if (data.special_open_days && Array.isArray(data.special_open_days)) {
+      const isSpecialOpen = data.special_open_days.some(
+        (d: { date: string }) => d.date === targetDate
+      )
+      if (isSpecialOpen) return true // 特別営業日なら営業時間チェックをスキップ
+    }
+    
+    // 旧形式の休日チェック（後方互換性）
+    if (data.holidays && data.holidays.includes(targetDate)) {
+      return false
+    }
+    
+    // 曜日ごとの営業時間チェック
+    if (data.opening_hours) {
+      const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+      const dayName = dayNames[dayOfWeek]
+      
+      const dayHours = data.opening_hours[dayName]
+      if (!dayHours || !dayHours.is_open) {
+        return false // その曜日は休業
       }
-
-      // 営業時間チェック
-      if (data.opening_hours) {
-        const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
-        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-        const dayName = dayNames[dayOfWeek]
-        
-        const dayHours = data.opening_hours[dayName]
-        if (!dayHours || !dayHours.is_open) {
-          return false
-        }
-
-        const eventTime = startTime.slice(0, 5) // HH:MM形式
-        if (eventTime < dayHours.open_time || eventTime > dayHours.close_time) {
-          return false
-        }
+      
+      const eventTime = startTime.slice(0, 5) // HH:MM形式
+      if (eventTime < dayHours.open_time) {
+        return false // 営業開始前
       }
-
-      return true
+    }
+    
+    return true
   }, [businessHoursCache])
 
   // 特定の日付と時間枠が空いているかチェック（店舗フィルター対応）

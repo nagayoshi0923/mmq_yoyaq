@@ -4,31 +4,60 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Save, Plus, X } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Plus, X, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
-interface BusinessHoursSettings {
+interface DayHours {
+  is_open: boolean
+  open_time: string
+  close_time: string
+}
+
+interface OpeningHours {
+  monday: DayHours
+  tuesday: DayHours
+  wednesday: DayHours
+  thursday: DayHours
+  friday: DayHours
+  saturday: DayHours
+  sunday: DayHours
+}
+
+interface BusinessHoursData {
   id: string
   store_id: string
-  business_start_time: string
-  business_end_time: string
-  regular_holidays: string[] // ['monday', 'tuesday', etc.]
+  opening_hours: OpeningHours | null
+  holidays: string[] // 特定日の休業日
   special_open_days: { date: string; note: string }[]
   special_closed_days: { date: string; note: string }[]
 }
 
 const weekdays = [
-  { value: 'monday', label: '月曜日' },
-  { value: 'tuesday', label: '火曜日' },
-  { value: 'wednesday', label: '水曜日' },
-  { value: 'thursday', label: '木曜日' },
-  { value: 'friday', label: '金曜日' },
-  { value: 'saturday', label: '土曜日' },
-  { value: 'sunday', label: '日曜日' }
-]
+  { value: 'monday', label: '月曜日', short: '月' },
+  { value: 'tuesday', label: '火曜日', short: '火' },
+  { value: 'wednesday', label: '水曜日', short: '水' },
+  { value: 'thursday', label: '木曜日', short: '木' },
+  { value: 'friday', label: '金曜日', short: '金' },
+  { value: 'saturday', label: '土曜日', short: '土' },
+  { value: 'sunday', label: '日曜日', short: '日' }
+] as const
+
+// デフォルトの営業時間設定
+const defaultWeekdayHours: DayHours = { is_open: true, open_time: '13:00', close_time: '23:00' }
+const defaultWeekendHours: DayHours = { is_open: true, open_time: '09:00', close_time: '23:00' }
+
+const getDefaultOpeningHours = (): OpeningHours => ({
+  monday: { ...defaultWeekdayHours },
+  tuesday: { ...defaultWeekdayHours },
+  wednesday: { ...defaultWeekdayHours },
+  thursday: { ...defaultWeekdayHours },
+  friday: { ...defaultWeekdayHours },
+  saturday: { ...defaultWeekendHours },
+  sunday: { ...defaultWeekendHours }
+})
 
 interface BusinessHoursSettingsProps {
   storeId?: string
@@ -37,12 +66,11 @@ interface BusinessHoursSettingsProps {
 export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
   const [stores, setStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
-  const [formData, setFormData] = useState<BusinessHoursSettings>({
+  const [formData, setFormData] = useState<BusinessHoursData>({
     id: '',
     store_id: '',
-    business_start_time: '10:00',
-    business_end_time: '22:00',
-    regular_holidays: [],
+    opening_hours: getDefaultOpeningHours(),
+    holidays: [],
     special_open_days: [],
     special_closed_days: []
   })
@@ -62,14 +90,16 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       const { data: storesData, error: storesError } = await supabase
         .from('stores')
         .select('*')
-        .order('name')
+        .neq('ownership_type', 'office')
+        .order('display_order', { ascending: true, nullsFirst: false })
 
       if (storesError) throw storesError
 
       if (storesData && storesData.length > 0) {
         setStores(storesData)
-        setSelectedStoreId(storesData[0].id)
-        await fetchBusinessHours(storesData[0].id)
+        const initialStoreId = storeId || storesData[0].id
+        setSelectedStoreId(initialStoreId)
+        await fetchBusinessHours(initialStoreId)
       }
     } catch (error) {
       logger.error('データ取得エラー:', error)
@@ -79,26 +109,31 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
     }
   }
 
-  const fetchBusinessHours = async (storeId: string) => {
+  const fetchBusinessHours = async (targetStoreId: string) => {
     try {
       const { data, error } = await supabase
         .from('business_hours_settings')
         .select('*')
-        .eq('store_id', storeId)
+        .eq('store_id', targetStoreId)
         .maybeSingle()
 
       if (error && error.code !== 'PGRST116') throw error
 
       if (data) {
-        setFormData(data)
+        setFormData({
+          ...data,
+          opening_hours: data.opening_hours || getDefaultOpeningHours(),
+          holidays: data.holidays || [],
+          special_open_days: data.special_open_days || [],
+          special_closed_days: data.special_closed_days || []
+        })
       } else {
         // データが存在しない場合はデフォルト値
         setFormData({
           id: '',
-          store_id: storeId,
-          business_start_time: '10:00',
-          business_end_time: '22:00',
-          regular_holidays: [],
+          store_id: targetStoreId,
+          opening_hours: getDefaultOpeningHours(),
+          holidays: [],
           special_open_days: [],
           special_closed_days: []
         })
@@ -108,17 +143,21 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
     }
   }
 
-  const handleStoreChange = async (storeId: string) => {
-    setSelectedStoreId(storeId)
-    await fetchBusinessHours(storeId)
+  const handleStoreChange = async (newStoreId: string) => {
+    setSelectedStoreId(newStoreId)
+    await fetchBusinessHours(newStoreId)
   }
 
-  const toggleHoliday = (day: string) => {
+  const updateDayHours = (day: keyof OpeningHours, field: keyof DayHours, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
-      regular_holidays: prev.regular_holidays.includes(day)
-        ? prev.regular_holidays.filter(d => d !== day)
-        : [...prev.regular_holidays, day]
+      opening_hours: {
+        ...(prev.opening_hours || getDefaultOpeningHours()),
+        [day]: {
+          ...(prev.opening_hours?.[day] || defaultWeekdayHours),
+          [field]: value
+        }
+      }
     }))
   }
 
@@ -163,34 +202,29 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
   const handleSave = async () => {
     setSaving(true)
     try {
+      const store = stores.find(s => s.id === selectedStoreId)
+      const saveData = {
+        store_id: selectedStoreId,
+        organization_id: store?.organization_id,
+        opening_hours: formData.opening_hours,
+        holidays: formData.holidays,
+        special_open_days: formData.special_open_days,
+        special_closed_days: formData.special_closed_days
+      }
+
       if (formData.id) {
         // 既存データを更新
         const { error } = await supabase
           .from('business_hours_settings')
-          .update({
-            business_start_time: formData.business_start_time,
-            business_end_time: formData.business_end_time,
-            regular_holidays: formData.regular_holidays,
-            special_open_days: formData.special_open_days,
-            special_closed_days: formData.special_closed_days
-          })
+          .update(saveData)
           .eq('id', formData.id)
 
         if (error) throw error
       } else {
         // 新規作成
-        const store = stores.find(s => s.id === formData.store_id)
         const { data, error } = await supabase
           .from('business_hours_settings')
-          .insert({
-            store_id: formData.store_id,
-            organization_id: store?.organization_id,
-            business_start_time: formData.business_start_time,
-            business_end_time: formData.business_end_time,
-            regular_holidays: formData.regular_holidays,
-            special_open_days: formData.special_open_days,
-            special_closed_days: formData.special_closed_days
-          })
+          .insert(saveData)
           .select()
           .single()
 
@@ -217,7 +251,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
     <div className="space-y-6">
       <PageHeader
         title="営業時間設定"
-        description="店舗の営業時間と定休日設定"
+        description="店舗ごとの曜日別営業時間と特別営業日を設定"
       >
         <Button onClick={handleSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
@@ -225,68 +259,94 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         </Button>
       </PageHeader>
 
-      {/* 基本営業時間 */}
+      {/* 店舗選択 */}
+      {stores.length > 1 && (
+        <Card>
+          <CardContent className="pt-4">
+            <Label htmlFor="store-select">店舗を選択</Label>
+            <select
+              id="store-select"
+              className="w-full mt-1 p-2 border rounded-md"
+              value={selectedStoreId}
+              onChange={(e) => handleStoreChange(e.target.value)}
+            >
+              {stores.map(store => (
+                <option key={store.id} value={store.id}>
+                  {store.short_name || store.name}
+                </option>
+              ))}
+            </select>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 曜日ごとの営業時間 */}
       <Card>
         <CardHeader>
-          <CardTitle>基本営業時間</CardTitle>
-          <CardDescription>通常の営業開始・終了時間を設定します</CardDescription>
+          <CardTitle>曜日ごとの営業時間</CardTitle>
+          <CardDescription>
+            平日（月〜金）と週末（土日）で異なる営業時間を設定できます
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="start_time">営業開始時間</Label>
-              <Input
-                id="start_time"
-                type="time"
-                value={formData.business_start_time}
-                onChange={(e) => setFormData(prev => ({ ...prev, business_start_time: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="end_time">営業終了時間</Label>
-              <Input
-                id="end_time"
-                type="time"
-                value={formData.business_end_time}
-                onChange={(e) => setFormData(prev => ({ ...prev, business_end_time: e.target.value }))}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 定休日 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>定休日</CardTitle>
-          <CardDescription>定期的にお休みする曜日を選択してください</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {weekdays.map(day => (
-              <div key={day.value} className="flex items-center space-x-2">
-                <Checkbox
-                  id={day.value}
-                  checked={formData.regular_holidays.includes(day.value)}
-                  onCheckedChange={() => toggleHoliday(day.value)}
+          {weekdays.map(day => {
+            const dayHours = formData.opening_hours?.[day.value as keyof OpeningHours] || defaultWeekdayHours
+            const isWeekend = day.value === 'saturday' || day.value === 'sunday'
+            
+            return (
+              <div 
+                key={day.value} 
+                className={`flex items-center gap-4 p-3 rounded-lg ${isWeekend ? 'bg-blue-50' : 'bg-gray-50'}`}
+              >
+                <div className="w-16 font-medium">
+                  <span className={isWeekend ? 'text-blue-600' : ''}>{day.short}</span>
+                </div>
+                
+                <Switch
+                  checked={dayHours.is_open}
+                  onCheckedChange={(checked) => updateDayHours(day.value as keyof OpeningHours, 'is_open', checked)}
                 />
-                <label
-                  htmlFor={day.value}
-                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                >
-                  {day.label}
-                </label>
+                
+                <span className={`text-sm ${dayHours.is_open ? '' : 'text-muted-foreground'}`}>
+                  {dayHours.is_open ? '営業' : '休業'}
+                </span>
+                
+                {dayHours.is_open && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Input
+                      type="time"
+                      value={dayHours.open_time}
+                      onChange={(e) => updateDayHours(day.value as keyof OpeningHours, 'open_time', e.target.value)}
+                      className="w-28"
+                    />
+                    <span>〜</span>
+                    <Input
+                      type="time"
+                      value={dayHours.close_time}
+                      onChange={(e) => updateDayHours(day.value as keyof OpeningHours, 'close_time', e.target.value)}
+                      className="w-28"
+                    />
+                  </div>
+                )}
               </div>
-            ))}
+            )
+          })}
+          
+          <div className="text-sm text-muted-foreground mt-4 p-3 bg-amber-50 rounded-lg">
+            <p className="font-medium text-amber-800">💡 営業時間と貸切リクエストの関係</p>
+            <ul className="mt-2 space-y-1 text-amber-700">
+              <li>• 営業時間外の公演枠は貸切リクエストで選択不可になります</li>
+              <li>• 例：平日13:00〜なら朝公演（10:00開始）は受付不可</li>
+            </ul>
           </div>
         </CardContent>
       </Card>
 
-      {/* 特別営業日 */}
+      {/* 特別営業日（祝日など） */}
       <Card>
         <CardHeader>
           <CardTitle>特別営業日</CardTitle>
-          <CardDescription>定休日でも営業する日を設定します</CardDescription>
+          <CardDescription>定休日でも営業する日（祝日、年末年始、お盆など）</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
@@ -299,7 +359,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
             <Input
               value={newOpenDay.note}
               onChange={(e) => setNewOpenDay(prev => ({ ...prev, note: e.target.value }))}
-              placeholder="備考（オプション）"
+              placeholder="備考（例：成人の日）"
             />
             <Button onClick={addSpecialOpenDay} variant="outline">
               <Plus className="h-4 w-4" />
@@ -309,10 +369,10 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
           {formData.special_open_days.length > 0 && (
             <div className="space-y-2">
               {formData.special_open_days.map((day, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded">
+                <div key={index} className="flex items-center justify-between p-3 border rounded bg-green-50">
                   <div>
-                    <span className="">{day.date}</span>
-                    {day.note && <span className="text-xs text-muted-foreground ml-2">- {day.note}</span>}
+                    <span className="font-medium">{day.date}</span>
+                    {day.note && <span className="text-sm text-muted-foreground ml-2">- {day.note}</span>}
                   </div>
                   <Button
                     variant="ghost"
@@ -332,7 +392,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       <Card>
         <CardHeader>
           <CardTitle>特別休業日</CardTitle>
-          <CardDescription>営業日でもお休みする日を設定します</CardDescription>
+          <CardDescription>営業日でもお休みする日</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
@@ -345,7 +405,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
             <Input
               value={newClosedDay.note}
               onChange={(e) => setNewClosedDay(prev => ({ ...prev, note: e.target.value }))}
-              placeholder="備考（オプション）"
+              placeholder="備考（例：店舗メンテナンス）"
             />
             <Button onClick={addSpecialClosedDay} variant="outline">
               <Plus className="h-4 w-4" />
@@ -355,10 +415,10 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
           {formData.special_closed_days.length > 0 && (
             <div className="space-y-2">
               {formData.special_closed_days.map((day, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded">
+                <div key={index} className="flex items-center justify-between p-3 border rounded bg-red-50">
                   <div>
-                    <span className="">{day.date}</span>
-                    {day.note && <span className="text-xs text-muted-foreground ml-2">- {day.note}</span>}
+                    <span className="font-medium">{day.date}</span>
+                    {day.note && <span className="text-sm text-muted-foreground ml-2">- {day.note}</span>}
                   </div>
                   <Button
                     variant="ghost"
@@ -376,4 +436,3 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
     </div>
   )
 }
-
