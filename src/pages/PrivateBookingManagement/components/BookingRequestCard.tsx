@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Calendar, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import { Calendar, Clock, CheckCircle2, XCircle, CircleDashed } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { formatDate, formatDateTime, getElapsedTime, getElapsedDays, getCardClassName } from '../utils/bookingFormatters'
 
@@ -120,11 +120,17 @@ export const BookingRequestCard = ({
               お客様希望候補日時
               {request.status === 'confirmed' ? '（確定済み）' : 
                (request.status === 'gm_confirmed' || request.status === 'pending_store') ? '（GM回答済み・店舗確認待ち）' : 
+               (request.status === 'pending' || request.status === 'pending_gm') ? '（GM回答待ち）' :
                ''}
             </p>
+            {(request.status === 'pending' || request.status === 'pending_gm') && (
+              <p className="text-xs text-gray-500 mb-2">
+                ○ = GMからの回答待ち
+              </p>
+            )}
             {(request.status === 'gm_confirmed' || request.status === 'pending_store' || request.status === 'confirmed') && (
               <p className="text-xs text-purple-600 mb-2">
-                ✓ = GMが出勤可能と回答した日時
+                ✓ = GMが出勤可能と回答 ・ ✗ = 出勤不可
               </p>
             )}
             <div className="space-y-2">
@@ -135,19 +141,27 @@ export const BookingRequestCard = ({
                   response.available_candidates?.includes(candidate.order - 1) // 0始まりなので-1
                 )
                 
+                // ステータスに応じたアイコンとスタイルを決定
+                const isWaitingForGM = request.status === 'pending' || request.status === 'pending_gm'
+                const isGMResponded = request.status === 'gm_confirmed' || request.status === 'pending_store'
+                const isConfirmed = request.status === 'confirmed'
+                
                 return (
                 <div
                   key={candidate.order}
                   className={`flex items-center gap-3 p-3 rounded border ${
-                    request.status === 'confirmed' && isGMSelected ? 'bg-green-50 border-green-300' :
-                    (request.status === 'gm_confirmed' || request.status === 'pending_store') && isGMSelected ? 'bg-purple-50 border-purple-300' :
+                    isConfirmed && isGMSelected ? 'bg-green-50 border-green-300' :
+                    isGMResponded && isGMSelected ? 'bg-purple-50 border-purple-300' :
+                    isWaitingForGM ? 'bg-gray-50 border-gray-200' :
                     'bg-gray-50 border-gray-300'
                   }`}
                 >
-                  {request.status === 'confirmed' && isGMSelected ? (
+                  {isConfirmed && isGMSelected ? (
                     <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  ) : (request.status === 'gm_confirmed' || request.status === 'pending_store') && isGMSelected ? (
+                  ) : isGMResponded && isGMSelected ? (
                     <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                  ) : isWaitingForGM ? (
+                    <CircleDashed className="w-5 h-5 text-gray-400" />
                   ) : (
                     <XCircle className="w-5 h-5 text-red-600" />
                   )}
