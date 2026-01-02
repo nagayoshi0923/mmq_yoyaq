@@ -160,15 +160,33 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     return null
   }, [stores])
 
+  // デフォルトの公演枠設定（設定がない場合に使用）
+  // 平日（月〜金）：昼・夜のみ、土日：全公演
+  const getDefaultAvailableSlots = useCallback((dayOfWeek: number): ('morning' | 'afternoon' | 'evening')[] => {
+    // 0=日曜日, 6=土曜日
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return ['morning', 'afternoon', 'evening'] // 土日は全公演
+    }
+    return ['afternoon', 'evening'] // 平日は昼・夜のみ
+  }, [])
+
   // 営業時間内かどうかをチェックする関数（キャッシュを使用）
   // timeSlot: 'morning' | 'afternoon' | 'evening' - 公演枠
   const isWithinBusinessHours = useCallback((date: string, startTime: string, storeId: string, timeSlot?: 'morning' | 'afternoon' | 'evening'): boolean => {
+    const targetDate = date.split('T')[0] // YYYY-MM-DD形式に統一
+    const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
+    
     // キャッシュから営業時間設定を取得
     const data = businessHoursCache.get(storeId)
     
-    if (!data) return true // 設定がない場合は制限しない
-    
-    const targetDate = date.split('T')[0] // YYYY-MM-DD形式に統一
+    // 設定がない場合はデフォルトの公演枠設定を適用
+    if (!data) {
+      if (timeSlot) {
+        const defaultSlots = getDefaultAvailableSlots(dayOfWeek)
+        return defaultSlots.includes(timeSlot)
+      }
+      return true
+    }
     
     // 特別休業日チェック（優先度最高）
     if (data.special_closed_days && Array.isArray(data.special_closed_days)) {
@@ -192,11 +210,10 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
     
     // 曜日ごとの営業時間・公演枠チェック
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    const dayName = dayNames[dayOfWeek]
+    
     if (data.opening_hours) {
-      const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
-      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-      const dayName = dayNames[dayOfWeek]
-      
       const dayHours = data.opening_hours[dayName]
       if (!dayHours || !dayHours.is_open) {
         return false // その曜日は休業
@@ -207,19 +224,23 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         if (!dayHours.available_slots.includes(timeSlot)) {
           return false // この公演枠は受付不可
         }
-      }
-      
-      // 営業時間チェック（available_slotsがない場合の後方互換性）
-      if (!dayHours.available_slots || dayHours.available_slots.length === 0) {
-        const eventTime = startTime.slice(0, 5) // HH:MM形式
-        if (eventTime < dayHours.open_time) {
-          return false // 営業開始前
+      } else if (timeSlot) {
+        // available_slotsが設定されていない場合はデフォルトを適用
+        const defaultSlots = getDefaultAvailableSlots(dayOfWeek)
+        if (!defaultSlots.includes(timeSlot)) {
+          return false
         }
+      }
+    } else if (timeSlot) {
+      // opening_hoursがない場合もデフォルトを適用
+      const defaultSlots = getDefaultAvailableSlots(dayOfWeek)
+      if (!defaultSlots.includes(timeSlot)) {
+        return false
       }
     }
     
     return true
-  }, [businessHoursCache])
+  }, [businessHoursCache, getDefaultAvailableSlots])
 
   // 特定の日付と時間枠が空いているかチェック（店舗フィルター対応）
   // 全店舗のイベントを使用して判定（特定シナリオのイベントのみではない）
