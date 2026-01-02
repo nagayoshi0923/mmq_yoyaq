@@ -234,12 +234,82 @@ package.jsonの主要スクリプト
 - `schedule_events` に「予約カウント/要約」を持つなら**派生列**として扱い、更新は DB トリガ or サービス層のみ。  
 - “ついで変更”での**命名変更/パス変更**禁止（レビュー不能化を防止）。
 
-## 4) 権限・RLS（最低限の必須）
+## 4) 権限・RLS・マルチテナント（必須）
+
+### RLS（Row Level Security）
 - **RLS必須**。  
   - 顧客は `reservations.customer_id = auth.uid()` のみ参照/編集可。  
   - スタッフは自店舗/自担当枠に限定（詳細はポリシー化）。  
   - 管理者は全アクセス可。  
 - **PIIの最小化**：電話・住所・メールは**閲覧権限を役割別に制限**し、ログ/監視に送らない。
+
+### 🏢 マルチテナント対応（organization_id 必須）
+
+> ⚠️ **厳守**: データ漏洩防止のため、このルールは必ず守ること。
+
+#### 基本原則
+- **すべてのデータは organization_id で分離される**
+- 他組織のデータは参照・編集不可
+- データ作成時は必ず organization_id を設定すること
+
+#### organization_id が必要なテーブル
+以下のテーブルには `organization_id` カラムがあり、INSERT時に必ず設定すること：
+
+| テーブル | 必須 | 備考 |
+|---------|------|------|
+| stores | ✅ | 店舗マスタ |
+| scenarios | ✅ | シナリオマスタ（is_shared=trueで共有可） |
+| staff | ✅ | スタッフマスタ |
+| schedule_events | ✅ | スケジュール |
+| reservations | ✅ | 予約データ |
+| customers | ✅ | 顧客データ |
+| staff_scenario_assignments | ✅ | スタッフ×シナリオ担当 |
+| shift_submissions | ✅ | シフト提出 |
+| daily_memos | ✅ | 日次メモ |
+| external_sales | ✅ | 外部売上 |
+| miscellaneous_transactions | ✅ | 雑収支 |
+| *_settings（各種設定） | ✅ | 店舗/組織設定 |
+| organization_settings | ✅ | 組織別Discord/Email設定 |
+
+#### コード規約
+
+1. **API層での対応**
+   ```typescript
+   // ✅ 良い例: API関数で自動的にorganization_idをフィルタ
+   async getAll(organizationId?: string): Promise<T[]> {
+     const orgId = organizationId || await getCurrentOrganizationId()
+     if (orgId) {
+       query = query.eq('organization_id', orgId)
+     }
+   }
+   ```
+
+2. **INSERT時の対応**
+   ```typescript
+   // ✅ 良い例: 必ずorganization_idを設定
+   const organizationId = await getCurrentOrganizationId()
+   if (!organizationId) {
+     throw new Error('組織情報が取得できません。再ログインしてください。')
+   }
+   await supabase.from('table').insert({ ...data, organization_id: organizationId })
+   ```
+
+3. **Edge Functionsでの対応**
+   ```typescript
+   // ✅ 良い例: 共有ユーティリティを使用
+   import { getDiscordSettings, getEmailSettings } from '../_shared/organization-settings.ts'
+   const { botToken, webhookUrl } = await getDiscordSettings(organizationId)
+   ```
+
+#### 禁止事項
+- ❌ organization_id なしでINSERTすること
+- ❌ 環境変数のみでDiscord/Email設定を参照すること（organization_settingsを優先）
+- ❌ RLSを無効化またはバイパスすること
+
+#### 例外（organization_id 不要）
+- `organizations` テーブル自体
+- `users` テーブル（auth.usersと連携）
+- グローバル設定（全組織共通）
 
 ## 5) API/フロント規約
 - サーバーデータは **TanStack React Query** をSSOTに集約。コンポーネントは **selector で最小投影**（安定参照を返す）。  

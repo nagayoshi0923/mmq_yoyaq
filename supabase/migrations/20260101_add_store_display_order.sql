@@ -23,3 +23,5 @@ UPDATE stores SET display_order = 999 WHERE ownership_type = 'office';
 -- インデックス追加（並び替えパフォーマンス向上）
 CREATE INDEX IF NOT EXISTS idx_stores_display_order ON stores(display_order);
 
+
+

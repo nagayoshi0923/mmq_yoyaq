@@ -7,3 +7,5 @@ ALTER TABLE business_hours_settings
 COMMENT ON COLUMN business_hours_settings.special_open_days IS '特別営業日（祝日など）: [{date: "2026-01-13", note: "成人の日"}]';
 COMMENT ON COLUMN business_hours_settings.special_closed_days IS '特別休業日: [{date: "2026-01-01", note: "年末年始"}]';
 
+
+

@@ -378,6 +378,7 @@ parseHash(hash: string): {
 | **SalesManagement** | `#sales` | 売上分析 | admin |
 | **UserManagement** | `#user-management` | ユーザー管理 | admin |
 | **Settings** | `#settings` | 設定 | admin |
+| ├─ **SalarySettings** | `#settings` (給与設定タブ) | GM給与計算式の設定（基本給・時給） | admin |
 | **StaffProfile** | `#staff-profile` | 担当作品 | admin, staff |
 | **ManualPage** | `#manual` | マニュアル | admin, staff |
 
@@ -666,6 +667,7 @@ parseHash(hash: string): {
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-01-01 | 給与設定ページ（SalarySettings）追加。GM給与計算式（基本給・時給）を設定画面から変更可能に | AI |
 | 2024-12-18 | 外部公演報告フォーム（ExternalReportForm）追加。ログイン不要で公演回数報告可能 | AI |
 | 2024-12-17 | 作者ポータルをメールアドレスベースに変更。AuthorRegister削除、登録不要に | AI |
 | 2024-12-17 | 作者ポータル追加（AuthorDashboard）。作者が公演報告を確認・管理可能に | AI |
