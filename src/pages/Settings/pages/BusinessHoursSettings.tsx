@@ -289,18 +289,20 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
         
         // まず既存データを確認（RLS対応のため直接テーブルを確認しない）
         // 単純にupdateを試み、失敗したらinsert
-        const { error: updateError, count } = await supabase
+        const { error: updateError, data: updateData } = await supabase
           .from('business_hours_settings')
           .update({
             opening_hours: formData.opening_hours,
             holidays: formData.holidays
           })
           .eq('store_id', store.id)
+          .select('id')  // 更新された行を取得
         
-        logger.log('update結果:', { updateError, count })
+        const updateCount = updateData?.length ?? 0
+        logger.log('update結果:', { updateError, updateCount, updateData })
         
         // updateが失敗したか、更新行がなかった場合はinsert
-        if (updateError || count === 0) {
+        if (updateError || updateCount === 0) {
           logger.log('insertを実行')
           const { error: insertError } = await supabase
             .from('business_hours_settings')
