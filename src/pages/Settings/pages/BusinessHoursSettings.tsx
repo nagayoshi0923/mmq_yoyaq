@@ -122,7 +122,7 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [storeId])
 
   const fetchData = async () => {
     setLoading(true)
@@ -325,27 +325,6 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
           {saving ? '保存中...' : '保存'}
         </Button>
       </PageHeader>
-
-      {/* 店舗選択 */}
-      {stores.length > 1 && (
-        <Card>
-          <CardContent className="pt-4">
-            <Label htmlFor="store-select">店舗を選択</Label>
-            <select
-              id="store-select"
-              className="w-full mt-1 p-2 border rounded-md"
-              value={selectedStoreId}
-              onChange={(e) => handleStoreChange(e.target.value)}
-            >
-              {stores.map(store => (
-                <option key={store.id} value={store.id}>
-                  {store.short_name || store.name}
-                </option>
-              ))}
-            </select>
-          </CardContent>
-        </Card>
-      )}
 
       {/* 曜日ごとの営業時間 */}
       <Card>
