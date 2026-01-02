@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
 /**
@@ -12,12 +13,21 @@ export function useStoreConfirmationPendingCount() {
   useEffect(() => {
     const fetchCount = async () => {
       try {
+        // 組織フィルタリング
+        const orgId = await getCurrentOrganizationId()
+        
         // gm_confirmed または pending_store のステータスをカウント
-        const { count: pendingCount, error } = await supabase
+        let query = supabase
           .from('reservations')
           .select('*', { count: 'exact', head: true })
           .eq('reservation_source', 'web_private')
           .in('status', ['gm_confirmed', 'pending_store'])
+        
+        if (orgId) {
+          query = query.eq('organization_id', orgId)
+        }
+
+        const { count: pendingCount, error } = await query
 
         if (error) {
           logger.error('店舗確認待ち件数取得エラー:', error)

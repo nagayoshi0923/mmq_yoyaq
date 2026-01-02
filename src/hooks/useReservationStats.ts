@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns'
 
 export interface ReservationStats {
@@ -30,10 +31,19 @@ export function useReservationStats() {
 
     async function fetchStats() {
       try {
+        // 組織フィルタリング
+        const orgId = await getCurrentOrganizationId()
+        
         // 統計に必要な最小限のカラムのみ取得
-        const { data, error } = await supabase
+        let query = supabase
           .from('reservations')
           .select('status, payment_status, requested_datetime, total_price, final_price')
+        
+        if (orgId) {
+          query = query.eq('organization_id', orgId)
+        }
+        
+        const { data, error } = await query
         
         if (error) throw error
 
