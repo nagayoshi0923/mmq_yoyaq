@@ -49,6 +49,7 @@ interface ScenarioWithLicense {
   title: string
   franchise_license_amount?: number
   franchise_gm_test_license_amount?: number
+  organization_id?: string
 }
 
 export const ExternalSales: React.FC = () => {
@@ -76,7 +77,7 @@ export const ExternalSales: React.FC = () => {
     const fetchScenarios = async () => {
       const { data, error } = await supabase
         .from('scenarios')
-        .select('id, title, franchise_license_amount, franchise_gm_test_license_amount')
+        .select('id, title, franchise_license_amount, franchise_gm_test_license_amount, organization_id')
         .order('title')
       
       if (!error && data) {
@@ -163,6 +164,8 @@ export const ExternalSales: React.FC = () => {
   const handleSave = async () => {
     try {
       const scenario = scenarios.find(s => s.id === formData.scenario_id)
+      // organization_idはシナリオから取得、なければ最初のシナリオから取得
+      const organizationId = scenario?.organization_id || scenarios[0]?.organization_id
       const saveData = {
         type: formData.type,
         date: formData.date,
@@ -171,7 +174,8 @@ export const ExternalSales: React.FC = () => {
         store_name: formData.type === 'other_store' ? formData.store_name : null,
         amount: formData.amount,
         license_cost: formData.license_cost,
-        notes: formData.notes || null
+        notes: formData.notes || null,
+        organization_id: organizationId
       }
 
       if (editingId) {

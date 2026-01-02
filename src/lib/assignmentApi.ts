@@ -191,7 +191,7 @@ export const assignmentApi = {
     is_experienced: boolean
     status?: 'want_to_learn' | 'experienced' | 'can_gm'
     notes?: string
-  }>) {
+  }>, organizationId?: string) {
     // 既存の担当関係を削除
     await supabase
       .from('staff_scenario_assignments')
@@ -215,7 +215,8 @@ export const assignmentApi = {
               can_sub_gm: true,
               is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
               notes: null,
-              assigned_at: new Date().toISOString()
+              assigned_at: new Date().toISOString(),
+              organization_id: organizationId
             }))
         : (assignments as Array<{ scenarioId: string; can_main_gm: boolean; can_sub_gm: boolean; is_experienced: boolean; notes?: string }>)
             .filter(a => a.scenarioId && typeof a.scenarioId === 'string')
@@ -226,7 +227,8 @@ export const assignmentApi = {
         can_sub_gm: a.can_sub_gm,
         is_experienced: a.is_experienced,
         notes: a.notes || null,
-        assigned_at: new Date().toISOString()
+        assigned_at: new Date().toISOString(),
+        organization_id: organizationId
       }))
 
       // 有効なレコードがある場合のみ挿入
@@ -241,7 +243,7 @@ export const assignmentApi = {
   },
 
   // シナリオの担当スタッフを一括更新（差分更新）
-  async updateScenarioAssignments(scenarioId: string, staffIds: string[], notes?: string) {
+  async updateScenarioAssignments(scenarioId: string, staffIds: string[], notes?: string, organizationId?: string) {
     // 現在の担当関係を取得
     const { data: currentAssignments, error: fetchError } = await supabase
       .from('staff_scenario_assignments')
@@ -280,7 +282,8 @@ export const assignmentApi = {
         can_sub_gm: true,
         is_experienced: false, // DB制約: GM可能ならis_experiencedはfalse
         notes: notes || null,
-        assigned_at: new Date().toISOString()
+        assigned_at: new Date().toISOString(),
+        organization_id: organizationId
       }))
 
       const { error: insertError } = await supabase

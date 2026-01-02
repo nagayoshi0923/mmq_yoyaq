@@ -196,7 +196,8 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
             staff_id: newStaffId,
             scenario_id: assignment.scenario_id,
             can_gm: assignment.can_gm,
-            has_experienced: assignment.has_experienced
+            has_experienced: assignment.has_experienced,
+            organization_id: linkingStaff.organization_id
           }))
           
           const { error: insertError } = await supabase

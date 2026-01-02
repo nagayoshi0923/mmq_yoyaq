@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils' // 時間帯判定用
-import { usePrivateBookingStorePreference } from '@/hooks/useUserPreference'
+import { usePrivateBookingStorePreference, useStoreFilterPreference } from '@/hooks/useUserPreference'
 import type { TimeSlot, EventSchedule } from '../utils/types'
 
 // 開始時間から終了時間を計算する関数
@@ -31,6 +31,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   const [currentMonth, setCurrentMonth] = useState(new Date())
   // 店舗選択をアカウントごとに記憶
   const [savedStoreIds, setSavedStoreIds] = usePrivateBookingStorePreference()
+  // カレンダー/リストで選択した店舗をフォールバックとして使用
+  const [storeFilter] = useStoreFilterPreference('all')
   const [selectedStoreIds, setSelectedStoreIdsInternal] = useState<string[]>(savedStoreIds)
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
   const [allStoreEvents, setAllStoreEvents] = useState<any[]>([])
@@ -48,18 +50,28 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   }, [setSavedStoreIds])
   
   // 保存された店舗選択を復元（stores読み込み後に検証）
+  // 貸切用の選択が空の場合、カレンダー/リストの選択をフォールバック
   useEffect(() => {
-    if (stores.length > 0 && savedStoreIds.length > 0) {
-      // 保存された店舗IDが有効か確認
-      const validStoreIds = savedStoreIds.filter(id => 
-        stores.some(s => s.id === id)
-      )
-      if (validStoreIds.length !== selectedStoreIds.length || 
-          !validStoreIds.every(id => selectedStoreIds.includes(id))) {
-        setSelectedStoreIdsInternal(validStoreIds)
+    if (stores.length > 0) {
+      // 貸切用に保存された店舗がある場合はそれを使用
+      if (savedStoreIds.length > 0) {
+        const validStoreIds = savedStoreIds.filter(id => 
+          stores.some(s => s.id === id)
+        )
+        if (validStoreIds.length !== selectedStoreIds.length || 
+            !validStoreIds.every(id => selectedStoreIds.includes(id))) {
+          setSelectedStoreIdsInternal(validStoreIds)
+        }
+      } else if (storeFilter && storeFilter !== 'all') {
+        // 貸切用が空で、カレンダー/リストで店舗が選択されている場合
+        const storeExists = stores.some(s => s.id === storeFilter)
+        if (storeExists && selectedStoreIds.length === 0) {
+          setSelectedStoreIdsInternal([storeFilter])
+          setSavedStoreIds([storeFilter])
+        }
       }
     }
-  }, [stores, savedStoreIds])
+  }, [stores, savedStoreIds, storeFilter, selectedStoreIds, setSavedStoreIds])
 
   // 現在の月から3ヶ月先までの全店舗のイベントを取得（貸切申込可能日判定用）
   useEffect(() => {

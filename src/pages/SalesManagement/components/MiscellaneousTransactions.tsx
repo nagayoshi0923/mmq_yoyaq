@@ -27,6 +27,7 @@ interface Store {
   name: string
   short_name: string
   ownership_type?: 'corporate' | 'franchise' | 'office'
+  organization_id?: string
 }
 
 interface Scenario {
@@ -138,6 +139,10 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
     }
     
     try {
+      // organization_idは選択した店舗から取得、なければ最初の店舗から取得
+      const selectedStore = stores.find(s => s.id === newTransaction.store_id)
+      const organizationId = selectedStore?.organization_id || stores[0]?.organization_id
+      
       const { error } = await supabase
         .from('miscellaneous_transactions')
         .insert([{
@@ -147,7 +152,8 @@ export const MiscellaneousTransactions: React.FC<MiscellaneousTransactionsProps>
           amount: newTransaction.amount,
           description: newTransaction.description,
           store_id: newTransaction.store_id || null,
-          scenario_id: newTransaction.scenario_id || null
+          scenario_id: newTransaction.scenario_id || null,
+          organization_id: organizationId
         }])
       
       if (error) throw error
