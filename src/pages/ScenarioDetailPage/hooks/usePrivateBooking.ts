@@ -91,12 +91,12 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         const storeIds = stores.map(s => s.id)
         const { data, error } = await supabase
           .from('business_hours_settings')
-          .select('store_id, opening_hours, holidays, special_open_days, special_closed_days')
+          .select('store_id, opening_hours, holidays')
           .in('store_id', storeIds)
         
         if (error) {
           logger.error('営業時間設定一括取得エラー:', error)
-          return
+          // エラーでも続行（デフォルト設定を適用）
         }
         
         // キャッシュに保存
