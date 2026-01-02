@@ -152,11 +152,16 @@ export function StoreManagement() {
     <AppLayout
       currentPage="stores"
       maxWidth="max-w-[1440px]"
-      containerPadding="px-2 py-4 sm:px-6"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
     >
       <div className="space-y-6">
           <PageHeader
-            title="店舗管理"
+            title={
+              <div className="flex items-center gap-2">
+                <StoreIcon className="h-5 w-5 text-primary" />
+                <span className="text-lg font-bold">店舗管理</span>
+              </div>
+            }
             description={`Queens Waltz 全${stores.length}店舗の管理`}
           >
             <HelpButton topic="store" label="店舗管理マニュアル" />

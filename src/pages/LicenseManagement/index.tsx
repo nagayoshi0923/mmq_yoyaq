@@ -23,16 +23,16 @@ import { ReportsReceived } from './tabs/ReportsReceived'
 import { SendReports } from './tabs/SendReports'
 import { LicenseSummary } from './tabs/LicenseSummary'
 
-// サイドバーのメニュー項目定義
+// サイドバーのメニュー項目定義（ライセンス管理組織用）
 const LICENSE_MENU_ITEMS: SidebarMenuItem[] = [
-  { id: 'received', label: '受信', icon: FileCheck, description: '他社からの公演報告' },
-  { id: 'send', label: '送信', icon: Send, description: '作者・会社への報告' },
-  { id: 'summary', label: '集計', icon: BarChart3, description: 'ライセンス料の集計' },
+  { id: 'received', label: '受信', icon: FileCheck, description: '加盟店からの公演報告を確認' },
+  { id: 'send', label: '送信', icon: Send, description: '作者・版元へライセンス料報告' },
+  { id: 'summary', label: '集計', icon: BarChart3, description: '月別・作品別の集計' },
 ]
 
-// ライセンス管理組織以外用のメニュー
+// 一般組織用のメニュー
 const LICENSE_MENU_ITEMS_EXTERNAL: SidebarMenuItem[] = [
-  { id: 'send', label: '送信', icon: Send, description: '作者・会社への報告' },
+  { id: 'send', label: '公演報告', icon: Send, description: 'MMQへ公演実績を報告' },
 ]
 
 export default function LicenseManagement() {
@@ -80,12 +80,19 @@ export default function LicenseManagement() {
     }
   }
 
+  // サイドバーのタイトルと説明
+  const sidebarTitle = isLicenseManager ? 'ライセンス管理' : '公演報告'
+  const sidebarDescription = isLicenseManager 
+    ? '加盟店からの報告受付・作者への報告' 
+    : '公演実績をMMQに報告'
+
   return (
     <AppLayout
       currentPage="license-management"
       sidebar={
         <UnifiedSidebar
-          title="ライセンス管理"
+          title={sidebarTitle}
+          description={sidebarDescription}
           mode="list"
           menuItems={menuItems}
           activeTab={effectiveTab}

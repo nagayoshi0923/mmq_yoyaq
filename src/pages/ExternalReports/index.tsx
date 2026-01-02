@@ -24,6 +24,7 @@ import { useExternalReports } from './hooks/useExternalReports'
 import { ReportCreateDialog } from './components/ReportCreateDialog'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export default function ExternalReports() {
   const { organization, staff, isLoading: orgLoading } = useOrganization()
@@ -64,23 +65,21 @@ export default function ExternalReports() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* ヘッダー */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileText className="w-6 h-6" />
-            公演報告
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            管理シナリオの公演実績を報告
-          </p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title={
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            <span className="text-lg font-bold">公演報告</span>
+          </div>
+        }
+        description="管理シナリオの公演実績を報告"
+      >
         <Button onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
           新規報告
         </Button>
-      </div>
+      </PageHeader>
 
       {/* 組織情報 */}
       <Card>

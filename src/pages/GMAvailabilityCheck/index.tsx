@@ -82,6 +82,8 @@ export function GMAvailabilityCheck() {
             onTabChange={setSidebarActiveTab}
           />
         }
+        maxWidth="max-w-[1440px]"
+        containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
         stickyLayout={true}
       >
         <div className="text-center py-12">
@@ -109,7 +111,12 @@ export function GMAvailabilityCheck() {
     >
       <div className="space-y-4">
         <PageHeader
-          title="GM可否確認"
+          title={
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              <span className="text-lg font-bold">GM可否確認</span>
+            </div>
+          }
           description="貸切予約のGM可否を確認・回答します"
         />
 

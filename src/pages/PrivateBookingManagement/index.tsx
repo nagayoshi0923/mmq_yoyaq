@@ -206,6 +206,8 @@ export function PrivateBookingManagement() {
             onTabChange={setSidebarActiveTab}
           />
         }
+        maxWidth="max-w-[1440px]"
+        containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
         stickyLayout={true}
       >
         <div className="flex items-center justify-center py-20">
@@ -233,7 +235,12 @@ export function PrivateBookingManagement() {
     >
       <div className="space-y-4">
         <PageHeader
-          title="貸切予約管理"
+          title={
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              <span className="text-lg font-bold">貸切予約管理</span>
+            </div>
+          }
           description="貸切予約リクエストの承認・却下・店舗調整を行います"
         />
 

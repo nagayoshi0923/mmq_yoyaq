@@ -501,18 +501,17 @@ export function ScheduleManager() {
       containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       className="mx-auto"
     >
-      <div className="space-y-6 max-w-[1280px] mx-auto">
+      <div className="space-y-6">
         {/* ヘッダー */}
         <div className="space-y-4">
           <PageHeader
             title={
               <div className="flex items-center gap-2">
-                <CalendarDays className="h-6 w-6 text-primary" />
-                <span className="text-xl font-bold tracking-tight">スケジュール管理</span>
+                <CalendarDays className="h-5 w-5 text-primary" />
+                <span className="text-lg font-bold">スケジュール管理</span>
               </div>
             }
             description="月ごとの公演スケジュールとGM配置を管理します"
-            className="mb-2"
           >
             <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
           </PageHeader>

@@ -11,7 +11,8 @@ import {
   AlertTriangle,
   Users,
   Clock,
-  JapaneseYen
+  JapaneseYen,
+  BookOpen
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/patterns/modal'
@@ -342,7 +343,7 @@ export function ScenarioManagement() {
 
   if (loading) {
     return (
-      <AppLayout currentPage="scenarios">
+      <AppLayout currentPage="scenarios" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
         <div className="flex items-center justify-center py-20">
           <div className="text-muted-foreground text-lg flex items-center gap-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
@@ -357,12 +358,17 @@ export function ScenarioManagement() {
     <AppLayout
       currentPage="scenarios"
       maxWidth="max-w-[1440px]"
-      containerPadding="px-2 py-4 sm:px-6"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       className="mx-auto"
     >
         <div className="space-y-6">
           <PageHeader
-            title="シナリオ管理"
+            title={
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                <span className="text-lg font-bold">シナリオ管理</span>
+              </div>
+            }
             description={`全${allScenarios.length}本のシナリオを管理`}
           >
             <HelpButton topic="scenario" label="シナリオ管理マニュアル" />

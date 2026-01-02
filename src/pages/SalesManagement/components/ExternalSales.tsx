@@ -246,8 +246,11 @@ export const ExternalSales: React.FC = () => {
       {/* ヘッダー */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-xl font-bold">外部売上管理</h2>
-          <p className="text-sm text-muted-foreground">BOOTH売上・他店公演を管理</p>
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5 text-primary" />
+            <span className="text-lg font-bold">外部売上管理</span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">BOOTH売上・他店公演を管理</p>
         </div>
         <div className="flex items-center gap-4">
           <MonthSwitcher value={currentDate} onChange={setCurrentDate} />

@@ -27,8 +27,8 @@ import {
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
 import { getInvitationsByOrganization, resendInvitation, deleteInvitation } from '@/lib/api/invitationsApi'
-import { Header } from '@/components/layout/Header'
-import { NavigationBar } from '@/components/layout/NavigationBar'
+import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { toast } from 'sonner'
 import type { OrganizationInvitation } from '@/types'
 
@@ -126,31 +126,25 @@ export default function OrganizationSettings() {
   // ローディング中
   if (orgLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="organization-settings" />
+      <AppLayout currentPage="organization-settings" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
-      </div>
+      </AppLayout>
     )
   }
 
   // 組織情報がない場合
   if (!organization) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <NavigationBar currentPage="organization-settings" />
-        <div className="container mx-auto max-w-4xl p-6">
-          <Card className="border-amber-200 bg-amber-50">
-            <CardContent className="p-6 flex items-center gap-3">
-              <Building2 className="w-5 h-5 text-amber-600" />
-              <p className="text-amber-800">組織情報が取得できません</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <AppLayout currentPage="organization-settings" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-6 flex items-center gap-3">
+            <Building2 className="w-5 h-5 text-amber-600" />
+            <p className="text-amber-800">組織情報が取得できません</p>
+          </CardContent>
+        </Card>
+      </AppLayout>
     )
   }
 
@@ -159,21 +153,28 @@ export default function OrganizationSettings() {
   const acceptedInvitations = invitations.filter(inv => inv.accepted_at)
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <NavigationBar currentPage="organization-settings" />
-      
-      <div className="container mx-auto max-w-4xl p-6 space-y-6">
-        {/* ヘッダー */}
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Building2 className="w-6 h-6" />
-            組織設定
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {organization.name} の設定
-          </p>
-        </div>
+    <AppLayout currentPage="organization-settings" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
+      <div className="space-y-6">
+        <PageHeader
+          title={
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              <span className="text-lg font-bold">会社情報</span>
+            </div>
+          }
+          description={`${organization.name} の基本情報と管理者の招待`}
+        />
+
+        {/* このページの説明 */}
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="p-4">
+            <p className="text-sm text-blue-800">
+              <strong>このページでできること：</strong>
+              会社名・連絡先の編集、新しい管理者の招待。
+              招待されたユーザーはこの組織の管理者として店舗・スタッフ・シナリオなどを管理できます。
+            </p>
+          </CardContent>
+        </Card>
 
         {/* 基本情報 */}
         <Card>
@@ -377,7 +378,7 @@ export default function OrganizationSettings() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AppLayout>
   )
 }
 

@@ -1,13 +1,9 @@
 /**
- * テナント管理ページ
- * @page OrganizationManagement
- * @path #organizations
- * @purpose 全組織の一覧表示・新規作成・招待（ライセンス管理者専用）
- * @access ライセンス管理者のみ
- * @organization ライセンス管理組織のみ
+ * テナント管理設定
+ * 全組織の一覧表示・新規作成・招待（ライセンス管理者専用）
  */
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -17,20 +13,16 @@ import {
   Search, 
   Users, 
   Mail,
-  CheckCircle,
-  XCircle,
   Loader2,
   Pencil
 } from 'lucide-react'
 import { useOrganization, useOrganizations } from '@/hooks/useOrganization'
-import { OrganizationCreateDialog } from './components/OrganizationCreateDialog'
-import { OrganizationInviteDialog } from './components/OrganizationInviteDialog'
-import { OrganizationEditDialog } from './components/OrganizationEditDialog'
-import { AppLayout } from '@/components/layout/AppLayout'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { OrganizationCreateDialog } from '@/pages/OrganizationManagement/components/OrganizationCreateDialog'
+import { OrganizationInviteDialog } from '@/pages/OrganizationManagement/components/OrganizationInviteDialog'
+import { OrganizationEditDialog } from '@/pages/OrganizationManagement/components/OrganizationEditDialog'
 import type { Organization } from '@/types'
 
-export default function OrganizationManagement() {
+export function TenantManagementSettings() {
   const { isLicenseManager, isLoading: orgLoading } = useOrganization()
   const { organizations, isLoading, error, refetch } = useOrganizations()
   const [searchTerm, setSearchTerm] = useState('')
@@ -47,81 +39,61 @@ export default function OrganizationManagement() {
   // プランのバッジ色
   const getPlanBadgeVariant = (plan: string) => {
     switch (plan) {
-      case 'pro': return 'default'
-      case 'basic': return 'secondary'
-      default: return 'outline'
+      case 'pro': return 'default' as const
+      case 'basic': return 'secondary' as const
+      default: return 'outline' as const
     }
   }
 
   if (isLoading || orgLoading) {
     return (
-      <AppLayout currentPage="organizations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-      </AppLayout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
     )
   }
 
   // ライセンス管理組織のみアクセス可能
   if (!isLicenseManager) {
     return (
-      <AppLayout currentPage="organizations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-6 flex items-center gap-3">
-            <Building2 className="w-5 h-5 text-amber-600" />
-            <p className="text-amber-800">
-              このページはライセンス管理組織のみアクセス可能です。
-            </p>
-          </CardContent>
-        </Card>
-      </AppLayout>
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="p-6 flex items-center gap-3">
+          <Building2 className="w-5 h-5 text-amber-600" />
+          <p className="text-amber-800">
+            このページはライセンス管理組織（Queens Waltz）のみアクセス可能です。
+          </p>
+        </CardContent>
+      </Card>
     )
   }
 
   if (error) {
     return (
-      <AppLayout currentPage="organizations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
-        <Card className="border-destructive">
-          <CardContent className="p-6">
-            <p className="text-destructive">エラーが発生しました: {error.message}</p>
-            <Button variant="outline" onClick={refetch} className="mt-4">
-              再試行
-            </Button>
-          </CardContent>
-        </Card>
-      </AppLayout>
+      <Card className="border-destructive">
+        <CardContent className="p-6">
+          <p className="text-destructive">エラーが発生しました: {error.message}</p>
+          <Button variant="outline" onClick={refetch} className="mt-4">
+            再試行
+          </Button>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <AppLayout currentPage="organizations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
-      <div className="space-y-6">
-      <PageHeader
-        title={
-          <div className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold">テナント管理</span>
-          </div>
-        }
-        description="MMQシステムを利用する加盟店（組織）の一覧管理"
-      >
+    <div className="space-y-6">
+      {/* ヘッダー */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            MMQシステムを利用する加盟店（組織）の一覧管理
+          </p>
+        </div>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
           新規組織を追加
         </Button>
-      </PageHeader>
-
-      {/* このページの説明 */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="p-4">
-          <p className="text-sm text-blue-800">
-            <strong>このページでできること：</strong>
-            新規加盟店の登録、管理者の招待、組織情報の編集。
-            各組織の管理者を招待すると、その組織で店舗・スタッフ・シナリオなどを管理できるようになります。
-          </p>
-        </CardContent>
-      </Card>
+      </div>
 
       {/* 統計カード */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -262,8 +234,7 @@ export default function OrganizationManagement() {
           refetch()
         }}
       />
-      </div>
-    </AppLayout>
+    </div>
   )
 }
 

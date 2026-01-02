@@ -389,10 +389,10 @@ parseHash(hash: string): {
 | ページ名 | パス | 用途 | アクセス |
 |---------|------|------|---------|
 | **OrganizationManagement** | `#organizations` | テナント管理（組織一覧・作成・招待・編集） | ライセンス管理者のみ |
-| **OrganizationSettings** | `#organization-settings` | 自組織の設定編集 | admin |
+| **OrganizationSettings** | `#organization-settings` | 会社情報（自組織の基本情報・管理者招待） | admin |
 | **OrganizationRegister** | `#register` | セルフサービス組織登録 | 未ログイン |
 | **AcceptInvitation** | `#accept-invitation?token=xxx` | 招待受諾・アカウント作成 | 未ログイン |
-| **LicenseManagement** | `#license-management` | ライセンス管理統合（報告受付・公演報告・作者レポート・集計） | admin, staff |
+| **LicenseManagement** | `#license-management` | 公演報告（MMQへの実績報告・ライセンス料集計） | admin, staff |
 
 #### OrganizationManagement 詳細
 

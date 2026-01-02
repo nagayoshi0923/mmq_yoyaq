@@ -327,7 +327,7 @@ export function StaffManagement() {
   // ローディング表示
   if (loading) {
     return (
-      <AppLayout currentPage="staff">
+      <AppLayout currentPage="staff" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
         <div className="flex items-center justify-center py-20">
           <div className="text-muted-foreground text-lg flex items-center gap-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
@@ -341,7 +341,7 @@ export function StaffManagement() {
   // エラー表示
   if (error) {
     return (
-      <AppLayout currentPage="staff">
+      <AppLayout currentPage="staff" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <p className="text-red-800">{error}</p>
@@ -359,7 +359,7 @@ export function StaffManagement() {
       <AppLayout 
         currentPage="staff" 
         maxWidth="max-w-[1440px]"
-        containerPadding="px-2 py-4 sm:px-6"
+        containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
         className="mx-auto"
       >
         <div className="space-y-6">

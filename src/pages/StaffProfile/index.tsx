@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { scenarioApi } from '@/lib/api'
 import { staffKeys } from '@/pages/StaffManagement/hooks/useStaffQuery'
-import { Loader2, Search, BookOpen, Users, Check } from 'lucide-react'
+import { Loader2, Search, BookOpen, Users, Check, UserCircle } from 'lucide-react'
 
 // カスタム丸型チェックボックス
 interface CircleCheckProps {
@@ -239,7 +239,7 @@ export function StaffProfile() {
 
   if (loading) {
     return (
-      <AppLayout currentPage="staff-profile">
+      <AppLayout currentPage="staff-profile" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
@@ -249,26 +249,29 @@ export function StaffProfile() {
 
   if (!staffId) {
     return (
-      <AppLayout currentPage="staff-profile">
-        <div className="container mx-auto max-w-4xl px-2 md:px-4 py-6">
-          <Card>
-            <CardContent className="p-8 text-center">
-              <p className="text-muted-foreground">
+      <AppLayout currentPage="staff-profile" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-muted-foreground">
                 スタッフ登録がされていません。<br />
                 管理者に連絡してスタッフ登録を依頼してください。
               </p>
             </CardContent>
           </Card>
-        </div>
       </AppLayout>
     )
   }
 
   return (
-    <AppLayout currentPage="staff-profile">
-      <div className="container mx-auto max-w-4xl px-2 md:px-4 py-6">
+    <AppLayout currentPage="staff-profile" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
+      <div className="space-y-6">
         <PageHeader
-          title="担当作品"
+          title={
+            <div className="flex items-center gap-2">
+              <UserCircle className="h-5 w-5 text-primary" />
+              <span className="text-lg font-bold">担当作品</span>
+            </div>
+          }
           description={`${staffName}さんの体験リストとGM可能作品を管理`}
         >
           <Button onClick={handleSave} disabled={saving}>

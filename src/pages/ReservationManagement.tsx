@@ -122,7 +122,7 @@ export function ReservationManagement() {
 
   if (isLoading) {
     return (
-      <AppLayout currentPage="reservations">
+      <AppLayout currentPage="reservations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6">
         <div className="flex items-center justify-center py-20">
           <p className="text-muted-foreground text-lg flex items-center gap-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
@@ -134,7 +134,7 @@ export function ReservationManagement() {
   }
 
   return (
-    <AppLayout currentPage="reservations" maxWidth="max-w-[1440px]" containerPadding="px-2 py-4 sm:px-6" className="mx-auto">
+    <AppLayout currentPage="reservations" maxWidth="max-w-[1440px]" containerPadding="px-[10px] py-3 sm:py-4 md:py-6" className="mx-auto">
       <div className="space-y-6">
         <PageHeader
           title={

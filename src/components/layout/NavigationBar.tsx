@@ -29,7 +29,7 @@ interface NavigationBarProps {
 export const NavigationBar = memo(function NavigationBar({ currentPage, onPageChange }: NavigationBarProps) {
   const { user } = useAuth()
   const { count: storeConfirmationPendingCount } = useStoreConfirmationPendingCount()
-  const { organization, isLicenseManager } = useOrganization()
+  const { organization } = useOrganization()
   
   // 組織のslugを取得（デフォルトはqueens-waltz）
   const bookingSlug = organization?.slug || 'queens-waltz'
@@ -58,9 +58,7 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'customer-management', label: '顧客管理', icon: Users, roles: ['admin'] },
     { id: 'user-management', label: 'ユーザー', icon: UserCog, roles: ['admin'] },
     { id: 'sales', label: '売上', icon: TrendingUp, roles: ['admin'] },
-    { id: 'organizations', label: 'テナント管理', icon: Building2, roles: ['admin'], licenseManagerOnly: true },
-    { id: 'license-management', label: 'ライセンス', icon: FileCheck, roles: ['admin', 'staff'] },
-    { id: 'organization-settings', label: '組織設定', icon: Building2, roles: ['admin'] },
+    { id: 'license-management', label: '公演報告', icon: FileCheck, roles: ['admin', 'staff'] },
     { id: 'settings', label: '設定', icon: Settings, roles: ['admin'] },
     { id: 'manual', label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff'] }
   ], [bookingSlug])
@@ -72,13 +70,8 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
       return []
     }
     // ユーザーのロールに基づいてフィルタリング
-    // licenseManagerOnlyのタブはライセンス管理者のみ表示
-    return allTabs.filter(tab => {
-      if (!tab.roles.includes(user.role)) return false
-      if (tab.licenseManagerOnly && !isLicenseManager) return false
-      return true
-    })
-  }, [allTabs, user, isLicenseManager])
+    return allTabs.filter(tab => tab.roles.includes(user.role))
+  }, [allTabs, user])
 
   // 最適化: タブクリックハンドラをメモ化
   const handleTabClick = useCallback((tabId: string, e: React.MouseEvent<HTMLAnchorElement>) => {

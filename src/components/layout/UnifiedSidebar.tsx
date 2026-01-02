@@ -13,6 +13,8 @@ export interface SidebarMenuItem {
 interface UnifiedSidebarProps {
   /** サイドバーのタイトル */
   title: string
+  /** タイトル下の説明文 */
+  description?: string
   /** 現在のモード（list: 一覧表示、edit: 編集モード） */
   mode?: 'list' | 'edit'
   /** 表示するメニュー項目 */
@@ -29,6 +31,7 @@ interface UnifiedSidebarProps {
 
 export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
   title,
+  description,
   mode = 'list',
   menuItems,
   activeTab,
@@ -69,6 +72,9 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
           <h2 className="text-base font-bold text-slate-800">
             {title}
           </h2>
+          {description && (
+            <p className="text-xs text-slate-500 mt-1">{description}</p>
+          )}
           {mode === 'edit' && editModeSubtitle && (
             <p className="text-sm text-slate-500 mt-1">{editModeSubtitle}</p>
           )}
@@ -144,17 +150,22 @@ export const UnifiedSidebar: React.FC<UnifiedSidebarProps> = ({
         )}
       >
         {/* ヘッダー */}
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-800">
-            {title}
-          </h2>
-          <button
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="p-1 hover:bg-slate-100 rounded-md"
-            aria-label="メニューを閉じる"
-          >
-            <X className="h-5 w-5 text-slate-700" />
-          </button>
+        <div className="p-4 border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-800">
+              {title}
+            </h2>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-1 hover:bg-slate-100 rounded-md"
+              aria-label="メニューを閉じる"
+            >
+              <X className="h-5 w-5 text-slate-700" />
+            </button>
+          </div>
+          {description && (
+            <p className="text-xs text-slate-500 mt-1">{description}</p>
+          )}
         </div>
 
         {/* 一覧に戻るボタン（editモード時のみ） */}

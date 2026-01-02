@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { UnifiedSidebar, SidebarMenuItem } from '@/components/layout/UnifiedSidebar'
 import { 
@@ -10,14 +11,15 @@ import {
   Bell, 
   Database,
   DollarSign,
-  FileText,
   UserCog,
   Shield,
   AlertCircle,
-  Calculator
+  Calculator,
+  Layers
 } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
+import { useOrganization } from '@/hooks/useOrganization'
 import { SettingsLayout } from '@/components/settings/SettingsLayout'
 
 // 設定ページコンポーネント
@@ -37,9 +39,14 @@ import { CustomerSettings } from './pages/CustomerSettings'
 import { DataManagementSettings } from './pages/DataManagementSettings'
 import { BookingNoticeSettings } from './pages/BookingNoticeSettings'
 import { SalarySettings } from './pages/SalarySettings'
+import { OrganizationInfoSettings } from './pages/OrganizationInfoSettings'
+import { TenantManagementSettings } from './pages/TenantManagementSettings'
 
-// サイドバーのメニュー項目定義（2025-11-22 更新: 全体設定追加）
-const SETTINGS_MENU_ITEMS: SidebarMenuItem[] = [
+// 基本のメニュー項目
+const BASE_MENU_ITEMS: SidebarMenuItem[] = [
+  // 組織設定
+  { id: 'organization-info', label: '組織情報', icon: Building2, description: '会社情報・招待管理' },
+  
   // 全体設定
   { id: 'general', label: '全体設定', icon: SettingsIcon, description: 'システム全体の設定' },
   
@@ -58,23 +65,45 @@ const SETTINGS_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'data', label: 'データ管理', icon: Database, description: 'データ管理' }
 ]
 
-export function Settings() {
-  const [activeTab, setActiveTab] = useSessionState('settingsActiveTab', 'general')
-  const { selectedStoreId, handleStoreChange } = useSettingsStore()
+// ライセンス管理者専用メニュー
+const LICENSE_MANAGER_MENU_ITEM: SidebarMenuItem = {
+  id: 'tenant-management',
+  label: 'テナント管理',
+  icon: Layers,
+  description: '全組織の管理（QW専用）'
+}
 
-  // 全体設定ページかどうかを判定
-  const isGlobalSettings = activeTab === 'general'
+export function Settings() {
+  const [activeTab, setActiveTab] = useSessionState('settingsActiveTab', 'organization-info')
+  const { selectedStoreId, handleStoreChange } = useSettingsStore()
+  const { isLicenseManager } = useOrganization()
+
+  // メニュー項目を動的に生成（ライセンス管理者にはテナント管理を追加）
+  const menuItems = useMemo(() => {
+    if (isLicenseManager) {
+      // テナント管理を組織情報の後に追加
+      const items = [...BASE_MENU_ITEMS]
+      items.splice(1, 0, LICENSE_MANAGER_MENU_ITEM)
+      return items
+    }
+    return BASE_MENU_ITEMS
+  }, [isLicenseManager])
+
+  // 店舗セレクターを表示しないページ
+  const noStoreSelectorPages = ['organization-info', 'tenant-management', 'general', 'salary', 'booking-notice']
+  const showStoreSelector = !noStoreSelectorPages.includes(activeTab)
 
   const renderContent = () => {
-    // 全体設定の場合は店舗IDを使用しない
-    if (isGlobalSettings) {
-      return <GeneralSettings />
-    }
-
     // 全店舗選択時は店舗IDを空文字列に
     const storeId = selectedStoreId === 'all' ? '' : selectedStoreId
 
     switch (activeTab) {
+      case 'organization-info':
+        return <OrganizationInfoSettings />
+      case 'tenant-management':
+        return <TenantManagementSettings />
+      case 'general':
+        return <GeneralSettings />
       case 'store-basic':
         return <StoreBasicSettings storeId={storeId} />
       case 'business-hours':
@@ -106,7 +135,7 @@ export function Settings() {
       case 'booking-notice':
         return <BookingNoticeSettings />
       default:
-        return <GeneralSettings />
+        return <OrganizationInfoSettings />
     }
   }
 
@@ -117,7 +146,7 @@ export function Settings() {
         <UnifiedSidebar
           title="設定"
           mode="list"
-          menuItems={SETTINGS_MENU_ITEMS}
+          menuItems={menuItems}
           activeTab={activeTab}
           onTabChange={setActiveTab}
         />
@@ -129,7 +158,7 @@ export function Settings() {
       <SettingsLayout 
         selectedStoreId={selectedStoreId}
         onStoreChange={handleStoreChange}
-        showStoreSelector={!isGlobalSettings}
+        showStoreSelector={showStoreSelector}
       >
         {renderContent()}
       </SettingsLayout>
@@ -138,4 +167,3 @@ export function Settings() {
 }
 
 export default Settings
-

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Clock } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { TanStackDataTable } from '@/components/patterns/table'
 import { useShiftData } from './hooks/useShiftData'
@@ -149,7 +150,12 @@ export function ShiftSubmission() {
     >
       <div className="space-y-3 sm:space-y-4 md:space-y-6">
         <PageHeader
-          title={`シフト提出 - ${formatMonthYear()}`}
+          title={
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              <span className="text-lg font-bold">シフト提出 - {formatMonthYear()}</span>
+            </div>
+          }
           description="出勤可能な時間帯にチェックを入れてください"
         >
           {/* PC・タブレット用提出ボタン */}

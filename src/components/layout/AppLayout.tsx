@@ -29,7 +29,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   sidebar, 
   children, 
   maxWidth = 'max-w-[1440px]',
-  containerPadding = 'px-[10px] py-4 sm:py-6 md:py-8',
+  containerPadding = 'px-[10px] py-3 sm:py-4 md:py-6',
   stickyLayout = false,
   className = ''
 }) => {
@@ -43,11 +43,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* ナビゲーションバー（固定） */}
         <NavigationBar currentPage={currentPage} />
         
-        {/* メインエリア */}
-        <div className="flex-1 flex min-h-0">
+        {/* メインエリア（サイドバー含めてmax-width適用） */}
+        <div className={`flex-1 flex min-h-0 ${maxWidth} ${className} mx-auto w-full`}>
           {/* サイドバー */}
           {sidebar && (
-            <div className="border-r border-slate-200">
+            <div className="border-r border-slate-200 shrink-0">
               {sidebar}
             </div>
           )}
@@ -69,16 +69,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       <Header />
       <NavigationBar currentPage={currentPage} />
       
-      <div className="flex">
+      {/* サイドバー含めてmax-width適用 */}
+      <div className={`flex ${maxWidth} ${className} mx-auto w-full`}>
         {/* サイドバー */}
         {sidebar && (
-          <div className="border-r border-slate-200">
+          <div className="border-r border-slate-200 shrink-0">
             {sidebar}
           </div>
         )}
         
         {/* メインコンテンツ */}
-        <div className={`flex-1 min-w-0 w-full ${maxWidth} ${className} mx-auto`}>
+        <div className="flex-1 min-w-0">
           <div className={containerPadding}>
             {children}
           </div>

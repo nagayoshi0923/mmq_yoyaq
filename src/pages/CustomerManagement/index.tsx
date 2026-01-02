@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { HelpButton } from '@/components/ui/help-button'
-import { UserPlus, Search } from 'lucide-react'
+import { UserPlus, Search, Users } from 'lucide-react'
 import { useCustomerData } from './hooks/useCustomerData'
 import { CustomerRow } from './components/CustomerRow'
 import { CustomerEditModal } from './components/CustomerEditModal'
@@ -40,12 +40,17 @@ export default function CustomerManagement() {
     <AppLayout
       currentPage="customer-management"
       maxWidth="max-w-[1440px]"
-      containerPadding="px-2 py-4 sm:px-6"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       className="mx-auto"
     >
       <div className="space-y-6">
         <PageHeader
-          title="顧客管理"
+          title={
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              <span className="text-lg font-bold">顧客管理</span>
+            </div>
+          }
           description={`全${customers.length}名の顧客を管理`}
         >
           <HelpButton topic="customer" label="顧客管理マニュアル" />

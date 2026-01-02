@@ -565,13 +565,10 @@ export function AdminDashboard() {
     )
   }
 
-  // 組織管理ページ
+  // 組織管理ページ → 設定ページに統合済み、リダイレクト
   if (currentPage === 'organizations') {
-    return (
-      <Suspense fallback={<LoadingScreen message="組織管理を読み込み中..." />}>
-        <OrganizationManagement />
-      </Suspense>
-    )
+    window.location.hash = 'settings'
+    return null
   }
 
   // ライセンス管理ページ（統合）
@@ -595,13 +592,10 @@ export function AdminDashboard() {
     )
   }
 
-  // 組織設定ページ
+  // 組織設定ページ → 設定ページに統合済み、リダイレクト
   if (currentPage === 'organization-settings') {
-    return (
-      <Suspense fallback={<LoadingScreen message="組織設定を読み込み中..." />}>
-        <OrganizationSettings />
-      </Suspense>
-    )
+    window.location.hash = 'settings'
+    return null
   }
 
   // セルフサービス登録ページ（未ログインでもアクセス可能）
@@ -651,7 +645,7 @@ export function AdminDashboard() {
         <NavigationBar currentPage={currentPage} onPageChange={handlePageChange} />
       )}
 
-      <main className="container mx-auto max-w-7xl px-[10px] py-2.5 xs:py-3 sm:py-4 md:py-6">
+      <main className="container mx-auto max-w-[1440px] px-[10px] py-3 sm:py-4 md:py-6">
         <Suspense fallback={<LoadingScreen message="ダッシュボードを読み込み中..." />}>
           {currentPage === 'dashboard' ? (
             <DashboardHome onPageChange={handlePageChange} />

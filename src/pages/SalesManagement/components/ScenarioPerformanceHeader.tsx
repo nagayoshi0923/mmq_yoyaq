@@ -2,6 +2,7 @@ import React from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Label } from '@/components/ui/label'
+import { BarChart3 } from 'lucide-react'
 
 interface Store {
   id: string
@@ -31,7 +32,12 @@ export const ScenarioPerformanceHeader: React.FC<ScenarioPerformanceHeaderProps>
   return (
     <div className="space-y-6">
       <PageHeader
-        title="シナリオ分析"
+        title={
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <span className="text-lg font-bold">シナリオ分析</span>
+          </div>
+        }
         description="シナリオ別の公演実績と収益分析"
       >
         <Select value={period} onValueChange={onPeriodChange}>
