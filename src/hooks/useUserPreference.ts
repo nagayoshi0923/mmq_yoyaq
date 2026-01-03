@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 
 /**
@@ -12,18 +12,21 @@ export function useUserPreference<T>(
 ): [T, (value: T) => void] {
   const { user } = useAuth()
   
+  // defaultValueをrefで保持して安定化（無限ループ防止）
+  const defaultValueRef = useRef(defaultValue)
+  
   // ユーザーIDを含めたキーを生成
-  const getStorageKey = useCallback(() => {
-    if (user?.id) {
-      return `${key}_user_${user.id}`
+  const getStorageKey = useCallback((userId?: string) => {
+    if (userId) {
+      return `${key}_user_${userId}`
     }
     return `${key}_guest`
-  }, [key, user?.id])
+  }, [key])
   
   // 初期値を取得
-  const getInitialValue = useCallback((): T => {
+  const getInitialValue = useCallback((userId?: string): T => {
     try {
-      const storageKey = getStorageKey()
+      const storageKey = getStorageKey(userId)
       const item = localStorage.getItem(storageKey)
       if (item) {
         return JSON.parse(item) as T
@@ -40,26 +43,26 @@ export function useUserPreference<T>(
     } catch (error) {
       console.error('useUserPreference: 読み込みエラー', error)
     }
-    return defaultValue
-  }, [getStorageKey, key, defaultValue])
+    return defaultValueRef.current
+  }, [getStorageKey, key])
   
-  const [value, setValue] = useState<T>(getInitialValue)
+  const [value, setValue] = useState<T>(() => getInitialValue(user?.id))
   
   // ユーザーが変わったら値を再読み込み
   useEffect(() => {
-    setValue(getInitialValue())
+    setValue(getInitialValue(user?.id))
   }, [user?.id, getInitialValue])
   
   // 値を保存
   const setAndSaveValue = useCallback((newValue: T) => {
     try {
-      const storageKey = getStorageKey()
+      const storageKey = getStorageKey(user?.id)
       localStorage.setItem(storageKey, JSON.stringify(newValue))
       setValue(newValue)
     } catch (error) {
       console.error('useUserPreference: 保存エラー', error)
     }
-  }, [getStorageKey])
+  }, [getStorageKey, user?.id])
   
   return [value, setAndSaveValue]
 }
