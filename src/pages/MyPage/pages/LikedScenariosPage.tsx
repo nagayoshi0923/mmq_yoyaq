@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Star, Users, Clock } from 'lucide-react'
+import { Heart, Users, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -237,10 +237,10 @@ export function WantToPlayPage() {
                             e.stopPropagation()
                             handleRemove(item.id)
                           }}
-                          className="hover:bg-red-50"
-                          title="リストから削除"
+                          className="hover:bg-green-50"
+                          title="お気に入りから削除"
                         >
-                          <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                          <Heart className="h-5 w-5 fill-green-500 text-green-500" />
                         </Button>
                       </div>
                     </div>
