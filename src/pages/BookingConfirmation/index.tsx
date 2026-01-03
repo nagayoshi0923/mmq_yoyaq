@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Minus, Plus } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Minus, Plus, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from './hooks/useCustomerData'
 import { useBookingForm } from './hooks/useBookingForm'
@@ -189,7 +189,15 @@ export function BookingConfirmation({
                       <div>
                         <p style={{ color: storeColor }}>{storeName}</p>
                         {storeAddress && (
-                          <p className="text-muted-foreground text-xs">{storeAddress}</p>
+                          <a 
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-muted-foreground text-xs hover:text-primary flex items-center gap-1 underline"
+                          >
+                            {storeAddress}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
                         )}
                       </div>
                     </div>
@@ -242,7 +250,7 @@ export function BookingConfirmation({
               <Card>
                 <CardContent className="p-3 space-y-3">
                   <div>
-                    <Label className="text-xs font-medium mb-1 block text-muted-foreground">お名前 *</Label>
+                    <Label className="text-sm font-medium text-muted-foreground mb-1.5 block">お名前 *</Label>
                     <Input
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
@@ -253,7 +261,7 @@ export function BookingConfirmation({
                   </div>
 
                   <div>
-                    <Label className="text-xs font-medium mb-1 block text-muted-foreground">メールアドレス *</Label>
+                    <Label className="text-sm font-medium text-muted-foreground mb-1.5 block">メールアドレス *</Label>
                     <Input
                       type="email"
                       value={customerEmail}
@@ -265,7 +273,7 @@ export function BookingConfirmation({
                   </div>
 
                   <div>
-                    <Label className="text-xs font-medium mb-1 block text-muted-foreground">電話番号 *</Label>
+                    <Label className="text-sm font-medium text-muted-foreground mb-1.5 block">電話番号 *</Label>
                     <Input
                       type="tel"
                       value={customerPhone}
@@ -277,7 +285,7 @@ export function BookingConfirmation({
                   </div>
 
                   <div>
-                    <Label className="text-xs font-medium mb-1 block text-muted-foreground">備考（任意）</Label>
+                    <Label className="text-sm font-medium text-muted-foreground mb-1.5 block">備考（任意）</Label>
                     <Textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
