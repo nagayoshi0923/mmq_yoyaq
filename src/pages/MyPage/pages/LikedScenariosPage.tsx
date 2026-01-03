@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Heart, Users, Clock } from 'lucide-react'
+import { Heart, Users, Clock, Star } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
@@ -172,7 +172,7 @@ export function WantToPlayPage() {
       <Card className="shadow-none border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+            <Heart className="h-5 w-5 fill-green-500 text-green-500" />
             遊びたいシナリオ ({wantToPlayScenarios.length})
           </CardTitle>
         </CardHeader>
