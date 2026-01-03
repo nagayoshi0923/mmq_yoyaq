@@ -170,7 +170,7 @@ export function BookingConfirmation({
               <Card>
                 <CardContent className="p-3 space-y-2">
                   <div>
-                    <h3 className="text-base font-medium mb-2">{scenarioTitle}</h3>
+                    <h3 className="text-lg font-bold">{scenarioTitle}</h3>
                   </div>
 
                   <div className="space-y-2 text-sm">
@@ -242,7 +242,7 @@ export function BookingConfirmation({
               <Card>
                 <CardContent className="p-3 space-y-3">
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">お名前 *</Label>
+                    <Label className="text-xs font-medium mb-1 block text-muted-foreground">お名前 *</Label>
                     <Input
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
@@ -253,7 +253,7 @@ export function BookingConfirmation({
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">メールアドレス *</Label>
+                    <Label className="text-xs font-medium mb-1 block text-muted-foreground">メールアドレス *</Label>
                     <Input
                       type="email"
                       value={customerEmail}
@@ -265,7 +265,7 @@ export function BookingConfirmation({
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">電話番号 *</Label>
+                    <Label className="text-xs font-medium mb-1 block text-muted-foreground">電話番号 *</Label>
                     <Input
                       type="tel"
                       value={customerPhone}
@@ -277,7 +277,7 @@ export function BookingConfirmation({
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-1.5 block">備考（任意）</Label>
+                    <Label className="text-xs font-medium mb-1 block text-muted-foreground">備考（任意）</Label>
                     <Textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
@@ -309,8 +309,8 @@ export function BookingConfirmation({
 
                   <div className="border-t pt-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-base font-bold">合計</span>
-                      <span className="text-lg text-primary font-bold">¥{formatPrice(totalPrice)}</span>
+                      <span className="text-sm font-bold">合計</span>
+                      <span className="text-base text-primary font-bold">¥{formatPrice(totalPrice)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -326,7 +326,7 @@ export function BookingConfirmation({
             <Button
               onClick={onSubmit}
               disabled={isSubmitting}
-              className="w-full h-10 text-base"
+              className="w-full h-9 text-sm"
             >
               {isSubmitting ? '予約処理中...' : '予約を確定する'}
             </Button>
