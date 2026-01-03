@@ -30,11 +30,24 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4">
           {/* キービジュアル */}
           <div className="md:col-span-4">
-            <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-700 to-gray-800 rounded overflow-hidden">
+            <div className="relative aspect-[3/4] bg-gray-900 rounded overflow-hidden">
+              {/* 背景：ぼかした画像で余白を埋める */}
+              {scenario.key_visual_url && (
+                <div 
+                  className="absolute inset-0 scale-110"
+                  style={{
+                    backgroundImage: `url(${scenario.key_visual_url})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    filter: 'blur(20px) brightness(0.5)',
+                  }}
+                />
+              )}
+              {/* メイン画像：全体を表示 */}
               <OptimizedImage
                 src={scenario.key_visual_url}
                 alt={scenario.scenario_title}
-                className="w-full h-full object-cover"
+                className="relative w-full h-full object-contain"
                 responsive={true}
                 srcSetSizes={[400, 800, 1200]}
                 breakpoints={{ mobile: 400, tablet: 600, desktop: 800 }}

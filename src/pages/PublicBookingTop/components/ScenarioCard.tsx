@@ -7,6 +7,7 @@ import { getColorFromName } from '@/lib/utils'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
 // 画像コンポーネントをインライン化して最適化
+// 背景にぼかした画像を表示し、メインはobject-containで全体表示
 const LazyImage = ({ src, alt, className }: { src?: string, alt: string, className?: string }) => {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isInView, setIsInView] = useState(false)
@@ -31,20 +32,33 @@ const LazyImage = ({ src, alt, className }: { src?: string, alt: string, classNa
   }, [])
 
   return (
-    <div ref={imgRef} className={`relative w-full h-full bg-gray-200 ${className}`}>
+    <div ref={imgRef} className={`relative w-full h-full bg-gray-900 overflow-hidden ${className}`}>
       {!isLoaded && (
         <div className="absolute inset-0 flex items-center justify-center text-gray-400">
           <div className="w-8 h-8 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
       {isInView && src ? (
-        <img
-          src={src}
-          alt={alt}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setIsLoaded(true)}
-          loading="lazy"
-        />
+        <>
+          {/* 背景：ぼかした画像で余白を埋める */}
+          <div 
+            className="absolute inset-0 scale-110"
+            style={{
+              backgroundImage: `url(${src})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(20px) brightness(0.7)',
+            }}
+          />
+          {/* メイン画像：全体を表示 */}
+          <img
+            src={src}
+            alt={alt}
+            className={`relative w-full h-full object-contain transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => setIsLoaded(true)}
+            loading="lazy"
+          />
+        </>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-gray-400">
           <span className="text-xs">{alt}</span>
