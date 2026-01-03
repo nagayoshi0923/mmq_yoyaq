@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, Minus, Plus, ExternalLink } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from './hooks/useCustomerData'
 import { useBookingForm } from './hooks/useBookingForm'
@@ -54,9 +54,7 @@ export function BookingConfirmation({
     setNotes,
     error,
     setError,
-    validateForm,
-    incrementCount,
-    decrementCount
+    validateForm
   } = useBookingForm({ initialParticipantCount, availableSeats })
 
   const { isSubmitting, success, handleSubmit } = useBookingSubmit({
@@ -209,33 +207,15 @@ export function BookingConfirmation({
               </Card>
             </div>
 
-            {/* 参加人数 */}
+            {/* 参加人数（表示のみ） */}
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-1">参加人数</h3>
               <Card>
                 <CardContent className="p-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">参加人数</span>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={decrementCount}
-                        disabled={participantCount <= 1}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                      <span className="text-sm w-12 text-center">{participantCount}名</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={incrementCount}
-                        disabled={participantCount >= availableSeats}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm">{participantCount}名</span>
                     </div>
                   </div>
                 </CardContent>
