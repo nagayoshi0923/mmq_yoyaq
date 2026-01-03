@@ -271,14 +271,27 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                 onClick={() => handleCardClick(scenario.slug || scenario.id)}
               >
                 {/* キービジュアル */}
-                <div className="relative w-full aspect-[1/1.4] bg-gray-200 overflow-hidden">
+                <div className="relative w-full aspect-[1/1.4] bg-gray-900 overflow-hidden">
                   {scenario.key_visual_url ? (
-                    <img
-                      src={scenario.key_visual_url}
-                      alt={scenario.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
+                    <>
+                      {/* 背景：ぼかした画像で余白を埋める */}
+                      <div 
+                        className="absolute inset-0 scale-110"
+                        style={{
+                          backgroundImage: `url(${scenario.key_visual_url})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          filter: 'blur(20px) brightness(0.7)',
+                        }}
+                      />
+                      {/* メイン画像：全体を表示 */}
+                      <img
+                        src={scenario.key_visual_url}
+                        alt={scenario.title}
+                        className="relative w-full h-full object-contain"
+                        loading="lazy"
+                      />
+                    </>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-400">
                       <span className="text-xs">No Image</span>
@@ -296,38 +309,52 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                   </button>
                 </div>
 
-                <CardContent className="p-2 sm:p-2.5 space-y-0.5">
+                <CardContent className="p-2 sm:p-2.5 md:p-3 space-y-0.5 sm:space-y-1 bg-white">
+                  {/* 著者 */}
                   <p className="text-xs text-gray-500">{scenario.author}</p>
-                  <h3 className="text-sm font-medium truncate">{scenario.title}</h3>
                   
-                  <div className="flex items-center gap-1 text-xs text-gray-600">
-                    <Users className="h-3 w-3" />
-                    <span>
-                      {scenario.player_count_min === scenario.player_count_max
-                        ? `${scenario.player_count_max}人`
-                        : `${scenario.player_count_min}~${scenario.player_count_max}人`}
-                    </span>
-                    <Clock className="h-3 w-3 ml-1" />
-                    <span>{scenario.duration}分</span>
+                  {/* タイトル */}
+                  <h3 className="text-sm sm:text-base truncate mt-0.5 sm:mt-1">{scenario.title}</h3>
+                  
+                  {/* 人数・時間・参加費 */}
+                  <div className="flex items-center gap-1 sm:gap-1 text-xs text-gray-600 mt-0.5 sm:mt-0.5">
+                    <div className="flex items-center gap-0.5">
+                      <Users className="h-3 w-3" />
+                      <span>
+                        {scenario.player_count_min === scenario.player_count_max
+                          ? `${scenario.player_count_max}人`
+                          : `${scenario.player_count_min}~${scenario.player_count_max}人`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      <Clock className="h-3 w-3" />
+                      <span>{scenario.duration}分</span>
+                    </div>
+                    {scenario.participation_fee && (
+                      <div className="flex items-center gap-0.5 sm:gap-1">
+                        <span>¥{scenario.participation_fee.toLocaleString()}〜</span>
+                      </div>
+                    )}
                   </div>
 
+                  {/* ジャンル */}
                   {scenario.genre && scenario.genre.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {scenario.genre.slice(0, 2).map((genre, index) => (
+                    <div className="flex flex-wrap gap-1 mt-1 sm:mt-1.5">
+                      {scenario.genre.slice(0, 3).map((genre, index) => (
                         <Badge
                           key={index}
                           variant="secondary"
-                          className="text-xs px-1 py-0 h-4 font-normal bg-gray-100 border-0 rounded-[2px]"
+                          className="text-xs px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
                         >
                           {genre}
                         </Badge>
                       ))}
-                      {scenario.genre.length > 2 && (
+                      {scenario.genre.length > 3 && (
                         <Badge
                           variant="secondary"
-                          className="text-xs px-1 py-0 h-4 font-normal bg-gray-100 border-0 rounded-[2px]"
+                          className="text-xs px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
                         >
-                          +{scenario.genre.length - 2}
+                          +{scenario.genre.length - 3}
                         </Badge>
                       )}
                     </div>
