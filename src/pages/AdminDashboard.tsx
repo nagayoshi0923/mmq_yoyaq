@@ -73,60 +73,60 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
     return { page: 'dashboard', scenarioId: null, organizationSlug: null }
   }
   
-  // /scenario-detail/{scenarioId}
-  if (segments[0] === 'scenario-detail' && segments[1]) {
-    return { page: 'scenario-detail', scenarioId: segments[1], organizationSlug: null }
+  // 特殊ページのチェック（組織スラッグなし）
+  const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'register', 'about', 
+    'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page']
+  if (segments.length === 1 && specialPages.includes(segments[0])) {
+    return { page: segments[0], scenarioId: null, organizationSlug: null }
   }
   
-  // /{slug}/scenario/{scenarioId} - 予約サイトのシナリオ詳細
-  if (segments.length >= 3 && segments[1] === 'scenario' && !ADMIN_PATHS.includes(segments[0])) {
-    return { page: 'booking', scenarioId: segments[2], organizationSlug: segments[0] }
-  }
-  
-  // /{slug}/calendar, /{slug}/list, /{slug}/catalog, /{slug}/private-booking など
-  if (segments.length >= 2 && !ADMIN_PATHS.includes(segments[0])) {
+  // 2セグメント以上の場合、最初のセグメントを組織スラッグとして扱う
+  if (segments.length >= 2) {
+    const orgSlug = segments[0]
     const subPage = segments[1]
+    
+    // /{slug}/scenario/{scenarioId} - 予約サイトのシナリオ詳細
+    if (subPage === 'scenario' && segments[2]) {
+      return { page: 'booking', scenarioId: segments[2], organizationSlug: orgSlug }
+    }
+    
+    // /{slug}/{admin-path} - 組織付き管理ページ
+    if (ADMIN_PATHS.includes(subPage)) {
+      // /{slug}/scenarios/edit/{scenarioId}
+      if (subPage === 'scenarios' && segments[2] === 'edit') {
+        return { page: 'scenarios-edit', scenarioId: segments[3] || null, organizationSlug: orgSlug }
+      }
+      return { page: subPage, scenarioId: null, organizationSlug: orgSlug }
+    }
+    
+    // /{slug}/calendar, /{slug}/list, /{slug}/private-booking など - 予約サイトのサブページ
     if (subPage === 'calendar' || subPage === 'list' || subPage === 'private-booking') {
-      return { page: 'booking', scenarioId: null, organizationSlug: segments[0] }
+      return { page: 'booking', scenarioId: null, organizationSlug: orgSlug }
     }
     if (subPage === 'catalog') {
-      return { page: 'catalog', scenarioId: null, organizationSlug: segments[0] }
+      return { page: 'catalog', scenarioId: null, organizationSlug: orgSlug }
     }
     if (subPage === 'private-booking-select') {
-      return { page: 'private-booking-select', scenarioId: null, organizationSlug: segments[0] }
+      return { page: 'private-booking-select', scenarioId: null, organizationSlug: orgSlug }
     }
     if (subPage === 'private-booking-request') {
-      return { page: 'private-booking-request', scenarioId: null, organizationSlug: segments[0] }
+      return { page: 'private-booking-request', scenarioId: null, organizationSlug: orgSlug }
     }
   }
   
-  // /{slug} - 予約サイトトップ（管理パス以外）
+  // /{slug} - 予約サイトトップ（1セグメントで管理パス以外）
   if (segments.length === 1 && !ADMIN_PATHS.includes(segments[0])) {
-    // 特殊ページのチェック
-    const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'register', 'about', 
-      'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'catalog', 'my-page']
-    if (specialPages.includes(segments[0])) {
-      return { page: segments[0], scenarioId: null, organizationSlug: null }
-    }
     return { page: 'booking', scenarioId: null, organizationSlug: segments[0] }
   }
   
-  // /scenarios/edit/{scenarioId}
-  if (segments[0] === 'scenarios' && segments[1] === 'edit') {
-    return { page: 'scenarios-edit', scenarioId: segments[2] || null, organizationSlug: null }
-  }
-  
-  // /private-booking-select, /private-booking-request など
-  if (segments[0] === 'private-booking-select') {
-    return { page: 'private-booking-select', scenarioId: null, organizationSlug: null }
-  }
-  if (segments[0] === 'private-booking-request') {
-    return { page: 'private-booking-request', scenarioId: null, organizationSlug: null }
-  }
-  
-  // 管理ページ
+  // 旧形式の管理ページ（後方互換）
   if (ADMIN_PATHS.includes(segments[0])) {
     return { page: segments[0], scenarioId: null, organizationSlug: null }
+  }
+  
+  // /scenarios/edit/{scenarioId}（旧形式）
+  if (segments[0] === 'scenarios' && segments[1] === 'edit') {
+    return { page: 'scenarios-edit', scenarioId: segments[2] || null, organizationSlug: null }
   }
   
   // デフォルト
@@ -150,30 +150,36 @@ export function AdminDashboard() {
     if (!isInitialized || loading) return
 
     const isCustomerOrLoggedOut = !user || user.role === 'customer'
+    const defaultOrg = organization?.slug || 'queens-waltz'
     
     // 未ログイン + ルートパス → 予約サイト（デフォルト組織）
     if (!user && location.pathname === '/') {
-      navigate('/queens-waltz', { replace: true })
+      navigate(`/${defaultOrg}`, { replace: true })
       return
     }
     
     // 顧客/ログアウト状態で管理ページにいる場合は予約サイトにリダイレクト
     if (isCustomerOrLoggedOut && ADMIN_PATHS.includes(currentPage)) {
-      navigate('/queens-waltz', { replace: true })
+      navigate(`/${defaultOrg}`, { replace: true })
       return
     }
 
     // スタッフ/管理者がルートパスにいる場合はダッシュボードへ
     if (user && (user.role === 'admin' || user.role === 'staff') && location.pathname === '/') {
-      navigate('/dashboard', { replace: true })
+      navigate(`/${defaultOrg}/dashboard`, { replace: true })
       return
     }
-  }, [user, currentPage, isInitialized, loading, location.pathname, navigate])
+  }, [user, currentPage, isInitialized, loading, location.pathname, navigate, organization?.slug])
 
-  // ページ変更ハンドラ
+  // ページ変更ハンドラ（組織スラッグ付き）
   const handlePageChange = useCallback((pageId: string) => {
-    navigate(`/${pageId}`)
-  }, [navigate])
+    // 予約サイトへの遷移は組織スラッグのみ
+    if (pageId === organizationSlug || pageId === 'booking') {
+      navigate(`/${organizationSlug}`)
+    } else {
+      navigate(`/${organizationSlug}/${pageId}`)
+    }
+  }, [navigate, organizationSlug])
   
   // シナリオ選択（予約サイト用）
   const handleScenarioSelect = useCallback((scenarioId: string) => {
@@ -486,3 +492,4 @@ export function AdminDashboard() {
     </div>
   )
 }
+
