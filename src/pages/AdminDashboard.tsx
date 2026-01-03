@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { LoadingScreen } from '@/components/layout/LoadingScreen'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 import { 
   Store, 
   Calendar, 
@@ -136,9 +137,13 @@ export function AdminDashboard() {
   const { user, loading, isInitialized } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const { organization } = useOrganization()
   
   // パスを解析
-  const { page: currentPage, scenarioId: initialScenarioId, organizationSlug } = parsePath(location.pathname)
+  const { page: currentPage, scenarioId: initialScenarioId, organizationSlug: pathOrganizationSlug } = parsePath(location.pathname)
+  
+  // 組織slugを決定（パスにあればそれ、なければ組織設定から取得）
+  const organizationSlug = pathOrganizationSlug || organization?.slug || 'queens-waltz'
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(initialScenarioId)
 
   // パス変更時にシナリオIDを更新
@@ -284,10 +289,9 @@ export function AdminDashboard() {
   }
   
   if (currentPage === 'catalog') {
-    const { organizationSlug: catalogOrgSlug } = parsePath(location.pathname)
     return (
       <Suspense fallback={<LoadingScreen message="カタログを読み込み中..." />}>
-        <ScenarioCatalog organizationSlug={catalogOrgSlug || undefined} />
+        <ScenarioCatalog organizationSlug={organizationSlug} />
       </Suspense>
     )
   }
@@ -300,6 +304,7 @@ export function AdminDashboard() {
           <ScenarioDetailPage 
             scenarioId={scenarioId}
             onClose={() => navigate(-1)}
+            organizationSlug={organizationSlug}
           />
         </Suspense>
       )
@@ -325,7 +330,7 @@ export function AdminDashboard() {
   if (currentPage === 'private-booking-select') {
     return (
       <Suspense fallback={<LoadingScreen message="貸切予約を読み込み中..." />}>
-        <PrivateBookingScenarioSelect organizationSlug={organizationSlug || undefined} />
+        <PrivateBookingScenarioSelect organizationSlug={organizationSlug} />
       </Suspense>
     )
   }
@@ -333,7 +338,7 @@ export function AdminDashboard() {
   if (currentPage === 'private-booking-request') {
     return (
       <Suspense fallback={<LoadingScreen message="貸切予約リクエストを読み込み中..." />}>
-        <PrivateBookingRequestPage organizationSlug={organizationSlug || undefined} />
+        <PrivateBookingRequestPage organizationSlug={organizationSlug} />
       </Suspense>
     )
   }
