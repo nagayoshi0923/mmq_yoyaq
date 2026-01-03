@@ -108,7 +108,7 @@ export function BookingConfirmation({
         <Header />
         <NavigationBar currentPage={bookingBasePath} />
         
-        <div className="container mx-auto max-w-3xl px-2 md:px-4 py-12">
+        <div className="container mx-auto max-w-7xl px-4 py-12">
           <Card className="border-2 border-green-200 bg-green-50">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
@@ -141,7 +141,7 @@ export function BookingConfirmation({
 
       {/* 戻るボタン */}
       <div className="bg-background border-b">
-        <div className="container mx-auto max-w-5xl px-2 md:px-4 py-2">
+        <div className="container mx-auto max-w-7xl px-4 py-2">
           <Button variant="ghost" onClick={onBack} className="flex items-center gap-1.5 hover:bg-accent h-8 px-2 text-sm">
             <ArrowLeft className="w-4 h-4" />
             シナリオ詳細に戻る
@@ -149,26 +149,26 @@ export function BookingConfirmation({
         </div>
       </div>
 
-      <div className="container mx-auto max-w-5xl px-2 md:px-4 py-6">
-        <h1 className="text-xl font-bold mb-6">予約確認</h1>
+      <div className="container mx-auto max-w-7xl px-4 py-3">
+        <h1 className="text-lg md:text-xl font-bold mb-4">予約確認</h1>
 
         {error && (
-          <Card className="mb-6 border-2 border-red-200 bg-red-50">
-            <CardContent className="p-4 flex items-center gap-2 text-red-800 text-sm">
+          <Card className="mb-4 border-2 border-red-200 bg-red-50">
+            <CardContent className="p-3 flex items-center gap-2 text-red-800 text-sm">
               <AlertCircle className="w-5 h-5" />
               <span>{error}</span>
             </CardContent>
           </Card>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* 左側：予約内容 */}
-          <div className="md:col-span-2 space-y-6">
+          <div className="md:col-span-8 space-y-4">
             {/* 公演情報 */}
             <div>
-              <h2 className="text-base font-semibold mb-3">公演情報</h2>
+              <h2 className="text-sm font-semibold mb-2 text-muted-foreground">公演情報</h2>
               <Card>
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="p-3 space-y-2">
                   <div>
                     <h3 className="text-base font-medium mb-2">{scenarioTitle}</h3>
                   </div>
@@ -205,9 +205,9 @@ export function BookingConfirmation({
 
             {/* 参加人数 */}
             <div>
-              <h2 className="text-base font-semibold mb-3">参加人数</h2>
+              <h2 className="text-sm font-semibold mb-2 text-muted-foreground">参加人数</h2>
               <Card>
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">参加人数</span>
                     <div className="flex items-center gap-3">
@@ -238,9 +238,9 @@ export function BookingConfirmation({
 
             {/* お客様情報 */}
             <div>
-              <h2 className="text-base font-semibold mb-3">お客様情報</h2>
+              <h2 className="text-sm font-semibold mb-2 text-muted-foreground">お客様情報</h2>
               <Card>
-                <CardContent className="p-4 space-y-4">
+                <CardContent className="p-3 space-y-3">
                   <div>
                     <Label className="text-sm font-medium mb-1.5 block">お名前 *</Label>
                     <Input
@@ -292,11 +292,11 @@ export function BookingConfirmation({
           </div>
 
           {/* 右側：料金サマリー */}
-          <div className="space-y-6">
+          <div className="md:col-span-4 space-y-4">
             <div>
-              <h2 className="text-base font-semibold mb-3">料金</h2>
+              <h2 className="text-sm font-semibold mb-2 text-muted-foreground">料金</h2>
               <Card>
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="p-3 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">参加費（1名）</span>
                     <span>¥{formatPrice(participationFee)}</span>
