@@ -192,12 +192,12 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     } else {
       // 組織slugがあれば予約サイト形式、なければグローバル形式
       if (organizationSlug) {
-        window.location.href = `/${organizationSlug}/scenario/${scenarioId}`
+        navigate(`/${organizationSlug}/scenario/${scenarioId}`)
       } else {
-        window.location.href = `/scenario-detail/${scenarioId}`
+        navigate(`/scenario-detail/${scenarioId}`)
       }
     }
-  }, [onScenarioSelect, organizationSlug])
+  }, [onScenarioSelect, organizationSlug, navigate])
 
   // 店舗名取得（メモ化）
   const getStoreName = useCallback((event: any): string => {

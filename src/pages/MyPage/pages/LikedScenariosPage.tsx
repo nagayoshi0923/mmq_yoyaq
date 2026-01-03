@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -34,6 +35,7 @@ interface WantToPlayScenario {
 export function WantToPlayPage() {
   const { user } = useAuth()
   const { organization } = useOrganization()
+  const navigate = useNavigate()
   const [wantToPlayScenarios, setWantToPlayScenarios] = useState<WantToPlayScenario[]>([])
   const [loading, setLoading] = useState(true)
   
@@ -188,7 +190,7 @@ export function WantToPlayPage() {
                   key={item.id}
                   className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => {
-                    window.location.href = `${bookingBasePath}/scenario/${item.scenario.slug || item.scenario.id}`
+                    navigate(`${bookingBasePath}/scenario/${item.scenario.slug || item.scenario.id}`)
                   }}
                 >
                   <div className="flex items-start gap-4 mb-3">

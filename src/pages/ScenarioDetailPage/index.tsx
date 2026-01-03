@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Header } from '@/components/layout/Header'
@@ -34,6 +35,7 @@ interface ScenarioDetailPageProps {
 
 export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: ScenarioDetailPageProps) {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
   const [showStickyInfo, setShowStickyInfo] = useState(false)
@@ -407,9 +409,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               onScenarioClick={(id) => {
                 // 組織slugがあれば予約サイト形式、なければグローバル形式
                 if (organizationSlug) {
-                  window.location.href = `/${organizationSlug}/scenario/${id}`
+                  navigate(`/${organizationSlug}/scenario/${id}`)
                 } else {
-                  window.location.href = `/scenario-detail/${id}`
+                  navigate(`/scenario-detail/${id}`)
                 }
               }}
             />

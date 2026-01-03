@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Input } from '@/components/ui/input'
@@ -35,6 +36,7 @@ interface ScenarioCatalogProps {
 export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const { user } = useAuth()
   const { organization } = useOrganization()
+  const navigate = useNavigate()
   
   // 予約サイトのベースパス（propsから優先、なければorganizationから）
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : (organization?.slug ? `/${organization.slug}` : '/queens-waltz')
@@ -122,11 +124,11 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     // 組織slugがあれば予約サイト形式、なければグローバル形式
     if (organizationSlug || organization?.slug) {
       const slug = organizationSlug || organization?.slug
-      window.location.href = `/${slug}/scenario/${scenarioId}`
+      navigate(`/${slug}/scenario/${scenarioId}`)
     } else {
-      window.location.href = `/scenario-detail/${scenarioId}`
+      navigate(`/scenario-detail/${scenarioId}`)
     }
-  }, [organizationSlug, organization?.slug])
+  }, [organizationSlug, organization?.slug, navigate])
 
   const handleToggleFavorite = useCallback((scenarioId: string, e: React.MouseEvent) => {
     e.stopPropagation()
