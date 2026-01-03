@@ -302,7 +302,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
                   <button
                     onClick={(e) => handleToggleFavorite(scenario.id, e)}
                     className={`absolute top-2 right-2 transition-all opacity-70 hover:opacity-100 ${
-                      isFavorite(scenario.id) ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
+                      isFavorite(scenario.id) ? 'text-green-500' : 'text-gray-400 hover:text-green-500'
                     }`}
                   >
                     <Heart className={`h-5 w-5 ${isFavorite(scenario.id) ? 'fill-current' : ''}`} />

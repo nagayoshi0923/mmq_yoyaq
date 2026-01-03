@@ -118,7 +118,7 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
           <button
             onClick={handleFavoriteClick}
             className={`absolute top-2 right-2 transition-all opacity-70 hover:opacity-100 touch-manipulation ${
-              isFavorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'
+              isFavorite ? 'text-green-500 hover:text-green-600' : 'text-gray-400 hover:text-green-500'
             }`}
           >
             <Heart 

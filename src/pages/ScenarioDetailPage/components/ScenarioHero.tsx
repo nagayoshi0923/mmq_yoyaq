@@ -2,7 +2,8 @@ import { memo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { Clock, Users, ExternalLink, Star, Share2 } from 'lucide-react'
+import { Clock, Users, ExternalLink, Star, Share2, Heart } from 'lucide-react'
+import { useFavorites } from '@/hooks/useFavorites'
 import type { ScenarioDetail, EventSchedule } from '../utils/types'
 import { formatDuration, formatPlayerCount } from '../utils/formatters'
 
@@ -24,6 +25,13 @@ interface ScenarioHeroProps {
  * シナリオヒーローセクション（キービジュアル + タイトル + 基本情報）
  */
 export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }: ScenarioHeroProps) {
+  const { isFavorite, toggleFavorite } = useFavorites()
+  const scenarioIsFavorite = isFavorite(scenario.scenario_id)
+  
+  const handleFavoriteClick = () => {
+    toggleFavorite(scenario.scenario_id)
+  }
+
   return (
     <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white rounded-lg overflow-hidden">
       <div className="p-3 md:p-4">
@@ -61,6 +69,16 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
                   </div>
                 }
               />
+              {/* お気に入りボタン */}
+              <button
+                onClick={handleFavoriteClick}
+                className={`absolute top-2 right-2 p-1.5 rounded-full transition-all bg-black/30 hover:bg-black/50 backdrop-blur-sm ${
+                  scenarioIsFavorite ? 'text-green-500' : 'text-white/80 hover:text-green-400'
+                }`}
+                title={scenarioIsFavorite ? 'お気に入りから削除' : 'お気に入りに追加'}
+              >
+                <Heart className={`w-5 h-5 ${scenarioIsFavorite ? 'fill-current' : ''}`} />
+              </button>
             </div>
           </div>
 
