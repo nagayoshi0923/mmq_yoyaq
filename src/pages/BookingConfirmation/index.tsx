@@ -166,7 +166,7 @@ export function BookingConfirmation({
           <div className="md:col-span-8 space-y-4">
             {/* 公演情報 */}
             <div>
-              <h2 className="text-sm font-semibold mb-2 text-muted-foreground">公演情報</h2>
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">公演情報</h3>
               <Card>
                 <CardContent className="p-3 space-y-2">
                   <div>
@@ -213,7 +213,7 @@ export function BookingConfirmation({
 
             {/* 参加人数 */}
             <div>
-              <h2 className="text-sm font-semibold mb-2 text-muted-foreground">参加人数</h2>
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">参加人数</h3>
               <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between">
@@ -246,7 +246,7 @@ export function BookingConfirmation({
 
             {/* お客様情報 */}
             <div>
-              <h2 className="text-sm font-semibold mb-2 text-muted-foreground">お客様情報</h2>
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">お客様情報</h3>
               <Card>
                 <CardContent className="p-3 space-y-3">
                   <div>
@@ -302,7 +302,7 @@ export function BookingConfirmation({
           {/* 右側：料金サマリー */}
           <div className="md:col-span-4 space-y-4">
             <div>
-              <h2 className="text-sm font-semibold mb-2 text-muted-foreground">料金</h2>
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">料金</h3>
               <Card>
                 <CardContent className="p-3 space-y-2">
                   <div className="flex justify-between text-sm">
@@ -315,10 +315,10 @@ export function BookingConfirmation({
                     <span>{participantCount}名</span>
                   </div>
 
-                  <div className="border-t pt-3">
+                  <div className="border-t pt-2 mt-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold">合計</span>
-                      <span className="text-base text-primary font-bold">¥{formatPrice(totalPrice)}</span>
+                      <span className="text-sm text-muted-foreground">合計</span>
+                      <span className="text-base font-bold text-primary">¥{formatPrice(totalPrice)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -334,7 +334,7 @@ export function BookingConfirmation({
             <Button
               onClick={onSubmit}
               disabled={isSubmitting}
-              className="w-full h-9 text-sm"
+              className="w-full h-10 text-base"
             >
               {isSubmitting ? '予約処理中...' : '予約を確定する'}
             </Button>
