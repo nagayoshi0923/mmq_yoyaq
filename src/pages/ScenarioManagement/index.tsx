@@ -42,6 +42,7 @@ import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+import { generateSlugFromTitle } from '@/utils/toRomaji'
 
 export function ScenarioManagement() {
   // UI状態
