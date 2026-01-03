@@ -263,87 +263,91 @@ export function ReservationsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {upcomingReservations.map((reservation) => (
-                <div
-                  key={reservation.id}
-                  className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-blue-50"
-                >
-                  {/* シナリオ画像 */}
-                  <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
-                    {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
-                      <OptimizedImage
-                        src={scenarioImages[reservation.scenario_id]}
-                        alt={reservation.title}
-                        className="w-full h-full object-cover"
-                        responsive={true}
-                        srcSetSizes={[48, 96, 192]}
-                        breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
-                        useWebP={true}
-                        quality={85}
-                        fallback={
+              {upcomingReservations.map((reservation) => {
+                const storeInfo = getStoreInfo(reservation)
+                return (
+                  <div
+                    key={reservation.id}
+                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-blue-50"
+                  >
+                    {/* ヘッダー: タイトルとバッジ */}
+                    <div className="flex items-start gap-3 mb-3">
+                      {/* シナリオ画像 */}
+                      <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
+                        {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
+                          <OptimizedImage
+                            src={scenarioImages[reservation.scenario_id]}
+                            alt={reservation.title}
+                            className="w-full h-full object-cover"
+                            responsive={true}
+                            srcSetSizes={[48, 96, 192]}
+                            breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
+                            useWebP={true}
+                            quality={85}
+                            fallback={
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                No Image
+                              </div>
+                            }
+                          />
+                        ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
                             No Image
                           </div>
-                        }
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                        No Image
+                        )}
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="text-sm sm:text-base truncate">{formatTitle(reservation.title)}</span>
-                      <Badge variant="default" className="bg-blue-100 text-blue-800 text-xs">
-                        <Clock className="h-3 w-3 mr-1" />
-                        参加予定
-                      </Badge>
-                    </div>
-                    <div className="space-y-0.5">
-                      <div className="text-xs text-muted-foreground">参加予定日時</div>
-                      <div className="text-sm sm:text-base text-foreground">
-                        {formatDateTime(reservation.requested_datetime)}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="default" className="bg-blue-100 text-blue-800 text-xs flex-shrink-0">
+                            参加予定
+                          </Badge>
+                        </div>
+                        <h4 className="font-medium text-sm truncate">{formatTitle(reservation.title)}</h4>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full sm:w-auto">
-                    <div className="text-right sm:text-left">
-                      <div className="text-xs text-muted-foreground">参加人数</div>
-                      <div className="text-sm">{reservation.participant_count}名</div>
-                    </div>
-                    <div className="text-right sm:text-left">
-                      <div className="text-xs text-muted-foreground">金額</div>
-                      <div className="text-sm">{formatCurrency(reservation.final_price)}</div>
-                    </div>
-                    {reservation.payment_method && (
+
+                    {/* 情報グリッド */}
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Badge className={`${getPaymentMethodBadgeColor(reservation.payment_method)} text-xs`}>
-                          {getPaymentMethodLabel(reservation.payment_method)}
-                        </Badge>
+                        <div className="text-xs text-muted-foreground mb-0.5">日時</div>
+                        <div className="text-sm font-medium">{formatDateTime(reservation.requested_datetime)}</div>
                       </div>
-                    )}
-                  </div>
-                  {getStoreInfo(reservation) && (
-                    <div className="w-full text-xs sm:text-sm space-y-0.5 mt-2 pt-2 border-t">
-                      <div className="text-xs text-muted-foreground mb-1">会場</div>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3 flex-shrink-0" style={{ color: getStoreInfo(reservation)?.color || undefined }} />
-                        <span 
-                          className=""
-                          style={{ color: getStoreInfo(reservation)?.color || undefined }}
-                        >
-                          {getStoreInfo(reservation)?.name}
-                        </span>
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-0.5">参加人数</div>
+                        <div className="text-sm font-medium">{reservation.participant_count}名</div>
                       </div>
-                      {getStoreInfo(reservation)?.address && (
-                        <div className="pl-4 text-xs text-foreground">{getStoreInfo(reservation)?.address}</div>
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-0.5">金額</div>
+                        <div className="text-sm font-medium">{formatCurrency(reservation.final_price)}</div>
+                      </div>
+                      {reservation.payment_method && (
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-0.5">支払方法</div>
+                          <Badge className={`${getPaymentMethodBadgeColor(reservation.payment_method)} text-xs`}>
+                            {getPaymentMethodLabel(reservation.payment_method)}
+                          </Badge>
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {/* 会場情報 */}
+                    {storeInfo && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="text-xs text-muted-foreground mb-1">会場</div>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: storeInfo.color || undefined }} />
+                          <span className="text-sm font-medium" style={{ color: storeInfo.color || undefined }}>
+                            {storeInfo.name}
+                          </span>
+                        </div>
+                        {storeInfo.address && (
+                          <div className="ml-5 text-xs text-muted-foreground mt-0.5">{storeInfo.address}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </CardContent>
@@ -367,56 +371,61 @@ export function ReservationsPage() {
               {pastReservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  {/* シナリオ画像 */}
-                  <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
-                    {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
-                      <OptimizedImage
-                        src={scenarioImages[reservation.scenario_id]}
-                        alt={reservation.title}
-                        className="w-full h-full object-cover"
-                        responsive={true}
-                        srcSetSizes={[48, 96, 192]}
-                        breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
-                        useWebP={true}
-                        quality={85}
-                        fallback={
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                            No Image
-                          </div>
-                        }
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                        No Image
+                  {/* ヘッダー: タイトルとバッジ */}
+                  <div className="flex items-start gap-3 mb-3">
+                    {/* シナリオ画像 */}
+                    <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
+                      {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
+                        <OptimizedImage
+                          src={scenarioImages[reservation.scenario_id]}
+                          alt={reservation.title}
+                          className="w-full h-full object-cover"
+                          responsive={true}
+                          srcSetSizes={[48, 96, 192]}
+                          breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
+                          useWebP={true}
+                          quality={85}
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                              No Image
+                            </div>
+                          }
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                          No Image
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="secondary" className="text-xs flex-shrink-0">
+                          参加済み
+                        </Badge>
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="text-sm sm:text-base truncate">{formatTitle(reservation.title)}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        参加済み
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatDateTime(reservation.requested_datetime)}
+                      <h4 className="font-medium text-sm truncate">{formatTitle(reservation.title)}</h4>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full sm:w-auto">
-                    <div className="text-right sm:text-left">
-                      <div className="text-xs text-muted-foreground">参加人数</div>
-                      <div className="text-sm">{reservation.participant_count}名</div>
+
+                  {/* 情報グリッド */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">日時</div>
+                      <div className="text-sm font-medium">{formatDateTime(reservation.requested_datetime)}</div>
                     </div>
-                    <div className="text-right sm:text-left">
-                      <div className="text-xs text-muted-foreground">金額</div>
-                      <div className="text-sm">{formatCurrency(reservation.final_price)}</div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">参加人数</div>
+                      <div className="text-sm font-medium">{reservation.participant_count}名</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">金額</div>
+                      <div className="text-sm font-medium">{formatCurrency(reservation.final_price)}</div>
                     </div>
                     {reservation.payment_method && (
                       <div>
+                        <div className="text-xs text-muted-foreground mb-0.5">支払方法</div>
                         <Badge className={`${getPaymentMethodBadgeColor(reservation.payment_method)} text-xs`}>
                           {getPaymentMethodLabel(reservation.payment_method)}
                         </Badge>
@@ -444,53 +453,59 @@ export function ReservationsPage() {
               {cancelledReservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors opacity-60"
+                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors opacity-60"
                 >
-                  {/* シナリオ画像 */}
-                  <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
-                    {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
-                      <OptimizedImage
-                        src={scenarioImages[reservation.scenario_id]}
-                        alt={reservation.title}
-                        className="w-full h-full object-cover"
-                        responsive={true}
-                        srcSetSizes={[48, 96, 192]}
-                        breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
-                        useWebP={true}
-                        quality={85}
-                        fallback={
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                            No Image
-                          </div>
-                        }
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                        No Image
+                  {/* ヘッダー: タイトルとバッジ */}
+                  <div className="flex items-start gap-3 mb-3">
+                    {/* シナリオ画像 */}
+                    <div className="flex-shrink-0 w-12 h-16 bg-gray-200 rounded overflow-hidden">
+                      {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
+                        <OptimizedImage
+                          src={scenarioImages[reservation.scenario_id]}
+                          alt={reservation.title}
+                          className="w-full h-full object-cover"
+                          responsive={true}
+                          srcSetSizes={[48, 96, 192]}
+                          breakpoints={{ mobile: 48, tablet: 64, desktop: 96 }}
+                          useWebP={true}
+                          quality={85}
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                              No Image
+                            </div>
+                          }
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                          No Image
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="destructive" className="text-xs flex-shrink-0">キャンセル</Badge>
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="text-sm sm:text-base line-through truncate">{formatTitle(reservation.title)}</span>
-                      <Badge variant="destructive" className="text-xs">キャンセル</Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatDateTime(reservation.requested_datetime)}
+                      <h4 className="font-medium text-sm line-through truncate">{formatTitle(reservation.title)}</h4>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full sm:w-auto">
-                    <div className="text-right sm:text-left">
-                      <div className="text-xs text-muted-foreground">参加人数</div>
-                      <div className="text-sm">{reservation.participant_count}名</div>
+
+                  {/* 情報グリッド */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">日時</div>
+                      <div className="text-sm font-medium">{formatDateTime(reservation.requested_datetime)}</div>
                     </div>
-                    <div className="text-right sm:text-left">
-                      <div className="text-xs text-muted-foreground">金額</div>
-                      <div className="text-sm">{formatCurrency(reservation.final_price)}</div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">参加人数</div>
+                      <div className="text-sm font-medium">{reservation.participant_count}名</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">金額</div>
+                      <div className="text-sm font-medium">{formatCurrency(reservation.final_price)}</div>
                     </div>
                     {reservation.payment_method && (
                       <div>
+                        <div className="text-xs text-muted-foreground mb-0.5">支払方法</div>
                         <Badge className={`${getPaymentMethodBadgeColor(reservation.payment_method)} text-xs`}>
                           {getPaymentMethodLabel(reservation.payment_method)}
                         </Badge>
@@ -506,4 +521,6 @@ export function ReservationsPage() {
     </div>
   )
 }
+
+
 
