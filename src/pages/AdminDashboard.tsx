@@ -139,18 +139,11 @@ export function AdminDashboard() {
   const navigate = useNavigate()
   const { organization } = useOrganization()
   
-  // パスを解析
-  const { page: currentPage, scenarioId: initialScenarioId, organizationSlug: pathOrganizationSlug } = parsePath(location.pathname)
+  // パスを解析（毎回解析することでURLと表示を同期）
+  const { page: currentPage, scenarioId: currentScenarioId, organizationSlug: pathOrganizationSlug } = parsePath(location.pathname)
   
   // 組織slugを決定（パスにあればそれ、なければ組織設定から取得）
   const organizationSlug = pathOrganizationSlug || organization?.slug || 'queens-waltz'
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(initialScenarioId)
-
-  // パス変更時にシナリオIDを更新
-  useEffect(() => {
-    const { scenarioId } = parsePath(location.pathname)
-    setSelectedScenarioId(scenarioId)
-  }, [location.pathname])
 
   // ユーザーロールが確定したときに初回リダイレクト
   useEffect(() => {
@@ -179,13 +172,11 @@ export function AdminDashboard() {
 
   // ページ変更ハンドラ
   const handlePageChange = useCallback((pageId: string) => {
-    setSelectedScenarioId(null)
     navigate(`/${pageId}`)
   }, [navigate])
   
   // シナリオ選択（予約サイト用）
   const handleScenarioSelect = useCallback((scenarioId: string) => {
-    setSelectedScenarioId(scenarioId)
     if (organizationSlug) {
       navigate(`/${organizationSlug}/scenario/${scenarioId}`)
     } else {
@@ -195,7 +186,6 @@ export function AdminDashboard() {
 
   // シナリオ詳細を閉じる
   const handleScenarioClose = useCallback(() => {
-    setSelectedScenarioId(null)
     if (organizationSlug) {
       navigate(`/${organizationSlug}`)
     } else {
@@ -267,11 +257,11 @@ export function AdminDashboard() {
   
   // 予約サイト
   if (currentPage === 'booking' && organizationSlug) {
-    if (selectedScenarioId) {
+    if (currentScenarioId) {
       return (
         <Suspense fallback={<LoadingScreen message="シナリオ詳細を読み込み中..." />}>
           <ScenarioDetailPage 
-            scenarioId={selectedScenarioId}
+            scenarioId={currentScenarioId}
             onClose={handleScenarioClose}
             organizationSlug={organizationSlug}
           />
