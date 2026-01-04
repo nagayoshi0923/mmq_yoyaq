@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -20,9 +20,11 @@ const PRIVATE_BOOKING_MENU_ITEMS: SidebarMenuItem[] = [
 ]
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { logger } from '@/utils/logger'
+import { showToast } from '@/utils/toast'
 
 // 分離されたコンポーネント
 import { BookingRequestCard } from './components/BookingRequestCard'
@@ -52,6 +54,8 @@ export function PrivateBookingManagement() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [scenarioAvailableStores, setScenarioAvailableStores] = useState<string[]>([])  // シナリオ対応店舗ID
+  const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('all')  // 地域フィルター
 
   // リクエストデータ管理
   const { requests, loading, loadRequests, filterByMonth } = useBookingRequests({
@@ -127,6 +131,83 @@ export function PrivateBookingManagement() {
     initializeRequest()
     return () => { if (timer) clearTimeout(timer) }
   }, [selectedRequest])
+
+  // シナリオの対応店舗を取得
+  useEffect(() => {
+    const loadScenarioAvailableStores = async () => {
+      if (selectedRequest?.scenario_id) {
+        try {
+          const { data: scenarioData, error } = await supabase
+            .from('scenarios')
+            .select('available_stores')
+            .eq('id', selectedRequest.scenario_id)
+            .single()
+          
+          if (error) {
+            logger.error('シナリオ対応店舗取得エラー:', error)
+            setScenarioAvailableStores([])
+          } else {
+            setScenarioAvailableStores(scenarioData?.available_stores || [])
+          }
+        } catch (error) {
+          logger.error('シナリオ対応店舗取得エラー:', error)
+          setScenarioAvailableStores([])
+        }
+      } else {
+        setScenarioAvailableStores([])
+      }
+    }
+    
+    loadScenarioAvailableStores()
+  }, [selectedRequest?.scenario_id])
+
+  // シナリオ対応店舗でフィルタリングした店舗リスト
+  const filteredStores = useMemo(() => {
+    // オフィスを除外
+    const validStores = stores.filter(s => s.ownership_type !== 'office')
+    
+    // シナリオに対応店舗が設定されている場合のみフィルタリング
+    if (scenarioAvailableStores.length > 0) {
+      return validStores.filter(s => scenarioAvailableStores.includes(s.id))
+    }
+    
+    // 設定されていない場合は全店舗（オフィス除く）
+    return validStores
+  }, [stores, scenarioAvailableStores])
+
+  // 店舗を地域ごとにグループ化
+  const storesByRegion = useMemo(() => {
+    const grouped: Record<string, typeof filteredStores> = {}
+    
+    filteredStores.forEach(store => {
+      const region = store.region || '未分類'
+      if (!grouped[region]) {
+        grouped[region] = []
+      }
+      grouped[region].push(store)
+    })
+    
+    // 地域の表示順序（東京を先に、その他の地域、未分類は最後）
+    const regionOrder = ['東京', '埼玉', '神奈川', '千葉', 'その他', '未分類']
+    const sortedRegions = Object.keys(grouped).sort((a, b) => {
+      const indexA = regionOrder.indexOf(a)
+      const indexB = regionOrder.indexOf(b)
+      if (indexA === -1 && indexB === -1) return a.localeCompare(b)
+      if (indexA === -1) return 1
+      if (indexB === -1) return -1
+      return indexA - indexB
+    })
+    
+    return { grouped, sortedRegions }
+  }, [filteredStores])
+
+  // 地域フィルターで絞り込んだ店舗リスト
+  const regionFilteredStores = useMemo(() => {
+    if (selectedRegionFilter === 'all') {
+      return filteredStores
+    }
+    return filteredStores.filter(store => (store.region || '未分類') === selectedRegionFilter)
+  }, [filteredStores, selectedRegionFilter])
 
   // 店舗またはGMが変更されたときの競合情報更新
   useEffect(() => {
@@ -321,8 +402,10 @@ export function PrivateBookingManagement() {
                     ? (selectedRequest.gm_responses[0].available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
                     : undefined
                 }
+                gmResponses={availableGMs} // 全GMの回答情報を渡す
                 isReadOnly={selectedRequest.status === 'confirmed'} // 確定済みの場合のみ編集不可
                 isConfirmed={selectedRequest.status === 'confirmed'}
+                stores={filteredStores} // シナリオ対応店舗リスト（空き店舗表示用）
               />
 
               {/* 開催店舗の選択 */}
@@ -331,27 +414,72 @@ export function PrivateBookingManagement() {
                   <MapPin className="w-4 h-4" />
                   開催店舗の選択
                 </h3>
+                
+                {/* 地域フィルター */}
+                <div className="flex gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRegionFilter('all')}
+                    className={`px-2 py-1 text-xs rounded border transition-colors ${
+                      selectedRegionFilter === 'all'
+                        ? 'bg-purple-600 text-white border-purple-600'
+                        : 'bg-background border-gray-300 hover:border-purple-400'
+                    }`}
+                  >
+                    全て
+                  </button>
+                  {storesByRegion.sortedRegions.map((region) => (
+                    <button
+                      key={region}
+                      type="button"
+                      onClick={() => setSelectedRegionFilter(region)}
+                      className={`px-2 py-1 text-xs rounded border transition-colors ${
+                        selectedRegionFilter === region
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-background border-gray-300 hover:border-purple-400'
+                      }`}
+                    >
+                      {region} ({storesByRegion.grouped[region]?.length || 0})
+                    </button>
+                  ))}
+                </div>
+                
                 <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
                   <SelectTrigger className="w-full text-sm">
                     <SelectValue placeholder="店舗を選択してください" />
                   </SelectTrigger>
                   <SelectContent>
-                    {stores.map((store) => {
+                    {regionFilteredStores.map((store) => {
                       const requestedStores = selectedRequest.candidate_datetimes?.requestedStores || []
                       const isAllStoresRequested = requestedStores.length === 0
                       const isRequested = isAllStoresRequested || requestedStores.some(rs => rs.storeId === store.id)
                       
+                      // 選択した候補日時でこの店舗の既存イベントを取得
+                      let existingEventLabel = ''
                       let isStoreDisabled = false
                       if (selectedCandidateOrder && selectedRequest.candidate_datetimes?.candidates) {
                         const selectedCandidate = selectedRequest.candidate_datetimes.candidates.find(
-                          c => c.order === selectedCandidateOrder
+                          (c: any) => c.order === selectedCandidateOrder
                         )
                         if (selectedCandidate) {
                           const conflictKey = `${store.id}-${selectedCandidate.date}-${selectedCandidate.timeSlot}`
                           isStoreDisabled = conflictInfo.storeDateConflicts.has(conflictKey)
                           
-                          if (isStoreDisabled) {
-                            logger.log(`🚫 店舗競合: ${store.name} (${conflictKey})`)
+                          // 既存イベントの詳細を取得（時間帯の重複チェック）
+                          const eventsForStore = (conflictInfo.existingEvents || []).filter(e => 
+                            e.storeId === store.id && e.date === selectedCandidate.date
+                          )
+                          
+                          // 時間帯の重複をチェック
+                          const existingEvent = eventsForStore.find(e => {
+                            const candidateStart = selectedCandidate.startTime || ''
+                            const candidateEnd = selectedCandidate.endTime || ''
+                            const overlaps = candidateStart < e.endTime && candidateEnd > e.startTime
+                            return overlaps
+                          })
+                          
+                          if (existingEvent) {
+                            existingEventLabel = ` ⚠️ ${existingEvent.scenario} (${existingEvent.startTime}〜${existingEvent.endTime})`
                           }
                         }
                       }
@@ -361,10 +489,20 @@ export function PrivateBookingManagement() {
                           key={store.id} 
                           value={store.id}
                           disabled={isStoreDisabled}
+                          className="whitespace-normal"
                         >
-                          {store.name}
-                          {isRequested && ' (お客様希望)'}
-                          {isStoreDisabled && ' - 予約済み'}
+                          <span className="block">
+                            {store.name}
+                            {isRequested && ' (お客様希望)'}
+                            {selectedRegionFilter === 'all' && store.region && (
+                              <span className="text-xs text-muted-foreground ml-1">({store.region})</span>
+                            )}
+                          </span>
+                          {existingEventLabel && (
+                            <span className="block text-xs text-orange-600 font-medium">
+                              {existingEventLabel}
+                            </span>
+                          )}
                         </SelectItem>
                       )
                     })}
@@ -374,7 +512,7 @@ export function PrivateBookingManagement() {
                   {selectedRequest.candidate_datetimes?.requestedStores?.length === 0 ? (
                     <span>ℹ️ お客様は全ての店舗を希望しています</span>
                   ) : (selectedRequest.candidate_datetimes?.requestedStores?.length ?? 0) > 0 ? (
-                    <span>ℹ️ (お客様希望) の店舗がお客様の希望店舗です</span>
+                    <span>ℹ️ (お客様希望) の店舗がお客様の希望店舗です / ⚠️ は既存公演</span>
                   ) : null}
                 </div>
               </div>
@@ -399,7 +537,7 @@ export function PrivateBookingManagement() {
                   <SelectContent>
                     {allGMs.map((gm) => {
                       const availableGM = availableGMs.find(ag => ag.gm_id === gm.id)
-                      const isAvailable = availableGM?.response_type === 'available'
+                      const isAvailable = availableGM?.response_status === 'available'
                       const gmNotes = availableGM?.notes || ''
                       
                       let isGMDisabled = false
@@ -437,14 +575,19 @@ export function PrivateBookingManagement() {
 
               <div className="pt-3 border-t">
                 <ActionButtons
-                  onApprove={() => handleApprove(
-                    selectedRequest.id,
-                    selectedRequest,
-                    selectedGMId,
-                    selectedStoreId,
-                    selectedCandidateOrder,
-                    stores
-                  )}
+                  onApprove={async () => {
+                    const result = await handleApprove(
+                      selectedRequest.id,
+                      selectedRequest,
+                      selectedGMId,
+                      selectedStoreId,
+                      selectedCandidateOrder,
+                      stores
+                    )
+                    if (result && !result.success && result.error) {
+                      showToast.error(result.error)
+                    }
+                  }}
                   onReject={() => handleRejectClick(selectedRequest.id)}
                   onCancel={() => {
                     setSelectedRequest(null)
@@ -453,6 +596,7 @@ export function PrivateBookingManagement() {
                     setSelectedCandidateOrder(null)
                   }}
                   disabled={submitting || !selectedGMId || !selectedStoreId || !selectedCandidateOrder}
+                  submitting={submitting}
                 />
               </div>
             </div>

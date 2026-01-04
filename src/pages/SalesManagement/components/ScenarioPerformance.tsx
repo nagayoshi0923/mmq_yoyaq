@@ -13,8 +13,8 @@ interface Store {
 
 interface ScenarioPerformanceProps {
   stores: Store[]
-  selectedStore: string
-  onStoreChange: (store: string) => void
+  selectedStoreIds: string[]
+  onStoreIdsChange: (storeIds: string[]) => void
 }
 
 /**
@@ -22,8 +22,8 @@ interface ScenarioPerformanceProps {
  */
 export const ScenarioPerformance: React.FC<ScenarioPerformanceProps> = ({
   stores,
-  selectedStore,
-  onStoreChange
+  selectedStoreIds,
+  onStoreIdsChange
 }) => {
   const {
     scenarioData,
@@ -36,14 +36,14 @@ export const ScenarioPerformance: React.FC<ScenarioPerformanceProps> = ({
   // 初回読み込みと店舗変更時にデータを取得
   useEffect(() => {
     if (stores.length > 0) {
-      loadScenarioData(period, selectedStore)
+      loadScenarioData(period, selectedStoreIds)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stores.length, selectedStore])
+  }, [stores.length, selectedStoreIds])
 
   // 期間変更ハンドラー
   const handlePeriodChange = (newPeriod: string) => {
-    loadScenarioData(newPeriod, selectedStore)
+    loadScenarioData(newPeriod, selectedStoreIds)
   }
 
   // サマリー統計を計算
@@ -65,8 +65,8 @@ export const ScenarioPerformance: React.FC<ScenarioPerformanceProps> = ({
         period={period}
         onPeriodChange={handlePeriodChange}
         stores={stores}
-        selectedStore={selectedStore}
-        onStoreChange={onStoreChange}
+        selectedStoreIds={selectedStoreIds}
+        onStoreIdsChange={onStoreIdsChange}
         dateRange={dateRange}
       />
 

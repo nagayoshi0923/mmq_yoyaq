@@ -118,8 +118,8 @@ export function useSalesData() {
   }, [])
 
   // 売上データを取得（期間とストアを引数で受け取る）
-  const loadSalesData = useCallback(async (period: string, storeId: string, ownershipFilter?: 'corporate' | 'franchise') => {
-    logger.log('📊 売上データ取得開始:', { period, storeId, ownershipFilter, storesCount: stores.length })
+  const loadSalesData = useCallback(async (period: string, storeIds: string[], ownershipFilter?: 'corporate' | 'franchise') => {
+    logger.log('📊 売上データ取得開始:', { period, storeIds, ownershipFilter, storesCount: stores.length })
     setLoading(true)
     setSelectedPeriod(period)
 
@@ -259,8 +259,8 @@ export function useSalesData() {
       const filteredStoreIds = ownershipFilter ? filteredStores.map(s => s.id) : []
       
       // イベントフィルタリング
-      if (storeId !== 'all') {
-        events = events.filter(e => e.store_id === storeId)
+      if (storeIds.length > 0) {
+        events = events.filter(e => storeIds.includes(e.store_id))
       } else if (ownershipFilter && filteredStoreIds.length > 0) {
         // 店舗タイプでフィルタリングされている場合、そのstore_idのイベントのみに絞り込む
         // 直営店の場合は、直営店＋オフィスのイベント
@@ -270,8 +270,8 @@ export function useSalesData() {
       }
       
       // 店舗フィルタリング（固定費計算用）
-      if (storeId !== 'all') {
-        filteredStores = filteredStores.filter(s => s.id === storeId)
+      if (storeIds.length > 0) {
+        filteredStores = filteredStores.filter(s => storeIds.includes(s.id))
       }
       
       // 売上データを計算

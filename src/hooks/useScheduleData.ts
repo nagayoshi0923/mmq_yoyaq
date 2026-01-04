@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { scheduleApi, storeApi, scenarioApi, staffApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff } from '@/types'
@@ -657,7 +658,10 @@ export function useScheduleData(currentDate: Date) {
         })
         
         // 貸切リクエストを取得して追加（確定済みのみ）
-        const { data: privateRequests, error: privateError } = await supabase
+        // organization_idを取得（マルチテナント対応）
+        const orgIdForPrivate = await getCurrentOrganizationId()
+        
+        let privateQuery = supabase
           .from('reservations')
           .select(`
             id,
@@ -675,6 +679,12 @@ export function useScheduleData(currentDate: Date) {
           `)
           .eq('reservation_source', 'web_private')
           .eq('status', 'confirmed') // 確定のみ表示
+        
+        if (orgIdForPrivate) {
+          privateQuery = privateQuery.eq('organization_id', orgIdForPrivate)
+        }
+        
+        const { data: privateRequests, error: privateError } = await privateQuery
         
         if (privateError) {
           logger.error('貸切リクエスト取得エラー:', privateError)
@@ -957,7 +967,10 @@ export function useScheduleData(currentDate: Date) {
       })
       
       // 貸切リクエストを取得して追加
-      const { data: privateRequests, error: privateError } = await supabase
+      // organization_idを取得（マルチテナント対応）
+      const orgIdForPrivate2 = await getCurrentOrganizationId()
+      
+      let privateQuery2 = supabase
         .from('reservations')
         .select(`
           id,
@@ -975,6 +988,12 @@ export function useScheduleData(currentDate: Date) {
         `)
         .eq('reservation_source', 'web_private')
         .eq('status', 'confirmed')
+      
+      if (orgIdForPrivate2) {
+        privateQuery2 = privateQuery2.eq('organization_id', orgIdForPrivate2)
+      }
+      
+      const { data: privateRequests, error: privateError } = await privateQuery2
       
       if (privateError) {
         logger.error('貸切リクエスト取得エラー:', privateError)

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
 const FAVORITES_KEY = 'scenario_favorites'
@@ -113,11 +114,13 @@ export function useFavorites() {
           logger.info('Removed from favorites:', scenarioId)
         } else {
           // お気に入りに追加
+          const orgId = await getCurrentOrganizationId()
           const { error } = await supabase
             .from('scenario_likes')
             .insert({
               customer_id: customerId,
-              scenario_id: scenarioId
+              scenario_id: scenarioId,
+              organization_id: orgId
             })
 
           if (error) throw error

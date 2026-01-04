@@ -3,6 +3,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -29,6 +30,7 @@ type Scenario = {
 
 export function ScenarioMatcher() {
   const { user } = useAuth()
+  const { organizationId } = useOrganization()
   const [unmatchedEvents, setUnmatchedEvents] = useState<UnmatchedEvent[]>([])
   const [allScenarios, setAllScenarios] = useState<Scenario[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -64,19 +66,30 @@ export function ScenarioMatcher() {
   const loadUnmatchedEvents = async () => {
     setIsLoading(true)
     try {
-      // スケジュールイベントを取得
-      const { data: events, error: eventsError } = await supabase
+      // スケジュールイベントを取得（組織フィルタ付き）
+      let eventsQuery = supabase
         .from('schedule_events')
         .select('id, date, scenario, venue')
         .not('scenario', 'is', null)
-        .order('date', { ascending: false })
+      
+      if (organizationId) {
+        eventsQuery = eventsQuery.eq('organization_id', organizationId)
+      }
+      
+      const { data: events, error: eventsError } = await eventsQuery.order('date', { ascending: false })
       
       if (eventsError) throw eventsError
       
-      // シナリオマスターを取得
-      const { data: scenarios, error: scenariosError } = await supabase
+      // シナリオマスターを取得（組織フィルタ付き）
+      let scenariosQuery = supabase
         .from('scenarios')
         .select('title')
+      
+      if (organizationId) {
+        scenariosQuery = scenariosQuery.eq('organization_id', organizationId)
+      }
+      
+      const { data: scenarios, error: scenariosError } = await scenariosQuery
       
       if (scenariosError) throw scenariosError
       
@@ -126,10 +139,15 @@ export function ScenarioMatcher() {
 
   const loadAllScenarios = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('scenarios')
         .select('id, title')
-        .order('title')
+      
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId)
+      }
+      
+      const { data, error } = await query.order('title')
       
       if (error) throw error
       setAllScenarios(data || [])

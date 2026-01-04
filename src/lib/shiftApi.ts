@@ -12,6 +12,7 @@ export interface ShiftSubmission {
   submitted_at?: string | null
   status: 'draft' | 'submitted' | 'approved' | 'rejected'
   notes?: string | null
+  organization_id: string  // マルチテナント対応
   created_at: string
   updated_at: string
 }
@@ -24,13 +25,20 @@ export const shiftApi = {
     const daysInMonth = new Date(year, month, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
     
-    const { data, error } = await supabase
+    const orgId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('shift_submissions')
       .select('*')
       .eq('staff_id', staffId)
       .gte('date', startDate)
       .lte('date', endDate)
-      .order('date')
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query.order('date')
     
     if (error) throw error
     return data || []

@@ -33,7 +33,7 @@ export interface PrivateBookingRequest {
   status: string
   gm_responses?: Array<{
     gm_name?: string
-    response_type: string
+    response_status: string
     available_candidates?: number[]
     selected_candidate_index?: number
     notes?: string
@@ -172,9 +172,9 @@ export const usePrivateBookingData = ({ userId, userRole, activeTab }: UsePrivat
           // GM回答を別途取得
           const { data: gmResponses } = await supabase
             .from('gm_availability_responses')
-            .select('gm_name, response_type, available_candidates, selected_candidate_index, notes')
+            .select('gm_name, response_status, available_candidates, selected_candidate_index, notes')
             .eq('reservation_id', req.id)
-            .in('response_type', ['available', 'unavailable'])
+            .in('response_status', ['available', 'unavailable'])
 
           // デバッグ: candidate_datetimesの構造を確認
           if (req.candidate_datetimes?.candidates) {

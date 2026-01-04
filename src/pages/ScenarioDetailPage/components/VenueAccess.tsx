@@ -63,9 +63,14 @@ export const VenueAccess = memo(function VenueAccess({
 
   return (
     <div>
-      <h3 className="text-sm font-medium text-muted-foreground mb-3">
+      <h3 className="text-sm font-medium text-muted-foreground mb-1">
         {mode === 'schedule' ? '会場アクセス' : '選択店舗'}
       </h3>
+      {mode === 'private' && displayVenues.length > 1 && (
+        <p className="text-xs text-gray-500 mb-2">
+          ※ この中からいずれかの店舗で確定します
+        </p>
+      )}
       <Card>
         <CardContent className="p-4 space-y-3">
           {displayVenues.map((venue, index) => {

@@ -2,6 +2,7 @@
  * 外部公演報告 API
  */
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import type { ExternalPerformanceReport, LicensePerformanceSummary } from '@/types'
 
 /**
@@ -38,7 +39,9 @@ export async function createExternalReport(
  * 外部公演報告一覧を取得（自組織の報告）
  */
 export async function getMyExternalReports(): Promise<ExternalPerformanceReport[]> {
-  const { data, error } = await supabase
+  const orgId = await getCurrentOrganizationId()
+  
+  let query = supabase
     .from('external_performance_reports')
     .select(`
       *,
@@ -47,6 +50,12 @@ export async function getMyExternalReports(): Promise<ExternalPerformanceReport[
       reviewer:reviewed_by (id, name)
     `)
     .order('created_at', { ascending: false })
+
+  if (orgId) {
+    query = query.eq('organization_id', orgId)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     console.error('Failed to fetch external reports:', error)

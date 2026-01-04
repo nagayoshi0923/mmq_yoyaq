@@ -6,6 +6,7 @@ interface ActionButtonsProps {
   onReject: () => void
   onCancel: () => void
   disabled: boolean
+  submitting?: boolean // 却下ボタン用（選択状態に関係なく押せる）
 }
 
 /**
@@ -15,7 +16,8 @@ export const ActionButtons = ({
   onApprove,
   onReject,
   onCancel,
-  disabled
+  disabled,
+  submitting = false
 }: ActionButtonsProps) => {
   return (
     <div className="flex gap-2">
@@ -31,7 +33,7 @@ export const ActionButtons = ({
         variant="destructive"
         className="flex-1 text-sm"
         onClick={onReject}
-        disabled={disabled}
+        disabled={submitting}
         size="sm"
       >
         <XCircle className="w-4 h-4 mr-1.5" />

@@ -48,8 +48,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
     }
   }, [location.pathname])
 
-  // 店舗フィルター（アカウントごとに保存）
-  const [selectedStoreFilter, setSelectedStoreFilter] = useStoreFilterPreference('all')
+  // 店舗フィルター（アカウントごとに保存、複数選択対応）
+  const [selectedStoreIds, setSelectedStoreIds] = useStoreFilterPreference([])
   const [isStoreFilterInitialized, setIsStoreFilterInitialized] = useState(false)
 
   // データ取得フック
@@ -68,36 +68,33 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   // 店舗データがロードされたら、保存されたフィルターを検証（存在しない店舗IDの場合はリセット）
   useEffect(() => {
     if (stores.length > 0 && !isStoreFilterInitialized) {
-      // 保存されたフィルターが有効か確認
-      if (selectedStoreFilter && selectedStoreFilter !== 'all') {
-        const storeExists = stores.some(s => s.id === selectedStoreFilter)
-        if (!storeExists) {
-          // 店舗が存在しない場合はデフォルト（馬場）を選択
-          const babaStore = stores.find(s => s.name?.includes('馬場') || s.short_name?.includes('馬場'))
-          if (babaStore) {
-            setSelectedStoreFilter(babaStore.id)
-          }
+      // 保存されたフィルターが有効か確認（存在しない店舗IDを除外）
+      if (selectedStoreIds.length > 0) {
+        const validIds = selectedStoreIds.filter(id => stores.some(s => s.id === id))
+        if (validIds.length !== selectedStoreIds.length) {
+          setSelectedStoreIds(validIds)
         }
-      } else if (!selectedStoreFilter || selectedStoreFilter === 'all') {
-        // 保存がない場合はデフォルト（馬場）を選択
+      }
+      // 保存がない場合はデフォルト（馬場）を選択
+      if (selectedStoreIds.length === 0) {
         const babaStore = stores.find(s => s.name?.includes('馬場') || s.short_name?.includes('馬場'))
         if (babaStore) {
-          setSelectedStoreFilter(babaStore.id)
+          setSelectedStoreIds([babaStore.id])
         }
       }
       setIsStoreFilterInitialized(true)
     }
-  }, [stores, isStoreFilterInitialized, selectedStoreFilter, setSelectedStoreFilter])
+  }, [stores, isStoreFilterInitialized, selectedStoreIds, setSelectedStoreIds])
 
   // 店舗フィルター変更ハンドラ（useStoreFilterPreferenceで自動保存）
-  const handleStoreFilterChange = useCallback((storeId: string) => {
-    setSelectedStoreFilter(storeId)
-  }, [setSelectedStoreFilter])
+  const handleStoreIdsChange = useCallback((storeIds: string[]) => {
+    setSelectedStoreIds(storeIds)
+  }, [setSelectedStoreIds])
 
   // カレンダーデータフック
   const { currentMonth, setCurrentMonth, calendarDays, getEventsForDate } = useCalendarData(
     allEvents,
-    selectedStoreFilter,
+    selectedStoreIds,
     stores
   )
 
@@ -105,7 +102,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   const { listViewMonth, setListViewMonth, listViewData, getEventsForDateStore } = useListViewData(
     allEvents,
     stores,
-    selectedStoreFilter
+    selectedStoreIds
   )
 
   // 検索キーワード
@@ -295,8 +292,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 onMonthChange={setCurrentMonth}
                 calendarDays={calendarDays}
                 getEventsForDate={getEventsForDate}
-                selectedStoreFilter={selectedStoreFilter}
-                onStoreFilterChange={handleStoreFilterChange}
+                selectedStoreIds={selectedStoreIds}
+                onStoreIdsChange={handleStoreIdsChange}
                 stores={stores}
                 scenarios={scenarios}
                 onCardClick={handleCardClick}
@@ -313,8 +310,8 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
               <ListView
                 listViewMonth={listViewMonth}
                 onMonthChange={setListViewMonth}
-                selectedStoreFilter={selectedStoreFilter}
-                onStoreFilterChange={handleStoreFilterChange}
+                selectedStoreIds={selectedStoreIds}
+                onStoreIdsChange={handleStoreIdsChange}
                 stores={stores}
                 listViewData={listViewData}
                 getEventsForDateStore={getEventsForDateStore}

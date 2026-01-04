@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
@@ -32,7 +32,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   // 店舗選択をアカウントごとに記憶
   const [savedStoreIds, setSavedStoreIds] = usePrivateBookingStorePreference()
   // カレンダー/リストで選択した店舗をフォールバックとして使用
-  const [storeFilter] = useStoreFilterPreference('all')
+  const [storeFilterIds] = useStoreFilterPreference([])
   const [selectedStoreIds, setSelectedStoreIdsInternal] = useState<string[]>(savedStoreIds)
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<Array<{date: string, slot: TimeSlot}>>([])
   const [allStoreEvents, setAllStoreEvents] = useState<any[]>([])
@@ -58,22 +58,34 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     if (stores.length > 0 && !hasInitialized) {
       setHasInitialized(true)
       
+      // シナリオ対応店舗のIDセット（未設定の場合は全店舗）
+      const scenarioAvailableStores = scenario?.available_stores || scenario?.available_stores_ids
+      const hasScenarioStoreLimit = Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0
+      
       // 貸切用に保存された店舗がある場合はそれを使用
       if (savedStoreIds.length > 0) {
-        const validStoreIds = savedStoreIds.filter(id => 
-          stores.some(s => s.id === id)
-        )
+        const validStoreIds = savedStoreIds.filter(id => {
+          // 店舗が存在するかチェック
+          const storeExists = stores.some(s => s.id === id && s.ownership_type !== 'office')
+          // シナリオ対応店舗かチェック
+          const isScenarioStore = !hasScenarioStoreLimit || scenarioAvailableStores.includes(id)
+          return storeExists && isScenarioStore
+        })
         setSelectedStoreIdsInternal(validStoreIds)
-      } else if (storeFilter && storeFilter !== 'all') {
+      } else if (storeFilterIds && storeFilterIds.length > 0) {
         // 初回のみ：貸切用が空で、カレンダー/リストで店舗が選択されている場合
-        const storeExists = stores.some(s => s.id === storeFilter)
-        if (storeExists) {
-          setSelectedStoreIdsInternal([storeFilter])
-          setSavedStoreIds([storeFilter])
+        const validFilterIds = storeFilterIds.filter(id => {
+          const store = stores.find(s => s.id === id && s.ownership_type !== 'office')
+          const isScenarioStore = !hasScenarioStoreLimit || scenarioAvailableStores.includes(id)
+          return store && isScenarioStore
+        })
+        if (validFilterIds.length > 0) {
+          setSelectedStoreIdsInternal(validFilterIds)
+          setSavedStoreIds(validFilterIds)
         }
       }
     }
-  }, [stores, savedStoreIds, storeFilter, hasInitialized, setSavedStoreIds])
+  }, [stores, savedStoreIds, storeFilterIds, hasInitialized, setSavedStoreIds, scenario])
 
   // 現在の月から3ヶ月先までの全店舗のイベントを取得（貸切申込可能日判定用）
   useEffect(() => {
@@ -169,22 +181,25 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
   }, [stores])
 
   // そのシナリオを公演可能な店舗IDを取得（シナリオのavailable_stores設定から）
-  // オフィス（ownership_type='office'）は貸切リクエストの対象外
+  // オフィス（ownership_type='office'）と一時休業店舗は貸切リクエストの対象外
   const getAvailableStoreIds = useCallback((): Set<string> => {
-    // オフィスを除外した店舗リスト
-    const validStores = stores.filter(s => s.ownership_type !== 'office')
+    // オフィスを除外し、営業中の店舗のみ
+    const validStores = stores.filter(s => 
+      s.ownership_type !== 'office' && 
+      s.status === 'active'
+    )
     
     // シナリオにavailable_storesが設定されている場合のみ、その店舗に限定
     if (scenario) {
       const availableStores = scenario.available_stores || scenario.available_stores_ids
       // 配列が存在し、かつ空でない場合のみ限定
       if (Array.isArray(availableStores) && availableStores.length > 0) {
-        // オフィスを除外した上で、シナリオのavailable_storesと一致する店舗のみ
+        // オフィスを除外し営業中の店舗で、シナリオのavailable_storesと一致する店舗のみ
         return new Set(availableStores.filter(id => validStores.some(s => s.id === id)))
       }
     }
     
-    // 設定されていない場合、または空配列の場合は全店舗を対象（オフィス除く）
+    // 設定されていない場合、または空配列の場合は全店舗を対象（オフィス除く、営業中のみ）
     return new Set(validStores.map(s => s.id))
   }, [scenario, stores])
   
@@ -321,17 +336,51 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       if (!isWithinBusinessHours(date, slot.startTime, storeId, targetTimeSlot)) return false
       const targetDate = date.split('T')[0]
       
-      const hasEvent = allStoreEvents.some((e: any) => {
-        const eventStoreId = getEventStoreId(e)
-        if (!eventStoreId) return false
+      // 申込みたい公演の時間範囲（分）
+      // 追加準備時間を終了時間に加算
+      const parseTime = (time: string): number => {
+        const [h, m] = time.split(':').map(Number)
+        return h * 60 + (m || 0)
+      }
+      const extraPrepTime = scenario?.extra_preparation_time || 0
+      const requestStart = parseTime(slot.startTime)
+      const requestEnd = parseTime(slot.endTime) + extraPrepTime
+      
+      // その店舗・日付のイベントで、時間が被るものがあるかチェック
+      const hasConflict = allStoreEvents.some((e: any) => {
+        // store_idを直接使用（優先）、なければstores.idを使用
+        const eventStoreId = e.store_id || e.stores?.id
+        if (!eventStoreId || eventStoreId !== storeId) return false
         
         const eventDate = e.date ? (typeof e.date === 'string' ? e.date.split('T')[0] : e.date) : null
-        const eventTimeSlot = e.start_time ? getTimeSlot(e.start_time) : null
+        if (eventDate !== targetDate) return false
         
-        return eventDate === targetDate && eventStoreId === storeId && eventTimeSlot === targetTimeSlot
+        // イベントの開始・終了時間を取得
+        const eventStartTime = e.start_time || ''
+        const eventEndTime = e.end_time || ''
+        
+        if (!eventStartTime) return false
+        
+        // 既存イベントのシナリオの追加準備時間を取得
+        const eventExtraPrepTime = e.scenarios?.extra_preparation_time || 0
+        // デフォルト準備時間（60分）+ 追加準備時間
+        const eventPrepTime = 60 + eventExtraPrepTime
+        
+        // 既存イベントの「実質開始時間」= 開始時間 - 準備時間
+        const eventStart = parseTime(eventStartTime)
+        const eventActualStart = eventStart - eventPrepTime
+        // 終了時間がない場合はデフォルト4時間と仮定
+        const eventEnd = eventEndTime ? parseTime(eventEndTime) : eventStart + 240
+        
+        // 時間が被っているかチェック
+        // 申込み公演の終了時間（準備時間込み）が、既存イベントの実質開始時間より後
+        // かつ、申込み公演の開始時間が、既存イベントの終了時間より前
+        const hasOverlap = requestStart < eventEnd && requestEnd > eventActualStart
+        
+        return hasOverlap
       })
       
-      return !hasEvent // イベントがなければ空いている
+      return !hasConflict // コンフリクトがなければ空いている
     }
     
     // 店舗が選択されている場合：選択された店舗のいずれかで空きがあればtrue
@@ -340,6 +389,11 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
         availableStoreIds.size === 0 || availableStoreIds.has(storeId)
       )
       if (validStoreIds.length === 0) return false
+      
+      // デバッグログ（1/4のみ詳細表示）
+      const targetDate = date.split('T')[0]
+      const targetTimeSlot = getTimeSlotFromLabel(slot.label)
+      
       return validStoreIds.some(storeId => checkStoreAvailability(storeId))
     }
     
@@ -422,10 +476,13 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     }
   }, [selectedTimeSlots])
 
-  // 日付に基づいて時間枠を取得（営業時間設定を反映）
+  // 日付に基づいて時間枠を取得（営業時間設定を反映、シナリオ公演時間から逆算）
   const getTimeSlotsForDate = useCallback((date: string): TimeSlot[] => {
     const dayOfWeek = new Date(date).getDay() // 0=日曜日, 1=月曜日, ...
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+    
+    // シナリオの公演時間（分）- デフォルト180分（3時間）
+    const durationMinutes = scenario?.duration || 180
     
     // 選択された店舗がある場合は、その店舗の設定を使用
     // 店舗未選択時はキャッシュの最初の店舗の設定を使用（全店舗共通設定として）
@@ -438,15 +495,15 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     const settings = targetStoreId ? businessHoursCache.get(targetStoreId) : null
     
-    // デフォルトの開始時間
-    const defaultTimes = {
-      morning: '10:00',
-      afternoon: isWeekend ? '14:00' : '13:00',
-      evening: '18:00'
+    // 朝公演: 開始時間固定
+    const morningStartTime = '09:00'
+    // 昼・夜公演: 終了時間固定
+    const slotEndTimes = {
+      afternoon: '18:00', // 昼公演終了
+      evening: '23:00'    // 夜公演終了
     }
     
     // 営業時間設定がある場合、曜日ごとの設定を取得
-    let slotTimes = defaultTimes
     let availableSlots: ('morning' | 'afternoon' | 'evening')[] = isWeekend 
       ? ['morning', 'afternoon', 'evening'] 
       : ['afternoon', 'evening']
@@ -456,24 +513,25 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
       const dayName = dayNames[dayOfWeek]
       const dayHours = settings.opening_hours[dayName]
       
-      logger.log('[getTimeSlotsForDate] 店舗設定あり:', {
-        storeId: targetStoreId,
-        dayName,
-        slot_start_times: dayHours?.slot_start_times,
-        available_slots: dayHours?.available_slots
-      })
-      
       if (dayHours) {
-        if (dayHours.slot_start_times) {
-          slotTimes = { ...defaultTimes, ...dayHours.slot_start_times }
-          logger.log('[getTimeSlotsForDate] 適用する開始時間:', slotTimes)
-        }
+        // 店舗設定からは利用可能な公演枠のみを取得
         if (dayHours.available_slots && dayHours.available_slots.length > 0) {
           availableSlots = dayHours.available_slots
         }
       }
-    } else {
-      logger.log('[getTimeSlotsForDate] 設定なし、デフォルト使用:', { targetStoreId, defaultTimes })
+    }
+    
+    // 分を時間に変換
+    const minutesToTime = (minutes: number): string => {
+      const h = Math.floor(minutes / 60)
+      const m = minutes % 60
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+    }
+    
+    // 時間を分に変換
+    const timeToMinutes = (time: string): number => {
+      const [h, m] = time.split(':').map(Number)
+      return h * 60 + m
     }
     
     // 時間枠を生成（有効な公演枠のみ）
@@ -485,18 +543,57 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     return slotDefinitions
       .filter(def => availableSlots.includes(def.key))
-      .map(def => ({
-        label: def.label,
-        startTime: slotTimes[def.key],
-        endTime: calculateEndTime(slotTimes[def.key], 3 * 60) // 3時間後を終了時間とする（仮）
-      }))
-  }, [selectedStoreIds, businessHoursCache])
+      .map(def => {
+        if (def.key === 'morning') {
+          // 朝公演: 開始時間固定、終了時間 = 開始 + 公演時間
+          const startMinutes = timeToMinutes(morningStartTime)
+          const endMinutes = startMinutes + durationMinutes
+          return {
+            label: def.label,
+            startTime: morningStartTime,
+            endTime: minutesToTime(endMinutes)
+          }
+        } else {
+          // 昼・夜公演: 終了時間固定、開始時間 = 終了 - 公演時間
+          const endTime = slotEndTimes[def.key]
+          const endMinutes = timeToMinutes(endTime)
+          const startMinutes = endMinutes - durationMinutes
+          return {
+            label: def.label,
+            startTime: minutesToTime(startMinutes),
+            endTime: endTime
+          }
+        }
+      })
+  }, [selectedStoreIds, businessHoursCache, scenario])
+
+  // シナリオが対応している店舗のみにフィルタリングした店舗リスト
+  const availableStores = useMemo(() => {
+    // オフィスを除外し、営業中の店舗のみ
+    const validStores = stores.filter(s => 
+      s.ownership_type !== 'office' && 
+      s.status === 'active'
+    )
+    
+    // シナリオにavailable_storesが設定されている場合のみ、その店舗に限定
+    if (scenario) {
+      const scenarioAvailableStores = scenario.available_stores || scenario.available_stores_ids
+      // 配列が存在し、かつ空でない場合のみ限定
+      if (Array.isArray(scenarioAvailableStores) && scenarioAvailableStores.length > 0) {
+        return validStores.filter(s => scenarioAvailableStores.includes(s.id))
+      }
+    }
+    
+    // 設定されていない場合、または空配列の場合は全店舗を対象（オフィス除く、営業中のみ）
+    return validStores
+  }, [scenario, stores])
 
   return {
     currentMonth,
     selectedStoreIds,
     selectedTimeSlots,
     MAX_SELECTIONS,
+    availableStores,
     setSelectedStoreIds,
     setSelectedTimeSlots,
     checkTimeSlotAvailability,

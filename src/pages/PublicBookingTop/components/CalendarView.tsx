@@ -13,8 +13,8 @@ interface CalendarViewProps {
   onMonthChange: (date: Date) => void
   calendarDays: CalendarDay[]
   getEventsForDate: (date: Date) => any[]
-  selectedStoreFilter: string
-  onStoreFilterChange: (storeId: string) => void
+  selectedStoreIds: string[]
+  onStoreIdsChange: (storeIds: string[]) => void
   stores: any[]
   scenarios: any[]
   onCardClick: (scenarioId: string) => void
@@ -33,8 +33,8 @@ export const CalendarView = memo(function CalendarView({
   onMonthChange,
   calendarDays,
   getEventsForDate,
-  selectedStoreFilter,
-  onStoreFilterChange,
+  selectedStoreIds,
+  onStoreIdsChange,
   stores,
   scenarios,
   onCardClick,
@@ -74,8 +74,8 @@ export const CalendarView = memo(function CalendarView({
       <BookingFilters
         currentMonth={currentMonth}
         onMonthChange={onMonthChange}
-        selectedStoreFilter={selectedStoreFilter}
-        onStoreFilterChange={onStoreFilterChange}
+        selectedStoreIds={selectedStoreIds}
+        onStoreIdsChange={onStoreIdsChange}
         stores={stores}
       />
       
@@ -145,13 +145,15 @@ export const CalendarView = memo(function CalendarView({
                     const canApplyPrivateBooking = diffDays >= privateBookingDeadlineDays
                     
                     // blockedEventsにも店舗フィルターを適用
-                    const blockedEvents = selectedStoreFilter !== 'all'
+                    const blockedEvents = selectedStoreIds.length > 0
                       ? allBlockedEvents.filter((e: any) => {
                           const eventStoreId = e.store_id || e.venue
-                          const selectedStore = stores.find(s => s.id === selectedStoreFilter)
-                          return eventStoreId === selectedStoreFilter || 
-                                 eventStoreId === selectedStore?.short_name || 
-                                 eventStoreId === selectedStore?.name
+                          return selectedStoreIds.some(storeId => {
+                            const selectedStore = stores.find(s => s.id === storeId)
+                            return eventStoreId === storeId || 
+                                   eventStoreId === selectedStore?.short_name || 
+                                   eventStoreId === selectedStore?.name
+                          })
                         })
                       : allBlockedEvents
                     
@@ -168,9 +170,9 @@ export const CalendarView = memo(function CalendarView({
                       return 'evening'
                     }
                     
-                    // 選択中の店舗
-                    const selectedStore = selectedStoreFilter !== 'all' 
-                      ? stores.find(s => s.id === selectedStoreFilter) 
+                    // 選択中の店舗（複数選択の場合は最初の店舗を使用）
+                    const selectedStore = selectedStoreIds.length > 0 
+                      ? stores.find(s => s.id === selectedStoreIds[0]) 
                       : null
                     
                     const timeSlots: { slot: 'morning' | 'afternoon' | 'evening', label: string }[] = [

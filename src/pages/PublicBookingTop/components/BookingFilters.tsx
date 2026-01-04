@@ -1,11 +1,11 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MonthSwitcher } from '@/components/patterns/calendar'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 
 interface BookingFiltersProps {
   currentMonth: Date
   onMonthChange: (date: Date) => void
-  selectedStoreFilter: string
-  onStoreFilterChange: (storeId: string) => void
+  selectedStoreIds: string[]
+  onStoreIdsChange: (storeIds: string[]) => void
   stores: any[]
 }
 
@@ -16,10 +16,13 @@ interface BookingFiltersProps {
 export function BookingFilters({
   currentMonth,
   onMonthChange,
-  selectedStoreFilter,
-  onStoreFilterChange,
+  selectedStoreIds,
+  onStoreIdsChange,
   stores
 }: BookingFiltersProps) {
+  // 臨時会場を除外
+  const filteredStores = stores.filter(store => !store.is_temporary)
+  
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4 sm:mb-6">
       {/* 月ナビゲーション */}
@@ -35,21 +38,16 @@ export function BookingFilters({
       {/* 店舗フィルター */}
       <div className="flex items-center gap-2 justify-center sm:justify-end">
         <label className="text-xs sm:text-sm whitespace-nowrap">店舗:</label>
-        <Select value={selectedStoreFilter} onValueChange={onStoreFilterChange}>
-          <SelectTrigger className="w-full sm:w-48 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">すべて</SelectItem>
-            {stores
-              .filter(store => !store.is_temporary) // 臨時会場はプルダウンに表示しない
-              .map(store => (
-                <SelectItem key={store.id} value={store.id}>
-                  {store.short_name || store.name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+        <div className="w-full sm:w-52">
+          <StoreMultiSelect
+            stores={filteredStores}
+            selectedStoreIds={selectedStoreIds}
+            onStoreIdsChange={onStoreIdsChange}
+            hideLabel={true}
+            placeholder="すべて"
+            emptyText=""
+          />
+        </div>
       </div>
     </div>
   )

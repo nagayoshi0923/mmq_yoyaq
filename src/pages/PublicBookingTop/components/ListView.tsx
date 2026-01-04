@@ -13,8 +13,8 @@ interface ListViewData {
 interface ListViewProps {
   listViewMonth: Date
   onMonthChange: (date: Date) => void
-  selectedStoreFilter: string
-  onStoreFilterChange: (storeId: string) => void
+  selectedStoreIds: string[]
+  onStoreIdsChange: (storeIds: string[]) => void
   stores: any[]
   listViewData: ListViewData[]
   getEventsForDateStore: (date: number, storeId: string) => any[]
@@ -32,8 +32,8 @@ interface ListViewProps {
 export const ListView = memo(function ListView({
   listViewMonth,
   onMonthChange,
-  selectedStoreFilter,
-  onStoreFilterChange,
+  selectedStoreIds,
+  onStoreIdsChange,
   stores,
   listViewData,
   getEventsForDateStore,
@@ -226,8 +226,8 @@ export const ListView = memo(function ListView({
       <BookingFilters
         currentMonth={listViewMonth}
         onMonthChange={onMonthChange}
-        selectedStoreFilter={selectedStoreFilter}
-        onStoreFilterChange={onStoreFilterChange}
+        selectedStoreIds={selectedStoreIds}
+        onStoreIdsChange={onStoreIdsChange}
         stores={stores}
       />
 

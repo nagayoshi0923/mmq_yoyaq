@@ -154,6 +154,7 @@ export interface Store {
   temporary_date?: string  // 【非推奨】temporary_dates を使用してください
   temporary_dates?: string[]  // 臨時会場が使用される日付の配列（例: ["2025-11-01", "2025-11-05"]）
   display_order?: number  // 表示順序（設定画面で変更可能）
+  region?: string  // 地域（例: "東京", "県外"）- 店舗選択でグループ分け表示に使用
   created_at: string
   updated_at: string
 }
@@ -285,6 +286,7 @@ export interface Scenario {
   use_flexible_pricing?: boolean // 柔軟な料金設定を使用
   available_stores?: string[] // 公演可能店舗ID
   gm_assignments?: Array<{ role: string; staff_id?: string; reward?: number }> // GM配置情報
+  extra_preparation_time?: number // 追加準備時間（分）。通常の60分に加算される
 }
 
 // 顧客向け公演情報（予約サイト用）

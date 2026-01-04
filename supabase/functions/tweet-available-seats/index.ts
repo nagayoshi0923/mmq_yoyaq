@@ -188,6 +188,194 @@ function formatDate(dateStr: string): string {
   return `${month}月${day}日(${dayOfWeek})`
 }
 
+// 配列からランダムに1つ選択
+function randomPick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+// 残り席数に応じたヘッダー表現
+function getSeatsHeader(availableSeats: number, maxParticipants: number): string {
+  // 残り1席
+  if (availableSeats === 1) {
+    return randomPick([
+      '🔥【ラスト1席！】',
+      '⚡【残り1席のみ！】',
+      '🎯【あと1人で満席！】',
+      '✨【最後の1席！】',
+      '🚨【ラスト1枠！お急ぎください】',
+    ])
+  }
+  
+  // 残り2席
+  if (availableSeats === 2) {
+    return randomPick([
+      '🔥【残り2席！】',
+      '⚡【あと2席！】',
+      '🎭【残りわずか2席！】',
+      '✨【ラスト2枠！】',
+    ])
+  }
+  
+  // 残り3席以下
+  if (availableSeats <= 3) {
+    return randomPick([
+      `🔥【残り${availableSeats}席！】`,
+      `⚡【あと${availableSeats}席！】`,
+      `🎭【残りわずか${availableSeats}席！】`,
+    ])
+  }
+  
+  // 半分以上埋まっている
+  if (availableSeats <= maxParticipants / 2) {
+    return randomPick([
+      `🎭【残り${availableSeats}席】`,
+      `✨【あと${availableSeats}席空いてます】`,
+      `📣【${availableSeats}席まだ空いてます！】`,
+    ])
+  }
+  
+  // まだ余裕がある
+  return randomPick([
+    `🎭【${availableSeats}席空いてます】`,
+    `✨【参加者募集中！残り${availableSeats}席】`,
+    `📣【まだ間に合う！残り${availableSeats}席】`,
+  ])
+}
+
+// 宣伝文句のパターン
+function getPromoMessage(availableSeats: number): string {
+  // 残り少ない時の緊急感
+  if (availableSeats <= 2) {
+    return randomPick([
+      '今すぐご予約を！',
+      'お早めにどうぞ！',
+      'ご予約はお急ぎください！',
+      '埋まる前にぜひ！',
+      'このチャンスをお見逃しなく！',
+    ])
+  }
+  
+  // 通常の宣伝文句
+  return randomPick([
+    '一緒に謎を解きませんか？',
+    'あなたの参加をお待ちしています！',
+    '初めての方も大歓迎！',
+    '友達を誘って参加しよう！',
+    'お一人様でも参加OK！',
+    '非日常の体験をあなたに。',
+    '推理好きなあなたへ。',
+    '明日、物語の主人公になろう。',
+    'リアル推理ゲームを体験しよう！',
+    '犯人は誰だ…？',
+  ])
+}
+
+// 時間帯に応じた挨拶
+function getTimeGreeting(): string {
+  const hour = new Date().getHours()
+  if (hour >= 5 && hour < 12) {
+    return randomPick(['おはようございます☀️', ''])
+  } else if (hour >= 12 && hour < 17) {
+    return randomPick(['こんにちは🌤️', ''])
+  } else {
+    return randomPick(['こんばんは🌙', '夜の告知です🌙', ''])
+  }
+}
+
+// ツイート本文を生成
+function generateTweetText(
+  scenarioTitle: string,
+  dateStr: string,
+  startTime: string,
+  endTime: string,
+  storeName: string,
+  availableSeats: number,
+  maxParticipants: number,
+  bookingUrl: string
+): string {
+  const header = getSeatsHeader(availableSeats, maxParticipants)
+  const greeting = getTimeGreeting()
+  const promo = getPromoMessage(availableSeats)
+  const formattedDate = formatDate(dateStr)
+  
+  // 複数のツイートパターン
+  const patterns = [
+    // パターン1: シンプル
+    `${header}明日の公演！
+
+📖 ${scenarioTitle}
+📅 ${formattedDate} ${startTime}〜${endTime}
+📍 ${storeName}
+
+${promo}
+
+ご予約👇
+${bookingUrl}
+
+#マーダーミステリー #MMQ`,
+
+    // パターン2: 挨拶付き
+    `${greeting}
+${header}
+
+明日【${scenarioTitle}】やります！
+
+🕐 ${formattedDate} ${startTime}〜
+📍 ${storeName}
+
+${promo}
+
+予約はこちら👇
+${bookingUrl}
+
+#マダミス #謎解き`,
+
+    // パターン3: 緊急感あり
+    `${header}
+
+【${scenarioTitle}】
+📅 明日 ${startTime}開演
+📍 ${storeName}
+
+${promo}
+ご予約お待ちしております！
+
+${bookingUrl}
+
+#マーダーミステリー #体験型ゲーム`,
+
+    // パターン4: カジュアル
+    `明日、空きあります！
+
+🎭 ${scenarioTitle}
+${header.replace(/【|】/g, '')}
+
+⏰ ${formattedDate} ${startTime}〜${endTime}
+📍 ${storeName}
+
+${promo}
+
+${bookingUrl}
+
+#マダミス #MMQ #${storeName.replace(/\s/g, '')}`,
+
+    // パターン5: 物語風
+    `明日、あなたは物語の登場人物になる──
+
+🎭 ${scenarioTitle}
+📅 ${formattedDate} ${startTime}〜
+📍 ${storeName}
+
+${header}
+
+${bookingUrl}
+
+#マーダーミステリー #謎解き #体験型`,
+  ]
+
+  return randomPick(patterns)
+}
+
 serve(async (req) => {
   // CORSプリフライトリクエストの処理
   if (req.method === 'OPTIONS') {
@@ -303,17 +491,17 @@ serve(async (req) => {
       const storeName = event.stores?.name || event.stores?.short_name || ''
       const imageUrl = event.scenarios?.key_visual_url
 
-      // ツイート本文を作成
-      const tweetText = `🎭【残り${availableSeats}席】明日の公演！
-
-📖 ${scenarioTitle}
-📅 ${formatDate(event.date)} ${event.start_time}〜${event.end_time}
-📍 ${storeName}
-
-ご予約はこちら👇
-${baseUrl}
-
-#マーダーミステリー #MMQ #${storeName.replace(/\s/g, '')}`
+      // ツイート本文を生成（ランダムパターン）
+      const tweetText = generateTweetText(
+        scenarioTitle,
+        event.date,
+        event.start_time,
+        event.end_time,
+        storeName,
+        availableSeats,
+        maxParticipants,
+        baseUrl
+      )
 
       console.log(`ツイート作成: ${scenarioTitle}`)
 

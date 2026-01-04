@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { formatDate } from '../utils/bookingFormatters'
+import { recalculateCurrentParticipants, getCurrentParticipantsCount } from '@/lib/participantUtils'
 
 /**
  * 参加費を計算する関数
@@ -60,7 +61,69 @@ const getTimeSlot = (startTime: string): string => {
 }
 
 /**
- * 予約制限をチェックする関数
+ * 重複予約をチェックする関数
+ */
+export const checkDuplicateReservation = async (
+  eventId: string,
+  customerEmail: string,
+  customerPhone?: string
+): Promise<{ hasDuplicate: boolean; existingReservation?: any }> => {
+  try {
+    // 同じ公演に対する既存の予約を確認
+    let query = supabase
+      .from('reservations')
+      .select('id, participant_count, customer_name, customer_email, reservation_number')
+      .eq('schedule_event_id', eventId)
+      .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+
+    // メールアドレスまたは電話番号でチェック
+    if (customerEmail) {
+      query = query.eq('customer_email', customerEmail)
+    }
+
+    const { data, error } = await query.limit(1)
+
+    if (error) {
+      logger.error('重複予約チェックエラー:', error)
+      return { hasDuplicate: false }
+    }
+
+    if (data && data.length > 0) {
+      return { hasDuplicate: true, existingReservation: data[0] }
+    }
+
+    // 電話番号でも追加チェック（メールが見つからなかった場合）
+    if (customerPhone && !data?.length) {
+      const { data: phoneData, error: phoneError } = await supabase
+        .from('reservations')
+        .select('id, participant_count, customer_name, customer_phone, reservation_number')
+        .eq('schedule_event_id', eventId)
+        .eq('customer_phone', customerPhone)
+        .in('status', ['pending', 'confirmed', 'gm_confirmed'])
+        .limit(1)
+
+      if (phoneError) {
+        logger.error('電話番号での重複予約チェックエラー:', phoneError)
+        return { hasDuplicate: false }
+      }
+
+      if (phoneData && phoneData.length > 0) {
+        return { hasDuplicate: true, existingReservation: phoneData[0] }
+      }
+    }
+
+    return { hasDuplicate: false }
+  } catch (error) {
+    logger.error('重複予約チェックエラー:', error)
+    return { hasDuplicate: false }
+  }
+}
+
+/**
+ * 🚨 CRITICAL: 予約制限をチェックする関数
+ * 
+ * 重要: 空席チェックは予約テーブルから直接集計した値を使用します。
+ * DBのcurrent_participantsは古い可能性があるため、信頼しません。
  */
 const checkReservationLimits = async (
   eventId: string,
@@ -81,10 +144,10 @@ const checkReservationLimits = async (
       return { allowed: true } // エラーの場合は制限しない
     }
 
-    // 公演の最大参加人数をチェック
+    // 公演の最大参加人数を取得
     const { data: eventData, error: eventError } = await supabase
       .from('schedule_events')
-      .select('max_participants, current_participants, reservation_deadline_hours')
+      .select('max_participants, capacity, reservation_deadline_hours')
       .eq('id', eventId)
       .single()
 
@@ -93,15 +156,25 @@ const checkReservationLimits = async (
       return { allowed: true }
     }
 
-    // 最大参加人数チェック
-    if (eventData.max_participants && participantCount > eventData.max_participants) {
-      return { allowed: false, reason: `最大参加人数は${eventData.max_participants}名です` }
+    // 最大参加人数（max_participants か capacity を使用）
+    const maxParticipants = eventData.max_participants || eventData.capacity || 8
+
+    // 最大参加人数チェック（1回の予約で定員を超える場合）
+    if (participantCount > maxParticipants) {
+      return { allowed: false, reason: `最大参加人数は${maxParticipants}名です` }
     }
 
-    // 現在の参加人数チェック
-    const currentParticipants = eventData.current_participants || 0
-    if (eventData.max_participants && (currentParticipants + participantCount) > eventData.max_participants) {
-      return { allowed: false, reason: `残り${eventData.max_participants - currentParticipants}名分の空きしかありません` }
+    // 🚨 CRITICAL: 現在の参加人数を予約テーブルから直接集計
+    // DBのcurrent_participantsは古い可能性があるため、信頼しない
+    const currentParticipants = await getCurrentParticipantsCount(eventId)
+    logger.log(`空席チェック: eventId=${eventId}, current=${currentParticipants}, max=${maxParticipants}, requesting=${participantCount}`)
+
+    if ((currentParticipants + participantCount) > maxParticipants) {
+      const available = maxParticipants - currentParticipants
+      if (available <= 0) {
+        return { allowed: false, reason: 'この公演は満席です' }
+      }
+      return { allowed: false, reason: `残り${available}名分の空きしかありません` }
     }
 
     // 予約締切チェック
@@ -290,15 +363,11 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         throw new Error('予約の作成に失敗しました。もう一度お試しください。')
       }
 
-      // 公演の参加者数を更新
-      const { error: updateError } = await supabase
-        .from('schedule_events')
-        .update({
-          current_participants: props.currentParticipants + participantCount
-        })
-        .eq('id', props.eventId)
-
-      if (updateError) {
+      // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
+      // 相対的な加減算ではなく、常に予約テーブルから集計して絶対値を設定
+      try {
+        await recalculateCurrentParticipants(props.eventId)
+      } catch (updateError) {
         logger.error('参加者数の更新エラー:', updateError)
       }
 

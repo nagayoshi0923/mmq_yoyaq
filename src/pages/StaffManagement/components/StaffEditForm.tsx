@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Link2, Unlink, Trash2 } from 'lucide-react'
 import type { Staff, Store, Scenario } from '@/types'
 
@@ -220,16 +221,13 @@ export function StaffEditForm({ staff, stores, scenarios, onSave, onCancel, onLi
 
             <div>
               <Label>担当店舗</Label>
-              <MultiSelect
-                options={storeOptions}
-                selectedValues={formData.stores || []}
-                onSelectionChange={(values) => setFormData({ ...formData, stores: values })}
-                placeholder="店舗を選択"
-                searchPlaceholder="店舗名で検索..."
-                emptyText="店舗がありません"
-                emptySearchText="店舗が見つかりません"
-                useIdAsValue={true}
-                showBadges={true}
+              <StoreMultiSelect
+                stores={stores}
+                selectedStoreIds={formData.stores || []}
+                onStoreIdsChange={(storeIds) => setFormData({ ...formData, stores: storeIds })}
+                hideLabel={true}
+                placeholder="担当店舗を選択"
+                emptyText="未選択=全店舗担当"
               />
             </div>
 

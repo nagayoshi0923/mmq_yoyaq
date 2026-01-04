@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { HelpButton } from '@/components/ui/help-button'
 import { StoreEditModal } from '@/components/modals/StoreEditModal'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { storeApi } from '@/lib/api'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import type { Store } from '@/types'
@@ -15,12 +16,8 @@ import {
   Store as StoreIcon, 
   Plus, 
   Edit, 
-  MapPin, 
-  Phone, 
-  Mail, 
   Users,
   Building,
-  CalendarDays,
   DoorOpen
 } from 'lucide-react'
 
@@ -234,111 +231,112 @@ export function StoreManagement() {
             </Card>
           </div>
 
-          {/* 店舗一覧 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-            {stores.map((store) => {
-              const colors = getStoreThemeClasses(store.short_name)
-              
-              return (
-                <Card key={store.id} className="bg-card border-border shadow-none">
-                  <CardHeader className="p-4 pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${colors.dot}`}></div>
-                          <span className="truncate">{store.name}</span>
-                        </CardTitle>
-                        <CardDescription className="text-xs mt-1">
-                          {store.short_name}
-                        </CardDescription>
-                      </div>
-                      <div className="flex flex-col gap-1 items-end flex-shrink-0">
-                        {getStatusBadge(store.status)}
-                        {store.ownership_type && (
-                          <Badge 
-                            // @ts-ignore
-                            variant={
-                              store.ownership_type === 'corporate' ? 'info' : 
-                              store.ownership_type === 'office' ? 'purple' :
-                              'warning'
-                            }
-                            className="text-[10px] px-1.5 py-0 font-normal"
-                          >
-                            {store.ownership_type === 'corporate' ? '直営店' : 
-                             store.ownership_type === 'office' ? 'オフィス' : 'FC'}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="p-4 space-y-4">
-                    <div className="space-y-2">
-                      {store.address && (
-                        <div className="flex items-start gap-2 text-sm">
-                          <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                          <span className="break-words min-w-0">{store.address}</span>
-                        </div>
-                      )}
-                      {store.phone_number && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <span className="break-all">{store.phone_number}</span>
-                        </div>
-                      )}
-                      {store.email && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <span className="break-all truncate">{store.email}</span>
-                        </div>
-                      )}
-                      {store.opening_date && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <CalendarDays className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <span className="truncate">開店日: {new Date(store.opening_date).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                      <div>
-                        <p className="text-xs text-muted-foreground">収容人数</p>
-                        <p className="text-base font-bold">{store.capacity}名</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">部屋数</p>
-                        <p className="text-base font-bold">{store.rooms}室</p>
-                      </div>
-                    </div>
-
-                    {store.manager_name && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">店長</p>
-                        <p className="text-sm">{store.manager_name}</p>
-                      </div>
+          {/* 店舗一覧テーブル */}
+          <Card className="shadow-none border">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-[200px]">店舗名</TableHead>
+                      <TableHead className="w-[100px]">ステータス</TableHead>
+                      <TableHead className="w-[100px]">タイプ</TableHead>
+                      <TableHead className="w-[100px]">都道府県</TableHead>
+                      <TableHead className="w-[80px] text-center">収容</TableHead>
+                      <TableHead className="w-[80px] text-center">部屋</TableHead>
+                      <TableHead className="hidden md:table-cell">住所</TableHead>
+                      <TableHead className="hidden lg:table-cell">店長</TableHead>
+                      <TableHead className="w-[80px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stores.map((store) => {
+                      const colors = getStoreThemeClasses(store.short_name)
+                      
+                      return (
+                        <TableRow 
+                          key={store.id} 
+                          className="hover:bg-muted/30 cursor-pointer"
+                          onClick={() => handleEditStore(store)}
+                        >
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-3 h-3 rounded-full flex-shrink-0 ${colors.dot}`}></div>
+                              <div>
+                                <div className="font-medium">{store.name}</div>
+                                <div className="text-xs text-muted-foreground">{store.short_name}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(store.status)}
+                          </TableCell>
+                          <TableCell>
+                            {store.ownership_type && (
+                              <Badge 
+                                // @ts-ignore
+                                variant={
+                                  store.ownership_type === 'corporate' ? 'info' : 
+                                  store.ownership_type === 'office' ? 'purple' :
+                                  'warning'
+                                }
+                                className="text-[10px] px-1.5 py-0 font-normal"
+                              >
+                                {store.ownership_type === 'corporate' ? '直営店' : 
+                                 store.ownership_type === 'office' ? 'オフィス' : 'FC'}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm text-muted-foreground">
+                              {store.region || '-'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="font-medium">{store.capacity || 0}</span>
+                            <span className="text-xs text-muted-foreground">名</span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="font-medium">{store.rooms || 0}</span>
+                            <span className="text-xs text-muted-foreground">室</span>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <span className="text-sm text-muted-foreground line-clamp-1">
+                              {store.address || '-'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <span className="text-sm">
+                              {store.manager_name || '-'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleEditStore(store)
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                    {stores.length === 0 && !loading && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          店舗が登録されていません
+                        </TableCell>
+                      </TableRow>
                     )}
-
-                    {store.notes && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">メモ</p>
-                        <p className="text-sm line-clamp-2 break-words">{store.notes}</p>
-                      </div>
-                    )}
-
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => handleEditStore(store)}
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      編集
-                    </Button>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
       </div>
 
       {/* 編集モーダル */}

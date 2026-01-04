@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
+import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import type { Reservation, Customer, ReservationSummary } from '@/types'
 
 // 顧客関連のAPI
@@ -503,27 +504,18 @@ export const reservationApi = {
         }
       }
 
-      // current_participants を更新
+      // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
+      // 相対的な加減算ではなく、常に予約テーブルから集計して絶対値を設定
       const addedCount = toAdd.length
       const removedCount = toRemove.filter(r => r.status !== 'cancelled').length
-      const diff = addedCount - removedCount
       
-      if (diff !== 0) {
-        const { data: eventData } = await supabase
-          .from('schedule_events')
-          .select('current_participants')
-          .eq('id', eventId)
-          .single()
-        
-        const currentCount = eventData?.current_participants || 0
-        const newCount = Math.max(0, currentCount + diff)
-        
-        await supabase
-          .from('schedule_events')
-          .update({ current_participants: newCount })
-          .eq('id', eventId)
-        
-        logger.log('📊 current_participants更新:', { eventId, oldCount: currentCount, newCount, diff })
+      if (addedCount > 0 || removedCount > 0) {
+        try {
+          const newCount = await recalculateCurrentParticipants(eventId)
+          logger.log('📊 current_participants再計算:', { eventId, newCount })
+        } catch (updateError) {
+          logger.error('参加者数の更新エラー:', updateError)
+        }
       }
     } catch (error) {
       logger.error('スタッフ予約同期エラー:', error)

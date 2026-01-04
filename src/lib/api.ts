@@ -6,6 +6,7 @@
 import { supabase } from './supabase'
 import { logger } from '@/utils/logger'
 import { getCurrentOrganizationId } from '@/lib/organization'
+import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 
 // 分割済みAPIを再エクスポート（後方互換性維持）
 export { storeApi } from './api/storeApi'
@@ -120,10 +121,17 @@ async function findMatchingScenario(scenarioName: string | undefined): Promise<{
     }
   }
   
-  // シナリオマスタから検索
-  const { data: scenarios } = await supabase
+  // シナリオマスタから検索（組織フィルタ付き）
+  const orgId = await getCurrentOrganizationId()
+  let query = supabase
     .from('scenarios')
     .select('id, title')
+  
+  if (orgId) {
+    query = query.eq('organization_id', orgId)
+  }
+  
+  const { data: scenarios } = await query
   
   if (!scenarios || scenarios.length === 0) return null
   
@@ -152,8 +160,11 @@ async function findMatchingScenario(scenarioName: string | undefined): Promise<{
 export const scheduleApi = {
   // 自分のスケジュールを取得（期間指定）
   async getMySchedule(staffName: string, startDate: string, endDate: string) {
+    // 組織フィルタ用
+    const orgId = await getCurrentOrganizationId()
+    
     // 1. GM（メインGM/サブGM）として割り当てられた公演を取得
-    const { data: gmEvents, error: gmError } = await supabase
+    let gmQuery = supabase
       .from('schedule_events')
       .select(`
         *,
@@ -176,13 +187,19 @@ export const scheduleApi = {
       .lte('date', endDate)
       .contains('gms', [staffName])
       .eq('is_cancelled', false)
+    
+    if (orgId) {
+      gmQuery = gmQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: gmEvents, error: gmError } = await gmQuery
       .order('date', { ascending: true })
       .order('start_time', { ascending: true })
     
     if (gmError) throw gmError
     
     // 2. スタッフ参加（予約）として登録された公演を取得
-    const { data: staffReservations, error: resError } = await supabase
+    let resQuery = supabase
       .from('reservations')
       .select(`
         schedule_event_id,
@@ -207,6 +224,12 @@ export const scheduleApi = {
       .contains('participant_names', [staffName])
       .eq('payment_method', 'staff')
       .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+    
+    if (orgId) {
+      resQuery = resQuery.eq('organization_id', orgId)
+    }
+    
+    const { data: staffReservations, error: resError } = await resQuery
     
     // スタッフ参加の公演を抽出（日付フィルタリング）
     const staffEvents = (staffReservations || [])
@@ -233,11 +256,17 @@ export const scheduleApi = {
     const reservationsMap = new Map<string, { participant_count: number }[]>()
     
     if (eventIds.length > 0) {
-      const { data: allReservations, error: reservationError } = await supabase
+      let allResQuery = supabase
         .from('reservations')
         .select('schedule_event_id, participant_count, status')
         .in('schedule_event_id', eventIds)
         .in('status', ['confirmed', 'pending', 'gm_confirmed'])
+      
+      if (orgId) {
+        allResQuery = allResQuery.eq('organization_id', orgId)
+      }
+      
+      const { data: allReservations, error: reservationError } = await allResQuery
       
       if (!reservationError && allReservations) {
         allReservations.forEach(reservation => {
@@ -296,7 +325,8 @@ export const scheduleApi = {
         scenarios:scenario_id (
           id,
           title,
-          player_count_max
+          player_count_max,
+          extra_preparation_time
         )
       `)
       .gte('date', startDate)
@@ -419,8 +449,9 @@ export const scheduleApi = {
       }
     })
     
-    // 確定した貸切公演を取得
-    const { data: confirmedPrivateBookings, error: privateError } = await supabase
+    // 確定した貸切公演を取得（組織フィルタ付き）
+    const privateOrgId = organizationId || await getCurrentOrganizationId()
+    let privateQuery = supabase
       .from('reservations')
       .select(`
         id,
@@ -446,6 +477,12 @@ export const scheduleApi = {
       .eq('reservation_source', 'web_private')
       .eq('status', 'confirmed')
       .is('schedule_event_id', null)
+    
+    if (privateOrgId && !skipOrgFilter) {
+      privateQuery = privateQuery.eq('organization_id', privateOrgId)
+    }
+    
+    const { data: confirmedPrivateBookings, error: privateError } = await privateQuery
     
     if (privateError) {
       logger.error('確定貸切公演取得エラー:', privateError)
@@ -539,8 +576,10 @@ export const scheduleApi = {
   },
 
   // シナリオIDで指定期間の公演を取得
-  async getByScenarioId(scenarioId: string, startDate: string, endDate: string) {
-    const { data: scheduleEvents, error } = await supabase
+  async getByScenarioId(scenarioId: string, startDate: string, endDate: string, organizationId?: string) {
+    const orgId = organizationId || await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('schedule_events')
       .select(`
         *,
@@ -562,6 +601,12 @@ export const scheduleApi = {
       .eq('category', 'open')
       .eq('is_reservation_enabled', true)
       .eq('is_cancelled', false)
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data: scheduleEvents, error } = await query
       .order('date', { ascending: true })
       .order('start_time', { ascending: true })
     
@@ -901,11 +946,8 @@ export const scheduleApi = {
               continue
             }
             
-            // current_participantsも更新（定員に設定）
-            await supabase
-              .from('schedule_events')
-              .update({ current_participants: capacity })
-              .eq('id', event.id)
+            // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
+            await recalculateCurrentParticipants(event.id)
             
             logger.log(`デモ参加者${neededParticipants}名を追加しました: ${event.scenario} (${event.date})`)
             successCount++

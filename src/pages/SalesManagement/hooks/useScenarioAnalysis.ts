@@ -25,7 +25,7 @@ export function useScenarioAnalysis() {
   const [period, setPeriod] = useState('thisMonth')
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
 
-  const loadScenarioData = useCallback(async (selectedPeriod: string, storeId: string) => {
+  const loadScenarioData = useCallback(async (selectedPeriod: string, storeIds: string[]) => {
     setLoading(true)
     setPeriod(selectedPeriod)
 
@@ -74,11 +74,11 @@ export function useScenarioAnalysis() {
     setDateRange(range)
 
     try {
-      logger.log('📊 シナリオ分析データ取得開始:', { period: selectedPeriod, storeId, range })
+      logger.log('📊 シナリオ分析データ取得開始:', { period: selectedPeriod, storeIds, range })
       const data = await salesApi.getScenarioPerformance(
         range.startDate,
         range.endDate,
-        storeId === 'all' ? undefined : storeId
+        storeIds.length > 0 ? storeIds : undefined
       )
       logger.log('📊 シナリオ分析データ取得完了:', { dataCount: data.length })
       setScenarioData(data)

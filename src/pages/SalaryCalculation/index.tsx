@@ -1,28 +1,36 @@
-import { useState, Fragment } from 'react'
+import { useState, Fragment, useEffect } from 'react'
 import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Search, Filter, ChevronDown, ChevronRight, Download } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useSalaryData } from './hooks/useSalaryData'
+import { storeApi } from '@/lib/api'
+import type { Store } from '@/types'
 
 export default function SalaryCalculation() {
   const [expandedStaff, setExpandedStaff] = useState<Set<string>>(new Set())
   const [searchStaff, setSearchStaff] = useState('')
-  const [selectedStore, setSelectedStore] = useState('all')
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([])
+  const [stores, setStores] = useState<Store[]>([])
   
   // 月選択（MonthSwitcher用）
   const [currentDate, setCurrentDate] = useState(() => new Date())
   const selectedYear = currentDate.getFullYear()
   const selectedMonth = currentDate.getMonth() + 1
 
+  // 店舗データ取得
+  useEffect(() => {
+    storeApi.getAll().then(data => setStores(data || []))
+  }, [])
+
   // データ取得
-  const { salaryData, loading } = useSalaryData(selectedYear, selectedMonth, selectedStore)
+  const { salaryData, loading } = useSalaryData(selectedYear, selectedMonth, selectedStoreIds)
 
   // スタッフ展開トグル
   const toggleStaffExpand = (staffId: string) => {
@@ -121,15 +129,13 @@ export default function SalaryCalculation() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {/* 店舗 */}
               <div className="space-y-1 sm:space-y-2">
-                <label className="text-xs sm:text-sm">店舗</label>
-                <Select value={selectedStore} onValueChange={setSelectedStore}>
-                  <SelectTrigger className="text-xs sm:text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全店舗</SelectItem>
-                  </SelectContent>
-                </Select>
+                <StoreMultiSelect
+                  stores={stores}
+                  selectedStoreIds={selectedStoreIds}
+                  onStoreIdsChange={setSelectedStoreIds}
+                  label="店舗"
+                  placeholder="全店舗"
+                />
               </div>
 
               {/* スタッフ検索 */}

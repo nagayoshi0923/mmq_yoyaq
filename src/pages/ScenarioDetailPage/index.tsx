@@ -26,6 +26,7 @@ import { PrivateBookingPanel } from './components/PrivateBookingPanel'
 import { BookingNotice } from './components/BookingNotice'
 import { VenueAccess } from './components/VenueAccess'
 import { RelatedScenarios } from './components/RelatedScenarios'
+import { StoreSelector } from './components/StoreSelector'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -39,6 +40,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
   const [activeTab, setActiveTab] = useState<'schedule' | 'private'>('schedule')
   const [showStickyInfo, setShowStickyInfo] = useState(false)
+  // 公演日程用の店舗フィルタ
+  const [scheduleStoreFilter, setScheduleStoreFilter] = useState<string[]>([])
   
   // スクロール検知（600px以上スクロールしたらスティッキー情報を表示）
   useEffect(() => {
@@ -75,6 +78,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
     selectedStoreIds,
     selectedTimeSlots,
     MAX_SELECTIONS,
+    availableStores,
     setSelectedStoreIds,
     setSelectedTimeSlots,
     checkTimeSlotAvailability,
@@ -288,9 +292,19 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 {/* 公演日程タブ */}
                 <TabsContent value="schedule">
                   <div>
+                    {/* 店舗フィルタ */}
+                    <StoreSelector
+                      stores={availableStores}
+                      selectedStoreIds={scheduleStoreFilter}
+                      onStoreIdsChange={setScheduleStoreFilter}
+                      label="店舗で絞り込み"
+                      placeholder="全店舗"
+                    />
                     <h3 className="mb-2 text-sm font-medium text-muted-foreground">日付を選択</h3>
                     <EventList
-                      events={events}
+                      events={scheduleStoreFilter.length > 0 
+                        ? events.filter(e => scheduleStoreFilter.includes(e.store_id))
+                        : events}
                       selectedEventId={selectedEventId}
                       scenarioTitle={scenario.scenario_title}
                       onEventSelect={setSelectedEventId}
@@ -301,7 +315,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 {/* 貸切リクエストタブ */}
                 <TabsContent value="private">
                   <PrivateBookingForm
-                    stores={stores}
+                    stores={availableStores}
                     selectedStoreIds={selectedStoreIds}
                     onStoreIdsChange={setSelectedStoreIds}
                     currentMonth={currentMonth}
@@ -377,12 +391,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                 )}
 
                 {activeTab === 'private' && (
-                  <>
+                  <div className="space-y-4">
                     {/* 選択店舗（選択した店舗がある場合のみ表示） */}
                     {selectedStoreIds.length > 0 && (
                       <VenueAccess
                         selectedStoreIds={selectedStoreIds}
-                        stores={stores}
+                        stores={availableStores}
                         mode="private"
                       />
                     )}
@@ -393,7 +407,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       isLoggedIn={!!user}
                       onRequestBooking={() => handlePrivateBookingRequest(!!user)}
                     />
-                  </>
+                  </div>
                 )}
               </div>
             </div>

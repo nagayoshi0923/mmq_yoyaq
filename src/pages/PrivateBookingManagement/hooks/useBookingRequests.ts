@@ -105,12 +105,12 @@ export function useBookingRequests({ userId, userRole, activeTab }: UseBookingRe
       // 各リクエストに対してGM回答を取得
       const formattedData: PrivateBookingRequest[] = await Promise.all(
         (data || []).map(async (req: any) => {
-          // GM回答を別途取得
+          // GM回答を別途取得（スタッフのavatar_colorも含める）
           const { data: gmResponses } = await supabase
             .from('gm_availability_responses')
-            .select('gm_name, response_type, available_candidates, selected_candidate_index, notes')
+            .select('staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, staff:staff_id(avatar_color)')
             .eq('reservation_id', req.id)
-            .in('response_type', ['available', 'unavailable'])
+            .in('response_status', ['available', 'unavailable'])
           
           return {
             id: req.id,

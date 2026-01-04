@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
 import { MonthSwitcher } from '@/components/patterns/calendar/MonthSwitcher'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Settings, TrendingUp } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { scenarioApi, staffApi, storeApi, scheduleApi } from '@/lib/api'
@@ -30,14 +31,14 @@ interface SalesOverviewProps {
   loading: boolean
   stores: StoreInfo[]
   selectedPeriod: string
-  selectedStore: string
+  selectedStoreIds: string[]
   dateRange: { startDate: string; endDate: string }
   customStartDate: string
   customEndDate: string
   onCustomStartDateChange: (date: string) => void
   onCustomEndDateChange: (date: string) => void
   onPeriodChange: (period: string) => void
-  onStoreChange: (store: string) => void
+  onStoreIdsChange: (storeIds: string[]) => void
   onDataRefresh?: () => void
   isFranchiseOnly?: boolean
 }
@@ -50,14 +51,14 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   loading,
   stores,
   selectedPeriod,
-  selectedStore,
+  selectedStoreIds,
   dateRange,
   customStartDate,
   customEndDate,
   onCustomStartDateChange,
   onCustomEndDateChange,
   onPeriodChange,
-  onStoreChange,
+  onStoreIdsChange,
   onDataRefresh,
   isFranchiseOnly = false
 }) => {
@@ -347,20 +348,14 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
           </Button>
 
           {/* 店舗選択 */}
-          <div className="w-full sm:w-[180px] md:w-[200px] flex-shrink-0">
-            <Select value={selectedStore} onValueChange={onStoreChange}>
-              <SelectTrigger className="text-xs sm:text-sm h-7 sm:h-8 md:h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全店舗</SelectItem>
-                {stores.map(store => (
-                  <SelectItem key={store.id} value={store.id}>
-                    {store.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="w-full sm:w-[200px] md:w-[250px] flex-shrink-0">
+            <StoreMultiSelect
+              stores={stores}
+              selectedStoreIds={selectedStoreIds}
+              onStoreIdsChange={onStoreIdsChange}
+              hideLabel
+              placeholder="全店舗"
+            />
           </div>
         </div>
       </div>
@@ -524,7 +519,7 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
             }
           }}
           stores={stores}
-          defaultStoreId={selectedStore !== 'all' ? selectedStore : undefined}
+          defaultStoreId={selectedStoreIds.length === 1 ? selectedStoreIds[0] : undefined}
           editingItem={editingProductionCost ? {
             id: editingProductionCost.id,
             date: editingProductionCost.date,

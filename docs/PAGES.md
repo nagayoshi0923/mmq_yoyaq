@@ -652,7 +652,7 @@ parseHash(hash: string): {
 | ページ名 | パス | 用途 | アクセス |
 |---------|------|------|---------|
 | **MyPage** | `#mypage` | マイページトップ | customer |
-| **ReservationsPage** | `#mypage/reservations` | 予約履歴 | customer |
+| **ReservationsPage** | `#mypage/reservations` | 予約履歴（キャンセル・人数変更可能） | customer |
 | **PlayedScenariosPage** | `#mypage/played` | プレイ済みシナリオ | customer |
 | **LikedScenariosPage** | `#mypage/liked` | お気に入り | customer |
 | **ProfilePage** | `#mypage/profile` | プロフィール編集 | customer |
@@ -682,6 +682,7 @@ parseHash(hash: string): {
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-01-03 | ReservationsPage（マイページ/予約履歴）にキャンセル・人数変更機能追加。重複予約警告機能を予約確認画面に追加 | AI |
 | 2026-01-02 | ユーザー管理・顧客管理をアカウント管理に統合（#accounts）。サイドバーで切り替え | AI |
 | 2026-01-02 | 組織情報・テナント管理を設定ページに統合。#organizations, #organization-settingsは#settingsにリダイレクト | AI |
 | 2026-01-01 | 給与設定ページ（SalarySettings）追加。GM給与計算式（基本給・時給）を設定画面から変更可能に | AI |

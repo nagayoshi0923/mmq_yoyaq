@@ -28,10 +28,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
     selectedStoreId: string,
     selectedCandidateOrder: number | null,
     stores: any[]
-  ) => {
+  ): Promise<{ success: boolean; error?: string }> => {
     if (!selectedGMId || !selectedStoreId || !selectedCandidateOrder) {
       logger.error('承認に必要な情報が不足しています')
-      return
+      return { success: false, error: '承認に必要な情報が不足しています' }
     }
 
     try {
@@ -44,7 +44,37 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       
       if (!selectedCandidate) {
         setSubmitting(false)
-        return
+        return { success: false, error: '候補日時が見つかりません' }
+      }
+
+      // 🚨 CRITICAL: 同じ日時・店舗に既存の公演がないかチェック
+      const { data: existingEvents, error: checkError } = await supabase
+        .from('schedule_events')
+        .select('id, scenario, start_time, end_time')
+        .eq('date', selectedCandidate.date)
+        .eq('store_id', selectedStoreId)
+        .neq('is_cancelled', true)
+
+      if (checkError) {
+        logger.error('既存公演チェックエラー:', checkError)
+      } else if (existingEvents && existingEvents.length > 0) {
+        // 時間帯の重複チェック
+        const candidateStart = selectedCandidate.startTime
+        const candidateEnd = selectedCandidate.endTime
+
+        for (const event of existingEvents) {
+          const eventStart = event.start_time?.substring(0, 5) || ''
+          const eventEnd = event.end_time?.substring(0, 5) || ''
+
+          // 時間帯が重複しているかチェック
+          if (candidateStart < eventEnd && candidateEnd > eventStart) {
+            setSubmitting(false)
+            return { 
+              success: false, 
+              error: `${selectedCandidate.date} ${candidateStart}〜${candidateEnd} の時間帯には既に「${event.scenario}」(${eventStart}〜${eventEnd})が入っています。` 
+            }
+          }
+        }
       }
 
       const updatedCandidateDatetimes = {
@@ -184,8 +214,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       }
 
       onSuccess()
+      return { success: true }
     } catch (error) {
       logger.error('承認エラー:', error)
+      return { success: false, error: '承認処理中にエラーが発生しました' }
     } finally {
       setSubmitting(false)
     }

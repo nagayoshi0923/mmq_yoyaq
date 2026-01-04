@@ -11,6 +11,7 @@
 | ファイル | 内容 |
 |---------|------|
 | [critical-features.md](./critical-features.md) | 🚨 削除禁止の重要機能リスト |
+| [multi-tenant-security.md](./multi-tenant-security.md) | 🚨 マルチテナント セキュリティ |
 | [design-guidelines.md](./design-guidelines.md) | デザインガイドライン（色・フォント・コンポーネント） |
 | [ui-design.md](./ui-design.md) | 全ページのUI要素詳細 |
 | [date-handling.md](./date-handling.md) | 日付処理のルール |

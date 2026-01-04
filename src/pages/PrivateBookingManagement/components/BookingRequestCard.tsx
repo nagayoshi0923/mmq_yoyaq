@@ -16,7 +16,7 @@ interface Candidate {
 
 interface GMResponse {
   gm_name?: string
-  response_type: string
+  response_status: string
   available_candidates?: number[]
   selected_candidate_index?: number
   notes?: string
@@ -102,7 +102,7 @@ export const BookingRequestCard = ({
               <div className="space-y-1">
                 {request.gm_responses.map((response, index) => (
                   <div key={index} className="text-sm text-purple-800">
-                    {response.gm_name || 'GM名不明'}: {response.response_type === 'available' ? '✅ 出勤可能' : '❌ 出勤不可'}
+                    {response.gm_name || 'GM名不明'}: {response.response_status === 'available' ? '✅ 出勤可能' : '❌ 出勤不可'}
                     {response.available_candidates && response.available_candidates.length > 0 && (
                       <span className="ml-2 text-purple-600">
                         (候補{response.available_candidates.map((idx) => idx + 1).join(', ')})
@@ -137,7 +137,7 @@ export const BookingRequestCard = ({
               {request.candidate_datetimes?.candidates?.map((candidate) => {
                 // GMが回答した候補かどうかをチェック
                 const isGMSelected = request.gm_responses?.some(response => 
-                  response.response_type === 'available' && 
+                  response.response_status === 'available' && 
                   response.available_candidates?.includes(candidate.order - 1) // 0始まりなので-1
                 )
                 

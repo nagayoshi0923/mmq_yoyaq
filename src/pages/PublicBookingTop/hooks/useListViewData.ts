@@ -9,7 +9,7 @@ interface ListViewDataItem {
 /**
  * リスト表示のロジックを管理するフック
  */
-export function useListViewData(allEvents: any[], stores: any[], selectedStoreFilter: string, blockedSlots: any[] = []) {
+export function useListViewData(allEvents: any[], stores: any[], selectedStoreIds: string[], blockedSlots: any[] = []) {
   const [listViewMonth, setListViewMonth] = useState(new Date())
 
   /**
@@ -70,9 +70,9 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
     const regularStores = stores.filter(store => !store.is_temporary)
     const temporaryStores = stores.filter(store => store.is_temporary)
     
-    const filteredRegularStores = selectedStoreFilter === 'all' 
+    const filteredRegularStores = selectedStoreIds.length === 0 
       ? regularStores 
-      : regularStores.filter(store => store.id === selectedStoreFilter)
+      : regularStores.filter(store => selectedStoreIds.includes(store.id))
     
     // 日付と店舗の組み合わせを生成
     const combinations: ListViewDataItem[] = []
@@ -98,7 +98,7 @@ export function useListViewData(allEvents: any[], stores: any[], selectedStoreFi
     })
     
     return combinations
-  }, [listViewMonth, stores, selectedStoreFilter, eventDateStoreSet])
+  }, [listViewMonth, stores, selectedStoreIds, eventDateStoreSet])
 
   /**
    * 最適化: 店舗データをMapに変換（O(1)アクセス）

@@ -1,19 +1,21 @@
 import React from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Label } from '@/components/ui/label'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { BarChart3 } from 'lucide-react'
 
 interface Store {
   id: string
   name: string
+  short_name: string
+  region?: string
 }
 
 interface ScenarioPerformanceHeaderProps {
   period: string
   onPeriodChange: (period: string) => void
-  selectedStore: string
-  onStoreChange: (storeId: string) => void
+  selectedStoreIds: string[]
+  onStoreIdsChange: (storeIds: string[]) => void
   stores: Store[]
   dateRange: { startDate: string; endDate: string }
 }
@@ -24,8 +26,8 @@ interface ScenarioPerformanceHeaderProps {
 export const ScenarioPerformanceHeader: React.FC<ScenarioPerformanceHeaderProps> = ({
   period,
   onPeriodChange,
-  selectedStore,
-  onStoreChange,
+  selectedStoreIds,
+  onStoreIdsChange,
   stores,
   dateRange
 }) => {
@@ -65,21 +67,14 @@ export const ScenarioPerformanceHeader: React.FC<ScenarioPerformanceHeaderProps>
       </div>
 
       {/* 店舗選択 */}
-      <div className="flex items-center gap-4">
-        <Label htmlFor="scenarioStoreSelect">店舗選択</Label>
-        <Select value={selectedStore} onValueChange={onStoreChange}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="店舗を選択" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全店舗</SelectItem>
-            {stores.map((store) => (
-              <SelectItem key={store.id} value={store.id}>
-                {store.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="w-64">
+        <StoreMultiSelect
+          stores={stores}
+          selectedStoreIds={selectedStoreIds}
+          onStoreIdsChange={onStoreIdsChange}
+          label="店舗選択"
+          placeholder="全店舗"
+        />
       </div>
     </div>
   )

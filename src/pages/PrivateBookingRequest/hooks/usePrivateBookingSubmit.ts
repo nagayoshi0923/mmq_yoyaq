@@ -161,16 +161,21 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
         throw new Error('貸切リクエストの送信に失敗しました。もう一度お試しください。')
       }
 
-      // このシナリオを担当できるGMを取得
+      // このシナリオを担当できるGMを取得（名前も一緒に）
       const { data: gmAssignments, error: gmError } = await supabase
         .from('staff_scenario_assignments')
-        .select('staff_id')
+        .select('staff_id, staff:staff_id(name)')
         .eq('scenario_id', props.scenarioId)
       
       if (!gmError && gmAssignments && gmAssignments.length > 0 && parentReservation) {
         try {
           // staff_idの重複を排除（同一スタッフが複数の役割で登録されている場合）
-          const uniqueStaffIds = [...new Set(gmAssignments.map(a => a.staff_id))]
+          const uniqueStaffMap = new Map<string, string>()
+          gmAssignments.forEach((a: any) => {
+            if (a.staff_id && !uniqueStaffMap.has(a.staff_id)) {
+              uniqueStaffMap.set(a.staff_id, a.staff?.name || '')
+            }
+          })
           
           // 既存のGM確認レコードを取得
           const { data: existingResponses } = await supabase
@@ -181,14 +186,16 @@ export function usePrivateBookingSubmit(props: UsePrivateBookingSubmitProps) {
           const existingStaffIds = new Set((existingResponses || []).map(r => r.staff_id))
           
           // 既存レコードがないGMのみ挿入対象にする
-          const newGmResponses = uniqueStaffIds
-            .filter(staffId => !existingStaffIds.has(staffId))
-            .map(staffId => ({
-          reservation_id: parentReservation.id,
+          const newGmResponses = Array.from(uniqueStaffMap.entries())
+            .filter(([staffId]) => !existingStaffIds.has(staffId))
+            .map(([staffId, gmName]) => ({
+              reservation_id: parentReservation.id,
               staff_id: staffId,
-          response_status: 'pending',
-          notified_at: new Date().toISOString()
-        }))
+              gm_name: gmName,
+              response_status: 'pending',
+              notified_at: new Date().toISOString(),
+              organization_id: reservationOrgId // 組織IDを追加
+            }))
         
           // 新規レコードがある場合のみ挿入
           if (newGmResponses.length > 0) {

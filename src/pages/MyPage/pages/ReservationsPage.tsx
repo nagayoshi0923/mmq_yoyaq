@@ -1,13 +1,46 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Clock, CheckCircle, MapPin } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Calendar, Clock, CheckCircle, MapPin, X, Users, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
+import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { OptimizedImage } from '@/components/ui/optimized-image'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
 import type { Reservation } from '@/types'
 import type { Store } from '@/types'
+
+// デフォルトのキャンセル期限（設定がない場合）
+const DEFAULT_CANCEL_DEADLINE_HOURS = 24
+
+// キャンセルポリシー情報
+interface CancellationPolicy {
+  policy: string
+  deadlineHours: number
+  fees: Array<{ hours_before: number; fee_percentage: number; description: string }>
+}
 
 export function ReservationsPage() {
   const { user } = useAuth()
@@ -15,6 +48,23 @@ export function ReservationsPage() {
   const [loading, setLoading] = useState(true)
   const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
   const [stores, setStores] = useState<Record<string, Store>>({})
+  
+  // キャンセルダイアログ
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicy | null>(null)
+  
+  // 店舗ごとのキャンセル期限をキャッシュ
+  const [storeDeadlines, setStoreDeadlines] = useState<Record<string, number>>({})
+  
+  // 人数変更ダイアログ
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<Reservation | null>(null)
+  const [newParticipantCount, setNewParticipantCount] = useState(1)
+  const [updating, setUpdating] = useState(false)
+  const [maxParticipants, setMaxParticipants] = useState<number | null>(null)
+  const [currentEventParticipants, setCurrentEventParticipants] = useState(0)
 
   useEffect(() => {
     if (user?.email) {
@@ -113,6 +163,22 @@ export function ReservationsPage() {
             })
             setStores(storeMap)
           }
+
+          // キャンセル期限を取得
+          const { data: settingsData, error: settingsError } = await supabase
+            .from('reservation_settings')
+            .select('store_id, cancellation_deadline_hours')
+            .in('store_id', Array.from(storeIds))
+          
+          if (!settingsError && settingsData) {
+            const deadlineMap: Record<string, number> = {}
+            settingsData.forEach(setting => {
+              if (setting.store_id && setting.cancellation_deadline_hours) {
+                deadlineMap[setting.store_id] = setting.cancellation_deadline_hours
+              }
+            })
+            setStoreDeadlines(deadlineMap)
+          }
         }
       }
     } catch (error) {
@@ -122,9 +188,34 @@ export function ReservationsPage() {
     }
   }
 
-  const formatDateTime = (date: string) => {
-    const d = new Date(date)
+  // 時間のみ表示（タイトルに日付が含まれているため）
+  const formatTime = (dateString: string) => {
+    // ISO文字列から直接時間を抽出（タイムゾーン変換を避ける）
+    // 形式: 2026-01-11T13:00:00 or 2026-01-11T13:00:00+09:00
+    const timeMatch = dateString.match(/T(\d{2}):(\d{2})/)
+    if (timeMatch) {
+      return `${timeMatch[1]}:${timeMatch[2]}`
+    }
+    // フォールバック
+    const d = new Date(dateString)
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+
+  // 日付と時間を表示（タイトルに日付がない場合用）
+  const formatDateTime = (dateString: string) => {
+    // ISO文字列から直接抽出
+    const match = dateString.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+    if (match) {
+      return `${match[1]}/${match[2]}/${match[3]} ${match[4]}:${match[5]}`
+    }
+    const d = new Date(dateString)
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+
+  // タイトルに日付が含まれているかチェック
+  const titleHasDate = (title: string) => {
+    // 「2026年1月11日」のような日付パターン
+    return /\d{4}年\d{1,2}月\d{1,2}日/.test(title)
   }
 
   const formatCurrency = (amount: number) => {
@@ -175,6 +266,176 @@ export function ReservationsPage() {
       .replace(/【貸切希望】/g, '【貸切】')
       .replace(/（候補\d+件）/g, '')
       .trim()
+  }
+
+  // キャンセル可能かどうかをチェック
+  const canCancel = (reservation: Reservation) => {
+    const eventDateTime = new Date(reservation.requested_datetime)
+    const now = new Date()
+    const hoursUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
+    // 店舗ごとの設定があればそれを使用、なければデフォルト
+    const deadlineHours = reservation.store_id && storeDeadlines[reservation.store_id] 
+      ? storeDeadlines[reservation.store_id] 
+      : DEFAULT_CANCEL_DEADLINE_HOURS
+    return hoursUntilEvent >= deadlineHours && reservation.status === 'confirmed'
+  }
+
+  // キャンセルの期限時間を取得
+  const getCancelDeadlineHours = (reservation: Reservation) => {
+    return reservation.store_id && storeDeadlines[reservation.store_id] 
+      ? storeDeadlines[reservation.store_id] 
+      : DEFAULT_CANCEL_DEADLINE_HOURS
+  }
+
+  // キャンセルポリシーを取得
+  const fetchCancellationPolicy = async (storeId: string | null | undefined): Promise<CancellationPolicy | null> => {
+    if (!storeId) return null
+    
+    try {
+      const { data, error } = await supabase
+        .from('reservation_settings')
+        .select('cancellation_policy, cancellation_deadline_hours, cancellation_fees')
+        .eq('store_id', storeId)
+        .maybeSingle()
+      
+      if (error || !data) return null
+      
+      return {
+        policy: data.cancellation_policy || '',
+        deadlineHours: data.cancellation_deadline_hours || DEFAULT_CANCEL_DEADLINE_HOURS,
+        fees: data.cancellation_fees || []
+      }
+    } catch (error) {
+      logger.error('キャンセルポリシー取得エラー:', error)
+      return null
+    }
+  }
+
+  // キャンセル処理
+  const handleCancelClick = async (reservation: Reservation) => {
+    setCancelTarget(reservation)
+    // キャンセルポリシーを取得
+    const policy = await fetchCancellationPolicy(reservation.store_id)
+    setCancellationPolicy(policy)
+    setCancelDialogOpen(true)
+  }
+
+  const handleCancelConfirm = async () => {
+    if (!cancelTarget) return
+    
+    setCancelling(true)
+    try {
+      // 予約をキャンセル
+      const { error } = await supabase
+        .from('reservations')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: 'お客様によるキャンセル'
+        })
+        .eq('id', cancelTarget.id)
+      
+      if (error) throw error
+
+      // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
+      if (cancelTarget.schedule_event_id) {
+        try {
+          await recalculateCurrentParticipants(cancelTarget.schedule_event_id)
+        } catch (updateError) {
+          logger.error('参加者数の更新エラー:', updateError)
+        }
+      }
+
+      toast.success('予約をキャンセルしました')
+      fetchReservations()
+    } catch (error) {
+      logger.error('予約キャンセルエラー:', error)
+      toast.error('キャンセルに失敗しました')
+    } finally {
+      setCancelling(false)
+      setCancelDialogOpen(false)
+      setCancelTarget(null)
+    }
+  }
+
+  // 人数変更処理
+  const handleEditClick = async (reservation: Reservation) => {
+    setEditTarget(reservation)
+    setNewParticipantCount(reservation.participant_count)
+    
+    // 公演の空席情報を取得
+    if (reservation.schedule_event_id) {
+      try {
+        const { data: eventData } = await supabase
+          .from('schedule_events')
+          .select('max_participants, current_participants')
+          .eq('id', reservation.schedule_event_id)
+          .single()
+        
+        if (eventData) {
+          setMaxParticipants(eventData.max_participants || null)
+          // この予約の人数を引いた現在の参加者数（他の予約分）
+          setCurrentEventParticipants((eventData.current_participants || 0) - reservation.participant_count)
+        }
+      } catch (error) {
+        logger.error('公演情報取得エラー:', error)
+      }
+    }
+    
+    setEditDialogOpen(true)
+  }
+
+  const handleEditConfirm = async () => {
+    if (!editTarget) return
+    
+    setUpdating(true)
+    try {
+      const oldCount = editTarget.participant_count
+      const countDiff = newParticipantCount - oldCount
+
+      // 参加費を再計算（1人あたりの料金 × 人数）
+      const pricePerPerson = editTarget.final_price / oldCount
+      const newPrice = pricePerPerson * newParticipantCount
+
+      // 予約を更新
+      const { error } = await supabase
+        .from('reservations')
+        .update({
+          participant_count: newParticipantCount,
+          base_price: newPrice,
+          total_price: newPrice,
+          final_price: newPrice
+        })
+        .eq('id', editTarget.id)
+      
+      if (error) throw error
+
+      // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
+      if (editTarget.schedule_event_id) {
+        try {
+          await recalculateCurrentParticipants(editTarget.schedule_event_id)
+        } catch (updateError) {
+          logger.error('参加者数の更新エラー:', updateError)
+        }
+      }
+
+      toast.success('参加人数を変更しました')
+      fetchReservations()
+    } catch (error) {
+      logger.error('予約更新エラー:', error)
+      toast.error('変更に失敗しました')
+    } finally {
+      setUpdating(false)
+      setEditDialogOpen(false)
+      setEditTarget(null)
+    }
+  }
+
+  // 人数変更可能な最大値を計算
+  const getMaxAllowedParticipants = () => {
+    if (!maxParticipants) return 10 // デフォルト上限
+    const available = maxParticipants - currentEventParticipants
+    return Math.max(1, available)
   }
 
   const getStoreInfo = (reservation: Reservation) => {
@@ -307,27 +568,26 @@ export function ReservationsPage() {
                     </div>
 
                     {/* 情報グリッド */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-3">
                       <div>
-                        <div className="text-xs text-muted-foreground mb-0.5">日時</div>
-                        <div className="text-sm font-medium">{formatDateTime(reservation.requested_datetime)}</div>
+                        <div className="text-xs text-muted-foreground mb-0.5">
+                          {titleHasDate(reservation.title) ? '開始時間' : '日時'}
+                        </div>
+                        <div className="text-sm font-medium">
+                          {titleHasDate(reservation.title) 
+                            ? formatTime(reservation.requested_datetime)
+                            : formatDateTime(reservation.requested_datetime)
+                          }
+                        </div>
                       </div>
                       <div>
-                        <div className="text-xs text-muted-foreground mb-0.5">参加人数</div>
+                        <div className="text-xs text-muted-foreground mb-0.5">人数</div>
                         <div className="text-sm font-medium">{reservation.participant_count}名</div>
                       </div>
                       <div>
                         <div className="text-xs text-muted-foreground mb-0.5">金額</div>
                         <div className="text-sm font-medium">{formatCurrency(reservation.final_price)}</div>
                       </div>
-                      {reservation.payment_method && (
-                        <div>
-                          <div className="text-xs text-muted-foreground mb-0.5">支払方法</div>
-                          <Badge className={`${getPaymentMethodBadgeColor(reservation.payment_method)} text-xs`}>
-                            {getPaymentMethodLabel(reservation.payment_method)}
-                          </Badge>
-                        </div>
-                      )}
                     </div>
 
                     {/* 会場情報 */}
@@ -345,6 +605,35 @@ export function ReservationsPage() {
                         )}
                       </div>
                     )}
+
+                    {/* アクションボタン */}
+                    <div className="mt-4 pt-3 border-t flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditClick(reservation)}
+                        className="flex-1"
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        人数変更
+                      </Button>
+                      {canCancel(reservation) ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCancelClick(reservation)}
+                          className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          キャンセル
+                        </Button>
+                      ) : (
+                        <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          {getCancelDeadlineHours(reservation)}時間前を過ぎたためキャンセル不可
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )
               })}
@@ -410,27 +699,26 @@ export function ReservationsPage() {
                   </div>
 
                   {/* 情報グリッド */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <div className="text-xs text-muted-foreground mb-0.5">日時</div>
-                      <div className="text-sm font-medium">{formatDateTime(reservation.requested_datetime)}</div>
+                      <div className="text-xs text-muted-foreground mb-0.5">
+                        {titleHasDate(reservation.title) ? '開始時間' : '日時'}
+                      </div>
+                      <div className="text-sm font-medium">
+                        {titleHasDate(reservation.title) 
+                          ? formatTime(reservation.requested_datetime)
+                          : formatDateTime(reservation.requested_datetime)
+                        }
+                      </div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground mb-0.5">参加人数</div>
+                      <div className="text-xs text-muted-foreground mb-0.5">人数</div>
                       <div className="text-sm font-medium">{reservation.participant_count}名</div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground mb-0.5">金額</div>
                       <div className="text-sm font-medium">{formatCurrency(reservation.final_price)}</div>
                     </div>
-                    {reservation.payment_method && (
-                      <div>
-                        <div className="text-xs text-muted-foreground mb-0.5">支払方法</div>
-                        <Badge className={`${getPaymentMethodBadgeColor(reservation.payment_method)} text-xs`}>
-                          {getPaymentMethodLabel(reservation.payment_method)}
-                        </Badge>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -490,27 +778,26 @@ export function ReservationsPage() {
                   </div>
 
                   {/* 情報グリッド */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <div className="text-xs text-muted-foreground mb-0.5">日時</div>
-                      <div className="text-sm font-medium">{formatDateTime(reservation.requested_datetime)}</div>
+                      <div className="text-xs text-muted-foreground mb-0.5">
+                        {titleHasDate(reservation.title) ? '開始時間' : '日時'}
+                      </div>
+                      <div className="text-sm font-medium">
+                        {titleHasDate(reservation.title) 
+                          ? formatTime(reservation.requested_datetime)
+                          : formatDateTime(reservation.requested_datetime)
+                        }
+                      </div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground mb-0.5">参加人数</div>
+                      <div className="text-xs text-muted-foreground mb-0.5">人数</div>
                       <div className="text-sm font-medium">{reservation.participant_count}名</div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground mb-0.5">金額</div>
                       <div className="text-sm font-medium">{formatCurrency(reservation.final_price)}</div>
                     </div>
-                    {reservation.payment_method && (
-                      <div>
-                        <div className="text-xs text-muted-foreground mb-0.5">支払方法</div>
-                        <Badge className={`${getPaymentMethodBadgeColor(reservation.payment_method)} text-xs`}>
-                          {getPaymentMethodLabel(reservation.payment_method)}
-                        </Badge>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -518,6 +805,158 @@ export function ReservationsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* キャンセル確認ダイアログ */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>予約をキャンセルしますか？</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 mt-2">
+                {cancelTarget && (
+                  <>
+                    <div className="font-medium text-foreground">{formatTitle(cancelTarget.title)}</div>
+                    <div className="text-sm text-muted-foreground">
+                      <div>日時: {formatDateTime(cancelTarget.requested_datetime)}</div>
+                      <div>参加人数: {cancelTarget.participant_count}名</div>
+                      <div>金額: {formatCurrency(cancelTarget.final_price)}</div>
+                    </div>
+                  </>
+                )}
+                
+                {/* キャンセルポリシー表示 */}
+                {cancellationPolicy && (
+                  <div className="mt-4 p-4 bg-muted/50 border rounded-md space-y-3">
+                    <h4 className="font-medium text-sm text-foreground">キャンセルポリシー</h4>
+                    
+                    {cancellationPolicy.policy && (
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {cancellationPolicy.policy}
+                      </p>
+                    )}
+                    
+                    {cancellationPolicy.fees && cancellationPolicy.fees.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">キャンセル料</p>
+                        <ul className="text-sm space-y-1">
+                          {[...cancellationPolicy.fees]
+                            .sort((a, b) => b.hours_before - a.hours_before)
+                            .map((fee, index) => {
+                              const days = Math.floor(fee.hours_before / 24)
+                              const hours = fee.hours_before % 24
+                              let timeText = ''
+                              if (days > 0) {
+                                timeText = `${days}日`
+                                if (hours > 0) timeText += `${hours}時間`
+                              } else if (hours > 0) {
+                                timeText = `${hours}時間`
+                              } else {
+                                timeText = '当日'
+                              }
+                              return (
+                                <li key={index} className="text-muted-foreground">
+                                  • {timeText}前: {fee.fee_percentage}%
+                                  {fee.description && ` (${fee.description})`}
+                                </li>
+                              )
+                            })}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {!cancellationPolicy && (
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
+                    キャンセル後の返金については、店舗にお問い合わせください。
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>戻る</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelConfirm}
+              disabled={cancelling}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {cancelling ? 'キャンセル中...' : 'キャンセルする'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 人数変更ダイアログ */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>参加人数を変更</DialogTitle>
+            <DialogDescription>
+              {editTarget && formatTitle(editTarget.title)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="participantCount">参加人数</Label>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setNewParticipantCount(Math.max(1, newParticipantCount - 1))}
+                  disabled={newParticipantCount <= 1}
+                >
+                  -
+                </Button>
+                <Input
+                  id="participantCount"
+                  type="number"
+                  min={1}
+                  max={getMaxAllowedParticipants()}
+                  value={newParticipantCount}
+                  onChange={(e) => setNewParticipantCount(Math.min(getMaxAllowedParticipants(), Math.max(1, parseInt(e.target.value) || 1)))}
+                  className="w-20 text-center"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setNewParticipantCount(Math.min(getMaxAllowedParticipants(), newParticipantCount + 1))}
+                  disabled={newParticipantCount >= getMaxAllowedParticipants()}
+                >
+                  +
+                </Button>
+                <span className="text-sm text-muted-foreground">名</span>
+              </div>
+              {maxParticipants && (
+                <p className="text-xs text-muted-foreground">
+                  残り空席: {getMaxAllowedParticipants()}名
+                </p>
+              )}
+            </div>
+            {editTarget && newParticipantCount !== editTarget.participant_count && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm">
+                <div>変更前: {editTarget.participant_count}名 → 変更後: {newParticipantCount}名</div>
+                <div className="mt-1">
+                  料金: {formatCurrency(editTarget.final_price)} → {formatCurrency((editTarget.final_price / editTarget.participant_count) * newParticipantCount)}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={updating}>
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleEditConfirm}
+              disabled={updating || (editTarget && newParticipantCount === editTarget.participant_count)}
+            >
+              {updating ? '変更中...' : '変更を保存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

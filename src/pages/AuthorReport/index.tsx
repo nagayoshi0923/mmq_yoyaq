@@ -4,9 +4,9 @@ import { showToast } from '@/utils/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Search, Filter, ChevronDown, ChevronRight, Copy, Mail, Check, MailCheck, Settings } from 'lucide-react'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuthorReportData } from './hooks/useAuthorReportData'
@@ -19,7 +19,8 @@ import type { AuthorPerformance } from './types'
 import { ScenarioEditDialog } from '@/components/modals/ScenarioEditDialog'
 import { AuthorEmailDialog } from './components/AuthorEmailDialog'
 import { AuthorLicenseEmailDialog } from './components/AuthorLicenseEmailDialog'
-import { authorApi, type Author } from '@/lib/api'
+import { authorApi, storeApi, type Author } from '@/lib/api'
+import type { Store } from '@/types'
 
 export default function AuthorReport() {
   const [copiedAuthor, setCopiedAuthor] = useState<string | null>(null)
@@ -39,16 +40,23 @@ export default function AuthorReport() {
   const selectedYear = currentDate.getFullYear()
   const selectedMonth = currentDate.getMonth() + 1
 
+  // 店舗データ
+  const [stores, setStores] = useState<Store[]>([])
+  
+  useEffect(() => {
+    storeApi.getAll().then(data => setStores(data || []))
+  }, [])
+
   // フィルター
   const {
-    selectedStore,
-    setSelectedStore,
+    selectedStoreIds,
+    setSelectedStoreIds,
     searchAuthor,
     setSearchAuthor
   } = useReportFilters([])
 
   // データ取得
-  const { monthlyData, loading, refresh } = useAuthorReportData(selectedYear, selectedMonth, selectedStore)
+  const { monthlyData, loading, refresh } = useAuthorReportData(selectedYear, selectedMonth, selectedStoreIds)
   const { data: allScenarios = [] } = useScenariosQuery()
 
   // フィルタリング適用
@@ -302,15 +310,13 @@ export default function AuthorReport() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {/* 店舗 */}
               <div className="space-y-1 sm:space-y-2">
-                <label className="text-xs sm:text-sm">店舗</label>
-                <Select value={selectedStore} onValueChange={setSelectedStore}>
-                  <SelectTrigger className="text-xs sm:text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全店舗</SelectItem>
-                  </SelectContent>
-                </Select>
+                <StoreMultiSelect
+                  stores={stores}
+                  selectedStoreIds={selectedStoreIds}
+                  onStoreIdsChange={setSelectedStoreIds}
+                  label="店舗"
+                  placeholder="全店舗"
+                />
               </div>
 
               {/* 作者検索 */}

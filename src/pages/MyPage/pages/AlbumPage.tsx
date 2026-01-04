@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Images, Calendar, MapPin, Star, EyeOff, Users, Clock, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -41,6 +42,7 @@ interface LikedScenario {
 
 export function AlbumPage() {
   const { user } = useAuth()
+  const { organizationId } = useOrganization()
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
   const [likedScenariosList, setLikedScenariosList] = useState<LikedScenario[]>([])
   const [hiddenScenarios, setHiddenScenarios] = useState<Set<string>>(new Set())
@@ -284,6 +286,7 @@ export function AlbumPage() {
           .insert({
             customer_id: customerId,
             scenario_id: scenarioId,
+            organization_id: organizationId,
           })
 
         if (error) throw error

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { Bell, Calendar, Clock, Save, Send, UserCheck } from 'lucide-react'
 import type { Staff } from '@/types'
 
@@ -64,14 +65,24 @@ export function NotificationSettings() {
   const handleSave = async () => {
     setSaving(true)
     try {
+      // organization_idを取得（マルチテナント対応）
+      const organizationId = await getCurrentOrganizationId()
+      if (!organizationId) {
+        showToast.error('組織情報が取得できませんでした')
+        return
+      }
+      
       const { error } = await supabase
         .from('notification_settings')
         .upsert({
+          organization_id: organizationId,
           shift_notification_enabled: settings.shift_notification_enabled,
           shift_notification_day: settings.shift_notification_day,
           shift_deadline_day: settings.shift_deadline_day,
           shift_reminder_days: settings.shift_reminder_days,
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'organization_id'
         })
 
       if (error) throw error

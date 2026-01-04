@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOrganization } from '@/hooks/useOrganization'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
 export function AddDemoParticipants() {
   const { user } = useAuth()
+  const { organizationId } = useOrganization()
   const [logs, setLogs] = useState<Array<{ message: string; type: 'info' | 'success' | 'error' | 'skip' }>>([])
   const [isRunning, setIsRunning] = useState(false)
 
@@ -49,11 +51,14 @@ export function AddDemoParticipants() {
       // デモ顧客を取得
       log('デモ顧客を検索中...', 'info')
       
-      // まず全顧客を取得してデバッグ
-      const { data: allCustomers, error: allError } = await supabase
+      // まず全顧客を取得してデバッグ（組織フィルタ付き）
+      let allCustQuery = supabase
         .from('customers')
         .select('id, name, email')
-        .limit(10)
+      if (organizationId) {
+        allCustQuery = allCustQuery.eq('organization_id', organizationId)
+      }
+      const { data: allCustomers, error: allError } = await allCustQuery.limit(10)
       
       if (allError) {
         log(`顧客取得エラー: ${allError.message}`, 'error')
@@ -64,10 +69,14 @@ export function AddDemoParticipants() {
         })
       }
       
-      const { data: demoCustomer, error: customerError } = await supabase
+      let demoCustQuery = supabase
         .from('customers')
         .select('id, name, email')
         .or('name.ilike.%デモ%,email.ilike.%demo%,name.ilike.%test%')
+      if (organizationId) {
+        demoCustQuery = demoCustQuery.eq('organization_id', organizationId)
+      }
+      const { data: demoCustomer, error: customerError } = await demoCustQuery
         .limit(1)
         .single()
       
@@ -78,13 +87,17 @@ export function AddDemoParticipants() {
       
       log(`デモ顧客: ${demoCustomer.name} (ID: ${demoCustomer.id})`, 'success')
       
-      // 今日以前の公演を取得（全カテゴリ対象）
+      // 今日以前の公演を取得（全カテゴリ対象、組織フィルタ付き）
       log('公演を取得中（全カテゴリ）...', 'info')
-      const { data: pastEvents, error: eventsError } = await supabase
+      let eventsQuery = supabase
         .from('schedule_events')
-        .select('id, date, venue, scenario, scenario_id, gms, start_time, end_time, category, is_cancelled, current_participants, capacity')
+        .select('id, date, venue, scenario, scenario_id, gms, start_time, end_time, category, is_cancelled, current_participants, capacity, organization_id')
         .lte('date', today.toISOString().split('T')[0])
         .eq('is_cancelled', false)
+      if (organizationId) {
+        eventsQuery = eventsQuery.eq('organization_id', organizationId)
+      }
+      const { data: pastEvents, error: eventsError } = await eventsQuery
         .order('date', { ascending: false })
       
       if (eventsError) {
@@ -352,6 +365,7 @@ export function AddDemoParticipants() {
         
         const demoReservation = {
           schedule_event_id: event.id,
+          organization_id: event.organization_id,
           reservation_number: reservationNumber,  // 予約番号を明示的に指定
           title: event.scenario || '',
           scenario_id: scenario.id || null,

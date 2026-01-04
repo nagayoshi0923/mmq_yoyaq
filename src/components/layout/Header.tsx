@@ -26,17 +26,14 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
     if (onPageChange) {
       onPageChange('dashboard')
     } else {
-      // 各機能ページから呼ばれた場合はパスを変更
       window.location.href = '/dashboard'
     }
   }, [onPageChange])
 
-  // 最適化: マイページボタンのクリックハンドラをメモ化
   const handleMyPageClick = useCallback(() => {
     if (onPageChange) {
       onPageChange('my-page')
     } else {
-      // フォールバック: 直接パスを変更
       window.location.href = '/mypage'
     }
   }, [onPageChange])
@@ -61,7 +58,6 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
             {user ? (
               <>
                 <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
-                  {/* 組織名表示 */}
                   {organization && (
                     <div className="hidden md:flex items-center gap-1 px-2 py-0.5 rounded bg-muted border border-border">
                       <Building2 className="h-3 w-3 text-muted-foreground" />

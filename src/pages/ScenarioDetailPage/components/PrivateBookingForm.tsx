@@ -1,12 +1,12 @@
 import { memo, useState, useEffect } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { MultiSelect } from '@/components/ui/multi-select'
 import type { TimeSlot } from '../utils/types'
+import { StoreSelector } from './StoreSelector'
 
 interface Store {
   id: string
   name: string
   short_name: string
+  region?: string
 }
 
 interface PrivateBookingFormProps {
@@ -65,16 +65,18 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
     const updateAvailability = async () => {
       const newAvailabilityMap: Record<string, boolean> = {}
       
-      // 各日付・時間枠の可用性を並列で取得（常に3枠チェック）
-      const promises = availableDates.flatMap(date => {
-        // 日付ごとの開始時間を取得
-        const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
-        const slotTimesMap = new Map(slotsForDate.map(s => [s.label, s.startTime]))
-        
-        return timeSlots.map(async (slot) => {
-          // 日付ごとの開始時間を適用
-          const startTime = slotTimesMap.get(slot.label) || slot.startTime
-          const slotWithTime = { ...slot, startTime }
+        // 各日付・時間枠の可用性を並列で取得（常に3枠チェック）
+        const promises = availableDates.flatMap(date => {
+          // 日付ごとの開始時間と終了時間を取得
+          const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
+          const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
+          
+          return timeSlots.map(async (slot) => {
+            // 日付ごとの開始時間と終了時間を適用
+            const slotTimes = slotTimesMap.get(slot.label)
+            const startTime = slotTimes?.startTime || slot.startTime
+            const endTime = slotTimes?.endTime || slot.endTime
+            const slotWithTime = { ...slot, startTime, endTime }
           const key = `${date}-${slot.label}`
           const isAvailable = await checkTimeSlotAvailability(
             date,
@@ -103,45 +105,13 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
   return (
     <div>
       {/* 店舗選択 */}
-      <div className="mb-3">
-        <label className="text-sm font-medium text-muted-foreground mb-1.5 block">店舗を選択</label>
-        <MultiSelect
-          options={stores.map(store => ({
-            id: store.id,
-            name: store.name
-          }))}
-          selectedValues={selectedStoreIds}
-          onSelectionChange={onStoreIdsChange}
-          placeholder="店舗を選択（未選択=すべて）"
-          showBadges={false}
-          useIdAsValue={true}
-        />
-        {/* 選択された店舗を小さいバッジで表示 */}
-        {selectedStoreIds.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {selectedStoreIds.map(id => {
-              const store = stores.find(s => s.id === id)
-              return store ? (
-                <span 
-                  key={id} 
-                  className="text-xs border border-gray-200 px-2 py-0.5 rounded bg-gray-50 flex items-center gap-1"
-                >
-                  {store.short_name || store.name}
-                  <button
-                    type="button"
-                    className="hover:bg-red-100 rounded-full p-0.5"
-                    onClick={() => onStoreIdsChange(selectedStoreIds.filter(sid => sid !== id))}
-                  >
-                    <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              ) : null
-            })}
-          </div>
-        )}
-      </div>
+      <StoreSelector
+        stores={stores}
+        selectedStoreIds={selectedStoreIds}
+        onStoreIdsChange={onStoreIdsChange}
+        label="店舗を選択"
+        placeholder="全店舗希望"
+      />
       
       {/* 月切り替え + 選択状況 */}
       <div className="flex items-center justify-between mb-2">
@@ -191,9 +161,9 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           const weekdayColor = dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''
           
           // 日付ごとの時間枠を取得（営業時間設定反映）
-          // 開始時間のみ取得（表示は常に3枠固定）
+          // 開始時間と終了時間を取得（表示は常に3枠固定）
           const slotsForDate = getTimeSlotsForDate ? getTimeSlotsForDate(date) : timeSlots
-          const slotTimesMap = new Map(slotsForDate.map(s => [s.label, s.startTime]))
+          const slotTimesMap = new Map(slotsForDate.map(s => [s.label, { startTime: s.startTime, endTime: s.endTime }]))
           
           return (
             <div 
@@ -209,12 +179,13 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
               {/* 時間枠ボタン（常に3枠表示、幅固定） */}
               <div className="flex gap-1.5 flex-1">
                 {timeSlots.map((slot) => {
-                  // 日付ごとの開始時間を取得（設定がなければデフォルト）
-                  const startTime = slotTimesMap.get(slot.label) || slot.startTime
-                  const slotWithTime = { ...slot, startTime }
+                  // 日付ごとの開始時間と終了時間を取得（設定がなければデフォルト）
+                  const slotTimes = slotTimesMap.get(slot.label)
+                  const startTime = slotTimes?.startTime || slot.startTime
+                  const endTime = slotTimes?.endTime || slot.endTime
+                  const slotWithTime = { ...slot, startTime, endTime }
                   const isAvailable = getAvailability(date, slotWithTime)
                   const isSelected = isTimeSlotSelected(date, slotWithTime)
-                  const endTime = calculateEndTime(startTime, scenarioDuration)
                   
                   return (
                     <button

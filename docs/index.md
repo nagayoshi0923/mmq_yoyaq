@@ -16,7 +16,8 @@ MMQシステムの引き継ぎ・開発に必要なドキュメント集。
 | 2️⃣ | **[features.md](./features.md)** | 各機能の概要 |
 | 3️⃣ | **[features/](./features/)** | 機能詳細（下記参照） |
 | 4️⃣ | **[pages.md](./pages.md)** | 全ページ一覧・ルーティング |
-| 5️⃣ | **[development/CRITICAL_features.md](./development/CRITICAL_features.md)** | 削除禁止の重要機能 |
+| 5️⃣ | **[development/critical-features.md](./development/critical-features.md)** | 削除禁止の重要機能 |
+| 6️⃣ | **[development/multi-tenant-security.md](./development/multi-tenant-security.md)** | 🚨 マルチテナント セキュリティ |
 
 ---
 
@@ -29,7 +30,7 @@ docs/
 ├── features.md             # 機能概要
 ├── pages.md                # ページ一覧
 │
-├── features/               # 🆕 機能詳細（14機能）
+├── features/               # 機能詳細（14機能）
 │   ├── schedule-manager/   #   スケジュール管理
 │   ├── reservation/        #   予約機能
 │   ├── private-booking/    #   貸切予約
@@ -46,8 +47,8 @@ docs/
 │   └── auth-system/        #   認証システム
 │
 ├── development/            # 開発ルール
-│   ├── CRITICAL_features.md #  重要機能（削除禁止）
-│   ├── design-guidelines.md       #   デザインシステム
+│   ├── critical-features.md #  重要機能（削除禁止）
+│   ├── design-guidelines.md #  デザインシステム
 │   ├── ui-design.md        #   UI要素詳細
 │   └── ...
 │
@@ -118,11 +119,12 @@ docs/
 
 | ファイル | 説明 |
 |---------|------|
-| [CRITICAL_features.md](./development/CRITICAL_features.md) | 🚨 削除禁止の重要機能 |
+| [critical-features.md](./development/critical-features.md) | 🚨 削除禁止の重要機能 |
+| [multi-tenant-security.md](./development/multi-tenant-security.md) | 🚨 マルチテナント セキュリティ（organization_id） |
 | [design-guidelines.md](./development/design-guidelines.md) | デザインシステム・色・フォント |
 | [ui-design.md](./development/ui-design.md) | ページ別UI要素詳細 |
-| [DateHandlingdesign-guidelines.md](./development/DateHandlingdesign-guidelines.md) | 日付処理のルール |
-| [STATUS_BADGE_LOGIC.md](./development/STATUS_BADGE_LOGIC.md) | ステータスバッジの表示ロジック |
+| [date-handling.md](./development/date-handling.md) | 日付処理のルール |
+| [status-badge-logic.md](./development/status-badge-logic.md) | ステータスバッジの表示ロジック |
 
 ### セットアップ（`setup/`）
 
@@ -139,14 +141,17 @@ docs/
 
 | ファイル | 説明 |
 |---------|------|
-| [DEPLOYMENT_STRATEGY.md](./deployment/DEPLOYMENT_STRATEGY.md) | デプロイ戦略・ブランチ管理 |
+| [deployment-strategy.md](./deployment/deployment-strategy.md) | デプロイ戦略・ブランチ管理 |
 
 ### 参照データ（`data/`）
 
+詳細は [data/README.md](./data/README.md) を参照。
+
 | ファイル | 説明 |
 |---------|------|
-| [scenario_master_list.md](./data/scenario_master_list.md) | シナリオ一覧 |
-| [license_list.md](./data/license_list.md) | ライセンス情報 |
+| [scenario-master-list.md](./data/scenario-master-list.md) | シナリオ一覧 |
+| [license-list.md](./data/license-list.md) | ライセンス情報 |
+| [scenario-salary-list.md](./data/scenario-salary-list.md) | シナリオ別給与情報 |
 
 ### アーカイブ（`archive/`）
 
@@ -161,7 +166,7 @@ docs/
 主なルール：
 - コミット前に `npm run verify` を実行
 - ページ変更時は `docs/pages.md` を更新
-- 重要機能を変更時は `docs/development/CRITICAL_features.md` を更新
+- 重要機能を変更時は `docs/development/critical-features.md` を更新
 - ドキュメントはコード変更と同じコミットで更新
 
 ---
@@ -174,7 +179,7 @@ docs/
 | この機能はどう動いている？ | [features/](./features/) |
 | 予約機能を修正したい | [features/reservation/](./features/reservation/) |
 | 通知を設定したい | [setup/README.md](./setup/README.md) |
-| コードを変更していい？ | [development/CRITICAL_features.md](./development/CRITICAL_features.md) を確認 |
+| コードを変更していい？ | [development/critical-features.md](./development/critical-features.md) を確認 |
 
 ---
 
@@ -183,5 +188,5 @@ docs/
 詳細は `rules/rurle.mdc` の「13) ドキュメント信頼性ルール」を参照。
 
 1. **コード変更時** → 関連ドキュメントを同じコミットで更新
-2. **新規ドキュメント作成時** → このINDEXに追加
+2. **新規ドキュメント作成時** → このindexに追加
 3. **古いドキュメント** → `archive/` に移動

@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -5,13 +6,23 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
-import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react'
+import { Calendar, Clock, Users, MapPin, ArrowLeft, CheckCircle2, AlertCircle, ExternalLink, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCustomerData } from './hooks/useCustomerData'
 import { useBookingForm } from './hooks/useBookingForm'
-import { useBookingSubmit } from './hooks/useBookingSubmit'
+import { useBookingSubmit, checkDuplicateReservation } from './hooks/useBookingSubmit'
 import { formatDate, formatTime, formatPrice } from './utils/bookingFormatters'
 import { BookingNotice } from '../ScenarioDetailPage/components/BookingNotice'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import type { BookingConfirmationProps } from './types'
 
 export function BookingConfirmation({
@@ -38,6 +49,14 @@ export function BookingConfirmation({
   const { user } = useAuth()
   const availableSeats = maxParticipants - currentParticipants
 
+  // 重複予約警告用のstate
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    show: boolean
+    existingReservation?: any
+  }>({ show: false })
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [pendingSubmit, setPendingSubmit] = useState(false)
+
   // フック
   const {
     customerName,
@@ -47,6 +66,27 @@ export function BookingConfirmation({
     customerPhone,
     setCustomerPhone
   } = useCustomerData({ userId: user?.id, userEmail: user?.email })
+
+  // メールアドレス変更時に重複チェック（デバウンス）
+  const checkDuplicate = useCallback(async () => {
+    if (!customerEmail || !eventId) return
+    
+    const result = await checkDuplicateReservation(eventId, customerEmail, customerPhone)
+    if (result.hasDuplicate) {
+      setDuplicateWarning({ show: true, existingReservation: result.existingReservation })
+    } else {
+      setDuplicateWarning({ show: false })
+    }
+  }, [customerEmail, customerPhone, eventId])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (customerEmail && customerEmail.includes('@')) {
+        checkDuplicate()
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [customerEmail, checkDuplicate])
 
   const {
     participantCount,
@@ -85,6 +125,12 @@ export function BookingConfirmation({
       return
     }
 
+    // 重複予約がある場合は確認ダイアログを表示
+    if (duplicateWarning.show && !pendingSubmit) {
+      setConfirmDialogOpen(true)
+      return
+    }
+
     try {
       await handleSubmit(customerName, customerEmail, customerPhone, participantCount, notes)
       
@@ -96,8 +142,23 @@ export function BookingConfirmation({
       }, 3000)
     } catch (error: any) {
       setError(error.message || '予約処理中にエラーが発生しました')
+    } finally {
+      setPendingSubmit(false)
     }
   }
+
+  // 重複確認後の送信
+  const handleConfirmDuplicate = () => {
+    setConfirmDialogOpen(false)
+    setPendingSubmit(true)
+  }
+
+  // pendingSubmitがtrueになったら送信実行
+  useEffect(() => {
+    if (pendingSubmit) {
+      onSubmit()
+    }
+  }, [pendingSubmit])
 
   // 成功画面
   if (success) {
@@ -155,6 +216,26 @@ export function BookingConfirmation({
             <CardContent className="p-2 flex items-center gap-2 text-red-800 text-sm">
               <AlertCircle className="w-4 h-4" />
               <span>{error}</span>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 重複予約警告 */}
+        {duplicateWarning.show && duplicateWarning.existingReservation && (
+          <Card className="mb-2 border-2 border-amber-200 bg-amber-50">
+            <CardContent className="p-3 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-amber-800">
+                <p className="font-medium text-sm">この公演に既に予約があります</p>
+                <p className="text-xs mt-1">
+                  予約番号: {duplicateWarning.existingReservation.reservation_number}<br />
+                  予約者: {duplicateWarning.existingReservation.customer_name}<br />
+                  参加人数: {duplicateWarning.existingReservation.participant_count}名
+                </p>
+                <p className="text-xs mt-2">
+                  人数を増やす場合は、<a href="/mypage" className="underline font-medium">マイページ</a>から変更できます。
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -317,7 +398,43 @@ export function BookingConfirmation({
           </div>
         </div>
       </div>
+
+      {/* 重複予約確認ダイアログ */}
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+              重複予約の確認
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>この公演に既に予約があります。本当に新しい予約を追加しますか？</p>
+                {duplicateWarning.existingReservation && (
+                  <div className="p-3 bg-muted rounded-md text-sm">
+                    <p className="font-medium">既存の予約</p>
+                    <p className="text-muted-foreground mt-1">
+                      予約番号: {duplicateWarning.existingReservation.reservation_number}<br />
+                      参加人数: {duplicateWarning.existingReservation.participant_count}名
+                    </p>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  人数を増やしたい場合は、キャンセルして<a href="/mypage" className="underline">マイページ</a>から既存の予約を変更してください。
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDuplicate} className="bg-amber-600 hover:bg-amber-700">
+              それでも予約する
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
+
 

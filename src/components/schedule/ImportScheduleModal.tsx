@@ -10,6 +10,8 @@ import { supabase } from '@/lib/supabase'
 import { memoApi } from '@/lib/api/memoApi'
 import { staffApi } from '@/lib/api/staffApi'
 import { scenarioApi } from '@/lib/api/scenarioApi'
+import { useOrganization } from '@/hooks/useOrganization'
+import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { logger } from '@/utils/logger'
 import { getTimeSlot } from '@/utils/scheduleUtils'
@@ -21,8 +23,7 @@ interface ImportScheduleModalProps {
   onImportComplete: (targetMonth?: { year: number; month: number }) => void
 }
 
-// 組織ID（クインズワルツ）
-const ORGANIZATION_ID = 'a0000000-0000-0000-0000-000000000001'
+// 組織ID（デフォルト値はクインズワルツ - useOrganization フックで動的に取得）
 
 // 不正なUnicode文字（壊れたサロゲートペア）を除去する関数
 const sanitizeText = (text: string | null | undefined): string => {
@@ -303,6 +304,10 @@ const GM_ROLE_OPTIONS = [
 ]
 
 export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImportComplete }: ImportScheduleModalProps) {
+  // 組織IDを動的に取得（マルチテナント対応）
+  const { organizationId } = useOrganization()
+  const ORGANIZATION_ID = organizationId || QUEENS_WALTZ_ORG_ID
+  
   const [scheduleText, setScheduleText] = useState('')
   const [isImporting, setIsImporting] = useState(false)
   const [replaceExisting, setReplaceExisting] = useState(true)
@@ -883,12 +888,18 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         
         console.log(`🗑️ 削除対象期間: ${startDate} 〜 ${endDate}`)
         
-        // まず対象月のschedule_eventsのIDを取得
-        const { data: eventsToDelete, error: fetchError } = await supabase
+        // まず対象月のschedule_eventsのIDを取得（組織フィルタ付き）
+        let deleteQuery = supabase
           .from('schedule_events')
           .select('id')
           .gte('date', startDate)
           .lte('date', endDate)
+        
+        if (ORGANIZATION_ID) {
+          deleteQuery = deleteQuery.eq('organization_id', ORGANIZATION_ID)
+        }
+        
+        const { data: eventsToDelete, error: fetchError } = await deleteQuery
         
         if (fetchError) {
           setResult({ success: 0, failed: 0, errors: [`❌ 既存データ取得エラー: ${fetchError.message}`] })

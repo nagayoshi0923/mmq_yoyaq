@@ -1,5 +1,6 @@
 import { showToast } from '@/utils/toast'
 import { useState, useCallback } from 'react'
+import { getCurrentParticipantsCount } from '@/lib/participantUtils'
 import type { EventSchedule } from '../utils/types'
 
 interface UseBookingActionsProps {
@@ -18,7 +19,7 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
   const [showPrivateBookingRequest, setShowPrivateBookingRequest] = useState(false)
 
   // 予約処理
-  const handleBooking = useCallback(() => {
+  const handleBooking = useCallback(async () => {
     if (!selectedEventId) {
       showToast.warning('日付を選択してください')
       return
@@ -30,14 +31,30 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
       return
     }
     
-    if (!event.is_available) {
-      showToast.warning('この公演は満席です')
-      return
+    // 🚨 CRITICAL: リアルタイムで最新の空席状況をチェック
+    // ページロード時のデータ(event.is_available)は古い可能性がある
+    try {
+      const currentParticipants = await getCurrentParticipantsCount(event.event_id)
+      const maxParticipants = event.max_participants || 8
+      const availableSeats = maxParticipants - currentParticipants
+
+      if (availableSeats <= 0) {
+        showToast.warning('この公演は満席です')
+        return
+      }
+
+      if (participantCount > availableSeats) {
+        showToast.warning(`残り${availableSeats}名分の空きしかありません`)
+        return
+      }
+    } catch (error) {
+      // エラーの場合は続行（予約確定時に再チェックされる）
+      console.error('空席チェックエラー:', error)
     }
     
     setSelectedEvent(event)
     setShowBookingConfirmation(true)
-  }, [selectedEventId, events])
+  }, [selectedEventId, events, participantCount])
 
   // 予約完了
   const handleBookingComplete = useCallback(() => {

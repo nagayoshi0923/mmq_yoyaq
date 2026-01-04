@@ -12,6 +12,7 @@ import { Mail, ChevronDown, ChevronUp } from 'lucide-react'
 import { reservationApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { recalculateCurrentParticipants } from '@/lib/participantUtils'
 import { showToast } from '@/utils/toast'
 import { findMatchingStaff } from '@/utils/staffUtils'
 import type { Staff as StaffType, Scenario, Store, Reservation, Customer } from '@/types'
@@ -244,21 +245,8 @@ export function ReservationList({
         
         if (wasActive !== isActive) {
           try {
-            const { data: eventData } = await supabase
-              .from('schedule_events')
-              .select('current_participants')
-              .eq('id', event.id)
-              .single()
-            
-            const currentCount = eventData?.current_participants || 0
-            const change = isActive ? reservation.participant_count : -reservation.participant_count
-            const newCount = Math.max(0, currentCount + change)
-            
-            await supabase
-              .from('schedule_events')
-              .update({ current_participants: newCount })
-              .eq('id', event.id)
-            
+            // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
+            const newCount = await recalculateCurrentParticipants(event.id)
             if (onParticipantChange) {
               onParticipantChange(event.id, newCount)
             }
@@ -392,21 +380,8 @@ export function ReservationList({
 
       if (event.id && !event.id.startsWith('private-')) {
         try {
-          const { data: eventData } = await supabase
-            .from('schedule_events')
-            .select('current_participants')
-            .eq('id', event.id)
-            .single()
-          
-          const currentCount = eventData?.current_participants || 0
-          const change = -cancellingReservation.participant_count
-          const newCount = Math.max(0, currentCount + change)
-          
-          await supabase
-            .from('schedule_events')
-            .update({ current_participants: newCount })
-            .eq('id', event.id)
-          
+          // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
+          const newCount = await recalculateCurrentParticipants(event.id)
           if (onParticipantChange) {
             onParticipantChange(event.id, newCount)
           }
@@ -487,21 +462,8 @@ export function ReservationList({
 
       if (event.id && !event.id.startsWith('private-')) {
         try {
-          const { data: eventData } = await supabase
-            .from('schedule_events')
-            .select('current_participants')
-            .eq('id', event.id)
-            .single()
-          
-          const currentCount = eventData?.current_participants || 0
-          const change = -cancellingReservation.participant_count
-          const newCount = Math.max(0, currentCount + change)
-          
-          await supabase
-            .from('schedule_events')
-            .update({ current_participants: newCount })
-            .eq('id', event.id)
-          
+          // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
+          const newCount = await recalculateCurrentParticipants(event.id)
           if (onParticipantChange) {
             onParticipantChange(event.id, newCount)
           }
@@ -607,23 +569,10 @@ export function ReservationList({
 
       const createdReservation = await reservationApi.create(reservation)
       
-      // 参加者数を更新（スタッフ参加者はreservationsのみで管理、gmsには追加しない）
+      // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
       if (event.id) {
         try {
-          const { data: eventData } = await supabase
-            .from('schedule_events')
-            .select('current_participants')
-            .eq('id', event.id)
-            .single()
-          
-          const currentCount = eventData?.current_participants || 0
-          const newCount = currentCount + newParticipant.participant_count
-          
-          await supabase
-            .from('schedule_events')
-            .update({ current_participants: newCount })
-            .eq('id', event.id)
-          
+          const newCount = await recalculateCurrentParticipants(event.id)
           if (onParticipantChange) {
             onParticipantChange(event.id, newCount)
           }
@@ -889,8 +838,6 @@ export function ReservationList({
                               value={String(reservation.participant_count || 1)}
                               onValueChange={async (value) => {
                                 const newCount = parseInt(value)
-                                const oldCount = reservation.participant_count || 0
-                                const diff = newCount - oldCount
                                 
                                 // 予約の人数を更新
                                 const { error } = await supabase
@@ -906,23 +853,14 @@ export function ReservationList({
                                   return
                                 }
                                 
-                                // current_participantsも更新
+                                // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
                                 if (event?.id) {
-                                  const { data: eventData } = await supabase
-                                    .from('schedule_events')
-                                    .select('current_participants')
-                                    .eq('id', event.id)
-                                    .single()
-                                  
-                                  const currentCount = eventData?.current_participants || 0
-                                  const newEventCount = Math.max(0, currentCount + diff)
-                                  
-                                  await supabase
-                                    .from('schedule_events')
-                                    .update({ current_participants: newEventCount })
-                                    .eq('id', event.id)
-                                  
-                                  onParticipantChange?.(event.id, newEventCount)
+                                  try {
+                                    const newEventCount = await recalculateCurrentParticipants(event.id)
+                                    onParticipantChange?.(event.id, newEventCount)
+                                  } catch (updateError) {
+                                    logger.error('参加者数の更新エラー:', updateError)
+                                  }
                                 }
                                 
                                 // ローカルの予約データを更新
@@ -997,9 +935,6 @@ export function ReservationList({
                                       const newCount = parseInt(e.target.value) || 1
                                       if (newCount < 1 || newCount > 20) return
                                       
-                                      const oldCount = reservation.participant_count
-                                      const diff = newCount - oldCount
-                                      
                                       // 予約の人数を更新
                                       const { error } = await supabase
                                         .from('reservations')
@@ -1014,23 +949,14 @@ export function ReservationList({
                                         return
                                       }
                                       
-                                      // current_participantsも更新
+                                      // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
                                       if (event?.id) {
-                                        const { data: eventData } = await supabase
-                                          .from('schedule_events')
-                                          .select('current_participants')
-                                          .eq('id', event.id)
-                                          .single()
-                                        
-                                        const currentCount = eventData?.current_participants || 0
-                                        const newEventCount = Math.max(0, currentCount + diff)
-                                        
-                                        await supabase
-                                          .from('schedule_events')
-                                          .update({ current_participants: newEventCount })
-                                          .eq('id', event.id)
-                                        
-                                        onParticipantChange?.(event.id, newEventCount)
+                                        try {
+                                          const newEventCount = await recalculateCurrentParticipants(event.id)
+                                          onParticipantChange?.(event.id, newEventCount)
+                                        } catch (updateError) {
+                                          logger.error('参加者数の更新エラー:', updateError)
+                                        }
                                       }
                                       
                                       // ローカルの予約データを更新

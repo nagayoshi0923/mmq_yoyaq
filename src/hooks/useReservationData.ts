@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import type { Reservation } from '@/types'
 
@@ -44,14 +45,24 @@ export function useReservationData(filters: Filters) {
     try {
       setIsLoading(true)
       
+      // organization_idを取得（マルチテナント対応）
+      const orgId = await getCurrentOrganizationId()
+      
       // Supabaseから予約データを取得
-      const { data, error } = await supabase
+      let query = supabase
         .from('reservations')
         .select(`
           *,
           scenarios:scenario_id (title),
           stores:store_id (name)
         `)
+      
+      // 組織フィルタ
+      if (orgId) {
+        query = query.eq('organization_id', orgId)
+      }
+      
+      const { data, error } = await query
         .order('priority', { ascending: false })
         .order('created_at', { ascending: true })
       

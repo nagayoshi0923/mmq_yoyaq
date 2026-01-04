@@ -6,6 +6,8 @@ import { showToast } from '@/utils/toast'
 // API
 import { staffApi, scheduleApi } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { recalculateCurrentParticipants } from '@/lib/participantUtils'
+import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
 
 // Custom Hooks
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
@@ -26,6 +28,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 // UI Components
 import { Button } from '@/components/ui/button'
 import { MultiSelect } from '@/components/ui/multi-select'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { HelpButton } from '@/components/ui/help-button'
 import { MonthSwitcher } from '@/components/patterns/calendar'
 
@@ -268,11 +271,12 @@ export function ScheduleManager() {
               .single()
             
             const participationFee = scenario?.participation_fee || 0
+            const orgId = await getCurrentOrganizationId() || QUEENS_WALTZ_ORG_ID
             
             // デモ参加者の予約を作成
             const demoReservation = {
               schedule_event_id: event.id,
-              organization_id: 'a0000000-0000-0000-0000-000000000001',
+              organization_id: orgId,
               title: event.scenario || '',
               scenario_id: eventDetails.scenario_id || null,
               store_id: eventDetails.store_id || null,
@@ -300,13 +304,13 @@ export function ScheduleManager() {
           }
         }
         
-        // current_participantsを更新
-        const { error } = await supabase
-          .from('schedule_events')
-          .update({ current_participants: maxParticipants })
-          .eq('id', event.id)
-        
-        if (!error) successCount++
+        // 🚨 CRITICAL: 参加者数を予約テーブルから再計算して更新
+        try {
+          await recalculateCurrentParticipants(event.id)
+          successCount++
+        } catch (error) {
+          logger.error('参加者数の更新エラー:', error)
+        }
       }
       
       showToast.success(`${successCount}件を満席に設定しました`)
@@ -572,17 +576,14 @@ export function ScheduleManager() {
             
             {/* 店舗フィルター（複数選択対応） */}
             {scheduleTableProps.viewConfig.stores.length > 0 && (
-              <div className="w-36 sm:w-44">
-                <MultiSelect
-                  options={scheduleTableProps.viewConfig.stores.map(store => ({
-                    id: store.id,
-                    name: store.short_name || store.name
-                  }))}
-                  selectedValues={selectedStores}
-                  onSelectionChange={setSelectedStores}
+              <div className="w-40 sm:w-48">
+                <StoreMultiSelect
+                  stores={scheduleTableProps.viewConfig.stores}
+                  selectedStoreIds={selectedStores}
+                  onStoreIdsChange={setSelectedStores}
+                  hideLabel={true}
                   placeholder="店舗で絞込"
-                  closeOnSelect={false}
-                  useIdAsValue={true}
+                  emptyText=""
                 />
               </div>
             )}

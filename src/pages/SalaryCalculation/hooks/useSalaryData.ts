@@ -8,7 +8,7 @@ import type { MonthlySalaryData, StaffSalary, ShiftDetail, GMDetail } from '../t
 /**
  * 給与データ取得フック
  */
-export function useSalaryData(year: number, month: number, storeId: string) {
+export function useSalaryData(year: number, month: number, storeIds: string[]) {
   const [salaryData, setSalaryData] = useState<MonthlySalaryData | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -84,8 +84,8 @@ export function useSalaryData(year: number, month: number, storeId: string) {
         .lte('date', endStr)
         .eq('is_cancelled', false)
 
-      if (storeId !== 'all') {
-        gmQuery = gmQuery.eq('store_id', storeId)
+      if (storeIds.length > 0) {
+        gmQuery = gmQuery.in('store_id', storeIds)
       }
 
       const { data: gmData, error: gmError } = await gmQuery
@@ -232,7 +232,7 @@ export function useSalaryData(year: number, month: number, storeId: string) {
     } finally {
       setLoading(false)
     }
-  }, [year, month, storeId, getMonthRange])
+  }, [year, month, storeIds, getMonthRange])
 
   useEffect(() => {
     fetchData()

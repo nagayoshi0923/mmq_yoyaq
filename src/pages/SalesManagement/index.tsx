@@ -47,7 +47,7 @@ ChartJS.register(
 const SalesManagement: React.FC = () => {
   // タブ状態管理
   const [activeTab, setActiveTab] = useSessionState('salesActiveTab', 'overview')
-  const [selectedStore, setSelectedStore] = useSessionState('salesSelectedStore', 'all')
+  const [selectedStoreIds, setSelectedStoreIds] = useSessionState<string[]>('salesSelectedStoreIds', [])
   
   // データ取得フック
   const {
@@ -74,7 +74,7 @@ const SalesManagement: React.FC = () => {
         ownershipFilter = 'corporate'
       }
       // 保存された期間設定を使用（selectedPeriodはlocalStorageから復元済み）
-      loadSalesData(selectedPeriod, selectedStore, ownershipFilter)
+      loadSalesData(selectedPeriod, selectedStoreIds, ownershipFilter)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stores.length, activeTab])
@@ -104,28 +104,28 @@ const SalesManagement: React.FC = () => {
             loading={loading}
             stores={stores.filter(s => s.ownership_type !== 'franchise')}
             selectedPeriod={selectedPeriod}
-            selectedStore={selectedStore}
+            selectedStoreIds={selectedStoreIds}
             dateRange={dateRange}
             customStartDate={customStartDate}
             customEndDate={customEndDate}
             onCustomStartDateChange={setCustomStartDate}
             onCustomEndDateChange={setCustomEndDate}
-            onPeriodChange={(period) => loadSalesData(period, selectedStore, 'corporate')}
-            onStoreChange={(store) => {
-              setSelectedStore(store)
-              loadSalesData(selectedPeriod, store, 'corporate')
+            onPeriodChange={(period) => loadSalesData(period, selectedStoreIds, 'corporate')}
+            onStoreIdsChange={(storeIds) => {
+              setSelectedStoreIds(storeIds)
+              loadSalesData(selectedPeriod, storeIds, 'corporate')
             }}
-            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStore, 'corporate')}
+            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStoreIds, 'corporate')}
           />
         )
       case 'scenario-performance':
                 return (
           <ScenarioPerformance
             stores={stores}
-            selectedStore={selectedStore}
-            onStoreChange={(store) => {
-              setSelectedStore(store)
-              loadSalesData(selectedPeriod, store)
+            selectedStoreIds={selectedStoreIds}
+            onStoreIdsChange={(storeIds) => {
+              setSelectedStoreIds(storeIds)
+              loadSalesData(selectedPeriod, storeIds)
             }}
           />
         )
@@ -144,18 +144,18 @@ const SalesManagement: React.FC = () => {
             loading={loading}
             stores={stores.filter(s => s.ownership_type === 'franchise')}
             selectedPeriod={selectedPeriod}
-            selectedStore={selectedStore}
+            selectedStoreIds={selectedStoreIds}
             dateRange={dateRange}
             customStartDate={customStartDate}
             customEndDate={customEndDate}
             onCustomStartDateChange={setCustomStartDate}
             onCustomEndDateChange={setCustomEndDate}
-            onPeriodChange={(period) => loadSalesData(period, selectedStore, 'franchise')}
-            onStoreChange={(store) => {
-              setSelectedStore(store)
-              loadSalesData(selectedPeriod, store, 'franchise')
+            onPeriodChange={(period) => loadSalesData(period, selectedStoreIds, 'franchise')}
+            onStoreIdsChange={(storeIds) => {
+              setSelectedStoreIds(storeIds)
+              loadSalesData(selectedPeriod, storeIds, 'franchise')
             }}
-            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStore, 'franchise')}
+            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStoreIds, 'franchise')}
             isFranchiseOnly={true}
           />
         )
@@ -168,18 +168,18 @@ const SalesManagement: React.FC = () => {
             loading={loading}
             stores={stores.filter(s => s.ownership_type !== 'franchise')}
             selectedPeriod={selectedPeriod}
-            selectedStore={selectedStore}
+            selectedStoreIds={selectedStoreIds}
             dateRange={dateRange}
             customStartDate={customStartDate}
             customEndDate={customEndDate}
             onCustomStartDateChange={setCustomStartDate}
             onCustomEndDateChange={setCustomEndDate}
-            onPeriodChange={(period) => loadSalesData(period, selectedStore, 'corporate')}
-            onStoreChange={(store) => {
-              setSelectedStore(store)
-              loadSalesData(selectedPeriod, store, 'corporate')
+            onPeriodChange={(period) => loadSalesData(period, selectedStoreIds, 'corporate')}
+            onStoreIdsChange={(storeIds) => {
+              setSelectedStoreIds(storeIds)
+              loadSalesData(selectedPeriod, storeIds, 'corporate')
             }}
-            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStore, 'corporate')}
+            onDataRefresh={() => loadSalesData(selectedPeriod, selectedStoreIds, 'corporate')}
           />
         )
     }

@@ -1,6 +1,5 @@
-import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Clock, CheckCircle2 } from 'lucide-react'
+import { Calendar, Clock, CheckCircle2, Circle } from 'lucide-react'
 import { formatDate } from '../utils/gmFormatters'
 
 interface Candidate {
@@ -54,7 +53,8 @@ export function CandidateSelector({
         {candidates.map((candidate) => {
           const isSelected = selectedCandidates.includes(candidate.order)
           const isAvailable = candidateAvailability[candidate.order] !== false
-          const canClick = !isResponded && !isConfirmed && !isGMConfirmed && isAvailable
+          // 自分が未回答かつ予約が未確定なら選択可能（他GMが回答済みでも選択可能）
+          const canClick = !isResponded && !isConfirmed && isAvailable
           
           // 状態に応じたスタイルを決定
           let cardStyle = ''
@@ -66,12 +66,6 @@ export function CandidateSelector({
             cardStyle = 'border-green-500 bg-green-50 cursor-default'
           } else if (isConfirmed && !isSelected) {
             // 確定済み＋自分が選択していない候補 → disabled（灰色）
-            cardStyle = 'bg-gray-50 border-gray-200 cursor-default opacity-60'
-          } else if (isGMConfirmed && isSelected) {
-            // GM確認済み＋自分が選択した候補
-            cardStyle = 'border-purple-500 bg-purple-50/30 cursor-default'
-          } else if (isGMConfirmed && !isSelected) {
-            // GM確認済み＋自分が選択していない候補 → disabled（灰色）
             cardStyle = 'bg-gray-50 border-gray-200 cursor-default opacity-60'
           } else if (isResponded && isSelected) {
             // 回答済み＋自分が選択した候補
@@ -96,11 +90,6 @@ export function CandidateSelector({
               className={`flex items-center gap-3 p-3 rounded border ${cardStyle}`}
               onClick={() => canClick && onToggle(candidate.order)}
             >
-              <Checkbox
-                checked={isSelected}
-                disabled={!canClick}
-                className="pointer-events-none"
-              />
               <div className="flex-1">
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="bg-gray-100 text-gray-800 border-0 rounded-[2px] font-normal">
@@ -116,8 +105,12 @@ export function CandidateSelector({
                   </div>
                 </div>
               </div>
-              {isSelected && isAvailable && (
-                <CheckCircle2 className="w-5 h-5 text-purple-600" />
+              {isAvailable && (
+                isSelected ? (
+                  <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                ) : (
+                  <Circle className="w-5 h-5 text-gray-300" />
+                )
               )}
             </div>
           )

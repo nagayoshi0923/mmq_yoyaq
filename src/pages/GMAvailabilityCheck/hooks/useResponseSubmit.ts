@@ -28,7 +28,8 @@ export function useResponseSubmit({
     setSubmitting(requestId)
     
     try {
-      const availableCandidates = allUnavailable ? [] : (selectedCandidates[requestId] || [])
+      // UI上は1始まりだが、DBには0始まりで保存
+      const availableCandidates = allUnavailable ? [] : (selectedCandidates[requestId] || []).map(c => c - 1)
       const responseStatus = allUnavailable ? 'all_unavailable' : (availableCandidates.length > 0 ? 'available' : 'pending')
       
       // GM回答を更新
@@ -48,25 +49,16 @@ export function useResponseSubmit({
       }
       
       // GMが1つでも出勤可能な候補を選択した場合、ステータスを更新
+      // 注意：候補は削除せず全て保持する（複数GMの回答を考慮）
       if (availableCandidates.length > 0) {
         const request = requests.find(r => r.id === requestId)
         if (request) {
-          // GMが選択した候補のみを残す
-          const confirmedCandidates = request.candidate_datetimes?.candidates?.filter(
-            (c: any) => availableCandidates.includes(c.order)
-          ) || []
-          
-          const updatedCandidateDatetimes: any = {
-            ...request.candidate_datetimes,
-            candidates: confirmedCandidates
-          }
-          
           // GMが回答したら店側確認待ちステータスに
           const newStatus = 'gm_confirmed'
           
+          // 候補は削除せず、そのまま保持（available_candidatesで表示を制御）
           const updateData: any = {
             status: newStatus,
-            candidate_datetimes: updatedCandidateDatetimes,
             updated_at: new Date().toISOString()
           }
           

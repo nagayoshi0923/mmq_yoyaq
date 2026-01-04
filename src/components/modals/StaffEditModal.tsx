@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { MultiSelect, MultiSelectOption } from '@/components/ui/multi-select'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { Staff, Store, Scenario } from '@/types'
@@ -494,15 +495,15 @@ export function StaffEditModal({ isOpen, onClose, onSave, staff, stores, scenari
           {/* 担当店舗 */}
           <div>
             <Label htmlFor="stores">担当店舗</Label>
-            <MultiSelect
-              options={storeOptions}
-              selectedValues={formData.stores || []}
-              onSelectionChange={(storeIds) => {
+            <StoreMultiSelect
+              stores={stores}
+              selectedStoreIds={formData.stores || []}
+              onStoreIdsChange={(storeIds) => {
                 setFormData(prev => ({ ...prev, stores: storeIds }))
               }}
+              hideLabel={true}
               placeholder="担当店舗を選択"
-              showBadges={true}
-              useIdAsValue={true}
+              emptyText="未選択=全店舗担当"
             />
           </div>
 

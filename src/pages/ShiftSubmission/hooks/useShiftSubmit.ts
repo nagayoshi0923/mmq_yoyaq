@@ -2,6 +2,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { shiftApi } from '@/lib/shiftApi'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import type { ShiftSubmission } from '../types'
 
 interface UseShiftSubmitProps {
@@ -27,6 +28,13 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading, reloadSh
     
     setLoading(true)
     try {
+      // organization_idを取得（マルチテナント対応）
+      const organizationId = await getCurrentOrganizationId()
+      if (!organizationId) {
+        showToast.error('組織情報が取得できませんでした')
+        return
+      }
+      
       // 全てのシフトデータを処理（選択なしの場合は削除扱い）
       const allShifts = Object.values(shiftData)
       
@@ -49,7 +57,8 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading, reloadSh
         evening: shift.evening,
         all_day: shift.all_day,
         status: 'submitted' as const,
-        submitted_at: new Date().toISOString()
+        submitted_at: new Date().toISOString(),
+        organization_id: organizationId
       }))
       
       // 削除用データ準備（全てfalseで保存）
@@ -61,7 +70,8 @@ export function useShiftSubmit({ currentStaffId, shiftData, setLoading, reloadSh
         evening: false,
         all_day: false,
         status: 'submitted' as const,
-        submitted_at: new Date().toISOString()
+        submitted_at: new Date().toISOString(),
+        organization_id: organizationId
       }))
       
       // 全てのデータを送信（チェックあり + チェックなし）

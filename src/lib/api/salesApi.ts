@@ -136,7 +136,9 @@ export const salesApi = {
 
   // 店舗別売上データを取得
   async getSalesByStore(startDate: string, endDate: string) {
-    const { data, error } = await supabase
+    const orgId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('schedule_events')
       .select(`
         *,
@@ -161,6 +163,12 @@ export const salesApi = {
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('is_cancelled', false)
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
     
     if (error) throw error
     return data || []
@@ -168,7 +176,9 @@ export const salesApi = {
 
   // シナリオ別売上データを取得
   async getSalesByScenario(startDate: string, endDate: string) {
-    const { data, error } = await supabase
+    const orgId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('schedule_events')
       .select(`
         *,
@@ -194,13 +204,21 @@ export const salesApi = {
       .lte('date', endDate)
       .eq('is_cancelled', false)
     
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
+    
     if (error) throw error
     return data || []
   },
 
   // 作者別公演実行回数を取得
   async getPerformanceCountByAuthor(startDate: string, endDate: string) {
-    const { data, error } = await supabase
+    const orgId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('schedule_events')
       .select(`
         date,
@@ -214,23 +232,39 @@ export const salesApi = {
       .lte('date', endDate)
       .eq('is_cancelled', false)
     
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
+    
     if (error) throw error
     return data || []
   },
 
   // 店舗一覧を取得
   async getStores() {
-    const { data, error } = await supabase
+    const orgId = await getCurrentOrganizationId()
+    
+    let query = supabase
       .from('stores')
       .select('id, name, short_name, fixed_costs, ownership_type')
       .order('name', { ascending: true })
+    
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+    
+    const { data, error } = await query
     
     if (error) throw error
     return data || []
   },
 
   // シナリオ別公演数データ取得
-  async getScenarioPerformance(startDate: string, endDate: string, storeId?: string) {
+  async getScenarioPerformance(startDate: string, endDate: string, storeIds?: string[]) {
+    const orgId = await getCurrentOrganizationId()
+    
     let query = supabase
       .from('schedule_events')
       .select('*')
@@ -238,8 +272,12 @@ export const salesApi = {
       .lte('date', endDate)
       .eq('is_cancelled', false)
 
-    if (storeId && storeId !== 'all') {
-      query = query.eq('store_id', storeId)
+    if (orgId) {
+      query = query.eq('organization_id', orgId)
+    }
+
+    if (storeIds && storeIds.length > 0) {
+      query = query.in('store_id', storeIds)
     }
 
     const { data: events, error } = await query
@@ -250,10 +288,16 @@ export const salesApi = {
       return []
     }
 
-    // 全シナリオを取得
-    const { data: scenarios, error: scenariosError } = await supabase
+    // 全シナリオを取得（組織フィルタ）
+    let scenarioQuery = supabase
       .from('scenarios')
       .select('id, title, author, license_amount, gm_test_license_amount, gm_costs')
+    
+    if (orgId) {
+      scenarioQuery = scenarioQuery.or(`organization_id.eq.${orgId},is_shared.eq.true`)
+    }
+    
+    const { data: scenarios, error: scenariosError } = await scenarioQuery
     
     if (scenariosError) {
       logger.error('scenarios取得エラー:', scenariosError)

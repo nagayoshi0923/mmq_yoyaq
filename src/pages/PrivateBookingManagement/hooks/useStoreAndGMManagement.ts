@@ -4,9 +4,22 @@ import { storeApi } from '@/lib/api/storeApi'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
+/**
+ * 既存イベント情報
+ */
+interface ExistingEventInfo {
+  id: string
+  scenario: string
+  startTime: string
+  endTime: string
+  storeId: string
+  date: string
+}
+
 interface ConflictInfo {
   storeDateConflicts: Set<string> // 'storeId-date-timeSlot' の形式
   gmDateConflicts: Set<string> // 'gmId-date-timeSlot' の形式
+  existingEvents: ExistingEventInfo[] // 既存イベントの詳細情報
 }
 
 /**
@@ -18,7 +31,8 @@ export function useStoreAndGMManagement() {
   const [allGMs, setAllGMs] = useState<any[]>([])
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo>({
     storeDateConflicts: new Set(),
-    gmDateConflicts: new Set()
+    gmDateConflicts: new Set(),
+    existingEvents: []
   })
 
   // 店舗データの読み込み（組織対応済み）
@@ -40,6 +54,29 @@ export function useStoreAndGMManagement() {
     try {
       const storeDateConflicts = new Set<string>()
       const gmDateConflicts = new Set<string>()
+      const existingEventsList: ExistingEventInfo[] = []
+
+      // まず現在のリクエストの候補日時を取得
+      const { data: currentRequest, error: requestError } = await supabase
+        .from('reservations')
+        .select('candidate_datetimes')
+        .eq('id', currentRequestId)
+        .single()
+
+      if (requestError) {
+        logger.error('現在のリクエスト取得エラー:', requestError)
+      }
+
+      // 候補日時の日付を抽出
+      const candidateDates: string[] = []
+      if (currentRequest?.candidate_datetimes?.candidates) {
+        currentRequest.candidate_datetimes.candidates.forEach((c: any) => {
+          if (c.date && !candidateDates.includes(c.date)) {
+            candidateDates.push(c.date)
+          }
+        })
+      }
+      logger.log('📅 候補日付:', candidateDates)
 
       // 1. 確定済みの予約を全て取得（reservationsテーブル）
       const { data: confirmedReservations, error: reservationsError } = await supabase
@@ -64,13 +101,23 @@ export function useStoreAndGMManagement() {
         })
       })
 
-      // 2. スケジュールイベントも取得（schedule_eventsテーブル）
-      const { data: scheduleEvents, error: scheduleError } = await supabase
+      // 2. スケジュールイベントを候補日付でフィルタリングして取得
+      // ⚠️ 全件取得するとSupabaseの1000件制限に達する可能性があるため
+      let scheduleQuery = supabase
         .from('schedule_events')
-        .select('id, store_id, date, start_time, gms, is_cancelled')
+        .select('id, store_id, date, start_time, end_time, scenario, gms, is_cancelled')
         .eq('is_cancelled', false)
 
+      // 候補日付がある場合はフィルタリング
+      if (candidateDates.length > 0) {
+        scheduleQuery = scheduleQuery.in('date', candidateDates)
+      }
+
+      const { data: scheduleEvents, error: scheduleError } = await scheduleQuery
+
       if (scheduleError) throw scheduleError
+      
+      logger.log('📊 取得したスケジュールイベント:', scheduleEvents?.length, '件')
 
       // 時間帯判定関数
       const getTimeSlot = (startTime: string): string => {
@@ -85,6 +132,16 @@ export function useStoreAndGMManagement() {
         
         const timeSlot = getTimeSlot(event.start_time)
         
+        // 既存イベント情報を追加
+        existingEventsList.push({
+          id: event.id,
+          scenario: event.scenario || '不明',
+          startTime: event.start_time?.substring(0, 5) || '',
+          endTime: event.end_time?.substring(0, 5) || '',
+          storeId: event.store_id || '',
+          date: event.date
+        })
+        
         if (event.store_id) {
           storeDateConflicts.add(`${event.store_id}-${event.date}-${timeSlot}`)
         }
@@ -98,19 +155,25 @@ export function useStoreAndGMManagement() {
         }
       })
 
-      setConflictInfo({ storeDateConflicts, gmDateConflicts })
+      logger.log('📊 競合情報更新:', { 
+        existingEvents: existingEventsList.length,
+        storeConflicts: storeDateConflicts.size,
+        gmConflicts: gmDateConflicts.size
+      })
+
+      setConflictInfo({ storeDateConflicts, gmDateConflicts, existingEvents: existingEventsList })
     } catch (error) {
       logger.error('競合情報取得エラー:', error)
     }
   }, [])
 
-  // 全GMの読み込み（組織対応）
+  // 全GMの読み込み（組織対応、avatar_colorも取得）
   const loadAllGMs = useCallback(async () => {
     try {
       const orgId = await getCurrentOrganizationId()
       let query = supabase
         .from('staff')
-        .select('id, name')
+        .select('id, name, avatar_color')
         .contains('role', ['gm'])
       
       if (orgId) {
@@ -126,13 +189,13 @@ export function useStoreAndGMManagement() {
     }
   }, [])
 
-  // 利用可能なGMの読み込み
+  // 利用可能なGMの読み込み（スタッフのavatar_colorも取得）
   const loadAvailableGMs = useCallback(async (reservationId: string) => {
     try {
-      // まず全てのレスポンスを取得してからフィルタリング
+      // まず全てのレスポンスを取得してからフィルタリング（スタッフのavatar_colorも含める）
       const { data: responses, error } = await supabase
         .from('gm_availability_responses')
-        .select('staff_id, gm_name, response_type, available_candidates, selected_candidate_index, notes')
+        .select('staff_id, gm_name, response_status, available_candidates, selected_candidate_index, notes, staff:staff_id(avatar_color)')
         .eq('reservation_id', reservationId)
       
       if (error) {
@@ -142,17 +205,20 @@ export function useStoreAndGMManagement() {
 
       // クライアント側でフィルタリング（CORSエラー回避のため）
       const filteredResponses = (responses || []).filter(
-        (response: any) => response.response_type === 'available' || response.response_type === 'unavailable'
+        (response: any) => response.response_status === 'available' || response.response_status === 'unavailable'
       )
 
       const gmList = filteredResponses.map((response: any) => ({
         gm_id: response.staff_id,
         gm_name: response.gm_name,
-        response_type: response.response_type,
+        response_status: response.response_status,
         available_candidates: response.available_candidates || [],
         selected_candidate_index: response.selected_candidate_index,
-        notes: response.notes || ''
+        notes: response.notes || '',
+        avatar_color: response.staff?.avatar_color || null
       }))
+
+      logger.log('📋 GM回答情報:', gmList.length, '件', gmList.map(g => `${g.gm_name}(${g.response_status}): 候補${(g.available_candidates || []).map((i: number) => i+1).join(',')}`))
 
       setAvailableGMs(gmList)
     } catch (error: any) {

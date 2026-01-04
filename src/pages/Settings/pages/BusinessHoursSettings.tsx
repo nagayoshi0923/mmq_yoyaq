@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { Plus, X, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
@@ -271,13 +272,16 @@ export function BusinessHoursSettings({ storeId }: BusinessHoursSettingsProps) {
       // 対象店舗リスト（全店舗に適用する場合はすべての店舗）
       const targetStores = applyToAll ? stores : [stores.find(s => s.id === selectedStoreId)].filter(Boolean)
       
+      const orgId = await getCurrentOrganizationId()
+      
       for (const store of targetStores) {
         if (!store) continue
         
         const saveData = {
           store_id: store.id,
           opening_hours: formData.opening_hours,
-          holidays: formData.holidays
+          holidays: formData.holidays,
+          organization_id: orgId
         }
         
         logger.log('保存データ:', JSON.stringify(saveData, null, 2))

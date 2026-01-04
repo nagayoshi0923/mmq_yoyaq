@@ -12,6 +12,53 @@ chore: ビルドプロセスや補助ツールの変更
 
 ---
 
+## データベースカラム名の事前確認ルール（必須）🚨
+
+### 基本原則：「実装前にデータベーススキーマを確認する」
+
+**Supabaseクエリを書く前に、必ずカラム名を確認すること。**
+カラム名の間違い（例: `response_type` vs `response_status`）は実行時エラーになり、デバッグが困難。
+
+### 確認手順（実装前に必須）
+
+```bash
+# 1. テーブルのカラム一覧を確認
+# Supabase SQL Editor で実行:
+SELECT column_name, data_type FROM information_schema.columns 
+WHERE table_name = 'テーブル名' ORDER BY ordinal_position;
+
+# 2. 既存コードで使用されている名前を確認
+grep -rn "テーブル名" src --include="*.ts" --include="*.tsx" | head -20
+```
+
+### Supabaseクエリ作成時のルール
+
+```typescript
+// ✅ 正しい例：事前にカラム名を確認してから実装
+// gm_availability_responses テーブルの実際のカラム名: response_status
+const { data } = await supabase
+  .from('gm_availability_responses')
+  .select('staff_id, response_status, available_candidates')  // 正しいカラム名
+
+// ❌ 間違った例：推測でカラム名を書く
+const { data } = await supabase
+  .from('gm_availability_responses')
+  .select('staff_id, response_type, available_candidates')  // カラム名が間違い！
+```
+
+### 型定義との整合性
+
+```typescript
+// データベースカラム名と型定義は必ず一致させる
+interface GMResponse {
+  staff_id: string
+  response_status: string  // ← DBカラム名と同じ
+  available_candidates: number[]
+}
+```
+
+---
+
 ## データ命名規則（必須）
 
 ### 基本原則：「既存の名前を確認してから命名する」
@@ -88,3 +135,82 @@ npm run db:check
 ```bash
 npm run typecheck  # 型チェックのみ実行
 ```
+
+---
+
+## マルチテナント対応ルール（必須）🚨
+
+### 基本原則：「organization_id を必ず設定・フィルタする」
+
+このプロジェクトはマルチテナント（複数組織）に対応しています。
+**organization_id の設定漏れは他組織のデータ漏洩につながる重大なセキュリティ問題です。**
+
+### データベース操作時のルール
+
+#### 1. INSERT / UPSERT 時
+```typescript
+// ✅ 正しい例
+const orgId = await getCurrentOrganizationId()
+await supabase.from('reservations').insert({
+  ...data,
+  organization_id: orgId  // 必須
+})
+
+// ❌ 間違った例
+await supabase.from('reservations').insert(data)  // organization_id がない！
+```
+
+#### 2. SELECT 時
+```typescript
+// ✅ 正しい例
+const orgId = await getCurrentOrganizationId()
+let query = supabase.from('reservations').select('*')
+if (orgId) {
+  query = query.eq('organization_id', orgId)
+}
+
+// ❌ 間違った例
+await supabase.from('reservations').select('*')  // フィルタなし！
+```
+
+#### 3. UPDATE / DELETE 時
+```typescript
+// ID で特定する場合は RLS で保護されるため OK
+// ただし、範囲更新/削除する場合は organization_id フィルタ必須
+```
+
+### 例外（organization_id 不要なテーブル）
+
+以下のテーブルは organization_id 不要：
+- `users` - 認証テーブル
+- `organizations` - 組織テーブル自体
+- `authors` - 共有マスタデータ
+- `auth_logs` - システムログ
+
+### 新機能追加時のチェックリスト
+
+```
+□ INSERT/UPSERT に organization_id を含めているか？
+□ SELECT に organization_id フィルタを追加しているか？
+□ 新しいテーブルに organization_id カラムがあるか？
+□ 新しいテーブルに RLS ポリシーを設定したか？
+□ organization_id カラムにインデックスがあるか？
+```
+
+### 確認コマンド
+
+```bash
+# organization_id が漏れている INSERT を検索
+grep -rn "\.insert(" src --include="*.ts" --include="*.tsx" | xargs -I {} sh -c 'grep -L "organization_id" {}'
+
+# RLS ポリシーの確認（Supabase SQL Editor で実行）
+SELECT tablename, policyname FROM pg_policies WHERE schemaname = 'public';
+```
+
+### 多層防御
+
+1. **RLS（Row Level Security）** - データベースレベルで強制保護
+2. **コード側フィルタ** - 明示的な organization_id フィルタ
+3. **インデックス** - パフォーマンス確保
+
+**RLS だけでも保護されますが、コード側でも必ずフィルタを追加してください。**

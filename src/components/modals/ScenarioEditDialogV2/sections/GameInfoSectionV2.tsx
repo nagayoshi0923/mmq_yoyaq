@@ -87,6 +87,24 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
               </div>
             </div>
 
+            {/* 追加準備時間 */}
+            <div>
+              <Label className={labelStyle}>追加準備時間</Label>
+              <p className={hintStyle}>通常60分に加算。90分準備が必要な場合は30を入力</p>
+              <div className="relative mt-1.5">
+                <Input
+                  id="extra_preparation_time"
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={formData.extra_preparation_time || 0}
+                  onChange={(e) => setFormData(prev => ({ ...prev, extra_preparation_time: parseInt(e.target.value) || 0 }))}
+                  className={`${inputStyle} pr-8`}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">分</span>
+              </div>
+            </div>
+
             {/* 人数 */}
             <div>
               <Label className={labelStyle}>プレイ人数</Label>

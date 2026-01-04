@@ -85,5 +85,7 @@ export interface ScenarioFormData {
   available_stores?: string[]
   // キット数（制作費自動計算用）
   kit_count?: number
+  // 追加準備時間（分）- 通常の60分に加算される
+  extra_preparation_time?: number
 }
 

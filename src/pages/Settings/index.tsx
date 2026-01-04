@@ -15,7 +15,8 @@ import {
   Shield,
   AlertCircle,
   Calculator,
-  Layers
+  Layers,
+  XCircle
 } from 'lucide-react'
 import { useSessionState } from '@/hooks/useSessionState'
 import { useSettingsStore } from '@/hooks/useSettingsStore'
@@ -55,6 +56,7 @@ const BASE_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'business-hours', label: '営業時間', icon: Clock, description: '営業時間設定' },
   { id: 'performance-schedule', label: '公演スケジュール', icon: Calendar, description: 'スケジュール設定' },
   { id: 'reservation', label: '予約設定', icon: Users, description: '予約ルール' },
+  { id: 'cancellation', label: 'キャンセル設定', icon: XCircle, description: 'キャンセルポリシー' },
   { id: 'pricing', label: '料金設定', icon: DollarSign, description: '料金体系' },
   { id: 'salary', label: '報酬', icon: Calculator, description: 'GM報酬の設定' },
   { id: 'staff', label: 'スタッフ設定', icon: UserCog, description: 'スタッフ管理' },

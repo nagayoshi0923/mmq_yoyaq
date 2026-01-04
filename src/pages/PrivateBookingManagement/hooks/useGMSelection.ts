@@ -50,18 +50,18 @@ export const useGMSelection = (allGMs: Staff[]) => {
       // GM回答データを取得（CORSエラー回避のため、クライアント側でフィルタリング）
       const { data: availableData, error: availableError } = await supabase
         .from('gm_availability_responses')
-        .select('staff_id, available_candidates, notes, response_type, selected_candidate_index, gm_discord_id, gm_name')
+        .select('staff_id, available_candidates, notes, response_status, selected_candidate_index, gm_discord_id, gm_name')
         .eq('reservation_id', reservationId)
-        .not('response_type', 'is', null)
+        .not('response_status', 'is', null)
 
       if (availableError) {
         logger.error('GM回答データ取得エラー:', availableError)
         throw availableError
       }
 
-      // クライアント側でフィルタリング（response_type === 'available'のみ）
+      // クライアント側でフィルタリング（response_status === 'available'のみ）
       const filteredAvailableData = (availableData || []).filter(
-        (item: any) => item.response_type === 'available'
+        (item: any) => item.response_status === 'available'
       )
 
       logger.log('🔍 GM回答データ:', {

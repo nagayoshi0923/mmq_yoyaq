@@ -7,7 +7,7 @@ import type { MonthlyAuthorData, AuthorPerformance } from '../types'
 /**
  * 作者レポートデータ取得フック
  */
-export function useAuthorReportData(year: number, month: number, storeId: string) {
+export function useAuthorReportData(year: number, month: number, storeIds: string[]) {
   const [monthlyData, setMonthlyData] = useState<MonthlyAuthorData[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -46,7 +46,7 @@ export function useAuthorReportData(year: number, month: number, storeId: string
       const [scenariosData, storesData, performanceData, externalReportsData] = await Promise.all([
         scenarioApi.getAll(),
         storeApi.getAll(),
-        salesApi.getScenarioPerformance(startStr, endStr, storeId === 'all' ? undefined : storeId),
+        salesApi.getScenarioPerformance(startStr, endStr, storeIds.length > 0 ? storeIds : undefined),
         // 承認済みの外部公演報告を取得
         getAllExternalReports({
           status: 'approved',
@@ -257,7 +257,7 @@ export function useAuthorReportData(year: number, month: number, storeId: string
     } finally {
       setLoading(false)
     }
-  }, [year, month, storeId, getMonthRange])
+  }, [year, month, storeIds, getMonthRange])
 
   useEffect(() => {
     fetchData()

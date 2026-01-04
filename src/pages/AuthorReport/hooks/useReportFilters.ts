@@ -14,9 +14,9 @@ export function useReportFilters(monthlyData: MonthlyAuthorData[]) {
     const saved = sessionStorage.getItem('authorReportMonth')
     return saved ? parseInt(saved, 10) : new Date().getMonth() + 1
   })
-  const [selectedStore, setSelectedStore] = useState(() => {
-    const saved = sessionStorage.getItem('authorReportStore')
-    return saved || 'all'
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>(() => {
+    const saved = sessionStorage.getItem('authorReportStoreIds')
+    return saved ? JSON.parse(saved) : []
   })
   const [searchAuthor, setSearchAuthor] = useState('')
 
@@ -30,8 +30,8 @@ export function useReportFilters(monthlyData: MonthlyAuthorData[]) {
   }, [selectedMonth])
 
   useEffect(() => {
-    sessionStorage.setItem('authorReportStore', selectedStore)
-  }, [selectedStore])
+    sessionStorage.setItem('authorReportStoreIds', JSON.stringify(selectedStoreIds))
+  }, [selectedStoreIds])
 
   // フィルタリング
   const filteredMonthlyData = useMemo(() => {
@@ -48,8 +48,8 @@ export function useReportFilters(monthlyData: MonthlyAuthorData[]) {
     setSelectedYear,
     selectedMonth,
     setSelectedMonth,
-    selectedStore,
-    setSelectedStore,
+    selectedStoreIds,
+    setSelectedStoreIds,
     searchAuthor,
     setSearchAuthor,
     filteredMonthlyData

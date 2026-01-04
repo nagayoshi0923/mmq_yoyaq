@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Upload, X } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -273,22 +274,17 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
 
               <div>
                 <Label htmlFor="available_stores">公演可能店舗</Label>
-                <MultiSelect
-                  options={storeOptions}
-                  selectedValues={(formData.available_stores || []).map(storeId => {
-                    const store = stores.find(s => s.id === storeId)
-                    return store?.name || ''
-                  }).filter(Boolean)}
-                  onSelectionChange={(storeNames) => {
-                    const storeIds = storeNames.map(name => 
-                      stores.find(s => s.name === name)?.id || ''
-                    ).filter(Boolean)
+                <StoreMultiSelect
+                  stores={stores}
+                  selectedStoreIds={formData.available_stores || []}
+                  onStoreIdsChange={(storeIds) => {
                     setFormData(prev => ({ ...prev, available_stores: storeIds }))
                   }}
-                  placeholder="店舗を選択（未選択=全店舗で公演可能）"
-                  showBadges={true}
+                  label=""
+                  hideLabel={true}
+                  placeholder="全店舗で公演可能"
+                  emptyText="未選択=全店舗で公演可能"
                   className="mt-1.5"
-                  emptyText="店舗が見つかりません"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   このシナリオを公演可能な店舗を選択してください。未選択の場合は全店舗で公演可能です。

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -50,6 +50,27 @@ export function GMAvailabilityCheck() {
     candidateAvailability,
     updateCandidateAvailability
   } = useAvailabilityCheck()
+
+  // 編集モード状態
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null)
+
+  // 編集開始時に既存の回答を選択状態にセット
+  const handleStartEdit = useCallback((request: any) => {
+    setEditingRequestId(request.id)
+    // 既存の選択を復元（0始まり→1始まりに変換）
+    const existingCandidates = (request.available_candidates || []).map((c: number) => c + 1)
+    // toggleCandidate を使って選択状態を設定
+    existingCandidates.forEach((order: number) => {
+      const current = selectedCandidates[request.id] || []
+      if (!current.includes(order)) {
+        toggleCandidate(request.id, order)
+      }
+    })
+  }, [selectedCandidates, toggleCandidate])
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingRequestId(null)
+  }, [])
 
   const { submitting, handleSubmit } = useResponseSubmit({
     requests,
@@ -152,22 +173,29 @@ export function GMAvailabilityCheck() {
                   const isResponded = request.response_status === 'available' || request.response_status === 'all_unavailable'
                   const isConfirmed = request.reservation_status === 'confirmed'
                   const isGMConfirmed = request.reservation_status === 'gm_confirmed'
+                  const isEditing = editingRequestId === request.id
                   
                   return (
                     <RequestCard
                       key={request.id}
                       request={request}
                       selectedCandidates={
-                        (isResponded || isConfirmed || isGMConfirmed)
+                        (isResponded || isConfirmed) && !isEditing
                           ? (request.available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
                           : selectedCandidates[request.id] || []
                       }
                       candidateAvailability={candidateAvailability[request.id] || {}}
                       notes={notes[request.id] || ''}
                       submitting={submitting === request.id}
+                      isEditing={isEditing}
                       onToggleCandidate={(order) => toggleCandidate(request.id, order)}
                       onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
-                      onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
+                      onSubmit={(allUnavailable) => {
+                        handleSubmit(request.id, allUnavailable)
+                        setEditingRequestId(null)
+                      }}
+                      onStartEdit={() => handleStartEdit(request)}
+                      onCancelEdit={handleCancelEdit}
                     />
                   )
                 })}
@@ -189,22 +217,29 @@ export function GMAvailabilityCheck() {
                   const isResponded = request.response_status === 'available' || request.response_status === 'all_unavailable'
                   const isConfirmed = request.reservation_status === 'confirmed'
                   const isGMConfirmed = request.reservation_status === 'gm_confirmed'
+                  const isEditing = editingRequestId === request.id
                   
                   return (
                     <RequestCard
                       key={request.id}
                       request={request}
                       selectedCandidates={
-                        (isResponded || isConfirmed || isGMConfirmed)
+                        (isResponded || isConfirmed) && !isEditing
                           ? (request.available_candidates || []).map(idx => idx + 1) // 0始まり→1始まりに変換
                           : selectedCandidates[request.id] || []
                       }
                       candidateAvailability={candidateAvailability[request.id] || {}}
                       notes={notes[request.id] || ''}
                       submitting={submitting === request.id}
+                      isEditing={isEditing}
                       onToggleCandidate={(order) => toggleCandidate(request.id, order)}
                       onNotesChange={(value) => setNotes({ ...notes, [request.id]: value })}
-                      onSubmit={(allUnavailable) => handleSubmit(request.id, allUnavailable)}
+                      onSubmit={(allUnavailable) => {
+                        handleSubmit(request.id, allUnavailable)
+                        setEditingRequestId(null)
+                      }}
+                      onStartEdit={() => handleStartEdit(request)}
+                      onCancelEdit={handleCancelEdit}
                     />
                   )
                 })}

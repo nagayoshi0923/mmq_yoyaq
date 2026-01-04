@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Upload, X, Trash2, Wand2 } from 'lucide-react'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -351,21 +352,15 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
           {/* 下段：公演可能店舗 */}
           <div>
             <Label className={labelStyle}>公演可能店舗</Label>
-            <MultiSelect
-              options={storeOptions}
-              selectedValues={(formData.available_stores || []).map(storeId => {
-                const store = stores.find(s => s.id === storeId)
-                return store?.name || ''
-              }).filter(Boolean)}
-              onSelectionChange={(storeNames) => {
-                const storeIds = storeNames.map(name => 
-                  stores.find(s => s.name === name)?.id || ''
-                ).filter(Boolean)
+            <StoreMultiSelect
+              stores={stores}
+              selectedStoreIds={formData.available_stores || []}
+              onStoreIdsChange={(storeIds) => {
                 setFormData(prev => ({ ...prev, available_stores: storeIds }))
               }}
+              hideLabel={true}
               placeholder="全店舗で公演可能"
-              showBadges={true}
-              emptyText="店舗が見つかりません"
+              emptyText="未選択=全店舗で公演可能"
             />
           </div>
         </CardContent>

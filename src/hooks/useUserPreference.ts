@@ -68,10 +68,10 @@ export function useUserPreference<T>(
 }
 
 /**
- * 店舗フィルター専用のフック
+ * 店舗フィルター専用のフック（複数選択対応）
  */
-export function useStoreFilterPreference(defaultStoreId: string = 'all') {
-  return useUserPreference<string>('booking_store_filter', defaultStoreId)
+export function useStoreFilterPreference(defaultStoreIds: string[] = []) {
+  return useUserPreference<string[]>('booking_store_filter_v2', defaultStoreIds)
 }
 
 /**
