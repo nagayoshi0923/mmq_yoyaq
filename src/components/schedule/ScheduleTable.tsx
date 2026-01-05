@@ -143,7 +143,7 @@ export function ScheduleTable({
                             ({day.dayOfWeek})
                           </span>
                           {holiday && (
-                            <span className="text-[8px] sm:text-[10px] text-red-500 leading-tight whitespace-nowrap">
+                            <span className="text-[8px] sm:text-[10px] text-red-500 leading-tight break-all text-center px-0.5">
                               {holiday}
                             </span>
                           )}
