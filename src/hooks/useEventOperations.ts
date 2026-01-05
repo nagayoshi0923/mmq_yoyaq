@@ -90,6 +90,7 @@ interface PerformanceData {
   is_reservation_enabled?: boolean
   is_private_request?: boolean
   reservation_id?: string
+  reservation_name?: string // 予約者名（貸切用）
   time_slot?: string | null // 時間帯（朝/昼/夜）
   venue_rental_fee?: number // 場所貸し公演料金
 }
