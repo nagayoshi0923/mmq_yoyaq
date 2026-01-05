@@ -36,6 +36,7 @@ interface PerformanceModalProps {
   stores: Store[]
   scenarios: Scenario[]
   staff: StaffType[]
+  events?: ScheduleEvent[]  // 同じ日の他の公演（準備時間考慮のため）
   availableStaffByScenario?: Record<string, StaffType[]>  // シナリオごとの出勤可能GM
   allAvailableStaff?: StaffType[]  // その日時に出勤している全GM
   onScenariosUpdate?: () => void  // シナリオ作成後の更新用コールバック
@@ -92,6 +93,7 @@ export function PerformanceModal({
   stores,
   scenarios,
   staff,
+  events = [],
   availableStaffByScenario = {},
   allAvailableStaff = [],
   onScenariosUpdate,
