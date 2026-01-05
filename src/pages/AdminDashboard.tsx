@@ -29,6 +29,7 @@ const ShiftSubmission = lazy(() => import('./ShiftSubmission/index').then(m => (
 const ReservationManagement = lazy(() => import('./ReservationManagement').then(m => ({ default: m.ReservationManagement })))
 const PublicBookingTop = lazy(() => import('./PublicBookingTop').then(m => ({ default: m.PublicBookingTop })))
 const ScenarioDetailPage = lazy(() => import('./ScenarioDetailPage').then(m => ({ default: m.ScenarioDetailPage })))
+const ScenarioDetailGlobal = lazy(() => import('./ScenarioDetailGlobal').then(m => ({ default: m.ScenarioDetailGlobal })))
 const ScenarioCatalog = lazy(() => import('./ScenarioCatalog').then(m => ({ default: m.ScenarioCatalog })))
 const GMAvailabilityCheck = lazy(() => import('./GMAvailabilityCheck').then(m => ({ default: m.GMAvailabilityCheck })))
 const PrivateBookingScenarioSelect = lazy(() => import('./PrivateBookingScenarioSelect').then(m => ({ default: m.PrivateBookingScenarioSelect })))
@@ -80,6 +81,11 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
     'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario']
   if (segments.length === 1 && specialPages.includes(segments[0])) {
     return { page: segments[0], scenarioId: null, organizationSlug: null }
+  }
+  
+  // /scenario/{slug} - シナリオ共通詳細ページ（組織を跨いで公演情報を表示）
+  if (segments[0] === 'scenario' && segments[1]) {
+    return { page: 'scenario-detail-global', scenarioId: segments[1], organizationSlug: null }
   }
   
   // 2セグメント以上の場合、最初のセグメントを組織スラッグとして扱う
@@ -292,6 +298,21 @@ export function AdminDashboard() {
             scenarioId={scenarioId}
             onClose={() => navigate(-1)}
             organizationSlug={organizationSlug}
+          />
+        </Suspense>
+      )
+    }
+  }
+  
+  // シナリオ共通詳細ページ（組織を跨いで公演情報を表示）
+  if (currentPage === 'scenario-detail-global') {
+    const { scenarioId } = parsePath(location.pathname)
+    if (scenarioId) {
+      return (
+        <Suspense fallback={<LoadingScreen message="シナリオ詳細を読み込み中..." />}>
+          <ScenarioDetailGlobal 
+            scenarioSlug={scenarioId}
+            onClose={() => navigate(-1)}
           />
         </Suspense>
       )
