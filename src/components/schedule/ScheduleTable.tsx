@@ -3,6 +3,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
+import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
 import type { ScheduleEvent } from '@/types/schedule'
 import type { Staff, Store } from '@/types'
 
@@ -126,17 +127,30 @@ export function ScheduleTable({
                 return (
                 <TableRow key={`${day.date}-${venue.id}`} className={`min-h-[80px] group bg-background hover:bg-muted/5 ${isFirstVenueOfDay ? 'border-t-2 border-t-gray-300' : ''}`}>
                   {/* 日付・曜日統合セル (Sticky) */}
-                  {venueIndex === 0 ? (
-                    <TableCell 
-                      className={`sticky left-0 z-20 bg-background group-hover:bg-muted/5 schedule-table-cell border-r text-sm !p-0 leading-none text-center align-middle ${day.dayOfWeek === '日' ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''}`} 
-                      rowSpan={allVenues.length}
-                    >
-                      <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-0.5 sm:gap-1">
-                        <span className="font-bold text-xs sm:text-base">{day.displayDate.replace(/月/g,'')}</span>
-                        <span className="text-[10px] sm:text-xs text-muted-foreground scale-90 sm:scale-100 origin-center">({day.dayOfWeek})</span>
-                      </div>
-                    </TableCell>
-                  ) : null}
+                  {venueIndex === 0 ? (() => {
+                    const holiday = getJapaneseHoliday(day.date)
+                    const isHolidayOrSunday = holiday || day.dayOfWeek === '日'
+                    const textColor = isHolidayOrSunday ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''
+                    
+                    return (
+                      <TableCell 
+                        className={`sticky left-0 z-20 bg-background group-hover:bg-muted/5 schedule-table-cell border-r text-sm !p-0 leading-none text-center align-middle ${textColor}`} 
+                        rowSpan={allVenues.length}
+                      >
+                        <div className="flex flex-col items-center justify-center min-h-[40px] sm:min-h-[48px] md:min-h-[56px] gap-0.5 sm:gap-1">
+                          <span className="font-bold text-xs sm:text-base">{day.displayDate.replace(/月/g,'')}</span>
+                          <span className={`text-[10px] sm:text-xs scale-90 sm:scale-100 origin-center ${isHolidayOrSunday ? 'text-red-500' : 'text-muted-foreground'}`}>
+                            ({day.dayOfWeek})
+                          </span>
+                          {holiday && (
+                            <span className="text-[8px] sm:text-[10px] text-red-500 leading-tight whitespace-nowrap">
+                              {holiday}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                    )
+                  })() : null}
                   
                   {/* 店舗セル (Sticky on Mobile) */}
                   <TableCell className="sticky left-[32px] sm:static z-20 sm:z-auto bg-background group-hover:bg-muted/5 schedule-table-cell border-r venue-cell text-xs sm:text-sm font-medium !p-0 leading-none text-center">
