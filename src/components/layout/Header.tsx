@@ -1,10 +1,34 @@
-import { useCallback, memo } from 'react'
+import { useCallback, memo, useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Bell, LogOut, User, Building2 } from 'lucide-react'
+import { Bell, LogOut, User, Building2, ChevronRight, LayoutDashboard } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import { getOrganizationBySlug } from '@/lib/organization'
+import type { Organization } from '@/types'
+
+// 訪問組織のlocalStorageキー
+const VISITED_ORG_KEY = 'mmq_visited_organization'
+
+// URLから組織スラッグを取得
+function getOrgSlugFromUrl(): string | null {
+  const pathname = window.location.pathname
+  const match = pathname.match(/^\/([^/]+)/)
+  if (match) {
+    // 管理ページや特殊パスは除外
+    const excludePaths = ['dashboard', 'stores', 'staff', 'scenarios', 'schedule', 'shift-submission', 
+      'gm-availability', 'private-booking-management', 'reservations', 'accounts', 'sales', 
+      'settings', 'manual', 'login', 'signup', 'reset-password', 'set-password', 'license-management',
+      'staff-profile', 'mypage', 'my-page', 'author', 'external-reports', 'accept-invitation', 
+      'organization-register', 'author-dashboard', 'author-login', 'register', 'about', 'scenario']
+    if (!excludePaths.includes(match[1])) {
+      return match[1]
+    }
+  }
+  return null
+}
 
 interface HeaderProps {
   onPageChange?: (pageId: string) => void
@@ -12,7 +36,50 @@ interface HeaderProps {
 
 export const Header = memo(function Header({ onPageChange }: HeaderProps) {
   const { user, signOut } = useAuth()
-  const { organization } = useOrganization()
+  const { organization: staffOrganization } = useOrganization()
+  const location = useLocation()
+  
+  // 訪問した組織（顧客用）
+  const [visitedOrganization, setVisitedOrganization] = useState<Organization | null>(null)
+  
+  // URLまたはlocalStorageから訪問組織を取得・保持
+  useEffect(() => {
+    const loadVisitedOrganization = async () => {
+      // 1. URLから組織スラッグを取得
+      const urlSlug = getOrgSlugFromUrl()
+      
+      if (urlSlug) {
+        // URLに組織がある場合、それを取得して保存
+        const org = await getOrganizationBySlug(urlSlug)
+        if (org) {
+          setVisitedOrganization(org)
+          localStorage.setItem(VISITED_ORG_KEY, JSON.stringify({ slug: org.slug, name: org.name, id: org.id }))
+          return
+        }
+      }
+      
+      // 2. URLに組織がない場合、localStorageから復元
+      const stored = localStorage.getItem(VISITED_ORG_KEY)
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored)
+          // 保存されている情報から組織を復元
+          const org = await getOrganizationBySlug(parsed.slug)
+          if (org) {
+            setVisitedOrganization(org)
+          }
+        } catch (e) {
+          // パースエラーは無視
+        }
+      }
+    }
+    
+    loadVisitedOrganization()
+  }, [location.pathname]) // URLが変わったら再実行
+  
+  // 表示する組織：スタッフ所属組織 > 訪問組織
+  const displayOrganization = staffOrganization || visitedOrganization
+  const slug = displayOrganization?.slug
 
   const handleSignOut = useCallback(async () => {
     try {
@@ -22,13 +89,17 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
     }
   }, [signOut])
 
-  const handleTitleClick = useCallback(() => {
-    if (onPageChange) {
-      onPageChange('dashboard')
-    } else {
-      window.location.href = '/dashboard'
+  // プラットフォームトップへ
+  const handlePlatformClick = useCallback(() => {
+    window.location.href = '/'
+  }, [])
+
+  // 組織の予約サイトトップへ
+  const handleOrgClick = useCallback(() => {
+    if (slug) {
+      window.location.href = `/${slug}`
     }
-  }, [onPageChange])
+  }, [slug])
 
   const handleMyPageClick = useCallback(() => {
     if (onPageChange) {
@@ -38,34 +109,61 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
     }
   }, [onPageChange])
 
+  // 管理サイト（ダッシュボード）へ
+  const handleDashboardClick = useCallback(() => {
+    if (slug) {
+      window.location.href = `/${slug}/dashboard`
+    } else {
+      window.location.href = '/dashboard'
+    }
+  }, [slug])
+  
+  // スタッフまたは管理者かどうか
+  const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin'
+
   return (
     <header className="border-b border-border bg-card h-[44px] sm:h-[48px] md:h-[52px]">
       <div className="mx-auto px-2 sm:px-3 md:px-4 md:px-6 h-full max-w-full overflow-hidden">
         <div className="flex items-center justify-between h-full gap-1 sm:gap-2">
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 min-w-0 flex-shrink">
+            {/* プラットフォームロゴ → プラットフォームトップへ */}
             <h1 
               className="cursor-pointer hover:text-primary text-sm sm:text-base font-bold leading-none whitespace-nowrap"
-              onClick={handleTitleClick}
+              onClick={handlePlatformClick}
+              title="プラットフォームトップへ"
             >
               MMQ
             </h1>
-            <p className="hidden sm:inline text-xs sm:text-xs text-muted-foreground leading-none whitespace-nowrap">
-              マーダーミステリー店舗管理
-            </p>
+            
+            {/* 組織がある場合は組織ボタンを表示 */}
+            {displayOrganization && (
+              <>
+                <ChevronRight className="h-3 w-3 text-muted-foreground hidden sm:block" />
+                <button
+                  onClick={handleOrgClick}
+                  className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded hover:bg-accent transition-colors cursor-pointer"
+                  title={`${displayOrganization.name}の予約サイトへ`}
+                >
+                  <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
+                  <span className="text-xs sm:text-sm font-medium text-foreground truncate max-w-[80px] sm:max-w-[120px] md:max-w-[160px]">
+                    {displayOrganization.name}
+                  </span>
+                </button>
+              </>
+            )}
+            
+            {/* 組織がない場合のみサブタイトルを表示 */}
+            {!displayOrganization && (
+              <p className="hidden sm:inline text-xs sm:text-xs text-muted-foreground leading-none whitespace-nowrap">
+                マーダーミステリー店舗管理
+              </p>
+            )}
           </div>
           
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
             {user ? (
               <>
                 <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
-                  {organization && (
-                    <div className="hidden md:flex items-center gap-1 px-2 py-0.5 rounded bg-muted border border-border">
-                      <Building2 className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {organization.name}
-                      </span>
-                    </div>
-                  )}
                   <span className="text-xs sm:text-sm font-medium text-foreground truncate max-w-[60px] sm:max-w-[80px] md:max-w-[100px] md:max-w-none">
                     {user?.staffName || user?.name}
                   </span>
@@ -80,6 +178,17 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                      user?.role === 'staff' ? 'スタッフ' : '顧客'}
                   </Badge>
                 </div>
+                {/* スタッフ/管理者用：管理サイトボタン */}
+                {isStaffOrAdmin && (
+                  <button
+                    onClick={handleDashboardClick}
+                    className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors touch-manipulation"
+                    title="管理サイトへ"
+                  >
+                    <LayoutDashboard className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">管理</span>
+                  </button>
+                )}
                 <button 
                   className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 p-0 touch-manipulation"
                   onClick={handleMyPageClick}

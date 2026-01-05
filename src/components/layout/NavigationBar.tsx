@@ -41,6 +41,20 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     return null
   }
   
+  // 管理サイトのパス一覧
+  const adminPaths = [
+    '/dashboard', '/stores', '/staff', '/scenarios', '/schedule', 
+    '/shift-submission', '/gm-availability', '/private-booking-management', 
+    '/reservations', '/accounts', '/sales', '/settings', '/manual', 
+    '/staff-profile', '/license-management', '/scenarios-edit'
+  ]
+  
+  // 管理サイト以外ではナビゲーションを非表示
+  const isAdminPage = adminPaths.some(path => location.pathname.includes(path))
+  if (!isAdminPage) {
+    return null
+  }
+  
   // 全タブ定義（全て組織スラッグ付き）
   const allTabs = useMemo(() => [
     { id: 'dashboard', path: `/${bookingSlug}/dashboard`, label: 'ダッシュボード', icon: LayoutDashboard, roles: ['admin', 'staff'] },

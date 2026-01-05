@@ -9,6 +9,7 @@ import { logger } from '@/utils/logger'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { SettingsPage } from './pages/SettingsPage'
+import { WantToPlayPage } from './pages/LikedScenariosPage'
 import type { Reservation, Store } from '@/types'
 
 interface PlayedScenario {
@@ -681,31 +682,7 @@ export default function MyPage() {
             )}
 
             {activeTab === 'wishlist' && (
-              <div className="space-y-6">
-                <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
-                  <div 
-                    className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-                    style={{ backgroundColor: THEME.primaryLight }}
-                  >
-                    <Heart className="w-8 h-8" style={{ color: THEME.primary }} />
-                  </div>
-                  <h3 className="font-bold text-gray-900 mb-2">遊びたいリスト</h3>
-                  <p className="text-gray-500 text-sm mb-6">
-                    気になるシナリオをお気に入りに追加して<br />
-                    公演情報をチェックしましょう
-                  </p>
-                  <Button 
-                    className="text-white rounded-full px-8"
-                    style={{ backgroundColor: THEME.primary }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = THEME.primaryHover}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = THEME.primary}
-                    onClick={() => navigate('/scenario')}
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    シナリオを探す
-                  </Button>
-                </div>
-              </div>
+              <WantToPlayPage />
             )}
 
             {activeTab === 'settings' && (

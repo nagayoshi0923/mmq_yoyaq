@@ -185,14 +185,10 @@ export function AdminDashboard() {
     }
   }, [navigate, organizationSlug])
 
-  // シナリオ詳細を閉じる
+  // シナリオ詳細を閉じる（前のページに戻る）
   const handleScenarioClose = useCallback(() => {
-    if (organizationSlug) {
-      navigate(`/${organizationSlug}`)
-    } else {
-      navigate('/queens-waltz')
-    }
-  }, [navigate, organizationSlug])
+    navigate(-1)
+  }, [navigate])
 
   // ログインページはAdminDashboardで表示しない
   if (currentPage === 'login') {

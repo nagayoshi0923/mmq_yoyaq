@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { getCurrentOrganizationId } from '@/lib/organization'
 import { logger } from '@/utils/logger'
 
 const FAVORITES_KEY = 'scenario_favorites'
@@ -19,30 +18,72 @@ export function useFavorites() {
   const [customerId, setCustomerId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  // 顧客IDを取得
+  // 顧客IDを取得（なければ作成）
   useEffect(() => {
-    const fetchCustomerId = async () => {
-      if (!user?.email) {
+    const fetchOrCreateCustomer = async () => {
+      console.log('[useFavorites] fetchOrCreateCustomer called, user:', user?.id, user?.email)
+      if (!user?.id || !user?.email) {
+        console.log('[useFavorites] No user, skipping')
         setCustomerId(null)
         return
       }
 
       try {
-        const { data: customer } = await supabase
+        // まず既存の顧客を検索（user_idで検索）
+        console.log('[useFavorites] Looking for customer with user_id:', user.id)
+        const { data: customer, error: selectError } = await supabase
           .from('customers')
           .select('id')
-          .eq('email', user.email)
+          .eq('user_id', user.id)
           .maybeSingle()
 
-        setCustomerId(customer?.id || null)
+        console.log('[useFavorites] Customer search result:', customer, 'error:', selectError)
+
+        if (customer?.id) {
+          console.log('[useFavorites] Found existing customer:', customer.id)
+          setCustomerId(customer.id)
+          return
+        }
+
+        // 顧客が存在しない場合、作成する
+        console.log('[useFavorites] Creating customer record for:', user.email)
+        const { data: newCustomer, error: insertError } = await supabase
+          .from('customers')
+          .insert({
+            email: user.email,
+            name: user.name || user.email.split('@')[0],
+            user_id: user.id,
+          })
+          .select('id')
+          .single()
+
+        console.log('[useFavorites] Insert result:', newCustomer, 'error:', insertError)
+
+        if (insertError) {
+          // 重複エラーの場合は再取得
+          if (insertError.code === '23505') {
+            console.log('[useFavorites] Duplicate error, re-fetching')
+            const { data: existingCustomer } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('user_id', user.id)
+              .single()
+            setCustomerId(existingCustomer?.id || null)
+          } else {
+            throw insertError
+          }
+        } else {
+          setCustomerId(newCustomer?.id || null)
+          console.log('[useFavorites] Customer created:', newCustomer?.id)
+        }
       } catch (error) {
-        logger.error('Failed to fetch customer ID:', error)
+        console.error('[useFavorites] Failed to fetch/create customer:', error)
         setCustomerId(null)
       }
     }
 
-    fetchCustomerId()
-  }, [user?.email])
+    fetchOrCreateCustomer()
+  }, [user?.id, user?.email, user?.name])
 
   // ログインユーザーの場合、DBからお気に入りを取得
   useEffect(() => {
@@ -86,6 +127,7 @@ export function useFavorites() {
   }, [favorites, customerId])
 
   const toggleFavorite = useCallback(async (scenarioId: string) => {
+    console.log('[useFavorites] toggleFavorite called, scenarioId:', scenarioId, 'customerId:', customerId)
     const isCurrentlyFavorite = favorites.has(scenarioId)
     
     // 楽観的更新
@@ -104,6 +146,7 @@ export function useFavorites() {
       try {
         if (isCurrentlyFavorite) {
           // お気に入りから削除
+          console.log('[useFavorites] Deleting from scenario_likes')
           const { error } = await supabase
             .from('scenario_likes')
             .delete()
@@ -111,23 +154,24 @@ export function useFavorites() {
             .eq('scenario_id', scenarioId)
 
           if (error) throw error
-          logger.info('Removed from favorites:', scenarioId)
+          console.log('[useFavorites] Removed from favorites:', scenarioId)
         } else {
           // お気に入りに追加
-          const orgId = await getCurrentOrganizationId()
-          const { error } = await supabase
+          console.log('[useFavorites] Inserting to scenario_likes:', { customer_id: customerId, scenario_id: scenarioId })
+          const { data, error } = await supabase
             .from('scenario_likes')
             .insert({
               customer_id: customerId,
               scenario_id: scenarioId,
-              organization_id: orgId
             })
+            .select()
 
+          console.log('[useFavorites] Insert result:', data, 'error:', error)
           if (error) throw error
-          logger.info('Added to favorites:', scenarioId)
+          console.log('[useFavorites] Added to favorites:', scenarioId)
         }
       } catch (error) {
-        logger.error('Failed to update favorites in DB:', error)
+        console.error('[useFavorites] Failed to update favorites in DB:', error)
         // エラー時はロールバック
         setFavorites(prev => {
           const newFavorites = new Set(prev)
@@ -139,6 +183,8 @@ export function useFavorites() {
           return newFavorites
         })
       }
+    } else {
+      console.log('[useFavorites] No customerId, not saving to DB')
     }
   }, [favorites, customerId])
 

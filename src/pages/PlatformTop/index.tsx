@@ -104,17 +104,20 @@ export function PlatformTop() {
       }
 
       // 今日以降のイベントを取得（店舗の地域情報も含む）
+      // 貸切公演は除外、オープン公演のみ
       const today = new Date().toISOString().split('T')[0]
       const { data: eventData, error: eventError } = await supabase
         .from('schedule_events')
         .select(`
-          id, date, time_slot, remaining_slots, current_participants, start_time,
-          scenarios:scenario_id!inner (id, title, slug, key_visual_url, player_count_min, player_count_max, duration, author, organization_id, status),
+          id, date, time_slot, current_participants, start_time, category, is_reservation_enabled, is_cancelled,
+          scenarios:scenario_id!inner (id, title, slug, key_visual_url, player_count_min, player_count_max, duration, author, organization_id, status, scenario_type),
           stores:store_id (id, name, short_name, color, region)
         `)
         .gte('date', today)
+        .eq('category', 'open')  // オープン公演のみ
+        .eq('is_cancelled', false)  // キャンセルされていない
         .order('date', { ascending: true })
-        .limit(200)
+        .limit(500)
 
       console.log('📆 イベントデータ:', eventData?.length, '件', eventError ? `エラー: ${JSON.stringify(eventError)}` : '')
       if (eventData && eventData.length > 0) {
@@ -129,8 +132,15 @@ export function PlatformTop() {
           const scenario = e.scenarios as any
           const store = e.stores as any
           
+          // 基本チェック
           if (!scenario || !store || scenario.status !== 'available') return
           if (!scenario.organization_id || !orgMap[scenario.organization_id]) return
+          
+          // GMテストを除外
+          if (scenario.scenario_type === 'gm_test') return
+          
+          // 予約無効のイベントを除外
+          if (e.is_reservation_enabled === false) return
           
           const org = orgMap[scenario.organization_id]
           const scenarioKey = scenario.id
@@ -152,9 +162,9 @@ export function PlatformTop() {
             }
           }
           
-          // 最大5件まで追加
-          if (scenarioMap[scenarioKey].next_events.length < 5) {
-            const remainingSlots = e.remaining_slots ?? (scenario.player_count_max - (e.current_participants || 0))
+          // 最大10件まで追加
+          if (scenarioMap[scenarioKey].next_events.length < 10) {
+            const remainingSlots = scenario.player_count_max - (e.current_participants || 0)
             scenarioMap[scenarioKey].next_events.push({
               date: e.date,
               time: e.start_time || e.time_slot || '',
@@ -167,18 +177,26 @@ export function PlatformTop() {
           }
         })
         
-        // 配列に変換してソート（イベントがあるシナリオを優先）
+        // 配列に変換してソート（直近公演日順）
         const scenarioList = Object.values(scenarioMap)
           .sort((a, b) => {
             // 直近公演があるものを優先
             if (a.next_events.length > 0 && b.next_events.length === 0) return -1
             if (a.next_events.length === 0 && b.next_events.length > 0) return 1
+            // 両方に公演がある場合は直近公演日順
+            if (a.next_events.length > 0 && b.next_events.length > 0) {
+              return a.next_events[0].date.localeCompare(b.next_events[0].date)
+            }
             // 同じならタイトル順
             return a.scenario_title.localeCompare(b.scenario_title)
           })
         
         setScenariosWithEvents(scenarioList)
         console.log('🎭 シナリオ（イベント付き）:', scenarioList.length, '件')
+        // デバッグ: 最初のシナリオのイベントを表示
+        if (scenarioList.length > 0) {
+          console.log('🎭 最初のシナリオのイベント:', scenarioList[0].scenario_title, scenarioList[0].next_events)
+        }
       }
 
     } catch (error) {
@@ -258,8 +276,8 @@ export function PlatformTop() {
               {user ? (
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="border-white/50 text-white hover:bg-white/10 rounded-full px-8 h-14 text-lg"
+                  variant="ghost"
+                  className="border-2 border-white/50 text-white hover:bg-white/10 hover:text-white rounded-full px-8 h-14 text-lg"
                   onClick={() => navigate('/mypage')}
                 >
                   マイページ
@@ -267,8 +285,8 @@ export function PlatformTop() {
               ) : (
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="border-white/50 text-white hover:bg-white/10 rounded-full px-8 h-14 text-lg"
+                  variant="ghost"
+                  className="border-2 border-white/50 text-white hover:bg-white/10 hover:text-white rounded-full px-8 h-14 text-lg"
                   onClick={() => navigate('/login')}
                 >
                   ログイン / 新規登録
@@ -315,132 +333,123 @@ export function PlatformTop() {
             該当する公演がありません
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredScenarios.slice(0, 12).map(scenario => (
-              <Card 
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            {filteredScenarios.map(scenario => (
+              <div 
                 key={scenario.scenario_id}
-                className="overflow-hidden transition-colors cursor-pointer border border-gray-200 hover:bg-gray-50"
+                className="group cursor-pointer"
                 onClick={() => handleScenarioClick(scenario)}
               >
-                {/* キービジュアル */}
-                <div className="relative w-full aspect-[1/1.4] bg-gray-900 overflow-hidden">
-                  {scenario.key_visual_url ? (
-                    <>
-                      <div 
-                        className="absolute inset-0 scale-110"
-                        style={{
-                          backgroundImage: `url(${scenario.key_visual_url})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          filter: 'blur(20px) brightness(0.7)',
-                        }}
-                      />
-                      <img
-                        src={scenario.key_visual_url}
-                        alt={scenario.scenario_title}
-                        className="relative w-full h-full object-contain"
-                        loading="lazy"
-                      />
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-                      <span className="text-4xl opacity-30">🎭</span>
-                    </div>
-                  )}
-                  
-                  {/* お気に入りボタン */}
+                {/* カード本体 - スマホは横並び、タブレット以上は縦 */}
+                <div className="relative bg-white rounded-lg overflow-hidden border border-gray-200 group-hover:border-gray-300 group-hover:shadow-lg transition-all duration-200 flex sm:flex-col">
+                  {/* お気に入りボタン - カード右上（タップ領域拡大） */}
                   {user && (
                     <button
                       onClick={(e) => handleFavoriteClick(e, scenario.scenario_id)}
-                      className={`absolute top-2 right-2 transition-all opacity-70 hover:opacity-100 ${
-                        favorites.has(scenario.scenario_id) ? 'text-green-500' : 'text-gray-400 hover:text-green-500'
-                      }`}
+                      className={`absolute -top-2 -right-2 z-10 p-5 transition-colors`}
                     >
-                      <Heart className={`h-5 w-5 ${favorites.has(scenario.scenario_id) ? 'fill-current' : ''}`} />
+                      <span className={`flex items-center justify-center w-8 h-8 rounded-md bg-white shadow-sm border border-gray-200 ${
+                        favorites.has(scenario.scenario_id) ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
+                      }`}>
+                        <Heart className={`h-4 w-4 ${favorites.has(scenario.scenario_id) ? 'fill-current' : ''}`} />
+                      </span>
                     </button>
                   )}
-                </div>
-
-                <CardContent className="p-2 sm:p-3 space-y-1 bg-white">
-                  {/* 組織名 */}
-                  <p className="text-xs text-gray-500">{scenario.organization_name}</p>
                   
-                  {/* タイトル */}
-                  <h3 className="text-sm sm:text-base font-medium truncate">
-                    {scenario.scenario_title}
-                  </h3>
-
-                  {/* 人数・時間 */}
-                  <div className="flex items-center gap-2 text-xs text-gray-600">
-                    <div className="flex items-center gap-0.5">
-                      <Users className="h-3 w-3" />
-                      <span>
-                        {scenario.player_count_min === scenario.player_count_max
-                          ? `${scenario.player_count_max}人`
-                          : `${scenario.player_count_min}〜${scenario.player_count_max}人`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-0.5">
-                      <Clock className="h-3 w-3" />
-                      <span>{Math.floor(scenario.duration / 60)}h</span>
-                    </div>
+                  {/* キービジュアル */}
+                  <div className="relative w-28 sm:w-full aspect-[3/4] overflow-hidden bg-gray-100 flex-shrink-0">
+                    {scenario.key_visual_url ? (
+                      <img
+                        src={scenario.key_visual_url}
+                        alt={scenario.scenario_title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                        <Sparkles className="w-8 h-8 text-gray-300" />
+                      </div>
+                    )}
                   </div>
 
-                  {/* 次回公演 */}
-                  {scenario.next_events.length > 0 && (
-                    <div className="space-y-1 mt-2">
-                      {scenario.next_events.slice(0, 3).map((event, index) => {
-                        const dateInfo = formatDate(event.date)
-                        return (
-                          <div 
-                            key={index} 
-                            className="flex items-center gap-1 text-xs py-1 px-1.5 bg-gray-100 rounded"
-                          >
-                            <span className="text-gray-800">
-                              {dateInfo.date}
-                              <span className={`ml-0.5 ${dateInfo.isSunday ? 'text-red-600' : dateInfo.isSaturday ? 'text-blue-600' : 'text-gray-600'}`}>
-                                ({dateInfo.weekday})
-                              </span>
-                            </span>
-                            <span 
-                              className="text-[10px] whitespace-nowrap"
-                              style={{ color: event.store_color ? getColorFromName(event.store_color) : '#6B7280' }}
-                            >
-                              {event.store_short_name}
-                            </span>
-                            {event.available_seats > 0 && (
-                              <span className={`text-xs ml-auto ${event.available_seats <= 2 ? 'text-orange-600' : 'text-gray-600'}`}>
-                                残{event.available_seats}
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
-                      {scenario.next_events.length > 3 && (
-                        <div className="text-xs text-gray-400">
-                          ...他 {scenario.next_events.length - 3}件
-                        </div>
-                      )}
+                  {/* コンテンツ */}
+                  <div className="p-3 flex-1 min-w-0">
+                    {/* 組織名 */}
+                    <p className="text-xs text-gray-500 mb-1 truncate">{scenario.organization_name}</p>
+                    
+                    {/* タイトル */}
+                    <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-2 group-hover:text-red-600 transition-colors">
+                      {scenario.scenario_title}
+                    </h3>
+
+                    {/* 人数・時間 */}
+                    <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {scenario.player_count_min === scenario.player_count_max
+                          ? `${scenario.player_count_max}人`
+                          : `${scenario.player_count_min}-${scenario.player_count_max}人`}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {Math.floor(scenario.duration / 60)}h
+                      </span>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+
+                    {/* 次回公演 */}
+                    {scenario.next_events.length > 0 && (
+                      <div className="border-t border-gray-100 pt-2 space-y-1">
+                        {scenario.next_events.slice(0, 2).map((event, index) => {
+                          const dateInfo = formatDate(event.date)
+                          return (
+                            <div 
+                              key={index} 
+                              className="flex items-center justify-between text-xs"
+                            >
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span 
+                                  className="w-1 h-4 rounded-sm flex-shrink-0"
+                                  style={{ backgroundColor: event.store_color ? getColorFromName(event.store_color) : THEME.primary }}
+                                />
+                                <span className="font-medium text-gray-900">
+                                  {dateInfo.date}
+                                  <span className={`ml-0.5 font-normal ${dateInfo.isSunday ? 'text-red-500' : dateInfo.isSaturday ? 'text-blue-500' : 'text-gray-400'}`}>
+                                    ({dateInfo.weekday})
+                                  </span>
+                                </span>
+                                {event.time && (
+                                  <span className="text-gray-500">{event.time.slice(0, 5)}</span>
+                                )}
+                                <span className="text-gray-400 truncate">{event.store_short_name}</span>
+                              </div>
+                              {event.available_seats > 0 && (
+                                <span 
+                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ml-2 ${
+                                    event.available_seats <= 2 
+                                      ? 'bg-red-100 text-red-600' 
+                                      : 'bg-gray-100 text-gray-600'
+                                  }`}
+                                >
+                                  残{event.available_seats}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
+                        {scenario.next_events.length > 2 && (
+                          <p className="text-[10px] text-gray-400">
+                            +{scenario.next_events.length - 2}件
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         )}
 
-        {filteredScenarios.length > 12 && (
-          <div className="text-center mt-6">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/scenario')}
-              className="rounded-full"
-            >
-              もっと見る
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-        )}
       </section>
 
       {/* 参加店舗 */}

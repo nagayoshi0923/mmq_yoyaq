@@ -34,6 +34,55 @@ function getEventTimeSlot(event: ScheduleEvent | { start_time: string; timeSlot?
   return getTimeSlot(event.start_time)
 }
 
+/**
+ * 時間文字列を分に変換（HH:MM:SS または HH:MM 形式）
+ */
+function timeToMinutes(time: string): number {
+  const parts = time.split(':')
+  return parseInt(parts[0]) * 60 + parseInt(parts[1])
+}
+
+/**
+ * 2つの時間帯が重複しているかチェック（準備時間を考慮）
+ * @param start1 既存公演の開始時間
+ * @param end1 既存公演の終了時間
+ * @param start2 新規公演の開始時間
+ * @param end2 新規公演の終了時間
+ * @param prepMinutes1 既存公演の準備時間（分）
+ * @param prepMinutes2 新規公演の準備時間（分）
+ * @returns { overlap: boolean, reason?: string } 重複情報
+ */
+function checkTimeOverlap(
+  start1: string,
+  end1: string,
+  start2: string,
+  end2: string,
+  prepMinutes1: number = 0,
+  prepMinutes2: number = 0
+): { overlap: boolean; reason?: string } {
+  const s1 = timeToMinutes(start1)
+  const e1 = timeToMinutes(end1)
+  const s2 = timeToMinutes(start2)
+  const e2 = timeToMinutes(end2)
+  
+  // 1. 純粋な時間の重複チェック
+  if (!(e1 <= s2 || e2 <= s1)) {
+    return { overlap: true, reason: '時間が重複' }
+  }
+  
+  // 2. 既存公演の後に新規公演がある場合：既存公演終了+準備時間 > 新規公演開始
+  if (e1 <= s2 && e1 + prepMinutes1 > s2) {
+    return { overlap: true, reason: `準備時間不足（前公演終了後${prepMinutes1}分必要）` }
+  }
+  
+  // 3. 新規公演の後に既存公演がある場合：新規公演終了+準備時間 > 既存公演開始
+  if (e2 <= s1 && e2 + prepMinutes2 > s1) {
+    return { overlap: true, reason: `準備時間不足（この公演終了後${prepMinutes2}分必要）` }
+  }
+  
+  return { overlap: false }
+}
+
 interface Store {
   id: string
   name: string
@@ -45,6 +94,7 @@ interface Scenario {
   title: string
   duration?: number
   player_count_max?: number
+  extra_preparation_time?: number // 準備時間（分）
 }
 
 interface UseEventOperationsProps {
@@ -387,7 +437,7 @@ export function useEventOperations({
     }
   }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId])
 
-  // 🚨 CRITICAL: 公演保存時の重複チェック機能
+  // 🚨 CRITICAL: 公演保存時の重複チェック機能（タイムスロット + 実時間 + 準備時間）
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData) => {
     // タイムスロットを判定（保存された枠time_slotを優先、なければstart_timeから判定）
     let timeSlot: 'morning' | 'afternoon' | 'evening'
@@ -405,8 +455,8 @@ export function useEventOperations({
       }
     }
     
-    // 重複チェック：同じ日時・店舗・時間帯に既に公演があるか
-    const conflictingEvents = events.filter(event => {
+    // 重複チェック1：同じ日時・店舗・時間帯に既に公演があるか（タイムスロット単位）
+    const slotConflictingEvents = events.filter(event => {
       // 編集中の公演自身は除外
       if (modalMode === 'edit' && event.id === performanceData.id) {
         return false
@@ -420,8 +470,8 @@ export function useEventOperations({
              !event.is_cancelled
     })
     
-    if (conflictingEvents.length > 0) {
-      const conflictingEvent = conflictingEvents[0]
+    if (slotConflictingEvents.length > 0) {
+      const conflictingEvent = slotConflictingEvents[0]
       const timeSlotLabel = timeSlot === 'morning' ? '午前' : timeSlot === 'afternoon' ? '午後' : '夜間'
       const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
       
@@ -442,9 +492,70 @@ export function useEventOperations({
       return
     }
     
+    // 重複チェック2：実際の時間の重複（準備時間を考慮）
+    // 同じ日・同じ店舗の全公演と時間を比較
+    
+    // 新規公演のシナリオから準備時間を取得
+    const newScenario = scenarios.find(s => s.title === performanceData.scenario)
+    const newPrepMinutes = newScenario?.extra_preparation_time || 0
+    
+    let timeConflict: { event: ScheduleEvent; reason: string } | null = null
+    
+    for (const event of events) {
+      // 編集中の公演自身は除外
+      if (modalMode === 'edit' && event.id === performanceData.id) {
+        continue
+      }
+      
+      // 同じ日・同じ店舗の公演のみ対象
+      if (event.date !== performanceData.date || event.venue !== performanceData.venue || event.is_cancelled) {
+        continue
+      }
+      
+      // 既存公演のシナリオから準備時間を取得
+      const existingScenario = scenarios.find(s => s.title === event.scenario)
+      const existingPrepMinutes = existingScenario?.extra_preparation_time || 0
+      
+      // 時間の重複をチェック（両方向の準備時間を考慮）
+      const result = checkTimeOverlap(
+        event.start_time,
+        event.end_time,
+        performanceData.start_time,
+        performanceData.end_time,
+        existingPrepMinutes,
+        newPrepMinutes
+      )
+      
+      if (result.overlap) {
+        timeConflict = { event, reason: result.reason || '時間が重複' }
+        break
+      }
+    }
+    
+    if (timeConflict) {
+      const conflictingEvent = timeConflict.event
+      const storeName = stores.find(s => s.id === performanceData.venue)?.name || performanceData.venue
+      
+      // 重複警告モーダルを表示
+      setConflictInfo({
+        date: performanceData.date,
+        storeName,
+        timeSlot: `${conflictingEvent.start_time.slice(0, 5)}〜${conflictingEvent.end_time.slice(0, 5)}（${timeConflict.reason}）`,
+        conflictingEvent: {
+          scenario: conflictingEvent.scenario,
+          gms: conflictingEvent.gms,
+          start_time: conflictingEvent.start_time,
+          end_time: conflictingEvent.end_time
+        }
+      })
+      setPendingPerformanceData(performanceData)
+      setIsConflictWarningOpen(true)
+      return
+    }
+    
     // 重複がない場合は直接保存
     await doSavePerformance(performanceData)
-  }, [events, stores, modalMode])
+  }, [events, stores, scenarios, modalMode])
 
   // 実際の保存処理（重複チェックなし）
   const doSavePerformance = useCallback(async (performanceData: PerformanceData) => {

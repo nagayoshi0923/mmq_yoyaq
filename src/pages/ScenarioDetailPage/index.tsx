@@ -213,8 +213,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
               className="flex items-center gap-1 hover:bg-accent h-9 px-2 touch-manipulation text-sm"
             >
               <ArrowLeft className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden md:inline">シナリオ一覧に戻る</span>
-              <span className="md:hidden">戻る</span>
+              <span>戻る</span>
             </Button>
           </div>
           
