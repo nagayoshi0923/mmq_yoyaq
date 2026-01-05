@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, MapPin, Users, Star, Trophy, Sparkles, ChevronRight, Heart, Camera, Settings, Bell, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -6,8 +7,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { OptimizedImage } from '@/components/ui/optimized-image'
-import { SettingsPage } from './pages/SettingsPage'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { SettingsPage } from './pages/SettingsPage'
 import type { Reservation, Store } from '@/types'
 
 interface PlayedScenario {
@@ -15,6 +16,8 @@ interface PlayedScenario {
   date: string
   venue: string
   scenario_id?: string
+  scenario_slug?: string
+  organization_slug?: string
   key_visual_url?: string
 }
 
@@ -27,11 +30,14 @@ const menuItems = [
 
 export default function MyPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<string>('reservations')
   
   // データ
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
+  const [scenarioSlugs, setScenarioSlugs] = useState<Record<string, string>>({})
+  const [orgSlugs, setOrgSlugs] = useState<Record<string, string>>({})
   const [stores, setStores] = useState<Record<string, Store>>({})
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
   const [loading, setLoading] = useState(true)
@@ -104,8 +110,25 @@ export default function MyPage() {
         points: confirmedPast.length * 100
       })
 
-      // シナリオの画像を取得
+      // シナリオの画像と組織情報を取得
       if (reservationData && reservationData.length > 0) {
+        // 組織slugを取得
+        const orgIds = [...new Set(reservationData.map(r => r.organization_id).filter(Boolean))]
+        let orgSlugMap: Record<string, string> = {}
+        if (orgIds.length > 0) {
+          const { data: orgs } = await supabase
+            .from('organizations')
+            .select('id, slug')
+            .in('id', orgIds)
+          
+          if (orgs) {
+            orgs.forEach(o => {
+              if (o.slug) orgSlugMap[o.id] = o.slug
+            })
+            setOrgSlugs(orgSlugMap)
+          }
+        }
+
         const scenarioIds = reservationData
           .map(r => r.scenario_id)
           .filter((id): id is string => id !== null && id !== undefined)
@@ -113,17 +136,22 @@ export default function MyPage() {
         if (scenarioIds.length > 0) {
           const { data: scenarios, error: scenariosError } = await supabase
             .from('scenarios')
-            .select('id, key_visual_url')
+            .select('id, key_visual_url, slug')
             .in('id', scenarioIds)
           
           if (!scenariosError && scenarios) {
             const imageMap: Record<string, string> = {}
+            const slugMap: Record<string, string> = {}
             scenarios.forEach(s => {
               if (s.key_visual_url) {
                 imageMap[s.id] = s.key_visual_url
               }
+              if (s.slug) {
+                slugMap[s.id] = s.slug
+              }
             })
             setScenarioImages(imageMap)
+            setScenarioSlugs(slugMap)
           }
         }
 
@@ -133,53 +161,61 @@ export default function MyPage() {
           if (r.store_id) storeIds.add(r.store_id)
         })
 
+        let storesData: { id: string; name: string; address?: string; color?: string }[] = []
         if (storeIds.size > 0) {
-          const { data: storesData, error: storesError } = await supabase
+          const { data, error: storesError } = await supabase
             .from('stores')
             .select('id, name, address, color')
             .in('id', Array.from(storeIds))
           
-          if (!storesError && storesData) {
+          if (!storesError && data) {
+            storesData = data
             const storeMap: Record<string, Store> = {}
-            storesData.forEach(store => {
+            data.forEach(store => {
               storeMap[store.id] = store as Store
             })
             setStores(storeMap)
           }
         }
-      }
 
-      // プレイ済みシナリオを取得
-      const pastReservations = (reservationData || []).filter(
-        r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'
-      )
-      
-      const played: PlayedScenario[] = []
-      for (const reservation of pastReservations.slice(0, 12)) {
-        let keyVisualUrl = null
-        if (reservation.scenario_id) {
-          const existing = scenarioImages[reservation.scenario_id]
-          if (existing) {
-            keyVisualUrl = existing
-          } else {
-            const { data: scenarioData } = await supabase
-              .from('scenarios')
-              .select('key_visual_url')
-              .eq('id', reservation.scenario_id)
-              .maybeSingle()
-            keyVisualUrl = scenarioData?.key_visual_url
+        // プレイ済みシナリオを取得
+        const pastReservations = reservationData.filter(
+          r => new Date(r.requested_datetime) < new Date() && r.status === 'confirmed'
+        )
+        
+        // 追加のシナリオ情報を取得
+        const pastScenarioIds = pastReservations
+          .map(r => r.scenario_id)
+          .filter((id): id is string => id !== null && id !== undefined)
+        
+        let additionalScenarioData: Record<string, { key_visual_url?: string, slug?: string }> = {}
+        if (pastScenarioIds.length > 0) {
+          const { data: pastScenarios } = await supabase
+            .from('scenarios')
+            .select('id, key_visual_url, slug')
+            .in('id', pastScenarioIds)
+          
+          if (pastScenarios) {
+            pastScenarios.forEach(s => {
+              additionalScenarioData[s.id] = { key_visual_url: s.key_visual_url, slug: s.slug }
+            })
           }
         }
         
-        played.push({
-          scenario: reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || '',
-          date: reservation.requested_datetime.split('T')[0],
-          venue: stores[reservation.store_id || '']?.name || '店舗情報なし',
-          scenario_id: reservation.scenario_id || undefined,
-          key_visual_url: keyVisualUrl || undefined,
+        const played: PlayedScenario[] = pastReservations.slice(0, 12).map(reservation => {
+          const scenarioInfo = reservation.scenario_id ? additionalScenarioData[reservation.scenario_id] : null
+          return {
+            scenario: reservation.title?.replace(/【貸切希望】/g, '').replace(/（候補\d+件）/g, '').trim() || '',
+            date: reservation.requested_datetime.split('T')[0],
+            venue: storesData.find(s => s.id === reservation.store_id)?.name || '店舗情報なし',
+            scenario_id: reservation.scenario_id || undefined,
+            scenario_slug: scenarioInfo?.slug || undefined,
+            organization_slug: reservation.organization_id ? orgSlugMap[reservation.organization_id] : undefined,
+            key_visual_url: scenarioInfo?.key_visual_url || undefined,
+          }
         })
+        setPlayedScenarios(played)
       }
-      setPlayedScenarios(played)
 
     } catch (error) {
       logger.error('データ取得エラー:', error)
@@ -365,15 +401,29 @@ export default function MyPage() {
                     
                     {/* メインカード */}
                     <div className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                      <div className="relative h-48 md:h-56">
+                      <div className="relative aspect-[16/9] md:aspect-[21/9] bg-gray-900 overflow-hidden">
                         {upcomingReservations[0].scenario_id && scenarioImages[upcomingReservations[0].scenario_id] ? (
-                          <OptimizedImage
-                            src={scenarioImages[upcomingReservations[0].scenario_id]}
-                            alt={upcomingReservations[0].title}
-                            className="w-full h-full object-cover"
-                          />
+                          <>
+                            {/* 背景：ぼかした画像で余白を埋める */}
+                            <div 
+                              className="absolute inset-0 scale-110"
+                              style={{
+                                backgroundImage: `url(${scenarioImages[upcomingReservations[0].scenario_id]})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                filter: 'blur(20px) brightness(0.5)',
+                              }}
+                            />
+                            {/* メイン画像：全体を表示 */}
+                            <img
+                              src={scenarioImages[upcomingReservations[0].scenario_id]}
+                              alt={upcomingReservations[0].title}
+                              className="relative w-full h-full object-contain"
+                              loading="lazy"
+                            />
+                          </>
                         ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                          <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
                             <span className="text-6xl opacity-30">🎭</span>
                           </div>
                         )}
@@ -428,6 +478,18 @@ export default function MyPage() {
                             style={{ backgroundColor: THEME.primary }}
                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = THEME.primaryHover}
                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = THEME.primary}
+                            onClick={() => {
+                              const reservation = upcomingReservations[0]
+                              if (reservation.scenario_id) {
+                                const scenarioSlug = scenarioSlugs[reservation.scenario_id] || reservation.scenario_id
+                                const orgSlug = reservation.organization_id ? orgSlugs[reservation.organization_id] : null
+                                if (orgSlug) {
+                                  navigate(`/${orgSlug}/scenario/${scenarioSlug}`)
+                                } else {
+                                  navigate(`/scenario/${scenarioSlug}`)
+                                }
+                              }
+                            }}
                           >
                             詳細を見る
                             <ChevronRight className="w-4 h-4 ml-1" />
@@ -451,6 +513,17 @@ export default function MyPage() {
                         <div
                           key={reservation.id}
                           className="bg-white rounded-xl shadow-sm p-4 flex gap-4 hover:shadow-md transition-shadow duration-300 cursor-pointer"
+                          onClick={() => {
+                            if (reservation.scenario_id) {
+                              const scenarioSlug = scenarioSlugs[reservation.scenario_id] || reservation.scenario_id
+                              const orgSlug = reservation.organization_id ? orgSlugs[reservation.organization_id] : null
+                              if (orgSlug) {
+                                navigate(`/${orgSlug}/scenario/${scenarioSlug}`)
+                              } else {
+                                navigate(`/scenario/${scenarioSlug}`)
+                              }
+                            }
+                          }}
                         >
                           <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
                             {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
@@ -502,6 +575,7 @@ export default function MyPage() {
                       style={{ backgroundColor: THEME.primary }}
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = THEME.primaryHover}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = THEME.primary}
+                      onClick={() => navigate('/scenario')}
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
                       公演を探す
@@ -518,6 +592,7 @@ export default function MyPage() {
                       style={{ borderColor: THEME.primary, color: THEME.primary }}
                       onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = THEME.primary; e.currentTarget.style.color = 'white' }}
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = THEME.primary }}
+                      onClick={() => setActiveTab('album')}
                     >
                       過去の参加履歴を見る（{pastReservations.length}件）
                       <ChevronRight className="w-4 h-4 ml-1" />
@@ -553,6 +628,16 @@ export default function MyPage() {
                         <div
                           key={index}
                           className="aspect-[3/4] rounded-xl overflow-hidden relative group cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-lg hover:-translate-y-1"
+                          onClick={() => {
+                            if (scenario.scenario_id) {
+                              const scenarioSlug = scenario.scenario_slug || scenario.scenario_id
+                              if (scenario.organization_slug) {
+                                navigate(`/${scenario.organization_slug}/scenario/${scenarioSlug}`)
+                              } else {
+                                navigate(`/scenario/${scenarioSlug}`)
+                              }
+                            }
+                          }}
                         >
                           {scenario.key_visual_url ? (
                             <OptimizedImage
@@ -614,6 +699,7 @@ export default function MyPage() {
                     style={{ backgroundColor: THEME.primary }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = THEME.primaryHover}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = THEME.primary}
+                    onClick={() => navigate('/scenario')}
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
                     シナリオを探す
@@ -637,6 +723,7 @@ export default function MyPage() {
           style={{ backgroundColor: THEME.primary }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = THEME.primaryHover}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = THEME.primary}
+          onClick={() => navigate('/booking')}
         >
           <Sparkles className="w-6 h-6" />
         </Button>

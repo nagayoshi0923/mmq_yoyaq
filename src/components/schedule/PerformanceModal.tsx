@@ -274,6 +274,9 @@ export function PerformanceModal({
       // スロットメモを取得（localStorageから）
       const slotMemo = getEmptySlotMemo(initialData.date, initialData.venue, slot)
       
+      // 前の公演がある場合は推奨開始時間を使用、なければスロットのデフォルトを使用
+      const startTime = (initialData as any).suggestedStartTime || defaults.start_time
+      
       setFormData({
         id: Date.now().toString(),
         date: initialData.date,
@@ -281,7 +284,7 @@ export function PerformanceModal({
         scenario: '',
         gms: [],
         gmRoles: {},
-        start_time: defaults.start_time,
+        start_time: startTime,
         end_time: defaults.end_time,
         category: 'private',
         max_participants: DEFAULT_MAX_PARTICIPANTS,

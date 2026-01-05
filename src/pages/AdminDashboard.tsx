@@ -53,6 +53,8 @@ const LandingPage = lazy(() => import('./LandingPage'))
 const AuthorDashboard = lazy(() => import('./AuthorDashboard'))
 const AuthorLogin = lazy(() => import('./AuthorLogin'))
 const ExternalReportForm = lazy(() => import('./ExternalReportForm'))
+const PlatformScenarioSearch = lazy(() => import('./PlatformScenarioSearch').then(m => ({ default: m.PlatformScenarioSearch })))
+const PlatformTop = lazy(() => import('./PlatformTop').then(m => ({ default: m.PlatformTop })))
 
 // 管理ページのパス一覧
 const ADMIN_PATHS = [
@@ -68,14 +70,14 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   const path = pathname.startsWith('/') ? pathname.substring(1) : pathname
   const segments = path.split('/')
   
-  // 空パスはダッシュボード
+  // 空パスはプラットフォームトップ
   if (!path || path === '') {
-    return { page: 'dashboard', scenarioId: null, organizationSlug: null }
+    return { page: 'platform-top', scenarioId: null, organizationSlug: null }
   }
   
   // 特殊ページのチェック（組織スラッグなし）
   const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'register', 'about', 
-    'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page']
+    'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario']
   if (segments.length === 1 && specialPages.includes(segments[0])) {
     return { page: segments[0], scenarioId: null, organizationSlug: null }
   }
@@ -152,21 +154,14 @@ export function AdminDashboard() {
     const isCustomerOrLoggedOut = !user || user.role === 'customer'
     const defaultOrg = organization?.slug || 'queens-waltz'
     
-    // 未ログイン + ルートパス → 予約サイト（デフォルト組織）
-    if (!user && location.pathname === '/') {
-      navigate(`/${defaultOrg}`, { replace: true })
+    // ルートパス（/）はプラットフォームトップを表示（リダイレクトしない）
+    if (location.pathname === '/') {
       return
     }
     
     // 顧客/ログアウト状態で管理ページにいる場合は予約サイトにリダイレクト
     if (isCustomerOrLoggedOut && ADMIN_PATHS.includes(currentPage)) {
       navigate(`/${defaultOrg}`, { replace: true })
-      return
-    }
-
-    // スタッフ/管理者がルートパスにいる場合はダッシュボードへ
-    if (user && (user.role === 'admin' || user.role === 'staff') && location.pathname === '/') {
-      navigate(`/${defaultOrg}/dashboard`, { replace: true })
       return
     }
   }, [user, currentPage, isInitialized, loading, location.pathname, navigate, organization?.slug])
@@ -393,6 +388,24 @@ export function AdminDashboard() {
           <MyPage />
         </Suspense>
       </div>
+    )
+  }
+
+  // プラットフォームトップページ
+  if (currentPage === 'platform-top') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <PlatformTop />
+      </Suspense>
+    )
+  }
+
+  // プラットフォームレベルのシナリオ検索ページ
+  if (currentPage === 'scenario') {
+    return (
+      <Suspense fallback={<LoadingScreen message="シナリオを読み込み中..." />}>
+        <PlatformScenarioSearch />
+      </Suspense>
     )
   }
 

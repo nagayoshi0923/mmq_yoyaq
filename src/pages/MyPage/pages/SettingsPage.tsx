@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -14,24 +12,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Settings as SettingsIcon, Trash2, AlertTriangle, User, Mail, Calendar as CalendarIcon, Phone, MapPin, MessageSquare, Lock } from 'lucide-react'
+import { Trash2, AlertTriangle, User, Mail, Bell, Lock, ChevronRight, Phone, MapPin, MessageSquare } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { deleteMyAccount } from '@/lib/userApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { customerApi } from '@/lib/reservationApi'
 import { supabase } from '@/lib/supabase'
 import { useOrganization } from '@/hooks/useOrganization'
 import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
+import { MYPAGE_THEME as THEME } from '@/lib/theme'
+
+type DialogType = 'profile' | 'notification' | 'email' | 'password' | 'delete' | null
 
 export function SettingsPage() {
   const { user, signOut } = useAuth()
   const { organizationId } = useOrganization()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [changingEmail, setChangingEmail] = useState(false)
-  const [changingPassword, setChangingPassword] = useState(false)
   const [customerInfo, setCustomerInfo] = useState<any>(null)
+  const [activeDialog, setActiveDialog] = useState<DialogType>(null)
+  
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -43,13 +43,13 @@ export function SettingsPage() {
     newEmail: '',
   })
   const [passwordFormData, setPasswordFormData] = useState({
-    currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   })
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [confirmEmail, setConfirmEmail] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [changingEmail, setChangingEmail] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
 
   useEffect(() => {
     if (user?.id || user?.email) {
@@ -58,18 +58,11 @@ export function SettingsPage() {
   }, [user])
 
   const fetchCustomerInfo = async () => {
-    if (!user?.id && !user?.email) {
-      logger.log('⚠️ ユーザー情報なし、顧客情報取得をスキップ')
-      return
-    }
+    if (!user?.id && !user?.email) return
 
     setLoading(true)
     try {
-      logger.log('🔍 顧客情報取得開始:', { userId: user?.id, email: user?.email })
-      
-      let query = supabase
-        .from('customers')
-        .select('*')
+      let query = supabase.from('customers').select('*')
       
       if (user?.id) {
         query = query.eq('user_id', user.id)
@@ -79,13 +72,9 @@ export function SettingsPage() {
       
       const { data, error } = await query.maybeSingle()
 
-      if (error) {
-        logger.error('❌ 顧客情報取得エラー:', error)
-        throw error
-      }
+      if (error) throw error
 
       if (data) {
-        logger.log('✅ 顧客情報取得成功:', { id: data.id, name: data.name })
         setCustomerInfo(data)
         setFormData({
           name: data.name || '',
@@ -95,9 +84,7 @@ export function SettingsPage() {
           notes: data.notes || '',
         })
       } else {
-        logger.log('⚠️ 顧客情報が見つかりませんでした')
         setCustomerInfo(null)
-        // ユーザー情報から初期値を設定
         if (user?.name) {
           setFormData(prev => ({ ...prev, name: user.name || '' }))
         }
@@ -110,7 +97,7 @@ export function SettingsPage() {
     }
   }
 
-  const handleSave = async () => {
+  const handleSaveProfile = async () => {
     if (!formData.name.trim()) {
       showToast.warning('名前を入力してください')
       return
@@ -119,7 +106,6 @@ export function SettingsPage() {
     setSaving(true)
     try {
       if (customerInfo) {
-        // 更新
         const { error } = await supabase
           .from('customers')
           .update({
@@ -136,8 +122,6 @@ export function SettingsPage() {
         if (error) throw error
         showToast.success('プロフィールを更新しました')
       } else if (user?.id) {
-        // 新規作成
-        // organization_idを取得（ログインユーザーから、またはデフォルト）
         const orgId = organizationId || QUEENS_WALTZ_ORG_ID
         
         const { error } = await supabase
@@ -157,12 +141,10 @@ export function SettingsPage() {
 
         if (error) throw error
         showToast.success('プロフィールを作成しました')
-      } else {
-        showToast.error('ユーザー情報が見つかりません')
-        return
       }
 
       fetchCustomerInfo()
+      setActiveDialog(null)
     } catch (error: any) {
       logger.error('プロフィール更新エラー:', error)
       showToast.error(error.message || '更新に失敗しました')
@@ -182,10 +164,6 @@ export function SettingsPage() {
       return
     }
 
-    if (!confirm(`メールアドレスを ${emailFormData.newEmail} に変更しますか？\n確認メールが送信されます。`)) {
-      return
-    }
-
     setChangingEmail(true)
     try {
       const { error } = await supabase.auth.updateUser({
@@ -196,6 +174,7 @@ export function SettingsPage() {
 
       showToast.success('確認メールを送信しました', '新しいメールアドレスで確認してください')
       setEmailFormData({ newEmail: '' })
+      setActiveDialog(null)
     } catch (error: any) {
       logger.error('メールアドレス変更エラー:', error)
       showToast.error(error.message || 'メールアドレスの変更に失敗しました')
@@ -220,10 +199,6 @@ export function SettingsPage() {
       return
     }
 
-    if (!confirm('パスワードを変更しますか？')) {
-      return
-    }
-
     setChangingPassword(true)
     try {
       const { error } = await supabase.auth.updateUser({
@@ -233,11 +208,8 @@ export function SettingsPage() {
       if (error) throw error
 
       showToast.success('パスワードを変更しました')
-      setPasswordFormData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      })
+      setPasswordFormData({ newPassword: '', confirmPassword: '' })
+      setActiveDialog(null)
     } catch (error: any) {
       logger.error('パスワード変更エラー:', error)
       showToast.error(error.message || 'パスワードの変更に失敗しました')
@@ -246,14 +218,9 @@ export function SettingsPage() {
     }
   }
 
-  const formatDate = (date: string) => {
-    const d = new Date(date)
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
-  }
-
   const handleDeleteAccount = async () => {
     if (confirmEmail !== user?.email) {
-      showToast.warning('メールアドレスが一致しません', '正確に入力してください')
+      showToast.warning('メールアドレスが一致しません')
       return
     }
 
@@ -263,28 +230,10 @@ export function SettingsPage() {
 
     setDeleting(true)
     try {
-      // customersテーブルのレコードを削除（存在する場合）
       if (customerInfo?.id) {
-        await customerApi.delete(customerInfo.id)
-        logger.log('✅ 顧客情報を削除しました')
-      } else if (user?.id) {
-        try {
-          const { data: customerData } = await supabase
-            .from('customers')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle()
-          
-          if (customerData?.id) {
-            await customerApi.delete(customerData.id)
-            logger.log('✅ 顧客情報を削除しました')
-          }
-        } catch (error: any) {
-          logger.warn('顧客情報の削除エラー（続行）:', error)
-        }
+        await supabase.from('customers').delete().eq('id', customerInfo.id)
       }
 
-      // auth.usersとpublic.usersも削除
       await deleteMyAccount()
       
       showToast.success('アカウントを削除しました')
@@ -292,397 +241,358 @@ export function SettingsPage() {
       window.location.href = '/login'
     } catch (error: any) {
       logger.error('アカウント削除エラー:', error)
-      showToast.error('アカウントの削除に失敗しました', error.message || '不明なエラー')
+      showToast.error('アカウントの削除に失敗しました', error.message)
     } finally {
       setDeleting(false)
-      setDeleteDialogOpen(false)
+      setActiveDialog(null)
       setConfirmEmail('')
     }
   }
 
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      window.location.href = '/login'
+    } catch (error) {
+      logger.error('ログアウトエラー:', error)
+    }
+  }
+
+  const menuItems = [
+    { 
+      id: 'profile' as DialogType, 
+      label: 'プロフィール編集', 
+      desc: formData.name || '名前・連絡先を設定',
+      icon: User 
+    },
+    { 
+      id: 'notification' as DialogType, 
+      label: '通知設定', 
+      desc: 'メール・プッシュ通知',
+      icon: Bell 
+    },
+    { 
+      id: 'email' as DialogType, 
+      label: 'メールアドレス変更', 
+      desc: user?.email || '',
+      icon: Mail 
+    },
+    { 
+      id: 'password' as DialogType, 
+      label: 'パスワード変更', 
+      desc: 'セキュリティ設定',
+      icon: Lock 
+    },
+  ]
+
   if (loading) {
-    return (
-      <Card className="shadow-none border">
-        <CardContent className="py-8">
-          <div className="text-center text-muted-foreground text-sm">読み込み中...</div>
-        </CardContent>
-      </Card>
-    )
+    return <div className="text-center py-8 text-gray-500">読み込み中...</div>
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* ユーザー基本情報 */}
-      <Card className="shadow-none border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <User className="h-4 w-4 sm:h-5 sm:w-5" />
-            アカウント情報
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="current-email" className="text-sm flex items-center gap-2">
-              <Mail className="h-4 w-4" />
-              メールアドレス
-            </Label>
-            <div className="mt-1 text-sm">{user?.email || ''}</div>
+    <div className="space-y-4">
+      {/* メニューリスト */}
+      {menuItems.map((item) => {
+        const Icon = item.icon
+        return (
+          <div
+            key={item.id}
+            onClick={() => setActiveDialog(item.id)}
+            className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-10 h-10 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: THEME.primaryLight }}
+              >
+                <Icon className="w-5 h-5" style={{ color: THEME.primary }} />
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-900">{item.label}</h3>
+                <p className="text-sm text-gray-500 truncate max-w-[200px]">{item.desc}</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-400" />
           </div>
+        )
+      })}
 
-          {/* メールアドレス変更 */}
+      {/* アカウント削除 */}
+      <div
+        onClick={() => setActiveDialog('delete')}
+        className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow border border-red-100"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-50">
+            <Trash2 className="w-5 h-5 text-red-500" />
+          </div>
           <div>
-            <Label htmlFor="new-email" className="text-sm">メールアドレス変更</Label>
-            <div className="mt-2 flex gap-2">
+            <h3 className="font-medium text-red-600">アカウント削除</h3>
+            <p className="text-sm text-gray-500">すべてのデータが削除されます</p>
+          </div>
+        </div>
+        <ChevronRight className="w-5 h-5 text-gray-400" />
+      </div>
+
+      {/* ログアウト */}
+      <div className="pt-4">
+        <Button 
+          variant="outline" 
+          className="w-full rounded-full text-gray-500 border-gray-300"
+          onClick={handleLogout}
+        >
+          ログアウト
+        </Button>
+      </div>
+
+      {/* プロフィール編集ダイアログ */}
+      <Dialog open={activeDialog === 'profile'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>プロフィール編集</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="name">名前 *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="山田 太郎"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="phone" className="flex items-center gap-2">
+                <Phone className="h-4 w-4" /> 電話番号
+              </Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="090-1234-5678"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="address" className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" /> 住所
+              </Label>
+              <Input
+                id="address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="東京都..."
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="lineId" className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" /> LINE ID
+              </Label>
+              <Input
+                id="lineId"
+                value={formData.lineId}
+                onChange={(e) => setFormData({ ...formData, lineId: e.target.value })}
+                placeholder="@your_line_id"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="notes">備考</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="特記事項"
+                rows={2}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setActiveDialog(null)}>キャンセル</Button>
+            <Button 
+              onClick={handleSaveProfile} 
+              disabled={saving || !formData.name.trim()}
+              style={{ backgroundColor: THEME.primary }}
+              className="text-white"
+            >
+              {saving ? '保存中...' : '保存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 通知設定ダイアログ */}
+      <Dialog open={activeDialog === 'notification'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>通知設定</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>メール通知</Label>
+                <p className="text-xs text-gray-500">予約確認やお知らせを受け取る</p>
+              </div>
+              <Switch disabled />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>予約リマインダー</Label>
+                <p className="text-xs text-gray-500">予約日の前日にリマインダー</p>
+              </div>
+              <Switch disabled />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>キャンペーン通知</Label>
+                <p className="text-xs text-gray-500">新作やイベントのお知らせ</p>
+              </div>
+              <Switch disabled />
+            </div>
+            <p className="text-xs text-gray-400 text-center">※ 通知設定は準備中です</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setActiveDialog(null)}>閉じる</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* メールアドレス変更ダイアログ */}
+      <Dialog open={activeDialog === 'email'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>メールアドレス変更</DialogTitle>
+            <DialogDescription>
+              現在: {user?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="new-email">新しいメールアドレス</Label>
               <Input
                 id="new-email"
                 type="email"
                 value={emailFormData.newEmail}
                 onChange={(e) => setEmailFormData({ newEmail: e.target.value })}
-                placeholder="新しいメールアドレス"
-                className="text-sm flex-1"
-                disabled={changingEmail}
+                placeholder="new@example.com"
+                className="mt-1"
               />
-              <Button
-                onClick={handleChangeEmail}
-                disabled={changingEmail || !emailFormData.newEmail}
-                size="sm"
-                className="text-sm"
-              >
-                {changingEmail ? '送信中...' : '変更'}
-              </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              確認メールが新しいメールアドレスに送信されます
+            <p className="text-xs text-gray-500">
+              確認メールが新しいアドレスに送信されます
             </p>
           </div>
-
-          {/* パスワード変更 */}
-          <div>
-            <Label htmlFor="new-password" className="text-sm flex items-center gap-2">
-              <Lock className="h-4 w-4" />
-              パスワード変更
-            </Label>
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault()
-                handleChangePassword()
-              }}
-              className="mt-2 space-y-2"
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setActiveDialog(null)}>キャンセル</Button>
+            <Button 
+              onClick={handleChangeEmail} 
+              disabled={changingEmail || !emailFormData.newEmail}
+              style={{ backgroundColor: THEME.primary }}
+              className="text-white"
             >
+              {changingEmail ? '送信中...' : '変更'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* パスワード変更ダイアログ */}
+      <Dialog open={activeDialog === 'password'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>パスワード変更</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="new-password">新しいパスワード</Label>
               <Input
                 id="new-password"
                 type="password"
                 value={passwordFormData.newPassword}
                 onChange={(e) => setPasswordFormData({ ...passwordFormData, newPassword: e.target.value })}
-                placeholder="新しいパスワード（6文字以上）"
-                className="text-sm"
-                disabled={changingPassword}
+                placeholder="6文字以上"
+                className="mt-1"
                 autoComplete="new-password"
               />
+            </div>
+            <div>
+              <Label htmlFor="confirm-password">新しいパスワード（確認）</Label>
               <Input
                 id="confirm-password"
                 type="password"
                 value={passwordFormData.confirmPassword}
                 onChange={(e) => setPasswordFormData({ ...passwordFormData, confirmPassword: e.target.value })}
-                placeholder="新しいパスワード（確認）"
-                className="text-sm"
-                disabled={changingPassword}
+                placeholder="もう一度入力"
+                className="mt-1"
                 autoComplete="new-password"
               />
-              <Button
-                type="submit"
-                disabled={changingPassword || !passwordFormData.newPassword || !passwordFormData.confirmPassword}
-                size="sm"
-                className="text-sm w-full sm:w-auto"
-              >
-                {changingPassword ? '変更中...' : 'パスワードを変更'}
-              </Button>
-            </form>
-          </div>
-
-          {user?.role && (
-            <div>
-              <Label className="text-muted-foreground text-sm">ロール</Label>
-              <div className="mt-1">
-                <Badge
-                  className={`text-xs sm:text-sm ${
-                    user.role === 'admin'
-                      ? 'bg-blue-100 text-blue-800'
-                      : user.role === 'staff'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-purple-100 text-purple-800'
-                  }`}
-                >
-                  {user.role === 'admin'
-                    ? '管理者'
-                    : user.role === 'staff'
-                    ? 'スタッフ'
-                    : '顧客'}
-                </Badge>
-              </div>
             </div>
-          )}
-          {user?.created_at && (
-            <div>
-              <Label className="text-muted-foreground text-sm flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4" />
-                登録日
-              </Label>
-              <div className="mt-1 text-sm">{formatDate(user.created_at)}</div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* プロフィール編集 */}
-      <Card className="shadow-none border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <User className="h-4 w-4 sm:h-5 sm:w-5" />
-            プロフィール
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="name" className="text-sm">名前 *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="山田 太郎"
-              className="text-sm"
-            />
           </div>
-
-          <div>
-            <Label htmlFor="phone" className="text-sm flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              電話番号
-            </Label>
-            <Input
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="090-1234-5678"
-              className="text-sm"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="address" className="text-sm flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              住所
-            </Label>
-            <Input
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="〒123-4567 東京都..."
-              className="text-sm"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="lineId" className="text-sm flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              LINE ID
-            </Label>
-            <Input
-              id="lineId"
-              value={formData.lineId}
-              onChange={(e) => setFormData({ ...formData, lineId: e.target.value })}
-              placeholder="@your_line_id"
-              className="text-sm"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="notes" className="text-sm">備考</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="特記事項があればご記入ください"
-              rows={3}
-              className="text-sm"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              variant="outline"
-              onClick={fetchCustomerInfo}
-              disabled={saving}
-              className="text-sm"
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setActiveDialog(null)}>キャンセル</Button>
+            <Button 
+              onClick={handleChangePassword} 
+              disabled={changingPassword || !passwordFormData.newPassword || !passwordFormData.confirmPassword}
+              style={{ backgroundColor: THEME.primary }}
+              className="text-white"
             >
-              リセット
+              {changingPassword ? '変更中...' : '変更'}
             </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving || !formData.name.trim()}
-              className="text-sm"
-            >
-              {saving ? '保存中...' : '保存'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* 通知設定 */}
-      <Card className="shadow-none border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <SettingsIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-            通知設定
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="email-notifications">メール通知</Label>
-              <div className="text-xs text-muted-foreground">
-                予約確認やお知らせをメールで受け取る
-              </div>
-            </div>
-            <Switch id="email-notifications" disabled />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="reservation-reminders">予約リマインダー</Label>
-              <div className="text-xs text-muted-foreground">
-                予約日の前日にリマインダーを受け取る
-              </div>
-            </div>
-            <Switch id="reservation-reminders" disabled />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="marketing-emails">マーケティングメール</Label>
-              <div className="text-xs text-muted-foreground">
-                新作シナリオやキャンペーンのお知らせを受け取る
-              </div>
-            </div>
-            <Switch id="marketing-emails" disabled />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 表示設定 */}
-      <Card className="shadow-none border">
-        <CardHeader>
-          <CardTitle className="text-base">表示設定</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="dark-mode">ダークモード</Label>
-              <div className="text-xs text-muted-foreground">
-                ダークテーマで表示する
-              </div>
-            </div>
-            <Switch id="dark-mode" disabled />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 言語設定 */}
-      <Card className="shadow-none border">
-        <CardHeader>
-          <CardTitle className="text-base">言語</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-muted rounded-lg">
-            <div className="text-xs text-muted-foreground">
-              現在のバージョンでは日本語のみサポートしています。
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 危険な操作 */}
-      <Card className="border-destructive shadow-none">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-            危険な操作
-          </CardTitle>
-          <CardDescription>
-            アカウントを削除すると、すべてのデータが完全に削除され、復元できません。
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="destructive"
-            onClick={() => setDeleteDialogOpen(true)}
-            className="w-full sm:w-auto"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            アカウントを削除
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* 削除確認ダイアログ */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+      {/* アカウント削除ダイアログ */}
+      <Dialog open={activeDialog === 'delete'} onOpenChange={(open) => !open && setActiveDialog(null)}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
+            <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
-              アカウント削除の確認
+              アカウント削除
             </DialogTitle>
             <DialogDescription>
-              この操作は取り消せません。アカウントを削除すると、すべてのデータが完全に削除されます。
+              この操作は取り消せません。すべてのデータが完全に削除されます。
             </DialogDescription>
           </DialogHeader>
-
-          <div className="py-4 space-y-4">
+          <div className="space-y-4 py-4">
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-center gap-2 text-red-700 font-medium mb-2">
                 <AlertTriangle className="h-4 w-4" />
                 削除されるデータ
               </div>
               <ul className="text-red-600 text-sm space-y-1 list-disc list-inside">
-                <li>アカウント情報（メールアドレス、パスワード）</li>
+                <li>アカウント情報</li>
                 <li>プロフィール情報</li>
                 <li>予約履歴</li>
-                <li>その他のすべてのデータ</li>
               </ul>
             </div>
-
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="confirm-email">
-                確認のため、メールアドレスを入力してください: <span className="font-mono text-sm">{user?.email}</span>
+                確認のため、メールアドレスを入力:
               </Label>
+              <p className="text-xs text-gray-500 mb-2">{user?.email}</p>
               <Input
                 id="confirm-email"
                 type="email"
                 value={confirmEmail}
                 onChange={(e) => setConfirmEmail(e.target.value)}
                 placeholder="メールアドレスを入力"
-                className="font-mono"
               />
             </div>
           </div>
-
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeleteDialogOpen(false)
-                setConfirmEmail('')
-              }}
-              disabled={deleting}
-            >
+            <Button variant="outline" onClick={() => { setActiveDialog(null); setConfirmEmail('') }}>
               キャンセル
             </Button>
-            <Button
+            <Button 
               variant="destructive"
-              onClick={handleDeleteAccount}
+              onClick={handleDeleteAccount} 
               disabled={deleting || confirmEmail !== user?.email}
             >
-              {deleting ? '削除中...' : 'アカウントを削除'}
+              {deleting ? '削除中...' : '削除する'}
             </Button>
           </DialogFooter>
         </DialogContent>

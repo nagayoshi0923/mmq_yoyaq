@@ -111,6 +111,7 @@ export function useEventOperations({
     date: string
     venue: string
     time_slot: string  // DBカラム名に統一
+    suggestedStartTime?: string  // 前の公演終了時間から計算した推奨開始時間
   } | undefined>(undefined)
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null)
   
@@ -139,10 +140,46 @@ export function useEventOperations({
   // 公演追加モーダルを開く
   const handleAddPerformance = useCallback((date: string, venue: string, time_slot: 'morning' | 'afternoon' | 'evening') => {
     setModalMode('add')
-    setModalInitialData({ date, venue, time_slot })
+    
+    // 同じ日・同じ店舗の前の公演を探して、推奨開始時間を計算
+    let suggestedStartTime: string | undefined = undefined
+    
+    // 同じ日・同じ店舗のイベントを取得
+    const sameSlotEvents = events.filter(e => 
+      e.date === date && 
+      e.venue === venue && 
+      !e.is_cancelled
+    )
+    
+    if (sameSlotEvents.length > 0) {
+      // 終了時間でソート（新しい順）
+      const sortedEvents = [...sameSlotEvents].sort((a, b) => {
+        const aEnd = a.end_time || '00:00'
+        const bEnd = b.end_time || '00:00'
+        return bEnd.localeCompare(aEnd)
+      })
+      
+      // 最後の公演の終了時間を取得
+      const lastEvent = sortedEvents[0]
+      const lastEndTime = lastEvent.end_time
+      
+      if (lastEndTime) {
+        // 終了時間に1時間（標準準備時間）を加算
+        const [endHour, endMinute] = lastEndTime.split(':').map(Number)
+        let newHour = endHour + 1 // 1時間の準備時間
+        let newMinute = endMinute
+        
+        // 24時を超える場合は調整しない（深夜公演は手動で）
+        if (newHour < 24) {
+          suggestedStartTime = `${String(newHour).padStart(2, '0')}:${String(newMinute).padStart(2, '0')}`
+        }
+      }
+    }
+    
+    setModalInitialData({ date, venue, time_slot, suggestedStartTime })
     setEditingEvent(null)
     setIsPerformanceModalOpen(true)
-  }, [])
+  }, [events])
 
   // 編集モーダルを開く
   const handleEditPerformance = useCallback((event: ScheduleEvent) => {
