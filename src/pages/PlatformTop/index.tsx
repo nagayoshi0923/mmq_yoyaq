@@ -374,9 +374,6 @@ export function PlatformTop() {
 
                   {/* コンテンツ */}
                   <div className="p-3 flex-1 min-w-0">
-                    {/* 組織名 */}
-                    <p className="text-xs text-gray-500 mb-1 truncate">{scenario.organization_name}</p>
-                    
                     {/* タイトル */}
                     <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-2 group-hover:text-red-600 transition-colors">
                       {scenario.scenario_title}
@@ -420,7 +417,7 @@ export function PlatformTop() {
                                 {event.time && (
                                   <span className="text-gray-500">{event.time.slice(0, 5)}</span>
                                 )}
-                                <span className="text-gray-400 truncate">{event.store_short_name}</span>
+                                <span className="text-gray-400 truncate">{scenario.organization_name}{event.store_short_name}</span>
                               </div>
                               {event.available_seats > 0 && (
                                 <span 
