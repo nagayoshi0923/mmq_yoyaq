@@ -755,6 +755,7 @@ export const scheduleApi = {
     is_reservation_enabled: boolean
     time_slot: string | null
     venue_rental_fee: number  // 場所貸し公演料金
+    reservation_name: string | null  // 貸切予約の予約者名
   }>) {
     // シナリオ名から自動でマッチングして scenario_id と正式名称を設定
     const finalUpdates = { ...updates }

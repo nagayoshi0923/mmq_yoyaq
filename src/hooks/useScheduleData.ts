@@ -326,6 +326,7 @@ interface RawEventData {
   notes?: string
   is_reservation_enabled: boolean
   time_slot?: string // 時間帯（朝/昼/夜）
+  reservation_name?: string // 貸切予約の予約者名
 }
 
 // 貸切リクエストの候補
@@ -653,7 +654,8 @@ export function useScheduleData(currentDate: Date) {
           max_participants: scenarioInfo?.player_count_max || event.capacity || 8,
           notes: event.notes || '',
           is_reservation_enabled: event.is_reservation_enabled || false,
-          time_slot: event.time_slot
+          time_slot: event.time_slot,
+          reservation_name: event.reservation_name || '' // 貸切予約の予約者名
           }
         })
         
@@ -963,7 +965,8 @@ export function useScheduleData(currentDate: Date) {
         max_participants: scenarioInfo?.player_count_max || event.capacity || 8,
         notes: event.notes || '',
         is_reservation_enabled: event.is_reservation_enabled || false,
-        time_slot: event.time_slot
+        time_slot: event.time_slot,
+        reservation_name: event.reservation_name || '' // 貸切予約の予約者名
         }
       })
       

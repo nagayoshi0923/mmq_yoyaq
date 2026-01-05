@@ -254,6 +254,12 @@ export function PerformanceModal({
       }
       setTimeSlot(slot)
       
+      console.log('📋 編集イベントデータ:', JSON.stringify({
+        is_private_request: event.is_private_request,
+        reservation_id: event.reservation_id,
+        reservation_name: event.reservation_name,
+        id: event.id
+      }))
       setFormData({
         ...event,
         scenario_id: selectedScenario?.id,  // IDを設定
@@ -362,15 +368,12 @@ export function PerformanceModal({
       is_private_request: formData.is_private_request, // 貸切リクエストフラグを明示的に含める
       reservation_id: formData.reservation_id // 予約IDを明示的に含める
     }
-    console.log('🔍 保存データ:', { 
-      gms: saveData.gms, 
-      gm_roles: JSON.stringify(saveData.gm_roles), 
-      scenario: saveData.scenario, 
-      notes: saveData.notes,
+    console.log('🔍 保存データ:', JSON.stringify({ 
       is_private_request: saveData.is_private_request,
       reservation_id: saveData.reservation_id,
-      reservation_name: saveData.reservation_name
-    })
+      reservation_name: saveData.reservation_name,
+      id: saveData.id
+    }))
     
     // 追加モードの場合、スロットメモをクリア（備考に引き継いだので不要）
     if (mode === 'add' && initialData) {

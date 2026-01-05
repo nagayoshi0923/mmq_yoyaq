@@ -71,7 +71,7 @@ export function PlatformTop() {
       // 組織一覧を先に取得（直近公演の組織情報に使用）
       const { data: orgData, error: orgError } = await supabase
         .from('organizations')
-        .select('id, slug, name')
+        .select('id, slug, name, logo_url')
         .eq('is_active', true)
         .order('name')
       
@@ -84,7 +84,12 @@ export function PlatformTop() {
         orgData.forEach(o => {
           orgMap[o.id] = { slug: o.slug, name: o.name }
         })
-        setOrganizations(orgData.map(o => ({ ...o, display_name: o.name })))
+        setOrganizations(orgData.map(o => ({ 
+          id: o.id,
+          slug: o.slug,
+          display_name: o.name,
+          logo_url: o.logo_url || undefined
+        })))
         console.log('🏢 組織データ:', orgData.length, '件', orgMap)
       } else {
         console.log('⚠️ 組織データなし')
