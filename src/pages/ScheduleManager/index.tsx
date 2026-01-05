@@ -743,6 +743,18 @@ export function ScheduleManager() {
                   icon: <Copy className="w-4 h-4" />,
                   onClick: () => {
                     modals.contextMenu.handleCopyToClipboard(event)
+                  }
+                },
+                {
+                  label: '公演情報をコピー',
+                  icon: <Clipboard className="w-4 h-4" />,
+                  onClick: () => {
+                    const timeText = `${event.start_time}〜${event.end_time}`
+                    const scenarioText = event.scenario || '未設定'
+                    const copyText = `${timeText} ${scenarioText}`
+                    navigator.clipboard.writeText(copyText)
+                    showToast.success('公演情報をコピーしました')
+                    modals.contextMenu.setContextMenu(null)
                   },
                   separator: true
                 },
