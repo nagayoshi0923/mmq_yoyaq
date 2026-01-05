@@ -73,12 +73,13 @@ interface ScenarioCardProps {
   onClick: (id: string) => void
   isFavorite?: boolean
   onToggleFavorite?: (scenarioId: string, e: React.MouseEvent) => void
+  organizationName?: string | null
 }
 
 /**
  * シナリオカード表示コンポーネント
  */
-export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFavorite = false, onToggleFavorite }: ScenarioCardProps) {
+export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFavorite = false, onToggleFavorite, organizationName }: ScenarioCardProps) {
   const { prefetchScenario } = usePrefetch()
   
   const handleFavoriteClick = (e: React.MouseEvent) => {
@@ -213,7 +214,9 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                       style={{ color: event.store_color ? getColorFromName(event.store_color) : '#6B7280' }}
                       title={event.store_name}
                     >
-                      {event.store_short_name || event.store_name}
+                      {organizationName && event.store_short_name 
+                        ? `${organizationName}${event.store_short_name}` 
+                        : (event.store_short_name || event.store_name)}
                     </span>
                   )}
                   {/* 空席がある場合は残席数を表示、満席の場合は何も表示しない */}

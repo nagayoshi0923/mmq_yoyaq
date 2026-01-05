@@ -282,6 +282,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 onToggleFavorite={handleToggleFavorite}
                 searchTerm={searchTerm}
                 organizationSlug={organizationSlug}
+                organizationName={organizationName}
               />
             </TabsContent>
 

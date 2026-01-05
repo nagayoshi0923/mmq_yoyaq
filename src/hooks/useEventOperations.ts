@@ -44,12 +44,14 @@ function timeToMinutes(time: string): number {
 
 /**
  * 2つの時間帯が重複しているかチェック（準備時間を考慮）
+ * 準備時間は「次の公演が始まる前に必要な時間」として扱う
+ * 
  * @param start1 既存公演の開始時間
  * @param end1 既存公演の終了時間
  * @param start2 新規公演の開始時間
  * @param end2 新規公演の終了時間
- * @param prepMinutes1 既存公演の準備時間（分）
- * @param prepMinutes2 新規公演の準備時間（分）
+ * @param prepMinutes1 既存公演の準備時間（分）- 既存公演の前に必要な時間
+ * @param prepMinutes2 新規公演の準備時間（分）- 新規公演の前に必要な時間
  * @returns { overlap: boolean, reason?: string } 重複情報
  */
 function checkTimeOverlap(
@@ -70,14 +72,18 @@ function checkTimeOverlap(
     return { overlap: true, reason: '時間が重複' }
   }
   
-  // 2. 既存公演の後に新規公演がある場合：既存公演終了+準備時間 > 新規公演開始
-  if (e1 <= s2 && e1 + prepMinutes1 > s2) {
-    return { overlap: true, reason: `準備時間不足（前公演終了後${prepMinutes1}分必要）` }
+  // 2. 既存公演の後に新規公演がある場合：
+  //    既存公演終了 + 新規公演の準備時間 > 新規公演開始
+  //    （新規公演の前に準備時間が必要）
+  if (e1 <= s2 && e1 + prepMinutes2 > s2) {
+    return { overlap: true, reason: `準備時間不足（次の公演の前に${prepMinutes2}分必要）` }
   }
   
-  // 3. 新規公演の後に既存公演がある場合：新規公演終了+準備時間 > 既存公演開始
-  if (e2 <= s1 && e2 + prepMinutes2 > s1) {
-    return { overlap: true, reason: `準備時間不足（この公演終了後${prepMinutes2}分必要）` }
+  // 3. 新規公演の後に既存公演がある場合：
+  //    新規公演終了 + 既存公演の準備時間 > 既存公演開始
+  //    （既存公演の前に準備時間が必要）
+  if (e2 <= s1 && e2 + prepMinutes1 > s1) {
+    return { overlap: true, reason: `準備時間不足（次の公演の前に${prepMinutes1}分必要）` }
   }
   
   return { overlap: false }
@@ -498,6 +504,13 @@ export function useEventOperations({
     // 新規公演のシナリオから準備時間を取得
     const newScenario = scenarios.find(s => s.title === performanceData.scenario)
     const newPrepMinutes = newScenario?.extra_preparation_time || 0
+    
+    logger.log('🔍 準備時間チェック:', JSON.stringify({
+      scenarioTitle: performanceData.scenario,
+      foundScenario: !!newScenario,
+      extra_preparation_time: newScenario?.extra_preparation_time,
+      newPrepMinutes
+    }))
     
     let timeConflict: { event: ScheduleEvent; reason: string } | null = null
     

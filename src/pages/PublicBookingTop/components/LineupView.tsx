@@ -14,6 +14,7 @@ interface LineupViewProps {
   onToggleFavorite: (scenarioId: string, e: React.MouseEvent) => void
   searchTerm?: string
   organizationSlug?: string
+  organizationName?: string | null
 }
 
 /**
@@ -29,7 +30,8 @@ export const LineupView = memo(function LineupView({
   isFavorite,
   onToggleFavorite,
   searchTerm = '',
-  organizationSlug
+  organizationSlug,
+  organizationName
 }: LineupViewProps) {
   // 検索中かどうか
   const isSearching = searchTerm.length > 0
@@ -62,6 +64,7 @@ export const LineupView = memo(function LineupView({
                   onClick={onCardClick}
                   isFavorite={isFavorite(scenario.scenario_id)}
                   onToggleFavorite={onToggleFavorite}
+                  organizationName={organizationName}
                 />
               ))}
             </div>
@@ -97,6 +100,7 @@ export const LineupView = memo(function LineupView({
                 onClick={onCardClick}
                 isFavorite={isFavorite(scenario.scenario_id)}
                 onToggleFavorite={onToggleFavorite}
+                organizationName={organizationName}
               />
             ))}
           </div>
@@ -120,6 +124,7 @@ export const LineupView = memo(function LineupView({
                 onClick={onCardClick}
                 isFavorite={isFavorite(scenario.scenario_id)}
                 onToggleFavorite={onToggleFavorite}
+                organizationName={organizationName}
               />
             ))}
           </div>
