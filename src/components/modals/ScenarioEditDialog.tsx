@@ -264,7 +264,7 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, scenarioId, scenarios.length])
 
-  const handleSave = async () => {
+  const handleSave = async (closeAfterSave: boolean = true) => {
     if (!formData.title.trim()) {
       showToast.warning('タイトルを入力してください')
       return
@@ -351,7 +351,9 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
           logger.error('onSavedコールバックエラー:', err)
         }
       }
-      onClose()
+      if (closeAfterSave) {
+        onClose()
+      }
     } catch (err: unknown) {
       logger.error('詳細エラー:', err)
       const message = err instanceof Error ? err.message : JSON.stringify(err)
@@ -400,9 +402,19 @@ export function ScenarioEditDialog({ isOpen, onClose, scenarioId, onSaved }: Sce
           <Button type="button" variant="outline" onClick={onClose}>
             キャンセル
           </Button>
-          <Button onClick={handleSave} disabled={scenarioMutation.isPending || isLoadingAssignments}>
+          <Button 
+            variant="outline" 
+            onClick={() => handleSave(false)} 
+            disabled={scenarioMutation.isPending || isLoadingAssignments}
+          >
+            {scenarioId ? '保存' : '作成'}
+          </Button>
+          <Button 
+            onClick={() => handleSave(true)} 
+            disabled={scenarioMutation.isPending || isLoadingAssignments}
+          >
             <Save className="h-4 w-4 mr-2" />
-            {isLoadingAssignments ? '読み込み中...' : scenarioMutation.isPending ? '保存中...' : '保存'}
+            {isLoadingAssignments ? '読み込み中...' : scenarioMutation.isPending ? '保存中...' : (scenarioId ? '保存して閉じる' : '作成して閉じる')}
           </Button>
         </div>
       </DialogContent>

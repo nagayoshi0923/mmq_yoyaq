@@ -363,7 +363,8 @@ export function PerformanceModal({
     }
     
     onSave(saveData)
-    // ダイアログは閉じない（ユーザーが明示的に閉じる）
+    // 保存後にダイアログを閉じる
+    onClose()
   }
 
   const handleScenarioSaved = async () => {
