@@ -597,6 +597,11 @@ export function useEventOperations({
         // 編集更新
         
         // 貸切リクエストの場合は reservations テーブルを更新
+        console.log('🔍 貸切判定:', { 
+          is_private_request: performanceData.is_private_request, 
+          reservation_id: performanceData.reservation_id,
+          reservation_name: performanceData.reservation_name 
+        })
         if (performanceData.is_private_request && performanceData.reservation_id) {
           // performanceData.venueは店舗ID（UUID）
           // 店舗の存在確認（通常の店舗 or 臨時会場）
@@ -619,8 +624,11 @@ export function useEventOperations({
             .eq('id', performanceData.reservation_id)
           
           if (reservationError) {
+            console.error('❌ reservations更新エラー:', reservationError)
             throw new Error('貸切リクエストの更新に失敗しました')
           }
+          
+          console.log('✅ reservations更新成功:', { reservation_id: performanceData.reservation_id, customer_name: performanceData.reservation_name })
           
           // ローカル状態を更新（店舗と予約者名）
           setEvents(prev => prev.map(event => 

@@ -260,7 +260,10 @@ export function PerformanceModal({
         time_slot: event.time_slot || (slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'), // time_slotを設定
         max_participants: selectedScenario?.player_count_max ?? event.max_participants ?? DEFAULT_MAX_PARTICIPANTS, // シナリオの参加人数を反映
         gmRoles: event.gm_roles || {}, // 既存の役割があれば設定
-        capacity: event.max_participants || 0 // capacityを追加
+        capacity: event.max_participants || 0, // capacityを追加
+        is_private_request: event.is_private_request, // 貸切リクエストフラグを明示的に引き継ぎ
+        reservation_id: event.reservation_id, // 予約IDを明示的に引き継ぎ
+        reservation_name: event.reservation_name || '' // 予約者名を明示的に引き継ぎ
       })
       // ローカル参加者数を初期化
       setLocalCurrentParticipants(event.current_participants || 0)
@@ -355,9 +358,19 @@ export function PerformanceModal({
       gms: formData.gms,
       time_slot: getTimeSlotLabel(timeSlot),
       gm_roles: formData.gmRoles || {},
-      reservation_name: formData.reservation_name || '' // 予約者名
+      reservation_name: formData.reservation_name || '', // 予約者名
+      is_private_request: formData.is_private_request, // 貸切リクエストフラグを明示的に含める
+      reservation_id: formData.reservation_id // 予約IDを明示的に含める
     }
-    console.log('🔍 保存データ:', { gms: saveData.gms, gm_roles: JSON.stringify(saveData.gm_roles), scenario: saveData.scenario, notes: saveData.notes })
+    console.log('🔍 保存データ:', { 
+      gms: saveData.gms, 
+      gm_roles: JSON.stringify(saveData.gm_roles), 
+      scenario: saveData.scenario, 
+      notes: saveData.notes,
+      is_private_request: saveData.is_private_request,
+      reservation_id: saveData.reservation_id,
+      reservation_name: saveData.reservation_name
+    })
     
     // 追加モードの場合、スロットメモをクリア（備考に引き継いだので不要）
     if (mode === 'add' && initialData) {
