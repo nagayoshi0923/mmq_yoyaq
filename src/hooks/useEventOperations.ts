@@ -544,7 +544,8 @@ export function useEventOperations({
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
           venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
           is_reservation_enabled: false, // 最初は非公開、公開ボタンで公開
-          organization_id: organizationId // マルチテナント対応
+          organization_id: organizationId, // マルチテナント対応
+          reservation_name: performanceData.reservation_name || null // 予約者名（貸切用）
         }
         
         // Supabaseに保存
@@ -653,7 +654,8 @@ export function useEventOperations({
             gm_roles: performanceData.gm_roles || {},
             notes: performanceData.notes,
             time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
-            venue_rental_fee: performanceData.venue_rental_fee // 場所貸し公演料金
+            venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
+            reservation_name: performanceData.reservation_name || null // 予約者名（貸切用）
           })
 
           // GM欄で「スタッフ参加」を選択した場合、予約も同期する

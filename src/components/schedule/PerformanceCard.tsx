@@ -23,6 +23,7 @@ interface ScheduleEvent {
   is_private_request?: boolean // 貸切リクエストかどうか
   reservation_info?: string
   reservation_id?: string // 貸切リクエストの元のreservation ID
+  reservation_name?: string // 貸切予約の予約者名
   scenarios?: {
     id: string
     title: string
@@ -254,6 +255,15 @@ function PerformanceCardBase({
           </span>
         )}
       </div>
+      
+      {/* 貸切の予約者名（category=private または is_private_request の場合） */}
+      {(event.category === 'private' || event.is_private_request) && event.reservation_name && (
+        <div className={`text-xs mt-0.5 truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : 'text-purple-700'}`}>
+          <span className="font-medium bg-purple-50 px-1 rounded text-[10px] border border-purple-100">
+            予約: {event.reservation_name}
+          </span>
+        </div>
+      )}
       
       {/* ノート情報 + スタッフ参加/見学GM */}
       {(event.notes || staffGms.length > 0 || observerGms.length > 0) && (

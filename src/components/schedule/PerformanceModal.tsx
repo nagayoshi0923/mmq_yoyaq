@@ -289,7 +289,8 @@ export function PerformanceModal({
         category: 'private',
         max_participants: DEFAULT_MAX_PARTICIPANTS,
         capacity: 0,
-        notes: slotMemo  // スロットメモを備考に引き継ぎ
+        notes: slotMemo,  // スロットメモを備考に引き継ぎ
+        reservation_name: ''  // 予約者名（初期値は空）
       })
     }
   }, [mode, event, initialData])
@@ -353,7 +354,8 @@ export function PerformanceModal({
       venue_rental_fee: venueRentalFee,
       gms: formData.gms,
       time_slot: getTimeSlotLabel(timeSlot),
-      gm_roles: formData.gmRoles || {}
+      gm_roles: formData.gmRoles || {},
+      reservation_name: formData.reservation_name || '' // 予約者名
     }
     console.log('🔍 保存データ:', { gms: saveData.gms, gm_roles: JSON.stringify(saveData.gm_roles), scenario: saveData.scenario, notes: saveData.notes })
     
@@ -974,6 +976,22 @@ export function PerformanceModal({
               )}
             </div>
           </div>
+
+          {/* 予約者名（貸切の場合のみ表示） */}
+          {(formData.category === 'private' || formData.is_private_request) && (
+            <div>
+              <Label htmlFor="reservation_name">予約者名</Label>
+              <Input
+                id="reservation_name"
+                value={formData.reservation_name || ''}
+                onChange={(e) => setFormData((prev: any) => ({ ...prev, reservation_name: e.target.value }))}
+                placeholder="予約者名を入力"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                ※ MMQ予約の場合は自動で設定されます
+              </p>
+            </div>
+          )}
 
           {/* 備考 */}
           <div>

@@ -19,6 +19,7 @@ export interface ScheduleEvent {
   reservation_id?: string // 貸切リクエストの元のreservation ID
   is_private_booking?: boolean // 貸切予約かどうか
   time_slot?: string // 貸切予約の時間帯（朝/昼/夜）
+  reservation_name?: string // 貸切予約の予約者名
   gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
   organization_id?: string // マルチテナント対応
   scenarios?: {
@@ -47,4 +48,5 @@ export interface EventFormData {
   reservation_id?: string
   time_slot?: string
   venue_rental_fee?: number // 場所貸し公演料金
+  reservation_name?: string // 貸切予約の予約者名
 }

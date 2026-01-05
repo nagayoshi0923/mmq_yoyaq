@@ -27,6 +27,7 @@ interface ScheduleEvent {
   is_private_request?: boolean // 貸切リクエストかどうか
   reservation_info?: string
   reservation_id?: string // 貸切リクエストの元のreservation ID
+  reservation_name?: string // 貸切予約の予約者名
   scenarios?: {
     id: string
     title: string

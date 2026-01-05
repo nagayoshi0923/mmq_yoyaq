@@ -69,11 +69,15 @@ export function PlatformTop() {
       setLoading(true)
 
       // 組織一覧を先に取得（直近公演の組織情報に使用）
-      const { data: orgData } = await supabase
+      const { data: orgData, error: orgError } = await supabase
         .from('organizations')
-        .select('id, slug, name, logo_url')
+        .select('id, slug, name')
         .eq('is_active', true)
         .order('name')
+      
+      if (orgError) {
+        console.error('組織取得エラー:', orgError)
+      }
 
       const orgMap: Record<string, { slug: string, name: string }> = {}
       if (orgData) {
@@ -81,20 +85,29 @@ export function PlatformTop() {
           orgMap[o.id] = { slug: o.slug, name: o.name }
         })
         setOrganizations(orgData.map(o => ({ ...o, display_name: o.name })))
+        console.log('🏢 組織データ:', orgData.length, '件', orgMap)
+      } else {
+        console.log('⚠️ 組織データなし')
       }
 
       // 直近公演を取得（今日以降、有効なシナリオのイベント）
       const today = new Date().toISOString().split('T')[0]
-      const { data: eventData } = await supabase
+      console.log('📅 今日の日付:', today)
+      const { data: eventData, error: eventError } = await supabase
         .from('schedule_events')
         .select(`
           id, date, time_slot, remaining_slots, current_participants,
-          scenarios:scenario_id!inner (id, title, slug, key_visual_url, player_count_max, organization_id, status, is_active),
+          scenarios:scenario_id!inner (id, title, slug, key_visual_url, player_count_max, organization_id, status),
           stores:store_id (name, short_name)
         `)
         .gte('date', today)
         .order('date', { ascending: true })
         .limit(30)
+
+      console.log('📆 イベントデータ:', eventData?.length, '件', eventError ? `エラー: ${eventError.message}` : '')
+      if (eventData && eventData.length > 0) {
+        console.log('📆 最初のイベント:', eventData[0])
+      }
 
       if (eventData) {
         const formatted: UpcomingEvent[] = eventData
@@ -145,6 +158,11 @@ export function PlatformTop() {
         .not('organization_id', 'is', null)
         .order('created_at', { ascending: false })
         .limit(20)
+
+      console.log('🎭 シナリオデータ:', scenarioData?.length, '件')
+      if (scenarioData && scenarioData.length > 0) {
+        console.log('🎭 最初のシナリオ:', scenarioData[0])
+      }
 
       if (scenarioData) {
         // 組織に所属しているシナリオのみフィルター

@@ -751,11 +751,12 @@ export function useScheduleData(currentDate: Date) {
                     is_cancelled: false,
                     current_participants: request.participant_count || 0, // Reservationのparticipant_countをScheduleEventのcurrent_participantsに変換
                     max_participants: request.scenarios?.player_count_max || 8,
-                    notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】${request.customer_name || ''}`,
+                    notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】`,
                     is_reservation_enabled: true, // 貸切公演は常に公開中
                     is_private_request: true, // 貸切リクエストフラグ
                     reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
-                    reservation_id: request.id // 元のreservation IDを保持
+                    reservation_id: request.id, // 元のreservation IDを保持
+                    reservation_name: request.customer_name || '' // 予約者名
                   }
                   
                   privateEvents.push(privateEvent)
@@ -1051,11 +1052,12 @@ export function useScheduleData(currentDate: Date) {
                   is_cancelled: false,
                   current_participants: request.participant_count || 0, // Reservationのparticipant_countをScheduleEventのcurrent_participantsに変換
                   max_participants: request.scenarios?.player_count_max || 8,
-                  notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】${request.customer_name || ''}`,
+                  notes: `【貸切${request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? 'GM確認済' : '希望'}】`,
                   is_reservation_enabled: true,
                   is_private_request: true,
                   reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
-                  reservation_id: request.id
+                  reservation_id: request.id,
+                  reservation_name: request.customer_name || '' // 予約者名
                 }
                 
                 privateEvents.push(privateEvent)
