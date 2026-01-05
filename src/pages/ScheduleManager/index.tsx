@@ -656,6 +656,7 @@ export function ScheduleManager() {
           stores={modals.performanceModal.stores as any}
           scenarios={modals.performanceModal.scenarios as any}
           staff={modals.performanceModal.staff}
+          events={scheduleTableProps.events}
           availableStaffByScenario={modals.performanceModal.availableStaffByScenario}
           allAvailableStaff={modals.performanceModal.allAvailableStaff}
           onParticipantChange={modals.performanceModal.onParticipantChange}

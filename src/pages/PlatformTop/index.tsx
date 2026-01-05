@@ -238,8 +238,9 @@ export function PlatformTop() {
   }
 
   const handleScenarioClick = (scenario: ScenarioWithEvents) => {
-    if (scenario.organization_slug && scenario.scenario_slug) {
-      navigate(`/${scenario.organization_slug}/scenario/${scenario.scenario_slug}`)
+    if (scenario.scenario_slug) {
+      // シナリオ共通トップページに遷移
+      navigate(`/scenario/${scenario.scenario_slug}`)
     }
   }
 

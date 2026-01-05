@@ -24,7 +24,7 @@ export function UserManagementContent() {
   const [message, setMessage] = useState('')
   const [showAllUsers, setShowAllUsers] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
-  const [roleChangeConfirm, setRoleChangeConfirm] = useState<{ user: User; newRole: 'admin' | 'staff' | 'customer' } | null>(null)
+  const [roleChangeConfirm, setRoleChangeConfirm] = useState<{ user: User; newRole: 'admin' | 'staff' | 'customer' | 'license_admin' } | null>(null)
 
   // 管理者チェック
   if (!user || user.role !== 'admin') {
@@ -88,7 +88,7 @@ export function UserManagementContent() {
   }
 
   // ロール変更の確認ダイアログを表示
-  const handleRoleChangeRequest = (userData: User, newRole: 'admin' | 'staff' | 'customer') => {
+  const handleRoleChangeRequest = (userData: User, newRole: 'admin' | 'staff' | 'customer' | 'license_admin') => {
     if (userData.role === newRole) return
     setRoleChangeConfirm({ user: userData, newRole })
   }

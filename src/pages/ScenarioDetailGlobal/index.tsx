@@ -54,10 +54,19 @@ interface EventWithOrg {
   store_region: string | null
 }
 
+interface ScenarioCharacter {
+  id: string
+  name: string
+  description: string | null
+  image_url: string | null
+  sort_order: number
+}
+
 export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGlobalProps) {
   const navigate = useNavigate()
   const [scenario, setScenario] = useState<ScenarioMaster | null>(null)
   const [events, setEvents] = useState<EventWithOrg[]>([])
+  const [characters, setCharacters] = useState<ScenarioCharacter[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -71,26 +80,48 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
       setError(null)
 
       // シナリオマスタを取得（slugまたはIDで検索）
-      // まずorganization_scenariosからslugで検索し、scenario_master_idを取得
-      const { data: orgScenario, error: orgError } = await supabase
+      let masterId: string | null = null
+
+      // 1. まずorganization_scenariosからslugで検索し、scenario_master_idを取得
+      const { data: orgScenarios } = await supabase
         .from('organization_scenarios')
         .select('scenario_master_id')
         .eq('slug', scenarioSlug)
         .limit(1)
-        .single()
 
-      let masterId = orgScenario?.scenario_master_id
+      if (orgScenarios && orgScenarios.length > 0) {
+        masterId = orgScenarios[0].scenario_master_id
+      }
 
-      // slugで見つからない場合はIDとして検索
+      // 2. slugで見つからない場合、UUIDとしてIDで検索
       if (!masterId) {
-        const { data: masterById } = await supabase
-          .from('scenario_masters')
+        // UUIDパターンチェック
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (uuidPattern.test(scenarioSlug)) {
+          const { data: masterById } = await supabase
+            .from('scenario_masters')
+            .select('id')
+            .eq('id', scenarioSlug)
+            .limit(1)
+          
+          if (masterById && masterById.length > 0) {
+            masterId = masterById[0].id
+          }
+        }
+      }
+
+      // 3. まだ見つからない場合、既存のscenariosテーブルからslugで検索
+      let useLegacyTable = false
+      if (!masterId) {
+        const { data: legacyScenario } = await supabase
+          .from('scenarios')
           .select('id')
-          .eq('id', scenarioSlug)
-          .single()
+          .eq('slug', scenarioSlug)
+          .limit(1)
         
-        if (masterById) {
-          masterId = masterById.id
+        if (legacyScenario && legacyScenario.length > 0) {
+          masterId = legacyScenario[0].id
+          useLegacyTable = true
         }
       }
 
@@ -100,14 +131,65 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
         return
       }
 
-      // シナリオマスタの詳細を取得
-      const { data: masterData, error: masterError } = await supabase
-        .from('scenario_masters')
-        .select('*')
-        .eq('id', masterId)
-        .single()
+      // シナリオの詳細を取得
+      // scenario_mastersテーブルを試し、なければ既存のscenariosテーブルから取得
+      let masterData: any = null
+      
+      if (!useLegacyTable) {
+        const { data, error } = await supabase
+          .from('scenario_masters')
+          .select('*')
+          .eq('id', masterId)
+          .limit(1)
+        
+        if (!error && data && data.length > 0) {
+          masterData = data[0]
+        }
+      }
+      
+      // scenario_mastersから取得できなかった場合、既存のscenariosテーブルから取得
+      if (!masterData) {
+        const { data: legacyData, error: legacyError } = await supabase
+          .from('scenarios')
+          .select(`
+            id,
+            title,
+            slug,
+            description,
+            key_visual_url,
+            duration,
+            player_count_min,
+            player_count_max,
+            organization_id,
+            author_id,
+            authors (name)
+          `)
+          .eq('id', masterId)
+          .single()
+        
+        if (legacyError || !legacyData) {
+          setError('シナリオの読み込みに失敗しました')
+          setLoading(false)
+          return
+        }
+        
+        // 既存テーブルのデータをシナリオマスタ形式に変換
+        masterData = {
+          id: legacyData.id,
+          title: legacyData.title,
+          slug: legacyData.slug,
+          description: legacyData.description,
+          key_visual_url: legacyData.key_visual_url,
+          official_duration: legacyData.duration,
+          player_count_min: legacyData.player_count_min,
+          player_count_max: legacyData.player_count_max,
+          author: (legacyData.authors as any)?.name || '不明',
+          organization_id: legacyData.organization_id // レガシー用
+        }
+        useLegacyTable = true
+      }
 
-      if (masterError || !masterData) {
+      if (!masterData) {
         setError('シナリオの読み込みに失敗しました')
         setLoading(false)
         return
@@ -115,32 +197,64 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
 
       setScenario(masterData)
 
-      // このシナリオの公演を全組織から取得
-      // organization_scenariosからこのマスタを使用している組織を取得
-      const { data: orgScenarios, error: orgScenariosError } = await supabase
-        .from('organization_scenarios')
-        .select(`
-          id,
-          organization_id,
-          organizations!inner (id, slug, name)
-        `)
-        .eq('scenario_master_id', masterId)
-        .eq('org_status', 'available')
-
-      if (orgScenariosError) {
-        logger.error('Failed to fetch organization scenarios:', orgScenariosError)
+      // キャラクター情報を取得（scenario_mastersからの場合のみ）
+      if (!useLegacyTable) {
+        const { data: charData } = await supabase
+          .from('scenario_characters')
+          .select('id, name, description, image_url, sort_order')
+          .eq('scenario_master_id', masterId)
+          .eq('is_visible', true)
+          .order('sort_order', { ascending: true })
+        
+        if (charData) {
+          setCharacters(charData)
+        }
       }
 
       // 組織マップを作成
       const orgMap: Record<string, { slug: string, name: string }> = {}
-      orgScenarios?.forEach((os: any) => {
-        if (os.organizations) {
-          orgMap[os.organization_id] = {
-            slug: os.organizations.slug,
-            name: os.organizations.name
+
+      if (useLegacyTable) {
+        // レガシーモード: シナリオの組織情報を取得
+        if (masterData.organization_id) {
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('id, slug, name')
+            .eq('id', masterData.organization_id)
+            .single()
+          
+          if (orgData) {
+            orgMap[orgData.id] = {
+              slug: orgData.slug,
+              name: orgData.name
+            }
           }
         }
-      })
+      } else {
+        // 新モード: organization_scenariosからこのマスタを使用している組織を取得
+        const { data: availableOrgScenarios, error: availableOrgScenariosError } = await supabase
+          .from('organization_scenarios')
+          .select(`
+            id,
+            organization_id,
+            organizations!inner (id, slug, name)
+          `)
+          .eq('scenario_master_id', masterId)
+          .eq('org_status', 'available')
+
+        if (availableOrgScenariosError) {
+          logger.error('Failed to fetch organization scenarios:', availableOrgScenariosError)
+        }
+
+        availableOrgScenarios?.forEach((os: any) => {
+          if (os.organizations) {
+            orgMap[os.organization_id] = {
+              slug: os.organizations.slug,
+              name: os.organizations.name
+            }
+          }
+        })
+      }
 
       // 今日以降の公演を取得（既存のscenariosテーブルから）
       // 注意: 現在はschedule_eventsがscenariosテーブルを参照しているため、
@@ -334,6 +448,42 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
               <div className="bg-white rounded-lg p-4 border">
                 <h2 className="font-semibold text-gray-900 mb-2">概要</h2>
                 <p className="text-gray-700 whitespace-pre-wrap">{scenario.description}</p>
+              </div>
+            )}
+
+            {/* あらすじ */}
+            {scenario.synopsis && (
+              <div className="bg-white rounded-lg p-4 border">
+                <h2 className="font-semibold text-gray-900 mb-2">あらすじ</h2>
+                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{scenario.synopsis}</p>
+              </div>
+            )}
+
+            {/* キャラクター */}
+            {characters.length > 0 && (
+              <div className="bg-white rounded-lg p-4 border">
+                <h2 className="font-semibold text-gray-900 mb-4">登場キャラクター</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {characters.map(char => (
+                    <div key={char.id} className="text-center">
+                      {char.image_url ? (
+                        <img
+                          src={char.image_url}
+                          alt={char.name}
+                          className="w-full aspect-[3/4] object-cover rounded-lg mb-2 shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-full aspect-[3/4] bg-gray-100 rounded-lg mb-2 flex items-center justify-center">
+                          <span className="text-gray-400 text-xs">No Image</span>
+                        </div>
+                      )}
+                      <p className="font-medium text-gray-900 text-sm">{char.name}</p>
+                      {char.description && (
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{char.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

@@ -186,7 +186,8 @@ export function useScheduleTable(options: UseScheduleTableOptions): ScheduleTabl
         handlePasteFromClipboard: contextMenuActions.handlePasteFromClipboard
       }
     },
-    fetchSchedule: fetchSchedule
+    fetchSchedule: fetchSchedule,
+    events: events
   }
 }
 

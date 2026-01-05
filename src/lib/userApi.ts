@@ -6,7 +6,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIU
 export interface User {
   id: string
   email: string
-  role: 'admin' | 'staff' | 'customer'
+  role: 'admin' | 'staff' | 'customer' | 'license_admin'
   created_at: string
   updated_at: string
 }
@@ -51,7 +51,7 @@ export async function getAllUsers(): Promise<User[]> {
 /**
  * ユーザーのロールを更新
  */
-export async function updateUserRole(userId: string, role: 'admin' | 'staff' | 'customer'): Promise<void> {
+export async function updateUserRole(userId: string, role: 'admin' | 'staff' | 'customer' | 'license_admin'): Promise<void> {
   const { error } = await supabase
     .from('users')
     .update({ role, updated_at: new Date().toISOString() })
@@ -75,7 +75,7 @@ export async function getAllAuthUsers() {
 /**
  * usersテーブルにユーザーを作成または更新（upsert）
  */
-export async function upsertUser(authUserId: string, email: string, role: 'admin' | 'staff' | 'customer' = 'customer'): Promise<User> {
+export async function upsertUser(authUserId: string, email: string, role: 'admin' | 'staff' | 'customer' | 'license_admin' = 'customer'): Promise<User> {
   const { data, error } = await supabase
     .from('users')
     .upsert({ 

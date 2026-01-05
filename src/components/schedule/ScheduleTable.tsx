@@ -54,6 +54,7 @@ export interface ScheduleTableProps {
   displayConfig: ScheduleTableDisplayConfig
   modals?: any  // オプション: モーダル関連の情報
   fetchSchedule?: () => void  // オプション: スケジュール再取得関数
+  events?: ScheduleEvent[]  // オプション: イベント一覧
 }
 
 export function ScheduleTable({

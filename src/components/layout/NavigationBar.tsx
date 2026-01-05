@@ -19,7 +19,8 @@ import {
   UserCircle,
   UserCheck,
   Ticket,
-  FileCheck
+  FileCheck,
+  Shield
 } from 'lucide-react'
 
 interface NavigationBarProps {
@@ -46,7 +47,8 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     '/dashboard', '/stores', '/staff', '/scenarios', '/schedule', 
     '/shift-submission', '/gm-availability', '/private-booking-management', 
     '/reservations', '/accounts', '/sales', '/settings', '/manual', 
-    '/staff-profile', '/license-management', '/scenarios-edit'
+    '/staff-profile', '/license-management', '/scenarios-edit',
+    '/admin/scenario-masters'
   ]
   
   // 管理サイト以外ではナビゲーションを非表示
@@ -57,12 +59,12 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   
   // 全タブ定義（全て組織スラッグ付き）
   const allTabs = useMemo(() => [
-    { id: 'dashboard', path: `/${bookingSlug}/dashboard`, label: 'ダッシュボード', icon: LayoutDashboard, roles: ['admin', 'staff'] },
-    { id: 'booking', path: `/${bookingSlug}`, label: '予約サイト', icon: Globe, roles: ['admin', 'staff'] },
-    { id: 'stores', path: `/${bookingSlug}/stores`, label: '店舗', icon: Store, roles: ['admin'] },
-    { id: 'schedule', path: `/${bookingSlug}/schedule`, label: 'スケジュール', icon: CalendarDays, roles: ['admin', 'staff'] },
-    { id: 'staff', path: `/${bookingSlug}/staff`, label: 'スタッフ', icon: Users, roles: ['admin'] },
-    { id: 'scenarios', path: `/${bookingSlug}/scenarios`, label: 'シナリオ', icon: BookOpen, roles: ['admin'] },
+    { id: 'dashboard', path: `/${bookingSlug}/dashboard`, label: 'ダッシュボード', icon: LayoutDashboard, roles: ['admin', 'staff', 'license_admin'] },
+    { id: 'booking', path: `/${bookingSlug}`, label: '予約サイト', icon: Globe, roles: ['admin', 'staff', 'license_admin'] },
+    { id: 'stores', path: `/${bookingSlug}/stores`, label: '店舗', icon: Store, roles: ['admin', 'license_admin'] },
+    { id: 'schedule', path: `/${bookingSlug}/schedule`, label: 'スケジュール', icon: CalendarDays, roles: ['admin', 'staff', 'license_admin'] },
+    { id: 'staff', path: `/${bookingSlug}/staff`, label: 'スタッフ', icon: Users, roles: ['admin', 'license_admin'] },
+    { id: 'scenarios', path: `/${bookingSlug}/scenarios`, label: 'シナリオ', icon: BookOpen, roles: ['admin', 'license_admin'] },
     { id: 'shift-submission', path: `/${bookingSlug}/shift-submission`, label: 'シフト提出', icon: CalendarClock, roles: ['admin', 'staff'] },
     { id: 'gm-availability', path: `/${bookingSlug}/gm-availability`, label: 'GM確認', icon: UserCheck, roles: ['admin', 'staff'] },
     { id: 'staff-profile', path: `/${bookingSlug}/staff-profile`, label: '担当作品', icon: UserCircle, roles: ['admin', 'staff'] },
@@ -70,9 +72,11 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     { id: 'reservations', path: `/${bookingSlug}/reservations`, label: '予約管理', icon: Ticket, roles: ['admin'] },
     { id: 'accounts', path: `/${bookingSlug}/accounts`, label: 'アカウント', icon: UserCog, roles: ['admin'] },
     { id: 'sales', path: `/${bookingSlug}/sales`, label: '売上', icon: TrendingUp, roles: ['admin'] },
-    { id: 'license-management', path: `/${bookingSlug}/license-management`, label: '公演報告', icon: FileCheck, roles: ['admin', 'staff'] },
-    { id: 'settings', path: `/${bookingSlug}/settings`, label: '設定', icon: Settings, roles: ['admin'] },
-    { id: 'manual', path: `/${bookingSlug}/manual`, label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff'] }
+    { id: 'license-management', path: `/${bookingSlug}/license-management`, label: '公演報告', icon: FileCheck, roles: ['admin', 'staff', 'license_admin'] },
+    { id: 'settings', path: `/${bookingSlug}/settings`, label: '設定', icon: Settings, roles: ['admin', 'license_admin'] },
+    { id: 'manual', path: `/${bookingSlug}/manual`, label: 'マニュアル', icon: HelpCircle, roles: ['admin', 'staff', 'license_admin'] },
+    // MMQ運営用メニュー
+    { id: 'scenario-masters', path: '/admin/scenario-masters', label: 'マスタ管理', icon: Shield, roles: ['license_admin'] }
   ], [bookingSlug])
   
   // ユーザーのロールに応じてタブをフィルタリング

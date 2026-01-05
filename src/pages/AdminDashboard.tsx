@@ -48,6 +48,8 @@ const ExternalReports = lazy(() => import('./ExternalReports'))
 const LicenseReportManagement = lazy(() => import('./LicenseReportManagement'))
 const LicenseManagement = lazy(() => import('./LicenseManagement'))
 const AcceptInvitation = lazy(() => import('./AcceptInvitation'))
+const ScenarioMasterAdmin = lazy(() => import('./ScenarioMasterAdmin').then(m => ({ default: m.ScenarioMasterAdmin })))
+const ScenarioMasterEdit = lazy(() => import('./ScenarioMasterAdmin/ScenarioMasterEdit').then(m => ({ default: m.ScenarioMasterEdit })))
 const OrganizationSettings = lazy(() => import('./OrganizationSettings'))
 const OrganizationRegister = lazy(() => import('./OrganizationRegister'))
 const LandingPage = lazy(() => import('./LandingPage'))
@@ -86,6 +88,14 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   // /scenario/{slug} - シナリオ共通詳細ページ（組織を跨いで公演情報を表示）
   if (segments[0] === 'scenario' && segments[1]) {
     return { page: 'scenario-detail-global', scenarioId: segments[1], organizationSlug: null }
+  }
+  
+  // /admin/scenario-masters - シナリオマスタ管理
+  if (segments[0] === 'admin' && segments[1] === 'scenario-masters') {
+    if (segments[2]) {
+      return { page: 'scenario-master-edit', scenarioId: segments[2], organizationSlug: null }
+    }
+    return { page: 'scenario-master-admin', scenarioId: null, organizationSlug: null }
   }
   
   // 2セグメント以上の場合、最初のセグメントを組織スラッグとして扱う
@@ -317,6 +327,24 @@ export function AdminDashboard() {
         </Suspense>
       )
     }
+  }
+
+  // シナリオマスタ管理（MMQ運営用）
+  if (currentPage === 'scenario-master-admin') {
+    return (
+      <Suspense fallback={<LoadingScreen message="シナリオマスタ管理を読み込み中..." />}>
+        <ScenarioMasterAdmin />
+      </Suspense>
+    )
+  }
+
+  // シナリオマスタ編集（MMQ運営用）
+  if (currentPage === 'scenario-master-edit') {
+    return (
+      <Suspense fallback={<LoadingScreen message="シナリオマスタを読み込み中..." />}>
+        <ScenarioMasterEdit />
+      </Suspense>
+    )
   }
   
   if (currentPage === 'reservations') {

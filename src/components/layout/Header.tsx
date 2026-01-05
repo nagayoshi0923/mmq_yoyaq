@@ -174,7 +174,8 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                       'bg-purple-100 text-purple-800'
                     }`
                   }>
-                    {user?.role === 'admin' ? '管理者' : 
+                    {user?.role === 'license_admin' ? 'MMQ運営' :
+                     user?.role === 'admin' ? '管理者' : 
                      user?.role === 'staff' ? 'スタッフ' : '顧客'}
                   </Badge>
                 </div>

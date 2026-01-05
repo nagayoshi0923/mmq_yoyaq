@@ -53,8 +53,8 @@ async function logAuthEvent(
   eventType: 'login' | 'logout' | 'role_change' | 'password_reset' | 'password_set' | 'signup',
   userId: string | null,
   options?: {
-    oldRole?: 'admin' | 'staff' | 'customer'
-    newRole?: 'admin' | 'staff' | 'customer'
+    oldRole?: 'admin' | 'staff' | 'customer' | 'license_admin'
+    newRole?: 'admin' | 'staff' | 'customer' | 'license_admin'
     success?: boolean
     errorMessage?: string
     metadata?: Record<string, unknown>
@@ -344,7 +344,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     try {
       // データベースからユーザーのロールを取得
-      let role: 'admin' | 'staff' | 'customer' = 'customer'
+      let role: 'admin' | 'staff' | 'customer' | 'license_admin' = 'customer'
       
       logger.log('📊 usersテーブルからロール取得開始')
       try {
@@ -382,7 +382,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               }
               
           if (userData?.role) {
-          role = userData.role as 'admin' | 'staff' | 'customer'
+          role = userData.role as 'admin' | 'staff' | 'customer' | 'license_admin'
           logger.log('✅ データベースからロール取得:', role)
           } else if (roleError) {
             throw roleError
@@ -472,7 +472,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 .single()
           
               if (retryData?.role) {
-                role = retryData.role as 'admin' | 'staff' | 'customer'
+                role = retryData.role as 'admin' | 'staff' | 'customer' | 'license_admin'
                 logger.log('✅ 既存ロールを取得:', role)
               } else {
                 role = newRole

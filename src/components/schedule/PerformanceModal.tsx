@@ -520,12 +520,56 @@ export function PerformanceModal({
                 const selectedScenario = scenarios.find(s => s.title === scenarioTitle)
                 
                 if (selectedScenario) {
-                  const endTime = calculateEndTime(formData.start_time, scenarioTitle)
+                  // 準備時間を計算（基本60分 + 追加準備時間）
+                  const basePreparationTime = 60
+                  const extraPrepTime = selectedScenario.extra_preparation_time || 0
+                  const totalPrepTime = basePreparationTime + extraPrepTime
+                  
+                  // 同じ日・同じ店舗の公演で、現在の開始時間より前に終了する最も遅い公演を探す
+                  const currentDate = formData.date || initialData?.date
+                  const currentVenue = formData.venue || initialData?.venue
+                  const currentStartMinutes = formData.start_time ? 
+                    parseInt(formData.start_time.split(':')[0]) * 60 + parseInt(formData.start_time.split(':')[1]) : 0
+                  
+                  let adjustedStartTime = formData.start_time
+                  
+                  if (currentDate && currentVenue && events.length > 0) {
+                    // 同じ日・同じ店舗の公演を取得し、終了時間でソート
+                    const sameDayVenueEvents = events
+                      .filter(e => e.date === currentDate && e.venue === currentVenue && !e.is_cancelled)
+                      .sort((a, b) => {
+                        const aEnd = parseInt(a.end_time.split(':')[0]) * 60 + parseInt(a.end_time.split(':')[1])
+                        const bEnd = parseInt(b.end_time.split(':')[0]) * 60 + parseInt(b.end_time.split(':')[1])
+                        return bEnd - aEnd // 終了時間が遅い順
+                      })
+                    
+                    // 現在の開始時間より前に終了する直前の公演を探す
+                    const previousEvent = sameDayVenueEvents.find(e => {
+                      const endMinutes = parseInt(e.end_time.split(':')[0]) * 60 + parseInt(e.end_time.split(':')[1])
+                      return endMinutes <= currentStartMinutes
+                    })
+                    
+                    if (previousEvent) {
+                      // 前の公演の終了時間 + 準備時間
+                      const prevEndMinutes = parseInt(previousEvent.end_time.split(':')[0]) * 60 + parseInt(previousEvent.end_time.split(':')[1])
+                      const requiredStartMinutes = prevEndMinutes + totalPrepTime
+                      
+                      // 現在の開始時間より後なら調整
+                      if (requiredStartMinutes > currentStartMinutes) {
+                        const hours = Math.floor(requiredStartMinutes / 60)
+                        const minutes = requiredStartMinutes % 60
+                        adjustedStartTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+                      }
+                    }
+                  }
+                  
+                  const endTime = calculateEndTime(adjustedStartTime, scenarioTitle)
                   
                   setFormData((prev: EventFormData) => ({
                     ...prev,
                     scenario: scenarioTitle,
                     scenario_id: selectedScenario.id,  // IDも同時に設定
+                    start_time: adjustedStartTime,
                     end_time: endTime,
                     max_participants: selectedScenario.player_count_max
                   }))

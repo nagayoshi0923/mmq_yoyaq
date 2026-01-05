@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'staff' | 'customer'
+export type UserRole = 'admin' | 'staff' | 'customer' | 'license_admin'
 
 /**
  * メールアドレスからユーザーのロールを判定する（フォールバック用）

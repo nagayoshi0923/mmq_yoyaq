@@ -346,7 +346,7 @@ export interface ScheduleEvent {
 export interface User {
   id: string
   email: string
-  role: 'admin' | 'staff' | 'customer'
+  role: 'admin' | 'staff' | 'customer' | 'license_admin'
   created_at: string
   updated_at: string
 }

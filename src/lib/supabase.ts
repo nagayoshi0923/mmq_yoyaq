@@ -31,7 +31,7 @@ export type AuthUser = {
   email: string
   name?: string
   staffName?: string
-  role: 'admin' | 'staff' | 'customer'
+  role: 'admin' | 'staff' | 'customer' | 'license_admin'
   created_at?: string  // ユーザー登録日
 }
 
