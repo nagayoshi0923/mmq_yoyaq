@@ -608,11 +608,12 @@ export function useEventOperations({
           
           const storeId = storeData?.id || performanceData.venue
           
-          // reservations テーブルを更新
+          // reservations テーブルを更新（店舗と予約者名）
           const { error: reservationError } = await supabase
             .from('reservations')
             .update({
               store_id: storeId,
+              customer_name: performanceData.reservation_name || null, // 予約者名を更新
               updated_at: new Date().toISOString()
             })
             .eq('id', performanceData.reservation_id)
@@ -621,10 +622,10 @@ export function useEventOperations({
             throw new Error('貸切リクエストの更新に失敗しました')
           }
           
-          // ローカル状態を更新
+          // ローカル状態を更新（店舗と予約者名）
           setEvents(prev => prev.map(event => 
             event.reservation_id === performanceData.reservation_id 
-              ? { ...event, venue: storeId } 
+              ? { ...event, venue: storeId, reservation_name: performanceData.reservation_name || '' } 
               : event
           ))
         } else {
