@@ -36,9 +36,9 @@ import type { PrivateBookingRequest } from './hooks/usePrivateBookingData'
 import { useBookingRequests } from './hooks/useBookingRequests'
 import { useBookingApproval } from './hooks/useBookingApproval'
 import { useStoreAndGMManagement } from './hooks/useStoreAndGMManagement'
+import { DateRangePopover } from '@/components/ui/date-range-popover'
 
 // ユーティリティ
-// formatMonthYearは未使用のため削除
 
 export function PrivateBookingManagement() {
   const { user } = useAuth()
@@ -53,6 +53,8 @@ export function PrivateBookingManagement() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
   const [displayLimit, setDisplayLimit] = useState<string>('50')  // 表示件数
+  const [dateRangeStart, setDateRangeStart] = useState<string | undefined>(undefined)  // 期間フィルター開始日
+  const [dateRangeEnd, setDateRangeEnd] = useState<string | undefined>(undefined)  // 期間フィルター終了日
   const [scenarioAvailableStores, setScenarioAvailableStores] = useState<string[]>([])  // シナリオ対応店舗ID
   const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('all')  // 地域フィルター
 
@@ -269,6 +271,24 @@ export function PrivateBookingManagement() {
     r.status === 'pending' || r.status === 'pending_gm' || r.status === 'gm_confirmed' || r.status === 'pending_store'
   )
   
+  // 期間でフィルタリング（候補日の最初の日付でフィルター）
+  const filterByDateRange = (reqs: PrivateBookingRequest[]) => {
+    if (!dateRangeStart && !dateRangeEnd) return reqs
+    return reqs.filter(req => {
+      const candidates = req.candidate_datetimes?.candidates
+      if (!candidates || candidates.length === 0) return false
+      const firstDate = candidates[0].date
+      if (!firstDate) return false
+      
+      // 開始日チェック
+      if (dateRangeStart && firstDate < dateRangeStart) return false
+      // 終了日チェック
+      if (dateRangeEnd && firstDate > dateRangeEnd) return false
+      
+      return true
+    })
+  }
+  
   // 表示件数でフィルタリング（created_at降順で既にソート済み）
   const applyLimit = (reqs: PrivateBookingRequest[]) => {
     if (displayLimit === 'all') return reqs
@@ -276,8 +296,15 @@ export function PrivateBookingManagement() {
     return reqs.slice(0, limit)
   }
   
+  // 期間フィルターのハンドラー
+  const handleDateRangeChange = (start?: string, end?: string) => {
+    setDateRangeStart(start)
+    setDateRangeEnd(end)
+  }
+  
   const baseRequests = activeTab === 'pending' ? pendingRequests : requests
-  const filteredRequests = applyLimit(baseRequests)
+  const dateFilteredRequests = filterByDateRange(baseRequests)
+  const filteredRequests = applyLimit(dateFilteredRequests)
 
   if (loading) {
     return (
@@ -337,9 +364,18 @@ export function PrivateBookingManagement() {
               <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
             </TabsList>
             
-            <div className="w-full sm:w-auto flex justify-center sm:justify-end">
+            <div className="w-full sm:w-auto flex justify-center sm:justify-end gap-2">
+              <DateRangePopover
+                startDate={dateRangeStart}
+                endDate={dateRangeEnd}
+                onDateChange={handleDateRangeChange}
+                label={dateRangeStart || dateRangeEnd 
+                  ? `${dateRangeStart || ''}〜${dateRangeEnd || ''}` 
+                  : '期間指定'}
+                buttonClassName="w-[160px]"
+              />
               <Select value={displayLimit} onValueChange={setDisplayLimit}>
-                <SelectTrigger className="w-[140px] text-sm">
+                <SelectTrigger className="w-[120px] text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
