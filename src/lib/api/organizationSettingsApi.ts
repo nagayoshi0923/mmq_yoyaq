@@ -5,6 +5,23 @@
 import { supabase } from '../supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 
+// 時間帯設定の型
+export interface TimeSlotSetting {
+  start_time: string
+  end_time: string
+}
+
+export interface DayTypeTimeSlots {
+  morning: TimeSlotSetting
+  afternoon: TimeSlotSetting
+  evening: TimeSlotSetting
+}
+
+export interface TimeSlotSettings {
+  weekday: DayTypeTimeSlots  // 平日
+  holiday: DayTypeTimeSlots  // 休日・祝日
+}
+
 export interface OrganizationSettings {
   id: string
   organization_id: string
@@ -40,6 +57,9 @@ export interface OrganizationSettings {
     shift_request_discord?: boolean
     reminder_email?: boolean
   }
+  
+  // 公演時間帯設定
+  time_slot_settings?: TimeSlotSettings
   
   created_at: string
   updated_at: string
@@ -126,6 +146,29 @@ export const organizationSettingsApi = {
   // 通知設定のみ更新
   async updateNotificationSettings(settings: OrganizationSettings['notification_settings']): Promise<OrganizationSettings> {
     return this.upsert({ notification_settings: settings })
+  },
+  
+  // 公演時間帯設定のみ更新
+  async updateTimeSlotSettings(settings: TimeSlotSettings): Promise<OrganizationSettings> {
+    return this.upsert({ time_slot_settings: settings })
+  },
+  
+  // 公演時間帯設定を取得（デフォルト値付き）
+  async getTimeSlotSettings(): Promise<TimeSlotSettings> {
+    const settings = await this.get()
+    const defaultSettings: TimeSlotSettings = {
+      weekday: {
+        morning: { start_time: '10:00', end_time: '14:00' },
+        afternoon: { start_time: '14:30', end_time: '18:30' },
+        evening: { start_time: '19:00', end_time: '23:00' }
+      },
+      holiday: {
+        morning: { start_time: '10:00', end_time: '14:00' },
+        afternoon: { start_time: '14:30', end_time: '18:30' },
+        evening: { start_time: '19:00', end_time: '23:00' }
+      }
+    }
+    return settings?.time_slot_settings || defaultSettings
   }
 }
 

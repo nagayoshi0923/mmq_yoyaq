@@ -22,21 +22,42 @@ import {
   Users,
   CheckCircle,
   Clock,
-  RefreshCw
+  RefreshCw,
+  Timer
 } from 'lucide-react'
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
 import { getInvitationsByOrganization, resendInvitation, deleteInvitation } from '@/lib/api/invitationsApi'
+import { organizationSettingsApi, type TimeSlotSettings } from '@/lib/api/organizationSettingsApi'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { toast } from 'sonner'
 import type { OrganizationInvitation } from '@/types'
+
+// デフォルトの公演時間設定
+const DEFAULT_TIME_SLOT_SETTINGS: TimeSlotSettings = {
+  weekday: {
+    morning: { start_time: '10:00', end_time: '14:00' },
+    afternoon: { start_time: '14:30', end_time: '18:30' },
+    evening: { start_time: '19:00', end_time: '23:00' }
+  },
+  holiday: {
+    morning: { start_time: '10:00', end_time: '14:00' },
+    afternoon: { start_time: '14:30', end_time: '18:30' },
+    evening: { start_time: '19:00', end_time: '23:00' }
+  }
+}
 
 export default function OrganizationSettings() {
   const { organization, isLoading: orgLoading, refetch } = useOrganization()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [invitations, setInvitations] = useState<OrganizationInvitation[]>([])
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(false)
+  
+  // 公演時間設定
+  const [timeSlotSettings, setTimeSlotSettings] = useState<TimeSlotSettings>(DEFAULT_TIME_SLOT_SETTINGS)
+  const [isLoadingTimeSlots, setIsLoadingTimeSlots] = useState(false)
+  const [isSavingTimeSlots, setIsSavingTimeSlots] = useState(false)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -69,6 +90,25 @@ export default function OrganizationSettings() {
     }
 
     loadInvitations()
+  }, [organization?.id])
+
+  // 公演時間設定を読み込み
+  useEffect(() => {
+    async function loadTimeSlotSettings() {
+      if (!organization?.id) return
+      
+      setIsLoadingTimeSlots(true)
+      try {
+        const settings = await organizationSettingsApi.getTimeSlotSettings()
+        setTimeSlotSettings(settings)
+      } catch (error) {
+        console.error('Failed to load time slot settings:', error)
+      } finally {
+        setIsLoadingTimeSlots(false)
+      }
+    }
+
+    loadTimeSlotSettings()
   }, [organization?.id])
 
   // 組織情報を保存
@@ -120,6 +160,39 @@ export default function OrganizationSettings() {
     } else if (success) {
       toast.success('招待を取り消しました')
       setInvitations(prev => prev.filter(inv => inv.id !== invitation.id))
+    }
+  }
+
+  // 公演時間設定を更新
+  const updateTimeSlot = (
+    dayType: 'weekday' | 'holiday',
+    slot: 'morning' | 'afternoon' | 'evening',
+    field: 'start_time' | 'end_time',
+    value: string
+  ) => {
+    setTimeSlotSettings(prev => ({
+      ...prev,
+      [dayType]: {
+        ...prev[dayType],
+        [slot]: {
+          ...prev[dayType][slot],
+          [field]: value
+        }
+      }
+    }))
+  }
+
+  // 公演時間設定を保存
+  const handleSaveTimeSlots = async () => {
+    setIsSavingTimeSlots(true)
+    try {
+      await organizationSettingsApi.updateTimeSlotSettings(timeSlotSettings)
+      toast.success('公演時間設定を保存しました')
+    } catch (error) {
+      console.error('Failed to save time slot settings:', error)
+      toast.error('保存に失敗しました')
+    } finally {
+      setIsSavingTimeSlots(false)
     }
   }
 
@@ -373,6 +446,104 @@ export default function OrganizationSettings() {
                     </div>
                   </>
                 )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 公演時間設定 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Timer className="w-5 h-5" />
+              公演時間設定
+            </CardTitle>
+            <CardDescription>
+              朝・昼・夜公演のデフォルト開始・終了時間を設定します（平日と休日・祝日で別々に設定可能）
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingTimeSlots ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* 平日設定 */}
+                <div>
+                  <h4 className="font-medium mb-3">平日</h4>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    {(['morning', 'afternoon', 'evening'] as const).map(slot => (
+                      <div key={slot} className="space-y-2 p-3 border rounded-lg">
+                        <Label className="text-sm font-medium">
+                          {slot === 'morning' ? '朝公演' : slot === 'afternoon' ? '昼公演' : '夜公演'}
+                        </Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">開始</Label>
+                            <Input
+                              type="time"
+                              value={timeSlotSettings.weekday[slot].start_time}
+                              onChange={(e) => updateTimeSlot('weekday', slot, 'start_time', e.target.value)}
+                              className="text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">終了</Label>
+                            <Input
+                              type="time"
+                              value={timeSlotSettings.weekday[slot].end_time}
+                              onChange={(e) => updateTimeSlot('weekday', slot, 'end_time', e.target.value)}
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 休日・祝日設定 */}
+                <div>
+                  <h4 className="font-medium mb-3">休日・祝日</h4>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    {(['morning', 'afternoon', 'evening'] as const).map(slot => (
+                      <div key={slot} className="space-y-2 p-3 border rounded-lg">
+                        <Label className="text-sm font-medium">
+                          {slot === 'morning' ? '朝公演' : slot === 'afternoon' ? '昼公演' : '夜公演'}
+                        </Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">開始</Label>
+                            <Input
+                              type="time"
+                              value={timeSlotSettings.holiday[slot].start_time}
+                              onChange={(e) => updateTimeSlot('holiday', slot, 'start_time', e.target.value)}
+                              className="text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">終了</Label>
+                            <Input
+                              type="time"
+                              value={timeSlotSettings.holiday[slot].end_time}
+                              onChange={(e) => updateTimeSlot('holiday', slot, 'end_time', e.target.value)}
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={handleSaveTimeSlots} disabled={isSavingTimeSlots}>
+                    {isSavingTimeSlots && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    <Save className="w-4 h-4 mr-2" />
+                    保存
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
