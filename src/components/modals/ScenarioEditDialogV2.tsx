@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
+import { MasterSelectDialog } from './MasterSelectDialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useScenariosQuery, useScenarioMutation, useDeleteScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 
@@ -167,6 +168,25 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   
   // 保存成功メッセージ
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  
+  // マスタ選択ダイアログ
+  const [masterSelectOpen, setMasterSelectOpen] = useState(false)
+  
+  // マスタから引用
+  const handleMasterSelect = (master: any) => {
+    setFormData(prev => ({
+      ...prev,
+      title: master.title || prev.title,
+      author: master.author || prev.author,
+      description: master.description || prev.description,
+      duration: master.official_duration || prev.duration,
+      player_count_min: master.player_count_min || prev.player_count_min,
+      player_count_max: master.player_count_max || prev.player_count_max,
+      difficulty: master.difficulty ? parseInt(master.difficulty) : prev.difficulty,
+      genre: master.genre || prev.genre,
+      key_visual_url: master.key_visual_url || prev.key_visual_url
+    }))
+  }
   
   // 削除確認ダイアログ
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -434,12 +454,15 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, scenarioId, scenarios.length])
 
-  const handleSave = async () => {
+  const handleSave = async (statusOverride?: 'available' | 'unavailable' | 'draft') => {
     if (!formData.title.trim()) {
       showToast.warning('タイトルを入力してください')
       setActiveTab('basic')
       return
     }
+
+    // ステータスを上書き（下書き保存の場合）
+    const saveStatus = statusOverride || formData.status
 
     try {
       // データベースに存在しないUI専用フィールドを除外
@@ -463,6 +486,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       
       const scenarioData: any = {
         ...dbFields,
+        // ステータスを上書き
+        status: saveStatus,
         // slugが空文字列の場合はnullとして保存
         slug: dbFields.slug?.trim() || null,
         participation_fee: normalParticipationCost?.amount || formData.participation_fee || 3000,
@@ -556,8 +581,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           logger.error('onSavedコールバックエラー:', err)
         }
       }
+      // ステータスをformDataにも反映
+      setFormData(prev => ({ ...prev, status: saveStatus }))
+      
       // 保存成功メッセージを表示（3秒後に消える）
-      setSaveMessage('保存しました')
+      const msg = saveStatus === 'draft' ? '下書き保存しました' : '保存しました'
+      setSaveMessage(msg)
       setTimeout(() => setSaveMessage(null), 3000)
       // ダイアログは閉じない（保存後も編集を続けられるように）
     } catch (err: unknown) {
@@ -631,6 +660,18 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             <DialogTitle className="text-xl shrink-0">
               {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
             </DialogTitle>
+            {/* マスタから引用ボタン */}
+            {!scenarioId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setMasterSelectOpen(true)}
+                className="shrink-0"
+              >
+                <BookOpen className="h-4 w-4 mr-1" />
+                マスタから引用
+              </Button>
+            )}
             {/* シナリオ切り替え */}
             {onScenarioChange && scenarioId && scenarioIdList.length > 1 && (
               <div className="flex items-center gap-1 flex-1 max-w-md">
@@ -790,6 +831,16 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
           {/* アクションボタン */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* ステータスバッジ */}
+            {formData.status === 'draft' && (
+              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">下書き</span>
+            )}
+            {formData.status === 'available' && (
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">公開中</span>
+            )}
+            {formData.status === 'unavailable' && (
+              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">非公開</span>
+            )}
             {saveMessage && (
               <span className="text-green-600 font-medium text-sm animate-pulse">
                 ✓ {saveMessage}
@@ -798,13 +849,28 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             <Button type="button" variant="outline" onClick={onClose}>
               閉じる
             </Button>
-            <Button onClick={handleSave} disabled={scenarioMutation.isPending || isLoadingAssignments} className="w-24">
+            <Button 
+              variant="outline"
+              onClick={() => handleSave('draft')} 
+              disabled={scenarioMutation.isPending || isLoadingAssignments}
+              className="text-gray-600"
+            >
+              下書き保存
+            </Button>
+            <Button onClick={() => handleSave()} disabled={scenarioMutation.isPending || isLoadingAssignments} className="w-24">
               <Save className="h-4 w-4 mr-2" />
               保存
             </Button>
           </div>
         </div>
       </DialogContent>
+
+      {/* マスタ選択ダイアログ */}
+      <MasterSelectDialog
+        open={masterSelectOpen}
+        onOpenChange={setMasterSelectOpen}
+        onSelect={handleMasterSelect}
+      />
     </Dialog>
   )
 }
