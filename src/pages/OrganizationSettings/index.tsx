@@ -28,7 +28,6 @@ import {
 import { useOrganization } from '@/hooks/useOrganization'
 import { updateOrganization } from '@/lib/organization'
 import { getInvitationsByOrganization, resendInvitation, deleteInvitation } from '@/lib/api/invitationsApi'
-import { organizationSettingsApi, type TimeSlotSettings } from '@/lib/api/organizationSettingsApi'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { toast } from 'sonner'

@@ -7,7 +7,6 @@ import { LoginForm } from '@/components/auth/LoginForm'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { SetPassword } from '@/pages/SetPassword'
-import { DevTooltip } from '@/components/ui/DevTooltip'
 
 // QueryClient の設定
 const queryClient = new QueryClient({
@@ -146,7 +145,6 @@ function AppContent() {
     <>
       <HashRedirect />
       <AppRoutes />
-      <DevTooltip />
     </>
   )
 }

@@ -214,17 +214,37 @@
 }
 
 /* ============================================================
-   開発者モード: DB情報ツールチップ
-   license_adminロールでログイン時、data-db属性を持つ要素に
-   ホバーでDB情報を表示（DevTooltipコンポーネントで実装）
+   開発者モード: DB情報ツールチップ（CSS only）
    ============================================================ */
 @layer utilities {
-  /* 開発者モード有効時 - カーソル変更 */
   body.dev-mode [data-db] {
+    position: relative;
     cursor: help;
   }
   
-  /* 開発者モードインジケーター（画面右下） */
+  body.dev-mode [data-db]::after {
+    content: "📊 " attr(data-db);
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 8px;
+    padding: 4px 8px;
+    background: #1e293b;
+    color: #f8fafc;
+    font-size: 11px;
+    font-family: monospace;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 99999;
+    pointer-events: none;
+    opacity: 0;
+  }
+  
+  body.dev-mode [data-db]:hover::after {
+    opacity: 1;
+  }
+  
   body.dev-mode::after {
     content: "🛠️ DEV";
     position: fixed;
@@ -238,6 +258,5 @@
     border-radius: 4px;
     z-index: 99999;
     pointer-events: none;
-    opacity: 0.8;
   }
 }

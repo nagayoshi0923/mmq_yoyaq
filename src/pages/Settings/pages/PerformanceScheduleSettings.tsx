@@ -5,11 +5,26 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
-import { Save } from 'lucide-react'
+import { Save, Loader2, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { storeApi } from '@/lib/api/storeApi'
+import { organizationSettingsApi, type TimeSlotSettings } from '@/lib/api/organizationSettingsApi'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
+
+// デフォルトの公演時間設定（組織共通）
+const DEFAULT_TIME_SLOT_SETTINGS: TimeSlotSettings = {
+  weekday: {
+    morning: { start_time: '10:00', end_time: '14:00' },
+    afternoon: { start_time: '14:30', end_time: '18:30' },
+    evening: { start_time: '19:00', end_time: '23:00' }
+  },
+  holiday: {
+    morning: { start_time: '10:00', end_time: '14:00' },
+    afternoon: { start_time: '14:30', end_time: '18:30' },
+    evening: { start_time: '19:00', end_time: '23:00' }
+  }
+}
 
 interface PerformanceTime {
   slot: string
@@ -53,8 +68,14 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  // 平日/休日の公演時間設定（組織共通）
+  const [timeSlotSettings, setTimeSlotSettings] = useState<TimeSlotSettings>(DEFAULT_TIME_SLOT_SETTINGS)
+  const [isLoadingTimeSlots, setIsLoadingTimeSlots] = useState(false)
+  const [isSavingTimeSlots, setIsSavingTimeSlots] = useState(false)
+
   useEffect(() => {
     fetchData()
+    fetchTimeSlotSettings()
   }, [])
 
   const fetchData = async () => {
@@ -73,6 +94,52 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
       showToast.error('データの取得に失敗しました')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 平日/休日の公演時間設定を読み込み
+  const fetchTimeSlotSettings = async () => {
+    setIsLoadingTimeSlots(true)
+    try {
+      const settings = await organizationSettingsApi.getTimeSlotSettings()
+      setTimeSlotSettings(settings)
+    } catch (error) {
+      logger.error('時間帯設定取得エラー:', error)
+    } finally {
+      setIsLoadingTimeSlots(false)
+    }
+  }
+
+  // 平日/休日の公演時間設定を更新
+  const updateTimeSlot = (
+    dayType: 'weekday' | 'holiday',
+    slot: 'morning' | 'afternoon' | 'evening',
+    field: 'start_time' | 'end_time',
+    value: string
+  ) => {
+    setTimeSlotSettings(prev => ({
+      ...prev,
+      [dayType]: {
+        ...prev[dayType],
+        [slot]: {
+          ...prev[dayType][slot],
+          [field]: value
+        }
+      }
+    }))
+  }
+
+  // 平日/休日の公演時間設定を保存
+  const handleSaveTimeSlots = async () => {
+    setIsSavingTimeSlots(true)
+    try {
+      await organizationSettingsApi.updateTimeSlotSettings(timeSlotSettings)
+      showToast.success('公演時間設定を保存しました')
+    } catch (error) {
+      logger.error('時間帯設定保存エラー:', error)
+      showToast.error('保存に失敗しました')
+    } finally {
+      setIsSavingTimeSlots(false)
     }
   }
 
@@ -320,6 +387,104 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* 平日/休日の公演時間設定（組織共通） */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="w-5 h-5" />
+            デフォルト公演時間（平日/休日）
+          </CardTitle>
+          <CardDescription>
+            朝・昼・夜公演のデフォルト開始・終了時間を設定します。平日と休日・祝日で別々に設定できます。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingTimeSlots ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* 平日設定 */}
+              <div>
+                <h4 className="font-medium mb-3 text-sm text-muted-foreground">平日</h4>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {(['morning', 'afternoon', 'evening'] as const).map(slot => (
+                    <div key={slot} className="space-y-2 p-3 border rounded-lg">
+                      <Label className="text-sm font-medium">
+                        {slot === 'morning' ? '朝公演' : slot === 'afternoon' ? '昼公演' : '夜公演'}
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">開始</Label>
+                          <Input
+                            type="time"
+                            value={timeSlotSettings.weekday[slot].start_time}
+                            onChange={(e) => updateTimeSlot('weekday', slot, 'start_time', e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">終了</Label>
+                          <Input
+                            type="time"
+                            value={timeSlotSettings.weekday[slot].end_time}
+                            onChange={(e) => updateTimeSlot('weekday', slot, 'end_time', e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 休日・祝日設定 */}
+              <div>
+                <h4 className="font-medium mb-3 text-sm text-muted-foreground">休日・祝日</h4>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {(['morning', 'afternoon', 'evening'] as const).map(slot => (
+                    <div key={slot} className="space-y-2 p-3 border rounded-lg">
+                      <Label className="text-sm font-medium">
+                        {slot === 'morning' ? '朝公演' : slot === 'afternoon' ? '昼公演' : '夜公演'}
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">開始</Label>
+                          <Input
+                            type="time"
+                            value={timeSlotSettings.holiday[slot].start_time}
+                            onChange={(e) => updateTimeSlot('holiday', slot, 'start_time', e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">終了</Label>
+                          <Input
+                            type="time"
+                            value={timeSlotSettings.holiday[slot].end_time}
+                            onChange={(e) => updateTimeSlot('holiday', slot, 'end_time', e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={handleSaveTimeSlots} disabled={isSavingTimeSlots}>
+                  {isSavingTimeSlots && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  <Save className="w-4 h-4 mr-2" />
+                  時間設定を保存
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
