@@ -146,14 +146,16 @@ export function PerformanceModal({
     })
   }, [formData.date, getDefaultsForDate, isTimeSlotSettingsLoading])
 
-  // 時間帯が変更されたときに開始・終了時間を自動設定
+  // 時間帯が変更されたときに開始・終了時間を自動設定（平日/休日を考慮）
   const handleTimeSlotChange = (slot: 'morning' | 'afternoon' | 'evening') => {
     setTimeSlot(slot)
-    const defaults = timeSlotDefaults[slot]
+    // 現在の日付に応じたデフォルト時間を取得
+    const dayDefaults = formData.date ? getDefaultsForDate(formData.date) : null
+    const slotDefaults = dayDefaults ? dayDefaults[slot] : timeSlotDefaults[slot]
     setFormData((prev: EventFormData) => ({
       ...prev,
-      start_time: defaults.start_time,
-      end_time: defaults.end_time
+      start_time: slotDefaults.start_time,
+      end_time: slotDefaults.end_time
     }))
   }
 
@@ -296,13 +298,15 @@ export function PerformanceModal({
       const slot = initialData.time_slot as 'morning' | 'afternoon' | 'evening'
       setTimeSlot(slot)
       
-      const defaults = timeSlotDefaults[slot] || timeSlotDefaults.morning
+      // 日付に応じたデフォルト時間を取得（平日/休日を考慮）
+      const dayDefaults = getDefaultsForDate(initialData.date)
+      const slotDefaults = dayDefaults[slot] || dayDefaults.morning
       
       // スロットメモを取得（localStorageから）
       const slotMemo = getEmptySlotMemo(initialData.date, initialData.venue, slot)
       
       // 前の公演がある場合は推奨開始時間を使用、なければスロットのデフォルトを使用
-      const startTime = (initialData as any).suggestedStartTime || defaults.start_time
+      const startTime = (initialData as any).suggestedStartTime || slotDefaults.start_time
       
       setFormData({
         id: Date.now().toString(),
@@ -312,7 +316,7 @@ export function PerformanceModal({
         gms: [],
         gmRoles: {},
         start_time: startTime,
-        end_time: defaults.end_time,
+        end_time: slotDefaults.end_time,
         category: 'private',
         max_participants: DEFAULT_MAX_PARTICIPANTS,
         capacity: 0,
@@ -320,7 +324,7 @@ export function PerformanceModal({
         reservation_name: ''  // 予約者名（初期値は空）
       })
     }
-  }, [mode, event, initialData])
+  }, [mode, event, initialData, getDefaultsForDate])
 
   // 終了時間を自動計算する関数
   const calculateEndTime = (startTime: string, scenarioTitle: string) => {
