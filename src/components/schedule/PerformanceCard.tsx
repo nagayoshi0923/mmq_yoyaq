@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Users, AlertTriangle } from 'lucide-react'
 import { useLongPress } from '@/hooks/useLongPress'
 import { getEffectiveCategory } from '@/utils/scheduleUtils'
+import { devDb } from '@/components/ui/DevField'
 
 // スケジュールイベントの型定義
 interface ScheduleEvent {
@@ -178,7 +179,10 @@ function PerformanceCardBase({
     >
       {/* ヘッダー行：時間 + バッジ群 */}
       <div className="flex items-center justify-between mb-0.5 gap-1">
-        <span className={`font-mono text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+        <span 
+          className={`font-mono text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
+          {...devDb('schedule_events.start_time/end_time')}
+        >
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0 min-w-0">
@@ -218,7 +222,10 @@ function PerformanceCardBase({
       </div>
       
       {/* シナリオタイトル */}
-      <div className={`font-bold line-clamp-2 mb-0.5 text-xs leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div 
+        className={`font-bold line-clamp-2 mb-0.5 text-xs leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
+        {...devDb('schedule_events.scenario')}
+      >
         {event.scenario ? (
           <span 
             className={`flex items-center gap-1 ${isUnregisteredScenario ? 'text-orange-600' : ''}`}
@@ -242,7 +249,10 @@ function PerformanceCardBase({
       </div>
       
       {/* GM情報 */}
-      <div className={`text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}>
+      <div 
+        className={`text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
+        {...devDb('schedule_events.gms')}
+      >
         {displayGms.length > 0 ? (
           <span className="flex items-center gap-1">
             <span className="font-bold opacity-70 text-[10px]">GM:</span>

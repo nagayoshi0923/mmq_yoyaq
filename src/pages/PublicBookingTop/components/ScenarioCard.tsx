@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Clock, Users, Heart } from 'lucide-react'
 import { usePrefetch } from '@/hooks/usePrefetch'
 import { getColorFromName } from '@/lib/utils'
+import { devDb } from '@/components/ui/DevField'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
 // 画像コンポーネントをインライン化して最適化
@@ -131,16 +132,16 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
 
       <CardContent className="p-2 sm:p-2.5 md:p-3 space-y-0.5 sm:space-y-1 bg-white">
         {/* 著者 */}
-        <p className="text-xs text-gray-500">{scenario.author}</p>
+        <p className="text-xs text-gray-500" {...devDb('scenarios.author')}>{scenario.author}</p>
         
         {/* タイトル */}
-        <h3 className="text-sm sm:text-base truncate mt-0.5 sm:mt-1">
+        <h3 className="text-sm sm:text-base truncate mt-0.5 sm:mt-1" {...devDb('scenarios.title')}>
           {scenario.scenario_title}
         </h3>
 
         {/* 人数・時間・参加費 */}
         <div className="flex items-center gap-1 sm:gap-1 text-xs text-gray-600 mt-0.5 sm:mt-0.5">
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-0.5" {...devDb('scenarios.player_count_min/max')}>
             <Users className="h-3 w-3" />
             <span>
               {scenario.player_count_min === scenario.player_count_max
@@ -148,12 +149,12 @@ export const ScenarioCard = memo(function ScenarioCard({ scenario, onClick, isFa
                 : `${scenario.player_count_min}~${scenario.player_count_max}人`}
             </span>
           </div>
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-0.5" {...devDb('scenarios.duration')}>
             <Clock className="h-3 w-3" />
             <span>{scenario.duration}分</span>
           </div>
           {scenario.participation_fee && (
-            <div className="flex items-center gap-0.5 sm:gap-1">
+            <div className="flex items-center gap-0.5 sm:gap-1" {...devDb('scenarios.participation_fee')}>
               <span>¥{scenario.participation_fee.toLocaleString()}〜</span>
             </div>
           )}
