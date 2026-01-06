@@ -95,7 +95,7 @@ export function ScheduleTable({
               <col />
               <col className="w-[160px]" />
             </colgroup>
-            <TableHeader className="sticky top-0 z-40">
+            <TableHeader className="md:sticky md:top-0 z-40">
               <TableRow className="bg-muted h-10">
                 <TableHead className="sticky left-0 z-50 bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
                   <span className="hidden sm:inline">日付</span>
