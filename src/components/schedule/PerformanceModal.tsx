@@ -25,6 +25,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { ReservationList } from './modal/ReservationList'
 import { getEmptySlotMemo, clearEmptySlotMemo } from './SlotMemoInput'
+import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 
 interface PerformanceModalProps {
   isOpen: boolean
@@ -123,12 +124,27 @@ export function PerformanceModal({
     notes: ''
   })
 
+  // 組織の時間帯設定を取得（平日/休日を考慮）
+  const { getDefaultsForDate, isLoading: isTimeSlotSettingsLoading } = useTimeSlotSettings()
+
   // 時間帯のデフォルト設定（設定から動的に取得）
   const [timeSlotDefaults, setTimeSlotDefaults] = useState({
     morning: { start_time: '10:00', end_time: '14:00', label: '朝公演' },
     afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
     evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
   })
+
+  // 日付が変わったら平日/休日に応じてデフォルト時間を更新
+  useEffect(() => {
+    if (!formData.date || isTimeSlotSettingsLoading) return
+
+    const dayDefaults = getDefaultsForDate(formData.date)
+    setTimeSlotDefaults({
+      morning: { ...dayDefaults.morning, label: '朝公演' },
+      afternoon: { ...dayDefaults.afternoon, label: '昼公演' },
+      evening: { ...dayDefaults.evening, label: '夜公演' }
+    })
+  }, [formData.date, getDefaultsForDate, isTimeSlotSettingsLoading])
 
   // 時間帯が変更されたときに開始・終了時間を自動設定
   const handleTimeSlotChange = (slot: 'morning' | 'afternoon' | 'evening') => {
