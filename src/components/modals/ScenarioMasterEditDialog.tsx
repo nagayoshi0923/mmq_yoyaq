@@ -131,6 +131,8 @@ export function ScenarioMasterEditDialog({
   }>>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
   const [genreInput, setGenreInput] = useState('')
   const [activeTab, setActiveTab] = useState<TabId>(getSavedTab)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
@@ -521,11 +523,19 @@ export function ScenarioMasterEditDialog({
                   accept="image/*,video/mp4,video/webm,video/quicktime"
                   multiple
                   className="hidden"
+                  disabled={uploading}
                   onChange={async (e) => {
                     const files = e.target.files
-                    if (!files) return
+                    if (!files || files.length === 0) return
                     
-                    for (const file of Array.from(files)) {
+                    const fileArray = Array.from(files)
+                    setUploading(true)
+                    setUploadProgress({ current: 0, total: fileArray.length })
+                    
+                    for (let i = 0; i < fileArray.length; i++) {
+                      const file = fileArray[i]
+                      setUploadProgress({ current: i + 1, total: fileArray.length })
+                      
                       const validation = validateMediaFile(file, 30, 100)
                       if (!validation.valid) {
                         showToast.error(validation.error || 'ファイルが無効です')
@@ -539,19 +549,22 @@ export function ScenarioMasterEditDialog({
                             ...prev,
                             gallery_images: [...(prev.gallery_images || []), result.url]
                           }))
-                          showToast.success(`${validation.type === 'video' ? '動画' : '画像'}をアップロードしました`)
                         }
                       } catch (err) {
                         logger.error('Gallery upload error:', err)
                         showToast.error('ファイルのアップロードに失敗しました')
                       }
                     }
+                    
+                    setUploading(false)
+                    setUploadProgress({ current: 0, total: 0 })
+                    showToast.success(`${fileArray.length}件のファイルをアップロードしました`)
                     e.target.value = ''
                   }}
                 />
-                <div className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 transition-colors">
+                <div className={`flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 transition-colors ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <Upload className="w-4 h-4" />
-                  画像・動画を追加
+                  {uploading ? `アップロード中... (${uploadProgress.current}/${uploadProgress.total})` : '画像・動画を追加'}
                 </div>
               </label>
             </div>
@@ -564,16 +577,34 @@ export function ScenarioMasterEditDialog({
               </div>
             ) : (
               <div className="space-y-4">
+                {/* アップロード中のプログレス */}
+                {uploading && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+                      <span className="text-sm font-medium text-blue-800">
+                        アップロード中... ({uploadProgress.current}/{uploadProgress.total})
+                      </span>
+                    </div>
+                    <div className="w-full bg-blue-200 rounded-full h-2">
+                      <div 
+                        className="bg-primary h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* スライドプレビュー */}
                 <div className="relative bg-gray-100 rounded-lg overflow-hidden">
                   <div className="flex overflow-x-auto gap-2 p-4 snap-x snap-mandatory">
                     {master.gallery_images.map((url, index) => {
-                      const isKV = master.key_visual_url === url
-                      const isVideo = /\.(mp4|webm|mov)$/i.test(url)
+                      const isMV = master.key_visual_url === url
+                      const isVideo = /\.(mp4|webm|mov|avi)$/i.test(url)
                       return (
                         <div 
                           key={index} 
-                          className={`relative flex-shrink-0 snap-center group ${isKV ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                          className={`relative flex-shrink-0 snap-center group ${isMV ? 'ring-2 ring-primary ring-offset-2' : ''}`}
                           style={{ width: '200px', height: '150px' }}
                         >
                           {isVideo ? (
@@ -599,23 +630,23 @@ export function ScenarioMasterEditDialog({
                               動画
                             </div>
                           )}
-                          {/* KVバッジ */}
-                          {isKV && (
+                          {/* メインビジュアルバッジ */}
+                          {isMV && (
                             <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded font-medium">
-                              KV
+                              メイン
                             </div>
                           )}
-                          {/* KVに設定ボタン（動画はKV不可） */}
-                          {!isKV && !isVideo && (
+                          {/* メインビジュアルに設定ボタン（動画は不可） */}
+                          {!isMV && !isVideo && (
                             <button
                               type="button"
                               onClick={() => {
                                 setMaster(prev => ({ ...prev, key_visual_url: url }))
-                                showToast.success('キービジュアルに設定しました')
+                                showToast.success('メインビジュアルに設定しました')
                               }}
                               className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary"
                             >
-                              KVに設定
+                              メインに設定
                             </button>
                           )}
                           <button
@@ -624,7 +655,7 @@ export function ScenarioMasterEditDialog({
                               setMaster(prev => ({
                                 ...prev,
                                 gallery_images: prev.gallery_images.filter((_, i) => i !== index),
-                                // KVだった場合はクリア
+                                // メインビジュアルだった場合はクリア
                                 key_visual_url: prev.key_visual_url === url ? '' : prev.key_visual_url
                               }))
                             }}
@@ -644,35 +675,48 @@ export function ScenarioMasterEditDialog({
 
                 {/* 画像一覧（並び替え可能） */}
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500">画像をクリックでKVに設定できます</p>
+                  <p className="text-xs text-gray-500">画像をクリックでメインビジュアルに設定できます</p>
                   {master.gallery_images.map((url, index) => {
-                    const isKV = master.key_visual_url === url
+                    const isMV = master.key_visual_url === url
+                    const isVideo = /\.(mp4|webm|mov|avi)$/i.test(url)
                     return (
                       <div 
                         key={index}
-                        className={`flex items-center gap-3 p-2 rounded-lg border ${isKV ? 'bg-primary/5 border-primary' : 'bg-gray-50'}`}
+                        className={`flex items-center gap-3 p-2 rounded-lg border ${isMV ? 'bg-primary/5 border-primary' : 'bg-gray-50'}`}
                       >
                         <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
                         <div className="w-16 h-12 flex-shrink-0 bg-gray-200 rounded overflow-hidden relative">
-                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          {isVideo ? (
+                            <video src={url} className="w-full h-full object-cover" muted />
+                          ) : (
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                          )}
+                          {isVideo && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <span className="text-white text-xs">▶</span>
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0 flex items-center gap-2">
-                          {isKV && (
-                            <Badge variant="default" className="text-xs shrink-0">KV</Badge>
+                          {isMV && (
+                            <Badge variant="default" className="text-xs shrink-0">メイン</Badge>
+                          )}
+                          {isVideo && (
+                            <Badge variant="secondary" className="text-xs shrink-0">動画</Badge>
                           )}
                           <p className="text-sm text-gray-600 truncate">{url}</p>
                         </div>
-                        {!isKV && (
+                        {!isMV && !isVideo && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => {
                               setMaster(prev => ({ ...prev, key_visual_url: url }))
-                              showToast.success('キービジュアルに設定しました')
+                              showToast.success('メインビジュアルに設定しました')
                             }}
                             className="text-xs shrink-0"
                           >
-                            KVに設定
+                            メインに設定
                           </Button>
                         )}
                         <Button
