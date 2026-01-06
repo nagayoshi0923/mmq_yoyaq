@@ -133,12 +133,77 @@ export function ScenarioMasterEditDialog({
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
+  const [isDragging, setIsDragging] = useState(false)
   const [genreInput, setGenreInput] = useState('')
   const [activeTab, setActiveTab] = useState<TabId>(getSavedTab)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
   // マスタIDリスト（矢印キーでの切り替え用）
   const masterIdList = sortedMasterIds || []
+
+  // ファイルアップロード処理（共通）
+  const handleFilesUpload = async (files: File[]) => {
+    if (files.length === 0 || uploading) return
+    
+    setUploading(true)
+    setUploadProgress({ current: 0, total: files.length })
+    
+    let successCount = 0
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      setUploadProgress({ current: i + 1, total: files.length })
+      
+      const validation = validateMediaFile(file, 30, 100)
+      if (!validation.valid) {
+        showToast.error(validation.error || 'ファイルが無効です')
+        continue
+      }
+      
+      try {
+        const result = await uploadMedia(file, 'key-visuals')
+        if (result) {
+          setMaster(prev => ({
+            ...prev,
+            gallery_images: [...(prev.gallery_images || []), result.url]
+          }))
+          successCount++
+        }
+      } catch (err) {
+        logger.error('Gallery upload error:', err)
+        showToast.error('ファイルのアップロードに失敗しました')
+      }
+    }
+    
+    setUploading(false)
+    setUploadProgress({ current: 0, total: 0 })
+    if (successCount > 0) {
+      showToast.success(`${successCount}件のファイルをアップロードしました`)
+    }
+  }
+
+  // ドラッグ＆ドロップハンドラ
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!uploading) setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    
+    if (uploading) return
+    
+    const files = Array.from(e.dataTransfer.files)
+    await handleFilesUpload(files)
+  }
 
   useEffect(() => {
     if (open) {
@@ -511,11 +576,16 @@ export function ScenarioMasterEditDialog({
 
       case 'gallery':
         return (
-          <div className="space-y-4">
+          <div 
+            className="space-y-4"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-900">ギャラリー画像</p>
-                <p className="text-xs text-gray-500">シナリオのイメージ画像をスライドで表示します</p>
+                <p className="text-xs text-gray-500">画像・動画をドラッグ＆ドロップ、または下のボタンから追加</p>
               </div>
               <label className="cursor-pointer">
                 <input
@@ -526,39 +596,8 @@ export function ScenarioMasterEditDialog({
                   disabled={uploading}
                   onChange={async (e) => {
                     const files = e.target.files
-                    if (!files || files.length === 0) return
-                    
-                    const fileArray = Array.from(files)
-                    setUploading(true)
-                    setUploadProgress({ current: 0, total: fileArray.length })
-                    
-                    for (let i = 0; i < fileArray.length; i++) {
-                      const file = fileArray[i]
-                      setUploadProgress({ current: i + 1, total: fileArray.length })
-                      
-                      const validation = validateMediaFile(file, 30, 100)
-                      if (!validation.valid) {
-                        showToast.error(validation.error || 'ファイルが無効です')
-                        continue
-                      }
-                      
-                      try {
-                        const result = await uploadMedia(file, 'key-visuals')
-                        if (result) {
-                          setMaster(prev => ({
-                            ...prev,
-                            gallery_images: [...(prev.gallery_images || []), result.url]
-                          }))
-                        }
-                      } catch (err) {
-                        logger.error('Gallery upload error:', err)
-                        showToast.error('ファイルのアップロードに失敗しました')
-                      }
-                    }
-                    
-                    setUploading(false)
-                    setUploadProgress({ current: 0, total: 0 })
-                    showToast.success(`${fileArray.length}件のファイルをアップロードしました`)
+                    if (!files) return
+                    await handleFilesUpload(Array.from(files))
                     e.target.value = ''
                   }}
                 />
@@ -569,12 +608,35 @@ export function ScenarioMasterEditDialog({
               </label>
             </div>
 
+            {/* ドラッグオーバー時のオーバーレイ */}
+            {isDragging && (
+              <div className="fixed inset-0 bg-primary/10 z-50 flex items-center justify-center pointer-events-none">
+                <div className="bg-white rounded-xl shadow-2xl p-8 border-2 border-dashed border-primary">
+                  <Upload className="w-12 h-12 mx-auto text-primary mb-3" />
+                  <p className="text-lg font-medium text-primary">ここにドロップしてアップロード</p>
+                </div>
+              </div>
+            )}
+
             {(!master.gallery_images || master.gallery_images.length === 0) ? (
-              <div className="border-2 border-dashed border-gray-200 rounded-lg p-12 text-center">
+              <label className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors block ${isDragging ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                <input
+                  type="file"
+                  accept="image/*,video/mp4,video/webm,video/quicktime"
+                  multiple
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={async (e) => {
+                    const files = e.target.files
+                    if (!files) return
+                    await handleFilesUpload(Array.from(files))
+                    e.target.value = ''
+                  }}
+                />
                 <Images className="w-12 h-12 mx-auto text-gray-300 mb-3" />
                 <p className="text-gray-500 text-sm">ギャラリー画像がありません</p>
-                <p className="text-gray-400 text-xs mt-1">上のボタンから画像をアップロードしてください</p>
-              </div>
+                <p className="text-gray-400 text-xs mt-1">クリックまたはドラッグ＆ドロップで追加</p>
+              </label>
             ) : (
               <div className="space-y-4">
                 {/* アップロード中のプログレス */}
