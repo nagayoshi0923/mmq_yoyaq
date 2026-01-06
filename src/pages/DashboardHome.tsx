@@ -424,7 +424,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           </div>
           <div className="bg-muted/50 p-3 rounded text-center">
             <div className="text-xs text-muted-foreground mb-1">報酬見込み</div>
-            <div className="font-bold text-xl" {...devDb('schedule_events.sum(gm_costs)')}">¥{myStats.salary.toLocaleString()}</div>
+            <div className="font-bold text-xl" {...devDb('schedule_events.sum(gm_costs)')}>¥{myStats.salary.toLocaleString()}</div>
           </div>
         </div>
       </section>
