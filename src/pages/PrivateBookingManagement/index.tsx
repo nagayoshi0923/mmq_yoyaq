@@ -18,7 +18,6 @@ const PRIVATE_BOOKING_MENU_ITEMS: SidebarMenuItem[] = [
   { id: 'approved', label: '承認済み', icon: CheckCircle },
   { id: 'settings', label: '設定', icon: Settings }
 ]
-import { MonthSwitcher } from '@/components/patterns/calendar'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { useSessionState } from '@/hooks/useSessionState'
@@ -53,12 +52,12 @@ export function PrivateBookingManagement() {
   const [selectedGMId, setSelectedGMId] = useState<string>('')
   const [selectedStoreId, setSelectedStoreId] = useState<string>('')
   const [selectedCandidateOrder, setSelectedCandidateOrder] = useState<number | null>(null)
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [displayLimit, setDisplayLimit] = useState<string>('50')  // 表示件数
   const [scenarioAvailableStores, setScenarioAvailableStores] = useState<string[]>([])  // シナリオ対応店舗ID
   const [selectedRegionFilter, setSelectedRegionFilter] = useState<string>('all')  // 地域フィルター
 
   // リクエストデータ管理
-  const { requests, loading, loadRequests, filterByMonth } = useBookingRequests({
+  const { requests, loading, loadRequests } = useBookingRequests({
     userId: user?.id,
     userRole: user?.role,
     activeTab
@@ -265,14 +264,20 @@ export function PrivateBookingManagement() {
     }
   }
 
-  // 月切り替え（MonthSwitcher に移行）
-
   // フィルタリング
   const pendingRequests = requests.filter(r => 
     r.status === 'pending' || r.status === 'pending_gm' || r.status === 'gm_confirmed' || r.status === 'pending_store'
   )
-  const allRequests = filterByMonth(requests, currentDate)
-  const filteredRequests = activeTab === 'pending' ? filterByMonth(pendingRequests, currentDate) : allRequests
+  
+  // 表示件数でフィルタリング（created_at降順で既にソート済み）
+  const applyLimit = (reqs: PrivateBookingRequest[]) => {
+    if (displayLimit === 'all') return reqs
+    const limit = parseInt(displayLimit, 10)
+    return reqs.slice(0, limit)
+  }
+  
+  const baseRequests = activeTab === 'pending' ? pendingRequests : requests
+  const filteredRequests = applyLimit(baseRequests)
 
   if (loading) {
     return (
@@ -332,17 +337,19 @@ export function PrivateBookingManagement() {
               <TabsTrigger value="all" className="flex-1 sm:flex-initial text-xs sm:text-sm">全て ({requests.length})</TabsTrigger>
             </TabsList>
             
-            {activeTab === 'pending' && (
-              <div className="w-full sm:w-auto flex justify-center sm:justify-end">
-                <MonthSwitcher
-                  value={currentDate}
-                  onChange={setCurrentDate}
-                  showToday
-                  quickJump
-                  enableKeyboard
-                />
-              </div>
-            )}
+            <div className="w-full sm:w-auto flex justify-center sm:justify-end">
+              <Select value={displayLimit} onValueChange={setDisplayLimit}>
+                <SelectTrigger className="w-[140px] text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="20">最新20件</SelectItem>
+                  <SelectItem value="50">最新50件</SelectItem>
+                  <SelectItem value="100">最新100件</SelectItem>
+                  <SelectItem value="all">全件表示</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <TabsContent value={activeTab} className="mt-0">
