@@ -645,14 +645,21 @@ export function ScheduleManager() {
         {/* スケジュールテーブル */}
         <ScheduleTable {...filteredScheduleTableProps} />
 
-        {/* 下部の月切り替え */}
-        <div className="flex justify-center py-4">
+        {/* 下部の月切り替え＆ページトップへ戻る */}
+        <div className="flex justify-center items-center gap-4 py-4">
           <MonthSwitcher
             value={currentDate}
             onChange={setCurrentDate}
             showToday
             quickJump
           />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            ↑ 上に戻る
+          </Button>
         </div>
 
         {/* モーダル・ダイアログ群 */}
