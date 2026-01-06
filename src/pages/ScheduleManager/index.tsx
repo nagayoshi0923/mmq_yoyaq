@@ -645,6 +645,16 @@ export function ScheduleManager() {
         {/* スケジュールテーブル */}
         <ScheduleTable {...filteredScheduleTableProps} />
 
+        {/* 下部の月切り替え */}
+        <div className="flex justify-center py-4">
+          <MonthSwitcher
+            value={currentDate}
+            onChange={setCurrentDate}
+            showToday
+            quickJump
+          />
+        </div>
+
         {/* モーダル・ダイアログ群 */}
         <PerformanceModal
           isOpen={modals.performanceModal.isOpen}
