@@ -650,100 +650,100 @@ export function ScheduleManager() {
 
       {/* 下部の月切り替え */}
       <div className="flex justify-center py-4">
-          <MonthSwitcher
-            value={currentDate}
-            onChange={setCurrentDate}
-            showToday
-            quickJump
-          />
-        </div>
-
-        {/* フローティング「上に戻る」ボタン */}
-        <Button
-          variant="outline"
-          size="icon"
-          className="fixed bottom-6 right-6 z-50 shadow-lg bg-background hover:bg-muted"
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          title="ページ上部に戻る"
-        >
-          ↑
-        </Button>
-
-        {/* モーダル・ダイアログ群 */}
-        <PerformanceModal
-          isOpen={modals.performanceModal.isOpen}
-          onClose={modals.performanceModal.onClose}
-          onSave={modals.performanceModal.onSave as any}
-          mode={modals.performanceModal.mode}
-          event={modals.performanceModal.event}
-          initialData={modals.performanceModal.initialData}
-          stores={modals.performanceModal.stores as any}
-          scenarios={modals.performanceModal.scenarios as any}
-          staff={modals.performanceModal.staff}
-          events={scheduleTableProps.events}
-          availableStaffByScenario={modals.performanceModal.availableStaffByScenario}
-          allAvailableStaff={modals.performanceModal.allAvailableStaff}
-          onParticipantChange={modals.performanceModal.onParticipantChange}
+        <MonthSwitcher
+          value={currentDate}
+          onChange={setCurrentDate}
+          showToday
+          quickJump
         />
+      </div>
 
-        <ImportScheduleModal
-          isOpen={isImportModalOpen}
-          onClose={() => setIsImportModalOpen(false)}
-          currentDisplayDate={currentDate}
-          onImportComplete={(targetMonth) => {
-            // インポート対象の月に切り替え
-            if (targetMonth) {
-              const targetDate = new Date(targetMonth.year, targetMonth.month - 1, 1)
-              setCurrentDate(targetDate)
-            }
-            // データを再取得（同じ月の場合もあるので必ず呼び出す）
-            scheduleTableProps.fetchSchedule?.()
-          }}
-        />
+      {/* フローティング「上に戻る」ボタン */}
+      <Button
+        variant="outline"
+        size="icon"
+        className="fixed bottom-6 right-6 z-50 shadow-lg bg-background hover:bg-muted"
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        title="ページ上部に戻る"
+      >
+        ↑
+      </Button>
 
-        <ConflictWarningModal
-          isOpen={modals.conflictWarning.isOpen}
-          onClose={modals.conflictWarning.onClose}
-          onContinue={modals.conflictWarning.onContinue}
-          conflictInfo={modals.conflictWarning.conflictInfo}
-        />
+      {/* モーダル・ダイアログ群 */}
+      <PerformanceModal
+        isOpen={modals.performanceModal.isOpen}
+        onClose={modals.performanceModal.onClose}
+        onSave={modals.performanceModal.onSave as any}
+        mode={modals.performanceModal.mode}
+        event={modals.performanceModal.event}
+        initialData={modals.performanceModal.initialData}
+        stores={modals.performanceModal.stores as any}
+        scenarios={modals.performanceModal.scenarios as any}
+        staff={modals.performanceModal.staff}
+        events={scheduleTableProps.events}
+        availableStaffByScenario={modals.performanceModal.availableStaffByScenario}
+        allAvailableStaff={modals.performanceModal.allAvailableStaff}
+        onParticipantChange={modals.performanceModal.onParticipantChange}
+      />
 
-        <ScheduleDialogs
-          isDeleteDialogOpen={modals.scheduleDialogs.isDeleteDialogOpen}
-          onCloseDeleteDialog={modals.scheduleDialogs.onCloseDeleteDialog}
-          onConfirmDelete={modals.scheduleDialogs.onConfirmDelete}
-          isCancelDialogOpen={modals.scheduleDialogs.isCancelDialogOpen}
-          onCloseCancelDialog={modals.scheduleDialogs.onCloseCancelDialog}
-          onConfirmCancel={modals.scheduleDialogs.onConfirmCancel}
-          isRestoreDialogOpen={modals.scheduleDialogs.isRestoreDialogOpen}
-          onCloseRestoreDialog={modals.scheduleDialogs.onCloseRestoreDialog}
-          onConfirmRestore={modals.scheduleDialogs.onConfirmRestore}
-        />
+      <ImportScheduleModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        currentDisplayDate={currentDate}
+        onImportComplete={(targetMonth) => {
+          // インポート対象の月に切り替え
+          if (targetMonth) {
+            const targetDate = new Date(targetMonth.year, targetMonth.month - 1, 1)
+            setCurrentDate(targetDate)
+          }
+          // データを再取得（同じ月の場合もあるので必ず呼び出す）
+          scheduleTableProps.fetchSchedule?.()
+        }}
+      />
 
-        <MoveOrCopyDialog
-          isOpen={modals.moveOrCopyDialog.isOpen}
-          onClose={modals.moveOrCopyDialog.onClose}
-          onMove={modals.moveOrCopyDialog.onMove}
-          onCopy={modals.moveOrCopyDialog.onCopy}
-          eventInfo={modals.moveOrCopyDialog.selectedEvent ? {
-            scenario: modals.moveOrCopyDialog.selectedEvent.scenario || '',
-            date: modals.moveOrCopyDialog.selectedEvent.date || '',
-            storeName: modals.moveOrCopyDialog.stores.find(s => s.id === modals.moveOrCopyDialog.selectedEvent?.venue)?.name || '',
-            timeSlot: (() => {
-              const hour = parseInt(modals.moveOrCopyDialog.selectedEvent.start_time.split(':')[0])
-              if (hour < 12) return 'morning'
-              if (hour < 17) return 'afternoon'
-              return 'evening'
-            })()
-          } : null}
-        />
+      <ConflictWarningModal
+        isOpen={modals.conflictWarning.isOpen}
+        onClose={modals.conflictWarning.onClose}
+        onContinue={modals.conflictWarning.onContinue}
+        conflictInfo={modals.conflictWarning.conflictInfo}
+      />
 
-        {modals.contextMenu.contextMenu && (
-          <ContextMenu
-            x={modals.contextMenu.contextMenu.x}
-            y={modals.contextMenu.contextMenu.y}
-            onClose={() => modals.contextMenu.setContextMenu(null)}
-            items={modals.contextMenu.contextMenu.type === 'event' && modals.contextMenu.contextMenu.event ? (() => {
+      <ScheduleDialogs
+        isDeleteDialogOpen={modals.scheduleDialogs.isDeleteDialogOpen}
+        onCloseDeleteDialog={modals.scheduleDialogs.onCloseDeleteDialog}
+        onConfirmDelete={modals.scheduleDialogs.onConfirmDelete}
+        isCancelDialogOpen={modals.scheduleDialogs.isCancelDialogOpen}
+        onCloseCancelDialog={modals.scheduleDialogs.onCloseCancelDialog}
+        onConfirmCancel={modals.scheduleDialogs.onConfirmCancel}
+        isRestoreDialogOpen={modals.scheduleDialogs.isRestoreDialogOpen}
+        onCloseRestoreDialog={modals.scheduleDialogs.onCloseRestoreDialog}
+        onConfirmRestore={modals.scheduleDialogs.onConfirmRestore}
+      />
+
+      <MoveOrCopyDialog
+        isOpen={modals.moveOrCopyDialog.isOpen}
+        onClose={modals.moveOrCopyDialog.onClose}
+        onMove={modals.moveOrCopyDialog.onMove}
+        onCopy={modals.moveOrCopyDialog.onCopy}
+        eventInfo={modals.moveOrCopyDialog.selectedEvent ? {
+          scenario: modals.moveOrCopyDialog.selectedEvent.scenario || '',
+          date: modals.moveOrCopyDialog.selectedEvent.date || '',
+          storeName: modals.moveOrCopyDialog.stores.find(s => s.id === modals.moveOrCopyDialog.selectedEvent?.venue)?.name || '',
+          timeSlot: (() => {
+            const hour = parseInt(modals.moveOrCopyDialog.selectedEvent.start_time.split(':')[0])
+            if (hour < 12) return 'morning'
+            if (hour < 17) return 'afternoon'
+            return 'evening'
+          })()
+        } : null}
+      />
+
+      {modals.contextMenu.contextMenu && (
+        <ContextMenu
+          x={modals.contextMenu.contextMenu.x}
+          y={modals.contextMenu.contextMenu.y}
+          onClose={() => modals.contextMenu.setContextMenu(null)}
+          items={modals.contextMenu.contextMenu.type === 'event' && modals.contextMenu.contextMenu.event ? (() => {
               const event = modals.contextMenu.contextMenu!.event!
               const isTemporaryVenue = temporaryVenues.some(v => v.id === event.venue)
               
@@ -916,13 +916,12 @@ export function ScheduleManager() {
                     const { date, venue, timeSlot } = modals.contextMenu.contextMenu!.cellInfo!
                     modals.contextMenu.handlePasteFromClipboard(date, venue, timeSlot)
                   },
-                  disabled: !modals.contextMenu.clipboardEvent || venue === ''
-                }
-              ]
-            })() : []}
-          />
-        )}
-      </div>
+                disabled: !modals.contextMenu.clipboardEvent || venue === ''
+              }
+            ]
+          })() : []}
+        />
+      )}
     </AppLayout>
   )
 }
