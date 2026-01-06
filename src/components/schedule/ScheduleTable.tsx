@@ -95,20 +95,20 @@ export function ScheduleTable({
               <col />
               <col className="w-[160px]" />
             </colgroup>
-            <TableHeader>
-              <TableRow className="bg-muted/50 h-12">
-                <TableHead className="sticky left-0 z-30 bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
+            <TableHeader className="sticky top-0 z-40">
+              <TableRow className="bg-muted h-10">
+                <TableHead className="sticky left-0 z-50 bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
                   <span className="hidden sm:inline">日付</span>
                   <span className="sm:hidden">日</span>
                 </TableHead>
-                <TableHead className="sticky left-[32px] sm:static z-30 sm:z-auto bg-muted/50 border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
+                <TableHead className="sticky left-[32px] sm:static z-50 sm:z-auto bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
                   <span className="hidden sm:inline">会場</span>
                   <span className="sm:hidden">店</span>
                 </TableHead>
-                <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午前</TableHead>
-                <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午後</TableHead>
-                <TableHead className="border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜間</TableHead>
-                <TableHead className="text-sm font-bold !p-0 !h-auto text-center">メモ</TableHead>
+                <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午前</TableHead>
+                <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午後</TableHead>
+                <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜間</TableHead>
+                <TableHead className="bg-muted text-sm font-bold !p-0 !h-auto text-center">メモ</TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>

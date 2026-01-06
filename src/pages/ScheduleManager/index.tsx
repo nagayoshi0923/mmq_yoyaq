@@ -502,8 +502,9 @@ export function ScheduleManager() {
     <AppLayout
       currentPage="schedule" 
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+      containerPadding="px-[10px] py-0"
       className="mx-auto"
+      stickyLayout
     >
       <div className="space-y-6">
         {/* ヘッダー */}
