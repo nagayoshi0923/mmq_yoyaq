@@ -331,11 +331,13 @@ export function ScenarioMasterEditDialog({
     }
   }
 
-  const handleSave = async () => {
+  const handleSave = async (statusOverride?: 'draft' | 'pending' | 'approved') => {
     if (!master.title.trim()) {
       toast.error('タイトルを入力してください')
       return
     }
+
+    const newStatus = statusOverride || master.master_status
 
     try {
       setSaving(true)
@@ -358,7 +360,7 @@ export function ScenarioMasterEditDialog({
         has_pre_reading: master.has_pre_reading,
         release_date: master.release_date || null,
         official_site_url: master.official_site_url || null,
-        master_status: master.master_status
+        master_status: newStatus
       }
 
       if (isNew) {
@@ -370,7 +372,8 @@ export function ScenarioMasterEditDialog({
 
         if (error) throw error
         
-        toast.success('シナリオマスタを作成しました')
+        const statusMessage = newStatus === 'draft' ? '下書き保存しました' : 'シナリオマスタを作成しました'
+        toast.success(statusMessage)
         onSaved()
         onOpenChange(false)
       } else {
@@ -397,8 +400,12 @@ export function ScenarioMasterEditDialog({
           }
         }
 
+        // ステータスを更新
+        setMaster(prev => ({ ...prev, master_status: newStatus }))
+        
         // 保存成功メッセージを表示（3秒後に消える）
-        setSaveMessage('保存しました')
+        const statusMessage = newStatus === 'draft' ? '下書き保存しました' : '保存しました'
+        setSaveMessage(statusMessage)
         setTimeout(() => setSaveMessage(null), 3000)
         onSaved()
       }
@@ -1178,6 +1185,16 @@ export function ScenarioMasterEditDialog({
 
               {/* アクションボタン */}
               <div className="flex items-center gap-2 shrink-0">
+                {/* ステータスバッジ */}
+                {master.master_status === 'draft' && (
+                  <Badge variant="secondary" className="text-xs">下書き</Badge>
+                )}
+                {master.master_status === 'pending' && (
+                  <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-600">申請中</Badge>
+                )}
+                {master.master_status === 'approved' && (
+                  <Badge variant="default" className="text-xs bg-green-500">承認済</Badge>
+                )}
                 {saveMessage && (
                   <span className="text-green-600 font-medium text-sm animate-pulse">
                     ✓ {saveMessage}
@@ -1186,7 +1203,15 @@ export function ScenarioMasterEditDialog({
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   閉じる
                 </Button>
-                <Button onClick={handleSave} disabled={saving} className="w-24">
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleSave('draft')} 
+                  disabled={saving}
+                  className="text-gray-600"
+                >
+                  下書き保存
+                </Button>
+                <Button onClick={() => handleSave()} disabled={saving} className="w-24">
                   <Save className="h-4 w-4 mr-2" />
                   保存
                 </Button>

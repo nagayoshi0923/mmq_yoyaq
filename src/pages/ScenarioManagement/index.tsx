@@ -44,10 +44,23 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { generateSlugFromTitle } from '@/utils/toRomaji'
 
+// localStorageから新旧UIモードを取得
+const getUIMode = (): 'legacy' | 'new' => {
+  const saved = localStorage.getItem('scenarioManagementUIMode')
+  return saved === 'new' ? 'new' : 'legacy'
+}
+
 export function ScenarioManagement() {
   // UI状態
+  const [uiMode, setUIMode] = useState<'legacy' | 'new'>(getUIMode)
   const [displayMode, setDisplayMode] = useState<'compact' | 'detailed'>('compact')
   const [isImporting, setIsImporting] = useState(false)
+  
+  // UIモード切り替え時にlocalStorageに保存
+  const handleUIModeChange = (mode: 'legacy' | 'new') => {
+    setUIMode(mode)
+    localStorage.setItem('scenarioManagementUIMode', mode)
+  }
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null)
   const [useInfiniteScroll] = useState(true) // 無限スクロールのON/OFF（将来的に切り替え機能を追加予定）
@@ -375,8 +388,38 @@ export function ScenarioManagement() {
             <HelpButton topic="scenario" label="シナリオ管理マニュアル" />
           </PageHeader>
 
-          <div className="flex items-center justify-end gap-2 sm:gap-4">
-            <CsvImportExport
+          {/* 新旧UI切り替え */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">UIモード:</span>
+              <div className="flex rounded-lg border bg-gray-100 p-0.5">
+                <button
+                  onClick={() => handleUIModeChange('legacy')}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    uiMode === 'legacy' 
+                      ? 'bg-white shadow text-gray-900 font-medium' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  旧UI
+                </button>
+                <button
+                  onClick={() => handleUIModeChange('new')}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    uiMode === 'new' 
+                      ? 'bg-white shadow text-gray-900 font-medium' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  新UI（マスタ連携）
+                </button>
+              </div>
+              {uiMode === 'new' && (
+                <Badge variant="secondary" className="text-xs">β版</Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <CsvImportExport
               data={allScenarios}
               onImport={handleImport}
               isImporting={isImporting}
@@ -393,11 +436,12 @@ export function ScenarioManagement() {
                 s.participation_fee?.toString() || '3000'
               ]}
             />
-            <Button onClick={handleNewScenario} size="sm">
-              <Plus className="mr-1 h-4 w-4" />
-              <span className="hidden sm:inline">新規シナリオ</span>
-              <span className="sm:hidden">新規</span>
-            </Button>
+              <Button onClick={handleNewScenario} size="sm">
+                <Plus className="mr-1 h-4 w-4" />
+                <span className="hidden sm:inline">新規シナリオ</span>
+                <span className="sm:hidden">新規</span>
+              </Button>
+            </div>
           </div>
 
           {/* エラー表示 */}
