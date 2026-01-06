@@ -22,6 +22,7 @@ export function DateRangePopover({
   const [tempStartDate, setTempStartDate] = useState(startDate || '')
   const [tempEndDate, setTempEndDate] = useState(endDate || '')
   const [selectingStart, setSelectingStart] = useState(true) // true: 開始日選択中, false: 終了日選択中
+  const [showMonthPicker, setShowMonthPicker] = useState(false) // 月選択モード
 
   // Popoverが開かれたときに現在の値をリセット
   React.useEffect(() => {
@@ -29,6 +30,7 @@ export function DateRangePopover({
       setTempStartDate(startDate || '')
       setTempEndDate(endDate || '')
       setSelectingStart(true) // 常に開始日から
+      setShowMonthPicker(false) // 月選択モードをリセット
     }
   }, [open, startDate, endDate])
 
@@ -91,6 +93,19 @@ export function DateRangePopover({
     } else {
       setViewMonth(viewMonth + 1)
     }
+  }
+
+  const handlePrevYear = () => {
+    setViewYear(viewYear - 1)
+  }
+
+  const handleNextYear = () => {
+    setViewYear(viewYear + 1)
+  }
+
+  const handleMonthSelect = (month: number) => {
+    setViewMonth(month)
+    setShowMonthPicker(false)
   }
 
   const daysInMonth = getDaysInMonth(viewYear, viewMonth)
@@ -164,72 +179,98 @@ export function DateRangePopover({
               variant="outline"
               size="icon"
               className="h-6 w-6"
-              onClick={handlePrevMonth}
+              onClick={showMonthPicker ? handlePrevYear : handlePrevMonth}
             >
               <ChevronLeft className="h-3 w-3" />
             </Button>
-            <div className="text-xs font-semibold">
-              {viewYear}年 {monthNames[viewMonth]}
-            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs font-semibold h-6 px-2 hover:bg-muted"
+              onClick={() => setShowMonthPicker(!showMonthPicker)}
+            >
+              {showMonthPicker ? `${viewYear}年` : `${viewYear}年 ${monthNames[viewMonth]}`}
+            </Button>
             <Button
               type="button"
               variant="outline"
               size="icon"
               className="h-6 w-6"
-              onClick={handleNextMonth}
+              onClick={showMonthPicker ? handleNextYear : handleNextMonth}
             >
               <ChevronRight className="h-3 w-3" />
             </Button>
           </div>
 
-          {/* 曜日ヘッダー */}
-          <div className="grid grid-cols-7 gap-1">
-            {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
-              <div
-                key={day}
-                className={`text-center text-xs font-medium py-1 ${
-                  index === 0 ? 'text-red-500' : index === 6 ? 'text-blue-500' : 'text-muted-foreground'
-                }`}
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* 日付グリッド */}
-          <div className="grid grid-cols-7 gap-1">
-            {blanks.map((blank) => (
-              <div key={`blank-${blank}`} className="aspect-square" />
-            ))}
-            {days.map((day) => {
-              const year = viewYear
-              const month = viewMonth + 1
-              const dayStr = String(day).padStart(2, '0')
-              const monthStr = String(month).padStart(2, '0')
-              const dateStr = `${year}-${monthStr}-${dayStr}`
-              const isStart = isSelectedStart(day)
-              const isEnd = isSelectedEnd(day)
-              const inRange = isInRange(day)
-
-              return (
+          {showMonthPicker ? (
+            /* 月選択グリッド */
+            <div className="grid grid-cols-3 gap-2">
+              {monthNames.map((name, index) => (
                 <Button
-                  key={day}
+                  key={index}
                   type="button"
-                  variant="ghost"
-                  className={`aspect-square p-0 text-xs h-7 w-7 ${
-                    isStart || isEnd
-                      ? 'bg-primary text-primary-foreground font-semibold hover:bg-primary/90'
-                      : inRange
-                      ? 'bg-primary/20 hover:bg-primary/30'
-                      : ''
-                  }`}
-                  onClick={() => handleDateClick(dateStr)}
+                  variant={viewMonth === index ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => handleMonthSelect(index)}
                 >
-                  {day}
+                  {name}
                 </Button>
-              )
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {/* 曜日ヘッダー */}
+              <div className="grid grid-cols-7 gap-1">
+                {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
+                  <div
+                    key={day}
+                    className={`text-center text-xs font-medium py-1 ${
+                      index === 0 ? 'text-red-500' : index === 6 ? 'text-blue-500' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* 日付グリッド */}
+              <div className="grid grid-cols-7 gap-1">
+                {blanks.map((blank) => (
+                  <div key={`blank-${blank}`} className="aspect-square" />
+                ))}
+                {days.map((day) => {
+                  const year = viewYear
+                  const month = viewMonth + 1
+                  const dayStr = String(day).padStart(2, '0')
+                  const monthStr = String(month).padStart(2, '0')
+                  const dateStr = `${year}-${monthStr}-${dayStr}`
+                  const isStart = isSelectedStart(day)
+                  const isEnd = isSelectedEnd(day)
+                  const inRange = isInRange(day)
+
+                  return (
+                    <Button
+                      key={day}
+                      type="button"
+                      variant="ghost"
+                      className={`aspect-square p-0 text-xs h-7 w-7 ${
+                        isStart || isEnd
+                          ? 'bg-primary text-primary-foreground font-semibold hover:bg-primary/90'
+                          : inRange
+                          ? 'bg-primary/20 hover:bg-primary/30'
+                          : ''
+                      }`}
+                      onClick={() => handleDateClick(dateStr)}
+                    >
+                      {day}
+                    </Button>
+                  )
+                })}
+              </div>
+            </>
+          )}
 
           {/* プレビュー */}
           {(tempStartDate || tempEndDate) && (
