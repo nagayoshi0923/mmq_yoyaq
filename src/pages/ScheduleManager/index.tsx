@@ -506,24 +506,24 @@ export function ScheduleManager() {
       className="mx-auto"
       stickyLayout
     >
-      <div className="space-y-6">
-        {/* ヘッダー */}
-        <div className="space-y-4">
-          <PageHeader
-            title={
-              <div className="flex items-center gap-2">
-                <CalendarDays className="h-5 w-5 text-primary" />
-                <span className="text-lg font-bold">スケジュール管理</span>
-              </div>
-            }
-            description="月ごとの公演スケジュールとGM配置を管理します"
-          >
-            <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
-          </PageHeader>
+      {/* ヘッダー（スクロールで消える） */}
+      <div className="py-3">
+        <PageHeader
+          title={
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              <span className="text-lg font-bold">スケジュール管理</span>
+            </div>
+          }
+          description="月ごとの公演スケジュールとGM配置を管理します"
+        >
+          <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
+        </PageHeader>
+      </div>
 
-          {/* 操作行（sticky） */}
-          <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b pb-2 -mx-2 px-2">
-          <div className="flex flex-wrap items-center gap-2 py-1">
+      {/* 操作行（sticky） */}
+      <div className="sticky top-0 z-40 bg-background border-b py-2 -mx-[10px] px-[10px]">
+        <div className="flex flex-wrap items-center gap-2">
             <MonthSwitcher
               value={currentDate}
               onChange={setCurrentDate}
@@ -636,21 +636,20 @@ export function ScheduleManager() {
             </Button>
           </div>
 
-          {/* カテゴリータブ（コンパクト） */}
-          <CategoryTabs
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
-            categoryCounts={categoryCounts}
-            compact
-          />
-          </div>
-        </div>
+        {/* カテゴリータブ（コンパクト） */}
+        <CategoryTabs
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+          categoryCounts={categoryCounts}
+          compact
+        />
+      </div>
 
-        {/* スケジュールテーブル */}
-        <ScheduleTable {...filteredScheduleTableProps} />
+      {/* スケジュールテーブル */}
+      <ScheduleTable {...filteredScheduleTableProps} />
 
-        {/* 下部の月切り替え */}
-        <div className="flex justify-center py-4">
+      {/* 下部の月切り替え */}
+      <div className="flex justify-center py-4">
           <MonthSwitcher
             value={currentDate}
             onChange={setCurrentDate}
