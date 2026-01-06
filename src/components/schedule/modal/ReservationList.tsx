@@ -406,22 +406,29 @@ export function ReservationList({
           const currentGms = eventData.gms || []
           const currentRoles = eventData.gm_roles || {}
           
-          // このスタッフがGM欄でスタッフ参加として設定されている場合、GMリストから削除
-          if (currentRoles[staffName] === 'staff') {
-            const newGms = currentGms.filter((g: string) => g !== staffName)
-            const newRoles = { ...currentRoles }
-            delete newRoles[staffName]
-            
-            // DB更新
-            await supabase
-              .from('schedule_events')
-              .update({ gms: newGms, gm_roles: newRoles })
-              .eq('id', event.id)
-            
-            // 親コンポーネントに通知
-            onGmsChange(newGms, newRoles)
-            logger.log('GM欄からスタッフ参加を削除:', staffName)
-          }
+          // UUIDパターン（gmsには名前が入るべきで、IDが入っている場合は除外）
+          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+          
+          // スタッフ名を削除し、誤って入ったUUIDも除外
+          const newGms = currentGms.filter((g: string) => g !== staffName && !uuidPattern.test(g))
+          const newRoles = { ...currentRoles }
+          delete newRoles[staffName]
+          // UUIDキーも削除
+          Object.keys(newRoles).forEach(key => {
+            if (uuidPattern.test(key)) {
+              delete newRoles[key]
+            }
+          })
+          
+          // DB更新
+          await supabase
+            .from('schedule_events')
+            .update({ gms: newGms, gm_roles: newRoles })
+            .eq('id', event.id)
+          
+          // 親コンポーネントに通知
+          onGmsChange(newGms, newRoles)
+          logger.log('GM欄からスタッフ参加を削除:', staffName)
         }
         showToast.success('スタッフ参加を削除しました')
       } else if (isStaff) {

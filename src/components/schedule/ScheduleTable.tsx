@@ -35,6 +35,7 @@ export interface ScheduleTableEventHandlers {
   onDeletePerformance: (event: ScheduleEvent) => void
   onCancelConfirm: (event: ScheduleEvent) => void
   onUncancel: (event: ScheduleEvent) => void
+  onToggleTentative: (event: ScheduleEvent) => Promise<void>
   onToggleReservation: (event: ScheduleEvent) => void
   onConvertToMemo: (event: ScheduleEvent) => void
   onDrop: (event: ScheduleEvent, date: string, venue: string, timeSlot: 'morning' | 'afternoon' | 'evening') => void

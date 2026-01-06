@@ -321,12 +321,15 @@ interface RawEventData {
   end_time: string
   category: string
   is_cancelled: boolean
+  is_tentative?: boolean // 仮状態（非公開）
   current_participants?: number
   capacity: number
   notes?: string
   is_reservation_enabled: boolean
   time_slot?: string // 時間帯（朝/昼/夜）
   reservation_name?: string // 貸切予約の予約者名
+  reservation_id?: string // 貸切リクエストのID（重複防止用）
+  is_reservation_name_overwritten?: boolean // 予約者名が手動上書きされたか
 }
 
 // 貸切リクエストの候補
@@ -354,6 +357,7 @@ interface PrivateRequestData {
   gm_staff?: string
   participant_count: number
   customer_name?: string
+  display_customer_name?: string // 編集された予約者名
   candidate_datetimes?: {
     candidates: CandidateDateTime[]
     confirmedStore?: {
@@ -650,12 +654,15 @@ export function useScheduleData(currentDate: Date) {
           end_time: event.end_time,
           category: event.category,
           is_cancelled: event.is_cancelled || false,
+          is_tentative: event.is_tentative || false,
           current_participants: event.current_participants || 0, // DBカラム名に統一
           max_participants: scenarioInfo?.player_count_max || event.capacity || 8,
           notes: event.notes || '',
           is_reservation_enabled: event.is_reservation_enabled || false,
           time_slot: event.time_slot,
-          reservation_name: event.reservation_name || '' // 貸切予約の予約者名
+          reservation_name: event.reservation_name || '', // 貸切予約の予約者名
+          is_reservation_name_overwritten: event.is_reservation_name_overwritten || false, // DBから取得
+          reservation_id: event.reservation_id // 貸切リクエストID（重複防止用）
           }
         })
         
@@ -669,11 +676,13 @@ export function useScheduleData(currentDate: Date) {
             id,
             title,
             customer_name,
+            display_customer_name,
             status,
             store_id,
             gm_staff,
             candidate_datetimes,
             participant_count,
+            schedule_event_id,
             scenarios:scenario_id (
               title,
               player_count_max
@@ -681,6 +690,7 @@ export function useScheduleData(currentDate: Date) {
           `)
           .eq('reservation_source', 'web_private')
           .eq('status', 'confirmed') // 確定のみ表示
+          .is('schedule_event_id', null) // schedule_eventsに未登録のもののみ
         
         if (orgIdForPrivate) {
           privateQuery = privateQuery.eq('organization_id', orgIdForPrivate)
@@ -758,7 +768,9 @@ export function useScheduleData(currentDate: Date) {
                     is_private_request: true, // 貸切リクエストフラグ
                     reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
                     reservation_id: request.id, // 元のreservation IDを保持
-                    reservation_name: request.customer_name || '' // 予約者名
+                    reservation_name: request.display_customer_name || request.customer_name || '', // 編集された名前を優先
+                    original_customer_name: request.customer_name || '', // MMQからの元の予約者名
+                    is_reservation_name_overwritten: !!request.display_customer_name // 手動上書きフラグ
                   }
                   
                   privateEvents.push(privateEvent)
@@ -771,7 +783,34 @@ export function useScheduleData(currentDate: Date) {
         // 満席の公演にデモ参加者を追加（パフォーマンス改善のため無効化）
         // const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
         
-        setEvents([...formattedEvents, ...privateEvents] as ScheduleEvent[])
+        // schedule_events に既に保存されている reservation_id を収集（重複防止）
+        const existingReservationIds = new Set(
+          formattedEvents
+            .filter(e => e.reservation_id)
+            .map(e => e.reservation_id)
+        )
+        
+        logger.log('🔍 重複チェック詳細:', {
+          formattedEventsCount: formattedEvents.length,
+          privateEventsCount: privateEvents.length,
+          existingReservationIds: Array.from(existingReservationIds),
+          privateEventIds: privateEvents.map(pe => pe.reservation_id),
+          // 各privateEventがフィルタされるかどうか
+          filterResults: privateEvents.map(pe => ({
+            id: pe.reservation_id,
+            willBeFiltered: existingReservationIds.has(pe.reservation_id),
+            existsInSet: Array.from(existingReservationIds).includes(pe.reservation_id)
+          }))
+        })
+        
+        // reservations から生成されたイベントのうち、既に schedule_events に存在するものを除外
+        const filteredPrivateEvents = privateEvents.filter(
+          pe => !existingReservationIds.has(pe.reservation_id)
+        )
+        
+        logger.log(`✅ 初期ロード: ${formattedEvents.length + filteredPrivateEvents.length}件のイベント（${privateEvents.length - filteredPrivateEvents.length}件重複除外）`)
+        
+        setEvents([...formattedEvents, ...filteredPrivateEvents] as ScheduleEvent[])
       } catch (err) {
         logger.error('公演データの読み込みエラー:', err)
         setError('公演データの読み込みに失敗しました')
@@ -961,12 +1000,15 @@ export function useScheduleData(currentDate: Date) {
         end_time: event.end_time,
         category: event.category,
         is_cancelled: event.is_cancelled || false,
+        is_tentative: event.is_tentative || false,
         current_participants: event.current_participants || 0, // DBカラム名に統一
         max_participants: scenarioInfo?.player_count_max || event.capacity || 8,
         notes: event.notes || '',
         is_reservation_enabled: event.is_reservation_enabled || false,
         time_slot: event.time_slot,
-        reservation_name: event.reservation_name || '' // 貸切予約の予約者名
+        reservation_name: event.reservation_name || '', // 貸切予約の予約者名
+        is_reservation_name_overwritten: event.is_reservation_name_overwritten || false, // DBから取得
+        reservation_id: event.reservation_id // 貸切リクエストID（重複防止用）
         }
       })
       
@@ -980,11 +1022,13 @@ export function useScheduleData(currentDate: Date) {
           id,
           title,
           customer_name,
+          display_customer_name,
           status,
           store_id,
           gm_staff,
           candidate_datetimes,
           participant_count,
+          schedule_event_id,
           scenarios:scenario_id (
             title,
             player_count_max
@@ -992,6 +1036,7 @@ export function useScheduleData(currentDate: Date) {
         `)
         .eq('reservation_source', 'web_private')
         .eq('status', 'confirmed')
+        .is('schedule_event_id', null) // schedule_eventsに未登録のもののみ
       
       if (orgIdForPrivate2) {
         privateQuery2 = privateQuery2.eq('organization_id', orgIdForPrivate2)
@@ -1060,7 +1105,9 @@ export function useScheduleData(currentDate: Date) {
                   is_private_request: true,
                   reservation_info: request.status === 'confirmed' ? '確定' : request.status === 'gm_confirmed' ? '店側確認待ち' : 'GM確認待ち',
                   reservation_id: request.id,
-                  reservation_name: request.customer_name || '' // 予約者名
+                  reservation_name: request.display_customer_name || request.customer_name || '', // 編集された名前を優先
+                  original_customer_name: request.customer_name || '', // MMQからの元の予約者名
+                  is_reservation_name_overwritten: !!request.display_customer_name // 手動上書きフラグ
                 }
                 
                 privateEvents.push(privateEvent)
@@ -1073,8 +1120,27 @@ export function useScheduleData(currentDate: Date) {
       // 満席の公演にデモ参加者を追加（パフォーマンス改善のため無効化）
       // const eventsWithDemoParticipants = await addDemoParticipantsToFullEvents([...formattedEvents, ...privateEvents])
       
-      setEvents([...formattedEvents, ...privateEvents] as ScheduleEvent[])
-      logger.log(`✅ fetchSchedule: ${formattedEvents.length + privateEvents.length}件のイベントを取得`)
+      // schedule_events に既に保存されている reservation_id を収集（重複防止）
+      const existingReservationIds = new Set(
+        formattedEvents
+          .filter(e => e.reservation_id)
+          .map(e => e.reservation_id)
+      )
+      
+      logger.log('🔍 重複チェック (fetchSchedule):', {
+        formattedEventsCount: formattedEvents.length,
+        privateEventsCount: privateEvents.length,
+        existingReservationIds: Array.from(existingReservationIds),
+        privateEventIds: privateEvents.map(pe => pe.reservation_id)
+      })
+      
+      // reservations から生成されたイベントのうち、既に schedule_events に存在するものを除外
+      const filteredPrivateEvents = privateEvents.filter(
+        pe => !existingReservationIds.has(pe.reservation_id)
+      )
+      
+      setEvents([...formattedEvents, ...filteredPrivateEvents] as ScheduleEvent[])
+      logger.log(`✅ fetchSchedule: ${formattedEvents.length + filteredPrivateEvents.length}件のイベントを取得（${privateEvents.length - filteredPrivateEvents.length}件重複除外）`)
     } catch (err) {
       logger.error('スケジュールデータの再取得エラー:', err)
       setError('スケジュールデータの再取得に失敗しました')

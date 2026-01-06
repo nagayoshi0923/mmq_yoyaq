@@ -663,14 +663,30 @@ export function useEventOperations({
           start_time: performanceData.start_time,
           end_time: performanceData.end_time,
           capacity: performanceData.max_participants,
-          gms: performanceData.gms.filter((gm: string) => gm.trim() !== ''),
-          gm_roles: performanceData.gm_roles || {},
+          // gmsには名前のみ保存（空文字とUUIDを除外）
+          gms: (() => {
+            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+            return performanceData.gms.filter((gm: string) => gm.trim() !== '' && !uuidPattern.test(gm))
+          })(),
+          // gm_rolesからもUUIDキーを除外
+          gm_roles: (() => {
+            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+            const roles = performanceData.gm_roles || {}
+            const cleanedRoles: Record<string, string> = {}
+            Object.entries(roles).forEach(([key, value]) => {
+              if (!uuidPattern.test(key)) {
+                cleanedRoles[key] = value
+              }
+            })
+            return cleanedRoles
+          })(),
           notes: performanceData.notes || null,
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
           venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
           is_reservation_enabled: false, // 最初は非公開、公開ボタンで公開
           organization_id: organizationId, // マルチテナント対応
-          reservation_name: performanceData.reservation_name || null // 予約者名（貸切用）
+          reservation_name: performanceData.reservation_name || null, // 予約者名（貸切用）
+          is_reservation_name_overwritten: !!performanceData.reservation_name // 手動入力は上書きとみなす
         }
         
         // Supabaseに保存
@@ -738,12 +754,13 @@ export function useEventOperations({
           
           const storeId = storeData?.id || performanceData.venue
           
-          // reservations テーブルを更新（店舗と予約者名）
+          // reservations テーブルを更新（店舗と編集された予約者名）
+          // customer_name は元のMMQ予約者名として保持し、display_customer_name に編集後の名前を保存
           const { error: reservationError } = await supabase
             .from('reservations')
             .update({
               store_id: storeId,
-              customer_name: performanceData.reservation_name || null, // 予約者名を更新
+              display_customer_name: performanceData.reservation_name || null, // 編集された予約者名
               updated_at: new Date().toISOString()
             })
             .eq('id', performanceData.reservation_id)
@@ -753,7 +770,7 @@ export function useEventOperations({
             throw new Error('貸切リクエストの更新に失敗しました')
           }
           
-          console.log('✅ reservations更新成功:', { reservation_id: performanceData.reservation_id, customer_name: performanceData.reservation_name })
+          console.log('✅ reservations更新成功:', { reservation_id: performanceData.reservation_id })
           
           // ローカル状態を更新（店舗と予約者名）
           setEvents(prev => prev.map(event => 
@@ -774,6 +791,16 @@ export function useEventOperations({
           const storeData = stores.find(s => s.id === performanceData.venue)
           const storeName = storeData?.name || ''
           
+          // gmsからUUIDを除外（gmsには名前のみ保存）
+          const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+          const cleanedGms = (performanceData.gms || []).filter((gm: string) => gm.trim() !== '' && !uuidPattern.test(gm))
+          const cleanedRoles: Record<string, string> = {}
+          Object.entries(performanceData.gm_roles || {}).forEach(([key, value]) => {
+            if (!uuidPattern.test(key)) {
+              cleanedRoles[key] = value
+            }
+          })
+          
           await scheduleApi.update(performanceData.id, {
             date: performanceData.date, // 日程移動用
             store_id: performanceData.venue, // 店舗移動用（store_id）
@@ -784,12 +811,13 @@ export function useEventOperations({
             start_time: performanceData.start_time,
             end_time: performanceData.end_time,
             capacity: performanceData.max_participants,
-            gms: performanceData.gms,
-            gm_roles: performanceData.gm_roles || {},
+            gms: cleanedGms,
+            gm_roles: cleanedRoles,
             notes: performanceData.notes,
             time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
             venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
-            reservation_name: performanceData.reservation_name || null // 予約者名（貸切用）
+            reservation_name: performanceData.reservation_name || null, // 予約者名（貸切用）
+            is_reservation_name_overwritten: !!performanceData.reservation_name // 予約者名が入力されていれば上書きとみなす
           })
 
           // GM欄で「スタッフ参加」を選択した場合、予約も同期する
@@ -904,11 +932,13 @@ export function useEventOperations({
           return eventReservationId !== reservationId
         }))
       } else {
-        // 通常の公演を削除する前に、予約の有無をチェック
+        // 通常の公演を削除する前に、アクティブな予約の有無をチェック
+        // キャンセル済みの予約は除外して確認
         const { data: reservations, error: checkError } = await supabase
           .from('reservations')
           .select('id')
           .eq('schedule_event_id', deletingEvent.id)
+          .neq('status', 'cancelled')  // キャンセル済みは除外
         
         if (checkError) {
           logger.error('予約チェックエラー:', checkError)
@@ -916,8 +946,8 @@ export function useEventOperations({
         }
         
         if (reservations && reservations.length > 0) {
-          // 予約がある場合は削除を拒否
-          showToast.warning(`この公演には${reservations.length}件の予約が紐付いているため削除できません`, '代わりに「中止」機能を使用してください。中止にすると、予約者に通知され、公演は非表示になります。')
+          // アクティブな予約がある場合は削除を拒否
+          showToast.warning(`この公演には${reservations.length}件の有効な予約が紐付いているため削除できません`, '代わりに「中止」機能を使用してください。中止にすると、予約者に通知され、公演は非表示になります。')
           setIsDeleteDialogOpen(false)
           setDeletingEvent(null)
           return
@@ -1086,6 +1116,24 @@ export function useEventOperations({
     } catch (error) {
       logger.error('公演キャンセル解除エラー:', error)
       showToast.error('公演のキャンセル解除処理に失敗しました')
+    }
+  }, [setEvents])
+
+  // 仮状態の切り替え
+  const handleToggleTentative = useCallback(async (event: ScheduleEvent) => {
+    try {
+      const newStatus = !event.is_tentative
+      
+      await scheduleApi.update(event.id, {
+        is_tentative: newStatus
+      })
+
+      setEvents(prev => prev.map(e => 
+        e.id === event.id ? { ...e, is_tentative: newStatus } : e
+      ))
+    } catch (error) {
+      logger.error('仮状態の更新エラー:', error)
+      throw error
     }
   }, [setEvents])
 
@@ -1305,6 +1353,7 @@ export function useEventOperations({
     handleCancelConfirmPerformance,
     handleConfirmCancel,
     handleUncancelPerformance,
+    handleToggleTentative,
     handleToggleReservation,
     handleConfirmPublishToggle,
     handleConflictContinue,

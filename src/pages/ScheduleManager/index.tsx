@@ -43,7 +43,7 @@ import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye } from 'lucide-react'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -808,6 +808,20 @@ export function ScheduleManager() {
                     }
                   }
                 ]),
+                // 仮状態切替
+                {
+                  label: event.is_tentative ? '公開する' : '仮状態にする',
+                  icon: event.is_tentative ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />,
+                  onClick: async () => {
+                    try {
+                      await scheduleTableProps.eventHandlers.onToggleTentative(event)
+                      showToast.success(event.is_tentative ? '公開しました' : '仮状態にしました')
+                    } catch (error) {
+                      showToast.error('更新に失敗しました')
+                    }
+                    modals.contextMenu.setContextMenu(null)
+                  }
+                },
                 {
                   label: '公演を削除',
                   icon: <Trash2 className="w-4 h-4" />,

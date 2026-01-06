@@ -128,7 +128,10 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             is_reservation_enabled: false,
             status: 'confirmed',
             category: 'private',
-            organization_id: organizationId // マルチテナント対応
+            organization_id: organizationId, // マルチテナント対応
+            reservation_id: requestId, // 貸切リクエストIDを紐付け（重複防止用）
+            reservation_name: selectedRequest?.customer_name || '', // MMQからの予約者名
+            is_reservation_name_overwritten: false // 初期状態は上書きなし
           })
           .select('id')
           .single()

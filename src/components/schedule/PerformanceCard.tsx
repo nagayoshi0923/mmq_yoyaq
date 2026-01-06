@@ -1,6 +1,6 @@
 import React from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Users, AlertTriangle } from 'lucide-react'
+import { Users, AlertTriangle, EyeOff } from 'lucide-react'
 import { useLongPress } from '@/hooks/useLongPress'
 import { getEffectiveCategory } from '@/utils/scheduleUtils'
 import { devDb } from '@/components/ui/DevField'
@@ -17,6 +17,7 @@ interface ScheduleEvent {
   end_time: string // HH:MM
   category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' | 'mtg' // 公演カテゴリ
   is_cancelled: boolean
+  is_tentative?: boolean // 仮状態（非公開）
   current_participants?: number // DBカラム名に統一（旧: participant_count）
   max_participants?: number
   notes?: string
@@ -25,6 +26,8 @@ interface ScheduleEvent {
   reservation_info?: string
   reservation_id?: string // 貸切リクエストの元のreservation ID
   reservation_name?: string // 貸切予約の予約者名
+  original_customer_name?: string // MMQからの元の予約者名（上書き検出用）
+  is_reservation_name_overwritten?: boolean // 予約者名が手動で上書きされたかどうか
   scenarios?: {
     id: string
     title: string
@@ -104,10 +107,12 @@ function PerformanceCardBase({
   // 実際に表示するカテゴリを判定（MTGなど特殊ケースに対応）
   const effectiveCategory = getEffectiveCategory(event.category, event.scenario)
   
-  // 貸切リクエストの場合は紫色で表示
-  const categoryColors = event.is_private_request 
-    ? 'bg-purple-50'
-    : (categoryConfig[effectiveCategory as keyof typeof categoryConfig]?.cardColor?.replace(/border-\S+/, '') ?? 'bg-gray-50')
+  // 貸切リクエストの場合は紫色で表示、仮状態の場合は赤系
+  const categoryColors = event.is_tentative 
+    ? 'bg-red-50/80'  // 仮状態は薄い赤系
+    : event.is_private_request 
+      ? 'bg-purple-50'
+      : (categoryConfig[effectiveCategory as keyof typeof categoryConfig]?.cardColor?.replace(/border-\S+/, '') ?? 'bg-gray-50')
   
   // バッジのテキストカラーを取得（例: 'bg-blue-100 text-blue-800' から 'text-blue-800' を抽出）
   const badgeTextColor = event.is_private_request
@@ -119,21 +124,23 @@ function PerformanceCardBase({
     ? 'border-l-red-600'  // アラート時は赤
     : event.is_cancelled
       ? 'border-l-gray-500'
-      : event.is_private_request
-        ? 'border-l-purple-600'
-        : effectiveCategory === 'open'
-          ? 'border-l-blue-600'
-          : effectiveCategory === 'private'
-            ? 'border-l-purple-600'
-            : effectiveCategory === 'gmtest'
-              ? 'border-l-orange-600'
-              : effectiveCategory === 'testplay'
-                ? 'border-l-yellow-600'
-                : effectiveCategory === 'offsite'
-                  ? 'border-l-green-600'
-                  : effectiveCategory === 'mtg'
-                    ? 'border-l-cyan-600'
-                    : 'border-l-gray-500'
+      : event.is_tentative
+        ? 'border-l-red-500'  // 仮状態は赤系
+        : event.is_private_request
+          ? 'border-l-purple-600'
+          : effectiveCategory === 'open'
+            ? 'border-l-blue-600'
+            : effectiveCategory === 'private'
+              ? 'border-l-purple-600'
+              : effectiveCategory === 'gmtest'
+                ? 'border-l-orange-600'
+                : effectiveCategory === 'testplay'
+                  ? 'border-l-yellow-600'
+                  : effectiveCategory === 'offsite'
+                    ? 'border-l-green-600'
+                    : effectiveCategory === 'mtg'
+                      ? 'border-l-cyan-600'
+                      : 'border-l-gray-500'
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -186,6 +193,17 @@ function PerformanceCardBase({
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0 min-w-0">
+          {/* 仮状態バッジ */}
+          {event.is_tentative && !event.is_cancelled && (
+            <Badge 
+              variant="outline" 
+              size="sm" 
+              className="font-normal text-[10px] px-1 py-0 h-4 whitespace-nowrap bg-red-100 text-red-700 border-red-300 flex items-center gap-0.5"
+            >
+              <EyeOff className="w-2.5 h-2.5" />
+              仮
+            </Badge>
+          )}
           {/* 中止バッジ */}
           {event.is_cancelled && (
             <Badge variant="cancelled" size="sm" className="font-normal text-[10px] px-1 py-0 h-4 whitespace-nowrap">
@@ -267,13 +285,23 @@ function PerformanceCardBase({
       </div>
       
       {/* 貸切の予約者名（category=private または is_private_request の場合） */}
-      {(event.category === 'private' || event.is_private_request) && event.reservation_name && (
-        <div className={`text-xs mt-0.5 truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : 'text-purple-700'}`}>
-          <span className="font-medium bg-purple-50 px-1 rounded text-[10px] border border-purple-100">
-            予約: {event.reservation_name}
-          </span>
-        </div>
-      )}
+      {(event.category === 'private' || event.is_private_request) && event.reservation_name && (() => {
+        // 手動上書きされたかどうかを判定（display_customer_name が設定されている場合）
+        const isManuallyOverwritten = event.is_reservation_name_overwritten === true
+        console.log(`🔴 予約者名判定: name=${event.reservation_name}, overwritten=${event.is_reservation_name_overwritten}, result=${isManuallyOverwritten}`)
+        
+        return (
+          <div className={`text-xs mt-0.5 truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : isManuallyOverwritten ? 'text-red-700' : 'text-purple-700'}`}>
+            <span className={`font-medium px-1 rounded text-[10px] border ${
+              isManuallyOverwritten 
+                ? 'bg-red-50 border-red-200 text-red-700' 
+                : 'bg-purple-50 border-purple-100'
+            }`}>
+              予約: {event.reservation_name}
+            </span>
+          </div>
+        )
+      })()}
       
       {/* ノート情報 + スタッフ参加/見学GM */}
       {(event.notes || staffGms.length > 0 || observerGms.length > 0) && (

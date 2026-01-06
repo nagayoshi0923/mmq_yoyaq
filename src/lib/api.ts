@@ -752,10 +752,12 @@ export const scheduleApi = {
     gm_roles: Record<string, string>
     notes: string
     is_cancelled: boolean
+    is_tentative: boolean // 仮状態（非公開）
     is_reservation_enabled: boolean
     time_slot: string | null
     venue_rental_fee: number  // 場所貸し公演料金
     reservation_name: string | null  // 貸切予約の予約者名
+    is_reservation_name_overwritten: boolean  // 予約者名が手動上書きされたか
   }>) {
     // シナリオ名から自動でマッチングして scenario_id と正式名称を設定
     const finalUpdates = { ...updates }

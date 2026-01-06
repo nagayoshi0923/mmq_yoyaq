@@ -12,6 +12,7 @@ export interface ScheduleEvent {
   reservation_info?: string
   notes?: string
   is_cancelled: boolean
+  is_tentative?: boolean // 仮状態（非公開）
   current_participants?: number // DBカラム名に統一（旧: participant_count）
   max_participants?: number
   is_reservation_enabled?: boolean
@@ -20,6 +21,8 @@ export interface ScheduleEvent {
   is_private_booking?: boolean // 貸切予約かどうか
   time_slot?: string // 貸切予約の時間帯（朝/昼/夜）
   reservation_name?: string // 貸切予約の予約者名
+  original_customer_name?: string // MMQからの元の予約者名（上書き検出用）
+  is_reservation_name_overwritten?: boolean // 予約者名が手動で上書きされたかどうか
   gm_roles?: Record<string, string> // { "GM名": "main" | "sub" | "staff" }
   organization_id?: string // マルチテナント対応
   scenarios?: {
