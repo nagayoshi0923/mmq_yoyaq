@@ -20,6 +20,7 @@ import {
   Search, Plus, Edit, CheckCircle, XCircle, Clock, FileText, Users,
   BookOpen, AlertTriangle, Shield
 } from 'lucide-react'
+import { devDb } from '@/components/ui/DevField'
 
 interface ScenarioMaster {
   id: string
@@ -306,7 +307,7 @@ export function ScenarioMasterAdmin() {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-gray-900 truncate">{master.title}</p>
+                            <p className="font-medium text-gray-900 truncate" {...devDb('scenario_masters.title')}>{master.title}</p>
                             {master.genre && master.genre.length > 0 && (
                               <div className="flex gap-1 mt-1">
                                 {master.genre.slice(0, 2).map((g, i) => (
@@ -317,11 +318,11 @@ export function ScenarioMasterAdmin() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm text-gray-600" {...devDb('scenario_masters.author')}>
                         {master.author || '-'}
                       </td>
                       <td className="px-4 py-3 text-center text-sm text-gray-600">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-1" {...devDb('scenario_masters.player_count_min/max')}>
                           <Users className="w-3 h-3" />
                           {master.player_count_min === master.player_count_max
                             ? `${master.player_count_max}人`
@@ -329,14 +330,14 @@ export function ScenarioMasterAdmin() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center text-sm text-gray-600">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-1" {...devDb('scenario_masters.official_duration')}>
                           <Clock className="w-3 h-3" />
                           {Math.floor(master.official_duration / 60)}h
                           {master.official_duration % 60 > 0 && `${master.official_duration % 60}m`}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.color}`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.color}`} {...devDb('scenario_masters.master_status')}>
                           <StatusIcon className="w-3 h-3" />
                           {statusConfig.label}
                         </span>
