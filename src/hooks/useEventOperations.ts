@@ -801,11 +801,23 @@ export function useEventOperations({
             }
           })
           
-          // 予約者名の変更を検出：元の名前と異なる場合のみ上書きフラグを立てる
-          // original_customer_nameがあれば比較、なければ既存のフラグを維持
-          const originalName = (performanceData as any).original_customer_name || ''
-          const currentName = performanceData.reservation_name || ''
-          const isNameChanged = originalName && currentName && originalName !== currentName
+          // 予約者名の変更を検出：DBの現在値と異なる場合のみ上書きフラグを立てる
+          let isNameChanged = false
+          if (performanceData.reservation_name) {
+            // DBから現在の予約者名を取得して比較
+            const { data: currentEvent } = await supabase
+              .from('schedule_events')
+              .select('reservation_name, is_reservation_name_overwritten')
+              .eq('id', performanceData.id)
+              .single()
+            
+            if (currentEvent) {
+              const dbReservationName = currentEvent.reservation_name || ''
+              const newReservationName = performanceData.reservation_name || ''
+              // 現在DBの値と入力値が異なる場合、上書きとみなす
+              isNameChanged = dbReservationName !== newReservationName
+            }
+          }
           
           await scheduleApi.update(performanceData.id, {
             date: performanceData.date, // 日程移動用
