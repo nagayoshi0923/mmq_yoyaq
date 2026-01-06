@@ -149,6 +149,8 @@ export function ScenarioMasterEditDialog({
     setUploadProgress({ current: 0, total: files.length })
     
     let successCount = 0
+    let firstImageUrl: string | null = null
+    
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       setUploadProgress({ current: i + 1, total: files.length })
@@ -162,6 +164,11 @@ export function ScenarioMasterEditDialog({
       try {
         const result = await uploadMedia(file, 'key-visuals')
         if (result) {
+          // 最初の画像（動画でない）をメインビジュアル候補として記録
+          if (!firstImageUrl && result.type === 'image') {
+            firstImageUrl = result.url
+          }
+          
           setMaster(prev => ({
             ...prev,
             gallery_images: [...(prev.gallery_images || []), result.url]
@@ -172,6 +179,16 @@ export function ScenarioMasterEditDialog({
         logger.error('Gallery upload error:', err)
         showToast.error('ファイルのアップロードに失敗しました')
       }
+    }
+    
+    // メインビジュアルが未設定で、画像がアップロードされた場合は自動設定
+    if (firstImageUrl) {
+      setMaster(prev => {
+        if (!prev.key_visual_url) {
+          return { ...prev, key_visual_url: firstImageUrl }
+        }
+        return prev
+      })
     }
     
     setUploading(false)
@@ -472,18 +489,16 @@ export function ScenarioMasterEditDialog({
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="key_visual_url">キービジュアルURL</Label>
-              <Input
-                id="key_visual_url"
-                value={master.key_visual_url || ''}
-                onChange={(e) => setMaster({ ...master, key_visual_url: e.target.value })}
-                placeholder="https://..."
-              />
-              {master.key_visual_url && (
-                <img src={master.key_visual_url} alt="preview" className="mt-2 w-32 h-auto rounded" />
-              )}
-            </div>
+            {/* メインビジュアルはギャラリータブで設定 */}
+            {master.key_visual_url && (
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <img src={master.key_visual_url} alt="メインビジュアル" className="w-16 h-12 object-cover rounded" />
+                <div>
+                  <p className="text-xs text-gray-500">メインビジュアル設定済み</p>
+                  <p className="text-xs text-gray-400">変更はギャラリータブから</p>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-3 gap-4">
               <div>
