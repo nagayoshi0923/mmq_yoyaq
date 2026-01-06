@@ -154,10 +154,10 @@ export function ReservationManagement() {
 
         {/* 統計サマリー (影なし・フラットデザイン) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-muted-foreground">今月の予約</div><div className="text-2xl font-bold">{stats.monthlyTotal}</div></CardContent></Card>
-          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-green-600">確定済み</div><div className="text-2xl font-bold text-green-700">{stats.confirmed}</div></CardContent></Card>
-          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-yellow-600">要対応</div><div className="text-2xl font-bold text-yellow-700">{stats.pending}</div></CardContent></Card>
-          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-red-600">未払い</div><div className="text-2xl font-bold text-red-700">{stats.unpaid}</div></CardContent></Card>
+          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-muted-foreground">今月の予約</div><div className="text-2xl font-bold" {...devDb('reservations.filter(this_month).count()')}>{stats.monthlyTotal}</div></CardContent></Card>
+          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-green-600">確定済み</div><div className="text-2xl font-bold text-green-700" {...devDb('reservations.filter(status=confirmed).count()')}>{stats.confirmed}</div></CardContent></Card>
+          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-yellow-600">要対応</div><div className="text-2xl font-bold text-yellow-700" {...devDb('reservations.filter(status=pending).count()')}>{stats.pending}</div></CardContent></Card>
+          <Card className="bg-white border shadow-none"><CardContent className="p-4"><div className="text-xs text-red-600">未払い</div><div className="text-2xl font-bold text-red-700" {...devDb('reservations.filter(payment=unpaid).count()')}>{stats.unpaid}</div></CardContent></Card>
         </div>
 
         {/* フィルター＆検索 (修正版) */}

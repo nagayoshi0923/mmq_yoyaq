@@ -188,7 +188,7 @@ export function StoreManagement() {
                 <div className="flex items-center gap-2">
                   <StoreIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-xl sm:text-2xl font-bold">{stores.length}</p>
+                    <p className="text-xl sm:text-2xl font-bold" {...devDb('stores.count()')}>{stores.length}</p>
                     <p className="text-xs text-muted-foreground truncate">総店舗数</p>
                   </div>
                 </div>
@@ -200,7 +200,7 @@ export function StoreManagement() {
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-xl sm:text-2xl font-bold">{totalCapacity}名</p>
+                    <p className="text-xl sm:text-2xl font-bold" {...devDb('stores.sum(capacity)')}>{totalCapacity}名</p>
                     <p className="text-xs text-muted-foreground truncate">総収容人数</p>
                   </div>
                 </div>
@@ -212,7 +212,7 @@ export function StoreManagement() {
                 <div className="flex items-center gap-2">
                   <DoorOpen className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-xl sm:text-2xl font-bold">{totalRooms}室</p>
+                    <p className="text-xl sm:text-2xl font-bold" {...devDb('stores.sum(rooms)')}>{totalRooms}室</p>
                     <p className="text-xs text-muted-foreground truncate">総部屋数</p>
                   </div>
                 </div>
@@ -224,7 +224,7 @@ export function StoreManagement() {
                 <div className="flex items-center gap-2">
                   <Building className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-xl sm:text-2xl font-bold">{activeStores}</p>
+                    <p className="text-xl sm:text-2xl font-bold" {...devDb('stores.filter(status=active).count()')}>{activeStores}</p>
                     <p className="text-xs text-muted-foreground truncate">営業中店舗</p>
                   </div>
                 </div>

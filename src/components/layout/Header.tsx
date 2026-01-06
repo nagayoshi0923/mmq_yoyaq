@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Bell, LogOut, User, Building2, ChevronRight, LayoutDashboard } from 'lucide-react'
 import { logger } from '@/utils/logger'
+import { devDb } from '@/components/ui/DevField'
 import { getOrganizationBySlug } from '@/lib/organization'
 import type { Organization } from '@/types'
 
@@ -145,7 +146,10 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                   title={`${displayOrganization.name}の予約サイトへ`}
                 >
                   <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
-                  <span className="text-xs sm:text-sm font-medium text-foreground truncate max-w-[80px] sm:max-w-[120px] md:max-w-[160px]">
+                  <span 
+                    className="text-xs sm:text-sm font-medium text-foreground truncate max-w-[80px] sm:max-w-[120px] md:max-w-[160px]"
+                    {...devDb('organizations.name')}
+                  >
                     {displayOrganization.name}
                   </span>
                 </button>
@@ -164,16 +168,22 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
             {user ? (
               <>
                 <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
-                  <span className="text-xs sm:text-sm font-medium text-foreground truncate max-w-[60px] sm:max-w-[80px] md:max-w-[100px] md:max-w-none">
+                  <span 
+                    className="text-xs sm:text-sm font-medium text-foreground truncate max-w-[60px] sm:max-w-[80px] md:max-w-[100px] md:max-w-none"
+                    {...devDb('staff.name|users.email')}
+                  >
                     {user?.staffName || user?.name}
                   </span>
-                  <Badge className={
-                    `text-xs sm:text-xs px-1 sm:px-1.5 md:px-2 py-0.5 ${
-                      user?.role === 'admin' ? 'bg-blue-100 text-blue-800' :
-                      user?.role === 'staff' ? 'bg-green-100 text-green-800' :
-                      'bg-purple-100 text-purple-800'
-                    }`
-                  }>
+                  <Badge 
+                    className={
+                      `text-xs sm:text-xs px-1 sm:px-1.5 md:px-2 py-0.5 ${
+                        user?.role === 'admin' ? 'bg-blue-100 text-blue-800' :
+                        user?.role === 'staff' ? 'bg-green-100 text-green-800' :
+                        'bg-purple-100 text-purple-800'
+                      }`
+                    }
+                    {...devDb('users.role')}
+                  >
                     {user?.role === 'license_admin' ? 'MMQ運営' :
                      user?.role === 'admin' ? '管理者' : 
                      user?.role === 'staff' ? 'スタッフ' : '顧客'}

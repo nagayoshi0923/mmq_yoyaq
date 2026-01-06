@@ -1,6 +1,7 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { TrendingUp, Store, BookOpen, CreditCard, Users, DollarSign, Wrench, Plus } from 'lucide-react'
+import { devDb } from '@/components/ui/DevField'
 
 interface Store {
   id: string
@@ -96,11 +97,11 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-blue-600 flex-shrink-0" />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 md:p-6 pt-0">
-            <div className="text-base text-blue-900">
+            <div className="text-base text-blue-900" {...devDb('reservations.sum(total_amount)')}>
               {formatCurrency(totalRevenue)}
             </div>
             <p className="text-sm text-blue-700 mt-0.5 sm:mt-1">
-              {totalEvents}公演<span className="hidden sm:inline"> • </span><br className="sm:hidden" />平均 {formatCurrency(averageRevenue)}
+              <span {...devDb('schedule_events.count()')}>{totalEvents}公演</span><span className="hidden sm:inline"> • </span><br className="sm:hidden" />平均 <span {...devDb('calc:avg(revenue)')}>{formatCurrency(averageRevenue)}</span>
             </p>
           </CardContent>
         </Card>
@@ -111,7 +112,7 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 text-red-600 flex-shrink-0" />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 md:p-6 pt-0">
-            <div className="text-base text-red-900">
+            <div className="text-base text-red-900" {...devDb('calc:total_expenses')}>
               {formatCurrency(totalExpenses)}
             </div>
             <p className="text-sm text-red-700 mt-0.5 sm:mt-1 break-words">
@@ -126,11 +127,11 @@ const SummaryCardsBase: React.FC<SummaryCardsProps> = ({
             <DollarSign className={`h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 ${netProfit >= 0 ? 'text-green-600' : 'text-gray-600'} flex-shrink-0`} />
           </CardHeader>
           <CardContent className="p-2 sm:p-3 md:p-4 md:p-6 pt-0">
-            <div className={`text-base ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'}`}>
+            <div className={`text-base ${netProfit >= 0 ? 'text-green-900' : 'text-gray-900'}`} {...devDb('calc:net_profit')}>
               {formatCurrency(netProfit)}
             </div>
             <p className={`text-xs mt-0.5 sm:mt-1 ${netProfit >= 0 ? 'text-green-700' : 'text-gray-700'}`}>
-              利益率 {totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}%
+              利益率 <span {...devDb('calc:profit_rate')}>{totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : 0}%</span>
             </p>
           </CardContent>
         </Card>

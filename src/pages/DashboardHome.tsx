@@ -20,6 +20,7 @@ import {
   ArrowRight
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { devDb } from '@/components/ui/DevField'
 import { useOrganization } from '@/hooks/useOrganization'
 import { staffApi, scheduleApi, storeApi } from '@/lib/api'
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, addMonths, subMonths, parseISO } from 'date-fns'
@@ -419,11 +420,11 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-muted/50 p-3 rounded text-center">
             <div className="text-xs text-muted-foreground mb-1">出勤回数</div>
-            <div className="font-bold text-xl">{myStats.count}回</div>
+            <div className="font-bold text-xl" {...devDb('schedule_events.filter(gm).count()')}>{myStats.count}回</div>
           </div>
           <div className="bg-muted/50 p-3 rounded text-center">
             <div className="text-xs text-muted-foreground mb-1">報酬見込み</div>
-            <div className="font-bold text-xl">¥{myStats.salary.toLocaleString()}</div>
+            <div className="font-bold text-xl" {...devDb('schedule_events.sum(gm_costs)')}">¥{myStats.salary.toLocaleString()}</div>
           </div>
         </div>
       </section>
@@ -437,19 +438,19 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="bg-muted/50 p-2 rounded text-center">
               <div className="text-xs text-muted-foreground">今月の売上</div>
-              <div className="font-bold">¥{stats.revenue.toLocaleString()}</div>
+              <div className="font-bold" {...devDb('reservations.sum(total_amount)')}>¥{stats.revenue.toLocaleString()}</div>
             </div>
             <div className="bg-muted/50 p-2 rounded text-center">
               <div className="text-xs text-muted-foreground">予約件数</div>
-              <div className="font-bold">{stats.reservations}件</div>
+              <div className="font-bold" {...devDb('reservations.count()')}>{stats.reservations}件</div>
             </div>
             <div className="bg-muted/50 p-2 rounded text-center">
               <div className="text-xs text-muted-foreground">公演数</div>
-              <div className="font-bold">{stats.performances}回</div>
+              <div className="font-bold" {...devDb('schedule_events.count()')}>{stats.performances}回</div>
             </div>
             <div className="bg-muted/50 p-2 rounded text-center">
               <div className="text-xs text-muted-foreground">稼働店舗</div>
-              <div className="font-bold">{stats.stores}店</div>
+              <div className="font-bold" {...devDb('stores.count()')}>{stats.stores}店</div>
             </div>
           </div>
         </section>

@@ -304,88 +304,26 @@ export function PerformanceScheduleSettings({ storeId }: PerformanceScheduleSett
         </CardContent>
       </Card>
 
-      {/* 各公演の開始時間 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>公演開始時間</CardTitle>
-          <CardDescription>各公演の開始時間を設定します</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {formData.performance_times.map((time, index) => (
-            <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
-              <div className="w-8 h-8 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center">
-                {index + 1}
-              </div>
-              <div className="flex-1 grid grid-cols-2 gap-4">
-                <div>
-                  <Label>時間帯</Label>
-                  <Select
-                    value={time.slot}
-                    onValueChange={(value) => updatePerformanceTime(index, 'slot', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {timeSlotOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>開始時間</Label>
-                  <Input
-                    type="time"
-                    value={time.start_time}
-                    onChange={(e) => updatePerformanceTime(index, 'start_time', e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
       {/* その他の設定 */}
       <Card>
         <CardHeader>
           <CardTitle>その他の設定</CardTitle>
-          <CardDescription>準備時間やデフォルト公演時間を設定します</CardDescription>
+          <CardDescription>公演間の準備時間を設定します</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="preparation_time">公演間の準備時間（分）</Label>
-              <Input
-                id="preparation_time"
-                type="number"
-                value={formData.preparation_time}
-                onChange={(e) => setFormData(prev => ({ ...prev, preparation_time: parseInt(e.target.value) || 0 }))}
-                min="0"
-                max="120"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                公演と公演の間に必要な準備・片付け時間
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="default_duration">デフォルト公演時間（分）</Label>
-              <Input
-                id="default_duration"
-                type="number"
-                value={formData.default_duration}
-                onChange={(e) => setFormData(prev => ({ ...prev, default_duration: parseInt(e.target.value) || 0 }))}
-                min="60"
-                max="480"
-                step="30"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                シナリオ固有の時間が設定されていない場合の標準時間
-              </p>
-            </div>
+        <CardContent>
+          <div className="max-w-sm">
+            <Label htmlFor="preparation_time">公演間の準備時間（分）</Label>
+            <Input
+              id="preparation_time"
+              type="number"
+              value={formData.preparation_time}
+              onChange={(e) => setFormData(prev => ({ ...prev, preparation_time: parseInt(e.target.value) || 0 }))}
+              min="0"
+              max="120"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              公演と公演の間に必要な準備・片付け時間
+            </p>
           </div>
         </CardContent>
       </Card>

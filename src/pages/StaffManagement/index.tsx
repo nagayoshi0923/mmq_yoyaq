@@ -21,6 +21,7 @@ import type { Staff } from '@/types'
 import { 
   Users, CheckCircle2
 } from 'lucide-react'
+import { devDb } from '@/components/ui/DevField'
 import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import { getRoleBadges, getStatusBadge } from './utils/staffFormatters'
 
@@ -380,14 +381,16 @@ export function StaffManagement() {
               <Card className="bg-white border shadow-none">
                 <CardContent className="p-3 sm:p-4">
                   <div className="text-xs text-muted-foreground">総スタッフ数</div>
-                  <div className="text-xl sm:text-2xl font-bold">{staff.length}</div>
+                  <div className="text-xl sm:text-2xl font-bold" {...devDb('staff.count()')}>
+                    {staff.length}
+                  </div>
                 </CardContent>
               </Card>
               
               <Card className="bg-white border shadow-none">
                 <CardContent className="p-3 sm:p-4">
                   <div className="text-xs text-muted-foreground">研修中</div>
-                  <div className="text-xl sm:text-2xl font-bold text-orange-700">
+                  <div className="text-xl sm:text-2xl font-bold text-orange-700" {...devDb('staff.filter(role=trainee).count()')}>
                     {staff.filter(s => s.role && s.role.includes('trainee')).length}
                   </div>
                 </CardContent>
@@ -396,7 +399,7 @@ export function StaffManagement() {
               <Card className="bg-white border shadow-none">
                 <CardContent className="p-3 sm:p-4">
                   <div className="text-xs text-muted-foreground">GM</div>
-                  <div className="text-xl sm:text-2xl font-bold text-blue-700">
+                  <div className="text-xl sm:text-2xl font-bold text-blue-700" {...devDb('staff.filter(role=GM).count()')}>
                     {staff.filter(s => s.role && s.role.includes('GM')).length}
                   </div>
                 </CardContent>
@@ -405,7 +408,7 @@ export function StaffManagement() {
               <Card className="bg-white border shadow-none">
                 <CardContent className="p-3 sm:p-4">
                   <div className="text-xs text-muted-foreground">平均経験年数</div>
-                  <div className="text-xl sm:text-2xl font-bold">
+                  <div className="text-xl sm:text-2xl font-bold" {...devDb('staff.avg(experience)')}>
                     {Math.round(staff.reduce((sum, s) => sum + s.experience, 0) / staff.length) || 0}年
                   </div>
                 </CardContent>

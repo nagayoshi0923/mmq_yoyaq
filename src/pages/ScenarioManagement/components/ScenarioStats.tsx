@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
+import { devDb } from '@/components/ui/DevField'
 import type { Scenario } from '@/types'
 
 interface ScenarioStatsProps {
@@ -33,28 +34,36 @@ export const ScenarioStats: React.FC<ScenarioStatsProps> = ({ scenarios }) => {
       <Card className="bg-white border shadow-none">
         <CardContent className="p-3 sm:p-4">
           <div className="text-xs text-muted-foreground">総シナリオ数</div>
-          <div className="text-xl sm:text-2xl font-bold">{stats.totalScenarios}</div>
+          <div className="text-xl sm:text-2xl font-bold" {...devDb('scenarios.count()')}>
+            {stats.totalScenarios}
+          </div>
         </CardContent>
       </Card>
 
       <Card className="bg-white border shadow-none">
         <CardContent className="p-3 sm:p-4">
           <div className="text-xs text-muted-foreground">利用可能</div>
-          <div className="text-xl sm:text-2xl font-bold text-green-700">{stats.availableScenarios}</div>
+          <div className="text-xl sm:text-2xl font-bold text-green-700" {...devDb('scenarios.filter(status=available).count()')}>
+            {stats.availableScenarios}
+          </div>
         </CardContent>
       </Card>
 
       <Card className="bg-white border shadow-none">
         <CardContent className="p-3 sm:p-4">
           <div className="text-xs text-muted-foreground">総ライセンス料</div>
-          <div className="text-xl sm:text-2xl font-bold">¥{stats.totalLicenseAmount.toLocaleString()}</div>
+          <div className="text-xl sm:text-2xl font-bold" {...devDb('scenarios.sum(license_amount)')}>
+            ¥{stats.totalLicenseAmount.toLocaleString()}
+          </div>
         </CardContent>
       </Card>
 
       <Card className="bg-white border shadow-none">
         <CardContent className="p-3 sm:p-4">
           <div className="text-xs text-muted-foreground">平均プレイヤー数</div>
-          <div className="text-xl sm:text-2xl font-bold">{stats.avgPlayers}名</div>
+          <div className="text-xl sm:text-2xl font-bold" {...devDb('scenarios.avg(player_count_max)')}>
+            {stats.avgPlayers}名
+          </div>
         </CardContent>
       </Card>
     </div>
