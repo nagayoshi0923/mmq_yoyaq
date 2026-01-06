@@ -16,6 +16,7 @@ export interface ScenarioFormData {
   slug?: string  // URL用の短い識別子（英数字とハイフン）
   author: string
   author_email?: string  // 作者メールアドレス（作者ポータル連携用）
+  scenario_master_id?: string  // マスタから引用した場合のマスタID
   description: string
   duration: number // 分単位
   player_count_min: number

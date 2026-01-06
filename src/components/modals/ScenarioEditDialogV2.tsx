@@ -176,6 +176,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const handleMasterSelect = (master: any) => {
     setFormData(prev => ({
       ...prev,
+      scenario_master_id: master.id,  // マスタIDを記録
       title: master.title || prev.title,
       author: master.author || prev.author,
       description: master.description || prev.description,
@@ -186,6 +187,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       genre: master.genre || prev.genre,
       key_visual_url: master.key_visual_url || prev.key_visual_url
     }))
+    showToast.success('マスタから情報を引用しました')
   }
   
   // 削除確認ダイアログ
@@ -570,6 +572,45 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         } catch (syncError) {
           logger.error('Error updating GM assignments:', syncError)
           showToast.warning('シナリオは保存されました', '担当GMの更新に失敗しました。手動で確認してください')
+        }
+      }
+
+      // マスタから引用した場合、organization_scenariosにも登録
+      if (formData.scenario_master_id && targetScenarioId) {
+        try {
+          // 既存のレコードがあるか確認
+          const { data: existingOrgScenario } = await supabase
+            .from('organization_scenarios')
+            .select('id')
+            .eq('scenario_master_id', formData.scenario_master_id)
+            .eq('organization_id', scenarioData.organization_id)
+            .maybeSingle()
+          
+          if (!existingOrgScenario) {
+            // organization_scenariosに登録
+            const { error: orgScenarioError } = await supabase
+              .from('organization_scenarios')
+              .insert({
+                organization_id: scenarioData.organization_id,
+                scenario_master_id: formData.scenario_master_id,
+                slug: scenarioData.slug,
+                duration: scenarioData.duration,
+                participation_fee: scenarioData.participation_fee,
+                extra_preparation_time: scenarioData.extra_preparation_time || 30,
+                org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
+                available_stores: scenarioData.available_stores || [],
+                participation_costs: scenarioData.participation_costs || [],
+                gm_costs: scenarioData.gm_costs || []
+              })
+            
+            if (orgScenarioError) {
+              logger.error('organization_scenarios登録エラー:', orgScenarioError)
+            } else {
+              logger.log('organization_scenariosに登録しました')
+            }
+          }
+        } catch (orgErr) {
+          logger.error('organization_scenarios処理エラー:', orgErr)
         }
       }
 
