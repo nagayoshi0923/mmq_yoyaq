@@ -112,6 +112,17 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
       const selectedStore = stores.find(s => s.id === selectedStoreId)
       const storeName = selectedStore?.name || '店舗不明'
 
+      // GMの名前を取得（gmsには名前を保存する必要がある）
+      let gmName = ''
+      if (selectedGMId) {
+        const { data: gmStaffData } = await supabase
+          .from('staff')
+          .select('name')
+          .eq('id', selectedGMId)
+          .single()
+        gmName = gmStaffData?.name || ''
+      }
+
       if (selectedCandidate.date && selectedCandidate.startTime && selectedCandidate.endTime && storeName && organizationId) {
         const { data: scheduleEvent, error: scheduleError } = await supabase
           .from('schedule_events')
@@ -124,7 +135,7 @@ export function useBookingApproval({ onSuccess }: UseBookingApprovalProps) {
             start_at: startTime.toISOString(),
             end_at: endTime.toISOString(),
             store_id: selectedStoreId,
-            gms: selectedGMId ? [selectedGMId] : [],
+            gms: gmName ? [gmName] : [], // IDではなく名前を保存
             is_reservation_enabled: false,
             status: 'confirmed',
             category: 'private',

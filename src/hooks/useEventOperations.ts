@@ -801,6 +801,8 @@ export function useEventOperations({
             }
           })
           
+          // 編集時は is_reservation_name_overwritten を更新しない（既存の値を維持）
+          // 予約者名の変更は reservation_name フィールドのみ更新
           await scheduleApi.update(performanceData.id, {
             date: performanceData.date, // 日程移動用
             store_id: performanceData.venue, // 店舗移動用（store_id）
@@ -816,8 +818,8 @@ export function useEventOperations({
             notes: performanceData.notes,
             time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
             venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
-            reservation_name: performanceData.reservation_name || null, // 予約者名（貸切用）
-            is_reservation_name_overwritten: !!performanceData.reservation_name // 予約者名が入力されていれば上書きとみなす
+            reservation_name: performanceData.reservation_name || null // 予約者名（貸切用）
+            // 編集時は is_reservation_name_overwritten を更新しない
           })
 
           // GM欄で「スタッフ参加」を選択した場合、予約も同期する
