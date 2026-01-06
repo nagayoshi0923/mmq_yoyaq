@@ -22,6 +22,7 @@ import { showToast } from '@/utils/toast'
 import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/organization'
 import type { Staff } from '@/types'
 
 interface ScenarioEditDialogV2Props {
@@ -578,35 +579,42 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       // マスタから引用した場合、organization_scenariosにも登録
       if (formData.scenario_master_id && targetScenarioId) {
         try {
-          // 既存のレコードがあるか確認
-          const { data: existingOrgScenario } = await supabase
-            .from('organization_scenarios')
-            .select('id')
-            .eq('scenario_master_id', formData.scenario_master_id)
-            .eq('organization_id', scenarioData.organization_id)
-            .maybeSingle()
-          
-          if (!existingOrgScenario) {
-            // organization_scenariosに登録
-            const { error: orgScenarioError } = await supabase
+          const organizationId = await getCurrentOrganizationId()
+          if (!organizationId) {
+            logger.warn('organization_id取得失敗: organization_scenariosへの登録をスキップ')
+          } else {
+            // 既存のレコードがあるか確認
+            const { data: existingOrgScenario } = await supabase
               .from('organization_scenarios')
-              .insert({
-                organization_id: scenarioData.organization_id,
-                scenario_master_id: formData.scenario_master_id,
-                slug: scenarioData.slug,
-                duration: scenarioData.duration,
-                participation_fee: scenarioData.participation_fee,
-                extra_preparation_time: scenarioData.extra_preparation_time || 30,
-                org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
-                available_stores: scenarioData.available_stores || [],
-                participation_costs: scenarioData.participation_costs || [],
-                gm_costs: scenarioData.gm_costs || []
-              })
+              .select('id')
+              .eq('scenario_master_id', formData.scenario_master_id)
+              .eq('organization_id', organizationId)
+              .maybeSingle()
             
-            if (orgScenarioError) {
-              logger.error('organization_scenarios登録エラー:', orgScenarioError)
+            if (!existingOrgScenario) {
+              // organization_scenariosに登録
+              const { error: orgScenarioError } = await supabase
+                .from('organization_scenarios')
+                .insert({
+                  organization_id: organizationId,
+                  scenario_master_id: formData.scenario_master_id,
+                  slug: scenarioData.slug,
+                  duration: scenarioData.duration,
+                  participation_fee: scenarioData.participation_fee,
+                  extra_preparation_time: scenarioData.extra_preparation_time || 30,
+                  org_status: saveStatus === 'draft' ? 'coming_soon' : (saveStatus === 'available' ? 'available' : 'unavailable'),
+                  available_stores: scenarioData.available_stores || [],
+                  participation_costs: scenarioData.participation_costs || [],
+                  gm_costs: scenarioData.gm_costs || []
+                })
+              
+              if (orgScenarioError) {
+                logger.error('organization_scenarios登録エラー:', orgScenarioError)
+              } else {
+                logger.log('organization_scenariosに登録しました')
+              }
             } else {
-              logger.log('organization_scenariosに登録しました')
+              logger.log('organization_scenarios: 既存レコードあり、スキップ')
             }
           }
         } catch (orgErr) {
