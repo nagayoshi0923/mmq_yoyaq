@@ -216,39 +216,12 @@
 /* ============================================================
    開発者モード: DB情報ツールチップ
    license_adminロールでログイン時、data-db属性を持つ要素に
-   ホバーでテーブル.カラム名を表示
+   ホバーでDB情報を表示（DevTooltipコンポーネントで実装）
    ============================================================ */
 @layer utilities {
-  /* 開発者モード有効時のみ表示 */
+  /* 開発者モード有効時 - カーソル変更 */
   body.dev-mode [data-db] {
     cursor: help;
-  }
-  
-  /* ホバー時にツールチップ表示（title属性で表示） */
-  body.dev-mode [data-db]::after {
-    content: attr(data-db);
-    position: fixed;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 6px 12px;
-    background: #1e293b;
-    color: #f8fafc;
-    font-size: 12px;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
-    border-radius: 6px;
-    white-space: nowrap;
-    z-index: 99999;
-    pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.15s ease;
-  }
-  
-  body.dev-mode [data-db]:hover::after {
-    opacity: 1;
-    visibility: visible;
   }
   
   /* 開発者モードインジケーター（画面右下） */

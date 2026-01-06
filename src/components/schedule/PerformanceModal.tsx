@@ -171,25 +171,14 @@ export function PerformanceModal({
     return store?.id || null
   }
 
-  // 公演スケジュール設定と営業時間設定を読み込む
+  // 営業時間設定を読み込む（公演時間設定は useTimeSlotSettings で取得）
   useEffect(() => {
-    const loadSettings = async () => {
+    const loadBusinessHoursSettings = async () => {
       try {
         // venueが店舗名の場合はIDに変換
         const venueValue = formData.venue || ''
         const storeId = resolveStoreId(venueValue) || stores[0]?.id
         if (!storeId) return
-
-        // 公演スケジュール設定を取得
-        const { data: performanceData, error: performanceError } = await supabase
-          .from('performance_schedule_settings')
-          .select('performance_times, default_duration')
-          .eq('store_id', storeId)
-          .maybeSingle()
-
-        if (performanceError && performanceError.code !== 'PGRST116') {
-          logger.error('公演スケジュール設定取得エラー:', performanceError)
-        }
 
         // 営業時間設定を取得
         const { data: businessHoursData, error: businessHoursError } = await supabase
@@ -200,35 +189,6 @@ export function PerformanceModal({
 
         if (businessHoursError && businessHoursError.code !== 'PGRST116') {
           logger.error('営業時間設定取得エラー:', businessHoursError)
-        }
-
-        // 公演スケジュール設定の適用
-        if (performanceData?.performance_times) {
-          const newDefaults = {
-            morning: { start_time: '10:00', end_time: '14:00', label: '朝公演' },
-            afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
-            evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
-          }
-
-          // 設定された時間に基づいて更新
-          performanceData.performance_times.forEach((time: any, index: number) => {
-            const slotKey = time.slot as keyof typeof newDefaults
-            if (slotKey && newDefaults[slotKey]) {
-              const duration = performanceData.default_duration || 240 // デフォルト4時間
-              const startTime = time.start_time
-              const endTime = new Date(`2000-01-01T${startTime}`)
-              endTime.setMinutes(endTime.getMinutes() + duration)
-              const endTimeStr = endTime.toTimeString().slice(0, 5)
-              
-              newDefaults[slotKey] = {
-                start_time: startTime,
-                end_time: endTimeStr,
-                label: newDefaults[slotKey].label
-              }
-            }
-          })
-
-          setTimeSlotDefaults(newDefaults)
         }
 
         // 営業時間制限の適用（時間選択肢の制限）
@@ -243,7 +203,7 @@ export function PerformanceModal({
     }
 
     if (formData.venue || stores.length > 0) {
-      loadSettings()
+      loadBusinessHoursSettings()
     }
   }, [formData.venue, stores])
 
