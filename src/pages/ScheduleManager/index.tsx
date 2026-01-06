@@ -663,7 +663,15 @@ export function ScheduleManager() {
         variant="outline"
         size="icon"
         className="fixed bottom-6 right-6 z-50 shadow-lg bg-background hover:bg-muted"
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onClick={() => {
+          // stickyLayoutの場合、スクロールコンテナはAppLayout内のdiv
+          const scrollContainer = document.querySelector('.overflow-y-auto')
+          if (scrollContainer) {
+            scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
+          } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }
+        }}
         title="ページ上部に戻る"
       >
         ↑
