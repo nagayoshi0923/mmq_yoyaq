@@ -70,6 +70,18 @@ function AppRoutes() {
   const location = useLocation()
   const navigate = useNavigate()
 
+  // 開発者モード: license_adminの場合にbodyにdev-modeクラスを付与
+  React.useEffect(() => {
+    if (user?.role === 'license_admin') {
+      document.body.classList.add('dev-mode')
+    } else {
+      document.body.classList.remove('dev-mode')
+    }
+    return () => {
+      document.body.classList.remove('dev-mode')
+    }
+  }, [user?.role])
+
   // クエリパラメータからトークンタイプを確認
   const searchParams = new URLSearchParams(location.search)
   const hasInviteTokens = searchParams.get('type') === 'signup' || searchParams.get('type') === 'invite'

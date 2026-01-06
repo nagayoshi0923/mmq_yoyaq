@@ -212,3 +212,65 @@
     background-color: var(--input-bg);
   }
 }
+
+/* ============================================================
+   開発者モード: DB情報ツールチップ
+   license_adminロールでログイン時、data-db属性を持つ要素に
+   ホバーでテーブル.カラム名を表示
+   ============================================================ */
+@layer utilities {
+  /* 開発者モード有効時のみ表示 */
+  body.dev-mode [data-db] {
+    position: relative;
+    cursor: help;
+  }
+  
+  /* ホバー時にツールチップ表示 */
+  body.dev-mode [data-db]:hover::after {
+    content: "📊 " attr(data-db);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: #1e293b;
+    color: #f8fafc;
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* ツールチップの矢印 */
+  body.dev-mode [data-db]:hover::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    border: 5px solid transparent;
+    border-top-color: #1e293b;
+    z-index: 9999;
+    pointer-events: none;
+  }
+  
+  /* 開発者モードインジケーター（画面右下） */
+  body.dev-mode::after {
+    content: "🛠️ DEV MODE";
+    position: fixed;
+    bottom: 8px;
+    right: 8px;
+    padding: 4px 10px;
+    background: #7c3aed;
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 4px;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.8;
+  }
+}
