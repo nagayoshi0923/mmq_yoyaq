@@ -7,6 +7,7 @@ interface CategoryTabsProps {
   selectedCategory: string
   categoryCounts: Record<string, number>
   onCategoryChange: (category: string) => void
+  compact?: boolean
 }
 
 const categories = [
@@ -22,8 +23,39 @@ const categories = [
 export const CategoryTabs = memo(function CategoryTabs({
   selectedCategory,
   categoryCounts,
-  onCategoryChange
+  onCategoryChange,
+  compact = false
 }: CategoryTabsProps) {
+  if (compact) {
+    // コンパクトモード：1行表示
+    return (
+      <div className="flex items-center gap-2 py-1">
+        <span className="text-xs font-medium text-muted-foreground shrink-0">カテゴリ:</span>
+        <div className="flex flex-wrap gap-1">
+          {categories.map(category => (
+            <button
+              key={category.id}
+              onClick={() => onCategoryChange(category.id)}
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-all",
+                category.color,
+                selectedCategory === category.id 
+                  ? "ring-2 ring-primary ring-offset-1" 
+                  : "opacity-70 hover:opacity-100"
+              )}
+            >
+              {category.label}
+              <span className="opacity-60">{categoryCounts[category.id] || 0}</span>
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-muted-foreground ml-auto shrink-0">
+          中止: {categoryCounts.cancelled} / 警告: {categoryCounts.alerts}
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div className="bg-card border rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">

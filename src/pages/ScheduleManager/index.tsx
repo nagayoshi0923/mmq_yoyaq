@@ -520,8 +520,9 @@ export function ScheduleManager() {
             <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
           </PageHeader>
 
-          {/* 操作行 */}
-          <div className="flex flex-wrap items-center gap-3 pl-1">
+          {/* 操作行（sticky） */}
+          <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b pb-2 -mx-2 px-2">
+          <div className="flex flex-wrap items-center gap-2 py-1">
             <MonthSwitcher
               value={currentDate}
               onChange={setCurrentDate}
@@ -633,14 +634,16 @@ export function ScheduleManager() {
               {isFixingData ? '処理中...' : 'データ修復'}
             </Button>
           </div>
-        </div>
 
-        {/* カテゴリータブ */}
-        <CategoryTabs
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          categoryCounts={categoryCounts}
-        />
+          {/* カテゴリータブ（コンパクト） */}
+          <CategoryTabs
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+            categoryCounts={categoryCounts}
+            compact
+          />
+          </div>
+        </div>
 
         {/* スケジュールテーブル */}
         <ScheduleTable {...filteredScheduleTableProps} />
