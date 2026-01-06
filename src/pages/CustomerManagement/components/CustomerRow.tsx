@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronDown, ChevronUp, Edit2, Mail, Phone, Calendar } from 'lucide-react'
 import type { Customer, Reservation } from '@/types'
 import { supabase } from '@/lib/supabase'
+import { devDb } from '@/components/ui/DevField'
 
 interface CustomerRowProps {
   customer: Customer
@@ -61,12 +62,12 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
     <div className="border rounded-lg overflow-hidden bg-white">
       {/* PC View */}
       <div className="hidden md:grid grid-cols-12 gap-4 px-4 items-center h-[60px] hover:bg-muted/50 transition-colors cursor-pointer" onClick={onToggleExpand}>
-        <div className="col-span-2 truncate font-medium">{customer.name}</div>
+        <div className="col-span-2 truncate font-medium" {...devDb('customers.name')}>{customer.name}</div>
         <div className="col-span-2 text-xs text-muted-foreground truncate flex items-center gap-2">
           {customer.email ? (
             <>
               <Mail className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{customer.email}</span>
+              <span className="truncate" {...devDb('customers.email')}>{customer.email}</span>
             </>
           ) : (
             <span className="text-muted-foreground/50">未登録</span>
@@ -76,16 +77,16 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
           {customer.phone ? (
             <>
               <Phone className="h-3 w-3 flex-shrink-0" />
-              <span className="truncate">{customer.phone}</span>
+              <span className="truncate" {...devDb('customers.phone')}>{customer.phone}</span>
             </>
           ) : (
             <span className="text-muted-foreground/50">未登録</span>
           )}
         </div>
         <div className="col-span-1 text-center">
-          <Badge variant="secondary" className="font-normal">{customer.visit_count}回</Badge>
+          <Badge variant="secondary" className="font-normal" {...devDb('customers.visit_count')}>{customer.visit_count}回</Badge>
         </div>
-        <div className="col-span-2 text-right font-medium">
+        <div className="col-span-2 text-right font-medium" {...devDb('customers.total_spent')}>
           {formatCurrency(customer.total_spent)}
         </div>
         <div className="col-span-2 text-xs text-muted-foreground truncate">

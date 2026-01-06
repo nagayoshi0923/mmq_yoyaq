@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { StaffAvatar } from '@/components/staff/StaffAvatar'
 import type { Column } from '@/components/patterns/table'
 import type { Staff, Store } from '@/types'
+import { devDb } from '@/components/ui/DevField'
 import { getRoleBadges, getStoreColors, getStatusBadge } from './staffFormatters'
 import type { StaffAuthStatus } from '../hooks/useStaffAuthStatus'
 
@@ -87,7 +88,7 @@ export function createStaffColumns(
             size="sm"
           />
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm truncate hover:text-blue-600">{staff.name}</h3>
+            <h3 className="text-sm truncate hover:text-blue-600" {...devDb('staff.name')}>{staff.name}</h3>
             {!staff.user_id && (
               // @ts-ignore
               <Badge size="sm" variant="warning" className="text-[10px] mt-0.5 font-normal">
@@ -119,7 +120,7 @@ export function createStaffColumns(
         }
         
         return (
-          <div className="flex flex-wrap gap-0.5">
+          <div className="flex flex-wrap gap-0.5" {...devDb('staff.role')}>
             {staff.role.map((role, index) => (
               <span 
                 key={index} 
@@ -143,7 +144,7 @@ export function createStaffColumns(
         }
         
         return (
-          <div className="flex flex-wrap gap-0.5">
+          <div className="flex flex-wrap gap-0.5" {...devDb('staff.stores')}>
             {staff.stores.map((storeId, index) => {
               const storeObj = stores.find(s => s.id === storeId)
               const storeName = storeObj?.short_name || storeObj?.name || storeId

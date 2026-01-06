@@ -20,6 +20,7 @@ import {
   Building,
   DoorOpen
 } from 'lucide-react'
+import { devDb } from '@/components/ui/DevField'
 
 
 export function StoreManagement() {
@@ -263,8 +264,8 @@ export function StoreManagement() {
                             <div className="flex items-center gap-2">
                               <div className={`w-3 h-3 rounded-full flex-shrink-0 ${colors.dot}`}></div>
                               <div>
-                                <div className="font-medium">{store.name}</div>
-                                <div className="text-xs text-muted-foreground">{store.short_name}</div>
+                                <div className="font-medium" {...devDb('stores.name')}>{store.name}</div>
+                                <div className="text-xs text-muted-foreground" {...devDb('stores.short_name')}>{store.short_name}</div>
                               </div>
                             </div>
                           </TableCell>

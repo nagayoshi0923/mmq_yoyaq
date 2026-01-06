@@ -6,6 +6,7 @@ import { Clock, Users, Star, Upload, X } from 'lucide-react'
 import type { Column } from '@/components/patterns/table'
 import type { Scenario } from '@/types'
 import { OptimizedImage } from '@/components/ui/optimized-image'
+import { devDb } from '@/components/ui/DevField'
 import { 
   formatDuration, 
   formatPlayerCount, 
@@ -179,6 +180,7 @@ export function createScenarioColumns(
           onClick={() => actions.onEdit(scenario)}
           className="text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
           title={scenario.title}
+          {...devDb('scenarios.title')}
         >
           {scenario.title}
         </button>
@@ -190,7 +192,7 @@ export function createScenarioColumns(
       width: 'w-32',
       sortable: true,
       render: (scenario) => (
-        <p className="text-sm truncate" title={scenario.author}>
+        <p className="text-sm truncate" title={scenario.author} {...devDb('scenarios.author')}>
           {scenario.author}
         </p>
       )
@@ -201,7 +203,7 @@ export function createScenarioColumns(
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
-        <p className="text-sm flex items-center gap-1">
+        <p className="text-sm flex items-center gap-1" {...devDb('scenarios.duration')}>
           <Clock className="h-3 w-3" /> {formatDuration(scenario.duration)}
         </p>
       )
@@ -212,7 +214,7 @@ export function createScenarioColumns(
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
-        <p className="text-sm flex items-center gap-1">
+        <p className="text-sm flex items-center gap-1" {...devDb('scenarios.player_count_min/max')}>
           <Users className="h-3 w-3" /> 
           {formatPlayerCount(scenario.player_count_min, scenario.player_count_max)}
         </p>
@@ -229,7 +231,9 @@ export function createScenarioColumns(
         const stats = scenarioStats?.[scenario.id]
         if (!stats) return <span className="text-xs text-muted-foreground">-</span>
         return (
-          <span className="text-sm font-medium">{stats.performanceCount}</span>
+          <span className="text-sm font-medium" {...devDb('schedule_events.count()')}>
+            {stats.performanceCount}
+          </span>
         )
       }
     },
@@ -481,7 +485,7 @@ export function createScenarioColumns(
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
-        <p className="text-sm text-right">
+        <p className="text-sm text-right" {...devDb('scenarios.participation_fee')}>
           {formatParticipationFee(scenario.participation_fee || 0)}
         </p>
       )
@@ -492,11 +496,14 @@ export function createScenarioColumns(
       width: 'w-28',
       sortable: true,
       render: (scenario) => (
-        <Badge className={
-          scenario.status === 'available' ? 'bg-gray-100 text-gray-800 px-1 py-0.5 border-0 rounded-[2px]' :
-          scenario.status === 'maintenance' ? 'bg-gray-100 text-gray-800 px-1 py-0.5 border-0 rounded-[2px]' :
-          'bg-gray-100 text-gray-800 px-1 py-0.5 border-0 rounded-[2px]'
-        }>
+        <Badge 
+          className={
+            scenario.status === 'available' ? 'bg-gray-100 text-gray-800 px-1 py-0.5 border-0 rounded-[2px]' :
+            scenario.status === 'maintenance' ? 'bg-gray-100 text-gray-800 px-1 py-0.5 border-0 rounded-[2px]' :
+            'bg-gray-100 text-gray-800 px-1 py-0.5 border-0 rounded-[2px]'
+          }
+          {...devDb('scenarios.status')}
+        >
           {getStatusLabel(scenario.status)}
         </Badge>
       )

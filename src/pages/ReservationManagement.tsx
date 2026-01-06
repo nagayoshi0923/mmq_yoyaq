@@ -21,6 +21,7 @@ import { useSessionState } from '@/hooks/useSessionState'
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { useReservationData, ReservationWithDetails } from '@/hooks/useReservationData'
 import { useReservationStats } from '@/hooks/useReservationStats'
+import { devDb } from '@/components/ui/DevField'
 import { format, isPast } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
@@ -215,7 +216,7 @@ export function ReservationManagement() {
                 <TableRow key={reservation.id} className="hover:bg-gray-50/50 cursor-pointer h-16" onClick={() => setSelectedReservation(reservation)}>
                   <TableCell className="text-center"><input type="checkbox" className="rounded border-gray-300" onClick={(e) => e.stopPropagation()} /></TableCell>
                   <TableCell>
-                    <span className="font-mono text-xs text-gray-600">{reservation.reservation_number || '-'}</span>
+                    <span className="font-mono text-xs text-gray-600" {...devDb('reservations.reservation_number')}>{reservation.reservation_number || '-'}</span>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
@@ -239,7 +240,7 @@ export function ReservationManagement() {
                     {getStatusBadge(reservation.status)}
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium text-blue-600 hover:underline">{reservation.customer_name}</div>
+                    <div className="font-medium text-blue-600 hover:underline" {...devDb('reservations.customer_name')}>{reservation.customer_name}</div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm text-blue-600 font-medium truncate max-w-[150px]" title={reservation.scenario_title}>
@@ -251,8 +252,8 @@ export function ReservationManagement() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col text-xs">
-                      <span className="text-gray-900">{reservation.payment_method || '現地決済'}</span>
-                      <span className={reservation.payment_status === 'unpaid' ? 'text-red-600 font-bold' : 'text-gray-500'}>
+                      <span className="text-gray-900" {...devDb('reservations.payment_method')}>{reservation.payment_method || '現地決済'}</span>
+                      <span className={reservation.payment_status === 'unpaid' ? 'text-red-600 font-bold' : 'text-gray-500'} {...devDb('reservations.total_amount')}>
                         ¥{(reservation.total_amount || 0).toLocaleString()}
                       </span>
                     </div>
