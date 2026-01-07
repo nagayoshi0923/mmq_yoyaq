@@ -198,18 +198,22 @@ export function useEventOperations({
   const handleAddPerformance = useCallback((date: string, venue: string, time_slot: 'morning' | 'afternoon' | 'evening') => {
     setModalMode('add')
     
-    // 同じ日・同じ店舗の前の公演を探して、推奨開始時間を計算
+    // 同じ日・同じ店舗・同じ時間帯の前の公演を探して、推奨開始時間を計算
     let suggestedStartTime: string | undefined = undefined
     
-    // 同じ日・同じ店舗のイベントを取得
+    // time_slotを日本語形式に変換（DBに保存されている形式）
+    const timeSlotJa = time_slot === 'morning' ? '朝' : time_slot === 'afternoon' ? '昼' : '夜'
+    
+    // 同じ日・同じ店舗・同じ時間帯のイベントのみ取得
     const sameSlotEvents = events.filter(e => 
       e.date === date && 
       e.venue === venue && 
-      !e.is_cancelled
+      !e.is_cancelled &&
+      e.time_slot === timeSlotJa  // 同じ時間帯のみ
     )
     
     if (sameSlotEvents.length > 0) {
-      // 終了時間でソート（新しい順）
+      // 終了時間でソート（遅い順）
       const sortedEvents = [...sameSlotEvents].sort((a, b) => {
         const aEnd = a.end_time || '00:00'
         const bEnd = b.end_time || '00:00'

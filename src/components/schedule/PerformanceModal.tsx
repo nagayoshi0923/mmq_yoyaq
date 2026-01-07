@@ -308,6 +308,22 @@ export function PerformanceModal({
       // 前の公演がある場合は推奨開始時間を使用、なければスロットのデフォルトを使用
       const startTime = (initialData as any).suggestedStartTime || slotDefaults.start_time
       
+      // 終了時間を計算：開始時間 + 4時間（デフォルト公演時間）
+      // ただし、スロットのデフォルト終了時間が開始時間より後ならそちらを使用
+      let endTime = slotDefaults.end_time
+      const [startHour, startMinute] = startTime.split(':').map(Number)
+      const [defaultEndHour, defaultEndMinute] = slotDefaults.end_time.split(':').map(Number)
+      const startMinutes = startHour * 60 + startMinute
+      const defaultEndMinutes = defaultEndHour * 60 + defaultEndMinute
+      
+      // 終了時間が開始時間より前になる場合は、開始時間 + 4時間に設定
+      if (defaultEndMinutes <= startMinutes) {
+        const newEndMinutes = startMinutes + 240 // 4時間 = 240分
+        const newEndHour = Math.floor(newEndMinutes / 60)
+        const newEndMinute = newEndMinutes % 60
+        endTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMinute).padStart(2, '0')}`
+      }
+      
       setFormData({
         id: Date.now().toString(),
         date: initialData.date,
@@ -316,7 +332,7 @@ export function PerformanceModal({
         gms: [],
         gmRoles: {},
         start_time: startTime,
-        end_time: slotDefaults.end_time,
+        end_time: endTime,
         category: 'private',
         max_participants: DEFAULT_MAX_PARTICIPANTS,
         capacity: 0,
