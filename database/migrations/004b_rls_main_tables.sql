@@ -91,3 +91,4 @@ CREATE POLICY staff_strict ON staff FOR ALL USING (
 
 SELECT 'Main table policies created successfully' as result;
 
+

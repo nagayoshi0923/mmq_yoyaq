@@ -67,3 +67,4 @@ WHERE ss.submitted_at > NOW() - INTERVAL '24 hours'
 ORDER BY ss.submitted_at DESC
 LIMIT 20;
 
+

@@ -58,6 +58,8 @@ const AuthorLogin = lazy(() => import('./AuthorLogin'))
 const ExternalReportForm = lazy(() => import('./ExternalReportForm'))
 const PlatformScenarioSearch = lazy(() => import('./PlatformScenarioSearch').then(m => ({ default: m.PlatformScenarioSearch })))
 const PlatformTop = lazy(() => import('./PlatformTop').then(m => ({ default: m.PlatformTop })))
+const DesignPreview = lazy(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
+const ComponentGallery = lazy(() => import('./dev/ComponentGallery').then(m => ({ default: m.ComponentGallery })))
 
 // 管理ページのパス一覧
 const ADMIN_PATHS = [
@@ -76,6 +78,16 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   // 空パスはプラットフォームトップ
   if (!path || path === '') {
     return { page: 'platform-top', scenarioId: null, organizationSlug: null }
+  }
+  
+  // /dev/design-preview - 開発用デザインプレビュー
+  if (segments[0] === 'dev' && segments[1] === 'design-preview') {
+    return { page: 'dev-design-preview', scenarioId: null, organizationSlug: null }
+  }
+  
+  // /dev/components - UIコンポーネントギャラリー
+  if (segments[0] === 'dev' && segments[1] === 'components') {
+    return { page: 'dev-components', scenarioId: null, organizationSlug: null }
   }
   
   // 特殊ページのチェック（組織スラッグなし）
@@ -441,6 +453,24 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <PlatformTop />
+      </Suspense>
+    )
+  }
+
+  // 開発用：デザインプレビューページ
+  if (currentPage === 'dev-design-preview') {
+    return (
+      <Suspense fallback={<LoadingScreen message="デザインプレビューを読み込み中..." />}>
+        <DesignPreview />
+      </Suspense>
+    )
+  }
+
+  // 開発用：UIコンポーネントギャラリー
+  if (currentPage === 'dev-components') {
+    return (
+      <Suspense fallback={<LoadingScreen message="コンポーネントギャラリーを読み込み中..." />}>
+        <ComponentGallery />
       </Suspense>
     )
   }

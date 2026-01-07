@@ -1,18 +1,16 @@
 /**
  * MMQ プラットフォームトップページ
  * @path /
- * @purpose 顧客向けトップページ - 任天堂風デザイン
+ * @purpose 顧客向けトップページ - シャープデザイン
  */
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
-import { Search, ChevronRight, Users, Clock, Sparkles, Building2, Calendar, MapPin, Heart, Filter } from 'lucide-react'
+import { Search, ChevronRight, Users, Clock, Sparkles, Building2, Calendar, Heart, Filter } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -248,16 +246,36 @@ export function PlatformTop() {
     <div className="min-h-screen" style={{ backgroundColor: THEME.background }}>
       <Header />
 
-      {/* ヒーローセクション - 任天堂風 */}
+      {/* ヒーローセクション - シャープデザイン */}
       <section 
         className="relative overflow-hidden"
-        style={{ 
-          background: `linear-gradient(135deg, ${THEME.gradientFrom} 0%, ${THEME.gradientTo} 100%)` 
-        }}
+        style={{ backgroundColor: THEME.primary }}
       >
-        <div className="max-w-7xl mx-auto px-4 py-12 md:py-20">
+        {/* アクセント装飾 */}
+        <div 
+          className="absolute top-0 right-0 w-96 h-96 opacity-20"
+          style={{ 
+            background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+            transform: 'translate(30%, -30%)'
+          }}
+        />
+        <div 
+          className="absolute bottom-0 left-0 w-2 h-24"
+          style={{ backgroundColor: THEME.accent }}
+        />
+        
+        <div className="max-w-7xl mx-auto px-4 py-12 md:py-20 relative">
           <div className="text-center text-white">
-            <h1 className="text-3xl md:text-5xl font-bold mb-4">
+            {/* アクセントバッジ */}
+            <div 
+              className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium mb-6"
+              style={{ backgroundColor: THEME.accent, color: '#000' }}
+            >
+              <Sparkles className="w-3 h-3" />
+              MURDER MYSTERY QUEST
+            </div>
+            
+            <h1 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight">
               マーダーミステリーを<br className="md:hidden" />探そう
             </h1>
             <p className="text-lg md:text-xl opacity-90 mb-8 max-w-2xl mx-auto">
@@ -267,8 +285,8 @@ export function PlatformTop() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
-                className="bg-white hover:bg-gray-100 rounded-full px-8 h-14 text-lg font-semibold shadow-lg"
-                style={{ color: THEME.primary }}
+                className="bg-white hover:bg-gray-100 px-8 h-14 text-lg font-semibold shadow-lg hover:scale-[1.02] transition-transform"
+                style={{ color: THEME.primary, borderRadius: 0 }}
                 onClick={() => navigate('/scenario')}
               >
                 <Search className="w-5 h-5 mr-2" />
@@ -278,7 +296,8 @@ export function PlatformTop() {
                 <Button
                   size="lg"
                   variant="ghost"
-                  className="border-2 border-white/50 text-white hover:bg-white/10 hover:text-white rounded-full px-8 h-14 text-lg"
+                  className="border-2 border-white/50 text-white hover:bg-white/10 hover:text-white px-8 h-14 text-lg"
+                  style={{ borderRadius: 0 }}
                   onClick={() => navigate('/mypage')}
                 >
                   マイページ
@@ -287,7 +306,8 @@ export function PlatformTop() {
                 <Button
                   size="lg"
                   variant="ghost"
-                  className="border-2 border-white/50 text-white hover:bg-white/10 hover:text-white rounded-full px-8 h-14 text-lg"
+                  className="border-2 border-white/50 text-white hover:bg-white/10 hover:text-white px-8 h-14 text-lg"
+                  style={{ borderRadius: 0 }}
                   onClick={() => navigate('/login')}
                 >
                   ログイン / 新規登録
@@ -301,16 +321,21 @@ export function PlatformTop() {
       {/* ラインナップ（公演予定付き） */}
       <section className="max-w-7xl mx-auto px-4 py-8 md:py-12">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-3">
             <Calendar className="w-6 h-6" style={{ color: THEME.primary }} />
             公演ラインナップ
+            {/* アクセントライン */}
+            <span 
+              className="w-12 h-1 ml-2"
+              style={{ backgroundColor: THEME.accent }}
+            />
           </h2>
           
           {/* 地域フィルター */}
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-500" />
             <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-32" style={{ borderRadius: 0 }}>
                 <SelectValue placeholder="地域" />
               </SelectTrigger>
               <SelectContent>
@@ -325,7 +350,7 @@ export function PlatformTop() {
         {loading ? (
           <div className="flex justify-center py-12">
             <div 
-              className="animate-spin h-8 w-8 border-4 border-t-transparent rounded-full"
+              className="animate-spin h-8 w-8 border-4 border-t-transparent"
               style={{ borderColor: `${THEME.primary} transparent ${THEME.primary} ${THEME.primary}` }}
             />
           </div>
@@ -335,25 +360,27 @@ export function PlatformTop() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {filteredScenarios.map(scenario => (
+            {filteredScenarios.map((scenario, idx) => (
               <div 
                 key={scenario.scenario_id}
                 className="group cursor-pointer"
                 onClick={() => handleScenarioClick(scenario)}
               >
-                {/* カード本体 - スマホは横並び、タブレット以上は縦 */}
-                <div className="relative bg-white rounded-lg overflow-hidden border border-gray-200 group-hover:border-gray-300 group-hover:shadow-lg transition-all duration-200 flex sm:flex-col">
-                  {/* お気に入りボタン - カード右上（タップ領域拡大） */}
+                {/* カード本体 - シャープデザイン */}
+                <div 
+                  className="relative bg-white overflow-hidden border border-gray-200 group-hover:border-gray-300 group-hover:shadow-lg transition-all duration-200 flex sm:flex-col hover:scale-[1.02]"
+                  style={{ borderRadius: 0 }}
+                >
+                  {/* お気に入りボタン */}
                   {user && (
                     <button
                       onClick={(e) => handleFavoriteClick(e, scenario.scenario_id)}
-                      className={`absolute -top-2 -right-2 z-10 p-5 transition-colors`}
+                      className="absolute top-2 right-2 z-10 w-8 h-8 bg-white/90 flex items-center justify-center transition-colors"
+                      style={{ borderRadius: 0 }}
                     >
-                      <span className={`flex items-center justify-center w-8 h-8 rounded-md bg-white shadow-sm border border-gray-200 ${
-                        favorites.has(scenario.scenario_id) ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
-                      }`}>
-                        <Heart className={`h-4 w-4 ${favorites.has(scenario.scenario_id) ? 'fill-current' : ''}`} />
-                      </span>
+                      <Heart className={`h-4 w-4 ${
+                        favorites.has(scenario.scenario_id) ? 'fill-current text-red-500' : 'text-gray-400 hover:text-red-500'
+                      }`} />
                     </button>
                   )}
                   
@@ -371,12 +398,24 @@ export function PlatformTop() {
                         <Sparkles className="w-8 h-8 text-gray-300" />
                       </div>
                     )}
+                    {/* 人気タグ */}
+                    {idx === 0 && (
+                      <div 
+                        className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-black"
+                        style={{ backgroundColor: THEME.accent }}
+                      >
+                        人気
+                      </div>
+                    )}
                   </div>
 
                   {/* コンテンツ */}
                   <div className="p-3 flex-1 min-w-0">
                     {/* タイトル */}
-                    <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-2 group-hover:text-red-600 transition-colors">
+                    <h3 
+                      className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-2 transition-colors"
+                      style={{ color: 'inherit' }}
+                    >
                       {scenario.scenario_title}
                     </h3>
 
@@ -406,7 +445,7 @@ export function PlatformTop() {
                             >
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span 
-                                  className="w-1 h-4 rounded-sm flex-shrink-0"
+                                  className="w-1 h-4 flex-shrink-0"
                                   style={{ backgroundColor: event.store_color ? getColorFromName(event.store_color) : THEME.primary }}
                                 />
                                 <span className="font-medium text-gray-900">
@@ -422,11 +461,12 @@ export function PlatformTop() {
                               </div>
                               {event.available_seats > 0 && (
                                 <span 
-                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ml-2 ${
-                                    event.available_seats <= 2 
-                                      ? 'bg-red-100 text-red-600' 
-                                      : 'bg-gray-100 text-gray-600'
-                                  }`}
+                                  className="text-[10px] font-bold px-1.5 py-0.5 flex-shrink-0 ml-2"
+                                  style={{
+                                    backgroundColor: event.available_seats <= 2 ? '#FEE2E2' : THEME.accentLight,
+                                    color: event.available_seats <= 2 ? '#DC2626' : THEME.accent,
+                                    borderRadius: 0,
+                                  }}
                                 >
                                   残{event.available_seats}
                                 </span>
@@ -448,22 +488,47 @@ export function PlatformTop() {
           </div>
         )}
 
+        {/* もっと見るボタン */}
+        {filteredScenarios.length > 0 && (
+          <div className="text-center mt-8">
+            <Button
+              variant="outline"
+              className="inline-flex items-center gap-2 px-6 py-3 font-medium hover:scale-[1.02] transition-transform"
+              style={{ 
+                borderColor: THEME.primary,
+                color: THEME.primary,
+                borderRadius: 0,
+                borderWidth: 2,
+              }}
+              onClick={() => navigate('/scenario')}
+            >
+              すべてのシナリオを見る
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+
       </section>
 
       {/* 参加店舗 */}
       {organizations.length > 0 && (
         <section className="bg-white py-8 md:py-12">
           <div className="max-w-7xl mx-auto px-4">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
               <Building2 className="w-6 h-6" style={{ color: THEME.primary }} />
               参加店舗
+              <span 
+                className="w-12 h-1 ml-2"
+                style={{ backgroundColor: THEME.accent }}
+              />
             </h2>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {organizations.map(org => (
                 <div
                   key={org.id}
-                  className="bg-gray-50 rounded-xl p-4 hover:shadow-md transition-all cursor-pointer group border border-gray-100"
+                  className="bg-gray-50 p-4 hover:shadow-md transition-all cursor-pointer group border border-gray-100 hover:scale-[1.02]"
+                  style={{ borderRadius: 0 }}
                   onClick={() => navigate(`/${org.slug}`)}
                 >
                   <div className="flex items-center gap-4">
@@ -471,12 +536,13 @@ export function PlatformTop() {
                       <img
                         src={org.logo_url}
                         alt={org.display_name}
-                        className="w-14 h-14 rounded-xl object-cover"
+                        className="w-14 h-14 object-cover"
+                        style={{ borderRadius: 0 }}
                       />
                     ) : (
                       <div 
-                        className="w-14 h-14 rounded-xl flex items-center justify-center"
-                        style={{ backgroundColor: THEME.primaryLight }}
+                        className="w-14 h-14 flex items-center justify-center"
+                        style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
                       >
                         <Building2 className="w-7 h-7" style={{ color: THEME.primary }} />
                       </div>
@@ -487,6 +553,7 @@ export function PlatformTop() {
                       </h3>
                       <p className="text-sm text-gray-500">予約サイトを見る →</p>
                     </div>
+                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-gray-500 transition-colors" />
                   </div>
                 </div>
               ))}
@@ -498,27 +565,39 @@ export function PlatformTop() {
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 py-8 md:py-12">
         <div 
-          className="rounded-2xl p-8 md:p-12 text-center text-white"
-          style={{ 
-            background: `linear-gradient(135deg, ${THEME.gradientFrom} 0%, ${THEME.gradientTo} 100%)` 
-          }}
+          className="relative overflow-hidden p-8 md:p-12 text-center text-white"
+          style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
         >
-          <h2 className="text-2xl md:text-3xl font-bold mb-4">
-            今すぐシナリオを探そう
-          </h2>
-          <p className="opacity-90 mb-6 max-w-lg mx-auto">
-            様々な店舗のマーダーミステリーを検索。<br />
-            あなたにぴったりの物語を見つけましょう。
-          </p>
-          <Button
-            size="lg"
-            className="bg-white hover:bg-gray-100 rounded-full px-8"
-            style={{ color: THEME.primary }}
-            onClick={() => navigate('/scenario')}
-          >
-            シナリオを探す
-            <ChevronRight className="w-5 h-5 ml-2" />
-          </Button>
+          {/* アクセント装飾 */}
+          <div 
+            className="absolute top-0 right-0 w-64 h-full"
+            style={{ 
+              background: `linear-gradient(90deg, transparent 0%, ${THEME.accent}30 100%)`,
+            }}
+          />
+          <div 
+            className="absolute bottom-0 left-0 w-32 h-1"
+            style={{ backgroundColor: THEME.accent }}
+          />
+          
+          <div className="relative">
+            <h2 className="text-2xl md:text-3xl font-bold mb-4">
+              今すぐシナリオを探そう
+            </h2>
+            <p className="opacity-90 mb-6 max-w-lg mx-auto">
+              様々な店舗のマーダーミステリーを検索。<br />
+              あなたにぴったりの物語を見つけましょう。
+            </p>
+            <Button
+              size="lg"
+              className="bg-white hover:bg-gray-100 px-8 hover:scale-[1.02] transition-transform"
+              style={{ color: THEME.primary, borderRadius: 0 }}
+              onClick={() => navigate('/scenario')}
+            >
+              シナリオを探す
+              <ChevronRight className="w-5 h-5 ml-2" />
+            </Button>
+          </div>
         </div>
       </section>
 

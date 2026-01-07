@@ -166,6 +166,32 @@ WHERE status IN ('pending', 'approved', 'rejected')
 
 ---
 
+## 実装状況（2026-01-07更新）
+
+### 完了
+- ✅ テーブル設計（scenario_masters, organization_scenarios）
+- ✅ ビュー作成（organization_scenarios_with_master）
+- ✅ RLSポリシー設定
+- ✅ API層実装（src/lib/api/scenarioMasterApi.ts）
+- ✅ シナリオマスタ管理UI（/admin/scenario-masters）
+- ✅ マスタ編集ダイアログ（ScenarioMasterEditDialog）
+- ✅ マスタ検索・追加ダイアログ（AddFromMasterDialog）
+- ✅ 組織シナリオ一覧UI（OrganizationScenarioList）
+- ✅ UIモード切り替え機能（ScenarioManagement）
+- ✅ 移行スクリプト（migrate_scenarios_to_masters.sql）
+
+### 使用方法
+1. シナリオ管理ページで「新UI（マスタ連携）」を選択
+2. 「マスタから追加」で共通マスタを自組織に追加
+3. 公開ステータス・料金などを組織ごとに設定
+
+### 今後の予定
+- 予約サイトでの organization_scenarios 表示対応
+- 既存 scenarios テーブルからの完全移行
+- フィーチャーフラグによる本格切り替え
+
+---
+
 ## 作成日
 2026-01-05
 

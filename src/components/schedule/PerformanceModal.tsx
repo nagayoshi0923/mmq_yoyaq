@@ -151,7 +151,31 @@ export function PerformanceModal({
     setTimeSlot(slot)
     // 現在の日付に応じたデフォルト時間を取得
     const dayDefaults = formData.date ? getDefaultsForDate(formData.date) : null
-    const slotDefaults = dayDefaults ? dayDefaults[slot] : timeSlotDefaults[slot]
+    // デフォルト値が正しく設定されていることを確認
+    const DEFAULT_FALLBACK = {
+      morning: { start_time: '10:00', end_time: '14:00' },
+      afternoon: { start_time: '14:30', end_time: '18:30' },
+      evening: { start_time: '19:00', end_time: '23:00' }
+    }
+    // 設定値を検証（start_timeとend_timeが存在し、かつ開始時間が終了時間より前であることを確認）
+    const validateTimeSlot = (settings: { start_time?: string; end_time?: string } | undefined) => {
+      if (!settings?.start_time || !settings?.end_time) return false
+      // 開始時間が終了時間より前であることを確認（日をまたぐ場合を除く）
+      const [startH, startM] = settings.start_time.split(':').map(Number)
+      const [endH, endM] = settings.end_time.split(':').map(Number)
+      const startMinutes = startH * 60 + startM
+      const endMinutes = endH * 60 + endM
+      return endMinutes > startMinutes
+    }
+    
+    let slotDefaults = dayDefaults?.[slot]
+    if (!validateTimeSlot(slotDefaults)) {
+      slotDefaults = timeSlotDefaults[slot]
+    }
+    if (!validateTimeSlot(slotDefaults)) {
+      slotDefaults = DEFAULT_FALLBACK[slot]
+    }
+    
     setFormData((prev: EventFormData) => ({
       ...prev,
       start_time: slotDefaults.start_time,
@@ -207,8 +231,20 @@ export function PerformanceModal({
     }
   }, [formData.venue, stores])
 
+  // デフォルト時間設定のフォールバック（設定がロードされていない場合に使用）
+  const DEFAULT_TIME_SLOTS = {
+    morning: { start_time: '10:00', end_time: '14:00' },
+    afternoon: { start_time: '14:30', end_time: '18:30' },
+    evening: { start_time: '19:00', end_time: '23:00' }
+  }
+
   // モードに応じてフォームを初期化
   useEffect(() => {
+    // 設定がロード中の場合は待機（追加モードの場合のみ）
+    if (mode === 'add' && isTimeSlotSettingsLoading) {
+      return
+    }
+    
     if (mode === 'edit' && event) {
       // 編集モード：既存データで初期化
       // シナリオIDがない場合は、タイトルから逆引き
@@ -259,8 +295,12 @@ export function PerformanceModal({
       setTimeSlot(slot)
       
       // 日付に応じたデフォルト時間を取得（平日/休日を考慮）
+      // 設定が正しくロードされていることを確認
       const dayDefaults = getDefaultsForDate(initialData.date)
-      const slotDefaults = dayDefaults[slot] || dayDefaults.morning
+      // スロットのデフォルト値を取得（設定が不完全な場合はフォールバックを使用）
+      const slotDefaults = (dayDefaults?.[slot]?.start_time && dayDefaults?.[slot]?.end_time) 
+        ? dayDefaults[slot] 
+        : DEFAULT_TIME_SLOTS[slot]
       
       // スロットメモを取得（localStorageから）
       const slotMemo = getEmptySlotMemo(initialData.date, initialData.venue, slot)
@@ -284,7 +324,7 @@ export function PerformanceModal({
         reservation_name: ''  // 予約者名（初期値は空）
       })
     }
-  }, [mode, event, initialData, getDefaultsForDate])
+  }, [mode, event, initialData, getDefaultsForDate, isTimeSlotSettingsLoading])
 
   // 終了時間を自動計算する関数
   const calculateEndTime = (startTime: string, scenarioTitle: string) => {

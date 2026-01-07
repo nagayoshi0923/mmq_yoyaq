@@ -22,6 +22,7 @@ import { ScenarioEditDialogV2 } from '@/components/modals/ScenarioEditDialogV2'
 // 分離されたコンポーネント
 import { ScenarioStats } from './components/ScenarioStats'
 import { ScenarioFilters } from './components/ScenarioFilters'
+import { OrganizationScenarioList } from './components/OrganizationScenarioList'
 import { CsvImportExport } from '@/components/features/CsvImportExport'
 
 // 分離されたフック
@@ -444,20 +445,32 @@ export function ScenarioManagement() {
             </div>
           </div>
 
-          {/* エラー表示 */}
-          {error && (
-            <Card className="border-red-500 bg-red-50 shadow-none">
-              <CardContent className="p-3 sm:p-4 md:pt-6">
-                <div className="flex items-center gap-2 text-red-800 text-sm sm:text-base">
-                  <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-                  <p className="break-words">{error}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* 新UIモード（マスタ連携）: OrganizationScenarioList を表示 */}
+          {uiMode === 'new' ? (
+            <OrganizationScenarioList
+              onEdit={(id) => {
+                // 組織シナリオIDから編集を開く場合は、別途組織シナリオ編集UIが必要
+                // 現状は旧シナリオ編集を利用
+                setEditingScenarioId(id)
+                setEditDialogOpen(true)
+              }}
+            />
+          ) : (
+            <>
+              {/* エラー表示 */}
+              {error && (
+                <Card className="border-red-500 bg-red-50 shadow-none">
+                  <CardContent className="p-3 sm:p-4 md:pt-6">
+                    <div className="flex items-center gap-2 text-red-800 text-sm sm:text-base">
+                      <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                      <p className="break-words">{error}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-          {/* 統計情報 */}
-          <ScenarioStats scenarios={allScenarios} />
+              {/* 統計情報 */}
+              <ScenarioStats scenarios={allScenarios} />
 
           {/* 検索・フィルター */}
           <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
@@ -640,6 +653,8 @@ export function ScenarioManagement() {
                 `フィルタ結果：${filteredAndSortedScenarios.length}件のシナリオを表示しています（全体：${allScenarios.length}件）`
               )}
             </div>
+          )}
+            </>
           )}
         </div>
 

@@ -119,8 +119,8 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
     }
   }, [slug])
   
-  // スタッフまたは管理者かどうか
-  const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin'
+  // スタッフまたは管理者かどうか（MMQ運営も含む）
+  const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin' || user?.role === 'license_admin'
 
   return (
     <header className="border-b border-border bg-card h-[44px] sm:h-[48px] md:h-[52px]">

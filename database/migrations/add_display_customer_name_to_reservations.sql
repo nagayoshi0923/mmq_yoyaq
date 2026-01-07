@@ -7,3 +7,4 @@ ADD COLUMN IF NOT EXISTS display_customer_name TEXT DEFAULT NULL;
 -- コメント追加
 COMMENT ON COLUMN reservations.display_customer_name IS '編集された予約者名（NULLの場合はcustomer_nameを使用）';
 
+

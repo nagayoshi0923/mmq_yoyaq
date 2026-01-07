@@ -53,3 +53,4 @@ SELECT * FROM cron.job WHERE jobname = 'tweet-available-seats-daily';
 --   body := '{}'::jsonb
 -- );
 
+

@@ -105,3 +105,4 @@ export function useTimeSlotSettings() {
 // 型エクスポート
 export type { TimeSlotSettings, DayTypeTimeSlots }
 
+

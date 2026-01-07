@@ -11,3 +11,4 @@ COMMENT ON COLUMN schedule_events.venue_rental_fee IS '場所貸しの公演料�
 
 
 
+

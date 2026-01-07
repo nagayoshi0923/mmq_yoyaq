@@ -82,3 +82,4 @@ export async function getCurrentParticipantsCount(eventId: string): Promise<numb
   }
 }
 
+

@@ -33,3 +33,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 -- 確認
 SELECT 'Functions created successfully' as result;
 
+

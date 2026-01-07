@@ -22,3 +22,4 @@ CREATE INDEX IF NOT EXISTS idx_schedule_events_is_tentative
 ON schedule_events(is_tentative) 
 WHERE is_tentative = TRUE;
 
+

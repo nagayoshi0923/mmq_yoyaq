@@ -479,3 +479,4 @@ EXCEPTION WHEN undefined_table THEN NULL; WHEN duplicate_object THEN NULL; END $
 -- =============================================================================
 SELECT 'RLS policies created successfully!' as result;
 
+
