@@ -356,6 +356,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
                 { item: 'マニュアル', amount: 10000 },
                 { item: 'スライド', amount: 10000 },
               ],
+          kit_count: scenario.kit_count || 1,
           depreciation_per_performance: scenario.depreciation_per_performance || 0,
           genre: scenario.genre || [],
           required_props: scenario.required_props || [],
@@ -476,7 +477,6 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         participation_costs,
         license_rewards,
         franchise_license_rewards,
-        kit_count,
         ...dbFields 
       } = formData
       

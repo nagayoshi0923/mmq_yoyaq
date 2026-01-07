@@ -263,6 +263,7 @@ export interface Scenario {
     amount: number
   }>
   depreciation_per_performance?: number // 1公演あたりの償却金額
+  kit_count?: number // キット数（制作費自動計算用）
   // GM配置システム
   gm_costs: Array<{ role: string; reward: number; category?: 'normal' | 'gmtest'; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   // 新しい時間帯別料金設定
