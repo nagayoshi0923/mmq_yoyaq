@@ -8,6 +8,7 @@ import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { BookingConfirmation } from '../BookingConfirmation/index'
 import { PrivateBookingRequest } from '../PrivateBookingRequest/index'
+import { MYPAGE_THEME as THEME } from '@/lib/theme'
 
 // 分離された型定義
 import { TIME_SLOTS } from './utils/types'
@@ -174,6 +175,28 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         {shouldShowNavigation && (
           <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
         )}
+        <div className="text-white relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
+          {/* アクセント装飾 */}
+          <div 
+            className="absolute top-0 right-0 w-24 h-24 opacity-20"
+            style={{ 
+              background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+              transform: 'translate(30%, -30%)'
+            }}
+          />
+          <div className="container mx-auto max-w-7xl px-4 py-2 relative">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                onClick={onClose}
+                className="flex items-center gap-1 hover:bg-white/10 h-8 px-2 touch-manipulation text-sm text-white"
+              >
+                <ArrowLeft className="w-4 h-4 flex-shrink-0" />
+                <span>戻る</span>
+              </Button>
+            </div>
+          </div>
+        </div>
         <div className="flex items-center justify-center py-20">
           <p className="text-muted-foreground text-lg">読み込み中...</p>
         </div>
@@ -188,6 +211,28 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         {shouldShowNavigation && (
           <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
         )}
+        <div className="text-white relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
+          {/* アクセント装飾 */}
+          <div 
+            className="absolute top-0 right-0 w-24 h-24 opacity-20"
+            style={{ 
+              background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+              transform: 'translate(30%, -30%)'
+            }}
+          />
+          <div className="container mx-auto max-w-7xl px-4 py-2 relative">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                onClick={onClose}
+                className="flex items-center gap-1 hover:bg-white/10 h-8 px-2 touch-manipulation text-sm text-white"
+              >
+                <ArrowLeft className="w-4 h-4 flex-shrink-0" />
+                <span>戻る</span>
+              </Button>
+            </div>
+          </div>
+        </div>
         <div className="flex items-center justify-center py-20">
           <p className="text-muted-foreground text-lg">シナリオが見つかりませんでした</p>
         </div>
@@ -202,20 +247,35 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
         <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
       )}
 
-      {/* スティッキーヘッダー */}
-      <div className="bg-background border-b sticky top-0 z-10">
-        <div className="container mx-auto max-w-7xl px-4">
-          {/* 1行目: 戻るボタン */}
-          <div className="py-2">
+      {/* ヒーローセクション（トップページと統一） */}
+      <div className="text-white relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
+        {/* アクセント装飾 */}
+        <div 
+          className="absolute top-0 right-0 w-24 h-24 opacity-20"
+          style={{ 
+            background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+            transform: 'translate(30%, -30%)'
+          }}
+        />
+        <div className="container mx-auto max-w-7xl px-4 py-2 relative">
+          <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               onClick={onClose}
-              className="flex items-center gap-1 hover:bg-accent h-9 px-2 touch-manipulation text-sm"
+              className="flex items-center gap-1 hover:bg-white/10 h-8 px-2 touch-manipulation text-sm text-white"
             >
               <ArrowLeft className="w-4 h-4 flex-shrink-0" />
               <span>戻る</span>
             </Button>
+            <div className="h-4 w-px bg-white/30" />
+            <span className="text-sm text-white/80">シナリオ詳細</span>
           </div>
+        </div>
+      </div>
+
+      {/* スティッキーヘッダー */}
+      <div className="bg-background border-b sticky top-0 z-10">
+        <div className="container mx-auto max-w-7xl px-4">
           
           {/* 2行目: モバイル用シナリオ概要（スクロール時にアニメーション表示） */}
           {/* md:hidden - 768px未満でのみ表示（グリッドレイアウトのmd:と統一） */}
@@ -229,7 +289,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
             <div className="flex items-center gap-3 pb-2 border-t pt-2">
               {/* キービジュアル（縦80px） */}
               {scenario.key_visual_url && (
-                <div className="flex-shrink-0 h-[80px] aspect-[1/1.4] bg-gray-200 rounded overflow-hidden">
+                <div className="flex-shrink-0 h-[80px] aspect-[1/1.4] bg-gray-200 overflow-hidden">
                   <img
                     src={scenario.key_visual_url}
                     alt={scenario.scenario_title}
@@ -331,8 +391,8 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                   
                   {/* 選択された時間枠の表示 */}
                   {selectedTimeSlots.length > 0 && (
-                    <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
-                      <div className="text-xs sm:text-sm text-purple-900 mb-2">
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200">
+                      <div className="text-xs sm:text-sm text-red-900 mb-2">
                         選択中の候補日時 ({selectedTimeSlots.length}/{MAX_SELECTIONS})
                       </div>
                       <div className="space-y-1">
@@ -345,7 +405,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                           
                           return (
                             <div key={`${item.date}-${item.slot.label}`} className="flex items-center justify-between text-xs sm:text-sm">
-                              <span className="text-purple-900 flex-1 min-w-0 pr-2">
+                              <span className="text-red-900 flex-1 min-w-0 pr-2">
                                 {index + 1}. {month}/{day}({weekday}) {item.slot.label} {item.slot.startTime}〜
                               </span>
                               <Button

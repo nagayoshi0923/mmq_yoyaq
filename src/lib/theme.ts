@@ -3,6 +3,36 @@
 // このファイルを変更するだけで全体の色を変更できます
 // ============================================
 
+// 予約サイト用テーマ（MMQレッド統一）
+export const BOOKING_THEME = {
+  // メインカラー（MMQレッド）
+  primary: '#E60012',
+  primaryHover: '#CC0010',
+  primaryLight: '#FEE2E2',
+  
+  // テキストカラー
+  textPrimary: 'text-white',
+  textSecondary: 'text-white/80',
+  
+  // アクセントカラー（エメラルド）
+  accent: '#10B981',
+  accentLight: '#ECFDF5',
+  accentBorder: '#A7F3D0',
+  
+  // Tailwindクラス（シャープデザイン）
+  classes: {
+    hero: 'bg-[#E60012] text-white',
+    heroText: 'text-white/80',
+    accentBg: 'bg-red-50',
+    accentBorder: 'border-red-200',
+    accentText: 'text-red-900',
+    button: 'bg-[#E60012] hover:bg-[#CC0010] text-white',
+    // シャープデザイン用のユーティリティ
+    sharp: 'rounded-none',
+    card: 'rounded-none border border-gray-200',
+  }
+}
+
 export const MYPAGE_THEME = {
   // メインカラー（MMQレッド）
   primary: '#E60012',

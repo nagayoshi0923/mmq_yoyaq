@@ -35,7 +35,7 @@ export const BookingPanel = memo(function BookingPanel({
             <div className="flex items-center justify-between">
               <span className="text-sm">予約人数</span>
               <select 
-                className="border rounded px-3 py-1.5 text-sm"
+                className="border px-3 py-1.5 text-sm"
                 value={participantCount}
                 onChange={(e) => onParticipantCountChange(Number(e.target.value))}
               >

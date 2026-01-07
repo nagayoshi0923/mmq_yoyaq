@@ -243,7 +243,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
                 type="checkbox"
                 checked={hideLegacy}
                 onChange={(e) => setHideLegacy(e.target.checked)}
-                className="rounded"
+                className=""
               />
                       以前の設定を非表示
             </label>
@@ -255,7 +255,7 @@ export const ConditionalSettings: React.FC<ConditionalSettingsProps> = ({
         
         {/* バリデーションエラー表示 */}
         {validation.hasError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
+          <div className="bg-red-50 border border-red-200 p-3 mt-2">
             <div className="flex items-center gap-2 text-red-700 font-medium mb-1">
               ⚠️ 設定エラー
             </div>

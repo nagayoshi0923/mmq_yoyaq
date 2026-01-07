@@ -8,6 +8,7 @@ import { Bell, LogOut, User, Building2, ChevronRight, LayoutDashboard } from 'lu
 import { logger } from '@/utils/logger'
 import { devDb } from '@/components/ui/DevField'
 import { getOrganizationBySlug } from '@/lib/organization'
+import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { Organization } from '@/types'
 
 // 訪問組織のlocalStorageキー
@@ -123,13 +124,16 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
   const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin' || user?.role === 'license_admin'
 
   return (
-    <header className="border-b border-border bg-card h-[44px] sm:h-[48px] md:h-[52px]">
+    <header 
+      className="border-b h-[44px] sm:h-[48px] md:h-[52px] text-white"
+      style={{ backgroundColor: THEME.primary, borderColor: THEME.primaryHover }}
+    >
       <div className="mx-auto px-2 sm:px-3 md:px-4 md:px-6 h-full max-w-full overflow-hidden">
         <div className="flex items-center justify-between h-full gap-1 sm:gap-2">
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 min-w-0 flex-shrink">
             {/* プラットフォームロゴ → プラットフォームトップへ */}
             <h1 
-              className="cursor-pointer hover:text-primary text-sm sm:text-base font-bold leading-none whitespace-nowrap"
+              className="cursor-pointer hover:opacity-80 text-sm sm:text-base font-bold leading-none whitespace-nowrap text-white"
               onClick={handlePlatformClick}
               title="プラットフォームトップへ"
             >
@@ -139,15 +143,15 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
             {/* 組織がある場合は組織ボタンを表示 */}
             {displayOrganization && (
               <>
-                <ChevronRight className="h-3 w-3 text-muted-foreground hidden sm:block" />
+                <ChevronRight className="h-3 w-3 text-white/50 hidden sm:block" />
                 <button
                   onClick={handleOrgClick}
-                  className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded hover:bg-accent transition-colors cursor-pointer"
+                  className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 hover:bg-white/10 transition-colors cursor-pointer"
                   title={`${displayOrganization.name}の予約サイトへ`}
                 >
-                  <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
+                  <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                   <span 
-                    className="text-xs sm:text-sm font-medium text-foreground truncate max-w-[80px] sm:max-w-[120px] md:max-w-[160px]"
+                    className="text-xs sm:text-sm font-medium text-white truncate max-w-[80px] sm:max-w-[120px] md:max-w-[160px]"
                     {...devDb('organizations.name')}
                   >
                     {displayOrganization.name}
@@ -158,7 +162,7 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
             
             {/* 組織がない場合のみサブタイトルを表示 */}
             {!displayOrganization && (
-              <p className="hidden sm:inline text-xs sm:text-xs text-muted-foreground leading-none whitespace-nowrap">
+              <p className="hidden sm:inline text-xs sm:text-xs text-white/70 leading-none whitespace-nowrap">
                 マーダーミステリー店舗管理
               </p>
             )}
@@ -169,19 +173,14 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
               <>
                 <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
                   <span 
-                    className="text-xs sm:text-sm font-medium text-foreground truncate max-w-[60px] sm:max-w-[80px] md:max-w-[100px] md:max-w-none"
+                    className="text-xs sm:text-sm font-medium text-white truncate max-w-[60px] sm:max-w-[80px] md:max-w-[100px] md:max-w-none"
                     {...devDb('staff.name|users.email')}
                   >
                     {user?.staffName || user?.name}
                   </span>
                   <Badge 
-                    className={
-                      `text-xs sm:text-xs px-1 sm:px-1.5 md:px-2 py-0.5 ${
-                        user?.role === 'admin' ? 'bg-blue-100 text-blue-800' :
-                        user?.role === 'staff' ? 'bg-green-100 text-green-800' :
-                        'bg-purple-100 text-purple-800'
-                      }`
-                    }
+                    className="text-xs sm:text-xs px-1 sm:px-1.5 md:px-2 py-0.5 bg-white/20 text-white border-0"
+                    style={{ borderRadius: 0 }}
                     {...devDb('users.role')}
                   >
                     {user?.role === 'license_admin' ? 'MMQ運営' :
@@ -193,7 +192,7 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                 {isStaffOrAdmin && (
                   <button
                     onClick={handleDashboardClick}
-                    className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors touch-manipulation"
+                    className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 text-xs sm:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors touch-manipulation"
                     title="管理サイトへ"
                   >
                     <LayoutDashboard className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -201,37 +200,35 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                   </button>
                 )}
                 <button 
-                  className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 p-0 touch-manipulation"
+                  className="inline-flex items-center justify-center whitespace-nowrap text-xs font-medium transition-colors hover:bg-white/10 h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 p-0 touch-manipulation text-white"
                   onClick={handleMyPageClick}
                   title="マイページ"
                 >
                   <User className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
                 </button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 p-0 touch-manipulation">
+                <button 
+                  className="inline-flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 p-0 touch-manipulation text-white hover:bg-white/10 transition-colors"
+                >
                   <Bell className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                </button>
+                <button 
                   onClick={handleSignOut} 
-                  className="h-8 sm:h-9 md:h-10 text-xs sm:text-sm px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 touch-manipulation"
+                  className="inline-flex items-center h-8 sm:h-9 md:h-10 text-xs sm:text-sm px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 touch-manipulation bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors"
                 >
                   <LogOut className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5 md:mr-1.5" />
                   <span className="hidden sm:inline">ログアウト</span>
-                </Button>
+                </button>
               </>
             ) : (
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="h-8 sm:h-9 md:h-10 text-xs sm:text-sm px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 touch-manipulation"
+              <button 
+                className="inline-flex items-center h-8 sm:h-9 md:h-10 text-xs sm:text-sm px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 touch-manipulation bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors"
                 onClick={() => {
                   window.location.href = '/#login'
                 }}
               >
                 <User className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5 sm:mr-1.5" />
                 <span className="hidden sm:inline">ログイン</span>
-              </Button>
+              </button>
             )}
           </div>
         </div>

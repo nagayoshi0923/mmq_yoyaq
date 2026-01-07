@@ -33,12 +33,12 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
   }
 
   return (
-    <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white rounded-lg overflow-hidden">
+    <div className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden">
       <div className="p-3 md:p-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4">
           {/* キービジュアル */}
           <div className="md:col-span-4">
-            <div className="relative aspect-[3/4] bg-gray-900 rounded overflow-hidden">
+            <div className="relative aspect-[3/4] bg-gray-900 overflow-hidden">
               {/* 背景：ぼかした画像で余白を埋める */}
               {scenario.key_visual_url && (
                 <div 
@@ -72,7 +72,7 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
               {/* お気に入りボタン */}
               <button
                 onClick={handleFavoriteClick}
-                className={`absolute top-2 right-2 p-1.5 rounded-full transition-all bg-black/30 hover:bg-black/50 backdrop-blur-sm ${
+                className={`absolute top-2 right-2 p-1.5 transition-all bg-black/30 hover:bg-black/50 backdrop-blur-sm ${
                   scenarioIsFavorite ? 'text-green-500' : 'text-white/80 hover:text-green-400'
                 }`}
                 title={scenarioIsFavorite ? 'お気に入りから削除' : 'お気に入りに追加'}
@@ -113,12 +113,12 @@ export const ScenarioHero = memo(function ScenarioHero({ scenario, events = [] }
             {/* ジャンルタグ + シェアを1行に */}
             <div className="flex flex-wrap items-center gap-1.5">
               {scenario.genre.map((g, i) => (
-                <span key={i} className="text-xs text-white/70 border border-white/20 px-1.5 py-0.5 rounded">
+                <span key={i} className="text-xs text-white/70 border border-white/20 px-1.5 py-0.5">
                   {g}
                 </span>
               ))}
               {scenario.has_pre_reading && (
-                <span className="text-xs text-blue-300 border border-blue-400/30 px-1.5 py-0.5 rounded">
+                <span className="text-xs text-blue-300 border border-blue-400/30 px-1.5 py-0.5">
                   事前読解あり
                 </span>
               )}

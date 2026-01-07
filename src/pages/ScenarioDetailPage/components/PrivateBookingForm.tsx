@@ -139,7 +139,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
           <span>候補日時を選択してください（最大{maxSelections}件）</span>
         ) : remainingSelections > 0 ? (
           <span>
-            <span className="font-medium text-purple-600">{selectedSlots.length}件</span>選択中
+            <span className="font-medium text-red-600">{selectedSlots.length}件</span>選択中
             <span className="mx-1">･</span>
             あと<span className="font-medium">{remainingSelections}件</span>選択可能
           </span>
@@ -148,7 +148,7 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
         )}
       </div>
       
-      <div className="max-h-[280px] overflow-y-auto border rounded-lg p-2">
+      <div className="max-h-[280px] overflow-y-auto border p-2">
         {availableDates.map((date) => {
           const dateObj = new Date(date)
           const month = dateObj.getMonth() + 1
@@ -190,12 +190,12 @@ export const PrivateBookingForm = memo(function PrivateBookingForm({
                   return (
                     <button
                       key={slot.label}
-                      className={`flex-1 py-1 px-1 rounded border text-center transition-colors ${
+                      className={`flex-1 py-1 px-1 border text-center transition-colors ${
                         !isAvailable 
                           ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
                           : isSelected
-                          ? 'bg-purple-500 text-white border-purple-500'
-                          : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                          ? 'bg-[#E60012] text-white border-[#E60012]'
+                          : 'border-gray-200 hover:border-red-300 hover:bg-red-50'
                       }`}
                       disabled={!isAvailable}
                       onClick={() => isAvailable && onTimeSlotToggle(date, slotWithTime)}

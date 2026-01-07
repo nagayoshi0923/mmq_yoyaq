@@ -251,7 +251,7 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
                 type="checkbox"
                 checked={hideLegacy}
                 onChange={(e) => setHideLegacy(e.target.checked)}
-                className="rounded"
+                className=""
               />
                       以前の設定を非表示
             </label>
@@ -260,7 +260,7 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
         
         {/* バリデーションエラー表示 */}
         {validation.hasError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
+          <div className="bg-red-50 border border-red-200 p-3 mt-2">
             <div className="flex items-center gap-2 text-red-700 font-medium mb-1">
               ⚠️ 設定エラー
             </div>
@@ -395,7 +395,7 @@ export const ItemizedSettings: React.FC<ItemizedSettingsProps> = ({
             // 元のindexを取得
             const originalIndex = items.findIndex(original => original === item)
             return (
-              <div key={originalIndex} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+              <div key={originalIndex} className="flex items-center justify-between bg-gray-50 p-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm">
                     {item.item}: {item.type === 'percentage' ? `${item.amount}%` : `${item.amount.toLocaleString()}円`}

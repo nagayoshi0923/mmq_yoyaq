@@ -162,7 +162,7 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-3 py-2 border bg-white hover:bg-gray-50 transition-colors text-left ${isOpen ? 'rounded-t-lg border-b-0' : 'rounded-lg'}`}
+        className={`w-full flex items-center justify-between px-3 py-2 border bg-white hover:bg-gray-50 transition-colors text-left ${isOpen ? 'border-b-0' : ''}`}
       >
         <span className="text-sm">
           {selectedStoreIds.length === 0 
@@ -181,7 +181,7 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
       
       {/* 展開時のチェックリスト */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 z-50 border border-t-0 rounded-b-lg max-h-[200px] overflow-y-auto bg-white shadow-lg">
+        <div className="absolute top-full left-0 right-0 z-50 border border-t-0 max-h-[200px] overflow-y-auto bg-white shadow-lg">
           {storesByRegion.sortedRegions.map((region, regionIndex) => {
             const regionStores = storesByRegion.grouped[region] || []
             const selectedCount = regionStores.filter(s => selectedStoreIds.includes(s.id)).length
@@ -196,11 +196,11 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
                   onClick={() => handleSelectRegion(region)}
                   className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
                 >
-                  <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${
+                  <span className={`w-4 h-4 border flex items-center justify-center text-xs ${
                     isAllSelected 
-                      ? 'bg-purple-600 border-purple-600 text-white' 
+                      ? 'bg-primary border-primary text-white' 
                       : isPartialSelected
-                      ? 'bg-purple-200 border-purple-400'
+                      ? 'bg-red-200 border-red-400'
                       : 'border-gray-300'
                   }`}>
                     {isAllSelected && '✓'}
@@ -227,11 +227,11 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
                             onStoreIdsChange([...selectedStoreIds, store.id])
                           }
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-purple-50 transition-colors text-left"
+                        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-red-50 transition-colors text-left"
                       >
-                        <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${
+                        <span className={`w-4 h-4 border flex items-center justify-center text-xs ${
                           isSelected 
-                            ? 'bg-purple-600 border-purple-600 text-white' 
+                            ? 'bg-primary border-primary text-white' 
                             : 'border-gray-300'
                         }`}>
                           {isSelected && '✓'}

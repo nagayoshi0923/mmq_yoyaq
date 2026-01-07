@@ -35,7 +35,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
             <div className="border-t pt-2 mt-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">合計</span>
-                <span className="text-base font-bold text-purple-600">
+                <span className="text-base font-bold text-[#E60012]">
                   ¥{(participationFee * maxParticipants).toLocaleString()}
                 </span>
               </div>
@@ -49,7 +49,7 @@ export const PrivateBookingPanel = memo(function PrivateBookingPanel({
 
       {/* 貸切リクエスト送信ボタン */}
       <Button 
-        className="w-full h-10 text-base bg-purple-600 hover:bg-purple-700"
+        className="w-full h-10 text-base bg-[#E60012] hover:bg-[#CC0010]"
         onClick={onRequestBooking}
         disabled={!isLoggedIn || selectedTimeSlotsCount === 0}
       >

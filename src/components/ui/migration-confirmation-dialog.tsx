@@ -99,7 +99,7 @@ export const MigrationConfirmationDialog: React.FC<MigrationConfirmationDialogPr
 
           {/* 警告メッセージ */}
           {usageCount > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <div className="bg-red-50 border border-red-200 p-4 mb-4">
               <div className="flex items-center gap-2 text-red-700 font-medium mb-2">
                 ⚠️ 使用中のデータです
               </div>
@@ -110,7 +110,7 @@ export const MigrationConfirmationDialog: React.FC<MigrationConfirmationDialogPr
           )}
 
           {/* 適用開始タイミング選択 */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+          <div className="bg-gray-50 border border-gray-200 p-4 mb-4">
             <div className="flex items-center gap-2 text-gray-700 font-medium mb-3">
               <CalendarIcon />
               適用開始タイミングを選択してください
@@ -180,7 +180,7 @@ export const MigrationConfirmationDialog: React.FC<MigrationConfirmationDialogPr
           </div>
 
           {/* 変更内容の詳細説明 */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <div className="bg-gray-50 border border-gray-200 p-4">
             <div className="flex items-center gap-2 text-gray-700 font-medium mb-2">
               <RefreshIcon />
               変更内容の詳細

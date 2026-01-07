@@ -71,7 +71,7 @@ export const EventList = memo(function EventList({
                     {formatTime(event.start_time)}〜
                   </span>
                   <span 
-                    className="text-xs px-2 py-0.5 rounded-full"
+                    className="text-xs px-2 py-0.5"
                     style={{ 
                       backgroundColor: `${storeColor}20`,
                       color: storeColor

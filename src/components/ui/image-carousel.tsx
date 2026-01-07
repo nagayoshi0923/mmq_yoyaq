@@ -71,7 +71,7 @@ export function ImageCarousel({
 
   if (images.length === 1) {
     return (
-      <div className={cn('relative overflow-hidden rounded-lg', className)}>
+      <div className={cn('relative overflow-hidden', className)}>
         <div className={aspectRatioClass}>
           <img
             src={images[0]}
@@ -86,7 +86,7 @@ export function ImageCarousel({
 
   return (
     <>
-      <div className={cn('relative overflow-hidden rounded-lg', className)}>
+      <div className={cn('relative overflow-hidden', className)}>
         {/* メイン画像 */}
         <div className={cn('relative', aspectRatioClass)}>
           <img
@@ -100,7 +100,7 @@ export function ImageCarousel({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full h-10 w-10"
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white h-10 w-10"
             onClick={(e) => {
               e.stopPropagation()
               goToPrevious()
@@ -113,7 +113,7 @@ export function ImageCarousel({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full h-10 w-10"
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white h-10 w-10"
             onClick={(e) => {
               e.stopPropagation()
               goToNext()
@@ -132,7 +132,7 @@ export function ImageCarousel({
                   setCurrentIndex(index)
                 }}
                 className={cn(
-                  'w-2 h-2 rounded-full transition-all',
+                  'w-2 h-2 transition-all',
                   index === currentIndex
                     ? 'bg-white w-6'
                     : 'bg-white/50 hover:bg-white/75'
@@ -142,7 +142,7 @@ export function ImageCarousel({
           </div>
 
           {/* カウンター */}
-          <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded">
+          <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1">
             {currentIndex + 1} / {images.length}
           </div>
         </div>
@@ -155,7 +155,7 @@ export function ImageCarousel({
                 key={index}
                 onClick={() => setCurrentIndex(index)}
                 className={cn(
-                  'flex-shrink-0 w-16 h-12 rounded overflow-hidden border-2 transition-all',
+                  'flex-shrink-0 w-16 h-12 overflow-hidden border-2 transition-all',
                   index === currentIndex
                     ? 'border-primary ring-2 ring-primary/30'
                     : 'border-transparent opacity-60 hover:opacity-100'

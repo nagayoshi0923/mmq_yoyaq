@@ -261,7 +261,7 @@ export function MultiSelect({
                 {displayValue}
                 <button
                   type="button"
-                  className="ml-0.5 hover:bg-red-100 rounded-full p-0.5"
+                  className="ml-0.5 hover:bg-red-100 p-0.5"
                   onClick={() => handleRemoveValue(value)}
                 >
                   <X className="h-2.5 w-2.5" />

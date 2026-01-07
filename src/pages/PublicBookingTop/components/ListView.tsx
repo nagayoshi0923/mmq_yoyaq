@@ -110,7 +110,7 @@ export const ListView = memo(function ListView({
       return (
         <div className="p-1 sm:p-2">
           <button
-            className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 rounded text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+            className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
             onClick={() => {
               const basePath = organizationSlug ? `/${organizationSlug}` : ''
               window.location.href = `${basePath}/private-booking-select?date=${dateStr}&store=${store.id}&slot=${timeSlot}`
@@ -145,7 +145,7 @@ export const ListView = memo(function ListView({
         return (
           <div key={idx} className="p-1 sm:p-2">
             <div
-              className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-gray-200 rounded bg-gray-100 text-gray-400 text-center cursor-not-allowed"
+              className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-gray-200 bg-gray-100 text-gray-400 text-center cursor-not-allowed"
             >
               予約済
             </div>

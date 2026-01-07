@@ -2,7 +2,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScenarioCard } from './ScenarioCard'
 import { memo } from 'react'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, Calendar } from 'lucide-react'
+import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
 interface LineupViewProps {
@@ -56,7 +57,7 @@ export const LineupView = memo(function LineupView({
             </span>
           </h2>
           {allScenarios.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
               {allScenarios.map((scenario) => (
                 <ScenarioCard 
                   key={scenario.scenario_id} 
@@ -83,17 +84,27 @@ export const LineupView = memo(function LineupView({
       {/* 新着公演セクション */}
       {displayedNewScenarios.length > 0 && (
         <section>
-          <h2 className="text-lg mb-3 md:mb-4 flex items-center gap-2">
+          <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-3 md:mb-4 flex items-center gap-2">
+            <Calendar className="w-5 h-5" style={{ color: THEME.primary }} />
             <span>新着公演</span>
-            <Badge className="bg-red-600 text-white border-0 text-xs px-1.5 md:px-2 py-0.5 rounded-sm flex-shrink-0">NEW</Badge>
+            <Badge 
+              className="text-xs px-1.5 md:px-2 py-0.5 flex-shrink-0 border-0"
+              style={{ backgroundColor: THEME.accent, color: '#000' }}
+            >
+              NEW
+            </Badge>
+            <span 
+              className="w-8 h-1 ml-1"
+              style={{ backgroundColor: THEME.accent }}
+            />
             {newScenarios.length > 10 && (
               <span className="text-xs font-normal text-gray-500 ml-1 flex-shrink-0">
                 ({displayedNewScenarios.length} / {newScenarios.length})
               </span>
             )}
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
-            {displayedNewScenarios.map((scenario) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+            {displayedNewScenarios.map((scenario, index) => (
               <ScenarioCard 
                 key={scenario.scenario_id} 
                 scenario={scenario} 
@@ -101,6 +112,7 @@ export const LineupView = memo(function LineupView({
                 isFavorite={isFavorite(scenario.scenario_id)}
                 onToggleFavorite={onToggleFavorite}
                 organizationName={organizationName}
+                isFirst={index === 0}
               />
             ))}
           </div>
@@ -110,14 +122,19 @@ export const LineupView = memo(function LineupView({
       {/* 直近公演セクション（全て表示） */}
       {upcomingScenarios.length > 0 && (
         <section>
-          <h2 className="text-lg mb-3 md:mb-4">
-            直近公演
-              <span className="text-xs font-normal text-gray-500 ml-1">
+          <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-3 md:mb-4 flex items-center gap-2">
+            <Calendar className="w-5 h-5" style={{ color: THEME.primary }} />
+            <span>直近公演</span>
+            <span 
+              className="w-8 h-1 ml-1"
+              style={{ backgroundColor: THEME.accent }}
+            />
+            <span className="text-xs font-normal text-gray-500 ml-1">
               ({upcomingScenarios.length}件)
-              </span>
+            </span>
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
-            {upcomingScenarios.map((scenario) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+            {upcomingScenarios.map((scenario, index) => (
               <ScenarioCard 
                 key={scenario.scenario_id} 
                 scenario={scenario} 
@@ -125,6 +142,7 @@ export const LineupView = memo(function LineupView({
                 isFavorite={isFavorite(scenario.scenario_id)}
                 onToggleFavorite={onToggleFavorite}
                 organizationName={organizationName}
+                isFirst={displayedNewScenarios.length === 0 && index === 0}
               />
             ))}
           </div>
@@ -139,12 +157,17 @@ export const LineupView = memo(function LineupView({
         <Button
           variant="outline"
           onClick={handleCatalogClick}
-          className="gap-2"
+          className="gap-2 hover:scale-[1.02] transition-transform"
+          style={{ 
+            borderColor: THEME.primary,
+            color: THEME.primary,
+            borderWidth: 2,
+          }}
         >
           <BookOpen className="w-4 h-4" />
           シナリオカタログを見る
         </Button>
-        </section>
+      </section>
     </div>
   )
 })

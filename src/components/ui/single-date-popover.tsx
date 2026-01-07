@@ -201,7 +201,7 @@ export function SingleDatePopover({
 
           {/* プレビュー */}
           {tempDate && (
-            <div className="rounded border bg-muted/30 px-2 py-1.5 text-xs text-center">
+            <div className="border bg-muted/30 px-2 py-1.5 text-xs text-center">
               {new Date(tempDate + 'T00:00:00').toLocaleDateString('ja-JP', {
                 year: 'numeric',
                 month: 'long',

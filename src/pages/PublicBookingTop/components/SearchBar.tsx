@@ -2,6 +2,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, BookOpen } from 'lucide-react'
 import { memo } from 'react'
+import { MYPAGE_THEME as THEME } from '@/lib/theme'
 
 interface SearchBarProps {
   searchTerm: string
@@ -37,7 +38,12 @@ export const SearchBar = memo(function SearchBar({
       <Button
         variant="outline"
         onClick={handleCatalogClick}
-        className="h-10 md:h-9 px-3 flex items-center gap-1.5 whitespace-nowrap text-sm"
+        className="h-10 md:h-9 px-3 flex items-center gap-1.5 whitespace-nowrap text-sm hover:scale-[1.02] transition-transform"
+        style={{ 
+          borderColor: THEME.primary,
+          color: THEME.primary,
+          borderWidth: 2,
+        }}
       >
         <BookOpen className="w-4 h-4" />
         <span className="hidden sm:inline">カタログ</span>

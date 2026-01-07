@@ -112,7 +112,7 @@ export function AutocompleteInput({
       {isOpen && filteredOptions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+          className="absolute z-50 w-full mt-1 bg-white border border-gray-200 shadow-lg max-h-60 overflow-y-auto"
         >
           {filteredOptions.map((option, index) => (
             <div
@@ -126,7 +126,7 @@ export function AutocompleteInput({
               <span>{option.label}</span>
               {option.type && (
                 <span className={cn(
-                  "text-xs px-2 py-1 rounded",
+                  "text-xs px-2 py-1",
                   option.type === 'staff' 
                     ? "bg-blue-100 text-blue-800" 
                     : "bg-green-100 text-green-800"

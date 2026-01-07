@@ -40,7 +40,7 @@ export const RelatedScenarios = memo(function RelatedScenarios({
             onClick={() => onScenarioClick(scenario.slug || scenario.id)}
           >
             {/* キービジュアル */}
-            <div className="aspect-[1/1.4] bg-gray-200 rounded overflow-hidden mb-1">
+            <div className="aspect-[1/1.4] bg-gray-200 overflow-hidden mb-1">
               {scenario.key_visual_url ? (
                 <img
                   src={scenario.key_visual_url}

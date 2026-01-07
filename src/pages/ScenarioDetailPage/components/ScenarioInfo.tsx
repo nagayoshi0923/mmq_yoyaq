@@ -19,7 +19,7 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
         <div className="space-y-6">
           {/* キービジュアル */}
           {scenario.key_visual_url && (
-            <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+            <div className="aspect-video bg-gray-100 overflow-hidden">
               <img 
                 src={scenario.key_visual_url} 
                 alt={scenario.scenario_title}
@@ -70,7 +70,7 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
               <div className="text-xs text-muted-foreground mb-2">ジャンル</div>
               <div className="flex flex-wrap gap-2">
                 {scenario.genre.map((g, i) => (
-                  <Badge key={i} variant="secondary" className="bg-gray-100 border-0 rounded-[2px] font-normal">{g}</Badge>
+                  <Badge key={i} variant="secondary" className="bg-gray-100 border-0 font-normal" style={{ borderRadius: 0 }}>{g}</Badge>
                 ))}
               </div>
             </div>

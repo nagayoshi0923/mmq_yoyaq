@@ -16,7 +16,7 @@ export const ScenarioAbout = memo(function ScenarioAbout({ scenario }: ScenarioA
       <Card>
         <CardContent className="p-3 sm:p-4 space-y-2 sm:space-y-3">
           {/* 概要（基本情報） */}
-          <div className="bg-muted/50 p-2 sm:p-3 rounded space-y-1.5 sm:space-y-2">
+          <div className="bg-muted/50 p-2 sm:p-3 space-y-1.5 sm:space-y-2">
             <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm flex-wrap">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />

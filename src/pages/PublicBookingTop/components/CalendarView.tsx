@@ -80,7 +80,7 @@ export const CalendarView = memo(function CalendarView({
       />
       
       {/* カレンダーグリッド */}
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div className="bg-white border overflow-hidden">
         {/* 曜日ヘッダー（日曜始まり） */}
         <div className="grid grid-cols-7 border-b bg-muted/30">
           {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
@@ -124,7 +124,7 @@ export const CalendarView = memo(function CalendarView({
                 >
                   <span>{dateNum}</span>
                   {events.length > 3 && (
-                    <span className="text-xs bg-blue-100 text-blue-600 px-0.5 sm:px-1 py-0.5 rounded-full">
+                    <span className="text-xs bg-blue-100 text-blue-600 px-0.5 sm:px-1 py-0.5">
                       +{events.length - 3}
                     </span>
                   )}
@@ -218,7 +218,7 @@ export const CalendarView = memo(function CalendarView({
                         return (
                           <div
                             key={`${event.id || idx}`}
-                            className="w-full text-xs py-1 px-1 border border-gray-200 rounded bg-gray-100 text-gray-400 text-center cursor-not-allowed"
+                            className="w-full text-xs py-1 px-1 border border-gray-200 bg-gray-100 text-gray-400 text-center cursor-not-allowed"
                           >
                             予約済
                           </div>
@@ -304,7 +304,7 @@ export const CalendarView = memo(function CalendarView({
                           return (
                             <button
                               key={slot}
-                              className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 rounded text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
+                              className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
                               onClick={() => {
                                 const basePath = organizationSlug ? `/${organizationSlug}` : ''
                                 window.location.href = `${basePath}/private-booking-select?date=${dateStr}&store=${selectedStore.id}&slot=${slot}`

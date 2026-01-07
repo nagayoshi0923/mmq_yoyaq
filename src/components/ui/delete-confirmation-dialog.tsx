@@ -70,7 +70,7 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
   const getWarningMessage = () => {
     if (status === 'active' && usageCount > 0) {
       return (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+        <div className="bg-red-50 border border-red-200 p-4 mb-4">
           <div className="flex items-center gap-2 text-red-700 font-medium mb-2">
             ⚠️ 使用中のデータです
           </div>
@@ -83,7 +83,7 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
 
     if (status === 'legacy' && usageCount > 0) {
       return (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+        <div className="bg-blue-50 border border-blue-200 p-4 mb-4">
           <div className="flex items-center gap-2 text-blue-700 font-medium mb-2">
             ℹ️ 過去データで使用中
           </div>
@@ -123,7 +123,7 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
 
           {/* シナリオ名入力（必要な場合） */}
           {requireScenarioNameConfirmation && scenarioName && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <div className="bg-yellow-50 border border-yellow-200 p-4 mb-4">
               <div className="flex items-center gap-2 text-yellow-700 font-medium mb-2">
                 🔐 削除確認
               </div>
@@ -146,7 +146,7 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
 
           {/* 削除オプション選択 */}
           {canDelete && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="bg-gray-50 border border-gray-200 p-4">
               <div className="flex items-center gap-2 text-gray-700 font-medium mb-3">
                 🔧 削除方法を選択してください
               </div>

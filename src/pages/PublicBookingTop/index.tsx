@@ -6,6 +6,8 @@ import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { useAuth } from '@/contexts/AuthContext'
 import { getColorFromName } from '@/lib/utils'
+import { BOOKING_THEME, MYPAGE_THEME as THEME } from '@/lib/theme'
+import { Sparkles } from 'lucide-react'
 import { useBookingData } from './hooks/useBookingData'
 import { useCalendarData } from './hooks/useCalendarData'
 import { useListViewData } from './hooks/useListViewData'
@@ -228,7 +230,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             </p>
             <a 
               href="/queens-waltz" 
-              className="inline-flex items-center justify-center rounded-md bg-purple-600 px-6 py-3 text-white hover:bg-purple-700 transition-colors"
+              className={`inline-flex items-center justify-center px-6 py-3 transition-colors ${BOOKING_THEME.classes.button}`}
             >
               トップページへ戻る
             </a>
@@ -245,15 +247,44 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
       )}
 
-      {/* ヒーローセクション */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-        <div className="container mx-auto max-w-7xl px-4 md:px-6 py-4 md:py-3">
-          <h1 className="text-base font-medium mb-0.5">{organizationName || 'Murder Mystery Quest'}</h1>
-          <p className="text-sm text-purple-100/90">
-            リアルな謎解き体験。あなたは事件の真相を暴けるか？
-          </p>
+      {/* ヒーローセクション - シャープデザイン */}
+      <section 
+        className="relative overflow-hidden"
+        style={{ backgroundColor: THEME.primary }}
+      >
+        {/* アクセント装飾 */}
+        <div 
+          className="absolute top-0 right-0 w-48 h-48 opacity-20"
+          style={{ 
+            background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+            transform: 'translate(30%, -30%)'
+          }}
+        />
+        <div 
+          className="absolute bottom-0 left-0 w-1 h-12"
+          style={{ backgroundColor: THEME.accent }}
+        />
+        
+        <div className="container mx-auto max-w-7xl px-4 md:px-6 py-4 md:py-5 relative">
+          <div className="text-white">
+            {/* アクセントバッジ */}
+            <div 
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium mb-2"
+              style={{ backgroundColor: THEME.accent, color: '#000' }}
+            >
+              <Sparkles className="w-2.5 h-2.5" />
+              {organizationName?.toUpperCase() || 'MURDER MYSTERY QUEST'}
+            </div>
+            
+            <h1 className="text-lg md:text-xl font-bold tracking-tight">
+              {organizationName || 'Murder Mystery Quest'}
+            </h1>
+            <p className="text-sm text-white/80">
+              リアルな謎解き体験。あなたは事件の真相を暴けるか？
+            </p>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* 検索バー - スクロール時に固定 */}
       <div className="bg-white border-b sticky top-0 z-50 shadow-sm">

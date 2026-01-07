@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 
 // テーマ
-import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { MYPAGE_THEME as THEME, BOOKING_THEME } from '@/lib/theme'
 
 // UIコンポーネントのインポート
 import { Button } from '@/components/ui/button'
@@ -867,13 +867,38 @@ export function ComponentGallery() {
                 </div>
               </SubSection>
 
-              <SubSection title="組織別予約サイト（グラデーション）">
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white p-4">
-                    <h1 className="text-base font-medium mb-0.5">Murder Mystery Quest</h1>
-                    <p className="text-sm text-purple-100/90">
-                      リアルな謎解き体験。あなたは事件の真相を暴けるか？
-                    </p>
+              <SubSection title="組織別予約サイト（MMQレッド統一）">
+                <div className="border overflow-hidden" style={{ borderRadius: 0 }}>
+                  <div 
+                    className="relative overflow-hidden text-white p-4"
+                    style={{ backgroundColor: THEME.primary }}
+                  >
+                    {/* アクセント装飾 */}
+                    <div 
+                      className="absolute top-0 right-0 w-24 h-24 opacity-20"
+                      style={{ 
+                        background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+                        transform: 'translate(30%, -30%)'
+                      }}
+                    />
+                    <div 
+                      className="absolute bottom-0 left-0 w-1 h-8"
+                      style={{ backgroundColor: THEME.accent }}
+                    />
+                    
+                    <div className="relative">
+                      <div 
+                        className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium mb-2"
+                        style={{ backgroundColor: THEME.accent, color: '#000' }}
+                      >
+                        <Sparkles className="w-2.5 h-2.5" />
+                        MURDER MYSTERY QUEST
+                      </div>
+                      <h1 className="text-base font-medium mb-0.5">Murder Mystery Quest</h1>
+                      <p className="text-sm text-white/80">
+                        リアルな謎解き体験。あなたは事件の真相を暴けるか？
+                      </p>
+                    </div>
                   </div>
                   <div className="bg-gray-100 p-4 text-center text-sm text-gray-500">
                     PublicBookingTop ヒーロー (@/pages/PublicBookingTop/index.tsx)
@@ -1430,9 +1455,9 @@ export function ComponentGallery() {
             <Section
               id="theme"
               title="テーマ設定"
-              description="@/lib/theme.ts - MYPAGE_THEME"
+              description="@/lib/theme.ts - MYPAGE_THEME, BOOKING_THEME"
             >
-              <SubSection title="現在のテーマ">
+              <SubSection title="マイページテーマ (MYPAGE_THEME)">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { name: 'primary', value: THEME.primary, label: 'メインカラー（MMQレッド）' },
@@ -1486,6 +1511,53 @@ export function ComponentGallery() {
                 <div className="mt-4 p-4 bg-gray-50 border rounded text-sm text-gray-600">
                   <p className="font-medium mb-2">テーマを変更するには:</p>
                   <code className="bg-gray-100 px-2 py-0.5 rounded font-mono text-xs">src/lib/theme.ts</code> の <code className="bg-gray-100 px-2 py-0.5 rounded font-mono text-xs">MYPAGE_THEME</code> を編集してください。
+                </div>
+              </SubSection>
+
+              <SubSection title="予約サイトテーマ (BOOKING_THEME) - MMQレッド統一">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { name: 'primary', value: BOOKING_THEME.primary, label: 'プライマリ（MMQレッド）' },
+                    { name: 'primaryLight', value: BOOKING_THEME.primaryLight, label: 'プライマリライト' },
+                    { name: 'accent', value: BOOKING_THEME.accent, label: 'アクセント（エメラルド）' },
+                    { name: 'accentLight', value: BOOKING_THEME.accentLight, label: 'アクセントライト' },
+                  ].map(color => (
+                    <div key={color.name} className="space-y-1">
+                      <div 
+                        className="h-12 border flex items-center justify-center"
+                        style={{ backgroundColor: color.value, borderRadius: 0 }}
+                      />
+                      <div className="text-xs">
+                        <div className="font-medium">{color.label}</div>
+                        <div className="text-gray-400 font-mono">{color.value}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4">
+                  <ComponentBox label="ヒーロープレビュー（シャープデザイン）">
+                    <div 
+                      className="w-full text-center text-white relative overflow-hidden"
+                      style={{ backgroundColor: BOOKING_THEME.primary, padding: '24px' }}
+                    >
+                      {/* アクセント装飾 */}
+                      <div 
+                        className="absolute top-0 right-0 w-24 h-24 opacity-20"
+                        style={{ 
+                          background: `radial-gradient(circle at center, ${BOOKING_THEME.accent} 0%, transparent 70%)`,
+                          transform: 'translate(30%, -30%)'
+                        }}
+                      />
+                      <h2 className="text-lg font-bold mb-1 relative">予約サイトヒーロー</h2>
+                      <p className="text-sm text-white/80 relative">
+                        PublicBookingTop, ScenarioDetailPage で使用
+                      </p>
+                    </div>
+                  </ComponentBox>
+                </div>
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 text-sm text-gray-600" style={{ borderRadius: 0 }}>
+                  <p className="font-medium mb-2">予約サイトのテーマを変更するには:</p>
+                  <code className="bg-gray-100 px-2 py-0.5 font-mono text-xs" style={{ borderRadius: 0 }}>src/lib/theme.ts</code> の <code className="bg-gray-100 px-2 py-0.5 font-mono text-xs" style={{ borderRadius: 0 }}>BOOKING_THEME</code> を編集してください。
                 </div>
               </SubSection>
             </Section>

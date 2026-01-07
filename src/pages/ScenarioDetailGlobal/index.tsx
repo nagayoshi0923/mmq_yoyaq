@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import { 
-  ArrowLeft, Users, Clock, Calendar, MapPin, Building2, ChevronRight
+  ArrowLeft, Users, Clock, Calendar, MapPin, Building2, ChevronRight, Sparkles
 } from 'lucide-react'
 import { getColorFromName } from '@/lib/utils'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -349,6 +349,27 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     return (
       <div className="min-h-screen" style={{ backgroundColor: THEME.background }}>
         <Header />
+        {/* ヒーローセクション */}
+        <section className="relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
+          <div 
+            className="absolute top-0 right-0 w-48 h-48 opacity-20"
+            style={{ 
+              background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+              transform: 'translate(30%, -30%)'
+            }}
+          />
+          <div className="max-w-6xl mx-auto px-4 py-4 relative">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => onClose ? onClose() : navigate(-1)}
+                className="flex items-center gap-2 text-white/90 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>戻る</span>
+              </button>
+            </div>
+          </div>
+        </section>
         <div className="flex items-center justify-center py-20">
           <div 
             className="animate-spin h-8 w-8 border-4 border-t-transparent rounded-full"
@@ -363,6 +384,27 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     return (
       <div className="min-h-screen" style={{ backgroundColor: THEME.background }}>
         <Header />
+        {/* ヒーローセクション */}
+        <section className="relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
+          <div 
+            className="absolute top-0 right-0 w-48 h-48 opacity-20"
+            style={{ 
+              background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+              transform: 'translate(30%, -30%)'
+            }}
+          />
+          <div className="max-w-6xl mx-auto px-4 py-4 relative">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/')}
+                className="flex items-center gap-2 text-white/90 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>戻る</span>
+              </button>
+            </div>
+          </div>
+        </section>
         <div className="max-w-4xl mx-auto px-4 py-16 text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">{error || 'シナリオが見つかりません'}</h1>
           <Button onClick={() => navigate('/')}>トップへ戻る</Button>
@@ -375,18 +417,47 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
     <div className="min-h-screen" style={{ backgroundColor: THEME.background }}>
       <Header />
 
-      {/* ヘッダー部分 */}
-      <div className="bg-white border-b">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <button
-            onClick={() => onClose ? onClose() : navigate(-1)}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>戻る</span>
-          </button>
+      {/* ヒーローセクション - シャープデザイン */}
+      <section 
+        className="relative overflow-hidden"
+        style={{ backgroundColor: THEME.primary }}
+      >
+        {/* アクセント装飾 */}
+        <div 
+          className="absolute top-0 right-0 w-48 h-48 opacity-20"
+          style={{ 
+            background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+            transform: 'translate(30%, -30%)'
+          }}
+        />
+        <div 
+          className="absolute bottom-0 left-0 w-1 h-12"
+          style={{ backgroundColor: THEME.accent }}
+        />
+        
+        <div className="max-w-6xl mx-auto px-4 py-4 relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => onClose ? onClose() : navigate(-1)}
+                className="flex items-center gap-2 text-white/90 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>戻る</span>
+              </button>
+              <div className="h-4 w-px bg-white/30" />
+              <span className="text-sm text-white/80">シナリオ詳細</span>
+            </div>
+            <div 
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium"
+              style={{ backgroundColor: THEME.accent, color: '#000' }}
+            >
+              <Sparkles className="w-2.5 h-2.5" />
+              MURDER MYSTERY QUEST
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* メインコンテンツ */}
       <div className="max-w-6xl mx-auto px-4 py-8">
@@ -398,10 +469,11 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                 <img
                   src={scenario.key_visual_url}
                   alt={scenario.title}
-                  className="w-full rounded-lg shadow-lg"
+                  className="w-full shadow-lg"
+                  style={{ borderRadius: 0 }}
                 />
               ) : (
-                <div className="w-full aspect-[3/4] bg-gray-200 rounded-lg flex items-center justify-center">
+                <div className="w-full aspect-[3/4] bg-gray-200 flex items-center justify-center" style={{ borderRadius: 0 }}>
                   <span className="text-gray-400">No Image</span>
                 </div>
               )}
@@ -445,7 +517,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
 
             {/* 説明 */}
             {scenario.description && (
-              <div className="bg-white rounded-lg p-4 border">
+              <div className="bg-white p-4 border" style={{ borderRadius: 0 }}>
                 <h2 className="font-semibold text-gray-900 mb-2">概要</h2>
                 <p className="text-gray-700 whitespace-pre-wrap">{scenario.description}</p>
               </div>
@@ -453,7 +525,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
 
             {/* あらすじ */}
             {scenario.synopsis && (
-              <div className="bg-white rounded-lg p-4 border">
+              <div className="bg-white p-4 border" style={{ borderRadius: 0 }}>
                 <h2 className="font-semibold text-gray-900 mb-2">あらすじ</h2>
                 <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{scenario.synopsis}</p>
               </div>
@@ -461,7 +533,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
 
             {/* キャラクター */}
             {characters.length > 0 && (
-              <div className="bg-white rounded-lg p-4 border">
+              <div className="bg-white p-4 border" style={{ borderRadius: 0 }}>
                 <h2 className="font-semibold text-gray-900 mb-4">登場キャラクター</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {characters.map(char => (
@@ -470,10 +542,11 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                         <img
                           src={char.image_url}
                           alt={char.name}
-                          className="w-full aspect-[3/4] object-cover rounded-lg mb-2 shadow-sm"
+                          className="w-full aspect-[3/4] object-cover mb-2 shadow-sm"
+                          style={{ borderRadius: 0 }}
                         />
                       ) : (
-                        <div className="w-full aspect-[3/4] bg-gray-100 rounded-lg mb-2 flex items-center justify-center">
+                        <div className="w-full aspect-[3/4] bg-gray-100 mb-2 flex items-center justify-center" style={{ borderRadius: 0 }}>
                           <span className="text-gray-400 text-xs">No Image</span>
                         </div>
                       )}
@@ -488,7 +561,7 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
             )}
 
             {/* 公演日程 */}
-            <div className="bg-white rounded-lg p-4 border">
+            <div className="bg-white p-4 border" style={{ borderRadius: 0 }}>
               <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Calendar className="w-5 h-5" style={{ color: THEME.primary }} />
                 公演日程
@@ -525,14 +598,15 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
                           return (
                             <div
                               key={event.id}
-                              className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                              className={`flex items-center justify-between p-3 border cursor-pointer transition-colors ${
                                 isFull ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'
                               }`}
+                              style={{ borderRadius: 0 }}
                               onClick={() => handleEventClick(event)}
                             >
                               <div className="flex items-center gap-3">
                                 <span
-                                  className="w-1 h-8 rounded-full"
+                                  className="w-1 h-8"
                                   style={{ backgroundColor: event.store_color ? getColorFromName(event.store_color) : THEME.primary }}
                                 />
                                 <div>

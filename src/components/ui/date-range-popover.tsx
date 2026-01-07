@@ -274,7 +274,7 @@ export function DateRangePopover({
 
           {/* プレビュー */}
           {(tempStartDate || tempEndDate) && (
-            <div className="rounded border bg-muted/30 px-2 py-1.5 text-xs text-center">
+            <div className="border bg-muted/30 px-2 py-1.5 text-xs text-center">
               {tempStartDate && !tempEndDate && `${tempStartDate}から`}
               {!tempStartDate && tempEndDate && `${tempEndDate}まで`}
               {tempStartDate && tempEndDate && `${tempStartDate} 〜 ${tempEndDate}`}
