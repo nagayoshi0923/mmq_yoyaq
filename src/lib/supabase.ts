@@ -31,6 +31,7 @@ export type AuthUser = {
   email: string
   name?: string
   staffName?: string
+  customerName?: string  // 顧客テーブルから取得した名前（顧客ロール用）
   role: 'admin' | 'staff' | 'customer' | 'license_admin'
   created_at?: string  // ユーザー登録日
 }

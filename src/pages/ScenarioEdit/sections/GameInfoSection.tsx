@@ -82,11 +82,11 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
 
   return (
     <div>
-      <h3 className="text-lg mb-4 pb-2 border-b">ゲーム情報</h3>
-      <div className="space-y-6">
+      <h3 className="text-sm sm:text-lg font-medium mb-2 sm:mb-3 pb-1.5 sm:pb-2 border-b">ゲーム情報</h3>
+      <div className="space-y-3 sm:space-y-4">
           {/* プレイ情報 */}
-          <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2 sm:space-y-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div>
               <Label htmlFor="duration">所要時間（分）</Label>
               <Input
@@ -97,7 +97,24 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
                 value={formData.duration}
                 onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 120 }))}
               />
+              <p className="text-xs text-muted-foreground mt-1">平日の公演時間</p>
             </div>
+            <div>
+              <Label htmlFor="weekend_duration">土日公演時間（分）</Label>
+              <Input
+                id="weekend_duration"
+                type="number"
+                min="30"
+                max="480"
+                value={formData.weekend_duration ?? ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, weekend_duration: e.target.value ? parseInt(e.target.value) : null }))}
+                placeholder="未設定"
+              />
+              <p className="text-xs text-muted-foreground mt-1">土日・祝日の公演時間</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div>
               <Label htmlFor="player_count_min">最小人数</Label>
               <Input
@@ -122,7 +139,7 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div>
               <Label htmlFor="difficulty">難易度（1-5）</Label>
               <Input
@@ -154,7 +171,7 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
           </div>
 
           {/* カテゴリ・ステータス */}
-          <div className="space-y-4 pt-4 border-t">
+          <div className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 border-t">
           <div>
             <Label htmlFor="genre">カテゴリ</Label>
             <MultiSelect

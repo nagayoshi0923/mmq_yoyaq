@@ -50,6 +50,7 @@ export function createScenarioColumns(
     {
       key: 'image',
       header: '画像',
+      helpText: 'シナリオのキービジュアル画像。クリックまたはドラッグ&ドロップでアップロード可能',
       width: 'w-20',
       headerClassName: 'text-center',
       cellClassName: 'p-1',
@@ -173,6 +174,7 @@ export function createScenarioColumns(
     {
       key: 'title',
       header: 'タイトル',
+      helpText: 'シナリオのタイトル。クリックで詳細編集画面を開く',
       width: 'w-40',
       sortable: true,
       render: (scenario) => (
@@ -189,6 +191,7 @@ export function createScenarioColumns(
     {
       key: 'author',
       header: '作者',
+      helpText: 'シナリオの制作者名',
       width: 'w-32',
       sortable: true,
       render: (scenario) => (
@@ -200,6 +203,7 @@ export function createScenarioColumns(
     {
       key: 'duration',
       header: '所要時間',
+      helpText: 'シナリオのプレイ時間（準備・片付け時間は含まない）',
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
@@ -211,6 +215,7 @@ export function createScenarioColumns(
     {
       key: 'player_count',
       header: '人数',
+      helpText: 'このシナリオをプレイできる参加者の人数範囲',
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
@@ -224,6 +229,7 @@ export function createScenarioColumns(
     {
       key: 'performance_count',
       header: '公演',
+      helpText: 'このシナリオの公演回数（キャンセルを除く）',
       width: 'w-16',
       sortable: true,
       sortValue: (scenario) => scenarioStats?.[scenario.id]?.performanceCount ?? 0,
@@ -245,6 +251,7 @@ export function createScenarioColumns(
       {
         key: 'available_stores',
         header: '対応店舗',
+        helpText: 'このシナリオを公演できる店舗。空欄は全店舗対応',
         width: 'w-36',
         sortable: false,
         render: (scenario) => {
@@ -277,6 +284,7 @@ export function createScenarioColumns(
       {
         key: 'genre',
         header: 'カテゴリ',
+        helpText: 'シナリオのジャンル分類（ホラー、感動、推理など）',
         width: 'w-36',
         sortable: true,
         render: (scenario) => {
@@ -302,6 +310,7 @@ export function createScenarioColumns(
       {
         key: 'available_gms',
         header: '担当GM',
+        helpText: 'このシナリオを担当できるGM（ゲームマスター）一覧',
         width: 'w-40',
         sortable: true,
         cellClassName: 'overflow-hidden',
@@ -351,6 +360,7 @@ export function createScenarioColumns(
       {
         key: 'experienced_staff',
         header: '体験済み',
+        helpText: 'このシナリオを体験済みのスタッフ（プレイヤーとして参加済み）',
         width: 'w-40',
         sortable: true,
         cellClassName: 'overflow-hidden',
@@ -404,6 +414,7 @@ export function createScenarioColumns(
       {
         key: 'revenue_breakdown',
         header: '1公演利益',
+        helpText: '満席時の1公演あたりの利益（参加費収入 - GM報酬 - ライセンス料）',
         width: 'w-44',
         render: (scenario) => {
           // 売上計算用のデータ
@@ -442,6 +453,7 @@ export function createScenarioColumns(
       {
         key: 'depreciation_remaining',
         header: '償却残',
+        helpText: '制作費の残り償却回数。公演ごとに減価償却され、0になると回収完了',
         width: 'w-20',
         headerClassName: 'text-right',
         cellClassName: 'text-right',
@@ -482,6 +494,7 @@ export function createScenarioColumns(
     {
       key: 'participation_fee',
       header: '参加費',
+      helpText: '1人あたりの参加費（税込）',
       width: 'w-24',
       sortable: true,
       render: (scenario) => (
@@ -493,6 +506,7 @@ export function createScenarioColumns(
     {
       key: 'status',
       header: 'ステータス',
+      helpText: '公開可能: 予約可 / メンテ中: 一時停止 / 終了: 公演終了',
       width: 'w-28',
       sortable: true,
       render: (scenario) => (
@@ -515,6 +529,7 @@ export function createScenarioColumns(
     columns.push({
       key: 'genre',
       header: 'ジャンル',
+      helpText: 'シナリオのジャンル分類（ホラー、感動、推理など）',
       width: 'flex-1 min-w-0',
       sortable: true,
       cellClassName: 'min-w-0',

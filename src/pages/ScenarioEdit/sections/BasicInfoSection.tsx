@@ -144,8 +144,8 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
 
   return (
     <div>
-      <h3 className="text-lg mb-4 pb-2 border-b">基本情報</h3>
-      <div className="space-y-4">
+      <h3 className="text-sm sm:text-lg font-medium mb-2 sm:mb-3 pb-1.5 sm:pb-2 border-b">基本情報</h3>
+      <div className="space-y-2 sm:space-y-3">
           {/* キービジュアル + タイトル・作者 */}
           <div className="flex gap-6">
             {/* キービジュアル */}
@@ -191,7 +191,7 @@ export function BasicInfoSection({ formData, setFormData }: BasicInfoSectionProp
             </div>
 
             {/* タイトル・作者・カテゴリ */}
-            <div className="flex-1 flex flex-col justify-center space-y-4">
+            <div className="flex-1 flex flex-col justify-center space-y-2 sm:space-y-3">
               <div>
                 <Label htmlFor="title" className="text-sm">タイトル *</Label>
                 <Input

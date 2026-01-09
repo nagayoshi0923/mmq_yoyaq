@@ -113,14 +113,14 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
     <div>
       <div className="flex items-start justify-between mb-4 pb-2 border-b">
         <div>
-          <h3 className="text-lg">料金設定</h3>
-          <p className="text-xs text-muted-foreground mt-1">
+          <h3 className="text-sm sm:text-lg font-medium">料金設定</h3>
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
             参加費とライセンス料を設定できます
           </p>
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-3 sm:space-y-4">
         {/* 参加費設定 */}
         <ItemizedListWithDates
           title="参加費設定"

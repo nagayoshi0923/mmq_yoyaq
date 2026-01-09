@@ -34,6 +34,7 @@ export function SettingsPage() {
   
   const [formData, setFormData] = useState({
     name: '',
+    nickname: '',
     phone: '',
     address: '',
     lineId: '',
@@ -78,6 +79,7 @@ export function SettingsPage() {
         setCustomerInfo(data)
         setFormData({
           name: data.name || '',
+          nickname: data.nickname || '',
           phone: data.phone || '',
           address: data.address || '',
           lineId: data.line_id || '',
@@ -110,6 +112,7 @@ export function SettingsPage() {
           .from('customers')
           .update({
             name: formData.name,
+            nickname: formData.nickname || null,
             phone: formData.phone || null,
             address: formData.address || null,
             line_id: formData.lineId || null,
@@ -129,6 +132,7 @@ export function SettingsPage() {
           .insert({
             user_id: user.id,
             name: formData.name,
+            nickname: formData.nickname || null,
             phone: formData.phone || null,
             address: formData.address || null,
             line_id: formData.lineId || null,
@@ -262,7 +266,7 @@ export function SettingsPage() {
     { 
       id: 'profile' as DialogType, 
       label: 'プロフィール編集', 
-      desc: formData.name || '名前・連絡先を設定',
+      desc: formData.nickname || formData.name || '名前・連絡先を設定',
       icon: User 
     },
     { 
@@ -291,19 +295,20 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      {/* メニューリスト */}
+      {/* メニューリスト - シャープデザイン */}
       {menuItems.map((item) => {
         const Icon = item.icon
         return (
           <div
             key={item.id}
             onClick={() => setActiveDialog(item.id)}
-            className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-white shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all border border-gray-200 hover:border-gray-300"
+            style={{ borderRadius: 0 }}
           >
             <div className="flex items-center gap-3">
               <div 
-                className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: THEME.primaryLight }}
+                className="w-10 h-10 flex items-center justify-center"
+                style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
               >
                 <Icon className="w-5 h-5" style={{ color: THEME.primary }} />
               </div>
@@ -317,13 +322,14 @@ export function SettingsPage() {
         )
       })}
 
-      {/* アカウント削除 */}
+      {/* アカウント削除 - シャープデザイン */}
       <div
         onClick={() => setActiveDialog('delete')}
-        className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow border border-red-100"
+        className="bg-white shadow-sm p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-all border border-red-200 hover:border-red-300"
+        style={{ borderRadius: 0 }}
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-50">
+          <div className="w-10 h-10 flex items-center justify-center bg-red-50" style={{ borderRadius: 0 }}>
             <Trash2 className="w-5 h-5 text-red-500" />
           </div>
           <div>
@@ -334,11 +340,12 @@ export function SettingsPage() {
         <ChevronRight className="w-5 h-5 text-gray-400" />
       </div>
 
-      {/* ログアウト */}
+      {/* ログアウト - シャープデザイン */}
       <div className="pt-4">
         <Button 
           variant="outline" 
-          className="w-full rounded-full text-gray-500 border-gray-300"
+          className="w-full text-gray-500 border-gray-300"
+          style={{ borderRadius: 0 }}
           onClick={handleLogout}
         >
           ログアウト
@@ -353,7 +360,7 @@ export function SettingsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="name">名前 *</Label>
+              <Label htmlFor="name">本名 *</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -361,6 +368,18 @@ export function SettingsPage() {
                 placeholder="山田 太郎"
                 className="mt-1"
               />
+              <p className="text-xs text-gray-500 mt-1">予約確認や店舗での呼び出しに使用します</p>
+            </div>
+            <div>
+              <Label htmlFor="nickname">ニックネーム</Label>
+              <Input
+                id="nickname"
+                value={formData.nickname}
+                onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                placeholder="タロウ"
+                className="mt-1"
+              />
+              <p className="text-xs text-gray-500 mt-1">マイページでの表示名として使用します</p>
             </div>
             <div>
               <Label htmlFor="phone" className="flex items-center gap-2">

@@ -19,6 +19,7 @@ export interface ScenarioFormData {
   scenario_master_id?: string  // マスタから引用した場合のマスタID
   description: string
   duration: number // 分単位
+  weekend_duration?: number | null // 土日・祝日の公演時間（分）
   player_count_min: number
   player_count_max: number
   difficulty: number

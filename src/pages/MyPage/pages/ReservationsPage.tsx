@@ -393,18 +393,44 @@ export function ReservationsPage() {
       const oldCount = editTarget.participant_count
       const countDiff = newParticipantCount - oldCount
 
-      // 参加費を再計算（1人あたりの料金 × 人数）
-      const pricePerPerson = editTarget.final_price / oldCount
-      const newPrice = pricePerPerson * newParticipantCount
+      // 予約時点の1人あたり料金を取得（優先順位: unit_price → 計算値 → シナリオ）
+      let pricePerPerson = editTarget.unit_price // 予約時点の料金
+      
+      if (!pricePerPerson && oldCount > 0) {
+        // unit_priceがない場合はbase_priceから逆算
+        pricePerPerson = Math.round((editTarget.base_price || 0) / oldCount)
+      }
+      
+      if (!pricePerPerson && editTarget.scenario_id) {
+        // それでもない場合はシナリオから取得（フォールバック）
+        const { data: scenarioData } = await supabase
+          .from('scenarios')
+          .select('participation_fee')
+          .eq('id', editTarget.scenario_id)
+          .single()
+        
+        if (scenarioData?.participation_fee) {
+          pricePerPerson = scenarioData.participation_fee
+        }
+      }
+      
+      pricePerPerson = pricePerPerson || 0
+      
+      const newBasePrice = pricePerPerson * newParticipantCount
+      // オプション料金は維持（options_price）
+      const optionsPrice = editTarget.options_price || 0
+      const newTotalPrice = newBasePrice + optionsPrice
+      const newFinalPrice = newTotalPrice - (editTarget.discount_amount || 0)
 
-      // 予約を更新
+      // 予約を更新（unit_priceも保存）
       const { error } = await supabase
         .from('reservations')
         .update({
           participant_count: newParticipantCount,
-          base_price: newPrice,
-          total_price: newPrice,
-          final_price: newPrice
+          base_price: newBasePrice,
+          total_price: newTotalPrice,
+          final_price: newFinalPrice,
+          unit_price: pricePerPerson
         })
         .eq('id', editTarget.id)
       

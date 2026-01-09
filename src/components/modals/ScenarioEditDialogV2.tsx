@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
+import { Save, FileText, Gamepad2, Coins, Users, TrendingUp, CalendarDays, ChevronLeft, ChevronRight, BookOpen, Shield } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { ScenarioMasterEditDialog } from './ScenarioMasterEditDialog'
 import { MasterSelectDialog } from './MasterSelectDialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useScenariosQuery, useScenarioMutation, useDeleteScenarioMutation } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
@@ -22,7 +24,7 @@ import { showToast } from '@/utils/toast'
 import { staffApi, scenarioApi } from '@/lib/api'
 import { assignmentApi } from '@/lib/assignmentApi'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId } from '@/lib/organization'
+import { getCurrentOrganizationId, getCurrentOrganization } from '@/lib/organization'
 import type { Staff } from '@/types'
 
 interface ScenarioEditDialogV2Props {
@@ -74,7 +76,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     author_email: '',
     description: '',
     duration: 120,
-    player_count_min: 4,
+    player_count_min: 8,
     player_count_max: 8,
     difficulty: 3,
     rating: undefined,
@@ -119,9 +121,30 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
   const { data: scenarios = [] } = useScenariosQuery()
   const scenarioMutation = useScenarioMutation()
   const deleteMutation = useDeleteScenarioMutation()
+  const { user } = useAuth()
+  const isLicenseAdmin = user?.role === 'license_admin'
+  
+  // マスター編集ダイアログ（MMQ運営者用）
+  const [masterEditDialogOpen, setMasterEditDialogOpen] = useState(false)
+  
+  // 組織名を取得
+  const [organizationName, setOrganizationName] = useState<string>('')
+  useEffect(() => {
+    const fetchOrg = async () => {
+      const org = await getCurrentOrganization()
+      setOrganizationName(org?.name || '')
+    }
+    fetchOrg()
+  }, [])
 
   // ソートされたシナリオIDリスト（sortedScenarioIdsがあればそれを使用、なければscenariosから生成）
   const scenarioIdList = sortedScenarioIds ?? scenarios.map(s => s.id)
+  
+  // 現在編集中のシナリオ（マスター編集用）
+  const currentScenario = scenarioId 
+    ? scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId) 
+    : null
+  const currentMasterId = currentScenario?.scenario_master_id || formData.scenario_master_id
 
   // 物理矢印キーでシナリオを切り替え（captureフェーズで登録）
   useEffect(() => {
@@ -302,7 +325,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     if (scenarios.length === 0) return
 
     if (scenarioId) {
-      const scenario = scenarios.find(s => s.id === scenarioId)
+      // scenario_master_id または id で検索（新UI/旧UI両対応）
+      const scenario = scenarios.find(s => s.id === scenarioId || s.scenario_master_id === scenarioId)
       if (scenario) {
         // データをフォームにマッピング
         // participation_costs：DBに存在する場合は使用、なければ生成
@@ -405,7 +429,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         author_email: '',
         description: '',
         duration: 120,
-        player_count_min: 4,
+        player_count_min: 8,
         player_count_max: 8,
         difficulty: 3,
         rating: undefined,
@@ -622,6 +646,13 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         }
       }
 
+      // 新規作成の場合、シナリオIDを親に通知して編集モードに切り替え
+      // これにより、scenarios.length が変わってもフォームがリセットされない
+      if (!scenarioId && targetScenarioId && onScenarioChange) {
+        logger.log('🔄 新規作成完了: 編集モードに切り替え', targetScenarioId)
+        onScenarioChange(targetScenarioId)
+      }
+
       // 保存完了通知
       if (onSaved) {
         try { 
@@ -640,9 +671,30 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
       // ダイアログは閉じない（保存後も編集を続けられるように）
     } catch (err: unknown) {
       logger.error('詳細エラー:', err)
-      const message = err instanceof Error ? err.message : JSON.stringify(err)
-      showToast.error('保存に失敗しました', message)
       logger.error('シナリオ保存エラー:', err)
+      
+      // エラーメッセージを日本語に変換
+      let errorMessage = err instanceof Error ? err.message : ''
+      if (typeof err === 'object' && err !== null && 'code' in err) {
+        const errorObj = err as { code: string; message?: string }
+        if (errorObj.code === '23505') {
+          // 一意制約違反
+          if (errorObj.message?.includes('scenarios_title_unique')) {
+            errorMessage = '同じタイトルのシナリオが既に存在します。別のタイトルを入力してください。'
+          } else if (errorObj.message?.includes('scenarios_slug')) {
+            errorMessage = '同じslugのシナリオが既に存在します。別のslugを入力してください。'
+          } else {
+            errorMessage = '重複するデータが存在します。'
+          }
+        } else if (errorObj.code === '23514') {
+          // CHECK制約違反
+          errorMessage = '入力値が無効です。ステータスなどの設定を確認してください。'
+        } else {
+          errorMessage = errorObj.message || 'データベースエラーが発生しました'
+        }
+      }
+      
+      showToast.error('保存に失敗しました', errorMessage || '不明なエラー')
     }
   }
 
@@ -703,11 +755,28 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent size="xl" className="max-w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[85vh] p-0 flex flex-col overflow-hidden [&>button]:z-10">
-        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-0 shrink-0">
-          <div className="flex items-center justify-between gap-4">
-            <DialogTitle className="text-xl shrink-0">
-              {scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}
+      <DialogContent size="xl" className="max-w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[min(85vh,750px)] p-0 flex flex-col overflow-hidden [&>button]:z-10">
+        <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-0 shrink-0">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <DialogTitle className="text-base sm:text-xl shrink-0 flex items-center gap-2">
+              <span>{scenarioId ? 'シナリオ編集' : '新規シナリオ作成'}</span>
+              {organizationName && (
+                <span className="text-xs sm:text-sm font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                  {organizationName}
+                </span>
+              )}
+              {/* MMQ運営者用：マスター編集ボタン */}
+              {isLicenseAdmin && currentMasterId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-xs gap-1 text-purple-600 border-purple-300 hover:bg-purple-50"
+                  onClick={() => setMasterEditDialogOpen(true)}
+                >
+                  <Shield className="w-3 h-3" />
+                  マスター編集
+                </Button>
+              )}
             </DialogTitle>
             {/* マスタから引用ボタン */}
             {!scenarioId && (
@@ -774,10 +843,10 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
               </div>
             )}
           </div>
-          <DialogDescription className="flex items-center gap-2">
-            <span>{formData.title ? `${formData.title}の情報を編集します` : 'シナリオの情報を入力してください'}</span>
+          <DialogDescription className="flex items-center gap-2 text-xs sm:text-sm">
+            <span className="truncate">{formData.title ? `${formData.title}の情報を編集します` : 'シナリオの情報を入力してください'}</span>
             {scenarioStats.firstPerformanceDate && (
-              <span className="text-xs bg-muted px-2 py-0.5 rounded">
+              <span className="text-[10px] sm:text-xs bg-muted px-1 sm:px-2 py-0.5 rounded shrink-0">
                 {new Date(scenarioStats.firstPerformanceDate).getFullYear()}.
                 {String(new Date(scenarioStats.firstPerformanceDate).getMonth() + 1).padStart(2, '0')}.
                 {String(new Date(scenarioStats.firstPerformanceDate).getDate()).padStart(2, '0')}〜
@@ -850,14 +919,12 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         </Tabs>
 
         {/* フッター（固定） */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t bg-muted/30 shrink-0">
-          {/* 現在の設定サマリー */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-            <span className="font-medium text-foreground truncate max-w-[150px]">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-3 border-t bg-muted/30 shrink-0">
+          {/* 現在の設定サマリー（小さい画面では非表示） */}
+          <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+            <span className="font-medium text-foreground truncate max-w-[120px]">
               {formData.title || '(タイトル未設定)'}
             </span>
-            <span className="text-muted-foreground/50">|</span>
-            <span>{formData.author || '(作者未設定)'}</span>
             <span className="text-muted-foreground/50">|</span>
             <span>{formData.duration}分</span>
             <span className="text-muted-foreground/50">|</span>
@@ -870,44 +937,39 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             <span className="text-muted-foreground/50">|</span>
             <span>
               ¥{(formData.participation_costs?.find(c => c.time_slot === 'normal')?.amount || formData.participation_fee || 0).toLocaleString()}
-              {formData.participation_costs?.find(c => c.time_slot === 'gmtest') && (
-                <span className="text-muted-foreground/70">
-                  (GMテスト ¥{formData.participation_costs.find(c => c.time_slot === 'gmtest')?.amount?.toLocaleString()})
-                </span>
-              )}
             </span>
           </div>
 
           {/* アクションボタン */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
             {/* ステータスバッジ */}
             {formData.status === 'draft' && (
-              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">下書き</span>
+              <span className="text-[10px] sm:text-xs bg-gray-100 text-gray-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">下書き</span>
             )}
             {formData.status === 'available' && (
-              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">公開中</span>
+              <span className="text-[10px] sm:text-xs bg-green-100 text-green-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">公開中</span>
             )}
             {formData.status === 'unavailable' && (
-              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">非公開</span>
+              <span className="text-[10px] sm:text-xs bg-yellow-100 text-yellow-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">非公開</span>
             )}
             {saveMessage && (
-              <span className="text-green-600 font-medium text-sm animate-pulse">
+              <span className="text-green-600 font-medium text-xs sm:text-sm animate-pulse">
                 ✓ {saveMessage}
               </span>
             )}
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} className="text-xs sm:text-sm h-8 sm:h-10">
               閉じる
             </Button>
             <Button 
               variant="outline"
               onClick={() => handleSave('draft')} 
               disabled={scenarioMutation.isPending || isLoadingAssignments}
-              className="text-gray-600"
+              className="text-gray-600 text-xs sm:text-sm h-8 sm:h-10 hidden sm:inline-flex"
             >
               下書き保存
             </Button>
-            <Button onClick={() => handleSave()} disabled={scenarioMutation.isPending || isLoadingAssignments} className="w-24">
-              <Save className="h-4 w-4 mr-2" />
+            <Button onClick={() => handleSave()} disabled={scenarioMutation.isPending || isLoadingAssignments} className="w-16 sm:w-24 text-xs sm:text-sm h-8 sm:h-10">
+              <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               保存
             </Button>
           </div>
@@ -920,6 +982,19 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
         onOpenChange={setMasterSelectOpen}
         onSelect={handleMasterSelect}
       />
+      
+      {/* MMQ運営者用：マスター編集ダイアログ */}
+      {isLicenseAdmin && currentMasterId && (
+        <ScenarioMasterEditDialog
+          open={masterEditDialogOpen}
+          onOpenChange={setMasterEditDialogOpen}
+          masterId={currentMasterId}
+          onSaved={() => {
+            // マスター保存後にシナリオ一覧を更新
+            setMasterEditDialogOpen(false)
+          }}
+        />
+      )}
     </Dialog>
   )
 }

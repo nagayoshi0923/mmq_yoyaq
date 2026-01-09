@@ -4,9 +4,34 @@ import { usePrefetch } from '@/hooks/usePrefetch'
 import { getColorFromName } from '@/lib/utils'
 import { devDb } from '@/components/ui/DevField'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
+
+/**
+ * シナリオカード用の汎用型定義
+ * PublicBookingTop と PlatformTop で共通利用
+ */
+export interface ScenarioCardData {
+  scenario_id: string
+  scenario_slug?: string
+  scenario_title: string
+  key_visual_url?: string | null
+  author?: string
+  duration: number
+  player_count_min: number
+  player_count_max: number
+  participation_fee?: number
+  next_events?: Array<{
+    date: string
+    time?: string
+    store_name?: string
+    store_short_name?: string
+    store_color?: string
+    available_seats?: number
+  }>
+  total_events_count?: number
+}
 
 // 画像コンポーネントをインライン化して最適化
+// 背景にぼかした画像を表示し、メインはobject-containで全体表示
 const LazyImage = ({ src, alt, className }: { src?: string, alt: string, className?: string }) => {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isInView, setIsInView] = useState(false)
@@ -31,20 +56,33 @@ const LazyImage = ({ src, alt, className }: { src?: string, alt: string, classNa
   }, [])
 
   return (
-    <div ref={imgRef} className={`relative w-full h-full bg-gray-100 overflow-hidden ${className}`}>
+    <div ref={imgRef} className={`relative w-full h-full bg-gray-900 overflow-hidden ${className}`}>
       {!isLoaded && (
         <div className="absolute inset-0 flex items-center justify-center text-gray-400">
           <div className="w-8 h-8 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
       {isInView && src ? (
-        <img
-          src={src}
-          alt={alt}
-          className={`w-full h-full object-cover transition-opacity duration-300 group-hover:scale-105 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setIsLoaded(true)}
-          loading="lazy"
-        />
+        <>
+          {/* 背景：ぼかした画像で余白を埋める */}
+          <div 
+            className="absolute inset-0 scale-110"
+            style={{
+              backgroundImage: `url(${src})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(20px) brightness(0.7)',
+            }}
+          />
+          {/* メイン画像：全体を表示 */}
+          <img
+            src={src}
+            alt={alt}
+            className={`relative w-full h-full object-contain transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => setIsLoaded(true)}
+            loading="lazy"
+          />
+        </>
       ) : !src && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Sparkles className="w-8 h-8 text-gray-300" />
@@ -55,7 +93,7 @@ const LazyImage = ({ src, alt, className }: { src?: string, alt: string, classNa
 }
 
 interface ScenarioCardProps {
-  scenario: ScenarioCardType
+  scenario: ScenarioCardData
   onClick: (id: string) => void
   isFavorite?: boolean
   onToggleFavorite?: (scenarioId: string, e: React.MouseEvent) => void
@@ -139,7 +177,9 @@ export const ScenarioCard = memo(function ScenarioCard({
         {/* コンテンツ */}
         <div className="p-2 sm:p-3 flex-1 min-w-0">
           {/* 著者 */}
-          <p className="text-xs text-gray-500 mb-1" {...devDb('scenarios.author')}>{scenario.author}</p>
+          {scenario.author && (
+            <p className="text-xs text-gray-500 mb-1" {...devDb('scenarios.author')}>{scenario.author}</p>
+          )}
           
           {/* タイトル */}
           <h3 
@@ -218,11 +258,14 @@ export const ScenarioCard = memo(function ScenarioCard({
                   </div>
                 )
               })}
-              {scenario.total_events_count && scenario.total_events_count > 2 && (
-                <p className="text-[10px] text-gray-400">
-                  ...他 {scenario.total_events_count - 2}件
-                </p>
-              )}
+              {(() => {
+                const eventsCount = scenario.total_events_count ?? scenario.next_events?.length ?? 0
+                return eventsCount > 2 && (
+                  <p className="text-[10px] text-gray-400">
+                    +{eventsCount - 2}件
+                  </p>
+                )
+              })()}
             </div>
           )}
         </div>

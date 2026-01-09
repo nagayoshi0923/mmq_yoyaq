@@ -37,6 +37,7 @@ const PrivateBookingRequestPage = lazy(() => import('./PrivateBookingRequestPage
 const PrivateBookingManagement = lazy(() => import('./PrivateBookingManagement').then(m => ({ default: m.PrivateBookingManagement })))
 const AccountManagement = lazy(() => import('./AccountManagement').then(m => ({ default: m.AccountManagement })))
 const MyPage = lazy(() => import('./MyPage'))
+const ReservationDetailPage = lazy(() => import('./MyPage/pages/ReservationDetailPage').then(m => ({ default: m.ReservationDetailPage })))
 const SettingsPage = lazy(() => import('./Settings'))
 const AddDemoParticipants = lazy(() => import('./AddDemoParticipants').then(m => ({ default: m.AddDemoParticipants })))
 const ScenarioMatcher = lazy(() => import('./ScenarioMatcher').then(m => ({ default: m.ScenarioMatcher })))
@@ -88,6 +89,11 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   // /dev/components - UIコンポーネントギャラリー
   if (segments[0] === 'dev' && segments[1] === 'components') {
     return { page: 'dev-components', scenarioId: null, organizationSlug: null }
+  }
+  
+  // /mypage/reservation/{reservationId} - マイページ予約詳細
+  if (segments[0] === 'mypage' && segments[1] === 'reservation' && segments[2]) {
+    return { page: 'mypage-reservation-detail', scenarioId: segments[2], organizationSlug: null }
   }
   
   // 特殊ページのチェック（組織スラッグなし）
@@ -428,6 +434,17 @@ export function AdminDashboard() {
       <Suspense fallback={<LoadingScreen message="担当作品を読み込み中..." />}>
         <StaffProfile />
       </Suspense>
+    )
+  }
+
+  if (currentPage === 'mypage-reservation-detail') {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header onPageChange={handlePageChange} />
+        <Suspense fallback={<LoadingScreen message="予約詳細を読み込み中..." />}>
+          <ReservationDetailPage />
+        </Suspense>
+      </div>
     )
   }
 

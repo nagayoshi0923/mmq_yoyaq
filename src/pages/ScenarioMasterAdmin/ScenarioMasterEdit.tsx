@@ -33,6 +33,7 @@ interface ScenarioMaster {
   player_count_min: number
   player_count_max: number
   official_duration: number
+  weekend_duration: number | null // 土日・祝日の公演時間（分）
   genre: string[]
   difficulty: string | null
   caution: string | null
@@ -146,9 +147,10 @@ export function ScenarioMasterEdit() {
           key_visual_url: '',
           description: '',
           synopsis: '',
-          player_count_min: 4,
+          player_count_min: 8,
           player_count_max: 6,
           official_duration: 180,
+          weekend_duration: null,
           genre: [],
           difficulty: 'intermediate',
           caution: '',
@@ -181,6 +183,7 @@ export function ScenarioMasterEdit() {
         player_count_min: master.player_count_min,
         player_count_max: master.player_count_max,
         official_duration: master.official_duration,
+        weekend_duration: master.weekend_duration || null,
         genre: master.genre || [],
         difficulty: master.difficulty || null,
         caution: master.caution || null,
@@ -539,7 +542,7 @@ export function ScenarioMasterEdit() {
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="player_count_min">最小人数</Label>
                     <Input
@@ -558,14 +561,29 @@ export function ScenarioMasterEdit() {
                       onChange={(e) => setMaster({ ...master, player_count_max: parseInt(e.target.value) || 1 })}
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="official_duration">公演時間(分)</Label>
+                    <Label htmlFor="official_duration">公演時間（分）</Label>
                     <Input
                       id="official_duration"
                       type="number"
                       value={master.official_duration}
                       onChange={(e) => setMaster({ ...master, official_duration: parseInt(e.target.value) || 180 })}
                     />
+                    <p className="text-xs text-muted-foreground mt-1">平日の公演時間</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="weekend_duration">土日公演時間（分）</Label>
+                    <Input
+                      id="weekend_duration"
+                      type="number"
+                      value={master.weekend_duration ?? ''}
+                      onChange={(e) => setMaster({ ...master, weekend_duration: e.target.value ? parseInt(e.target.value) : null })}
+                      placeholder="未設定（通常時間を使用）"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">土日・祝日に時間が変わる場合</p>
                   </div>
                 </div>
 

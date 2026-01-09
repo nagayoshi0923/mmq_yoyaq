@@ -572,12 +572,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // スタッフ情報は遅延ロード（認証処理をブロックしない）
       let staffName: string | undefined
+      let customerName: string | undefined
       
       // キャッシュから確認のみ（既に取得済みの場合のみ使用）
       const cachedName = staffCache.get(supabaseUser.id)
       if (cachedName) {
         staffName = cachedName
         logger.log('📋 ⚡ キャッシュからスタッフ名取得:', staffName)
+      } else if (role === 'customer') {
+        // 顧客の場合、customersテーブルから名前を取得（バックグラウンド）
+        logger.log('📋 顧客情報をバックグラウンドで取得開始')
+        ;(async () => {
+          try {
+            const { data } = await supabase
+              .from('customers')
+              .select('name, nickname')
+              .eq('user_id', supabaseUser.id)
+              .maybeSingle()
+            
+            if (data) {
+              // ニックネーム優先、なければ名前
+              const name = data.nickname || data.name
+              if (name) {
+                logger.log('📋 ✅ バックグラウンドで顧客名取得成功:', name)
+                // ユーザー情報も更新してヘッダーに反映
+                setUser(prev => prev ? { ...prev, customerName: name, name: name } : prev)
+              }
+            } else {
+              // user_idで見つからない場合、メールアドレスで検索
+              const { data: customerByEmail } = await supabase
+                .from('customers')
+                .select('name, nickname')
+                .eq('email', supabaseUser.email)
+                .maybeSingle()
+              
+              if (customerByEmail) {
+                const name = customerByEmail.nickname || customerByEmail.name
+                if (name) {
+                  logger.log('📋 ✅ メールアドレスで顧客名取得成功:', name)
+                  setUser(prev => prev ? { ...prev, customerName: name, name: name } : prev)
+                }
+              }
+            }
+          } catch (error) {
+            logger.log('📋 顧客情報の取得エラー（バックグラウンド）:', error)
+          }
+        })()
       } else {
         // バックグラウンドで非同期取得（認証完了を待たない）
         if (role === 'staff' || role === 'admin') {
@@ -618,8 +658,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     logger.log('📋 ✅ スタッフ自動紐付け成功:', staffByEmail.name)
                     setUser(prev => prev ? { ...prev, staffName: staffByEmail.name } : prev)
                     
-                    // usersテーブルのroleもstaffに更新（adminでなければ）
-                    if (role !== 'admin') {
+                    // usersテーブルのroleをstaffに更新（adminの場合は降格させない）
+                    // 🚨 重要: usersテーブルの既存ロールを必ず確認する
+                    const { data: existingUserData } = await supabase
+                      .from('users')
+                      .select('role')
+                      .eq('id', supabaseUser.id)
+                      .maybeSingle()
+                    
+                    if (existingUserData?.role === 'admin') {
+                      logger.log('📋 ⏭️ 既存ロールがadminのため、降格をスキップ')
+                    } else if (role !== 'admin') {
                       await supabase
                         .from('users')
                         .update({ role: 'staff' })

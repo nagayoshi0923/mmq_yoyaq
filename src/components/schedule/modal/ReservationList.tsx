@@ -545,8 +545,9 @@ export function ReservationList({
       const paymentMethod = isStaff ? 'staff' : newParticipant.payment_method
       
       const participationFee = scenarioObj?.participation_fee || 0
-      const basePrice = paymentMethod === 'staff' ? 0 : participationFee
-      const totalPrice = basePrice * newParticipant.participant_count
+      const unitPrice = paymentMethod === 'staff' ? 0 : participationFee
+      const basePrice = unitPrice * newParticipant.participant_count
+      const totalPrice = basePrice
       
       // スタッフ参加の場合は reservation_source を 'staff_participation' に設定
       const reservationSource = isStaff ? 'staff_participation' : 'walk_in'
@@ -568,6 +569,7 @@ export function ReservationList({
         total_price: totalPrice,
         discount_amount: 0,
         final_price: totalPrice,
+        unit_price: unitPrice,
         payment_method: participantName === 'デモ参加者' ? 'onsite' : paymentMethod,
         payment_status: (participantName === 'デモ参加者' || paymentMethod === 'online') ? 'paid' : (paymentMethod === 'staff' ? 'paid' : 'pending'),
         status: 'confirmed' as const,
@@ -846,12 +848,27 @@ export function ReservationList({
                               onValueChange={async (value) => {
                                 const newCount = parseInt(value)
                                 
-                                // 予約の人数を更新
+                                // 予約時の1人あたり料金を取得（unit_price優先、なければbase_priceから計算）
+                                const unitPrice = (reservation as any).unit_price 
+                                  || Math.round((reservation.base_price || 0) / (reservation.participant_count || 1))
+                                
+                                // 料金を再計算
+                                const newBasePrice = unitPrice * newCount
+                                const optionsPrice = reservation.options_price || 0
+                                const discountAmount = reservation.discount_amount || 0
+                                const newTotalPrice = newBasePrice + optionsPrice
+                                const newFinalPrice = newTotalPrice - discountAmount
+                                
+                                // 予約の人数と料金を更新
                                 const { error } = await supabase
                                   .from('reservations')
                                   .update({ 
                                     participant_count: newCount,
-                                    participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者')
+                                    participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者'),
+                                    unit_price: unitPrice,
+                                    base_price: newBasePrice,
+                                    total_price: newTotalPrice,
+                                    final_price: newFinalPrice
                                   })
                                   .eq('id', reservation.id)
                                 
@@ -942,12 +959,27 @@ export function ReservationList({
                                       const newCount = parseInt(e.target.value) || 1
                                       if (newCount < 1 || newCount > 20) return
                                       
-                                      // 予約の人数を更新
+                                      // 予約時の1人あたり料金を取得（unit_price優先、なければbase_priceから計算）
+                                      const unitPrice = (reservation as any).unit_price 
+                                        || Math.round((reservation.base_price || 0) / (reservation.participant_count || 1))
+                                      
+                                      // 料金を再計算
+                                      const newBasePrice = unitPrice * newCount
+                                      const optionsPrice = reservation.options_price || 0
+                                      const discountAmount = reservation.discount_amount || 0
+                                      const newTotalPrice = newBasePrice + optionsPrice
+                                      const newFinalPrice = newTotalPrice - discountAmount
+                                      
+                                      // 予約の人数と料金を更新
                                       const { error } = await supabase
                                         .from('reservations')
                                         .update({ 
                                           participant_count: newCount,
-                                          participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者')
+                                          participant_names: Array(newCount).fill(reservation.participant_names?.[0] || 'デモ参加者'),
+                                          unit_price: unitPrice,
+                                          base_price: newBasePrice,
+                                          total_price: newTotalPrice,
+                                          final_price: newFinalPrice
                                         })
                                         .eq('id', reservation.id)
                                       

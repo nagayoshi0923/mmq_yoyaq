@@ -70,6 +70,9 @@ export function ScenarioManagement() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
   
+  // 新UI用のリフレッシュキー（保存後に更新をトリガー）
+  const [orgScenarioRefreshKey, setOrgScenarioRefreshKey] = useState(0)
+  
   // スクロール監視用
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
 
@@ -454,6 +457,7 @@ export function ScenarioManagement() {
                 setEditingScenarioId(id)
                 setEditDialogOpen(true)
               }}
+              refreshKey={orgScenarioRefreshKey}
             />
           ) : (
             <>
@@ -676,6 +680,10 @@ export function ScenarioManagement() {
           scenarioId={editingScenarioId}
           onScenarioChange={setEditingScenarioId}
           sortedScenarioIds={filteredAndSortedScenarios.map(s => s.id)}
+          onSaved={() => {
+            // 新UIの一覧を更新
+            setOrgScenarioRefreshKey(prev => prev + 1)
+          }}
         />
       </AppLayout>
     )

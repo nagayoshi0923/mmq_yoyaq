@@ -8,13 +8,14 @@
  */
 
 const isDevelopment = import.meta.env.DEV
+const isDebugMode = import.meta.env.VITE_DEBUG === 'true'
 
 export const logger = {
   /**
    * デバッグログ（VITE_DEBUG=true の時のみ）
    */
   log: (...args: any[]) => {
-    if (isDevelopment && import.meta.env.VITE_DEBUG) {
+    if (isDevelopment && isDebugMode) {
       console.log(...args)
     }
   },
@@ -23,7 +24,7 @@ export const logger = {
    * 情報ログ（VITE_DEBUG=true の時のみ）
    */
   info: (...args: any[]) => {
-    if (isDevelopment && import.meta.env.VITE_DEBUG) {
+    if (isDevelopment && isDebugMode) {
       console.info(...args)
     }
   },
@@ -94,13 +95,13 @@ export const logger = {
  */
 export const debug = {
   log: (...args: any[]) => {
-    if (isDevelopment && import.meta.env.VITE_DEBUG) {
+    if (isDevelopment && isDebugMode) {
       console.log('[DEBUG]', ...args)
     }
   },
 
   trace: (...args: any[]) => {
-    if (isDevelopment && import.meta.env.VITE_DEBUG && console.trace) {
+    if (isDevelopment && isDebugMode && console.trace) {
       console.trace('[DEBUG]', ...args)
     }
   },

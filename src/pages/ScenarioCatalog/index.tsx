@@ -1,17 +1,17 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { NavigationBar } from '@/components/layout/NavigationBar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { scenarioApi } from '@/lib/api'
 import { useFavorites } from '@/hooks/useFavorites'
-import { Search, ArrowLeft, Clock, Users, Heart, X, Filter } from 'lucide-react'
+import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { Search, ArrowLeft, Clock, Users, Heart, X, Filter, Sparkles, BookOpen } from 'lucide-react'
 import { logger } from '@/utils/logger'
 
 interface ScenarioData {
@@ -37,6 +37,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const { user } = useAuth()
   const { organization } = useOrganization()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   
   // 予約サイトのベースパス（propsから優先、なければorganizationから）
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : (organization?.slug ? `/${organization.slug}` : '/queens-waltz')
@@ -45,12 +46,29 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const [scenarios, setScenarios] = useState<ScenarioData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedGenre, setSelectedGenre] = useState<string>('all')
+  // URLパラメータからジャンルを読み取り
+  const [selectedGenre, setSelectedGenre] = useState<string>(() => {
+    const genreParam = searchParams.get('genre')
+    return genreParam || 'all'
+  })
   const [selectedDuration, setSelectedDuration] = useState<string>('all')
   const [selectedPlayerCount, setSelectedPlayerCount] = useState<string>('all')
-  const [showFilters, setShowFilters] = useState(false)
+  const [showFilters, setShowFilters] = useState(() => {
+    // URLにジャンルパラメータがあればフィルターを表示
+    return !!searchParams.get('genre')
+  })
   
   const { isFavorite, toggleFavorite } = useFavorites()
+
+  // ジャンル変更時にURLを更新
+  useEffect(() => {
+    if (selectedGenre === 'all') {
+      searchParams.delete('genre')
+    } else {
+      searchParams.set('genre', selectedGenre)
+    }
+    setSearchParams(searchParams, { replace: true })
+  }, [selectedGenre, searchParams, setSearchParams])
 
   // データ取得
   useEffect(() => {
@@ -145,35 +163,60 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const hasActiveFilters = searchTerm || selectedGenre !== 'all' || selectedDuration !== 'all' || selectedPlayerCount !== 'all'
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: THEME.background }}>
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage={bookingBasePath} />
       )}
 
-      {/* ヘッダー */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white">
-        <div className="container mx-auto max-w-7xl px-[10px] py-4 md:py-6">
-          <div className="flex items-center gap-3">
+      {/* ヒーローセクション - シャープデザイン */}
+      <section 
+        className="relative overflow-hidden"
+        style={{ backgroundColor: THEME.primary }}
+      >
+        {/* アクセント装飾 */}
+        <div 
+          className="absolute top-0 right-0 w-48 h-48 opacity-20"
+          style={{ 
+            background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
+            transform: 'translate(30%, -30%)'
+          }}
+        />
+        <div 
+          className="absolute bottom-0 left-0 w-1 h-12"
+          style={{ backgroundColor: THEME.accent }}
+        />
+        
+        <div className="container mx-auto max-w-7xl px-4 py-4 md:py-6 relative">
+          <div className="flex items-center gap-3 text-white">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleBack}
               className="text-white hover:bg-white/20 -ml-2"
+              style={{ borderRadius: 0 }}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="text-lg font-medium">シナリオカタログ</h1>
-              <p className="text-sm text-purple-200">全{scenarios.length}タイトル</p>
+              {/* アクセントバッジ */}
+              <div 
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium mb-1"
+                style={{ backgroundColor: THEME.accent, color: '#000' }}
+              >
+                <BookOpen className="w-2.5 h-2.5" />
+                SCENARIO CATALOG
+              </div>
+              <h1 className="text-lg md:text-xl font-bold tracking-tight">シナリオカタログ</h1>
+              <p className="text-sm text-white/80">全{scenarios.length}タイトル</p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* 検索・フィルター */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="container mx-auto max-w-7xl px-[10px] py-3">
+        <div className="container mx-auto max-w-7xl px-4 py-3">
           <div className="flex gap-2 items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -190,6 +233,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
               className="h-10 px-3"
+              style={showFilters ? { backgroundColor: THEME.primary } : { borderColor: THEME.primary, color: THEME.primary }}
             >
               <Filter className="w-4 h-4" />
             </Button>
@@ -204,6 +248,37 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
               </Button>
             )}
           </div>
+          
+          {/* カテゴリークイックフィルター */}
+          {genres.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3 pb-1 overflow-x-auto">
+              <Badge
+                variant={selectedGenre === 'all' ? "default" : "outline"}
+                className={`cursor-pointer text-xs px-2 py-1 transition-all ${
+                  selectedGenre === 'all' 
+                    ? 'bg-gray-900 text-white hover:bg-gray-800' 
+                    : 'hover:bg-gray-100'
+                }`}
+                onClick={() => setSelectedGenre('all')}
+              >
+                すべて
+              </Badge>
+              {genres.slice(0, 10).map((genre) => (
+                <Badge
+                  key={genre}
+                  variant={selectedGenre === genre ? "default" : "outline"}
+                  className={`cursor-pointer text-xs px-2 py-1 transition-all whitespace-nowrap ${
+                    selectedGenre === genre 
+                      ? 'bg-gray-900 text-white hover:bg-gray-800' 
+                      : 'hover:bg-gray-100'
+                  }`}
+                  onClick={() => setSelectedGenre(genre)}
+                >
+                  {genre}
+                </Badge>
+              ))}
+            </div>
+          )}
           
           {/* フィルターパネル */}
           {showFilters && (
@@ -249,7 +324,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
       </div>
 
       {/* 結果表示 */}
-      <div className="container mx-auto max-w-7xl px-[10px] py-4">
+      <div className="container mx-auto max-w-7xl px-4 py-4">
         {hasActiveFilters && (
           <p className="text-sm text-muted-foreground mb-4">
             {filteredScenarios.length}件のシナリオが見つかりました
@@ -258,111 +333,123 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
 
         {isLoading ? (
           <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+            <div 
+              className="animate-spin h-8 w-8 border-4 border-t-transparent"
+              style={{ borderColor: `${THEME.primary} transparent ${THEME.primary} ${THEME.primary}` }}
+            />
           </div>
         ) : filteredScenarios.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">該当するシナリオが見つかりませんでした</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-3">
-            {filteredScenarios.map((scenario) => (
-              <Card
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+            {filteredScenarios.map((scenario, index) => (
+              <div
                 key={scenario.id}
-                className="overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors"
+                className="group cursor-pointer"
                 onClick={() => handleCardClick(scenario.slug || scenario.id)}
               >
-                {/* キービジュアル */}
-                <div className="relative w-full aspect-[1/1.4] bg-gray-900 overflow-hidden">
-                  {scenario.key_visual_url ? (
-                    <>
-                      {/* 背景：ぼかした画像で余白を埋める */}
-                      <div 
-                        className="absolute inset-0 scale-110"
-                        style={{
-                          backgroundImage: `url(${scenario.key_visual_url})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          filter: 'blur(20px) brightness(0.7)',
-                        }}
-                      />
-                      {/* メイン画像：全体を表示 */}
-                      <img
-                        src={scenario.key_visual_url}
-                        alt={scenario.title}
-                        className="relative w-full h-full object-contain"
-                        loading="lazy"
-                      />
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <span className="text-xs">No Image</span>
-                    </div>
-                  )}
-                  
+                {/* カード本体 - シャープデザイン */}
+                <div 
+                  className="relative bg-white overflow-hidden border border-gray-200 group-hover:border-gray-300 group-hover:shadow-lg transition-all duration-200 flex md:flex-col hover:scale-[1.02]"
+                  style={{ borderRadius: 0 }}
+                >
                   {/* お気に入りボタン */}
                   <button
                     onClick={(e) => handleToggleFavorite(scenario.id, e)}
-                    className={`absolute top-2 right-2 transition-all opacity-70 hover:opacity-100 ${
-                      isFavorite(scenario.id) ? 'text-green-500' : 'text-gray-400 hover:text-green-500'
-                    }`}
+                    className="absolute top-2 right-2 z-10 w-8 h-8 bg-white/90 flex items-center justify-center transition-colors"
+                    style={{ borderRadius: 0 }}
                   >
-                    <Heart className={`h-5 w-5 ${isFavorite(scenario.id) ? 'fill-current' : ''}`} />
+                    <Heart className={`h-4 w-4 ${
+                      isFavorite(scenario.id) ? 'fill-current text-red-500' : 'text-gray-400 hover:text-red-500'
+                    }`} />
                   </button>
-                </div>
-
-                <CardContent className="p-2 sm:p-2.5 md:p-3 space-y-0.5 sm:space-y-1 bg-white">
-                  {/* 著者 */}
-                  <p className="text-xs text-gray-500">{scenario.author}</p>
                   
-                  {/* タイトル */}
-                  <h3 className="text-sm sm:text-base truncate mt-0.5 sm:mt-1">{scenario.title}</h3>
-                  
-                  {/* 人数・時間・参加費 */}
-                  <div className="flex items-center gap-1 sm:gap-1 text-xs text-gray-600 mt-0.5 sm:mt-0.5">
-                    <div className="flex items-center gap-0.5">
-                      <Users className="h-3 w-3" />
-                      <span>
-                        {scenario.player_count_min === scenario.player_count_max
-                          ? `${scenario.player_count_max}人`
-                          : `${scenario.player_count_min}~${scenario.player_count_max}人`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-0.5">
-                      <Clock className="h-3 w-3" />
-                      <span>{scenario.duration}分</span>
-                    </div>
-                    {scenario.participation_fee && (
-                      <div className="flex items-center gap-0.5 sm:gap-1">
-                        <span>¥{scenario.participation_fee.toLocaleString()}〜</span>
+                  {/* キービジュアル */}
+                  <div className="relative w-32 md:w-full aspect-[3/4] overflow-hidden bg-gray-100 flex-shrink-0">
+                    {scenario.key_visual_url ? (
+                      <img
+                        src={scenario.key_visual_url}
+                        alt={scenario.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Sparkles className="w-8 h-8 text-gray-300" />
+                      </div>
+                    )}
+                    {/* 人気タグ（最初のカードのみ） */}
+                    {index === 0 && (
+                      <div 
+                        className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-black"
+                        style={{ backgroundColor: THEME.accent }}
+                      >
+                        人気
                       </div>
                     )}
                   </div>
 
-                  {/* ジャンル */}
-                  {scenario.genre && scenario.genre.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1 sm:mt-1.5">
-                      {scenario.genre.slice(0, 3).map((genre, index) => (
-                        <Badge
-                          key={index}
-                          variant="secondary"
-                          className="text-xs px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
-                        >
-                          {genre}
-                        </Badge>
-                      ))}
-                      {scenario.genre.length > 3 && (
-                        <Badge
-                          variant="secondary"
-                          className="text-xs px-1 sm:px-1.5 py-0.5 h-4 sm:h-5 font-normal bg-gray-100 border-0 rounded-[2px]"
-                        >
-                          +{scenario.genre.length - 3}
-                        </Badge>
+                  {/* コンテンツ */}
+                  <div className="p-2 sm:p-3 flex-1 min-w-0">
+                    {/* 著者 */}
+                    <p className="text-xs text-gray-500 mb-1">{scenario.author}</p>
+                    
+                    {/* タイトル */}
+                    <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-2">
+                      {scenario.title}
+                    </h3>
+
+                    {/* 人数・時間・参加費 */}
+                    <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {scenario.player_count_min === scenario.player_count_max
+                          ? `${scenario.player_count_max}人`
+                          : `${scenario.player_count_min}-${scenario.player_count_max}人`}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {scenario.duration >= 60 
+                          ? `${Math.floor(scenario.duration / 60)}h${scenario.duration % 60 > 0 ? `${scenario.duration % 60}m` : ''}`
+                          : `${scenario.duration}分`}
+                      </span>
+                      {scenario.participation_fee && (
+                        <span>¥{scenario.participation_fee.toLocaleString()}〜</span>
                       )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+
+                    {/* ジャンル - クリックでフィルタリング */}
+                    {scenario.genre && scenario.genre.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {scenario.genre.slice(0, 3).map((genre, idx) => (
+                          <Badge
+                            key={idx}
+                            variant="secondary"
+                            className="text-xs px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-0 cursor-pointer hover:bg-gray-200 hover:scale-105 transition-all"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedGenre(genre)
+                              setShowFilters(true)
+                            }}
+                          >
+                            {genre}
+                          </Badge>
+                        ))}
+                        {scenario.genre.length > 3 && (
+                          <Badge
+                            variant="secondary"
+                            className="text-xs px-1.5 py-0.5 h-5 font-normal bg-gray-100 border-0"
+                          >
+                            +{scenario.genre.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -370,4 +457,3 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
     </div>
   )
 }
-

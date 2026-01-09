@@ -1,0 +1,842 @@
+[
+  {
+    "title": "その白衣は誰が為に",
+    "author": "ドニパン",
+    "price": "4500円",
+    "players": "7人",
+    "duration": "4時間"
+  },
+  {
+    "title": "曙光のエテルナ",
+    "author": "りにょり",
+    "price": "4500円",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "コロシタバッドエンド",
+    "author": "とんとん",
+    "price": "4000円",
+    "players": "5人",
+    "duration": "不明"
+  },
+  {
+    "title": "ゼロ・オルビット",
+    "author": "七夕ドグラ",
+    "price": "4500円",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "OVER KILL",
+    "author": "WorLd Holic",
+    "price": "不明",
+    "players": "10人",
+    "duration": "4時間"
+  },
+  {
+    "title": "テセウスの方舟",
+    "author": "ほがらか",
+    "price": "4500円",
+    "players": "7人",
+    "duration": "4時間"
+  },
+  {
+    "title": "妖怪たちと月夜の刀",
+    "author": "ぶるーそにあ",
+    "price": "4500円",
+    "players": "8人",
+    "duration": "不明"
+  },
+  {
+    "title": "異能特区シンギュラリティ",
+    "author": "イキザマエンジン",
+    "price": "4500円",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "凪の鬼籍",
+    "author": "そがべ",
+    "price": "5000円",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "絆の永逝",
+    "author": "そがべ",
+    "price": "5000円",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "ブルーダイヤの不在証明",
+    "author": "うろん堂",
+    "price": "不明",
+    "players": "4人",
+    "duration": "3時間"
+  },
+  {
+    "title": "ある悪魔の儀式について",
+    "author": "東大マーダーミステリーサークル",
+    "price": "不明",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "蟻集",
+    "author": "幸田幸",
+    "price": "5000円",
+    "players": "7人",
+    "duration": "4時間"
+  },
+  {
+    "title": "蝉散",
+    "author": "幸田幸",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "オペレーションゴーストウィング",
+    "author": "坊",
+    "price": "4500円",
+    "players": "6人",
+    "duration": "3時間"
+  },
+  {
+    "title": "REDRUM04 アルテミスの断罪",
+    "author": "タンブルウィード レッドラム",
+    "price": "4500円",
+    "players": "7人",
+    "duration": "4時間"
+  },
+  {
+    "title": "藍雨廻逢",
+    "author": "すやてら",
+    "price": "4500円",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "探ぱんマーダーミステリー　ノーショーツトルダム学院殺人事件",
+    "author": "稲垣杏橘",
+    "price": "4500円",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "怪異探偵倶楽部 case01:赤鬼が泣いた夜",
+    "author": "とんとん",
+    "price": "4500円",
+    "players": "5人",
+    "duration": "3時間"
+  },
+  {
+    "title": "超特急の呪いの館で撮れ高足りてますか？",
+    "author": "秋山直太朗",
+    "price": "5000円",
+    "players": "9人",
+    "duration": "不明"
+  },
+  {
+    "title": "ENIGMA CODE 廃棄ミライの犠牲者たち",
+    "author": "ほがらか",
+    "price": "4500円",
+    "players": "7人",
+    "duration": "4時間"
+  },
+  {
+    "title": "漣の向こう側",
+    "author": "MATH-GAME",
+    "price": "4500円",
+    "players": "6人",
+    "duration": "3時間"
+  },
+  {
+    "title": "ゼロの爆弾",
+    "author": "綾部ヒサト",
+    "price": "4000円",
+    "players": "5人",
+    "duration": "不明"
+  },
+  {
+    "title": "境界線のカーサスベリ",
+    "author": "える",
+    "price": "5000円",
+    "players": "8人",
+    "duration": "不明"
+  },
+  {
+    "title": "月光の偽桜",
+    "author": "える",
+    "price": "4500円",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "檻見る5人/空色時箱",
+    "author": "イキザマエンジン",
+    "price": "5000円",
+    "players": "5人",
+    "duration": "4時間"
+  },
+  {
+    "title": "機巧人形の心臓",
+    "author": "夏目美緒",
+    "price": "5000円",
+    "players": "8人",
+    "duration": "不明"
+  },
+  {
+    "title": "新世界のユキサキ",
+    "author": "リン",
+    "price": "5000円",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "彗星蘭の万朶",
+    "author": "KOH",
+    "price": "5000円",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "invisible -亡霊列車-",
+    "author": "apri la porta",
+    "price": "3500円",
+    "players": "4人",
+    "duration": "2時間"
+  },
+  {
+    "title": "REDRUM03 致命的観測をもう一度",
+    "author": "タンブルウィード レッドラム",
+    "price": "4500円",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "REDRUM02 虚像のF",
+    "author": "タンブルウィード レッドラム",
+    "price": "4500円",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "REDRUM01 泉涌館の変転",
+    "author": "タンブルウィード レッドラム",
+    "price": "4000円",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "THE REAL FOLK '30s",
+    "author": "週末倶楽部",
+    "price": "4500円",
+    "players": "5人",
+    "duration": "3時間"
+  },
+  {
+    "title": "廻る弾丸輪舞曲",
+    "author": "イキザマエンジン",
+    "price": "4000円",
+    "players": "5人",
+    "duration": "2時間"
+  },
+  {
+    "title": "くずの葉のもり",
+    "author": "しゃみずい",
+    "price": "4500円",
+    "players": "7人",
+    "duration": "3時間"
+  },
+  {
+    "title": "マーダー・オブ・エクスプローラー　失われし大秘宝",
+    "author": "週末倶楽部",
+    "price": "4500円",
+    "players": "6人",
+    "duration": "3時間"
+  },
+  {
+    "title": "電脳の檻のアリス",
+    "author": "マダミステリカ",
+    "price": "5000円",
+    "players": "7人",
+    "duration": "4時間"
+  },
+  {
+    "title": "魂を運ぶ飛行船",
+    "author": "える",
+    "price": "4500円",
+    "players": "5人",
+    "duration": "不明"
+  },
+  {
+    "title": "アンドロイドは愛を知らない",
+    "author": "久畑ばく",
+    "price": "4500円",
+    "players": "6人",
+    "duration": "4時間"
+  },
+  {
+    "title": "ナナイロの迷宮- 緑 - アぺイロン研究所殺人事件",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "真・渋谷陰陽奇譚",
+    "author": "UniteLink",
+    "price": "4500円",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "ゲームマスター殺人事件",
+    "author": "NAGAKUTSU",
+    "price": "4000円",
+    "players": "5人",
+    "duration": "3時間"
+  },
+  {
+    "title": "立方館",
+    "author": "ミステリーテリング",
+    "price": "9000円",
+    "players": "6人",
+    "duration": "7時間"
+  },
+  {
+    "title": "霧に眠るは幾つの罪",
+    "author": "リン",
+    "price": "不明",
+    "players": "8人",
+    "duration": "6時間"
+  },
+  {
+    "title": "銀世界のアシアト",
+    "author": "リン",
+    "price": "不明",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "ユートピアース",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "5人",
+    "duration": "不明"
+  },
+  {
+    "title": "燔祭のジェミニ",
+    "author": "りにょり＆じる",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "この闇をあなたと",
+    "author": "さくべえ",
+    "price": "不明",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "花街リグレット",
+    "author": "ドキサバ♡委員会",
+    "price": "不明",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "天邪河",
+    "author": "そがべ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "誠実な十字架",
+    "author": "ドキサバ♡委員会",
+    "price": "不明",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "季節のマーダーミステリー「ニィホン」",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "狂気山脈 3.0 薄明三角点（第３弾）",
+    "author": "まだら牛",
+    "price": "不明",
+    "players": "5人",
+    "duration": "4時間"
+  },
+  {
+    "title": "狂気山脈 2.5 頂上戦争（第４弾）",
+    "author": "まだら牛",
+    "price": "不明",
+    "players": "5人",
+    "duration": "4時間"
+  },
+  {
+    "title": "ナナイロの迷宮 - 黄 - エレクトリカル吹奏楽部殺人事件",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "ナナイロの迷宮 - 橙 - オンラインゲーム殺人事件",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "小暮事件に関する考察",
+    "author": "東大マーダーミステリーサークル",
+    "price": "不明",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "殺人鬼Xの独白",
+    "author": "東大マーダーミステリーサークル",
+    "price": "不明",
+    "players": "6人",
+    "duration": "3時間"
+  },
+  {
+    "title": "あるマーダーミステリーについて",
+    "author": "東大マーダーミステリーサークル",
+    "price": "不明",
+    "players": "5人",
+    "duration": "3時間"
+  },
+  {
+    "title": "赤の導線",
+    "author": "min",
+    "price": "不明",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "黒と白の狭間に",
+    "author": "min",
+    "price": "不明",
+    "players": "8人",
+    "duration": "不明"
+  },
+  {
+    "title": "天使は花明かりの下で",
+    "author": "とんとん",
+    "price": "不明",
+    "players": "5人",
+    "duration": "4時間"
+  },
+  {
+    "title": "クロノフォビア",
+    "author": "ほがらか",
+    "price": "不明",
+    "players": "7人",
+    "duration": "4時間"
+  },
+  {
+    "title": "殺人鬼イバラノミチの回想録",
+    "author": "とんとん",
+    "price": "5000円",
+    "players": "7人",
+    "duration": "4時間"
+  },
+  {
+    "title": "裂き子さん",
+    "author": "とんとん",
+    "price": "不明",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "歯に噛むあなたに",
+    "author": "2U project",
+    "price": "不明",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "モノクローム",
+    "author": "isayu & Bubble",
+    "price": "不明",
+    "players": "6人",
+    "duration": "4時間"
+  },
+  {
+    "title": "5DIVE",
+    "author": "MATH-GAME",
+    "price": "不明",
+    "players": "6人",
+    "duration": "4時間"
+  },
+  {
+    "title": "人狼を語る館",
+    "author": "2U project",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "グロリアメモリーズ",
+    "author": "リン",
+    "price": "5000円",
+    "players": "10人",
+    "duration": "不明"
+  },
+  {
+    "title": "Bright Choice",
+    "author": "リン",
+    "price": "5000円",
+    "players": "9人",
+    "duration": "不明"
+  },
+  {
+    "title": "或ル胡蝶ノ夢",
+    "author": "コノハナストーリー",
+    "price": "不明",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "野槌",
+    "author": "じくまる",
+    "price": "不明",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "紅く舞う",
+    "author": "EGG Mystery Club",
+    "price": "不明",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "裁くもの、裁かれるもの",
+    "author": "のりっち",
+    "price": "5000円",
+    "players": "9人",
+    "duration": "4時間"
+  },
+  {
+    "title": "盤上の教皇",
+    "author": "あそびばくろうさぎ",
+    "price": "不明",
+    "players": "不明",
+    "duration": "3時間"
+  },
+  {
+    "title": "Murder Wonder land",
+    "author": "あそびばくろうさぎ",
+    "price": "不明",
+    "players": "不明",
+    "duration": "3時間"
+  },
+  {
+    "title": "LOST/Remembrance",
+    "author": "週末倶楽部",
+    "price": "不明",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "愛する故に",
+    "author": "マダミスHOUSE",
+    "price": "不明",
+    "players": "6人",
+    "duration": "4時間"
+  },
+  {
+    "title": "TOOLS - ぎこちない椅子",
+    "author": "Light and Geek",
+    "price": "不明",
+    "players": "6人",
+    "duration": "4時間"
+  },
+  {
+    "title": "エンドロールは流れない",
+    "author": "さくべえ",
+    "price": "不明",
+    "players": "4人",
+    "duration": "不明"
+  },
+  {
+    "title": "エイダ",
+    "author": "いとはき",
+    "price": "4500円",
+    "players": "5人",
+    "duration": "不明"
+  },
+  {
+    "title": "流年",
+    "author": "週末倶楽部",
+    "price": "不明",
+    "players": "5人",
+    "duration": "6時間"
+  },
+  {
+    "title": "殺神罪",
+    "author": "そがべ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "アンフィスバエナと聖女の祈り",
+    "author": "しゃみずい",
+    "price": "不明",
+    "players": "8人",
+    "duration": "不明"
+  },
+  {
+    "title": "女皇の書架",
+    "author": "OfficeKUMOKANA",
+    "price": "不明",
+    "players": "8人",
+    "duration": "不明"
+  },
+  {
+    "title": "白殺しType-K",
+    "author": "OfficeKUMOKANA",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "不思議の国の童話裁判",
+    "author": "みこ",
+    "price": "不明",
+    "players": "6人",
+    "duration": "4時間"
+  },
+  {
+    "title": "悪意の岐路に立つ",
+    "author": "明日森マリー",
+    "price": "不明",
+    "players": "8人",
+    "duration": "不明"
+  },
+  {
+    "title": "鹿神館の罪人",
+    "author": "明日森マリー",
+    "price": "不明",
+    "players": "8人",
+    "duration": "不明"
+  },
+  {
+    "title": "鳴神様のいうとおり",
+    "author": "リン",
+    "price": "不明",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "火ノ神様のいうとおり",
+    "author": "リン",
+    "price": "不明",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "朱き亡国に捧げる祈り",
+    "author": "コズミックミステリー",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "紫に染まる前に",
+    "author": "コズミックミステリー",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "黒の眺望",
+    "author": "コズミックミステリー",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "岐路に降り立つ",
+    "author": "The Riverie",
+    "price": "不明",
+    "players": "7人",
+    "duration": "4時間"
+  },
+  {
+    "title": "違人 - Ijin -",
+    "author": "The Riverie",
+    "price": "不明",
+    "players": "6人",
+    "duration": "4時間"
+  },
+  {
+    "title": "I will ex-",
+    "author": "リン",
+    "price": "不明",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "Dear my D",
+    "author": "リン",
+    "price": "不明",
+    "players": "8人",
+    "duration": "不明"
+  },
+  {
+    "title": "アオハループ",
+    "author": "コノハナストーリー",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "傲慢女王とアリスの不条理裁判",
+    "author": "コノハナストーリー",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "黒い森の『獣』 part1 汝が人殺しなりや？",
+    "author": "週末倶楽部",
+    "price": "不明",
+    "players": "5人",
+    "duration": "不明"
+  },
+  {
+    "title": "黒い森の『獣』 part2 人と狼",
+    "author": "週末倶楽部",
+    "price": "不明",
+    "players": "5人",
+    "duration": "不明"
+  },
+  {
+    "title": "BBA",
+    "author": "2U project",
+    "price": "不明",
+    "players": "8人",
+    "duration": "5時間"
+  },
+  {
+    "title": "季節のマーダーミステリー「アニクシィ」",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "季節のマーダーミステリー「カノケリ」",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "季節のマーダーミステリー「シノポロ」",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "季節のマーダーミステリー「キモナス」",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "星空のマリス",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "荒廃のマリス",
+    "author": "イバラユーギ",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "彼女といるかとチョコレート",
+    "author": "コノハナストーリー",
+    "price": "不明",
+    "players": "6人",
+    "duration": "不明"
+  },
+  {
+    "title": "鉄紺の証言",
+    "author": "滝崎はじめ",
+    "price": "不明",
+    "players": "8人",
+    "duration": "4時間"
+  },
+  {
+    "title": "彼とかじつとマシュマロウ",
+    "author": "コノハナストーリー",
+    "price": "不明",
+    "players": "6人",
+    "duration": "4時間"
+  },
+  {
+    "title": "学校の解談",
+    "author": "コノハナストーリー",
+    "price": "不明",
+    "players": "7人",
+    "duration": "不明"
+  },
+  {
+    "title": "僕らの未来について",
+    "author": "ねこまみれ",
+    "price": "不明",
+    "players": "5人",
+    "duration": "3時間"
+  },
+  {
+    "title": "フェイクドナー",
+    "author": "ジョイマダ",
+    "price": "不明",
+    "players": "不明",
+    "duration": "不明"
+  },
+  {
+    "title": "エデンの審判",
+    "author": "いの",
+    "price": "不明",
+    "players": "7人",
+    "duration": "4時間"
+  },
+  {
+    "title": "裁判員の仮面",
+    "author": "OfficeKUMOKANA",
+    "price": "不明",
+    "players": "８人",
+    "duration": "4時間"
+  },
+  {
+    "title": "一条家の人々",
+    "author": "OfficeKUMOKANA",
+    "price": "不明",
+    "players": "7人",
+    "duration": "3時間"
+  }
+]

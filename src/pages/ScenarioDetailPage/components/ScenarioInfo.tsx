@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Users, Star, ExternalLink } from 'lucide-react'
@@ -7,12 +8,23 @@ import { formatDuration, formatPlayerCount, formatParticipationFee, getDifficult
 
 interface ScenarioInfoProps {
   scenario: ScenarioDetail
+  organizationSlug?: string
 }
 
 /**
  * シナリオ情報表示コンポーネント
  */
-export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
+export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario, organizationSlug }) => {
+  const navigate = useNavigate()
+  
+  // カテゴリータグクリック時の処理
+  const handleGenreClick = (genre: string) => {
+    const catalogPath = organizationSlug 
+      ? `/${organizationSlug}/catalog` 
+      : '/catalog'
+    navigate(`${catalogPath}?genre=${encodeURIComponent(genre)}`)
+  }
+  
   return (
     <Card>
       <CardContent className="pt-6">
@@ -64,13 +76,21 @@ export const ScenarioInfo: React.FC<ScenarioInfoProps> = ({ scenario }) => {
             </div>
           </div>
 
-          {/* ジャンル */}
+          {/* ジャンル - クリックでカタログへ */}
           {scenario.genre && scenario.genre.length > 0 && (
             <div>
               <div className="text-xs text-muted-foreground mb-2">ジャンル</div>
               <div className="flex flex-wrap gap-2">
                 {scenario.genre.map((g, i) => (
-                  <Badge key={i} variant="secondary" className="bg-gray-100 border-0 font-normal" style={{ borderRadius: 0 }}>{g}</Badge>
+                  <Badge 
+                    key={i} 
+                    variant="secondary" 
+                    className="bg-gray-100 border-0 font-normal cursor-pointer hover:bg-gray-200 hover:scale-105 transition-all" 
+                    style={{ borderRadius: 0 }}
+                    onClick={() => handleGenreClick(g)}
+                  >
+                    {g}
+                  </Badge>
                 ))}
               </div>
             </div>

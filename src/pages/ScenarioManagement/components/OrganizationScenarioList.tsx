@@ -1,6 +1,9 @@
 /**
  * 組織シナリオ一覧（マスタ連携版）
  * @purpose organization_scenarios_with_master ビューを使用した一覧表示
+ * @design 旧UIと同じテーブル形式で表示
+ *         - マスタ由来の項目: 通常ヘッダー（グレー）
+ *         - 組織設定の項目: 色付きヘッダー（青）
  */
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,10 +16,12 @@ import { logger } from '@/utils/logger'
 import { toast } from 'sonner'
 import {
   Search, Plus, Edit, Trash2, Clock, Users, JapaneseYen, 
-  ExternalLink, AlertTriangle, RefreshCw
+  AlertTriangle, RefreshCw
 } from 'lucide-react'
 import { AddFromMasterDialog } from '@/components/modals/AddFromMasterDialog'
 import { ConfirmModal } from '@/components/patterns/modal'
+import { TanStackDataTable } from '@/components/patterns/table'
+import type { Column } from '@/components/patterns/table'
 
 interface OrganizationScenarioWithMaster {
   id: string
@@ -28,6 +33,7 @@ interface OrganizationScenarioWithMaster {
   gm_assignments: any[]
   created_at: string
   updated_at: string
+  extra_preparation_time: number | null
   // マスタ情報
   title: string
   author: string | null
@@ -40,6 +46,15 @@ interface OrganizationScenarioWithMaster {
   difficulty: string | null
   participation_fee: number | null
   master_status: 'draft' | 'pending' | 'approved' | 'rejected'
+  // 組織設定項目（ビュー更新後に使用可能）
+  license_amount: number | null
+  gm_test_license_amount: number | null
+  available_gms: string[] | null
+  experienced_staff: string[] | null
+  available_stores: string[] | null
+  gm_costs: any[] | null
+  gm_count: number | null
+  play_count: number | null
 }
 
 const STATUS_LABELS = {
@@ -51,19 +66,38 @@ const STATUS_LABELS = {
 interface OrganizationScenarioListProps {
   /** シナリオ編集時のコールバック */
   onEdit?: (scenarioId: string) => void
+  /** リフレッシュトリガー（変更されると再読み込み） */
+  refreshKey?: number
 }
 
-export function OrganizationScenarioList({ onEdit }: OrganizationScenarioListProps) {
+// ヘッダー・セルスタイル: マスタ由来（通常）vs 組織設定（青）
+// TanStackDataTableのデフォルトbg-gray-100を上書きするため!importantを使用
+const MASTER_HEADER_CLASS = '' // 通常のヘッダー色（デフォルト灰色）
+const MASTER_CELL_CLASS = '' // 通常のセル色
+const ORG_HEADER_CLASS = '!bg-blue-100' // 組織設定項目のヘッダー色（青）
+const ORG_CELL_CLASS = '!bg-blue-50/50' // 組織設定項目のセル背景色（薄い青）
+
+// 店舗情報の型
+interface StoreInfo {
+  id: string
+  short_name: string
+  name: string
+}
+
+export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationScenarioListProps) {
   const [scenarios, setScenarios] = useState<OrganizationScenarioWithMaster[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [organizationName, setOrganizationName] = useState<string>('')
+  const [sortState, setSortState] = useState<{ field: string; direction: 'asc' | 'desc' } | undefined>({ field: 'title', direction: 'asc' })
+  const [storeMap, setStoreMap] = useState<Map<string, StoreInfo>>(new Map())
 
   // マスタ追加ダイアログ
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   
-  // 削除確認
+  // 解除確認
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [scenarioToDelete, setScenarioToDelete] = useState<OrganizationScenarioWithMaster | null>(null)
 
@@ -78,6 +112,32 @@ export function OrganizationScenarioList({ onEdit }: OrganizationScenarioListPro
         return
       }
 
+      // 組織名を取得
+      const { data: orgData } = await supabase
+        .from('organizations')
+        .select('name')
+        .eq('id', organizationId)
+        .single()
+      
+      if (orgData?.name) {
+        setOrganizationName(orgData.name)
+      }
+
+      // 店舗一覧を取得（IDから名前への変換用）
+      const { data: storesData } = await supabase
+        .from('stores')
+        .select('id, name, short_name')
+        .eq('organization_id', organizationId)
+      
+      if (storesData) {
+        const map = new Map<string, StoreInfo>()
+        storesData.forEach(store => {
+          map.set(store.id, { id: store.id, name: store.name, short_name: store.short_name || store.name })
+        })
+        setStoreMap(map)
+      }
+
+      // シナリオ一覧を取得
       const { data, error: fetchError } = await supabase
         .from('organization_scenarios_with_master')
         .select('*')
@@ -90,7 +150,35 @@ export function OrganizationScenarioList({ onEdit }: OrganizationScenarioListPro
         return
       }
 
-      setScenarios(data || [])
+      // 体験済みスタッフを取得（staff_scenario_assignmentsから）
+      const scenarioMasterIds = (data || []).map(s => s.scenario_master_id).filter(Boolean)
+      let experiencedStaffMap = new Map<string, string[]>()
+      
+      if (scenarioMasterIds.length > 0) {
+        const { data: assignmentsData } = await supabase
+          .from('staff_scenario_assignments')
+          .select('scenario_id, staff:staff_id(id, name)')
+          .in('scenario_id', scenarioMasterIds)
+        
+        if (assignmentsData) {
+          assignmentsData.forEach((a: any) => {
+            if (!experiencedStaffMap.has(a.scenario_id)) {
+              experiencedStaffMap.set(a.scenario_id, [])
+            }
+            if (a.staff?.name) {
+              experiencedStaffMap.get(a.scenario_id)!.push(a.staff.name)
+            }
+          })
+        }
+      }
+
+      // シナリオに体験済みスタッフをマージ
+      const scenariosWithExperienced = (data || []).map(scenario => ({
+        ...scenario,
+        experienced_staff: experiencedStaffMap.get(scenario.scenario_master_id) || scenario.experienced_staff || []
+      }))
+
+      setScenarios(scenariosWithExperienced)
     } catch (err) {
       logger.error('Error fetching scenarios:', err)
       setError('エラーが発生しました')
@@ -101,18 +189,62 @@ export function OrganizationScenarioList({ onEdit }: OrganizationScenarioListPro
 
   useEffect(() => {
     fetchScenarios()
-  }, [fetchScenarios])
+  }, [fetchScenarios, refreshKey])
 
   // フィルタリング
   const filteredScenarios = useMemo(() => {
-    return scenarios.filter(s => {
+    let result = scenarios.filter(s => {
       const matchesSearch = !searchTerm ||
         s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (s.author && s.author.toLowerCase().includes(searchTerm.toLowerCase()))
       const matchesStatus = statusFilter === 'all' || s.org_status === statusFilter
       return matchesSearch && matchesStatus
     })
-  }, [scenarios, searchTerm, statusFilter])
+
+    // ソート適用
+    if (sortState) {
+      result = [...result].sort((a, b) => {
+        let aVal: any
+        let bVal: any
+        switch (sortState.field) {
+          case 'title':
+            aVal = a.title
+            bVal = b.title
+            break
+          case 'author':
+            aVal = a.author || ''
+            bVal = b.author || ''
+            break
+          case 'duration':
+            aVal = a.duration
+            bVal = b.duration
+            break
+          case 'player_count':
+            aVal = a.player_count_min
+            bVal = b.player_count_min
+            break
+          case 'participation_fee':
+            aVal = a.participation_fee || 0
+            bVal = b.participation_fee || 0
+            break
+          case 'org_status':
+            aVal = a.org_status
+            bVal = b.org_status
+            break
+          default:
+            aVal = (a as any)[sortState.field]
+            bVal = (b as any)[sortState.field]
+        }
+        if (aVal == null) return 1
+        if (bVal == null) return -1
+        if (aVal < bVal) return sortState.direction === 'asc' ? -1 : 1
+        if (aVal > bVal) return sortState.direction === 'asc' ? 1 : -1
+        return 0
+      })
+    }
+
+    return result
+  }, [scenarios, searchTerm, statusFilter, sortState])
 
   // 既に追加済みのマスタIDリスト
   const existingMasterIds = useMemo(() => scenarios.map(s => s.scenario_master_id), [scenarios])
@@ -139,8 +271,8 @@ export function OrganizationScenarioList({ onEdit }: OrganizationScenarioListPro
     }
   }
 
-  // 削除
-  const handleDelete = async () => {
+  // シナリオ解除（組織からの紐付けを削除、マスタは残る）
+  const handleUnlink = async () => {
     if (!scenarioToDelete) return
 
     try {
@@ -150,17 +282,17 @@ export function OrganizationScenarioList({ onEdit }: OrganizationScenarioListPro
         .eq('id', scenarioToDelete.id)
 
       if (error) {
-        logger.error('Failed to delete scenario:', error)
-        toast.error('削除に失敗しました')
+        logger.error('Failed to unlink scenario:', error)
+        toast.error('解除に失敗しました')
         return
       }
 
-      toast.success(`「${scenarioToDelete.title}」を削除しました`)
+      toast.success(`「${scenarioToDelete.title}」を解除しました`)
       setDeleteDialogOpen(false)
       setScenarioToDelete(null)
       fetchScenarios()
     } catch (err) {
-      logger.error('Error deleting scenario:', err)
+      logger.error('Error unlinking scenario:', err)
       toast.error('エラーが発生しました')
     }
   }
@@ -172,6 +304,378 @@ export function OrganizationScenarioList({ onEdit }: OrganizationScenarioListPro
     unavailable: scenarios.filter(s => s.org_status === 'unavailable').length,
     coming_soon: scenarios.filter(s => s.org_status === 'coming_soon').length
   }), [scenarios])
+
+  // テーブル列定義（旧UIと同じスタイル + 組織設定項目のヘッダー色変更）
+  const tableColumns: Column<OrganizationScenarioWithMaster>[] = useMemo(() => [
+    // ========== マスタ由来の項目（通常ヘッダー）==========
+    {
+      key: 'image',
+      header: '画像',
+      helpText: 'シナリオのキービジュアル画像（マスタで設定）',
+      width: 'w-16',
+      headerClassName: `text-center ${MASTER_HEADER_CLASS}`,
+      cellClassName: 'p-1',
+      render: (scenario) => (
+        <div className="flex items-center justify-center">
+          {scenario.key_visual_url ? (
+            <div className="w-10 h-12 bg-gray-200 rounded overflow-hidden">
+              <img
+                src={scenario.key_visual_url}
+                alt={scenario.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-10 h-12 border border-dashed border-gray-300 rounded flex items-center justify-center">
+              <span className="text-[8px] text-gray-400">No img</span>
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'title',
+      header: 'タイトル',
+      helpText: 'シナリオのタイトル。クリックで詳細編集（マスタで設定）',
+      width: 'w-40',
+      sortable: true,
+      headerClassName: MASTER_HEADER_CLASS,
+      render: (scenario) => (
+        <button
+          onClick={() => onEdit?.(scenario.scenario_master_id)}
+          className="text-sm truncate text-left hover:text-blue-600 hover:underline w-full"
+          title={scenario.title}
+        >
+          {scenario.title}
+        </button>
+      )
+    },
+    {
+      key: 'author',
+      header: '作者',
+      helpText: 'シナリオの制作者名（マスタで設定）',
+      width: 'w-24',
+      sortable: true,
+      headerClassName: MASTER_HEADER_CLASS,
+      render: (scenario) => (
+        <p className="text-sm truncate" title={scenario.author || ''}>
+          {scenario.author || '-'}
+        </p>
+      )
+    },
+    {
+      key: 'player_count',
+      header: '人数',
+      helpText: 'プレイ可能な参加者の人数範囲（マスタで設定）',
+      width: 'w-20',
+      sortable: true,
+      headerClassName: MASTER_HEADER_CLASS,
+      render: (scenario) => (
+        <p className="text-sm flex items-center gap-1">
+          <Users className="h-3 w-3" /> 
+          {scenario.player_count_min === scenario.player_count_max
+            ? `${scenario.player_count_min}人`
+            : `${scenario.player_count_min}〜${scenario.player_count_max}人`}
+        </p>
+      )
+    },
+    {
+      key: 'genre',
+      header: 'ジャンル',
+      helpText: 'シナリオのジャンル分類（ホラー、感動、推理など。マスタで設定）',
+      width: 'w-28',
+      headerClassName: MASTER_HEADER_CLASS,
+      render: (scenario) => {
+        if (!scenario.genre || scenario.genre.length === 0) {
+          return <span className="text-xs text-muted-foreground">-</span>
+        }
+        return (
+          <div className="flex flex-wrap gap-0.5">
+            {scenario.genre.slice(0, 2).map((g, i) => (
+              <Badge key={i} variant="secondary" className="font-normal text-[10px] px-1 py-0 bg-gray-100 border-0 rounded-[2px]">
+                {g}
+              </Badge>
+            ))}
+            {scenario.genre.length > 2 && (
+              <span className="text-[10px] text-muted-foreground">+{scenario.genre.length - 2}</span>
+            )}
+          </div>
+        )
+      }
+    },
+    {
+      key: 'master_status',
+      header: 'マスタ',
+      helpText: 'シナリオマスタの承認状態。承認済みのみ一般公開可能',
+      width: 'w-16',
+      headerClassName: MASTER_HEADER_CLASS,
+      render: (scenario) => {
+        if (scenario.master_status === 'approved') {
+          return <span className="text-[10px] text-green-600">承認済</span>
+        }
+        return (
+          <Badge variant="outline" className="text-[10px] text-yellow-600 border-yellow-300 px-1 py-0">
+            未承認
+          </Badge>
+        )
+      }
+    },
+
+    // ========== 組織設定の項目（青いヘッダー・青い背景）==========
+    {
+      key: 'available_stores',
+      header: '対応店舗',
+      helpText: 'このシナリオを公演できる店舗（組織で設定）。空欄は全店舗対応',
+      width: 'w-28',
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => {
+        const storeIds = scenario.available_stores || []
+        if (storeIds.length === 0) {
+          return <span className="text-[10px] px-1 py-0 bg-white text-gray-600 rounded border border-gray-200">全店舗</span>
+        }
+        // IDを店舗名に変換
+        const storeNames = storeIds.map((id: string) => {
+          const store = storeMap.get(id)
+          return store?.short_name || store?.name || id
+        })
+        return (
+          <div className="flex flex-wrap gap-0.5">
+            {storeNames.slice(0, 2).map((name: string, i: number) => (
+              <span key={i} className="text-[10px] px-1 py-0 bg-white text-purple-700 rounded-sm border border-purple-200">
+                {name}
+              </span>
+            ))}
+            {storeNames.length > 2 && (
+              <span className="text-[10px] text-muted-foreground">+{storeNames.length - 2}</span>
+            )}
+          </div>
+        )
+      }
+    },
+    {
+      key: 'duration',
+      header: '時間',
+      helpText: 'シナリオのプレイ時間（組織でカスタマイズ可能）',
+      width: 'w-16',
+      sortable: true,
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => (
+        <p className="text-sm">
+          {scenario.duration}分
+        </p>
+      )
+    },
+    {
+      key: 'extra_preparation_time',
+      header: '準備',
+      helpText: '公演前の追加準備時間（スケジュール枠に加算される。組織で設定）',
+      width: 'w-14',
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => (
+        <p className="text-sm">
+          {scenario.extra_preparation_time ? `+${scenario.extra_preparation_time}分` : '-'}
+        </p>
+      )
+    },
+    {
+      key: 'participation_fee',
+      header: '参加費',
+      helpText: '1人あたりの参加費（税込。組織で設定）',
+      width: 'w-20',
+      sortable: true,
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => (
+        <p className="text-sm text-right">
+          {scenario.participation_fee != null
+            ? `¥${scenario.participation_fee.toLocaleString()}`
+            : '-'}
+        </p>
+      )
+    },
+    {
+      key: 'available_gms',
+      header: '担当GM',
+      helpText: 'このシナリオを担当できるGM一覧（組織で設定）',
+      width: 'w-32',
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => {
+        // gm_assignments (JSONB) または available_gms (TEXT[]) から取得
+        const gmAssignments = scenario.gm_assignments || []
+        const availableGms = scenario.available_gms || []
+        
+        // gm_assignmentsがあればそちらを優先（名前情報を持つ）
+        if (gmAssignments.length > 0) {
+          const gmNames = gmAssignments.map((gm: any) => gm.staff_name || gm.name || '?').slice(0, 3)
+          return (
+            <div className="flex flex-wrap gap-0.5">
+              {gmNames.map((name: string, i: number) => (
+                <span key={i} className="text-[10px] px-1 py-0 bg-white text-blue-700 rounded-sm border border-blue-200">
+                  {name}
+                </span>
+              ))}
+              {gmAssignments.length > 3 && (
+                <span className="text-[10px] text-muted-foreground">+{gmAssignments.length - 3}</span>
+              )}
+            </div>
+          )
+        }
+        
+        // available_gmsがあればそちらを表示
+        if (availableGms.length > 0) {
+          return (
+            <div className="flex flex-wrap gap-0.5">
+              {availableGms.slice(0, 3).map((gm: string, i: number) => (
+                <span key={i} className="text-[10px] px-1 py-0 bg-white text-blue-700 rounded-sm border border-blue-200">
+                  {gm}
+                </span>
+              ))}
+              {availableGms.length > 3 && (
+                <span className="text-[10px] text-muted-foreground">+{availableGms.length - 3}</span>
+              )}
+            </div>
+          )
+        }
+        
+        return <span className="text-[10px] text-muted-foreground">-</span>
+      }
+    },
+    {
+      key: 'experienced_staff',
+      header: '体験済',
+      helpText: 'このシナリオを体験済みのスタッフ（プレイヤーとして参加済み。組織で設定）',
+      width: 'w-32',
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => {
+        const staff = scenario.experienced_staff || []
+        if (staff.length === 0) {
+          return <span className="text-[10px] text-muted-foreground">-</span>
+        }
+        return (
+          <div className="flex flex-wrap gap-0.5">
+            {staff.slice(0, 3).map((name: string, i: number) => (
+              <span key={i} className="text-[10px] px-1 py-0 bg-white text-green-700 rounded-sm border border-green-200">
+                {name}
+              </span>
+            ))}
+            {staff.length > 3 && (
+              <span className="text-[10px] text-muted-foreground">+{staff.length - 3}</span>
+            )}
+          </div>
+        )
+      }
+    },
+    {
+      key: 'license_amount',
+      header: 'ライセンス',
+      helpText: '1公演あたりのライセンス料（作者への支払い。組織で設定）',
+      width: 'w-20',
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => {
+        const license = scenario.license_amount
+        if (license == null || license === 0) {
+          return <span className="text-[10px] text-muted-foreground">-</span>
+        }
+        return (
+          <p className="text-sm text-right">
+            ¥{license.toLocaleString()}
+          </p>
+        )
+      }
+    },
+    {
+      key: 'play_count',
+      header: '公演',
+      helpText: 'このシナリオの累計公演回数（組織の実績）',
+      width: 'w-14',
+      sortable: true,
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => {
+        const count = scenario.play_count
+        if (count == null || count === 0) {
+          return <span className="text-[10px] text-muted-foreground">-</span>
+        }
+        return (
+          <p className="text-sm text-center font-medium">
+            {count}回
+          </p>
+        )
+      }
+    },
+    {
+      key: 'org_status',
+      header: '公開',
+      helpText: '公開中: 予約可 / 近日公開: 告知のみ / 非公開: 表示しない（組織で設定）',
+      width: 'w-24',
+      sortable: true,
+      headerClassName: ORG_HEADER_CLASS,
+      cellClassName: ORG_CELL_CLASS,
+      render: (scenario) => {
+        const statusConfig = STATUS_LABELS[scenario.org_status]
+        return (
+          <select
+            value={scenario.org_status}
+            onChange={(e) => {
+              e.stopPropagation()
+              handleStatusChange(scenario, e.target.value)
+            }}
+            className={`text-xs border rounded px-1 py-0.5 bg-white cursor-pointer ${statusConfig.color}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <option value="available">公開中</option>
+            <option value="coming_soon">近日公開</option>
+            <option value="unavailable">非公開</option>
+          </select>
+        )
+      }
+    },
+    {
+      key: 'actions',
+      header: '操作',
+      helpText: '編集: 詳細設定を変更 / 解除: 組織からシナリオを削除（マスタは残る）',
+      width: 'w-20',
+      headerClassName: 'text-center',
+      cellClassName: 'text-center',
+      render: (scenario) => (
+        <div className="flex items-center justify-center gap-1">
+          {onEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit(scenario.scenario_master_id)
+              }}
+              title="編集"
+            >
+              <Edit className="w-3.5 h-3.5" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
+            onClick={(e) => {
+              e.stopPropagation()
+              setScenarioToDelete(scenario)
+              setDeleteDialogOpen(true)
+            }}
+            title="解除"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      )
+    }
+  ], [onEdit, handleStatusChange])
 
   if (loading) {
     return (
@@ -186,6 +690,26 @@ export function OrganizationScenarioList({ onEdit }: OrganizationScenarioListPro
 
   return (
     <div className="space-y-4">
+      {/* 組織名表示 */}
+      {organizationName && (
+        <div className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+          <span>📍</span>
+          <span>{organizationName} のシナリオ</span>
+        </div>
+      )}
+
+      {/* 凡例 */}
+      <div className="flex items-center gap-4 text-xs text-gray-500">
+        <span className="flex items-center gap-1">
+          <span className="w-3 h-3 bg-gray-100 border rounded"></span>
+          マスタ由来
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-3 h-3 bg-blue-100 border border-blue-200 rounded"></span>
+          組織設定
+        </span>
+      </div>
+
       {/* エラー表示 */}
       {error && (
         <Card className="border-red-500 bg-red-50 shadow-none">
@@ -280,115 +804,112 @@ export function OrganizationScenarioList({ onEdit }: OrganizationScenarioListPro
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          {filteredScenarios.map((scenario) => {
-            const statusConfig = STATUS_LABELS[scenario.org_status]
-            return (
-              <div
-                key={scenario.id}
-                className="bg-white border rounded-lg p-4 hover:shadow-sm transition-shadow"
-              >
-                <div className="flex items-start gap-4">
-                  {/* サムネイル */}
-                  <div className="w-16 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden border">
-                    {scenario.key_visual_url ? (
-                      <img
-                        src={scenario.key_visual_url}
-                        alt={scenario.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-300">
-                        <span className="text-[10px]">No img</span>
-                      </div>
-                    )}
-                  </div>
+        <>
+          {/* PC用: テーブル形式 */}
+          <div className="hidden md:block bg-white border rounded-lg overflow-hidden">
+            <TanStackDataTable
+              data={filteredScenarios}
+              columns={tableColumns}
+              getRowKey={(scenario) => scenario.id}
+              sortState={sortState}
+              onSort={setSortState}
+              emptyMessage={
+                searchTerm || statusFilter !== 'all' 
+                  ? '検索条件に一致するシナリオが見つかりません' 
+                  : 'シナリオが登録されていません'
+              }
+              loading={loading}
+            />
+          </div>
 
-                  {/* 情報 */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-gray-900 truncate">{scenario.title}</h3>
-                      <Badge className={`text-xs ${statusConfig.color}`}>
-                        {statusConfig.label}
-                      </Badge>
-                      {scenario.master_status !== 'approved' && (
-                        <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
-                          マスタ未承認
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">作: {scenario.author || '不明'}</p>
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {scenario.player_count_min === scenario.player_count_max
-                          ? `${scenario.player_count_min}人`
-                          : `${scenario.player_count_min}〜${scenario.player_count_max}人`}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {scenario.duration}分
-                      </span>
-                      {scenario.participation_fee != null && (
-                        <span className="flex items-center gap-1">
-                          <JapaneseYen className="w-3 h-3" />
-                          {scenario.participation_fee.toLocaleString()}円
-                        </span>
-                      )}
-                      {scenario.genre && scenario.genre.length > 0 && (
-                        <div className="flex items-center gap-1">
-                          {scenario.genre.slice(0, 2).map((g, i) => (
-                            <Badge key={i} variant="outline" className="text-xs py-0">
-                              {g}
-                            </Badge>
-                          ))}
+          {/* モバイル用: リスト形式 */}
+          <div className="md:hidden space-y-2">
+            {filteredScenarios.map((scenario) => {
+              const statusConfig = STATUS_LABELS[scenario.org_status]
+              const gms = scenario.gm_assignments || []
+              return (
+                <div
+                  key={scenario.id}
+                  className="bg-white border rounded-lg overflow-hidden"
+                  onClick={() => onEdit?.(scenario.scenario_master_id)}
+                >
+                  <div className="p-3 flex items-start gap-3">
+                    {/* 画像サムネイル */}
+                    <div className="flex-shrink-0 w-14 h-14 bg-gray-100 rounded-md overflow-hidden border">
+                      {scenario.key_visual_url ? (
+                        <img src={scenario.key_visual_url} alt={scenario.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                          <span className="text-[10px]">No img</span>
                         </div>
                       )}
                     </div>
-                  </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-bold text-sm truncate pr-2">{scenario.title}</h3>
+                        <Badge className={`shrink-0 text-[10px] px-1.5 py-0 ${statusConfig.color}`}>
+                          {statusConfig.label}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-gray-500 truncate mb-1">作: {scenario.author || '不明'}</p>
+                      
+                      {/* マスタ由来情報 */}
+                      <div className="flex items-center gap-3 text-xs text-gray-500 mb-1">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {scenario.duration}分
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {scenario.player_count_min === scenario.player_count_max
+                            ? `${scenario.player_count_min}人`
+                            : `${scenario.player_count_min}〜${scenario.player_count_max}人`}
+                        </span>
+                      </div>
+                      
+                      {/* 組織設定情報（青背景で区別） */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {scenario.participation_fee != null && (
+                          <span className="text-[10px] px-1 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">
+                            ¥{scenario.participation_fee.toLocaleString()}
+                          </span>
+                        )}
+                        {gms.length > 0 && (
+                          <span className="text-[10px] px-1 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">
+                            GM: {gms.length}名
+                          </span>
+                        )}
+                        {scenario.extra_preparation_time && scenario.extra_preparation_time > 0 && (
+                          <span className="text-[10px] px-1 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">
+                            準備+{scenario.extra_preparation_time}分
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                  {/* アクション */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* ステータス切り替え */}
-                    <select
-                      value={scenario.org_status}
-                      onChange={(e) => handleStatusChange(scenario, e.target.value)}
-                      className="text-xs border rounded px-2 py-1 bg-white"
-                    >
-                      <option value="available">公開中</option>
-                      <option value="coming_soon">近日公開</option>
-                      <option value="unavailable">非公開</option>
-                    </select>
-
-                    {/* 編集 */}
-                    {onEdit && (
+                    {/* アクション */}
+                    <div className="flex flex-col gap-1 flex-shrink-0">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        onClick={() => onEdit(scenario.id)}
+                        className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setScenarioToDelete(scenario)
+                          setDeleteDialogOpen(true)
+                        }}
+                        title="解除"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
-                    )}
-
-                    {/* 削除 */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => {
-                        setScenarioToDelete(scenario)
-                        setDeleteDialogOpen(true)
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        </>
       )}
 
       {/* マスタ追加ダイアログ */}
@@ -399,17 +920,16 @@ export function OrganizationScenarioList({ onEdit }: OrganizationScenarioListPro
         existingMasterIds={existingMasterIds}
       />
 
-      {/* 削除確認ダイアログ */}
+      {/* 解除確認ダイアログ */}
       <ConfirmModal
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleDelete}
-        title="シナリオを削除"
-        message={scenarioToDelete ? `「${scenarioToDelete.title}」を組織から削除します。マスタデータは残ります。` : ''}
+        onConfirm={handleUnlink}
+        title="シナリオを解除"
+        message={scenarioToDelete ? `「${scenarioToDelete.title}」を${organizationName || 'この組織'}から解除します。\nマスタデータは残るので、後から再度追加できます。` : ''}
         variant="danger"
-        confirmLabel="削除"
+        confirmLabel="解除する"
       />
     </div>
   )
 }
-

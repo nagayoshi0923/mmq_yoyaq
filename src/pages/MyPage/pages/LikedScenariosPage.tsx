@@ -8,7 +8,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { OptimizedImage } from '@/components/ui/optimized-image'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 
 interface WantToPlayScenario {
@@ -173,10 +172,10 @@ export function WantToPlayPage() {
 
   if (wantToPlayScenarios.length === 0) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
+      <div className="bg-white shadow-sm p-8 text-center border border-gray-200" style={{ borderRadius: 0 }}>
         <div 
-          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-          style={{ backgroundColor: THEME.primaryLight }}
+          className="w-16 h-16 flex items-center justify-center mx-auto mb-4"
+          style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
         >
           <Heart className="w-8 h-8" style={{ color: THEME.primary }} />
         </div>
@@ -186,8 +185,8 @@ export function WantToPlayPage() {
           公演情報をチェックしましょう
         </p>
         <Button 
-          className="text-white rounded-full px-8"
-          style={{ backgroundColor: THEME.primary }}
+          className="text-white px-8"
+          style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
           onClick={() => navigate('/')}
         >
           <Sparkles className="w-4 h-4 mr-2" />
@@ -209,20 +208,35 @@ export function WantToPlayPage() {
       {wantToPlayScenarios.map((item) => (
         <div
           key={item.id}
-          className="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow duration-300 cursor-pointer"
+          className="bg-white shadow-sm p-4 hover:shadow-md transition-all duration-300 cursor-pointer border border-gray-200 hover:border-gray-300"
+          style={{ borderRadius: 0 }}
           onClick={() => {
             navigate(`${bookingBasePath}/scenario/${item.scenario.slug || item.scenario.id}`)
           }}
         >
           <div className="flex gap-4">
-            {/* シナリオ画像 */}
-            <div className="flex-shrink-0 w-20 h-28 bg-gray-100 rounded-lg overflow-hidden">
+            {/* シナリオ画像 - blur背景で画像が途切れないように */}
+            <div className="flex-shrink-0 w-20 h-28 bg-gray-900 overflow-hidden relative" style={{ borderRadius: 0 }}>
               {item.scenario.key_visual_url ? (
-                <OptimizedImage
-                  src={item.scenario.key_visual_url}
-                  alt={item.scenario.title}
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  {/* 背景：ぼかした画像で余白を埋める */}
+                  <div 
+                    className="absolute inset-0 scale-110"
+                    style={{
+                      backgroundImage: `url(${item.scenario.key_visual_url})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(10px) brightness(0.7)',
+                    }}
+                  />
+                  {/* メイン画像：全体を表示 */}
+                  <img
+                    src={item.scenario.key_visual_url}
+                    alt={item.scenario.title}
+                    className="relative w-full h-full object-contain"
+                    loading="lazy"
+                  />
+                </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎭</div>
               )}

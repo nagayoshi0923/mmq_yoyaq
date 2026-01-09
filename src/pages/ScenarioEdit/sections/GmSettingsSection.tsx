@@ -95,12 +95,12 @@ export function GmSettingsSection({
 
   return (
     <div>
-      <h3 className="text-lg mb-4 pb-2 border-b">GM設定</h3>
-      <div className="space-y-6">
+      <h3 className="text-sm sm:text-lg font-medium mb-2 sm:mb-3 pb-1.5 sm:pb-2 border-b">GM設定</h3>
+      <div className="space-y-3 sm:space-y-4">
         {/* GM基本設定 */}
         <div>
           <h4 className="text-sm mb-3">GM基本設定</h4>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div>
               <Label htmlFor="gm_count">必要GM数</Label>
               <Input

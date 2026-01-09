@@ -18,8 +18,10 @@ import { logger } from '@/utils/logger'
 import { ScenarioMasterEditDialog } from '@/components/modals/ScenarioMasterEditDialog'
 import { 
   Search, Plus, Edit, CheckCircle, XCircle, Clock, FileText, Users,
-  BookOpen, AlertTriangle, Shield
+  BookOpen, AlertTriangle, Shield, HelpCircle, Check
 } from 'lucide-react'
+import { toast } from 'sonner'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { devDb } from '@/components/ui/DevField'
 
 interface ScenarioMaster {
@@ -42,6 +44,47 @@ const STATUS_CONFIG = {
   approved: { label: '承認済み', color: 'bg-green-100 text-green-700', icon: CheckCircle },
   rejected: { label: '却下', color: 'bg-red-100 text-red-700', icon: XCircle },
 }
+
+// カラムヘッダーのヘルプテキスト
+const COLUMN_HELP = {
+  scenario: 'シナリオのタイトルとキービジュアル画像。クリックで詳細編集。',
+  author: 'シナリオの制作者名（作者ポータルと連携）',
+  player_count: 'このシナリオをプレイできる参加者の人数範囲',
+  duration: 'シナリオの公式所要時間（準備・片付け時間は含まない）',
+  status: '下書き→承認待ち→承認済み/却下の順で進行。承認済みのみ組織が利用可能',
+  org_count: 'このシナリオマスタを使用している組織の数',
+  actions: '編集・削除などの操作',
+}
+
+// ヘルプ付きテーブルヘッダーコンポーネント
+const TableHeaderWithHelp: React.FC<{
+  children: React.ReactNode
+  helpText: string
+  className?: string
+}> = ({ children, helpText, className = '' }) => (
+  <th className={className}>
+    <TooltipProvider delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-help border-b border-dotted border-gray-400">
+            {children}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent 
+          side="bottom" 
+          align="start"
+          sideOffset={8}
+          className="z-[100] max-w-xs p-3 text-xs bg-white text-gray-700 border border-gray-200 rounded-lg shadow-lg"
+        >
+          <div className="flex items-start gap-2">
+            <HelpCircle className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+            <p className="leading-relaxed">{helpText}</p>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  </th>
+)
 
 export function ScenarioMasterAdmin() {
   const navigate = useNavigate()
@@ -140,6 +183,30 @@ export function ScenarioMasterAdmin() {
 
   const handleSaved = () => {
     fetchMasters()
+  }
+
+  // ワンクリック承認
+  const handleQuickApprove = async (masterId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    try {
+      const { error } = await supabase
+        .from('scenario_masters')
+        .update({ 
+          master_status: 'approved',
+          approved_by: user?.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', masterId)
+
+      if (error) throw error
+
+      toast.success('承認しました')
+      fetchMasters()
+    } catch (err) {
+      logger.error('Quick approve error:', err)
+      toast.error('承認に失敗しました')
+    }
   }
 
   if (!isLicenseAdmin) {
@@ -262,12 +329,42 @@ export function ScenarioMasterAdmin() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">シナリオ</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">作者</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">人数</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">時間</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">ステータス</th>
-                <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">利用組織</th>
+                <TableHeaderWithHelp 
+                  helpText={COLUMN_HELP.scenario}
+                  className="px-4 py-3 text-left text-sm font-medium text-gray-600"
+                >
+                  シナリオ
+                </TableHeaderWithHelp>
+                <TableHeaderWithHelp 
+                  helpText={COLUMN_HELP.author}
+                  className="px-4 py-3 text-left text-sm font-medium text-gray-600"
+                >
+                  作者
+                </TableHeaderWithHelp>
+                <TableHeaderWithHelp 
+                  helpText={COLUMN_HELP.player_count}
+                  className="px-4 py-3 text-center text-sm font-medium text-gray-600"
+                >
+                  人数
+                </TableHeaderWithHelp>
+                <TableHeaderWithHelp 
+                  helpText={COLUMN_HELP.duration}
+                  className="px-4 py-3 text-center text-sm font-medium text-gray-600"
+                >
+                  時間
+                </TableHeaderWithHelp>
+                <TableHeaderWithHelp 
+                  helpText={COLUMN_HELP.status}
+                  className="px-4 py-3 text-center text-sm font-medium text-gray-600"
+                >
+                  ステータス
+                </TableHeaderWithHelp>
+                <TableHeaderWithHelp 
+                  helpText={COLUMN_HELP.org_count}
+                  className="px-4 py-3 text-center text-sm font-medium text-gray-600"
+                >
+                  利用組織
+                </TableHeaderWithHelp>
                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">操作</th>
               </tr>
             </thead>
@@ -346,16 +443,30 @@ export function ScenarioMasterAdmin() {
                         {master.organization_count || 0}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleEdit(master)
-                          }}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          {/* ワンクリック承認ボタン（draft/pendingのみ表示） */}
+                          {(master.master_status === 'draft' || master.master_status === 'pending') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              onClick={(e) => handleQuickApprove(master.id, e)}
+                              title="承認"
+                            >
+                              <Check className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEdit(master)
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -449,7 +560,19 @@ export function ScenarioMasterAdmin() {
                     <div className="flex gap-3">
                       <span className="text-blue-600">利用: {master.organization_count || 0}組織</span>
                     </div>
-                    <span className="text-primary">編集 →</span>
+                    <div className="flex items-center gap-2">
+                      {/* ワンクリック承認ボタン */}
+                      {(master.master_status === 'draft' || master.master_status === 'pending') && (
+                        <button
+                          className="text-green-600 font-medium flex items-center gap-0.5"
+                          onClick={(e) => handleQuickApprove(master.id, e)}
+                        >
+                          <Check className="w-3 h-3" />
+                          承認
+                        </button>
+                      )}
+                      <span className="text-primary">編集 →</span>
+                    </div>
                   </div>
                 </div>
               )

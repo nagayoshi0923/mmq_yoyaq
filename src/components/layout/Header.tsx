@@ -168,18 +168,19 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
             )}
           </div>
           
-          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {user ? (
               <>
-                <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
+                {/* ユーザー情報（PC表示のみ） */}
+                <div className="hidden md:flex items-center gap-1.5 mr-1">
                   <span 
-                    className="text-xs sm:text-sm font-medium text-white truncate max-w-[60px] sm:max-w-[80px] md:max-w-[100px] md:max-w-none"
-                    {...devDb('staff.name|users.email')}
+                    className="text-sm font-medium text-white truncate max-w-[120px]"
+                    {...devDb('customers.nickname|staff.name|customers.name')}
                   >
-                    {user?.staffName || user?.name}
+                    {user?.staffName || user?.customerName || user?.name}
                   </span>
                   <Badge 
-                    className="text-xs sm:text-xs px-1 sm:px-1.5 md:px-2 py-0.5 bg-white/20 text-white border-0"
+                    className="text-[10px] px-1.5 py-0 bg-white/20 text-white border-0"
                     style={{ borderRadius: 0 }}
                     {...devDb('users.role')}
                   >
@@ -192,41 +193,42 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                 {isStaffOrAdmin && (
                   <button
                     onClick={handleDashboardClick}
-                    className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 text-xs sm:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors touch-manipulation"
+                    className="inline-flex items-center gap-1 h-8 px-2 text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
                     title="管理サイトへ"
                   >
-                    <LayoutDashboard className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <LayoutDashboard className="h-4 w-4" />
                     <span className="hidden sm:inline">管理</span>
                   </button>
                 )}
                 <button 
-                  className="inline-flex items-center justify-center whitespace-nowrap text-xs font-medium transition-colors hover:bg-white/10 h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 p-0 touch-manipulation text-white"
+                  className="inline-flex items-center justify-center h-8 w-8 hover:bg-white/10 transition-colors text-white"
                   onClick={handleMyPageClick}
                   title="マイページ"
                 >
-                  <User className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
+                  <User className="h-[18px] w-[18px]" />
                 </button>
                 <button 
-                  className="inline-flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 p-0 touch-manipulation text-white hover:bg-white/10 transition-colors"
+                  className="inline-flex items-center justify-center h-8 w-8 hover:bg-white/10 transition-colors text-white"
+                  title="通知"
                 >
-                  <Bell className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
+                  <Bell className="h-[18px] w-[18px]" />
                 </button>
                 <button 
                   onClick={handleSignOut} 
-                  className="inline-flex items-center h-8 sm:h-9 md:h-10 text-xs sm:text-sm px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 touch-manipulation bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors"
+                  className="inline-flex items-center gap-1 h-8 px-3 text-xs bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors ml-1"
                 >
-                  <LogOut className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5 md:mr-1.5" />
+                  <LogOut className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">ログアウト</span>
                 </button>
               </>
             ) : (
               <button 
-                className="inline-flex items-center h-8 sm:h-9 md:h-10 text-xs sm:text-sm px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 touch-manipulation bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors"
+                className="inline-flex items-center gap-1 h-8 px-3 text-xs bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors"
                 onClick={() => {
                   window.location.href = '/#login'
                 }}
               >
-                <User className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5 sm:mr-1.5" />
+                <User className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">ログイン</span>
               </button>
             )}

@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
-import { OptimizedImage } from '@/components/ui/optimized-image'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { SettingsPage } from './pages/SettingsPage'
 import { WantToPlayPage } from './pages/LikedScenariosPage'
@@ -36,6 +35,7 @@ export default function MyPage() {
   
   // データ
   const [reservations, setReservations] = useState<Reservation[]>([])
+  const [scheduleEvents, setScheduleEvents] = useState<Record<string, { date: string; start_time: string; is_private_booking?: boolean }>>({})
   const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
   const [scenarioSlugs, setScenarioSlugs] = useState<Record<string, string>>({})
   const [orgSlugs, setOrgSlugs] = useState<Record<string, string>>({})
@@ -43,12 +43,14 @@ export default function MyPage() {
   const [playedScenarios, setPlayedScenarios] = useState<PlayedScenario[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ participationCount: 0, points: 0 })
+  const [customerInfo, setCustomerInfo] = useState<{ name?: string; nickname?: string } | null>(null)
   
   // アバター画像
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const userName = user?.email?.split('@')[0] || 'ゲスト'
+  // 表示名：ニックネーム > 名前 > メール > ゲスト
+  const displayName = customerInfo?.nickname || customerInfo?.name || user?.email?.split('@')[0] || 'ゲスト'
   
   // アバター画像選択ハンドラ
   const handleAvatarClick = () => {
@@ -81,16 +83,20 @@ export default function MyPage() {
       // 顧客情報を取得
       const { data: customer, error: customerError } = await supabase
         .from('customers')
-        .select('id')
+        .select('id, name, nickname')
         .eq('email', user.email)
         .maybeSingle()
 
       if (customerError) throw customerError
       if (!customer) {
         setReservations([])
+        setCustomerInfo(null)
         setLoading(false)
         return
       }
+      
+      // 顧客情報をセット
+      setCustomerInfo({ name: customer.name, nickname: customer.nickname })
 
       // 予約を取得
       const { data: reservationData, error: reservationError } = await supabase
@@ -101,6 +107,26 @@ export default function MyPage() {
 
       if (reservationError) throw reservationError
       setReservations(reservationData || [])
+
+      // 関連するスケジュールイベントを取得（正しい公演日時を取得するため）
+      const eventIds = reservationData
+        ?.map(r => r.schedule_event_id)
+        .filter((id): id is string => id !== null && id !== undefined) || []
+      
+      if (eventIds.length > 0) {
+        const { data: eventsData } = await supabase
+          .from('schedule_events')
+          .select('id, date, start_time, is_private_booking')
+          .in('id', eventIds)
+        
+        if (eventsData) {
+          const eventMap: Record<string, { date: string; start_time: string; is_private_booking?: boolean }> = {}
+          eventsData.forEach(e => {
+            eventMap[e.id] = { date: e.date, start_time: e.start_time, is_private_booking: e.is_private_booking }
+          })
+          setScheduleEvents(eventMap)
+        }
+      }
 
       // 統計情報を計算
       const confirmedPast = (reservationData || []).filter(
@@ -238,6 +264,46 @@ export default function MyPage() {
     return ''
   }
 
+  // タイトルから日付や不要な文字を除去してシナリオ名のみ抽出
+  const cleanTitle = (title?: string) => {
+    if (!title) return ''
+    return title
+      .replace(/【貸切希望】/g, '【貸切】')
+      .replace(/（候補\d+件）/g, '')
+      // 様々な日付パターンを除去（ハイフン各種 + 日付）
+      .replace(/\s*[-－ー–]\s*\d{4}年\d{1,2}月\d{1,2}日[（(][日月火水木金土][)）]/g, '')
+      .replace(/\s*[-－ー–]\s*\d{4}\/\d{1,2}\/\d{1,2}.*$/g, '')
+      // 末尾の日付のみ
+      .replace(/\s*\d{4}年\d{1,2}月\d{1,2}日[（(][日月火水木金土][)）]$/g, '')
+      .trim()
+  }
+
+  // 予約から正しい公演日時を取得（スケジュールイベント優先）
+  const getPerformanceDateTime = (reservation: Reservation) => {
+    // スケジュールイベントがあればその日時を使用
+    if (reservation.schedule_event_id && scheduleEvents[reservation.schedule_event_id]) {
+      const event = scheduleEvents[reservation.schedule_event_id]
+      return {
+        date: event.date,
+        time: event.start_time
+      }
+    }
+    // なければ requested_datetime から抽出
+    const dateMatch = reservation.requested_datetime.match(/^(\d{4}-\d{2}-\d{2})/)
+    const timeMatch = reservation.requested_datetime.match(/T(\d{2}:\d{2})/)
+    return {
+      date: dateMatch ? dateMatch[1] : reservation.requested_datetime.split('T')[0],
+      time: timeMatch ? timeMatch[1] : ''
+    }
+  }
+
+  // 公演日をフォーマット
+  const formatPerformanceDate = (dateStr: string) => {
+    const d = new Date(dateStr)
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${weekdays[d.getDay()]}）`
+  }
+
   // 日数計算
   const getDaysUntil = (dateString: string) => {
     const eventDate = new Date(dateString)
@@ -310,7 +376,7 @@ export default function MyPage() {
             {/* ユーザー情報 */}
             <div className="flex-1">
               <h1 className="text-xl font-bold text-gray-900">
-                {userName} さん
+                {displayName} さん
               </h1>
               <div className="flex items-center gap-3 mt-2">
                 <div className="flex items-center gap-1 text-sm text-gray-600">
@@ -391,191 +457,141 @@ export default function MyPage() {
         ) : (
           <>
             {activeTab === 'reservations' && (
-              <div className="space-y-6">
-                {/* 次の予約（ハイライト） */}
-                {upcomingReservations.length > 0 && (
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <span className="w-1 h-6 rounded-full" style={{ backgroundColor: THEME.primary }}></span>
-                      次の予約
-                    </h2>
-                    
-                    {/* メインカード */}
-                    <div className="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                      <div className="relative aspect-[16/9] md:aspect-[21/9] bg-gray-900 overflow-hidden">
-                        {upcomingReservations[0].scenario_id && scenarioImages[upcomingReservations[0].scenario_id] ? (
-                          <>
-                            {/* 背景：ぼかした画像で余白を埋める */}
+              <div className="space-y-4">
+                {/* 予約一覧 */}
+                {upcomingReservations.length > 0 ? (
+                  <>
+                    {upcomingReservations.map((reservation, idx) => {
+                      const perf = getPerformanceDateTime(reservation)
+                      const daysUntil = getDaysUntil(perf.date)
+                      const store = reservation.store_id ? stores[reservation.store_id] : null
+                      const imageUrl = reservation.scenario_id ? scenarioImages[reservation.scenario_id] : null
+                      
+                      // 貸切公演かどうか
+                      const eventId = reservation.schedule_event_id
+                      const isPrivate = eventId ? scheduleEvents[eventId]?.is_private_booking : false
+                      
+                      // 日付を短くフォーマット（1/11(日)）
+                      const shortDate = (() => {
+                        const d = new Date(perf.date)
+                        const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+                        return `${d.getMonth() + 1}/${d.getDate()}(${weekdays[d.getDay()]})`
+                      })()
+                      
+                      return (
+                        <div 
+                          key={reservation.id}
+                          className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer"
+                          style={{ borderRadius: 0 }}
+                          onClick={() => navigate(`/mypage/reservation/${reservation.id}`)}
+                        >
+                          {/* カウントダウンバー（最初の予約のみ） */}
+                          {idx === 0 && daysUntil >= 0 && (
                             <div 
-                              className="absolute inset-0 scale-110"
-                              style={{
-                                backgroundImage: `url(${scenarioImages[upcomingReservations[0].scenario_id]})`,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
-                                filter: 'blur(20px) brightness(0.5)',
-                              }}
-                            />
-                            {/* メイン画像：全体を表示 */}
-                            <img
-                              src={scenarioImages[upcomingReservations[0].scenario_id]}
-                              alt={upcomingReservations[0].title}
-                              className="relative w-full h-full object-contain"
-                              loading="lazy"
-                            />
-                          </>
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
-                            <span className="text-6xl opacity-30">🎭</span>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                        
-                        {/* カウントダウン */}
-                        <div className="absolute top-4 left-4">
-                          <div 
-                            className="text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg"
-                            style={{ backgroundColor: THEME.primary }}
-                          >
-                            🎮 あと{getDaysUntil(upcomingReservations[0].requested_datetime)}日！
-                          </div>
-                        </div>
-
-                        {/* タイトル */}
-                        <div className="absolute bottom-0 left-0 right-0 p-4">
-                          <h3 className="text-2xl font-bold text-white drop-shadow-lg">
-                            {upcomingReservations[0].title?.replace(/【貸切希望】/g, '【貸切】').replace(/（候補\d+件）/g, '')}
-                          </h3>
-                        </div>
-                      </div>
-
-                      <div className="p-4">
-                        <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="w-4 h-4" style={{ color: THEME.primary }} />
-                            {formatDate(upcomingReservations[0].requested_datetime)}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-4 h-4" style={{ color: THEME.primary }} />
-                            {formatTime(upcomingReservations[0].requested_datetime)}〜
-                          </div>
-                          {upcomingReservations[0].store_id && stores[upcomingReservations[0].store_id] && (
-                            <div className="flex items-center gap-1.5">
-                              <MapPin className="w-4 h-4" style={{ color: THEME.primary }} />
-                              {stores[upcomingReservations[0].store_id].name}
+                              className="px-3 py-1.5 text-white text-sm font-bold flex items-center gap-2"
+                              style={{ backgroundColor: THEME.primary }}
+                            >
+                              <Sparkles className="w-4 h-4" />
+                              あと{daysUntil}日
                             </div>
                           )}
-                          <div className="flex items-center gap-1.5">
-                            <Users className="w-4 h-4" style={{ color: THEME.primary }} />
-                            {upcomingReservations[0].participant_count}名
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                          <div className="text-xl font-bold text-gray-900">
-                            ¥{upcomingReservations[0].final_price?.toLocaleString() || 0}
-                          </div>
-                          <Button 
-                            className="text-white rounded-full px-6"
-                            style={{ backgroundColor: THEME.primary }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = THEME.primaryHover}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = THEME.primary}
-                            onClick={() => {
-                              const reservation = upcomingReservations[0]
-                              if (reservation.scenario_id) {
-                                const scenarioSlug = scenarioSlugs[reservation.scenario_id] || reservation.scenario_id
-                                const orgSlug = reservation.organization_id ? orgSlugs[reservation.organization_id] : null
-                                if (orgSlug) {
-                                  navigate(`/${orgSlug}/scenario/${scenarioSlug}`)
-                                } else {
-                                  navigate(`/scenario/${scenarioSlug}`)
-                                }
-                              }
-                            }}
-                          >
-                            詳細を見る
-                            <ChevronRight className="w-4 h-4 ml-1" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* その他の予約 */}
-                {upcomingReservations.length > 1 && (
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <span className="w-1 h-6 bg-gray-300 rounded-full"></span>
-                      その他の予約
-                    </h2>
-                    
-                    <div className="space-y-3">
-                      {upcomingReservations.slice(1).map((reservation) => (
-                        <div
-                          key={reservation.id}
-                          className="bg-white rounded-xl shadow-sm p-4 flex gap-4 hover:shadow-md transition-shadow duration-300 cursor-pointer"
-                          onClick={() => {
-                            if (reservation.scenario_id) {
-                              const scenarioSlug = scenarioSlugs[reservation.scenario_id] || reservation.scenario_id
-                              const orgSlug = reservation.organization_id ? orgSlugs[reservation.organization_id] : null
-                              if (orgSlug) {
-                                navigate(`/${orgSlug}/scenario/${scenarioSlug}`)
-                              } else {
-                                navigate(`/scenario/${scenarioSlug}`)
-                              }
-                            }
-                          }}
-                        >
-                          <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
-                            {reservation.scenario_id && scenarioImages[reservation.scenario_id] ? (
-                              <OptimizedImage
-                                src={scenarioImages[reservation.scenario_id]}
-                                alt={reservation.title}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">🎭</div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-gray-900 truncate">
-                              {reservation.title?.replace(/【貸切希望】/g, '【貸切】').replace(/（候補\d+件）/g, '')}
-                            </h3>
-                            <p className="text-sm text-gray-500 mt-1">{formatDate(reservation.requested_datetime)}</p>
-                            <div className="flex items-center gap-2 mt-2">
-                              {reservation.store_id && stores[reservation.store_id] && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {stores[reservation.store_id].name}
-                                </Badge>
+                          
+                          {/* メインコンテンツ */}
+                          <div className="p-3 flex gap-3">
+                            {/* 画像 */}
+                            <div className="w-16 h-24 flex-shrink-0 bg-gray-900 relative overflow-hidden" style={{ borderRadius: 0 }}>
+                              {imageUrl ? (
+                                <>
+                                  <div 
+                                    className="absolute inset-0 scale-110"
+                                    style={{
+                                      backgroundImage: `url(${imageUrl})`,
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center',
+                                      filter: 'blur(8px) brightness(0.6)',
+                                    }}
+                                  />
+                                  <img
+                                    src={imageUrl}
+                                    alt={reservation.title}
+                                    className="relative w-full h-full object-contain"
+                                    loading="lazy"
+                                  />
+                                </>
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <span className="text-xl opacity-40">🎭</span>
+                                </div>
                               )}
-                              <Badge variant="secondary" className="text-xs">
-                                {reservation.participant_count}名
-                              </Badge>
+                            </div>
+                            
+                            {/* 情報 */}
+                            <div className="flex-1 min-w-0">
+                              {/* タイトル */}
+                              <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1">
+                                {cleanTitle(reservation.title)}
+                              </h3>
+                              
+                              {/* 公演日時 */}
+                              <p className="text-sm font-bold mt-1" style={{ color: THEME.primary }}>
+                                {shortDate} {perf.time ? perf.time.slice(0, 5) : ''}
+                              </p>
+                              
+                              {/* 会場・住所 */}
+                              {store && (
+                                <div className="mt-1 text-xs text-gray-600">
+                                  <p className="font-medium">{store.name}</p>
+                                  {store.address && (
+                                    <p className="text-gray-500 mt-0.5">{store.address}</p>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* 予約番号・人数・料金 */}
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-xs text-gray-500">
+                                <span className="font-mono">{reservation.reservation_number}</span>
+                                <span>•</span>
+                                <span>{reservation.participant_count}名</span>
+                                <span>•</span>
+                                {isPrivate ? (
+                                  // 貸切公演：合計金額を表示
+                                  <span className="font-bold text-gray-700">
+                                    ¥{(reservation.final_price || 0).toLocaleString()}
+                                  </span>
+                                ) : (
+                                  // 通常公演：1人あたりと合計を表示
+                                  <span className="font-bold text-gray-700">
+                                    ¥{(reservation.unit_price || 0).toLocaleString()}/人
+                                    <span className="font-normal text-gray-500 ml-1">
+                                      (計¥{(reservation.final_price || 0).toLocaleString()})
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* 矢印 */}
+                            <div className="flex items-center">
+                              <ChevronRight className="w-5 h-5 text-gray-400" />
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            <ChevronRight className="w-5 h-5 text-gray-400" />
-                          </div>
                         </div>
-                      ))}
+                      )
+                    })}
+                  </>
+                ) : (
+                  <div className="bg-white border border-gray-200 p-8 text-center" style={{ borderRadius: 0 }}>
+                    <div 
+                      className="w-14 h-14 flex items-center justify-center mx-auto mb-3"
+                      style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
+                    >
+                      <Calendar className="w-7 h-7" style={{ color: THEME.primary }} />
                     </div>
-                  </div>
-                )}
-
-                {upcomingReservations.length === 0 && (
-                  <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Calendar className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-2">予約がありません</h3>
-                    <p className="text-gray-500 text-sm mb-6">
-                      新しい公演を探して予約しましょう
-                    </p>
+                    <h3 className="font-bold text-gray-900 mb-1">予約がありません</h3>
+                    <p className="text-gray-500 text-sm mb-4">公演を探して予約しましょう</p>
                     <Button 
-                      className="text-white rounded-full px-8"
-                      style={{ backgroundColor: THEME.primary }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = THEME.primaryHover}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = THEME.primary}
+                      className="text-white px-6"
+                      style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
                       onClick={() => navigate('/scenario')}
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
@@ -586,18 +602,16 @@ export default function MyPage() {
 
                 {/* 参加履歴へのリンク */}
                 {pastReservations.length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm p-4 text-center">
-                    <Button 
-                      variant="outline" 
-                      className="rounded-full hover:text-white"
-                      style={{ borderColor: THEME.primary, color: THEME.primary }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = THEME.primary; e.currentTarget.style.color = 'white' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = THEME.primary }}
-                      onClick={() => setActiveTab('album')}
-                    >
-                      過去の参加履歴を見る（{pastReservations.length}件）
-                      <ChevronRight className="w-4 h-4 ml-1" />
-                    </Button>
+                  <div 
+                    className="p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors border border-gray-200"
+                    style={{ borderRadius: 0 }}
+                    onClick={() => setActiveTab('album')}
+                  >
+                    <span className="text-sm text-gray-600">過去の参加履歴を見る</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium" style={{ color: THEME.primary }}>{pastReservations.length}件</span>
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </div>
                   </div>
                 )}
               </div>
@@ -605,8 +619,8 @@ export default function MyPage() {
 
             {activeTab === 'album' && (
               <div className="space-y-6">
-                {/* 踏破率 */}
-                <div className="bg-white rounded-2xl shadow-sm p-6">
+                {/* 踏破率 - シャープデザイン */}
+                <div className="bg-white shadow-sm p-6 border border-gray-200" style={{ borderRadius: 0 }}>
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-bold text-gray-900">プレイ済みシナリオ</h2>
                     <span className="text-2xl font-bold" style={{ color: THEME.primary }}>{playedScenarios.length}作品</span>
@@ -628,7 +642,8 @@ export default function MyPage() {
                       {playedScenarios.map((scenario, index) => (
                         <div
                           key={index}
-                          className="aspect-[3/4] rounded-xl overflow-hidden relative group cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-lg hover:-translate-y-1"
+                          className="aspect-[3/4] overflow-hidden relative group cursor-pointer transition-all duration-300 bg-gray-900 shadow-sm hover:shadow-lg hover:scale-[1.02] border border-gray-200 hover:border-gray-300"
+                          style={{ borderRadius: 0 }}
                           onClick={() => {
                             if (scenario.scenario_id) {
                               const scenarioSlug = scenario.scenario_slug || scenario.scenario_id
@@ -641,11 +656,25 @@ export default function MyPage() {
                           }}
                         >
                           {scenario.key_visual_url ? (
-                            <OptimizedImage
-                              src={scenario.key_visual_url}
-                              alt={scenario.scenario}
-                              className="w-full h-full object-cover"
-                            />
+                            <>
+                              {/* 背景：ぼかした画像で余白を埋める */}
+                              <div 
+                                className="absolute inset-0 scale-110"
+                                style={{
+                                  backgroundImage: `url(${scenario.key_visual_url})`,
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
+                                  filter: 'blur(10px) brightness(0.7)',
+                                }}
+                              />
+                              {/* メイン画像：全体を表示 */}
+                              <img
+                                src={scenario.key_visual_url}
+                                alt={scenario.scenario}
+                                className="relative w-full h-full object-contain"
+                                loading="lazy"
+                              />
+                            </>
                           ) : (
                             <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                               <span className="text-3xl opacity-30">🎭</span>
@@ -657,8 +686,8 @@ export default function MyPage() {
                           </div>
                           <div className="absolute top-2 right-2">
                             <div 
-                              className="w-6 h-6 rounded-full flex items-center justify-center shadow-lg"
-                              style={{ backgroundColor: THEME.primary }}
+                              className="w-6 h-6 flex items-center justify-center shadow-lg"
+                              style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
                             >
                               <span className="text-white text-xs">✓</span>
                             </div>
@@ -668,9 +697,12 @@ export default function MyPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Camera className="w-8 h-8 text-gray-400" />
+                  <div className="bg-white shadow-sm p-8 text-center border border-gray-200" style={{ borderRadius: 0 }}>
+                    <div 
+                      className="w-16 h-16 flex items-center justify-center mx-auto mb-4"
+                      style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
+                    >
+                      <Camera className="w-8 h-8" style={{ color: THEME.primary }} />
                     </div>
                     <h3 className="font-bold text-gray-900 mb-2">まだプレイ履歴がありません</h3>
                     <p className="text-gray-500 text-sm">
@@ -692,12 +724,12 @@ export default function MyPage() {
         )}
       </div>
 
-      {/* フローティングアクションボタン */}
+      {/* フローティングアクションボタン - シャープデザイン */}
       <div className="fixed bottom-6 right-6 z-20">
         <Button 
-          className="w-14 h-14 rounded-full text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+          className="w-14 h-14 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
           size="icon"
-          style={{ backgroundColor: THEME.primary }}
+          style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = THEME.primaryHover}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = THEME.primary}
           onClick={() => navigate('/booking')}

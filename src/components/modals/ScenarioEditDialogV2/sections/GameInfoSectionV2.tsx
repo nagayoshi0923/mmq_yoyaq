@@ -71,7 +71,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
           <div className="grid grid-cols-2 gap-5">
             {/* 所要時間 */}
             <div>
-              <Label className={labelStyle}>所要時間</Label>
+              <Label className={labelStyle}>所要時間（平日）</Label>
               <p className={hintStyle}>公演の目安時間。スケジュール枠の計算に使用されます</p>
               <div className="relative mt-1.5">
                 <Input
@@ -87,6 +87,27 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
               </div>
             </div>
 
+            {/* 土日公演時間 */}
+            <div>
+              <Label className={labelStyle}>土日公演時間</Label>
+              <p className={hintStyle}>土日・祝日に公演時間が変わる場合のみ設定</p>
+              <div className="relative mt-1.5">
+                <Input
+                  id="weekend_duration"
+                  type="number"
+                  min="30"
+                  max="480"
+                  value={formData.weekend_duration ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, weekend_duration: e.target.value ? parseInt(e.target.value) : null }))}
+                  placeholder="未設定"
+                  className={`${inputStyle} pr-8`}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">分</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-5">
             {/* 追加準備時間 */}
             <div>
               <Label className={labelStyle}>追加準備時間</Label>

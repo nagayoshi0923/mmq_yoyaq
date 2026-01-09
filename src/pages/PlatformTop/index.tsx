@@ -10,22 +10,14 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
-import { Search, ChevronRight, Users, Clock, Sparkles, Building2, Calendar, Heart, Filter } from 'lucide-react'
+import { Search, ChevronRight, Sparkles, Building2, Calendar, Filter } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
-import { getColorFromName } from '@/lib/utils'
+import { ScenarioCard, type ScenarioCardData } from '@/pages/PublicBookingTop/components/ScenarioCard'
 
-// シナリオカード用の型（直近公演情報を含む）
-interface ScenarioWithEvents {
-  scenario_id: string
-  scenario_title: string
-  scenario_slug: string
-  key_visual_url: string | null
-  author: string
-  player_count_min: number
-  player_count_max: number
-  duration: number
+// シナリオカード用の型（直近公演情報を含む）- ScenarioCardDataを拡張
+interface ScenarioWithEvents extends ScenarioCardData {
   organization_id: string
   organization_slug: string
   organization_name: string
@@ -217,29 +209,14 @@ export function PlatformTop() {
     }))
   }, [scenariosWithEvents, selectedRegion])
 
-  // 日付フォーマット
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr)
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
-    const dayOfWeek = d.getDay()
-    return {
-      date: `${d.getMonth() + 1}/${d.getDate()}`,
-      weekday: weekdays[dayOfWeek],
-      isSunday: dayOfWeek === 0,
-      isSaturday: dayOfWeek === 6
-    }
-  }
-
   const handleFavoriteClick = (e: React.MouseEvent, scenarioId: string) => {
     e.stopPropagation()
     toggleFavorite(scenarioId)
   }
 
-  const handleScenarioClick = (scenario: ScenarioWithEvents) => {
-    if (scenario.scenario_slug) {
-      // シナリオ共通トップページに遷移
-      navigate(`/scenario/${scenario.scenario_slug}`)
-    }
+  const handleScenarioClick = (slugOrId: string) => {
+    // シナリオ共通トップページに遷移
+    navigate(`/scenario/${slugOrId}`)
   }
 
   return (
@@ -361,129 +338,15 @@ export function PlatformTop() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {filteredScenarios.map((scenario, idx) => (
-              <div 
+              <ScenarioCard
                 key={scenario.scenario_id}
-                className="group cursor-pointer"
-                onClick={() => handleScenarioClick(scenario)}
-              >
-                {/* カード本体 - シャープデザイン */}
-                <div 
-                  className="relative bg-white overflow-hidden border border-gray-200 group-hover:border-gray-300 group-hover:shadow-lg transition-all duration-200 flex sm:flex-col hover:scale-[1.02]"
-                  style={{ borderRadius: 0 }}
-                >
-                  {/* お気に入りボタン */}
-                  {user && (
-                    <button
-                      onClick={(e) => handleFavoriteClick(e, scenario.scenario_id)}
-                      className="absolute top-2 right-2 z-10 w-8 h-8 bg-white/90 flex items-center justify-center transition-colors"
-                      style={{ borderRadius: 0 }}
-                    >
-                      <Heart className={`h-4 w-4 ${
-                        favorites.has(scenario.scenario_id) ? 'fill-current text-red-500' : 'text-gray-400 hover:text-red-500'
-                      }`} />
-                    </button>
-                  )}
-                  
-                  {/* キービジュアル */}
-                  <div className="relative w-28 sm:w-full aspect-[3/4] overflow-hidden bg-gray-100 flex-shrink-0">
-                    {scenario.key_visual_url ? (
-                      <img
-                        src={scenario.key_visual_url}
-                        alt={scenario.scenario_title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                        <Sparkles className="w-8 h-8 text-gray-300" />
-                      </div>
-                    )}
-                    {/* 人気タグ */}
-                    {idx === 0 && (
-                      <div 
-                        className="absolute bottom-0 left-0 px-3 py-1 text-xs font-bold text-black"
-                        style={{ backgroundColor: THEME.accent }}
-                      >
-                        人気
-                      </div>
-                    )}
-                  </div>
-
-                  {/* コンテンツ */}
-                  <div className="p-3 flex-1 min-w-0">
-                    {/* タイトル */}
-                    <h3 
-                      className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-2 transition-colors"
-                      style={{ color: 'inherit' }}
-                    >
-                      {scenario.scenario_title}
-                    </h3>
-
-                    {/* 人数・時間 */}
-                    <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {scenario.player_count_min === scenario.player_count_max
-                          ? `${scenario.player_count_max}人`
-                          : `${scenario.player_count_min}-${scenario.player_count_max}人`}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {Math.floor(scenario.duration / 60)}h
-                      </span>
-                    </div>
-
-                    {/* 次回公演 */}
-                    {scenario.next_events.length > 0 && (
-                      <div className="border-t border-gray-100 pt-2 space-y-1">
-                        {scenario.next_events.slice(0, 2).map((event, index) => {
-                          const dateInfo = formatDate(event.date)
-                          return (
-                            <div 
-                              key={index} 
-                              className="flex items-center justify-between text-xs"
-                            >
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span 
-                                  className="w-1 h-4 flex-shrink-0"
-                                  style={{ backgroundColor: event.store_color ? getColorFromName(event.store_color) : THEME.primary }}
-                                />
-                                <span className="font-medium text-gray-900">
-                                  {dateInfo.date}
-                                  <span className={`ml-0.5 font-normal ${dateInfo.isSunday ? 'text-red-500' : dateInfo.isSaturday ? 'text-blue-500' : 'text-gray-400'}`}>
-                                    ({dateInfo.weekday})
-                                  </span>
-                                </span>
-                                {event.time && (
-                                  <span className="text-gray-500">{event.time.slice(0, 5)}</span>
-                                )}
-                                <span className="text-gray-400 truncate">{scenario.organization_name}{event.store_short_name}</span>
-                              </div>
-                              {event.available_seats > 0 && (
-                                <span 
-                                  className="text-[10px] font-bold px-1.5 py-0.5 flex-shrink-0 ml-2"
-                                  style={{
-                                    backgroundColor: event.available_seats <= 2 ? '#FEE2E2' : THEME.accentLight,
-                                    color: event.available_seats <= 2 ? '#DC2626' : THEME.accent,
-                                    borderRadius: 0,
-                                  }}
-                                >
-                                  残{event.available_seats}
-                                </span>
-                              )}
-                            </div>
-                          )
-                        })}
-                        {scenario.next_events.length > 2 && (
-                          <p className="text-[10px] text-gray-400">
-                            +{scenario.next_events.length - 2}件
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+                scenario={scenario}
+                onClick={handleScenarioClick}
+                isFavorite={favorites.has(scenario.scenario_id)}
+                onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
+                organizationName={scenario.organization_name}
+                isFirst={idx === 0}
+              />
             ))}
           </div>
         )}

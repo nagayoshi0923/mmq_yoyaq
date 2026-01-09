@@ -33,6 +33,11 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     
+    // #region agent log
+    console.log('[DEBUG-A] フォーム送信開始', {isSignUp,isForgotPassword,email});
+    fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:handleSubmit',message:'フォーム送信開始',data:{isSignUp,isForgotPassword,email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     try {
       setError('')
       setMessage('')
@@ -53,12 +58,22 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
           password,
         })
         
+        // #region agent log
+        console.log('[DEBUG-A] SignUp結果', {success:!error,userId:signUpData?.user?.id,error:error?.message});
+        fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:signUp',message:'SignUp結果',data:{success:!error,userId:signUpData?.user?.id,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        
         if (error) throw error
         
         // usersテーブルにレコードを作成（トリガーに依存しない）
         if (signUpData.user) {
           // ロールを決定（メールアドレスから判定）
           const role = determineUserRole(email)
+          
+          // #region agent log
+          console.log('[DEBUG-C] ロール判定結果', {email,role});
+          fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:determineRole',message:'ロール判定結果',data:{email,role},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
           
           // usersテーブルにレコードを作成
           const { error: upsertError } = await supabase
@@ -73,6 +88,11 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
               onConflict: 'id'
             })
           
+          // #region agent log
+          console.log('[DEBUG-B] usersテーブルupsert結果', {userId:signUpData.user.id,success:!upsertError,error:upsertError?.message});
+          fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:upsertUsers',message:'usersテーブルupsert結果',data:{userId:signUpData.user.id,success:!upsertError,error:upsertError?.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          
           if (upsertError) {
             logger.warn('usersテーブルへのレコード作成に失敗しました:', upsertError)
             // エラーでもサインアップは成功とみなす（後で修正可能）
@@ -86,6 +106,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         
         // ログイン成功後、ユーザーの組織に基づいてリダイレクト
         const { data: { user } } = await supabase.auth.getUser()
+        // #region agent log
+        console.log('[DEBUG-D] ログイン成功・ユーザー取得', {userId:user?.id,email:user?.email});
+        fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:login',message:'ログイン成功・ユーザー取得',data:{userId:user?.id,email:user?.email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         if (user) {
           // スタッフ情報から組織を取得
           const { data: staffData } = await supabase
@@ -93,6 +117,11 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
             .select('organization_id, role')
             .eq('user_id', user.id)
             .single()
+          
+          // #region agent log
+          console.log('[DEBUG-D] スタッフ情報取得結果', {hasStaffData:!!staffData,role:staffData?.role,organizationId:staffData?.organization_id});
+          fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'LoginForm.tsx:staffCheck',message:'スタッフ情報取得結果',data:{hasStaffData:!!staffData,role:staffData?.role,organizationId:staffData?.organization_id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
           
           if (staffData?.organization_id) {
             // 組織のslugを取得

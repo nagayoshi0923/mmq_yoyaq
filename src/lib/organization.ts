@@ -139,7 +139,7 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
     .from('organizations')
     .select('*')
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
 
   if (error) {
     console.error('Failed to fetch organization by slug:', error)

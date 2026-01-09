@@ -87,7 +87,7 @@ const DEFAULT_MASTER: ScenarioMaster = {
   gallery_images: [],
   description: '',
   synopsis: '',
-  player_count_min: 4,
+  player_count_min: 8,
   player_count_max: 6,
   official_duration: 180,
   genre: [],
@@ -1025,10 +1025,10 @@ export function ScenarioMasterEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="xl" className="max-w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[85vh] p-0 flex flex-col overflow-hidden [&>button]:z-10">
-        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-0 shrink-0">
-          <div className="flex items-center justify-between gap-4">
-            <DialogTitle className="text-xl shrink-0">
+      <DialogContent size="xl" className="max-w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[min(85vh,750px)] p-0 flex flex-col overflow-hidden [&>button]:z-10">
+        <DialogHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-0 shrink-0">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <DialogTitle className="text-base sm:text-xl shrink-0">
               {isNew ? '新規シナリオマスタ' : 'シナリオマスタ編集'}
             </DialogTitle>
             {/* マスタ切り替え */}
@@ -1080,7 +1080,7 @@ export function ScenarioMasterEditDialog({
               </div>
             )}
           </div>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {master.title ? `${master.title}の情報を編集します` : 'シナリオマスタの情報を入力してください'}
           </DialogDescription>
         </DialogHeader>
@@ -1158,14 +1158,12 @@ export function ScenarioMasterEditDialog({
             </Tabs>
 
             {/* フッター（固定） */}
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t bg-muted/30 shrink-0">
-              {/* 現在の設定サマリー */}
-              <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                <span className="font-medium text-foreground truncate max-w-[150px]">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-3 border-t bg-muted/30 shrink-0">
+              {/* 現在の設定サマリー（小さい画面では非表示） */}
+              <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                <span className="font-medium text-foreground truncate max-w-[120px]">
                   {master.title || '(タイトル未設定)'}
                 </span>
-                <span className="text-muted-foreground/50">|</span>
-                <span>{master.author || '(作者未設定)'}</span>
                 <span className="text-muted-foreground/50">|</span>
                 <span>{master.official_duration}分</span>
                 <span className="text-muted-foreground/50">|</span>
@@ -1184,35 +1182,35 @@ export function ScenarioMasterEditDialog({
               </div>
 
               {/* アクションボタン */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
                 {/* ステータスバッジ */}
                 {master.master_status === 'draft' && (
-                  <Badge variant="secondary" className="text-xs">下書き</Badge>
+                  <Badge variant="secondary" className="text-[10px] sm:text-xs">下書き</Badge>
                 )}
                 {master.master_status === 'pending' && (
-                  <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-600">申請中</Badge>
+                  <Badge variant="outline" className="text-[10px] sm:text-xs border-yellow-500 text-yellow-600">申請中</Badge>
                 )}
                 {master.master_status === 'approved' && (
-                  <Badge variant="default" className="text-xs bg-green-500">承認済</Badge>
+                  <Badge variant="default" className="text-[10px] sm:text-xs bg-green-500">承認済</Badge>
                 )}
                 {saveMessage && (
-                  <span className="text-green-600 font-medium text-sm animate-pulse">
+                  <span className="text-green-600 font-medium text-xs sm:text-sm animate-pulse">
                     ✓ {saveMessage}
                   </span>
                 )}
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="text-xs sm:text-sm h-8 sm:h-10">
                   閉じる
                 </Button>
                 <Button 
                   variant="outline" 
                   onClick={() => handleSave('draft')} 
                   disabled={saving}
-                  className="text-gray-600"
+                  className="text-gray-600 text-xs sm:text-sm h-8 sm:h-10 hidden sm:inline-flex"
                 >
                   下書き保存
                 </Button>
-                <Button onClick={() => handleSave()} disabled={saving} className="w-24">
-                  <Save className="h-4 w-4 mr-2" />
+                <Button onClick={() => handleSave()} disabled={saving} className="w-16 sm:w-24 text-xs sm:text-sm h-8 sm:h-10">
+                  <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   保存
                 </Button>
               </div>

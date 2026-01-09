@@ -102,8 +102,8 @@ export function CostsPropsSection({ formData, setFormData }: CostsPropsSectionPr
 
   return (
     <div>
-      <h3 className="text-lg mb-4 pb-2 border-b">制作費・道具</h3>
-      <div className="space-y-6">
+      <h3 className="text-sm sm:text-lg font-medium mb-2 sm:mb-3 pb-1.5 sm:pb-2 border-b">制作費・道具</h3>
+      <div className="space-y-3 sm:space-y-4">
         {/* 制作費 */}
         <ItemizedListWithDates
           title="制作費"

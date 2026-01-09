@@ -7,6 +7,8 @@ import {
   ColumnDef,
   flexRender,
 } from '@tanstack/react-table'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { HelpCircle } from 'lucide-react'
 
 export interface Column<T> {
   /**
@@ -49,6 +51,10 @@ export interface Column<T> {
    * セルのクラス名
    */
   cellClassName?: string
+  /**
+   * カラムのヘルプテキスト（ホバーでツールチップ表示）
+   */
+  helpText?: string
 }
 
 export interface DataTableProps<T> {
@@ -131,6 +137,40 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
   stickyHeader = false,
   stickyHeaderContent
 }: DataTableProps<T>) {
+  // ヘルプテキスト付きヘッダーをレンダリングする関数
+  const renderHeaderWithHelp = (col: Column<T>) => {
+    if (col.renderHeader) {
+      return col.renderHeader()
+    }
+    
+    if (col.helpText) {
+      return (
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help border-b border-dotted border-gray-400">
+                {col.header}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent 
+              side="bottom" 
+              align="start"
+              sideOffset={8}
+              className="z-[100] max-w-xs p-3 text-xs bg-white text-gray-700 border border-gray-200 rounded-lg shadow-lg"
+            >
+              <div className="flex items-start gap-2">
+                <HelpCircle className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p className="leading-relaxed">{col.helpText}</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )
+    }
+    
+    return col.header
+  }
+
   // Column定義をTanStack Table形式に変換
   const tanStackColumns = useMemo<ColumnDef<T>[]>(
     () =>
@@ -144,7 +184,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
           // デフォルトはkeyでプロパティを取得
           return (row as Record<string, unknown>)[col.key]
         },
-        header: () => col.renderHeader?.() || col.header,
+        header: () => renderHeaderWithHelp(col),
         cell: ({ row }) => col.render(row.original),
         enableSorting: col.sortable ?? false,
         sortingFn: col.sortValue ? 'auto' : 'alphanumeric',

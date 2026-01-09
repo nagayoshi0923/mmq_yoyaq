@@ -1,7 +1,10 @@
 /**
  * 組織（マルチテナント）関連の React フック
+ * 
+ * React Queryでキャッシュし、ページ遷移で再取得しないよう最適化
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Organization, Staff } from '@/types'
 import { QUEENS_WALTZ_ORG_ID } from '@/lib/organization'
@@ -16,91 +19,86 @@ interface UseOrganizationResult {
   refetch: () => Promise<void>
 }
 
+// Query Keys（キャッシュキー）
+export const organizationKeys = {
+  current: ['organization', 'current'] as const,
+}
+
 /**
- * 現在のユーザーの組織情報を取得するフック
+ * 組織情報を取得する関数（React Query用）
  */
-export function useOrganization(): UseOrganizationResult {
-  const [organization, setOrganization] = useState<Organization | null>(null)
-  const [staff, setStaff] = useState<Staff | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+async function fetchOrganizationData(): Promise<{ organization: Organization | null; staff: Staff | null }> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { organization: null, staff: null }
+  }
 
-  const fetchOrganization = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
+  // スタッフ情報を取得
+  const { data: staffData, error: staffError } = await supabase
+    .from('staff')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle()
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setOrganization(null)
-        setStaff(null)
-        return
-      }
+  if (staffError && staffError.code !== 'PGRST116') {
+    throw staffError
+  }
 
-      // スタッフ情報を取得
-      const { data: staffData, error: staffError } = await supabase
-        .from('staff')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
+  if (!staffData) {
+    return { organization: null, staff: null }
+  }
 
-      if (staffError) {
-        // スタッフが見つからない場合はエラーではなく null を返す
-        if (staffError.code === 'PGRST116') {
-          setStaff(null)
-          setOrganization(null)
-          return
-        }
-        throw staffError
-      }
+  // 組織情報を取得
+  const orgId = staffData?.organization_id || QUEENS_WALTZ_ORG_ID
+  
+  const { data: orgData, error: orgError } = await supabase
+    .from('organizations')
+    .select('*')
+    .eq('id', orgId)
+    .maybeSingle()
 
-      setStaff(staffData as Staff)
-
-      // 組織情報を取得
-      // organization_idがない場合はクインズワルツをデフォルトで使用
-      const orgId = staffData?.organization_id || QUEENS_WALTZ_ORG_ID
-      
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', orgId)
-        .single()
-
-      if (orgError) {
-        // 組織が見つからない場合もエラーログのみ
-        console.warn('Organization not found:', orgId, orgError)
-      } else {
-        setOrganization(orgData as Organization)
-      }
-    } catch (err) {
-      console.error('Failed to fetch organization:', err)
-      setError(err instanceof Error ? err : new Error('Unknown error'))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchOrganization()
-
-    // 認証状態の変更を監視
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      fetchOrganization()
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [fetchOrganization])
+  if (orgError && orgError.code !== 'PGRST116') {
+    console.warn('Organization not found:', orgId, orgError)
+  }
 
   return {
-    organization,
-    staff,
-    organizationId: staff?.organization_id || null,
-    isLicenseManager: organization?.is_license_manager ?? false,
+    organization: orgData as Organization | null,
+    staff: staffData as Staff,
+  }
+}
+
+/**
+ * 現在のユーザーの組織情報を取得するフック
+ * 
+ * React Queryでキャッシュされるため、ページ遷移時に再取得しない
+ * - staleTime: 10分（この間は再取得しない）
+ * - gcTime: 30分（メモリに保持）
+ */
+export function useOrganization(): UseOrganizationResult {
+  const queryClient = useQueryClient()
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: organizationKeys.current,
+    queryFn: fetchOrganizationData,
+    staleTime: 10 * 60 * 1000, // 10分間はfreshとみなす（再取得しない）
+    gcTime: 30 * 60 * 1000, // 30分間メモリに保持
+    refetchOnMount: false, // マウント時に再取得しない（キャッシュを使う）
+    refetchOnWindowFocus: false, // タブ復帰時も再取得しない
+    retry: 1,
+  })
+
+  const refetch = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: organizationKeys.current })
+  }, [queryClient])
+
+  return {
+    organization: data?.organization ?? null,
+    staff: data?.staff ?? null,
+    organizationId: data?.staff?.organization_id ?? null,
+    isLicenseManager: data?.organization?.is_license_manager ?? false,
     isLoading,
-    error,
-    refetch: fetchOrganization,
+    error: error as Error | null,
+    refetch,
   }
 }
 

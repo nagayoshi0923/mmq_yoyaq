@@ -1,0 +1,1283 @@
+[
+  {
+    "title": "マーダー・オブ・パイレーツ",
+    "players": "10人",
+    "duration": "4時間",
+    "price": "不明",
+    "status": "公演中"
+  },
+  {
+    "title": "over kill",
+    "players": "10人",
+    "duration": "4時間",
+    "price": "6,000円",
+    "status": "新作"
+  },
+  {
+    "title": "BrightChoice",
+    "players": "9人",
+    "duration": "4〜4.5時間",
+    "price": "4,500円",
+    "status": "時間キュウ確認"
+  },
+  {
+    "title": "裁くもの、裁かれるもの",
+    "players": "9人",
+    "duration": "4〜4.5時間",
+    "price": "4,500円",
+    "status": "時間キュウ確認"
+  },
+  {
+    "title": "星",
+    "players": "9人",
+    "duration": "4.5時間",
+    "price": "不明",
+    "status": "公演中"
+  },
+  {
+    "title": "清流館の秘宝",
+    "players": "9人",
+    "duration": "3.5時間",
+    "price": "不明",
+    "status": "公演中"
+  },
+  {
+    "title": "奪うもの、奪われるもの",
+    "players": "9人",
+    "duration": "5〜5.5時間",
+    "price": "5,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "超特急の呪いの館で撮れ高足りてますか？",
+    "players": "9人",
+    "duration": "3.5〜4時間",
+    "price": "5,000円",
+    "status": "新作"
+  },
+  {
+    "title": "曙光のエテルナ",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "BBA",
+    "players": "8人",
+    "duration": "5時間",
+    "price": "5,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "DearmyD",
+    "players": "8人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "Iwillex-",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "Recollection",
+    "players": "8人",
+    "duration": "4〜4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "WANTEDz",
+    "players": "8人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "アンフィスバエナと聖女の祈り",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "ウロボロスの眠り",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "クリエイターズハイ",
+    "players": "8人",
+    "duration": "3.5〜4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "つわものどもが夢のあと",
+    "players": "8人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "ドクター・テラスの秘密の実験",
+    "players": "8人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "バベルの末裔",
+    "players": "8人",
+    "duration": "不明",
+    "price": "不明",
+    "status": "公演中"
+  },
+  {
+    "title": "ヒーロースクランブル",
+    "players": "8人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "ひぐらしのなく頃に　恨返し編",
+    "players": "8人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "フェイクドナー",
+    "players": "8人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "リアルマダミス-MurderWonderLand",
+    "players": "8人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "リアルマダミス-盤上の教皇",
+    "players": "8人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "リトルワンダー",
+    "players": "8人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "悪意の岐路に立つ",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "或ル胡蝶ノ夢",
+    "players": "8人",
+    "duration": "4〜4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "花街リグレット",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "銀世界のアシアト",
+    "players": "8人",
+    "duration": "4〜4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "黒と白の狭間に",
+    "players": "8人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "裁判員の仮面",
+    "players": "8人",
+    "duration": "3.5〜4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "歯に噛むあなたに",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "鹿神館の罪人",
+    "players": "8人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "女皇の書架",
+    "players": "8人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "新世界のユキサキ",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "誠実な十字架",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "鉄紺の証言",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "霧に眠るは幾つの罪",
+    "players": "8人",
+    "duration": "5.5〜6時間",
+    "price": "6,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "野槌",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "贖罪のロザリオ",
+    "players": "8人",
+    "duration": "不明",
+    "price": "不明",
+    "status": "公演中"
+  },
+  {
+    "title": "機巧人形の心臓",
+    "players": "8人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "新作"
+  },
+  {
+    "title": "境界線のカーサスベリ",
+    "players": "8人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "新作"
+  },
+  {
+    "title": "藍雨廻逢",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "月光の偽桜",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "アンシンメトリー",
+    "players": "8人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "未告知"
+  },
+  {
+    "title": "妖怪たちと月夜の刀",
+    "players": "8人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "九十九談 - 厄災の箱",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "未告知"
+  },
+  {
+    "title": "呪縛姫",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "未告知"
+  },
+  {
+    "title": "桜の散る夜に",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "不明",
+    "status": "公演中"
+  },
+  {
+    "title": "白いウサギは歌わない",
+    "players": "8人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "新作"
+  },
+  {
+    "title": "inthebox〜長い熱病",
+    "players": "7人",
+    "duration": "5〜5.5時間",
+    "price": "6,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "Jazzy",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "REDRUM01泉涌館の変転",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "新作"
+  },
+  {
+    "title": "アオハループ",
+    "players": "7人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "あくなき世界で嘘をうたう",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "エデンの審判",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "キングを殺すには",
+    "players": "7人",
+    "duration": "4.５時間",
+    "price": "3,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "クロノフォビア",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "スターループ",
+    "players": "7人",
+    "duration": "2.5〜3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "ツグミドリ",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "ナナイロの迷宮 黄 エレクトリカル吹奏楽部殺人事件",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "ナナイロの迷宮 緑 アペイロン研究所殺人事件",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "ナナイロの迷宮 橙 オンラインゲーム殺人事件",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "ピタゴラスの篝火",
+    "players": "7人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "フェイクアブダクション",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "ヤノハのフタリ",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "ロックドドア殺人",
+    "players": "7人",
+    "duration": "不明",
+    "price": "不明",
+    "status": "公演中"
+  },
+  {
+    "title": "一条家の人々",
+    "players": "7人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "花咲の箱庭",
+    "players": "7人",
+    "duration": "3時間",
+    "price": "3,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "学校の解談",
+    "players": "7人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "岐路に降り立つ",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "季節のマーダーミステリー／ニィホン",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "季節マーダー／アニクシィ",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "季節マーダー／カノケリ",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "季節マーダー／キモナス",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "季節マーダー／シノポロ",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "鬼哭館の殺人事件",
+    "players": "7人",
+    "duration": "4.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "古鐘のなる頃に",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "荒廃のマリス",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "黒の眺望",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "殺神罪",
+    "players": "7人",
+    "duration": "3.5〜4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "殺人鬼イバラノミチの回想録",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "紫に染まる前に",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "七股高校",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "不明",
+    "status": "公演中"
+  },
+  {
+    "title": "朱き亡国に捧げる祈り",
+    "players": "7人",
+    "duration": "3.5〜4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "少年少女Aの独白",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "真・渋谷陰陽奇譚",
+    "players": "7人",
+    "duration": "3.5〜4時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "人狼を語る館",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "星空のマリス",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "全能のパラドックス",
+    "players": "7人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "探偵撲滅",
+    "players": "7人",
+    "duration": "5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "天邪河（あまのじゃく）",
+    "players": "7人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "電脳の檻のアリス",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "新作"
+  },
+  {
+    "title": "白殺しType-K",
+    "players": "7人",
+    "duration": "2,5〜3時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "百鬼の夜、月光の影",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "名探偵と四嶺館",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "傲慢な女王とアリスの不条理裁判",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "彗星蘭の万朶",
+    "players": "7人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "新作"
+  },
+  {
+    "title": "燔祭のジェミニ",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "絆の永逝",
+    "players": "7人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "準備中"
+  },
+  {
+    "title": "凪の鬼籍",
+    "players": "7人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "新作"
+  },
+  {
+    "title": "異能特区シンギュラリティ",
+    "players": "7人",
+    "duration": "3〜3.5時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "くずの葉のもり",
+    "players": "7人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "REDRUM4アルテミスの断罪",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "ENIGMACODE廃棄ミライの犠牲者たち",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "テセウスの方舟",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "不明",
+    "status": "新作"
+  },
+  {
+    "title": "探ぱんマーダーミステリー・ノーショーツトルダム学園殺人事件",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "蟻集",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "新作"
+  },
+  {
+    "title": "蝉散",
+    "players": "7人",
+    "duration": "4.5時間",
+    "price": "5,500円",
+    "status": "新作"
+  },
+  {
+    "title": "その白衣は誰が為に",
+    "players": "7人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "深海に沈む子供たち（水底のクオリア）",
+    "players": "7人",
+    "duration": "3.5時間",
+    "price": "不明",
+    "status": "未告知"
+  },
+  {
+    "title": "5DIVE",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "MERCHANT",
+    "players": "6人",
+    "duration": "5〜5.5〜6時間",
+    "price": "5,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "readme.txt",
+    "players": "6人",
+    "duration": "3〜3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "REDRUM02虚像のF",
+    "players": "6人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "新作"
+  },
+  {
+    "title": "REDRUM03致命的観測をもう一度",
+    "players": "6人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "TOOLS〜ぎこちない椅子",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "アンドロイドは愛を知らない",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "クリムゾンアート",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "この闘をあなたと",
+    "players": "6人",
+    "duration": "4〜4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "デモンズボックス",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "へっどぎあ★ぱにっく",
+    "players": "6人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "モノクローム",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "ロスト／リメンブランス",
+    "players": "6人",
+    "duration": "4.5時間",
+    "price": "5,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "愛する故に",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "椅子戦争",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "違人",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "火ノ神様のいうとおり",
+    "players": "6人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "紅く舞う",
+    "players": "6人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "告別詩",
+    "players": "6人",
+    "duration": "5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "殺人鬼Xの独白",
+    "players": "6人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "小暮事件に関する考察",
+    "players": "6人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "赤の導線",
+    "players": "6人",
+    "duration": "4〜4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "凍てつくあなたに６つの灯火",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "彼とかじつとマシュマロウ",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "彼女といるかとチョコレート",
+    "players": "6人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "不思議の国の童話裁判",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "鳴神様のいうとおり",
+    "players": "6人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "立方館",
+    "players": "6人",
+    "duration": "6.5〜7時間",
+    "price": "9,000円",
+    "status": "新作"
+  },
+  {
+    "title": "裂き子さん",
+    "players": "6人",
+    "duration": "3〜3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "ゴージャスマンション",
+    "players": "6人",
+    "duration": "2.5時間",
+    "price": "4,000円",
+    "status": "新作"
+  },
+  {
+    "title": "マーダーオブエクスプローラー失われし大秘宝",
+    "players": "6人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "漣の向こう側",
+    "players": "6人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "土牢に悲鳴は谺して",
+    "players": "6人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "オペレーション：ゴーストウィング",
+    "players": "6人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "ある悪魔の儀式について",
+    "players": "6人",
+    "duration": "2.5時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "ツイン号沈没事件に関する考察",
+    "players": "6人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "新作"
+  },
+  {
+    "title": "すべては山荘から始まる。",
+    "players": "6人",
+    "duration": "2.5時間",
+    "price": "不明",
+    "status": "未告知"
+  },
+  {
+    "title": "君が為の殺人",
+    "players": "6人",
+    "duration": "5時間",
+    "price": "5,500円",
+    "status": "未告知"
+  },
+  {
+    "title": "GM殺人事件",
+    "players": "5人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "BeatSpecter",
+    "players": "5人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "未告知"
+  },
+  {
+    "title": "WORLDEND",
+    "players": "5人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "あるマーダーミステリーについて",
+    "players": "5人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "エイダ",
+    "players": "5人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "ユートピアース",
+    "players": "5人",
+    "duration": "2.5〜3時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "狂気山脈　2.5　頂上戦争",
+    "players": "5人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "狂気山脈　陰謀の分水嶺（１）",
+    "players": "5人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "狂気山脈　星降る天辺（２）",
+    "players": "5人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "狂気山脈　薄明三角点（３）",
+    "players": "5人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "黒い森の獣part1",
+    "players": "5人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "黒い森の獣part2人と狼",
+    "players": "5人",
+    "duration": "4.5時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "魂を運ぶ飛行船",
+    "players": "5人",
+    "duration": "3.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "人類最後の皆様へ／終末の眠り姫",
+    "players": "5人",
+    "duration": "4時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "正義はまた蘇る",
+    "players": "5人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "天使は花明かりの下で",
+    "players": "5人",
+    "duration": "4時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "南極地点X",
+    "players": "5人",
+    "duration": "2.5時間",
+    "price": "3,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "僕らの未来について",
+    "players": "5人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "流年",
+    "players": "5人",
+    "duration": "6時間",
+    "price": "6,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "廻る弾丸輪舞（ダンガンロンド）",
+    "players": "5人",
+    "duration": "2.5時間",
+    "price": "4,000円",
+    "status": "新作"
+  },
+  {
+    "title": "TheRealFork30's",
+    "players": "5人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "檻見る5人-（空色時箱セット公演）",
+    "players": "5人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "空色時箱（ソライロタイムカプセル）-檻見る５人セット公演",
+    "players": "5人",
+    "duration": "4時間",
+    "price": "5,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "MissingLink（ミッシングリンク）",
+    "players": "5人",
+    "duration": "3時間",
+    "price": "4,000円",
+    "status": "準備中"
+  },
+  {
+    "title": "ゼロの爆弾",
+    "players": "5人",
+    "duration": "2.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "赤鬼が泣いた夜",
+    "players": "5人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "親方の館",
+    "players": "5人",
+    "duration": "不明",
+    "price": "不明",
+    "status": "準備中"
+  },
+  {
+    "title": "SORCIER～賢者達の物語～",
+    "players": "4人",
+    "duration": "3.5時間",
+    "price": "4,000円",
+    "status": "公演中"
+  },
+  {
+    "title": "エンドロールは流れない",
+    "players": "4人",
+    "duration": "4〜4.5時間",
+    "price": "4,500円",
+    "status": "公演中"
+  },
+  {
+    "title": "Invisible-亡霊列車-",
+    "players": "4人",
+    "duration": "2時間",
+    "price": "3,500円",
+    "status": "新作"
+  },
+  {
+    "title": "口裂け女の微笑み・Mの悪意",
+    "players": "4人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "準備中"
+  },
+  {
+    "title": "Factor",
+    "players": "4人",
+    "duration": "2.5-3時間",
+    "price": "4,500円",
+    "status": "準備中"
+  },
+  {
+    "title": "ブルーダイヤの不在証明",
+    "players": "4人",
+    "duration": "3時間",
+    "price": "4,500円",
+    "status": "新作"
+  }
+]

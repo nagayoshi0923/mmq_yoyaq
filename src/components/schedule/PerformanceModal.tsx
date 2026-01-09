@@ -30,7 +30,7 @@ import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 interface PerformanceModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (eventData: EventFormData) => void
+  onSave: (eventData: EventFormData) => Promise<boolean>
   mode: 'add' | 'edit'
   event?: ScheduleEvent | null  // 編集時のみ
   initialData?: { date: string, venue: string, time_slot: string }  // 追加時のみ（DBカラム名に統一）
@@ -372,7 +372,7 @@ export function PerformanceModal({
     return slot === 'morning' ? '朝' : slot === 'afternoon' ? '昼' : '夜'
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // 時間帯を'朝'/'昼'/'夜'形式で保存
     // gmRoles (camelCase) を gm_roles (snake_case) に変換してAPIに渡す
     // スタッフ参加/見学もGMリストに保持する（除外しない）
@@ -418,9 +418,11 @@ export function PerformanceModal({
       clearEmptySlotMemo(initialData.date, initialData.venue, timeSlot)
     }
     
-    onSave(saveData)
-    // 保存後にダイアログを閉じる
-    onClose()
+    const success = await onSave(saveData)
+    // 保存成功時のみダイアログを閉じる
+    if (success) {
+      onClose()
+    }
   }
 
   const handleScenarioSaved = async () => {
@@ -472,22 +474,22 @@ export function PerformanceModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent size="lg" className="max-h-[85vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 py-4 border-b shrink-0">
-          <DialogTitle>{modalTitle}</DialogTitle>
-          <DialogDescription>
+      <DialogContent size="lg" className="max-h-[90vh] sm:max-h-[min(80vh,700px)] overflow-hidden flex flex-col p-0 gap-0">
+        <DialogHeader className="px-3 sm:px-6 py-2 sm:py-4 border-b shrink-0">
+          <DialogTitle className="text-base sm:text-lg">{modalTitle}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
             {modalDescription}
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col overflow-hidden">
-          <div className="px-6 pt-4 shrink-0">
+        <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
+          <div className="px-3 sm:px-6 pt-2 sm:pt-4 shrink-0">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="edit">公演情報</TabsTrigger>
-              <TabsTrigger value="reservations">
+              <TabsTrigger value="edit" className="text-xs sm:text-sm">公演情報</TabsTrigger>
+              <TabsTrigger value="reservations" className="text-xs sm:text-sm">
                 予約者
                 {event && (
-                  <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                  <Badge variant="secondary" className="ml-1 sm:ml-2 h-4 sm:h-5 px-1 sm:px-1.5 text-[10px] sm:text-xs">
                     {event.is_private_request || event.is_private_booking
                       ? '満席'
                       : `${localCurrentParticipants}/${event.scenarios?.player_count_max || event.max_participants || 8}名`
@@ -503,10 +505,10 @@ export function PerformanceModal({
             </TabsList>
           </div>
           
-          <TabsContent value="edit" className="flex-1 overflow-y-auto p-6 mt-0">
-            <div className="space-y-4 pb-20 sm:pb-0">
+          <TabsContent value="edit" className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-6 mt-0 min-h-0">
+            <div className="space-y-3 sm:space-y-4 pb-4 sm:pb-0">
           {/* 基本情報 */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div>
               <Label htmlFor="date">日付</Label>
               <SingleDatePopover
@@ -695,7 +697,7 @@ export function PerformanceModal({
           </div>
 
           {/* 時間帯選択とGM選択 */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div>
               <Label htmlFor="timeSlot">時間帯</Label>
               <Select 
@@ -935,7 +937,7 @@ export function PerformanceModal({
           </div>
 
           {/* 時間設定 */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div>
               <Label htmlFor="start_time">開始時間</Label>
               <Select 
@@ -988,7 +990,7 @@ export function PerformanceModal({
           </div>
 
           {/* カテゴリと参加者数 */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4">
             <div>
               <Label htmlFor="category">公演カテゴリ</Label>
               <Select 
@@ -1107,7 +1109,7 @@ export function PerformanceModal({
           {/* アクションボタン削除 */}
           </TabsContent>
           
-          <TabsContent value="reservations" className="flex-1 overflow-y-auto p-6 mt-0">
+          <TabsContent value="reservations" className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-6 mt-0 min-h-0">
             <ReservationList
               event={event || null}
               currentEventData={formData}
@@ -1126,9 +1128,9 @@ export function PerformanceModal({
         </Tabs>
 
         {/* フッターアクションボタン */}
-        <div className="flex justify-between items-center gap-2 p-4 border-t bg-background shrink-0">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-2 sm:p-4 border-t bg-background shrink-0">
           {/* 左側：シナリオ情報（省スペース表示） */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 hidden sm:block">
             {formData.scenario && (() => {
               const selectedScenario = scenarios.find(s => s.title === formData.scenario)
               if (selectedScenario) {
@@ -1150,7 +1152,7 @@ export function PerformanceModal({
                 const fee = getParticipationFee()
                 
                 return (
-                  <div className="flex items-center gap-4 text-sm font-medium">
+                  <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm font-medium">
                     <span>{selectedScenario.duration}時間</span>
                     <span className="text-muted-foreground">|</span>
                     <span>最大{selectedScenario.player_count_max}名</span>
@@ -1168,11 +1170,11 @@ export function PerformanceModal({
           </div>
           
           {/* 右側：ボタン */}
-          <div className="flex gap-2 shrink-0">
-            <Button variant="outline" onClick={onClose} className="min-w-[100px]">
+          <div className="flex gap-2 shrink-0 w-full sm:w-auto justify-end">
+            <Button variant="outline" onClick={onClose} className="min-w-[80px] sm:min-w-[100px] text-xs sm:text-sm h-8 sm:h-10">
               キャンセル
             </Button>
-            <Button onClick={handleSave} className="min-w-[100px]">
+            <Button onClick={handleSave} className="min-w-[80px] sm:min-w-[100px] text-xs sm:text-sm h-8 sm:h-10">
               {mode === 'add' ? '追加' : '保存'}
             </Button>
           </div>

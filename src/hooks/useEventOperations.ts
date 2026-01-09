@@ -448,7 +448,7 @@ export function useEventOperations({
   }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId])
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能（タイムスロット + 実時間 + 準備時間）
-  const handleSavePerformance = useCallback(async (performanceData: PerformanceData) => {
+  const handleSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
     // タイムスロットを判定（保存された枠time_slotを優先、なければstart_timeから判定）
     let timeSlot: 'morning' | 'afternoon' | 'evening'
     const savedSlot = convertTimeSlot(performanceData.time_slot)
@@ -567,15 +567,15 @@ export function useEventOperations({
       })
       setPendingPerformanceData(performanceData)
       setIsConflictWarningOpen(true)
-      return
+      return false  // 重複警告表示時はダイアログを閉じない
     }
     
     // 重複がない場合は直接保存
-    await doSavePerformance(performanceData)
+    return await doSavePerformance(performanceData)
   }, [events, stores, scenarios, modalMode])
 
   // 実際の保存処理（重複チェックなし）
-  const doSavePerformance = useCallback(async (performanceData: PerformanceData) => {
+  const doSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
     try {
       // メモに変換する場合の特別処理
       if (performanceData.category === 'memo') {
@@ -623,7 +623,7 @@ export function useEventOperations({
         
         // スケジュールを再読み込み（fetchScheduleがsetEventsを行うので重複を避ける）
         await fetchSchedule()
-        return
+        return true
       }
       
       if (modalMode === 'add') {
@@ -837,7 +837,7 @@ export function useEventOperations({
                 // 移動先の日付に臨時会場がない場合は警告して中止
                 if (!currentDates.includes(newDate)) {
                   showToast.warning(`移動先の日付（${newDate}）に臨時会場「${storeName}」が追加されていません。先に臨時会場を追加してください。`)
-                  return
+                  return false
                 }
               }
             }
@@ -918,9 +918,11 @@ export function useEventOperations({
 
       showToast.success('保存しました')
       // ダイアログは閉じない（ユーザーが明示的に閉じる）
+      return true
     } catch (error) {
       logger.error('公演保存エラー:', error)
       showToast.error(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
+      return false
     }
   }, [modalMode, stores, scenarios, setEvents, handleCloseModal, organizationId])
 

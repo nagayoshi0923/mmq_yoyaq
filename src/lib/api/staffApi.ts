@@ -135,15 +135,32 @@ export const staffApi = {
       const isAdmin = roles.some(r => r === 'admin' || r === '管理者')
       const userRole = isAdmin ? 'admin' : 'staff'
       
-      const { error: userRoleError } = await supabase
+      // 🚨 重要: 既存のadminロールを持つユーザーをstaffに降格させない
+      // usersテーブルの既存ロールを確認
+      const { data: existingUserData, error: existingUserError } = await supabase
         .from('users')
-        .update({ role: userRole, updated_at: new Date().toISOString() })
+        .select('role')
         .eq('id', data.user_id)
+        .maybeSingle()
       
-      if (userRoleError) {
-        logger.warn('ユーザーロールの更新に失敗しました:', userRoleError)
+      if (existingUserError) {
+        logger.warn('既存ユーザーロールの確認に失敗しました:', existingUserError)
+      }
+      
+      // 既存ロールがadminで、更新後がstaffの場合は降格をスキップ
+      if (existingUserData?.role === 'admin' && userRole === 'staff') {
+        logger.log(`スタッフ「${data.name}」の既存ロールがadminのため、staffへの降格をスキップしました`)
       } else {
-        logger.log(`スタッフ「${data.name}」の役割変更に伴い、ユーザーロールを${userRole}に更新しました`)
+        const { error: userRoleError } = await supabase
+          .from('users')
+          .update({ role: userRole, updated_at: new Date().toISOString() })
+          .eq('id', data.user_id)
+        
+        if (userRoleError) {
+          logger.warn('ユーザーロールの更新に失敗しました:', userRoleError)
+        } else {
+          logger.log(`スタッフ「${data.name}」の役割変更に伴い、ユーザーロールを${userRole}に更新しました`)
+        }
       }
     }
     
