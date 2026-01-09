@@ -54,7 +54,7 @@ export function ScheduleManager() {
   const { currentDate, setCurrentDate, monthDays } = useMonthNavigation(scrollRestoration.clearScrollPosition)
 
   // 臨時会場管理
-  const { temporaryVenues, availableVenues, addTemporaryVenue, removeTemporaryVenue } = useTemporaryVenues(currentDate)
+  const { temporaryVenues, availableVenues, getVenueNameForDate, addTemporaryVenue, updateVenueName, removeTemporaryVenue } = useTemporaryVenues(currentDate)
 
   // GMリスト
   const [gmList, setGmList] = useState<Staff[]>([])
@@ -474,14 +474,15 @@ export function ScheduleManager() {
     viewConfig: {
       ...scheduleTableProps.viewConfig,
       stores: filteredStores,
-      temporaryVenues: selectedStores.length === 0 ? temporaryVenues : []
+      temporaryVenues: selectedStores.length === 0 ? temporaryVenues : [],
+      getVenueNameForDate // 日付ごとの臨時会場名を取得する関数
     },
     dataProvider: {
       ...scheduleTableProps.dataProvider,
       getEventsForSlot: filteredGetEventsForSlot,
       shiftData: filteredShiftData
     }
-  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData])
+  }), [scheduleTableProps, filteredStores, filteredGetEventsForSlot, temporaryVenues, selectedStores, filteredShiftData, getVenueNameForDate])
 
   // ハッシュ変更でページ切り替え
   useEffect(() => {
@@ -911,13 +912,33 @@ export function ScheduleManager() {
                     const nextVenue = availableVenues.find(v => !usedVenueIds.includes(v.id))
                     
                     if (nextVenue) {
-                      addTemporaryVenue(date, nextVenue.id)
+                      // 会場名を入力してもらう
+                      const customName = window.prompt('臨時会場の名前を入力してください（例: スペースマーケット渋谷）', '')
+                      // キャンセル時は追加しない
+                      if (customName === null) {
+                        modals.contextMenu.setContextMenu(null)
+                        return
+                      }
+                      addTemporaryVenue(date, nextVenue.id, customName || undefined)
                     } else {
                       showToast.warning('すべての臨時会場が使用されています')
                     }
                     
                     modals.contextMenu.setContextMenu(null)
                   }
+                },
+                {
+                  label: '臨時会場名を変更',
+                  icon: <Edit className="w-4 h-4" />,
+                  onClick: () => {
+                    const currentName = getVenueNameForDate(venue, date)
+                    const newName = window.prompt('新しい会場名を入力してください', currentName)
+                    if (newName !== null && newName !== currentName) {
+                      updateVenueName(date, venue, newName)
+                    }
+                    modals.contextMenu.setContextMenu(null)
+                  },
+                  disabled: !isTemporaryVenue
                 },
                 {
                   label: '臨時会場を削除',

@@ -153,6 +153,7 @@ export interface Store {
   is_temporary?: boolean  // 臨時会場フラグ
   temporary_date?: string  // 【非推奨】temporary_dates を使用してください
   temporary_dates?: string[]  // 臨時会場が使用される日付の配列（例: ["2025-11-01", "2025-11-05"]）
+  temporary_venue_names?: Record<string, string>  // 日付ごとのカスタム会場名（例: {"2025-11-01": "スペースマーケット渋谷"}）
   display_order?: number  // 表示順序（設定画面で変更可能）
   region?: string  // 地域（例: "東京", "県外"）- 店舗選択でグループ分け表示に使用
   created_at: string
@@ -232,6 +233,7 @@ export interface Scenario {
   author: string
   author_email?: string | null  // 作者メールアドレス（作者ポータル連携用）
   duration: number
+  weekend_duration?: number | null  // 土日・祝日の公演時間（分）。未設定の場合はdurationを使用
   player_count_min: number
   player_count_max: number
   difficulty: number
@@ -487,9 +489,11 @@ export interface Customer {
   organization_id?: string  // マルチテナント対応（移行期間中はオプショナル）
   user_id?: string | null
   name: string
+  nickname?: string | null  // 表示用ニックネーム
   email?: string | null
   email_verified?: boolean
   phone?: string | null
+  address?: string | null  // 住所
   line_id?: string | null
   notes?: string | null
   visit_count: number
@@ -523,6 +527,7 @@ export interface Reservation {
   total_price: number
   discount_amount: number
   final_price: number
+  unit_price?: number  // 予約時点の1人あたり参加料金
   payment_status: 'pending' | 'paid' | 'refunded' | 'cancelled'
   payment_method?: string | null
   payment_datetime?: string | null

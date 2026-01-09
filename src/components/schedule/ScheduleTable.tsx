@@ -20,6 +20,7 @@ export interface ScheduleTableViewConfig {
   monthDays: MonthDay[]
   stores: Array<{ id: string; name: string; short_name: string; is_temporary?: boolean }>
   temporaryVenues?: Store[]
+  getVenueNameForDate?: (venueId: string, date: string) => string  // 日付ごとの臨時会場名を取得
 }
 
 export interface ScheduleTableDataProvider {
@@ -64,7 +65,7 @@ export function ScheduleTable({
   eventHandlers,
   displayConfig
 }: ScheduleTableProps) {
-  const { currentDate, monthDays, stores, temporaryVenues = [] } = viewConfig
+  const { currentDate, monthDays, stores, temporaryVenues = [], getVenueNameForDate } = viewConfig
   const { getEventsForSlot, shiftData, getMemo, onSaveMemo } = dataProvider
   const {
     onAddPerformance,
@@ -156,14 +157,23 @@ export function ScheduleTable({
                   
                   {/* 店舗セル (Sticky on Mobile) */}
                   <TableCell className="sticky left-[32px] sm:static z-20 sm:z-auto bg-background group-hover:bg-muted/5 schedule-table-cell border-r venue-cell text-xs sm:text-sm font-medium !p-0 leading-none text-center">
-                    <div className="flex flex-col items-center justify-center w-full h-full sm:flex-row sm:block">
-                      <div className="sm:hidden flex flex-col items-center gap-0.5">
-                        {venue.short_name.split('').map((char, i) => (
-                          <span key={i} className="leading-none">{char}</span>
-                        ))}
-                      </div>
-                      <span className="hidden sm:inline">{venue.short_name}</span>
-                    </div>
+                    {(() => {
+                      // 臨時会場の場合は日付ごとのカスタム名を使用
+                      const displayName = isTemporary && getVenueNameForDate
+                        ? getVenueNameForDate(venue.id, day.date)
+                        : venue.short_name
+                      
+                      return (
+                        <div className="flex flex-col items-center justify-center w-full h-full sm:flex-row sm:block">
+                          <div className="sm:hidden flex flex-col items-center gap-0.5">
+                            {displayName.split('').map((char, i) => (
+                              <span key={i} className="leading-none">{char}</span>
+                            ))}
+                          </div>
+                          <span className="hidden sm:inline">{displayName}</span>
+                        </div>
+                      )
+                    })()}
                   </TableCell>
                   
                   {/* 午前セル */}

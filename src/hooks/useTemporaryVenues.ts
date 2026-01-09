@@ -15,7 +15,9 @@ interface UseTemporaryVenuesReturn {
   temporaryVenues: Store[]  // すべての臨時会場（臨時1〜5）
   availableVenues: Store[]  // まだ予約されていない臨時会場
   getVenuesForDate: (date: string) => Store[]  // 指定日付で使用される臨時会場
-  addTemporaryVenue: (date: string, venueId: string) => Promise<void>
+  getVenueNameForDate: (venueId: string, date: string) => string  // 日付ごとのカスタム会場名を取得
+  addTemporaryVenue: (date: string, venueId: string, customName?: string) => Promise<void>
+  updateVenueName: (date: string, venueId: string, newName: string) => Promise<void>  // 臨時会場名を変更
   removeTemporaryVenue: (date: string, venueId: string) => Promise<void>
   loading: boolean
 }
@@ -132,11 +134,24 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
     })
   }, [temporaryVenues])
 
+  // 日付ごとのカスタム会場名を取得（設定がなければデフォルト名を返す）
+  const getVenueNameForDate = useCallback((venueId: string, date: string) => {
+    const venue = temporaryVenues.find(v => v.id === venueId)
+    if (!venue) return ''
+    
+    // 日付ごとのカスタム名があればそれを返す
+    const customName = venue.temporary_venue_names?.[date]
+    if (customName) return customName
+    
+    // なければデフォルトの名前を返す
+    return venue.short_name || venue.name
+  }, [temporaryVenues])
+
   // まだ予約されていない臨時会場を取得
   const availableVenues = temporaryVenues
 
   // 臨時会場に日付を追加
-  const addTemporaryVenue = useCallback(async (date: string, venueId: string) => {
+  const addTemporaryVenue = useCallback(async (date: string, venueId: string, customName?: string) => {
     try {
       // 現在の temporary_dates を取得
       const venue = temporaryVenues.find(v => v.id === venueId)
@@ -154,23 +169,107 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
 
       // 日付を追加
       const newDates = [...currentDates, date].sort()
+      
+      // カスタム名がある場合は temporary_venue_names も更新
+      const currentVenueNames = venue.temporary_venue_names || {}
+      const newVenueNames = customName 
+        ? { ...currentVenueNames, [date]: customName }
+        : currentVenueNames
 
-      const { error } = await supabase
-        .from('stores')
-        .update({ temporary_dates: newDates })
-        .eq('id', venueId)
+      // まずカスタム名も含めて更新を試みる
+      if (customName) {
+        const { error: fullUpdateError } = await supabase
+          .from('stores')
+          .update({ 
+            temporary_dates: newDates,
+            temporary_venue_names: newVenueNames
+          })
+          .eq('id', venueId)
 
-      if (error) throw error
+        if (fullUpdateError) {
+          // temporary_venue_names カラムが存在しない場合は temporary_dates のみ更新
+          logger.log('⚠️ temporary_venue_names カラムが存在しない可能性、temporary_dates のみ更新します')
+          const { error: datesOnlyError } = await supabase
+            .from('stores')
+            .update({ temporary_dates: newDates })
+            .eq('id', venueId)
 
-      // 楽観的更新
-      setTemporaryVenues(prev =>
-        prev.map(v => v.id === venueId ? { ...v, temporary_dates: newDates } : v)
-      )
+          if (datesOnlyError) throw datesOnlyError
+          
+          // 楽観的更新（カスタム名なし）
+          setTemporaryVenues(prev =>
+            prev.map(v => v.id === venueId ? { ...v, temporary_dates: newDates } : v)
+          )
+          showToast.info('会場名の保存にはデータベースの更新が必要です', '臨時会場は追加されました')
+        } else {
+          // 楽観的更新（カスタム名あり）
+          setTemporaryVenues(prev =>
+            prev.map(v => v.id === venueId ? { 
+              ...v, 
+              temporary_dates: newDates,
+              temporary_venue_names: newVenueNames
+            } : v)
+          )
+        }
+      } else {
+        // カスタム名がない場合は temporary_dates のみ更新
+        const { error } = await supabase
+          .from('stores')
+          .update({ temporary_dates: newDates })
+          .eq('id', venueId)
 
-      logger.log('✅ 臨時会場に日付を追加:', { venue: venue.name, date })
+        if (error) throw error
+
+        // 楽観的更新
+        setTemporaryVenues(prev =>
+          prev.map(v => v.id === venueId ? { ...v, temporary_dates: newDates } : v)
+        )
+      }
+
+      logger.log('✅ 臨時会場に日付を追加:', { venue: venue.name, date, customName })
     } catch (error) {
       logger.error('臨時会場への日付追加に失敗:', error)
       showToast.error('臨時会場の追加に失敗しました')
+    }
+  }, [temporaryVenues])
+
+  // 臨時会場名を変更
+  const updateVenueName = useCallback(async (date: string, venueId: string, newName: string) => {
+    try {
+      const venue = temporaryVenues.find(v => v.id === venueId)
+      if (!venue) {
+        throw new Error('臨時会場が見つかりません')
+      }
+
+      // temporary_venue_names を更新
+      const currentVenueNames = venue.temporary_venue_names || {}
+      const newVenueNames = { ...currentVenueNames, [date]: newName }
+
+      const { error } = await supabase
+        .from('stores')
+        .update({ temporary_venue_names: newVenueNames })
+        .eq('id', venueId)
+
+      if (error) {
+        // カラムが存在しない場合のエラー
+        logger.error('臨時会場名の更新に失敗（カラムが存在しない可能性）:', error)
+        showToast.error('会場名の保存にはデータベースの更新が必要です')
+        return
+      }
+
+      // 楽観的更新
+      setTemporaryVenues(prev =>
+        prev.map(v => v.id === venueId ? { 
+          ...v, 
+          temporary_venue_names: newVenueNames
+        } : v)
+      )
+
+      logger.log('✅ 臨時会場名を変更:', { venue: venue.name, date, newName })
+      showToast.success('会場名を変更しました')
+    } catch (error) {
+      logger.error('臨時会場名の変更に失敗:', error)
+      showToast.error('会場名の変更に失敗しました')
     }
   }, [temporaryVenues])
 
@@ -236,7 +335,9 @@ export function useTemporaryVenues(currentDate: Date): UseTemporaryVenuesReturn 
     temporaryVenues,
     availableVenues,
     getVenuesForDate,
+    getVenueNameForDate,
     addTemporaryVenue,
+    updateVenueName,
     removeTemporaryVenue,
     loading
   }
