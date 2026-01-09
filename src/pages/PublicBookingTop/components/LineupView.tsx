@@ -1,8 +1,8 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScenarioCard } from './ScenarioCard'
-import { memo } from 'react'
-import { BookOpen, Calendar } from 'lucide-react'
+import { memo, useState, useMemo } from 'react'
+import { BookOpen, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
@@ -37,8 +37,37 @@ export const LineupView = memo(function LineupView({
   // 検索中かどうか
   const isSearching = searchTerm.length > 0
   
-  // 新着は10件まで、直近公演は全て表示
+  // 「もっと見る」の展開状態
+  const [isExpanded, setIsExpanded] = useState(false)
+  
+  // 新着は10件まで
   const displayedNewScenarios = newScenarios.slice(0, 10)
+  
+  // 直近7日以内の公演とそれ以降を分離
+  const { within7Days, after7Days } = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const sevenDaysLater = new Date(today)
+    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
+    
+    const within: ScenarioCardType[] = []
+    const after: ScenarioCardType[] = []
+    
+    upcomingScenarios.forEach(scenario => {
+      const nextEventDate = scenario.next_events?.[0]?.date
+      if (nextEventDate) {
+        // YYYY-MM-DD形式の日付を比較
+        const eventDate = new Date(nextEventDate + 'T00:00:00')
+        if (eventDate < sevenDaysLater) {
+          within.push(scenario)
+        } else {
+          after.push(scenario)
+        }
+      }
+    })
+    
+    return { within7Days: within, after7Days: after }
+  }, [upcomingScenarios])
   
   const handleCatalogClick = () => {
     const catalogPath = organizationSlug ? `/${organizationSlug}/catalog` : '/catalog'
@@ -119,7 +148,7 @@ export const LineupView = memo(function LineupView({
         </section>
       )}
 
-      {/* 直近公演セクション（全て表示） */}
+      {/* 直近公演セクション（7日以内を常時表示、それ以降は「もっと見る」） */}
       {upcomingScenarios.length > 0 && (
         <section>
           <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-3 md:mb-4 flex items-center gap-2">
@@ -130,22 +159,69 @@ export const LineupView = memo(function LineupView({
               style={{ backgroundColor: THEME.accent }}
             />
             <span className="text-xs font-normal text-gray-500 ml-1">
-              ({upcomingScenarios.length}件)
+              (7日以内: {within7Days.length}件)
             </span>
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-            {upcomingScenarios.map((scenario, index) => (
-              <ScenarioCard 
-                key={scenario.scenario_id} 
-                scenario={scenario} 
-                onClick={onCardClick}
-                isFavorite={isFavorite(scenario.scenario_id)}
-                onToggleFavorite={onToggleFavorite}
-                organizationName={organizationName}
-                isFirst={displayedNewScenarios.length === 0 && index === 0}
-              />
-            ))}
-          </div>
+          
+          {/* 7日以内の公演 */}
+          {within7Days.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+              {within7Days.map((scenario, index) => (
+                <ScenarioCard 
+                  key={scenario.scenario_id} 
+                  scenario={scenario} 
+                  onClick={onCardClick}
+                  isFavorite={isFavorite(scenario.scenario_id)}
+                  onToggleFavorite={onToggleFavorite}
+                  organizationName={organizationName}
+                  isFirst={displayedNewScenarios.length === 0 && index === 0}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground bg-gray-50 rounded-lg">
+              <p>7日以内の公演予定はありません</p>
+            </div>
+          )}
+          
+          {/* もっと見るボタン（7日以降の公演がある場合） */}
+          {after7Days.length > 0 && (
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="w-full gap-2"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="w-4 h-4" />
+                    閉じる
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    8日以降の公演を見る（{after7Days.length}件）
+                  </>
+                )}
+              </Button>
+              
+              {/* 展開時に表示 */}
+              {isExpanded && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                  {after7Days.map((scenario) => (
+                    <ScenarioCard 
+                      key={scenario.scenario_id} 
+                      scenario={scenario} 
+                      onClick={onCardClick}
+                      isFavorite={isFavorite(scenario.scenario_id)}
+                      onToggleFavorite={onToggleFavorite}
+                      organizationName={organizationName}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </section>
       )}
 

@@ -23,8 +23,9 @@ export function UserManagement() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [roleChangeConfirm, setRoleChangeConfirm] = useState<{ user: User; newRole: 'admin' | 'staff' | 'customer' | 'license_admin' } | null>(null)
 
-  // 管理者チェック
-  if (!user || user.role !== 'admin') {
+  // 管理者チェック（admin または license_admin）
+  const isAdmin = user?.role === 'admin' || user?.role === 'license_admin'
+  if (!user || !isAdmin) {
     return (
       <AppLayout
         currentPage="user-management"

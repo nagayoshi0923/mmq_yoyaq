@@ -10,6 +10,7 @@ import { showToast } from '@/utils/toast'
 import { getTimeSlot } from '@/utils/scheduleUtils'
 import { useOrganization } from '@/hooks/useOrganization'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
+import { createEventHistory } from '@/lib/api/eventHistoryApi'
 import type { ScheduleEvent } from '@/types/schedule'
 
 /**
@@ -702,6 +703,25 @@ export function useEventOperations({
         
         // Supabaseに保存
         const savedEvent = await scheduleApi.create(eventData)
+        
+        // 履歴を記録（新規作成）
+        try {
+          await createEventHistory(
+            savedEvent.id,
+            organizationId,
+            'create',
+            null,
+            eventData,
+            {
+              date: eventData.date,
+              storeId: eventData.store_id,
+              timeSlot: eventData.time_slot || null
+            }
+          )
+        } catch (historyError) {
+          logger.error('履歴記録エラー（新規作成）:', historyError)
+          // 履歴記録の失敗は保存処理に影響させない
+        }
 
         // GM欄で「スタッフ参加」を選択した場合、予約も作成する
         if (performanceData.gm_roles && Object.values(performanceData.gm_roles).includes('staff')) {
@@ -866,25 +886,25 @@ export function useEventOperations({
             }
           })
           
+          // 履歴用: 更新前の値を取得
+          const { data: oldEventData } = await supabase
+            .from('schedule_events')
+            .select('*')
+            .eq('id', performanceData.id)
+            .single()
+          
           // 予約者名の変更を検出：DBの現在値と異なる場合のみ上書きフラグを立てる
           let isNameChanged = false
           if (performanceData.reservation_name) {
-            // DBから現在の予約者名を取得して比較
-            const { data: currentEvent } = await supabase
-              .from('schedule_events')
-              .select('reservation_name, is_reservation_name_overwritten')
-              .eq('id', eventId)
-              .single()
-            
-            if (currentEvent) {
-              const dbReservationName = currentEvent.reservation_name || ''
+            if (oldEventData) {
+              const dbReservationName = oldEventData.reservation_name || ''
               const newReservationName = performanceData.reservation_name || ''
               // 現在DBの値と入力値が異なる場合、上書きとみなす
               isNameChanged = dbReservationName !== newReservationName
             }
           }
           
-          await scheduleApi.update(eventId, {
+          const updateData = {
             date: performanceData.date, // 日程移動用
             store_id: performanceData.venue, // 店舗移動用（store_id）
             venue: storeName, // 店舗名
@@ -902,7 +922,30 @@ export function useEventOperations({
             reservation_name: performanceData.reservation_name || null, // 予約者名（貸切用）
             // 名前が変更された場合のみ上書きフラグを更新
             ...(isNameChanged ? { is_reservation_name_overwritten: true } : {})
-          })
+          }
+          
+          await scheduleApi.update(performanceData.id, updateData)
+          
+          // 履歴を記録（更新）
+          if (organizationId) {
+            try {
+              await createEventHistory(
+                performanceData.id!,
+                organizationId,
+                'update',
+                oldEventData || null,
+                updateData,
+                {
+                  date: updateData.date,
+                  storeId: updateData.store_id,
+                  timeSlot: updateData.time_slot || null
+                }
+              )
+            } catch (historyError) {
+              logger.error('履歴記録エラー（更新）:', historyError)
+              // 履歴記録の失敗は保存処理に影響させない
+            }
+          }
 
           // GM欄で「スタッフ参加」を選択した場合、予約も同期する
           if (performanceData.gm_roles) {
@@ -1040,7 +1083,38 @@ export function useEventOperations({
         }
         
         // 予約がない場合のみ削除を実行
+        // 削除前にイベント情報を取得（履歴用）
+        const { data: eventToDelete } = await supabase
+          .from('schedule_events')
+          .select('*')
+          .eq('id', deletingEvent.id)
+          .single()
+        
         await scheduleApi.delete(deletingEvent.id)
+        
+        // 履歴を記録（削除）
+        if (organizationId && eventToDelete) {
+          try {
+            await createEventHistory(
+              null,  // 削除後なのでnull
+              organizationId,
+              'delete',
+              eventToDelete,
+              {},
+              {
+                date: eventToDelete.date,
+                storeId: eventToDelete.store_id || deletingEvent.venue,
+                timeSlot: eventToDelete.time_slot || null
+              },
+              {
+                deletedEventScenario: eventToDelete.scenario || deletingEvent.scenario
+              }
+            )
+          } catch (historyError) {
+            logger.error('履歴記録エラー（削除）:', historyError)
+          }
+        }
+        
         setEvents(prev => prev.filter(event => event.id !== deletingEvent.id))
       }
 
@@ -1125,6 +1199,26 @@ export function useEventOperations({
         setEvents(prev => prev.map(e => 
           e.id === cancellingEvent.id ? { ...e, is_cancelled: true } : e
         ))
+        
+        // 履歴を記録（中止）
+        if (organizationId) {
+          try {
+            await createEventHistory(
+              cancellingEvent.id,
+              organizationId,
+              'cancel',
+              { is_cancelled: false },
+              { is_cancelled: true },
+              {
+                date: cancellingEvent.date,
+                storeId: cancellingEvent.venue,
+                timeSlot: (cancellingEvent as any).time_slot || null
+              }
+            )
+          } catch (historyError) {
+            logger.error('履歴記録エラー（中止）:', historyError)
+          }
+        }
 
         // 通常公演の場合、予約者全員にメール送信
         try {
@@ -1174,7 +1268,7 @@ export function useEventOperations({
       logger.error('公演中止エラー:', error)
       showToast.error('公演の中止処理に失敗しました')
     }
-  }, [cancellingEvent, setEvents])
+  }, [cancellingEvent, setEvents, organizationId])
 
   // 公演をキャンセル解除
   const handleUncancelPerformance = useCallback(async (event: ScheduleEvent) => {
@@ -1198,12 +1292,32 @@ export function useEventOperations({
         setEvents(prev => prev.map(e => 
           e.id === event.id ? { ...e, is_cancelled: false } : e
         ))
+        
+        // 履歴を記録（復活）
+        if (organizationId) {
+          try {
+            await createEventHistory(
+              event.id,
+              organizationId,
+              'restore',
+              { is_cancelled: true },
+              { is_cancelled: false },
+              {
+                date: event.date,
+                storeId: event.venue,
+                timeSlot: (event as any).time_slot || null
+              }
+            )
+          } catch (historyError) {
+            logger.error('履歴記録エラー（復活）:', historyError)
+          }
+        }
       }
     } catch (error) {
       logger.error('公演キャンセル解除エラー:', error)
       showToast.error('公演のキャンセル解除処理に失敗しました')
     }
-  }, [setEvents])
+  }, [setEvents, organizationId])
 
   // 仮状態の切り替え
   const handleToggleTentative = useCallback(async (event: ScheduleEvent) => {

@@ -62,6 +62,19 @@ const PlatformTop = lazy(() => import('./PlatformTop').then(m => ({ default: m.P
 const DesignPreview = lazy(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
 const ComponentGallery = lazy(() => import('./dev/ComponentGallery').then(m => ({ default: m.ComponentGallery })))
 
+// 静的ページ（公開ページ）
+const TermsPage = lazy(() => import('./static').then(m => ({ default: m.TermsPage })))
+const PrivacyPage = lazy(() => import('./static').then(m => ({ default: m.PrivacyPage })))
+const LegalPage = lazy(() => import('./static').then(m => ({ default: m.LegalPage })))
+const ContactPage = lazy(() => import('./static').then(m => ({ default: m.ContactPage })))
+const FAQPage = lazy(() => import('./static').then(m => ({ default: m.FAQPage })))
+const GuidePage = lazy(() => import('./static').then(m => ({ default: m.GuidePage })))
+const CancelPolicyPage = lazy(() => import('./static').then(m => ({ default: m.CancelPolicyPage })))
+const StoreListPage = lazy(() => import('./static').then(m => ({ default: m.StoreListPage })))
+const AboutPage = lazy(() => import('./static').then(m => ({ default: m.AboutPage })))
+const PricingPage = lazy(() => import('./static').then(m => ({ default: m.PricingPage })))
+const GettingStartedPage = lazy(() => import('./static').then(m => ({ default: m.GettingStartedPage })))
+
 // 管理ページのパス一覧
 const ADMIN_PATHS = [
   'dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
@@ -98,7 +111,11 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
   
   // 特殊ページのチェック（組織スラッグなし）
   const specialPages = ['login', 'signup', 'reset-password', 'set-password', 'register', 'about', 
-    'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario']
+    'accept-invitation', 'author-dashboard', 'author-login', 'mypage', 'my-page', 'scenario',
+    // 静的ページ
+    'terms', 'privacy', 'legal', 'contact', 'faq', 'guide', 'cancel-policy', 'stores', 'company',
+    // 組織向けページ
+    'for-business', 'pricing', 'getting-started']
   if (segments.length === 1 && specialPages.includes(segments[0])) {
     return { page: segments[0], scenarioId: null, organizationSlug: null }
   }
@@ -230,7 +247,8 @@ export function AdminDashboard() {
   }
 
   // ページ切り替え処理
-  if (currentPage === 'stores') {
+  // 管理ページの stores は組織スラッグがある場合のみ（/{org}/stores）
+  if (currentPage === 'stores' && pathOrganizationSlug) {
     return (
       <Suspense fallback={<LoadingScreen message="店舗管理を読み込み中..." />}>
         <StoreManagement />
@@ -497,6 +515,105 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="シナリオを読み込み中..." />}>
         <PlatformScenarioSearch />
+      </Suspense>
+    )
+  }
+
+  // 静的ページ
+  if (currentPage === 'terms') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <TermsPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'privacy') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <PrivacyPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'legal') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <LegalPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'contact') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <ContactPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'faq') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <FAQPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'guide') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <GuidePage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'cancel-policy') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <CancelPolicyPage />
+      </Suspense>
+    )
+  }
+
+  // 公開ページの stores は組織スラッグがない場合のみ（/stores）
+  if (currentPage === 'stores' && !pathOrganizationSlug) {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <StoreListPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'company') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <AboutPage />
+      </Suspense>
+    )
+  }
+
+  // 組織向けページ
+  if (currentPage === 'for-business') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <LandingPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'pricing') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <PricingPage />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'getting-started') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <GettingStartedPage />
       </Suspense>
     )
   }

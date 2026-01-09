@@ -295,7 +295,7 @@ export function CustomerBookingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div className="min-h-screen bg-background overflow-x-clip">
       <Header />
       <NavigationBar currentPage={bookingBasePath} />
 

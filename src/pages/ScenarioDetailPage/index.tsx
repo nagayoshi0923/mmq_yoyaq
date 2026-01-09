@@ -28,6 +28,8 @@ import { BookingNotice } from './components/BookingNotice'
 import { VenueAccess } from './components/VenueAccess'
 import { RelatedScenarios } from './components/RelatedScenarios'
 import { StoreSelector } from './components/StoreSelector'
+import { ScenarioAbout } from './components/ScenarioAbout'
+import { Footer } from '@/components/layout/Footer'
 
 interface ScenarioDetailPageProps {
   scenarioId: string
@@ -170,7 +172,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden">
+      <div className="min-h-screen bg-background overflow-x-clip">
         <Header />
         {shouldShowNavigation && (
           <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
@@ -206,7 +208,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
 
   if (!scenario) {
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden">
+      <div className="min-h-screen bg-background overflow-x-clip">
         <Header />
         {shouldShowNavigation && (
           <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
@@ -241,7 +243,7 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div className="min-h-screen bg-background overflow-x-clip">
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
@@ -322,8 +324,12 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
       <div className="container mx-auto max-w-7xl px-4 py-3">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* メインエリア - 詳細情報 */}
-          <div className="md:col-span-7 space-y-3">
+          <div className="md:col-span-7 space-y-4">
             <ScenarioHero scenario={scenario} events={events} />
+            
+            {/* あらすじ・シナリオ情報 */}
+            <ScenarioAbout scenario={scenario} />
+            
             {/* PC版: 注意事項をここに表示（タブに応じて内容切り替え） */}
             <div className="hidden md:block">
               <BookingNotice 
@@ -491,6 +497,9 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
           </div>
         )}
       </div>
+
+      {/* フッター */}
+      <Footer organizationSlug={organizationSlug} minimal />
     </div>
   )
 }

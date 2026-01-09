@@ -107,48 +107,46 @@ export const useConflictCheck = () => {
         logger.log('既存イベントなし')
       }
 
-      // 🚨 CRITICAL: 2. reservations テーブル（確定済み貸切予約）
-      // 自分自身の予約は除外する
-      const { data: confirmedReservations, error: reservationsError } = await supabase
+      // 🚨 CRITICAL: reservations テーブルからも確定済み予約をチェック
+      // schedule_events だけでなく、予約済みの貸切も競合対象
+      const { data: allReservations, error: reservationsError } = await supabase
         .from('reservations')
-        .select('id, store_id, scenario_id, candidate_datetimes, event_datetime')
-        .eq('status', 'confirmed')
+        .select('id, title, requested_datetime, duration, store_id, scenario_id, scenarios:scenario_id(title)')
+        .in('status', ['confirmed', 'gm_confirmed', 'pending'])
+        .not('requested_datetime', 'is', null)
         .neq('id', reservationId) // 自分自身は除外
 
       if (reservationsError) {
-        logger.error('確定済み予約取得エラー:', reservationsError)
-      } else if (confirmedReservations && confirmedReservations.length > 0) {
-        logger.log(`確定済み貸切予約取得: ${confirmedReservations.length}件`, confirmedReservations)
-        
-        // 確定済み貸切予約をイベントリストに追加
-        confirmedReservations.forEach(reservation => {
-          // event_datetimeがある場合はそれを使用（確定日時）
-          if (reservation.event_datetime && reservation.store_id) {
-            const eventDate = new Date(reservation.event_datetime)
-            const dateStr = eventDate.toISOString().split('T')[0]
-            
-            // 候補日時に含まれる場合のみ追加
-            if (candidateDates.includes(dateStr)) {
-              const hours = eventDate.getHours().toString().padStart(2, '0')
-              const minutes = eventDate.getMinutes().toString().padStart(2, '0')
-              const startTime = `${hours}:${minutes}`
-              // デフォルトで3時間後を終了時間とする
-              const endHours = (eventDate.getHours() + 3).toString().padStart(2, '0')
-              const endTime = `${endHours}:${minutes}`
-              
-              existingEventsList.push({
-                id: reservation.id,
-                scenario: '貸切予約（確定済み）',
-                startTime: startTime,
-                endTime: endTime,
-                storeId: reservation.store_id,
-                date: dateStr
-              })
-            }
-          }
+        logger.error('既存予約取得エラー:', reservationsError)
+      } else if (allReservations && allReservations.length > 0) {
+        logger.log(`既存予約取得: ${allReservations.length}件`)
+        // 予約をイベントリストに変換（競合チェック対象として追加）
+        allReservations.forEach(reservation => {
+          if (!reservation.requested_datetime || !reservation.store_id) return
+          
+          const datetime = new Date(reservation.requested_datetime)
+          const date = datetime.toISOString().split('T')[0]
+          
+          // 候補日に含まれない予約はスキップ
+          if (!candidateDates.includes(date)) return
+          
+          const startTime = datetime.toTimeString().substring(0, 5)
+          const durationMinutes = reservation.duration || 180
+          const endDateTime = new Date(datetime.getTime() + durationMinutes * 60 * 1000)
+          const endTime = endDateTime.toTimeString().substring(0, 5)
+          
+          const scenarioTitle = (reservation.scenarios as any)?.title || reservation.title || '貸切予約'
+          
+          existingEventsList.push({
+            id: reservation.id,
+            scenario: scenarioTitle,
+            startTime,
+            endTime,
+            storeId: reservation.store_id,
+            date
+          })
         })
-      } else {
-        logger.log('確定済み貸切予約なし')
+        logger.log(`競合チェック対象（イベント+予約）: ${existingEventsList.length}件`)
       }
       
       for (const candidate of candidates) {

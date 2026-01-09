@@ -137,6 +137,24 @@ export default function OrganizationRegister() {
     }
   }
 
+  // 組織を削除するロールバック関数
+  const rollbackOrganization = async (orgId: string) => {
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .delete()
+        .eq('id', orgId)
+      
+      if (error) {
+        console.error('組織のロールバックに失敗:', error)
+      } else {
+        console.log('組織をロールバックしました:', orgId)
+      }
+    } catch (e) {
+      console.error('組織のロールバック中にエラー:', e)
+    }
+  }
+
   // 登録を実行
   const handleSubmit = async () => {
     if (!agreedToTerms) {
@@ -146,6 +164,8 @@ export default function OrganizationRegister() {
 
     setIsSubmitting(true)
     setError(null)
+
+    let createdOrgId: string | null = null
 
     try {
       // 1. 組織を作成
@@ -161,6 +181,8 @@ export default function OrganizationRegister() {
         throw new Error('組織の作成に失敗しました')
       }
 
+      createdOrgId = org.id
+
       // 2. 管理者ユーザーを作成
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: adminData.email.trim(),
@@ -168,7 +190,10 @@ export default function OrganizationRegister() {
       })
 
       if (authError) {
-        // 組織を削除してロールバック（TODO: 実装）
+        // 組織を削除してロールバック
+        if (createdOrgId) {
+          await rollbackOrganization(createdOrgId)
+        }
         throw authError
       }
 
@@ -221,6 +246,12 @@ export default function OrganizationRegister() {
       toast.success('組織を登録しました')
     } catch (error: unknown) {
       console.error('Registration failed:', error)
+      
+      // エラー時に組織をロールバック
+      if (createdOrgId) {
+        await rollbackOrganization(createdOrgId)
+      }
+      
       const message = error instanceof Error ? error.message : '登録に失敗しました'
       
       // よくあるエラーの日本語化

@@ -27,6 +27,8 @@ import {
   FileCheck,
   Receipt
 } from 'lucide-react'
+import { Footer } from '@/components/layout/Footer'
+import { Link } from 'react-router-dom'
 
 export default function LandingPage() {
   const features = [
@@ -54,7 +56,7 @@ export default function LandingPage() {
     {
       icon: BookOpen,
       title: 'シナリオ管理',
-      description: '所有シナリオを一覧管理。制作費・ライセンス情報も記録。',
+      description: 'MMQのシナリオマスタから選ぶだけで店舗のシナリオリストに簡単追加。',
       color: 'text-orange-500',
       bgColor: 'bg-orange-500/10'
     },
@@ -113,51 +115,40 @@ export default function LandingPage() {
 
   const plans = [
     {
-      name: 'Free',
+      name: '管理サイト',
       price: '¥0',
-      period: '/月',
-      description: 'まずは試してみたい方に',
+      period: '',
+      description: '管理機能はずっと無料',
       features: [
-        '店舗1つまで',
-        'スタッフ5人まで',
-        '予約サイト（基本）',
-        'スケジュール管理'
+        'スケジュール管理',
+        'スタッフ・GM管理',
+        'シナリオ管理',
+        '売上・分析レポート',
+        'Discord通知',
+        'ライセンス報告',
+        '店舗・スタッフ数 無制限'
       ],
       buttonText: '無料で始める',
       buttonVariant: 'outline' as const,
       popular: false
     },
     {
-      name: 'Basic',
+      name: '予約サイト公開',
       price: '¥4,980',
       period: '/月',
-      description: '本格運用を始める方に',
+      description: '予約受付を始めたい方に',
       features: [
-        '店舗3つまで',
-        'スタッフ20人まで',
-        'Discord通知',
-        'メール自動送信',
-        '売上レポート'
+        '24時間オンライン予約受付',
+        '顧客への自動メール送信',
+        '予約サイトのカスタマイズ',
+        '顧客管理機能',
+        'キャンセル・変更受付',
+        '貸切予約受付',
+        '管理機能すべて含む'
       ],
-      buttonText: 'Basicで始める',
+      buttonText: '予約サイトを公開する',
       buttonVariant: 'default' as const,
       popular: true
-    },
-    {
-      name: 'Pro',
-      price: '¥9,980',
-      period: '/月',
-      description: '複数店舗を運営する方に',
-      features: [
-        '店舗無制限',
-        'スタッフ無制限',
-        'API連携',
-        '優先サポート',
-        'カスタムドメイン'
-      ],
-      buttonText: 'Proで始める',
-      buttonVariant: 'default' as const,
-      popular: false
     }
   ]
 
@@ -361,7 +352,7 @@ export default function LandingPage() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {plans.map((plan) => (
               <Card 
                 key={plan.name} 
@@ -505,27 +496,7 @@ export default function LandingPage() {
       </section>
 
       {/* フッター */}
-      <footer className="border-t py-12">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-xs">M</span>
-              </div>
-              <span className="font-semibold">MMQ</span>
-              <span className="text-muted-foreground text-sm">- Murder Mystery Queue</span>
-            </div>
-            <div className="flex gap-6 text-sm text-muted-foreground">
-              <a href="#terms" className="hover:text-foreground">利用規約</a>
-              <a href="#privacy" className="hover:text-foreground">プライバシーポリシー</a>
-              <a href="#contact" className="hover:text-foreground">お問い合わせ</a>
-            </div>
-          </div>
-          <div className="text-center text-sm text-muted-foreground mt-8">
-            © 2024 MMQ. All rights reserved.
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

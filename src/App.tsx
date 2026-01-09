@@ -46,6 +46,17 @@ export function getOrganizationSlugFromPath(): string {
   return 'queens-waltz'
 }
 
+// ページ遷移時にスクロール位置をトップに戻す
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  
+  React.useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+  
+  return null
+}
+
 // 後方互換性: ハッシュURLをパスURLにリダイレクト
 function HashRedirect() {
   const location = useLocation()
@@ -144,6 +155,7 @@ function AppRoutes() {
 function AppContent() {
   return (
     <>
+      <ScrollToTop />
       <HashRedirect />
       <AppRoutes />
     </>

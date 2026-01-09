@@ -141,13 +141,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logger.log('🚀 AuthContext 初期化開始:', new Date().toISOString())
     
     // パフォーマンス最適化: 認証処理を非ブロッキング化
-    // 0.3秒後にloadingをfalseにして、ページを表示開始
+    // 2秒後にloadingをfalseにして、ページを表示開始（ロール取得に時間がかかる場合の保険）
     const loadingTimeout = setTimeout(() => {
       if (loading) {
-        logger.log('⏱️ 認証処理タイムアウト（0.3秒）、ページ表示を開始')
+        logger.log('⏱️ 認証処理タイムアウト（2秒）、ページ表示を開始')
         setLoading(false)
       }
-    }, 300)
+    }, 2000)
     
     // 初期認証状態の確認（バックグラウンドで実行）
     getInitialSession().then(() => {
@@ -219,6 +219,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         } else {
           setUser(null)
           userRef.current = null
+          setStaffCache(new Map())  // セッション終了時にキャッシュもクリア
           setLoading(false)
           setIsInitialized(true)  // ログアウト状態として認証完了をマーク
         }
@@ -263,6 +264,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             logger.log('🚪 他タブでログアウト検出、このタブもログアウト')
             setUser(null)
             userRef.current = null
+            setStaffCache(new Map())  // キャッシュもクリア
             setIsInitialized(true)
             // ページをリロードしてクリーンな状態にする（現在の組織を維持）
             const slug = getOrganizationSlugFromUrl()
@@ -348,9 +350,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       logger.log('📊 usersテーブルからロール取得開始')
       try {
-        // パフォーマンス最適化: リトライなし、タイムアウト1秒で早期フォールバック
+        // パフォーマンス最適化: リトライなし、タイムアウト3秒で早期フォールバック
         // RLS有効化後はクエリが少し遅くなるため、タイムアウトを延長
-        const timeoutMs = 1000
+        const timeoutMs = 3000
             
             const rolePromise = supabase
               .from('users')
@@ -599,18 +601,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 setUser(prev => prev ? { ...prev, customerName: name, name: name } : prev)
               }
             } else {
-              // user_idで見つからない場合、メールアドレスで検索
+              // user_idで見つからない場合、メールアドレスで検索して自動紐付け
+              // 🚨 重要: user_idがnullのレコードのみを対象にする（他ユーザーと紐付き済みのレコードは除外）
               const { data: customerByEmail } = await supabase
                 .from('customers')
-                .select('name, nickname')
+                .select('id, name, nickname, user_id')
                 .eq('email', supabaseUser.email)
+                .is('user_id', null)  // まだ紐付けされていないレコードのみ
                 .maybeSingle()
               
               if (customerByEmail) {
                 const name = customerByEmail.nickname || customerByEmail.name
                 if (name) {
-                  logger.log('📋 ✅ メールアドレスで顧客名取得成功:', name)
-                  setUser(prev => prev ? { ...prev, customerName: name, name: name } : prev)
+                  logger.log('📋 🔗 メールアドレスで顧客発見、自動紐付け:', name)
+                  // user_idを設定して紐付け
+                  const { error: updateError } = await supabase
+                    .from('customers')
+                    .update({ user_id: supabaseUser.id })
+                    .eq('id', customerByEmail.id)
+                  
+                  if (!updateError) {
+                    logger.log('📋 ✅ 顧客自動紐付け成功:', name)
+                    setUser(prev => prev ? { ...prev, customerName: name, name: name } : prev)
+                  } else {
+                    logger.warn('📋 ⚠️ 顧客紐付けエラー:', updateError)
+                    // エラーでも名前は表示する
+                    setUser(prev => prev ? { ...prev, customerName: name, name: name } : prev)
+                  }
                 }
               }
             }
@@ -716,13 +733,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       setUser(userData)
       userRef.current = userData
-
-      // TODO: 将来的には実際のSupabaseテーブルからロール情報を取得
-      // const { data: profile } = await supabase
-      //   .from('users')
-      //   .select('role')
-      //   .eq('id', supabaseUser.id)
-      //   .single()
+      // ロール情報はusersテーブルから取得済み（上記のロジックで処理）
     } catch (error) {
       logger.error('❌ ユーザーセッション設定エラー:', error)
       // エラー時も既存のユーザー情報を保持（ロールを維持）
@@ -833,6 +844,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // ユーザー情報をクリア
       setUser(null)
       userRef.current = null
+      
+      // 🚨 キャッシュをクリア（別ユーザーでログイン時に古い情報が表示されるのを防ぐ）
+      setStaffCache(new Map())
       
       // 他のタブにログアウトを通知
       if (broadcastChannelRef.current) {

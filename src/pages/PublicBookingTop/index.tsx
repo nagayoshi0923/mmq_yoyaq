@@ -18,6 +18,7 @@ import { SearchBar } from './components/SearchBar'
 import { LineupView } from './components/LineupView'
 import { CalendarView } from './components/CalendarView'
 import { ListView } from './components/ListView'
+import { Footer } from '@/components/layout/Footer'
 
 interface PublicBookingTopProps {
   onScenarioSelect?: (scenarioId: string) => void
@@ -357,6 +358,9 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             </TabsContent>
           </Tabs>
       </div>
+
+      {/* フッター */}
+      <Footer organizationSlug={organizationSlug} organizationName={organizationName} />
     </div>
   )
 }

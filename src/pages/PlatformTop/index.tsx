@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
-import { Search, ChevronRight, Sparkles, Building2, Calendar, Filter } from 'lucide-react'
+import { Search, ChevronRight, ChevronDown, ChevronUp, Sparkles, Building2, Calendar, Filter } from 'lucide-react'
+import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/hooks/useFavorites'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -59,6 +60,7 @@ export function PlatformTop() {
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRegion, setSelectedRegion] = useState('all')
+  const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -209,6 +211,31 @@ export function PlatformTop() {
     }))
   }, [scenariosWithEvents, selectedRegion])
 
+  // 7日以内とそれ以降を分離
+  const { within7Days, after7Days } = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const sevenDaysLater = new Date(today)
+    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
+    
+    const within: ScenarioWithEvents[] = []
+    const after: ScenarioWithEvents[] = []
+    
+    filteredScenarios.forEach(scenario => {
+      const nextEventDate = scenario.next_events?.[0]?.date
+      if (nextEventDate) {
+        const eventDate = new Date(nextEventDate + 'T00:00:00')
+        if (eventDate < sevenDaysLater) {
+          within.push(scenario)
+        } else {
+          after.push(scenario)
+        }
+      }
+    })
+    
+    return { within7Days: within, after7Days: after }
+  }, [filteredScenarios])
+
   const handleFavoriteClick = (e: React.MouseEvent, scenarioId: string) => {
     e.stopPropagation()
     toggleFavorite(scenarioId)
@@ -336,22 +363,75 @@ export function PlatformTop() {
             該当する公演がありません
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {filteredScenarios.map((scenario, idx) => (
-              <ScenarioCard
-                key={scenario.scenario_id}
-                scenario={scenario}
-                onClick={handleScenarioClick}
-                isFavorite={favorites.has(scenario.scenario_id)}
-                onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
-                organizationName={scenario.organization_name}
-                isFirst={idx === 0}
-              />
-            ))}
-          </div>
+          <>
+            {/* 7日以内の公演 */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-500 mb-3">
+                7日以内の公演（{within7Days.length}件）
+              </p>
+              {within7Days.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                  {within7Days.map((scenario, idx) => (
+                    <ScenarioCard
+                      key={scenario.scenario_id}
+                      scenario={scenario}
+                      onClick={handleScenarioClick}
+                      isFavorite={favorites.has(scenario.scenario_id)}
+                      onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
+                      organizationName={scenario.organization_name}
+                      isFirst={idx === 0}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground bg-gray-50 rounded-lg">
+                  <p>7日以内の公演予定はありません</p>
+                </div>
+              )}
+            </div>
+
+            {/* 8日以降の公演（折りたたみ） */}
+            {after7Days.length > 0 && (
+              <div className="mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="w-full gap-2"
+                  style={{ borderRadius: 0 }}
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp className="w-4 h-4" />
+                      閉じる
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4" />
+                      8日以降の公演を見る（{after7Days.length}件）
+                    </>
+                  )}
+                </Button>
+                
+                {isExpanded && (
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                    {after7Days.map((scenario) => (
+                      <ScenarioCard
+                        key={scenario.scenario_id}
+                        scenario={scenario}
+                        onClick={handleScenarioClick}
+                        isFavorite={favorites.has(scenario.scenario_id)}
+                        onToggleFavorite={user ? (scenarioId, e) => handleFavoriteClick(e, scenarioId) : undefined}
+                        organizationName={scenario.organization_name}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
 
-        {/* もっと見るボタン */}
+        {/* すべてのシナリオを見るボタン */}
         {filteredScenarios.length > 0 && (
           <div className="text-center mt-8">
             <Button
@@ -465,11 +545,7 @@ export function PlatformTop() {
       </section>
 
       {/* フッター */}
-      <footer className="bg-gray-900 text-gray-400 py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-sm">© 2024 MMQ. All rights reserved.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

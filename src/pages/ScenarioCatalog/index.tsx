@@ -163,7 +163,7 @@ export function ScenarioCatalog({ organizationSlug }: ScenarioCatalogProps) {
   const hasActiveFilters = searchTerm || selectedGenre !== 'all' || selectedDuration !== 'all' || selectedPlayerCount !== 'all'
 
   return (
-    <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: THEME.background }}>
+    <div className="min-h-screen overflow-x-clip" style={{ backgroundColor: THEME.background }}>
       <Header />
       {shouldShowNavigation && (
         <NavigationBar currentPage={bookingBasePath} />

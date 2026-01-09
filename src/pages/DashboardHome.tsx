@@ -127,7 +127,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
   // オンボーディング: 店舗数を取得（管理者のみ）
   useEffect(() => {
     const fetchStoreCount = async () => {
-      if (user?.role !== 'admin') return
+      if (user?.role !== 'admin' && user?.role !== 'license_admin') return
       try {
         const stores = await storeApi.getAll()
         setStoreCount(stores.length)
@@ -207,14 +207,14 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       { id: 'settings', label: '設定', icon: Settings, color: 'bg-slate-100 text-slate-800' },
     ]
     
-    if (user?.role === 'admin') {
+    if (user?.role === 'admin' || user?.role === 'license_admin') {
       return [...commonTabs, ...adminTabs]
     }
     return commonTabs
   }, [user?.role, bookingBasePath])
 
   // オンボーディングが必要かどうか（管理者で店舗が0件）
-  const needsOnboarding = user?.role === 'admin' && storeCount === 0
+  const needsOnboarding = (user?.role === 'admin' || user?.role === 'license_admin') && storeCount === 0
 
   return (
     <div className="space-y-6 pb-20">
@@ -430,7 +430,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
       </section>
 
       {/* 5. 管理者向け統計情報（控えめに表示） */}
-      {user?.role === 'admin' && (
+      {(user?.role === 'admin' || user?.role === 'license_admin') && (
         <section className="pt-4 border-t border-border">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-bold">管理者用データ</h2>

@@ -24,8 +24,10 @@ import { ScheduleEvent, EventFormData } from '@/types/schedule'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { ReservationList } from './modal/ReservationList'
+import { EventHistoryTab } from './modal/EventHistoryTab'
 import { getEmptySlotMemo, clearEmptySlotMemo } from './SlotMemoInput'
 import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
+import { useOrganization } from '@/hooks/useOrganization'
 
 interface PerformanceModalProps {
   isOpen: boolean
@@ -126,9 +128,35 @@ export function PerformanceModal({
 
   // 組織の時間帯設定を取得（平日/休日を考慮）
   const { getDefaultsForDate, isLoading: isTimeSlotSettingsLoading } = useTimeSlotSettings()
+  
+  // 組織IDを取得（履歴表示用）
+  const { organizationId } = useOrganization()
 
   // 時間帯のデフォルト設定（設定から動的に取得）
   const [timeSlotDefaults, setTimeSlotDefaults] = useState({
+    morning: { start_time: '10:00', end_time: '14:00', label: '朝公演' },
+    afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
+    evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
+  })
+
+  // 営業時間制限（開始時刻・終了時刻）
+  const [businessHours, setBusinessHours] = useState<{ openTime: string; closeTime: string } | null>(null)
+
+  // 営業時間に基づいてフィルタリングされた時間選択肢
+  const filteredTimeOptions = businessHours
+    ? timeOptions.filter(time => time >= businessHours.openTime && time <= businessHours.closeTime)
+    : timeOptions
+
+  // 閉店時刻選択肢（開始時刻より後の時間のみ）
+  const getEndTimeOptions = (startTime: string) => {
+    const options = businessHours
+      ? timeOptions.filter(time => time > startTime && time <= businessHours.closeTime)
+      : timeOptions.filter(time => time > startTime)
+    return options.length > 0 ? options : timeOptions.filter(time => time > startTime)
+  }
+
+  // 使用されない一時変数（型推論用）
+  const [_unusedTimeSlotDefaults] = useState({
     morning: { start_time: '10:00', end_time: '14:00', label: '朝公演' },
     afternoon: { start_time: '14:30', end_time: '18:30', label: '昼公演' },
     evening: { start_time: '19:00', end_time: '23:00', label: '夜公演' }
@@ -219,8 +247,29 @@ export function PerformanceModal({
 
         // 営業時間制限の適用（時間選択肢の制限）
         if (businessHoursData?.opening_hours) {
-          // TODO: 営業時間制限を時間選択肢に適用
-          logger.log('営業時間設定を読み込みました:', businessHoursData)
+          const openingHours = businessHoursData.opening_hours
+          // 営業時間設定が配列形式（曜日別）か単純なオブジェクト形式かで処理を分ける
+          if (Array.isArray(openingHours) && openingHours.length > 0) {
+            // 曜日別設定の場合は、共通の開店・閉店時刻を取得（最も広い範囲）
+            const allOpenTimes = openingHours.map((h: any) => h.open_time).filter(Boolean)
+            const allCloseTimes = openingHours.map((h: any) => h.close_time).filter(Boolean)
+            if (allOpenTimes.length > 0 && allCloseTimes.length > 0) {
+              const openTime = allOpenTimes.sort()[0] // 最も早い開店時刻
+              const closeTime = allCloseTimes.sort().reverse()[0] // 最も遅い閉店時刻
+              setBusinessHours({ openTime, closeTime })
+              logger.log('営業時間設定を適用:', { openTime, closeTime })
+            }
+          } else if (openingHours.open_time && openingHours.close_time) {
+            // 単純なオブジェクト形式
+            setBusinessHours({
+              openTime: openingHours.open_time,
+              closeTime: openingHours.close_time
+            })
+            logger.log('営業時間設定を適用:', openingHours)
+          }
+        } else {
+          // 設定がない場合はデフォルト（制限なし）
+          setBusinessHours(null)
         }
 
       } catch (error) {
@@ -486,7 +535,7 @@ export function PerformanceModal({
         
         <Tabs defaultValue="edit" className="w-full flex-1 flex flex-col overflow-hidden min-h-0">
           <div className="px-3 sm:px-6 pt-2 sm:pt-4 shrink-0">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="edit" className="text-xs sm:text-sm">公演情報</TabsTrigger>
               <TabsTrigger value="reservations" className="text-xs sm:text-sm">
                 予約者
@@ -504,6 +553,7 @@ export function PerformanceModal({
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="history" className="text-xs sm:text-sm">更新履歴</TabsTrigger>
             </TabsList>
           </div>
           
@@ -1125,6 +1175,18 @@ export function PerformanceModal({
               }}
               onGmsChange={(gms, gmRoles) => setFormData(prev => ({ ...prev, gms, gmRoles }))}
               onStaffParticipantsChange={setStaffParticipantsFromDB}
+            />
+          </TabsContent>
+
+          <TabsContent value="history" className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-6 mt-0 min-h-0">
+            <EventHistoryTab 
+              eventId={event?.id} 
+              cellInfo={formData.date && formData.venue ? {
+                date: formData.date,
+                storeId: formData.venue,
+                timeSlot: formData.time_slot || (timeSlot === 'morning' ? '朝' : timeSlot === 'afternoon' ? '昼' : '夜')
+              } : undefined}
+              organizationId={organizationId || undefined}
             />
           </TabsContent>
         </Tabs>

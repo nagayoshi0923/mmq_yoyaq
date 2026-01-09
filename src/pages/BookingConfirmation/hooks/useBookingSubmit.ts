@@ -132,28 +132,32 @@ const checkReservationLimits = async (
   startTime: string
 ): Promise<{ allowed: boolean; reason?: string }> => {
   try {
-    // 予約設定を取得
-    const { data: reservationSettings, error: settingsError } = await supabase
-      .from('reservation_settings')
-      .select('max_participants_per_booking, advance_booking_days, same_day_booking_cutoff, max_bookings_per_customer')
-      .eq('store_id', eventId) // TODO: 実際のstore_idを取得する必要がある
-      .maybeSingle()
-
-    if (settingsError && settingsError.code !== 'PGRST116') {
-      logger.error('予約設定取得エラー:', settingsError)
-      return { allowed: true } // エラーの場合は制限しない
-    }
-
-    // 公演の最大参加人数を取得
+    // 公演の最大参加人数とstore_idを取得
     const { data: eventData, error: eventError } = await supabase
       .from('schedule_events')
-      .select('max_participants, capacity, reservation_deadline_hours')
+      .select('max_participants, capacity, reservation_deadline_hours, store_id')
       .eq('id', eventId)
       .single()
 
     if (eventError) {
       logger.error('公演データ取得エラー:', eventError)
       return { allowed: true }
+    }
+
+    // 予約設定を取得（正しいstore_idを使用）
+    let reservationSettings = null
+    if (eventData.store_id) {
+      const { data: settings, error: settingsError } = await supabase
+        .from('reservation_settings')
+        .select('max_participants_per_booking, advance_booking_days, same_day_booking_cutoff, max_bookings_per_customer')
+        .eq('store_id', eventData.store_id)
+        .maybeSingle()
+
+      if (settingsError && settingsError.code !== 'PGRST116') {
+        logger.error('予約設定取得エラー:', settingsError)
+      } else {
+        reservationSettings = settings
+      }
     }
 
     // 最大参加人数（max_participants か capacity を使用）
