@@ -795,6 +795,61 @@ export function useEventOperations({
           const storeData = stores.find(s => s.id === performanceData.venue)
           const storeName = storeData?.name || ''
           
+          // 臨時会場で日付が変更された場合、移動先の日付にも臨時会場を追加
+          if (storeData?.is_temporary && performanceData.id) {
+            // 元のイベントから日付を取得
+            const { data: originalEvent } = await supabase
+              .from('schedule_events')
+              .select('date')
+              .eq('id', performanceData.id)
+              .single()
+            
+            const originalDate = originalEvent?.date
+            const newDate = performanceData.date
+            
+            // 日付が変更されている場合
+            if (originalDate && newDate && originalDate !== newDate) {
+              // 店舗の臨時会場情報を取得
+              const { data: tempVenueData } = await supabase
+                .from('stores')
+                .select('temporary_dates, temporary_venue_names')
+                .eq('id', performanceData.venue)
+                .single()
+              
+              if (tempVenueData) {
+                const currentDates = tempVenueData.temporary_dates || []
+                
+                // 新しい日付がまだ追加されていない場合
+                if (!currentDates.includes(newDate)) {
+                  const newDates = [...currentDates, newDate].sort()
+                  
+                  // カスタム会場名があればコピー
+                  const currentVenueNames = tempVenueData.temporary_venue_names || {}
+                  const originalCustomName = currentVenueNames[originalDate]
+                  const newVenueNames = originalCustomName 
+                    ? { ...currentVenueNames, [newDate]: originalCustomName }
+                    : currentVenueNames
+                  
+                  // 臨時会場を新しい日付にも追加
+                  const updateData: { temporary_dates: string[]; temporary_venue_names?: Record<string, string> } = {
+                    temporary_dates: newDates
+                  }
+                  if (originalCustomName) {
+                    updateData.temporary_venue_names = newVenueNames
+                  }
+                  
+                  await supabase
+                    .from('stores')
+                    .update(updateData)
+                    .eq('id', performanceData.venue)
+                  
+                  logger.log('✅ 臨時会場を移動先日付に追加:', { venue: storeName, newDate, originalCustomName })
+                  showToast.info(`臨時会場「${storeName}」を ${newDate} にも追加しました`)
+                }
+              }
+            }
+          }
+          
           // gmsからUUIDを除外（gmsには名前のみ保存）
           const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
           const cleanedGms = (performanceData.gms || []).filter((gm: string) => gm.trim() !== '' && !uuidPattern.test(gm))
