@@ -791,12 +791,27 @@ export function useEventOperations({
           }
           
           // 通常公演の場合は schedule_events テーブルを更新
-          // 店舗名を取得
-          const storeData = stores.find(s => s.id === performanceData.venue)
-          const storeName = storeData?.name || ''
+          // 店舗名を取得（storesには臨時会場が含まれていないのでDBから取得）
+          let storeData = stores.find(s => s.id === performanceData.venue)
+          let storeName = storeData?.name || ''
+          let isTemporaryVenue = storeData?.is_temporary || false
+          
+          // storesに見つからない場合はDBから直接取得（臨時会場の場合）
+          if (!storeData && performanceData.venue) {
+            const { data: dbStoreData } = await supabase
+              .from('stores')
+              .select('id, name, short_name, is_temporary, temporary_dates, temporary_venue_names')
+              .eq('id', performanceData.venue)
+              .single()
+            
+            if (dbStoreData) {
+              storeName = dbStoreData.name || dbStoreData.short_name || ''
+              isTemporaryVenue = dbStoreData.is_temporary || false
+            }
+          }
           
           // 臨時会場で日付が変更された場合、移動先の日付にも臨時会場を追加
-          if (storeData?.is_temporary && performanceData.id) {
+          if (isTemporaryVenue && performanceData.id) {
             // 元のイベントから日付を取得
             const { data: originalEvent } = await supabase
               .from('schedule_events')
@@ -806,6 +821,8 @@ export function useEventOperations({
             
             const originalDate = originalEvent?.date
             const newDate = performanceData.date
+            
+            logger.log('🔍 臨時会場日付変更チェック:', { originalDate, newDate, venue: performanceData.venue, isTemporaryVenue })
             
             // 日付が変更されている場合
             if (originalDate && newDate && originalDate !== newDate) {
@@ -818,6 +835,8 @@ export function useEventOperations({
               
               if (tempVenueData) {
                 const currentDates = tempVenueData.temporary_dates || []
+                
+                logger.log('🔍 臨時会場の現在の日付:', { currentDates, newDate, includes: currentDates.includes(newDate) })
                 
                 // 新しい日付がまだ追加されていない場合
                 if (!currentDates.includes(newDate)) {
@@ -838,13 +857,17 @@ export function useEventOperations({
                     updateData.temporary_venue_names = newVenueNames
                   }
                   
-                  await supabase
+                  const { error: tempUpdateError } = await supabase
                     .from('stores')
                     .update(updateData)
                     .eq('id', performanceData.venue)
                   
-                  logger.log('✅ 臨時会場を移動先日付に追加:', { venue: storeName, newDate, originalCustomName })
-                  showToast.info(`臨時会場「${storeName}」を ${newDate} にも追加しました`)
+                  if (tempUpdateError) {
+                    logger.error('❌ 臨時会場の日付追加に失敗:', tempUpdateError)
+                  } else {
+                    logger.log('✅ 臨時会場を移動先日付に追加:', { venue: storeName, newDate, originalCustomName })
+                    showToast.info(`臨時会場「${storeName}」を ${newDate} にも追加しました`)
+                  }
                 }
               }
             }
