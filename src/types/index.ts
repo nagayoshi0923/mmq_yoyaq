@@ -501,8 +501,16 @@ export interface Customer {
   total_spent: number
   last_visit?: string | null
   preferences?: string[]
+  notification_settings?: CustomerNotificationSettings | null
   created_at: string
   updated_at: string
+}
+
+// 顧客の通知設定
+export interface CustomerNotificationSettings {
+  email_notifications: boolean
+  reminder_notifications: boolean
+  campaign_notifications: boolean
 }
 
 // 予約関連の型定義
@@ -585,6 +593,26 @@ export interface ReservationSummary {
   current_reservations: number
   available_seats: number
   reservation_count: number
+}
+
+// キャンセル待ちの型定義
+export interface Waitlist {
+  id: string
+  organization_id: string
+  schedule_event_id: string
+  customer_id?: string | null
+  customer_name: string
+  customer_email: string
+  customer_phone?: string | null
+  participant_count: number
+  status: 'waiting' | 'notified' | 'expired' | 'converted'
+  notified_at?: string | null
+  expires_at?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+  // 拡張フィールド（join時に取得）
+  schedule_events?: ScheduleEvent | null
 }
 
 // スケジュールイベントに予約関連フィールドを追加

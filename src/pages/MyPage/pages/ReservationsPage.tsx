@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Calendar, Clock, CheckCircle, MapPin, X, Users, AlertTriangle } from 'lucide-react'
+import { Calendar, Clock, CheckCircle, MapPin, X, Users, AlertTriangle, CalendarDays, ArrowRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -65,6 +65,23 @@ export function ReservationsPage() {
   const [updating, setUpdating] = useState(false)
   const [maxParticipants, setMaxParticipants] = useState<number | null>(null)
   const [currentEventParticipants, setCurrentEventParticipants] = useState(0)
+
+  // 日程変更ダイアログ
+  const [dateChangeDialogOpen, setDateChangeDialogOpen] = useState(false)
+  const [dateChangeTarget, setDateChangeTarget] = useState<Reservation | null>(null)
+  const [availableEvents, setAvailableEvents] = useState<Array<{
+    id: string
+    date: string
+    start_time: string
+    end_time: string | null
+    max_participants: number
+    current_participants: number
+    store_name: string
+    store_id: string
+  }>>([])
+  const [selectedNewEventId, setSelectedNewEventId] = useState<string | null>(null)
+  const [loadingEvents, setLoadingEvents] = useState(false)
+  const [changingDate, setChangingDate] = useState(false)
 
   useEffect(() => {
     if (user?.email) {
@@ -457,6 +474,128 @@ export function ReservationsPage() {
     }
   }
 
+  // 日程変更処理
+  const handleDateChangeClick = async (reservation: Reservation) => {
+    if (!reservation.scenario_id) {
+      toast.error('シナリオ情報がありません')
+      return
+    }
+
+    setDateChangeTarget(reservation)
+    setSelectedNewEventId(null)
+    setLoadingEvents(true)
+    setDateChangeDialogOpen(true)
+
+    try {
+      // 同じシナリオの今後の公演を取得（現在の予約を除く）
+      const today = new Date().toISOString().split('T')[0]
+      const { data: events, error } = await supabase
+        .from('schedule_events')
+        .select(`
+          id, date, start_time, end_time, max_participants, current_participants,
+          stores:store_id (id, name)
+        `)
+        .eq('scenario_id', reservation.scenario_id)
+        .gte('date', today)
+        .eq('is_cancelled', false)
+        .neq('id', reservation.schedule_event_id || '')
+        .order('date', { ascending: true })
+        .order('start_time', { ascending: true })
+
+      if (error) throw error
+
+      // 空席がある公演のみフィルタ
+      const availableEventsData = (events || [])
+        .filter(e => {
+          const available = (e.max_participants || 0) - (e.current_participants || 0)
+          return available >= reservation.participant_count
+        })
+        .map(e => ({
+          id: e.id,
+          date: e.date,
+          start_time: e.start_time,
+          end_time: e.end_time,
+          max_participants: e.max_participants || 0,
+          current_participants: e.current_participants || 0,
+          store_name: (e.stores as any)?.name || '未定',
+          store_id: (e.stores as any)?.id || ''
+        }))
+
+      setAvailableEvents(availableEventsData)
+    } catch (error) {
+      logger.error('公演取得エラー:', error)
+      toast.error('公演情報の取得に失敗しました')
+    } finally {
+      setLoadingEvents(false)
+    }
+  }
+
+  const handleDateChangeConfirm = async () => {
+    if (!dateChangeTarget || !selectedNewEventId) return
+
+    setChangingDate(true)
+    try {
+      const oldEventId = dateChangeTarget.schedule_event_id
+      const newEvent = availableEvents.find(e => e.id === selectedNewEventId)
+      if (!newEvent) throw new Error('選択した公演が見つかりません')
+
+      // 予約を更新
+      const { error } = await supabase
+        .from('reservations')
+        .update({
+          schedule_event_id: selectedNewEventId,
+          store_id: newEvent.store_id,
+          requested_datetime: `${newEvent.date}T${newEvent.start_time}`
+        })
+        .eq('id', dateChangeTarget.id)
+
+      if (error) throw error
+
+      // 旧公演の参加者数を再計算
+      if (oldEventId) {
+        await recalculateCurrentParticipants(oldEventId)
+      }
+      // 新公演の参加者数を再計算
+      await recalculateCurrentParticipants(selectedNewEventId)
+
+      // 日程変更確認メールを送信
+      try {
+        await supabase.functions.invoke('send-booking-change-confirmation', {
+          body: {
+            reservationId: dateChangeTarget.id,
+            customerEmail: user?.email,
+            customerName: dateChangeTarget.customer_name,
+            scenarioTitle: dateChangeTarget.title,
+            oldDate: dateChangeTarget.requested_datetime?.split('T')[0],
+            newDate: newEvent.date,
+            newStartTime: newEvent.start_time,
+            storeName: newEvent.store_name,
+            participantCount: dateChangeTarget.participant_count
+          }
+        })
+      } catch (emailError) {
+        logger.error('メール送信エラー:', emailError)
+      }
+
+      toast.success('日程を変更しました')
+      fetchReservations()
+    } catch (error) {
+      logger.error('日程変更エラー:', error)
+      toast.error('日程変更に失敗しました')
+    } finally {
+      setChangingDate(false)
+      setDateChangeDialogOpen(false)
+      setDateChangeTarget(null)
+    }
+  }
+
+  // 日付をフォーマット
+  const formatEventDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+    return `${date.getMonth() + 1}/${date.getDate()}(${weekdays[date.getDay()]})`
+  }
+
   // 人数変更可能な最大値を計算
   const getMaxAllowedParticipants = () => {
     if (!maxParticipants) return 10 // デフォルト上限
@@ -633,32 +772,47 @@ export function ReservationsPage() {
                     )}
 
                     {/* アクションボタン */}
-                    <div className="mt-4 pt-3 border-t flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditClick(reservation)}
-                        className="flex-1"
-                      >
-                        <Users className="h-4 w-4 mr-1" />
-                        人数変更
-                      </Button>
-                      {canCancel(reservation) ? (
+                    <div className="mt-4 pt-3 border-t space-y-2">
+                      <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleCancelClick(reservation)}
-                          className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleEditClick(reservation)}
+                          className="flex-1"
                         >
-                          <X className="h-4 w-4 mr-1" />
-                          キャンセル
+                          <Users className="h-4 w-4 mr-1" />
+                          人数変更
                         </Button>
-                      ) : (
-                        <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          {getCancelDeadlineHours(reservation)}時間前を過ぎたためキャンセル不可
-                        </div>
-                      )}
+                        {reservation.scenario_id && reservation.schedule_event_id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDateChangeClick(reservation)}
+                            className="flex-1"
+                          >
+                            <CalendarDays className="h-4 w-4 mr-1" />
+                            日程変更
+                          </Button>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        {canCancel(reservation) ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCancelClick(reservation)}
+                            className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            キャンセル
+                          </Button>
+                        ) : (
+                          <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            {getCancelDeadlineHours(reservation)}時間前を過ぎたためキャンセル不可
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )
@@ -979,6 +1133,110 @@ export function ReservationsPage() {
               disabled={updating || !!(editTarget && newParticipantCount === editTarget.participant_count)}
             >
               {updating ? '変更中...' : '変更を保存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 日程変更ダイアログ */}
+      <Dialog open={dateChangeDialogOpen} onOpenChange={setDateChangeDialogOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5" />
+              日程を変更
+            </DialogTitle>
+            <DialogDescription>
+              「{dateChangeTarget?.title}」の別の公演日程を選択してください
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {loadingEvents ? (
+              <div className="text-center py-8 text-muted-foreground">
+                公演情報を取得中...
+              </div>
+            ) : availableEvents.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-amber-500" />
+                <p>変更可能な公演がありません</p>
+                <p className="text-xs mt-1">
+                  {dateChangeTarget?.participant_count}名以上の空席がある公演がありません
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {availableEvents.map(event => {
+                  const available = event.max_participants - event.current_participants
+                  const isSelected = selectedNewEventId === event.id
+                  return (
+                    <button
+                      key={event.id}
+                      onClick={() => setSelectedNewEventId(event.id)}
+                      className={`w-full p-3 border rounded-lg text-left transition-colors ${
+                        isSelected 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium">
+                            {formatEventDate(event.date)}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {event.start_time.slice(0, 5)}〜{event.end_time?.slice(0, 5) || ''}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            <MapPin className="h-3 w-3 inline mr-1" />
+                            {event.store_name}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant={available > 3 ? 'default' : 'secondary'}>
+                            残り{available}席
+                          </Badge>
+                          {isSelected && (
+                            <div className="text-xs text-blue-600 mt-1">選択中</div>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* 変更内容プレビュー */}
+            {dateChangeTarget && selectedNewEventId && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="text-sm font-medium text-blue-800 mb-2">変更内容</div>
+                <div className="flex items-center gap-2 text-sm text-blue-700">
+                  <div className="text-center">
+                    <div className="text-xs text-muted-foreground">変更前</div>
+                    <div>{dateChangeTarget.requested_datetime?.split('T')[0]}</div>
+                  </div>
+                  <ArrowRight className="h-4 w-4" />
+                  <div className="text-center">
+                    <div className="text-xs text-muted-foreground">変更後</div>
+                    <div>{availableEvents.find(e => e.id === selectedNewEventId)?.date}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDateChangeDialogOpen(false)} 
+              disabled={changingDate}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleDateChangeConfirm}
+              disabled={changingDate || !selectedNewEventId}
+            >
+              {changingDate ? '変更中...' : '日程を変更'}
             </Button>
           </DialogFooter>
         </DialogContent>

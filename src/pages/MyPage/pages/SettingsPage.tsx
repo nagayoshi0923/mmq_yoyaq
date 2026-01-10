@@ -55,6 +55,14 @@ export function SettingsPage() {
   // 連携されているログイン方法
   const [linkedProviders, setLinkedProviders] = useState<string[]>([])
 
+  // 通知設定
+  const [notificationSettings, setNotificationSettings] = useState({
+    email_notifications: true,
+    reminder_notifications: true,
+    campaign_notifications: true
+  })
+  const [savingNotifications, setSavingNotifications] = useState(false)
+
   useEffect(() => {
     if (user?.id || user?.email) {
       fetchCustomerInfo()
@@ -103,6 +111,14 @@ export function SettingsPage() {
           lineId: data.line_id || '',
           notes: data.notes || '',
         })
+        // 通知設定を読み込み
+        if (data.notification_settings) {
+          setNotificationSettings({
+            email_notifications: data.notification_settings.email_notifications ?? true,
+            reminder_notifications: data.notification_settings.reminder_notifications ?? true,
+            campaign_notifications: data.notification_settings.campaign_notifications ?? true
+          })
+        }
       } else {
         setCustomerInfo(null)
         if (user?.name) {
@@ -237,6 +253,32 @@ export function SettingsPage() {
       showToast.error(error.message || 'パスワードの変更に失敗しました')
     } finally {
       setChangingPassword(false)
+    }
+  }
+
+  // 通知設定を保存
+  const handleNotificationChange = async (key: keyof typeof notificationSettings, value: boolean) => {
+    const newSettings = { ...notificationSettings, [key]: value }
+    setNotificationSettings(newSettings)
+    
+    if (!customerInfo?.id) return
+    
+    setSavingNotifications(true)
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .update({ notification_settings: newSettings })
+        .eq('id', customerInfo.id)
+      
+      if (error) throw error
+      showToast.success('通知設定を更新しました')
+    } catch (error: any) {
+      logger.error('通知設定更新エラー:', error)
+      showToast.error('通知設定の更新に失敗しました')
+      // 失敗時は元に戻す
+      setNotificationSettings(prev => ({ ...prev, [key]: !value }))
+    } finally {
+      setSavingNotifications(false)
     }
   }
 
@@ -546,23 +588,37 @@ export function SettingsPage() {
                 <Label>メール通知</Label>
                 <p className="text-xs text-gray-500">予約確認やお知らせを受け取る</p>
               </div>
-              <Switch disabled />
+              <Switch 
+                checked={notificationSettings.email_notifications}
+                onCheckedChange={(checked) => handleNotificationChange('email_notifications', checked)}
+                disabled={savingNotifications || !customerInfo?.id}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <Label>予約リマインダー</Label>
                 <p className="text-xs text-gray-500">予約日の前日にリマインダー</p>
               </div>
-              <Switch disabled />
+              <Switch 
+                checked={notificationSettings.reminder_notifications}
+                onCheckedChange={(checked) => handleNotificationChange('reminder_notifications', checked)}
+                disabled={savingNotifications || !customerInfo?.id}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <Label>キャンペーン通知</Label>
                 <p className="text-xs text-gray-500">新作やイベントのお知らせ</p>
               </div>
-              <Switch disabled />
+              <Switch 
+                checked={notificationSettings.campaign_notifications}
+                onCheckedChange={(checked) => handleNotificationChange('campaign_notifications', checked)}
+                disabled={savingNotifications || !customerInfo?.id}
+              />
             </div>
-            <p className="text-xs text-gray-400 text-center">※ 通知設定は準備中です</p>
+            {!customerInfo?.id && (
+              <p className="text-xs text-gray-400 text-center">※ 顧客情報を登録すると通知設定が可能になります</p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setActiveDialog(null)}>閉じる</Button>
