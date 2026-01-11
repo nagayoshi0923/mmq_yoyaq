@@ -84,35 +84,16 @@ export function ScheduleTable({
   // 日付セル内の日付テキストをスクロールに合わせて移動させる
   const tableRef = useRef<HTMLDivElement>(null)
   
-  const scrollCountRef = useRef(0)
-  const scrollContainerRef = useRef<Element | null>(null)
-  
+  // 日付テキストをセル内で追従させる（セルが画面上部で切れても日付が見える）
   const updateDatePositions = useCallback(() => {
     if (!tableRef.current) return
     
-    scrollCountRef.current++
-    
-    // スクロールコンテナの上端を基準点として使用（テーブルヘッダーの高さ40pxを加算）
-    const scrollContainer = scrollContainerRef.current
+    // スクロールコンテナの上端を基準点として取得
+    const scrollContainer = document.querySelector('.overflow-y-auto')
     const containerTop = scrollContainer ? scrollContainer.getBoundingClientRect().top : 0
-    const headerHeight = 40 // テーブルヘッダーの高さ
-    const stickyTop = containerTop + headerHeight
     
     // 全ての日付セルを取得
     const dateCells = tableRef.current.querySelectorAll('[data-date-cell]')
-    
-    // デバッグ: 10回に1回ログ出力
-    if (scrollCountRef.current % 10 === 1) {
-      const firstCell = dateCells[0]
-      const firstCellTop = firstCell?.getBoundingClientRect().top
-      console.log(`[ScheduleTable] scroll #${scrollCountRef.current}`, {
-        dateCellsCount: dateCells.length,
-        containerTop: Math.round(containerTop),
-        stickyTop: Math.round(stickyTop),
-        firstCellTop: firstCellTop ? Math.round(firstCellTop) : null,
-        shouldMove: firstCellTop !== undefined && firstCellTop < stickyTop
-      })
-    }
     
     dateCells.forEach((cell) => {
       const cellRect = cell.getBoundingClientRect()
@@ -123,10 +104,10 @@ export function ScheduleTable({
       const cellTop = cellRect.top
       const cellBottom = cellRect.bottom
       
-      // セルの上端がスティッキー位置より上にある（セルが隠れ始めている）
-      if (cellTop < stickyTop && cellBottom > stickyTop + dateTextHeight) {
-        // 日付テキストをスティッキー位置まで下に移動
-        const offset = stickyTop - cellTop
+      // セルの上端がコンテナ上端より上にある（セルが隠れ始めている）
+      if (cellTop < containerTop && cellBottom > containerTop + dateTextHeight) {
+        // 日付テキストをコンテナ上端の位置まで下に移動
+        const offset = containerTop - cellTop
         const maxOffset = cellRect.height - dateTextHeight - 8
         dateText.style.transform = `translateY(${Math.max(0, Math.min(offset, maxOffset))}px)`
       } else {
@@ -144,19 +125,15 @@ export function ScheduleTable({
       }
       
       // stickyLayoutの場合は.overflow-y-autoコンテナがスクロール対象
-      const scrollContainer = document.querySelector('.overflow-y-auto')
-      scrollContainerRef.current = scrollContainer
-      const target = scrollContainer || window
+      const scrollContainer = document.querySelector('.overflow-y-auto') || window
       
-      console.log('[ScheduleTable] Scroll container:', scrollContainer ? 'found .overflow-y-auto' : 'using window')
-      
-      target.addEventListener('scroll', handleScroll, { passive: true })
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
       handleScroll()
       
       // クリーンアップ用に保存
       ;(tableRef.current as any)?.__scrollCleanup?.()
       ;(tableRef.current as any).__scrollCleanup = () => {
-        target.removeEventListener('scroll', handleScroll)
+        scrollContainer.removeEventListener('scroll', handleScroll)
       }
     }, 100)
     
