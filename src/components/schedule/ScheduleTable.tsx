@@ -84,26 +84,32 @@ export function ScheduleTable({
   // 日付セル内の日付テキストをスクロールに合わせて移動させる
   const tableRef = useRef<HTMLDivElement>(null)
   
-  // 固定ヘッダーの表示状態
+  // 固定ヘッダーの表示状態と位置
   const [showFixedHeader, setShowFixedHeader] = useState(false)
+  const [fixedHeaderTop, setFixedHeaderTop] = useState(0)
   const theadRef = useRef<HTMLTableSectionElement>(null)
   
   // 日付テキストをセル内で追従させる + ヘッダー固定判定
   const updatePositions = useCallback(() => {
     if (!tableRef.current) return
     
-    // スクロールコンテナの上端を基準点として取得
-    const scrollContainer = document.querySelector('.overflow-y-auto')
-    const containerTop = scrollContainer ? scrollContainer.getBoundingClientRect().top : 0
+    // 操作行（カテゴリタブを含む）の下端を取得
+    const toolbar = document.querySelector('[data-schedule-toolbar]')
+    const toolbarBottom = toolbar ? toolbar.getBoundingClientRect().bottom : 0
+    
     // テーブルヘッダーの高さ
     const headerHeight = 40
-    const stickyTop = containerTop + headerHeight
+    const stickyTop = toolbarBottom + headerHeight
     
     // テーブルヘッダーの位置を確認して固定表示を切り替え
     const thead = theadRef.current
     if (thead) {
       const theadRect = thead.getBoundingClientRect()
-      setShowFixedHeader(theadRect.top < containerTop)
+      const shouldShow = theadRect.top < toolbarBottom
+      setShowFixedHeader(shouldShow)
+      if (shouldShow) {
+        setFixedHeaderTop(toolbarBottom)
+      }
     }
     
     // 全ての日付セルを取得
@@ -159,9 +165,9 @@ export function ScheduleTable({
 
   return (
     <div ref={tableRef} className="-mx-2 sm:mx-0 relative overflow-x-auto">
-      {/* 固定ヘッダー（スクロール時に表示） */}
+      {/* 固定ヘッダー（スクロール時にカテゴリタブ下に表示） */}
       {showFixedHeader && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-muted shadow-sm" style={{ marginLeft: 'inherit', marginRight: 'inherit' }}>
+        <div className="fixed left-0 right-0 z-50 bg-muted shadow-sm" style={{ top: `${fixedHeaderTop}px` }}>
           <div className="max-w-[1440px] mx-auto px-[10px]">
             <Table className="table-fixed w-full border-collapse min-w-[534px] sm:min-w-[700px] md:min-w-[800px]">
               <colgroup>

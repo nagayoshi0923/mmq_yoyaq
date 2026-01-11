@@ -523,7 +523,7 @@ export function ScheduleManager() {
       </div>
 
       {/* 操作行（PC:sticky、モバイル:通常） */}
-      <div className="md:sticky md:top-0 z-40 bg-background border-b py-2 -mx-[10px] px-[10px]">
+      <div data-schedule-toolbar className="md:sticky md:top-0 z-40 bg-background border-b py-2 -mx-[10px] px-[10px]">
         <div className="flex flex-wrap items-center gap-2">
             <MonthSwitcher
               value={currentDate}
