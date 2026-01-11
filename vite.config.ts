@@ -39,7 +39,6 @@ export default defineConfig({
           'vendor-utils': ['clsx', 'class-variance-authority'],
           // 重い依存関係を分離
           'vendor-chart': ['chart.js', 'react-chartjs-2'],
-          'vendor-xlsx': ['xlsx'],
           // ページコンポーネントごとのチャンク（自動分割に任せる部分）
         }
       }
