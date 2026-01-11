@@ -1,5 +1,6 @@
 // スケジュールテーブルの本体（汎用化版）
 
+import { useEffect, useCallback, useRef } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
@@ -80,8 +81,52 @@ export function ScheduleTable({
   } = eventHandlers
   const { categoryConfig, getReservationBadgeClass } = displayConfig
 
+  // 日付セル内の日付テキストをスクロールに合わせて移動させる
+  const tableRef = useRef<HTMLDivElement>(null)
+  
+  const updateDatePositions = useCallback(() => {
+    if (!tableRef.current) return
+    
+    // 全ての日付セルを取得
+    const dateCells = tableRef.current.querySelectorAll('[data-date-cell]')
+    
+    dateCells.forEach((cell) => {
+      const cellRect = cell.getBoundingClientRect()
+      const dateText = cell.querySelector('[data-date-text]') as HTMLElement
+      if (!dateText) return
+      
+      // セルの上端が画面上部（ヘッダー下）より上にある場合
+      const headerOffset = 0 // セル内での相対位置なので0
+      const cellTop = cellRect.top
+      const cellBottom = cellRect.bottom
+      const dateTextHeight = dateText.offsetHeight
+      
+      if (cellTop < headerOffset && cellBottom > headerOffset + dateTextHeight) {
+        // セルが画面上部で切れている → 日付テキストを下に移動
+        const offset = Math.min(headerOffset - cellTop, cellRect.height - dateTextHeight - 8)
+        dateText.style.transform = `translateY(${Math.max(0, offset)}px)`
+      } else {
+        // 通常位置
+        dateText.style.transform = 'translateY(0)'
+      }
+    })
+  }, [])
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      requestAnimationFrame(updateDatePositions)
+    }
+    
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [updateDatePositions])
+
   return (
-    <div className="overflow-x-auto -mx-2 sm:mx-0 relative">
+    <div ref={tableRef} className="overflow-x-auto -mx-2 sm:mx-0 relative">
       {/* 
         モバイル(375px)の場合の計算:
         日付(32) + 会場(24) + 時間枠(106*3=318) = 374px (画面内に収まる)
@@ -132,7 +177,7 @@ export function ScheduleTable({
                   key={`${day.date}-${venue.id}`} 
                   className={`min-h-[80px] group bg-background hover:bg-muted/5 ${isFirstVenueOfDay ? 'border-t-[3px] border-t-slate-400' : ''}`}
                 >
-                  {/* 日付・曜日セル - rowSpanで結合、中の日付テキストがセル内でsticky */}
+                  {/* 日付・曜日セル - rowSpanで結合、日付テキストがスクロールに追従 */}
                   {venueIndex === 0 ? (() => {
                     const holiday = getJapaneseHoliday(day.date)
                     const isHolidayOrSunday = holiday || day.dayOfWeek === '日'
@@ -142,9 +187,13 @@ export function ScheduleTable({
                       <TableCell 
                         className={`sticky left-0 z-20 bg-background schedule-table-cell border-r text-sm !p-0 leading-none text-center align-top ${textColor}`}
                         rowSpan={allVenues.length}
+                        data-date-cell={day.date}
                       >
-                        {/* 日付テキストをセル内でstickyに - セルの表示領域上端に追従 */}
-                        <div className="sticky top-0 flex flex-col items-center justify-center py-2 gap-0.5 sm:gap-1 bg-background">
+                        {/* 日付テキスト - スクロール時にセル表示領域の上端に追従 */}
+                        <div 
+                          data-date-text={day.date}
+                          className="flex flex-col items-center justify-center py-2 gap-0.5 sm:gap-1 bg-background transition-transform duration-75"
+                        >
                           <span className="font-bold text-xs sm:text-base">{day.displayDate.replace(/月/g,'')}</span>
                           <span className={`text-[10px] sm:text-xs scale-90 sm:scale-100 origin-center ${isHolidayOrSunday ? 'text-red-500' : 'text-muted-foreground'}`}>
                             ({day.dayOfWeek})
