@@ -87,9 +87,9 @@ export function ScheduleTable({
   const updateDatePositions = useCallback(() => {
     if (!tableRef.current) return
     
-    // テーブルヘッダーの位置を基準にする（スティッキーヘッダーの下端）
-    const tableHeader = tableRef.current.querySelector('thead')
-    const headerBottom = tableHeader ? tableHeader.getBoundingClientRect().bottom : 120
+    // テーブルヘッダーの下端を基準点として取得
+    const thead = tableRef.current.querySelector('thead')
+    const headerBottom = thead ? thead.getBoundingClientRect().bottom : 40
     
     // 全ての日付セルを取得
     const dateCells = tableRef.current.querySelectorAll('[data-date-cell]')
@@ -103,11 +103,12 @@ export function ScheduleTable({
       const cellTop = cellRect.top
       const cellBottom = cellRect.bottom
       
-      // セルの上端がヘッダー下端より上にある場合（セルが隠れ始めている）
+      // セルの上端がヘッダー下端より上にある（セルがヘッダーの下に隠れ始めている）
       if (cellTop < headerBottom && cellBottom > headerBottom + dateTextHeight) {
-        // 日付テキストをヘッダー下端の位置に移動
+        // 日付テキストをヘッダー下端の位置まで下に移動
         const offset = headerBottom - cellTop
-        dateText.style.transform = `translateY(${Math.max(0, Math.min(offset, cellRect.height - dateTextHeight - 8))}px)`
+        const maxOffset = cellRect.height - dateTextHeight - 8
+        dateText.style.transform = `translateY(${Math.max(0, Math.min(offset, maxOffset))}px)`
       } else {
         // 通常位置
         dateText.style.transform = 'translateY(0)'
