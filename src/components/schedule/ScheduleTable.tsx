@@ -91,6 +91,9 @@ export function ScheduleTable({
     // スクロールコンテナの上端を基準点として取得
     const scrollContainer = document.querySelector('.overflow-y-auto')
     const containerTop = scrollContainer ? scrollContainer.getBoundingClientRect().top : 0
+    // テーブルヘッダーの高さ分を加算（ヘッダー下端を基準に）
+    const headerHeight = 40
+    const stickyTop = containerTop + headerHeight
     
     // 全ての日付セルを取得
     const dateCells = tableRef.current.querySelectorAll('[data-date-cell]')
@@ -104,10 +107,10 @@ export function ScheduleTable({
       const cellTop = cellRect.top
       const cellBottom = cellRect.bottom
       
-      // セルの上端がコンテナ上端より上にある（セルが隠れ始めている）
-      if (cellTop < containerTop && cellBottom > containerTop + dateTextHeight) {
-        // 日付テキストをコンテナ上端の位置まで下に移動
-        const offset = containerTop - cellTop
+      // セルの上端がヘッダー下端より上にある（セルがヘッダーの下に隠れ始めている）
+      if (cellTop < stickyTop && cellBottom > stickyTop + dateTextHeight) {
+        // 日付テキストをヘッダー下端の位置まで下に移動
+        const offset = stickyTop - cellTop
         const maxOffset = cellRect.height - dateTextHeight - 8
         dateText.style.transform = `translateY(${Math.max(0, Math.min(offset, maxOffset))}px)`
       } else {
@@ -144,7 +147,7 @@ export function ScheduleTable({
   }, [updateDatePositions])
 
   return (
-    <div ref={tableRef} className="overflow-x-auto -mx-2 sm:mx-0 relative">
+    <div ref={tableRef} className="-mx-2 sm:mx-0 relative" style={{ overflowX: 'clip' }}>
       {/* 
         モバイル(375px)の場合の計算:
         日付(32) + 会場(24) + 時間枠(106*3=318) = 374px (画面内に収まる)
