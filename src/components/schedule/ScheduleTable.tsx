@@ -121,11 +121,13 @@ export function ScheduleTable({
       requestAnimationFrame(updateDatePositions)
     }
     
-    window.addEventListener('scroll', handleScroll, { passive: true })
+    // stickyLayoutの場合は.overflow-y-autoコンテナがスクロール対象
+    const scrollContainer = document.querySelector('.overflow-y-auto') || window
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
     handleScroll()
     
     return () => {
-      window.removeEventListener('scroll', handleScroll)
+      scrollContainer.removeEventListener('scroll', handleScroll)
     }
   }, [updateDatePositions])
 
@@ -146,7 +148,7 @@ export function ScheduleTable({
               <col />
               <col className="w-[160px]" />
             </colgroup>
-            <TableHeader className="md:sticky md:top-0 z-40">
+            <TableHeader className="sticky top-0 z-40">
               <TableRow className="bg-muted h-10">
                 <TableHead className="sticky left-0 z-50 bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
                   <span className="hidden sm:inline">日付</span>
