@@ -1,6 +1,6 @@
 // スケジュールテーブルの本体（汎用化版）
 
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
@@ -84,16 +84,27 @@ export function ScheduleTable({
   // 日付セル内の日付テキストをスクロールに合わせて移動させる
   const tableRef = useRef<HTMLDivElement>(null)
   
-  // 日付テキストをセル内で追従させる（セルが画面上部で切れても日付が見える）
-  const updateDatePositions = useCallback(() => {
+  // 固定ヘッダーの表示状態
+  const [showFixedHeader, setShowFixedHeader] = useState(false)
+  const theadRef = useRef<HTMLTableSectionElement>(null)
+  
+  // 日付テキストをセル内で追従させる + ヘッダー固定判定
+  const updatePositions = useCallback(() => {
     if (!tableRef.current) return
     
     // スクロールコンテナの上端を基準点として取得
     const scrollContainer = document.querySelector('.overflow-y-auto')
     const containerTop = scrollContainer ? scrollContainer.getBoundingClientRect().top : 0
-    // テーブルヘッダーの高さ分を加算（ヘッダー下端を基準に）
+    // テーブルヘッダーの高さ
     const headerHeight = 40
     const stickyTop = containerTop + headerHeight
+    
+    // テーブルヘッダーの位置を確認して固定表示を切り替え
+    const thead = theadRef.current
+    if (thead) {
+      const theadRect = thead.getBoundingClientRect()
+      setShowFixedHeader(theadRect.top < containerTop)
+    }
     
     // 全ての日付セルを取得
     const dateCells = tableRef.current.querySelectorAll('[data-date-cell]')
@@ -124,7 +135,7 @@ export function ScheduleTable({
     // 少し遅延してスクロールコンテナを取得（レンダリング完了を待つ）
     const timeoutId = setTimeout(() => {
       const handleScroll = () => {
-        requestAnimationFrame(updateDatePositions)
+        requestAnimationFrame(updatePositions)
       }
       
       // stickyLayoutの場合は.overflow-y-autoコンテナがスクロール対象
@@ -144,16 +155,45 @@ export function ScheduleTable({
       clearTimeout(timeoutId)
       ;(tableRef.current as any)?.__scrollCleanup?.()
     }
-  }, [updateDatePositions])
+  }, [updatePositions])
 
   return (
-    <div ref={tableRef} className="-mx-2 sm:mx-0 relative" style={{ overflowX: 'clip' }}>
-      {/* 
-        モバイル(375px)の場合の計算:
-        日付(32) + 会場(24) + 時間枠(106*3=318) = 374px (画面内に収まる)
-        メモ(160) = スクロールではみ出す
-        合計 min-w = 534px
-      */}
+    <div ref={tableRef} className="-mx-2 sm:mx-0 relative overflow-x-auto">
+      {/* 固定ヘッダー（スクロール時に表示） */}
+      {showFixedHeader && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-muted shadow-sm" style={{ marginLeft: 'inherit', marginRight: 'inherit' }}>
+          <div className="max-w-[1440px] mx-auto px-[10px]">
+            <Table className="table-fixed w-full border-collapse min-w-[534px] sm:min-w-[700px] md:min-w-[800px]">
+              <colgroup>
+                <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
+                <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
+                <col />
+                <col />
+                <col />
+                <col className="w-[160px]" />
+              </colgroup>
+              <TableHeader>
+                <TableRow className="bg-muted h-10">
+                  <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
+                    <span className="hidden sm:inline">日付</span>
+                    <span className="sm:hidden">日</span>
+                  </TableHead>
+                  <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
+                    <span className="hidden sm:inline">会場</span>
+                    <span className="sm:hidden">店</span>
+                  </TableHead>
+                  <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午前</TableHead>
+                  <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午後</TableHead>
+                  <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜間</TableHead>
+                  <TableHead className="bg-muted text-sm font-bold !p-0 !h-auto text-center">メモ</TableHead>
+                </TableRow>
+              </TableHeader>
+            </Table>
+          </div>
+        </div>
+      )}
+      
+      {/* メインテーブル */}
       <Table className="table-fixed w-full border-collapse min-w-[534px] sm:min-w-[700px] md:min-w-[800px]">
             <colgroup>
               <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
@@ -163,7 +203,7 @@ export function ScheduleTable({
               <col />
               <col className="w-[160px]" />
             </colgroup>
-            <TableHeader className="sticky top-0 z-40">
+            <TableHeader ref={theadRef}>
               <TableRow className="bg-muted h-10">
                 <TableHead className="sticky left-0 z-50 bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
                   <span className="hidden sm:inline">日付</span>
