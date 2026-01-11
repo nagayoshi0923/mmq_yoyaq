@@ -97,21 +97,19 @@ export function ScheduleTable({
     const toolbar = document.querySelector('[data-schedule-toolbar]')
     const toolbarBottom = toolbar ? toolbar.getBoundingClientRect().bottom : 0
     
-    // テーブルヘッダーの高さ
-    const headerHeight = 40
-    
     // テーブルヘッダーの位置を確認して固定表示を切り替え
     const thead = theadRef.current
-    let headerBottom = toolbarBottom + headerHeight // デフォルト
+    let headerBottom = toolbarBottom // デフォルト
     
     if (thead) {
       const theadRect = thead.getBoundingClientRect()
+      const theadHeight = theadRect.height
       const shouldShow = theadRect.top < toolbarBottom
       setShowFixedHeader(shouldShow)
       if (shouldShow) {
         setFixedHeaderTop(toolbarBottom)
-        // 固定ヘッダー表示時はその下端を基準に
-        headerBottom = toolbarBottom + headerHeight
+        // 固定ヘッダー表示時はその下端を基準に（実際のヘッダー高さを使用）
+        headerBottom = toolbarBottom + theadHeight
       } else {
         // 通常時はテーブルヘッダーの下端を基準に
         headerBottom = theadRect.bottom
