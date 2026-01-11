@@ -86,39 +86,21 @@ export function ScheduleTable({
   const [showStickyDate, setShowStickyDate] = useState(false)
   const tableRef = useRef<HTMLDivElement>(null)
 
-  // 操作行の高さを取得（動的に計算）
-  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(80)
-  
-  useEffect(() => {
-    // 操作行の高さを計算（md:sticky md:top-0 の要素）
-    const stickyHeader = document.querySelector('.md\\:sticky.md\\:top-0.z-40')
-    if (stickyHeader) {
-      const rect = stickyHeader.getBoundingClientRect()
-      setStickyHeaderHeight(rect.height)
-    }
-  }, [])
-
   // スクロール時に現在表示されている日付を追跡
   const handleScroll = useCallback(() => {
     if (!tableRef.current) return
 
-    const stickyBarHeight = 30 // スティッキーバーの高さ
-    
-    // テーブルの位置を取得
-    const tableRect = tableRef.current.getBoundingClientRect()
-    
-    // テーブルが操作行の下端を超えたらスティッキーバーを表示
-    const shouldShow = tableRect.top < stickyHeaderHeight + stickyBarHeight
-
     // 各日付行を走査して現在表示されている日付を特定
     const dateRows = tableRef.current.querySelectorAll('[data-date]')
     let foundDate: string | null = null
+    let shouldShow = false
 
     for (const row of dateRows) {
       const rect = row.getBoundingClientRect()
-      // 行が操作行の下端付近にある場合
-      if (rect.top <= stickyHeaderHeight + stickyBarHeight + 30) {
+      // 行が画面上部（カテゴリタブ下端 約120px）より上にある場合
+      if (rect.top <= 120) {
         foundDate = row.getAttribute('data-date')
+        shouldShow = true
       } else {
         break
       }
@@ -128,13 +110,12 @@ export function ScheduleTable({
     if (foundDate) {
       setCurrentVisibleDate(foundDate)
     }
-  }, [stickyHeaderHeight])
+  }, [])
 
   // スクロールイベントリスナーを設定
   useEffect(() => {
     const scrollContainer = document.querySelector('.overflow-y-auto') || window
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
-    // 初期状態を設定
     handleScroll()
     
     return () => {
@@ -147,11 +128,6 @@ export function ScheduleTable({
   const currentHoliday = currentVisibleDate ? getJapaneseHoliday(currentVisibleDate) : null
   const isHolidayOrSunday = currentHoliday || currentDayInfo?.dayOfWeek === '日'
   const dateTextColor = isHolidayOrSunday ? 'text-red-600' : currentDayInfo?.dayOfWeek === '土' ? 'text-blue-600' : 'text-foreground'
-
-  // テーブルヘッダーの高さ（約40px）
-  const tableHeaderHeight = 40
-  // スティッキー日付バーのtop位置（操作行 + テーブルヘッダーの下）
-  const stickyDateBarTop = stickyHeaderHeight + tableHeaderHeight
 
   return (
     <div ref={tableRef} className="overflow-x-auto -mx-2 sm:mx-0 relative">
@@ -170,7 +146,7 @@ export function ScheduleTable({
               <col />
               <col className="w-[160px]" />
             </colgroup>
-            <TableHeader className="md:sticky z-40" style={{ top: `${stickyHeaderHeight}px` }}>
+            <TableHeader className="md:sticky md:top-0 z-40">
               <TableRow className="bg-muted h-10">
                 <TableHead className="sticky left-0 z-50 bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
                   <span className="hidden sm:inline">日付</span>
@@ -327,14 +303,14 @@ export function ScheduleTable({
           </TableBody>
         </Table>
       
-      {/* スティッキー日付バー（テーブルヘッダーの下に固定表示） */}
+      {/* スティッキー日付バー（カテゴリタブの下に固定表示） */}
       {showStickyDate && currentDayInfo && (
         <div 
-          className="fixed left-0 right-0 z-30 h-[30px] bg-slate-700 text-white flex items-center px-3 text-sm font-medium shadow-md"
-          style={{ top: `${stickyDateBarTop}px` }}
+          className="fixed left-0 right-0 z-[45] h-[30px] bg-slate-700/95 text-white flex items-center px-4 text-sm font-medium shadow-md backdrop-blur-sm"
+          style={{ top: '120px' }}
         >
           <span className={dateTextColor === 'text-red-600' ? 'text-red-300' : dateTextColor === 'text-blue-600' ? 'text-blue-300' : ''}>
-            {currentDayInfo.displayDate}（{currentDayInfo.dayOfWeek}）
+            📅 {currentDayInfo.displayDate}（{currentDayInfo.dayOfWeek}）
             {currentHoliday && <span className="ml-2 text-red-300 text-xs">{currentHoliday}</span>}
           </span>
         </div>
