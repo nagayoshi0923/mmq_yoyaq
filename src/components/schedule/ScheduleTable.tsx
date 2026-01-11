@@ -84,8 +84,12 @@ export function ScheduleTable({
   // 日付セル内の日付テキストをスクロールに合わせて移動させる
   const tableRef = useRef<HTMLDivElement>(null)
   
+  const scrollCountRef = useRef(0)
+  
   const updateDatePositions = useCallback(() => {
     if (!tableRef.current) return
+    
+    scrollCountRef.current++
     
     // テーブルヘッダーの下端を基準点として取得
     const thead = tableRef.current.querySelector('thead')
@@ -94,13 +98,15 @@ export function ScheduleTable({
     // 全ての日付セルを取得
     const dateCells = tableRef.current.querySelectorAll('[data-date-cell]')
     
-    // デバッグ: 初回のみログ出力
-    if (dateCells.length > 0 && !tableRef.current.dataset.debugLogged) {
-      tableRef.current.dataset.debugLogged = 'true'
-      console.log('[ScheduleTable] updateDatePositions called', {
+    // デバッグ: 10回に1回ログ出力
+    if (scrollCountRef.current % 10 === 1) {
+      const firstCell = dateCells[0]
+      const firstCellTop = firstCell?.getBoundingClientRect().top
+      console.log(`[ScheduleTable] scroll #${scrollCountRef.current}`, {
         dateCellsCount: dateCells.length,
-        headerBottom,
-        firstCellTop: dateCells[0]?.getBoundingClientRect().top
+        headerBottom: Math.round(headerBottom),
+        firstCellTop: firstCellTop ? Math.round(firstCellTop) : null,
+        shouldMove: firstCellTop !== undefined && firstCellTop < headerBottom
       })
     }
     
