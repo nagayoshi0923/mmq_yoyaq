@@ -94,6 +94,16 @@ export function ScheduleTable({
     // 全ての日付セルを取得
     const dateCells = tableRef.current.querySelectorAll('[data-date-cell]')
     
+    // デバッグ: 初回のみログ出力
+    if (dateCells.length > 0 && !tableRef.current.dataset.debugLogged) {
+      tableRef.current.dataset.debugLogged = 'true'
+      console.log('[ScheduleTable] updateDatePositions called', {
+        dateCellsCount: dateCells.length,
+        headerBottom,
+        firstCellTop: dateCells[0]?.getBoundingClientRect().top
+      })
+    }
+    
     dateCells.forEach((cell) => {
       const cellRect = cell.getBoundingClientRect()
       const dateText = cell.querySelector('[data-date-text]') as HTMLElement
@@ -117,17 +127,31 @@ export function ScheduleTable({
   }, [])
   
   useEffect(() => {
-    const handleScroll = () => {
-      requestAnimationFrame(updateDatePositions)
-    }
-    
-    // stickyLayoutの場合は.overflow-y-autoコンテナがスクロール対象
-    const scrollContainer = document.querySelector('.overflow-y-auto') || window
-    scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
-    handleScroll()
+    // 少し遅延してスクロールコンテナを取得（レンダリング完了を待つ）
+    const timeoutId = setTimeout(() => {
+      const handleScroll = () => {
+        requestAnimationFrame(updateDatePositions)
+      }
+      
+      // stickyLayoutの場合は.overflow-y-autoコンテナがスクロール対象
+      const scrollContainer = document.querySelector('.overflow-y-auto')
+      const target = scrollContainer || window
+      
+      console.log('[ScheduleTable] Scroll container:', scrollContainer ? 'found .overflow-y-auto' : 'using window')
+      
+      target.addEventListener('scroll', handleScroll, { passive: true })
+      handleScroll()
+      
+      // クリーンアップ用に保存
+      ;(tableRef.current as any)?.__scrollCleanup?.()
+      ;(tableRef.current as any).__scrollCleanup = () => {
+        target.removeEventListener('scroll', handleScroll)
+      }
+    }, 100)
     
     return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll)
+      clearTimeout(timeoutId)
+      ;(tableRef.current as any)?.__scrollCleanup?.()
     }
   }, [updateDatePositions])
 
