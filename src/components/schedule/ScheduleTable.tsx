@@ -86,23 +86,29 @@ export function ScheduleTable({
   const [showStickyDate, setShowStickyDate] = useState(false)
   const tableRef = useRef<HTMLDivElement>(null)
 
+  // 操作行の高さを取得（動的に計算）
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(80)
+  
+  useEffect(() => {
+    // 操作行の高さを計算（md:sticky md:top-0 の要素）
+    const stickyHeader = document.querySelector('.md\\:sticky.md\\:top-0.z-40')
+    if (stickyHeader) {
+      const rect = stickyHeader.getBoundingClientRect()
+      setStickyHeaderHeight(rect.height)
+    }
+  }, [])
+
   // スクロール時に現在表示されている日付を追跡
   const handleScroll = useCallback(() => {
     if (!tableRef.current) return
 
-    // スクロールコンテナを取得（AppLayoutのstickyLayout用）
-    const scrollContainer = document.querySelector('.overflow-y-auto') || window
-    const scrollTop = scrollContainer === window 
-      ? window.scrollY 
-      : (scrollContainer as HTMLElement).scrollTop
-
-    // テーブルの位置を取得
-    const tableRect = tableRef.current.getBoundingClientRect()
-    const headerHeight = 40 // ヘッダーの高さ
     const stickyBarHeight = 30 // スティッキーバーの高さ
     
-    // テーブルがビューポートの上部を超えたらスティッキーバーを表示
-    const shouldShow = tableRect.top < headerHeight + stickyBarHeight
+    // テーブルの位置を取得
+    const tableRect = tableRef.current.getBoundingClientRect()
+    
+    // テーブルが操作行の下端を超えたらスティッキーバーを表示
+    const shouldShow = tableRect.top < stickyHeaderHeight + stickyBarHeight
 
     // 各日付行を走査して現在表示されている日付を特定
     const dateRows = tableRef.current.querySelectorAll('[data-date]')
@@ -110,8 +116,8 @@ export function ScheduleTable({
 
     for (const row of dateRows) {
       const rect = row.getBoundingClientRect()
-      // 行が画面上部付近にある場合（ヘッダー+スティッキーバー分を考慮）
-      if (rect.top <= headerHeight + stickyBarHeight + 50) {
+      // 行が操作行の下端付近にある場合
+      if (rect.top <= stickyHeaderHeight + stickyBarHeight + 30) {
         foundDate = row.getAttribute('data-date')
       } else {
         break
@@ -122,7 +128,7 @@ export function ScheduleTable({
     if (foundDate) {
       setCurrentVisibleDate(foundDate)
     }
-  }, [])
+  }, [stickyHeaderHeight])
 
   // スクロールイベントリスナーを設定
   useEffect(() => {
@@ -144,11 +150,11 @@ export function ScheduleTable({
 
   return (
     <div ref={tableRef} className="overflow-x-auto -mx-2 sm:mx-0 relative">
-      {/* スティッキー日付バー */}
+      {/* スティッキー日付バー（操作行の下に表示） */}
       {showStickyDate && currentDayInfo && (
         <div 
-          className="sticky top-0 z-50 h-[30px] bg-slate-700 text-white flex items-center px-3 text-sm font-medium shadow-md"
-          style={{ marginBottom: '-30px' }}
+          className="sticky z-50 h-[30px] bg-slate-700 text-white flex items-center px-3 text-sm font-medium shadow-md"
+          style={{ top: `${stickyHeaderHeight}px`, marginBottom: '-30px' }}
         >
           <span className={dateTextColor === 'text-red-600' ? 'text-red-300' : dateTextColor === 'text-blue-600' ? 'text-blue-300' : ''}>
             {currentDayInfo.displayDate}（{currentDayInfo.dayOfWeek}）
