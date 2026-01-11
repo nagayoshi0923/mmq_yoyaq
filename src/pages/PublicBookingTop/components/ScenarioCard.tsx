@@ -159,7 +159,7 @@ export const ScenarioCard = memo(function ScenarioCard({
         {/* キービジュアル */}
         <div className="relative w-32 md:w-full aspect-[3/4] overflow-hidden bg-gray-100 flex-shrink-0">
           <LazyImage
-            src={scenario.key_visual_url}
+            src={scenario.key_visual_url ?? undefined}
             alt={scenario.scenario_title}
             className="w-full h-full"
           />

@@ -94,6 +94,7 @@ interface Store {
   id: string
   name: string
   short_name: string
+  is_temporary?: boolean
 }
 
 interface Scenario {
@@ -503,7 +504,7 @@ export function useEventOperations({
       })
       setPendingPerformanceData(performanceData)
       setIsConflictWarningOpen(true)
-      return
+      return false
     }
     
     // 重複チェック2：実際の時間の重複（準備時間を考慮）

@@ -3,7 +3,7 @@
  * 
  * React Queryでキャッシュし、ページ遷移で再取得しないよう最適化
  */
-import { useCallback } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Organization, Staff } from '@/types'
@@ -102,10 +102,17 @@ export function useOrganization(): UseOrganizationResult {
   }
 }
 
+interface UseOrganizationsResult {
+  organizations: Organization[]
+  isLoading: boolean
+  error: Error | null
+  refetch: () => Promise<void>
+}
+
 /**
  * 組織一覧を取得するフック（管理者用）
  */
-export function useOrganizations() {
+export function useOrganizations(): UseOrganizationsResult {
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)

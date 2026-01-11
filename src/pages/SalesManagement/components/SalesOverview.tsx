@@ -237,11 +237,11 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
   }
 
   // モーダル保存ハンドラー
-  const handleModalSave = async (eventData: any) => {
+  const handleModalSave = async (eventData: any): Promise<boolean> => {
     try {
       if (!editingEvent?.id) {
         logger.error('編集対象のイベントIDがありません')
-        return
+        return false
       }
 
       // スケジュール更新用のデータを準備
@@ -274,9 +274,11 @@ export const SalesOverview: React.FC<SalesOverviewProps> = ({
       
       setIsEditModalOpen(false)
       setEditingEvent(null)
+      return true
     } catch (error) {
       logger.error('保存に失敗:', error)
       // エラーハンドリング（トースト通知など）をここに追加可能
+      return false
     }
   }
 
