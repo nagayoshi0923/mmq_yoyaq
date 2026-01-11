@@ -1,5 +1,6 @@
 // スケジュールテーブルの本体（汎用化版）
 
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
@@ -80,8 +81,81 @@ export function ScheduleTable({
   } = eventHandlers
   const { categoryConfig, getReservationBadgeClass } = displayConfig
 
+  // スティッキー日付バーの状態
+  const [currentVisibleDate, setCurrentVisibleDate] = useState<string | null>(null)
+  const [showStickyDate, setShowStickyDate] = useState(false)
+  const tableRef = useRef<HTMLDivElement>(null)
+
+  // スクロール時に現在表示されている日付を追跡
+  const handleScroll = useCallback(() => {
+    if (!tableRef.current) return
+
+    // スクロールコンテナを取得（AppLayoutのstickyLayout用）
+    const scrollContainer = document.querySelector('.overflow-y-auto') || window
+    const scrollTop = scrollContainer === window 
+      ? window.scrollY 
+      : (scrollContainer as HTMLElement).scrollTop
+
+    // テーブルの位置を取得
+    const tableRect = tableRef.current.getBoundingClientRect()
+    const headerHeight = 40 // ヘッダーの高さ
+    const stickyBarHeight = 30 // スティッキーバーの高さ
+    
+    // テーブルがビューポートの上部を超えたらスティッキーバーを表示
+    const shouldShow = tableRect.top < headerHeight + stickyBarHeight
+
+    // 各日付行を走査して現在表示されている日付を特定
+    const dateRows = tableRef.current.querySelectorAll('[data-date]')
+    let foundDate: string | null = null
+
+    for (const row of dateRows) {
+      const rect = row.getBoundingClientRect()
+      // 行が画面上部付近にある場合（ヘッダー+スティッキーバー分を考慮）
+      if (rect.top <= headerHeight + stickyBarHeight + 50) {
+        foundDate = row.getAttribute('data-date')
+      } else {
+        break
+      }
+    }
+
+    setShowStickyDate(shouldShow && foundDate !== null)
+    if (foundDate) {
+      setCurrentVisibleDate(foundDate)
+    }
+  }, [])
+
+  // スクロールイベントリスナーを設定
+  useEffect(() => {
+    const scrollContainer = document.querySelector('.overflow-y-auto') || window
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
+    // 初期状態を設定
+    handleScroll()
+    
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll)
+    }
+  }, [handleScroll])
+
+  // 現在表示されている日付の情報を取得
+  const currentDayInfo = monthDays.find(d => d.date === currentVisibleDate)
+  const currentHoliday = currentVisibleDate ? getJapaneseHoliday(currentVisibleDate) : null
+  const isHolidayOrSunday = currentHoliday || currentDayInfo?.dayOfWeek === '日'
+  const dateTextColor = isHolidayOrSunday ? 'text-red-600' : currentDayInfo?.dayOfWeek === '土' ? 'text-blue-600' : 'text-foreground'
+
   return (
-    <div className="overflow-x-auto -mx-2 sm:mx-0 relative">
+    <div ref={tableRef} className="overflow-x-auto -mx-2 sm:mx-0 relative">
+      {/* スティッキー日付バー */}
+      {showStickyDate && currentDayInfo && (
+        <div 
+          className="sticky top-0 z-50 h-[30px] bg-slate-700 text-white flex items-center px-3 text-sm font-medium shadow-md"
+          style={{ marginBottom: '-30px' }}
+        >
+          <span className={dateTextColor === 'text-red-600' ? 'text-red-300' : dateTextColor === 'text-blue-600' ? 'text-blue-300' : ''}>
+            {currentDayInfo.displayDate}（{currentDayInfo.dayOfWeek}）
+            {currentHoliday && <span className="ml-2 text-red-300 text-xs">{currentHoliday}</span>}
+          </span>
+        </div>
+      )}
       {/* 
         モバイル(375px)の場合の計算:
         日付(32) + 会場(24) + 時間枠(106*3=318) = 374px (画面内に収まる)
@@ -128,7 +202,11 @@ export function ScheduleTable({
                 const isFirstVenueOfDay = venueIndex === 0
                 
                 return (
-                <TableRow key={`${day.date}-${venue.id}`} className={`min-h-[80px] group bg-background hover:bg-muted/5 ${isFirstVenueOfDay ? 'border-t-[3px] border-t-slate-400' : ''}`}>
+                <TableRow 
+                  key={`${day.date}-${venue.id}`} 
+                  className={`min-h-[80px] group bg-background hover:bg-muted/5 ${isFirstVenueOfDay ? 'border-t-[3px] border-t-slate-400' : ''}`}
+                  {...(isFirstVenueOfDay ? { 'data-date': day.date } : {})}
+                >
                   {/* 日付・曜日統合セル (Sticky) */}
                   {venueIndex === 0 ? (() => {
                     const holiday = getJapaneseHoliday(day.date)
