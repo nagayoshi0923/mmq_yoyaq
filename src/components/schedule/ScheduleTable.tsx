@@ -1,6 +1,6 @@
 // スケジュールテーブルの本体（汎用化版）
 
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
@@ -81,129 +81,56 @@ export function ScheduleTable({
   } = eventHandlers
   const { categoryConfig, getReservationBadgeClass } = displayConfig
 
-  // 日付セル内の日付テキストをスクロールに合わせて移動させる
   const tableRef = useRef<HTMLDivElement>(null)
   
-  // 固定ヘッダーの表示状態と位置
-  const [showFixedHeader, setShowFixedHeader] = useState(false)
-  const [fixedHeaderTop, setFixedHeaderTop] = useState(0)
-  const theadRef = useRef<HTMLTableSectionElement>(null)
-  
-  // 日付テキストをセル内で追従させる + ヘッダー固定判定
-  const updatePositions = useCallback(() => {
+  // 日付テキストをテーブルヘッダーの下端に追従させる
+  const updateDatePositions = useCallback(() => {
     if (!tableRef.current) return
     
-    // 操作行（カテゴリタブを含む）の下端を取得
+    // 操作行（カテゴリタブ）の下端 + テーブルヘッダー高さ = 日付追従の基準位置
     const toolbar = document.querySelector('[data-schedule-toolbar]')
     const toolbarBottom = toolbar ? toolbar.getBoundingClientRect().bottom : 0
+    const headerHeight = 40 // テーブルヘッダーの高さ
+    const baseTop = toolbarBottom + headerHeight
     
-    // テーブルヘッダーの位置を確認して固定表示を切り替え
-    const thead = theadRef.current
-    let headerBottom = toolbarBottom // デフォルト
-    
-    if (thead) {
-      const theadRect = thead.getBoundingClientRect()
-      const theadHeight = theadRect.height
-      const shouldShow = theadRect.top < toolbarBottom
-      setShowFixedHeader(shouldShow)
-      if (shouldShow) {
-        setFixedHeaderTop(toolbarBottom)
-        // 固定ヘッダー表示時はその下端を基準に（実際のヘッダー高さを使用）
-        headerBottom = toolbarBottom + theadHeight
-      } else {
-        // 通常時はテーブルヘッダーの下端を基準に
-        headerBottom = theadRect.bottom
-      }
-    }
-    
-    // 全ての日付セルを取得
+    // 全ての日付セルを処理
     const dateCells = tableRef.current.querySelectorAll('[data-date-cell]')
-    
     dateCells.forEach((cell) => {
       const cellRect = cell.getBoundingClientRect()
       const dateText = cell.querySelector('[data-date-text]') as HTMLElement
       if (!dateText) return
       
       const dateTextHeight = dateText.offsetHeight
-      const cellTop = cellRect.top
-      const cellBottom = cellRect.bottom
       
-      // セルの上端がヘッダー下端より上にある（セルがヘッダーの下に隠れ始めている）
-      if (cellTop < headerBottom && cellBottom > headerBottom + dateTextHeight) {
-        // 日付テキストをヘッダー下端の位置まで下に移動
-        const offset = headerBottom - cellTop
-        const maxOffset = cellRect.height - dateTextHeight - 8
+      // セルの上端がbaseTopより上にある場合、日付を下に移動
+      if (cellRect.top < baseTop && cellRect.bottom > baseTop + dateTextHeight) {
+        const offset = baseTop - cellRect.top
+        const maxOffset = cellRect.height - dateTextHeight
         dateText.style.transform = `translateY(${Math.max(0, Math.min(offset, maxOffset))}px)`
       } else {
-        // 通常位置
         dateText.style.transform = 'translateY(0)'
       }
     })
   }, [])
   
   useEffect(() => {
-    // 少し遅延してスクロールコンテナを取得（レンダリング完了を待つ）
+    const scrollContainer = document.querySelector('.overflow-y-auto') || window
+    const handleScroll = () => requestAnimationFrame(updateDatePositions)
+    
+    // 初回実行を少し遅延
     const timeoutId = setTimeout(() => {
-      const handleScroll = () => {
-        requestAnimationFrame(updatePositions)
-      }
-      
-      // stickyLayoutの場合は.overflow-y-autoコンテナがスクロール対象
-      const scrollContainer = document.querySelector('.overflow-y-auto') || window
-      
       scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
       handleScroll()
-      
-      // クリーンアップ用に保存
-      ;(tableRef.current as any)?.__scrollCleanup?.()
-      ;(tableRef.current as any).__scrollCleanup = () => {
-        scrollContainer.removeEventListener('scroll', handleScroll)
-      }
     }, 100)
     
     return () => {
       clearTimeout(timeoutId)
-      ;(tableRef.current as any)?.__scrollCleanup?.()
+      scrollContainer.removeEventListener('scroll', handleScroll)
     }
-  }, [updatePositions])
+  }, [updateDatePositions])
 
   return (
     <div ref={tableRef} className="-mx-2 sm:mx-0 relative overflow-x-auto">
-      {/* 固定ヘッダー（スクロール時にカテゴリタブ下に表示） */}
-      {showFixedHeader && (
-        <div className="fixed left-0 right-0 z-50 bg-muted shadow-sm" style={{ top: `${fixedHeaderTop}px` }}>
-          <div className="max-w-[1440px] mx-auto px-[10px]">
-            <Table className="table-fixed w-full border-collapse min-w-[534px] sm:min-w-[700px] md:min-w-[800px]">
-              <colgroup>
-                <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
-                <col className="w-[24px] sm:w-[28px] md:w-[32px]" />
-                <col />
-                <col />
-                <col />
-                <col className="w-[160px]" />
-              </colgroup>
-              <TableHeader>
-                <TableRow className="bg-muted h-10">
-                  <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
-                    <span className="hidden sm:inline">日付</span>
-                    <span className="sm:hidden">日</span>
-                  </TableHead>
-                  <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
-                    <span className="hidden sm:inline">会場</span>
-                    <span className="sm:hidden">店</span>
-                  </TableHead>
-                  <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午前</TableHead>
-                  <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">午後</TableHead>
-                  <TableHead className="bg-muted border-r text-xs sm:text-sm font-bold whitespace-nowrap !p-0 !h-auto text-center">夜間</TableHead>
-                  <TableHead className="bg-muted text-sm font-bold !p-0 !h-auto text-center">メモ</TableHead>
-                </TableRow>
-              </TableHeader>
-            </Table>
-          </div>
-        </div>
-      )}
-      
-      {/* メインテーブル */}
       <Table className="table-fixed w-full border-collapse min-w-[534px] sm:min-w-[700px] md:min-w-[800px]">
             <colgroup>
               <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
@@ -213,7 +140,7 @@ export function ScheduleTable({
               <col />
               <col className="w-[160px]" />
             </colgroup>
-            <TableHeader ref={theadRef}>
+            <TableHeader>
               <TableRow className="bg-muted h-10">
                 <TableHead className="sticky left-0 z-50 bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
                   <span className="hidden sm:inline">日付</span>
