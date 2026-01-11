@@ -1,6 +1,6 @@
 // スケジュールテーブルの本体（汎用化版）
 
-import { useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TimeSlotCell } from '@/components/schedule/TimeSlotCell'
 import { MemoCell } from '@/components/schedule/MemoCell'
@@ -81,56 +81,93 @@ export function ScheduleTable({
   } = eventHandlers
   const { categoryConfig, getReservationBadgeClass } = displayConfig
 
+  // スティッキー日付バーの状態
+  const [currentVisibleDate, setCurrentVisibleDate] = useState<string | null>(null)
+  const [showStickyDate, setShowStickyDate] = useState(false)
   const tableRef = useRef<HTMLDivElement>(null)
-  
-  // 日付テキストをテーブルヘッダーの下端に追従させる
-  const updateDatePositions = useCallback(() => {
-    if (!tableRef.current) return
-    
-    // 操作行（カテゴリタブ）の下端 + テーブルヘッダー高さ = 日付追従の基準位置
-    const toolbar = document.querySelector('[data-schedule-toolbar]')
-    const toolbarBottom = toolbar ? toolbar.getBoundingClientRect().bottom : 0
-    const headerHeight = 40 // テーブルヘッダーの高さ
-    const baseTop = toolbarBottom + headerHeight
-    
-    // 全ての日付セルを処理
-    const dateCells = tableRef.current.querySelectorAll('[data-date-cell]')
-    dateCells.forEach((cell) => {
-      const cellRect = cell.getBoundingClientRect()
-      const dateText = cell.querySelector('[data-date-text]') as HTMLElement
-      if (!dateText) return
-      
-      const dateTextHeight = dateText.offsetHeight
-      
-      // セルの上端がbaseTopより上にある場合、日付を下に移動
-      if (cellRect.top < baseTop && cellRect.bottom > baseTop + dateTextHeight) {
-        const offset = baseTop - cellRect.top
-        const maxOffset = cellRect.height - dateTextHeight
-        dateText.style.transform = `translateY(${Math.max(0, Math.min(offset, maxOffset))}px)`
-      } else {
-        dateText.style.transform = 'translateY(0)'
-      }
-    })
-  }, [])
+
+  // 操作行の高さを取得（動的に計算）
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(80)
   
   useEffect(() => {
-    const scrollContainer = document.querySelector('.overflow-y-auto') || window
-    const handleScroll = () => requestAnimationFrame(updateDatePositions)
+    // 操作行の高さを計算（md:sticky md:top-0 の要素）
+    const stickyHeader = document.querySelector('.md\\:sticky.md\\:top-0.z-40')
+    if (stickyHeader) {
+      const rect = stickyHeader.getBoundingClientRect()
+      setStickyHeaderHeight(rect.height)
+    }
+  }, [])
+
+  // スクロール時に現在表示されている日付を追跡
+  const handleScroll = useCallback(() => {
+    if (!tableRef.current) return
+
+    const stickyBarHeight = 30 // スティッキーバーの高さ
     
-    // 初回実行を少し遅延
-    const timeoutId = setTimeout(() => {
-      scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
-      handleScroll()
-    }, 100)
+    // テーブルの位置を取得
+    const tableRect = tableRef.current.getBoundingClientRect()
+    
+    // テーブルが操作行の下端を超えたらスティッキーバーを表示
+    const shouldShow = tableRect.top < stickyHeaderHeight + stickyBarHeight
+
+    // 各日付行を走査して現在表示されている日付を特定
+    const dateRows = tableRef.current.querySelectorAll('[data-date]')
+    let foundDate: string | null = null
+
+    for (const row of dateRows) {
+      const rect = row.getBoundingClientRect()
+      // 行が操作行の下端付近にある場合
+      if (rect.top <= stickyHeaderHeight + stickyBarHeight + 30) {
+        foundDate = row.getAttribute('data-date')
+      } else {
+        break
+      }
+    }
+
+    setShowStickyDate(shouldShow && foundDate !== null)
+    if (foundDate) {
+      setCurrentVisibleDate(foundDate)
+    }
+  }, [stickyHeaderHeight])
+
+  // スクロールイベントリスナーを設定
+  useEffect(() => {
+    const scrollContainer = document.querySelector('.overflow-y-auto') || window
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
+    // 初期状態を設定
+    handleScroll()
     
     return () => {
-      clearTimeout(timeoutId)
       scrollContainer.removeEventListener('scroll', handleScroll)
     }
-  }, [updateDatePositions])
+  }, [handleScroll])
+
+  // 現在表示されている日付の情報を取得
+  const currentDayInfo = monthDays.find(d => d.date === currentVisibleDate)
+  const currentHoliday = currentVisibleDate ? getJapaneseHoliday(currentVisibleDate) : null
+  const isHolidayOrSunday = currentHoliday || currentDayInfo?.dayOfWeek === '日'
+  const dateTextColor = isHolidayOrSunday ? 'text-red-600' : currentDayInfo?.dayOfWeek === '土' ? 'text-blue-600' : 'text-foreground'
 
   return (
-    <div ref={tableRef} className="-mx-2 sm:mx-0 relative overflow-x-auto">
+    <div ref={tableRef} className="overflow-x-auto -mx-2 sm:mx-0 relative">
+      {/* スティッキー日付バー（操作行の下に表示） */}
+      {showStickyDate && currentDayInfo && (
+        <div 
+          className="sticky z-50 h-[30px] bg-slate-700 text-white flex items-center px-3 text-sm font-medium shadow-md"
+          style={{ top: `${stickyHeaderHeight}px`, marginBottom: '-30px' }}
+        >
+          <span className={dateTextColor === 'text-red-600' ? 'text-red-300' : dateTextColor === 'text-blue-600' ? 'text-blue-300' : ''}>
+            {currentDayInfo.displayDate}（{currentDayInfo.dayOfWeek}）
+            {currentHoliday && <span className="ml-2 text-red-300 text-xs">{currentHoliday}</span>}
+          </span>
+        </div>
+      )}
+      {/* 
+        モバイル(375px)の場合の計算:
+        日付(32) + 会場(24) + 時間枠(106*3=318) = 374px (画面内に収まる)
+        メモ(160) = スクロールではみ出す
+        合計 min-w = 534px
+      */}
       <Table className="table-fixed w-full border-collapse min-w-[534px] sm:min-w-[700px] md:min-w-[800px]">
             <colgroup>
               <col className="w-[32px] sm:w-[40px] md:w-[48px]" />
