@@ -1,7 +1,4 @@
-import { supabase } from './supabase'
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cznpcewciwywcqcxktba.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6bnBjZXdjaXd5d2NxY3hrdGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzMyMjAsImV4cCI6MjA3NDIwOTIyMH0.GBR1kO877s6iy1WmVXL4xY8wpsyAdmgsXKEQbm0MNLo'
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase'
 
 export interface User {
   id: string
@@ -113,12 +110,12 @@ export async function deleteUser(userId?: string): Promise<void> {
   // userIdが指定されていない場合、現在のユーザーを削除
   const targetUserId = userId || session.user.id
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/delete-user`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/delete-user`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session.access_token}`,
-      'apikey': supabaseAnonKey
+      'apikey': SUPABASE_ANON_KEY
     },
     body: JSON.stringify({ userId: targetUserId })
   })

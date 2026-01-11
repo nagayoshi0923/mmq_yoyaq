@@ -143,7 +143,7 @@ export function useGMRequests({ userId }: UseGMRequestsProps) {
       // 同じreservation_idに対する他のGMの回答をチェック
       const reservationIds = (responsesData || []).map((r: any) => r.reservation_id).filter(Boolean)
       
-      let otherGMResponses: Set<string> = new Set()
+      const otherGMResponses: Set<string> = new Set()
       
       if (reservationIds.length > 0) {
         const { data: allResponsesData } = await supabase

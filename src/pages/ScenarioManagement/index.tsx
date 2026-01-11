@@ -189,7 +189,7 @@ export function ScenarioManagement() {
     // バリデーション
     const validation = validateImageFile(file, 5)
     if (!validation.valid) {
-      showToast.error(validation.error)
+      showToast.error(validation.error || 'ファイルバリデーションエラー')
       return
     }
 

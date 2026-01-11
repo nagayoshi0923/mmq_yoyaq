@@ -253,7 +253,7 @@ export function createStaffColumns(
         if (!getAuthStatus) {
           return <span className="text-xs text-muted-foreground">-</span>
         }
-        const authStatus = getAuthStatus(staff.user_id)
+        const authStatus = getAuthStatus(staff.user_id ?? null)
         return (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -280,7 +280,7 @@ export function createStaffColumns(
       width: 'w-40',
       align: 'center',
       render: (staff) => {
-        const authStatus = getAuthStatus ? getAuthStatus(staff.user_id) : null
+        const authStatus = getAuthStatus ? getAuthStatus(staff.user_id ?? null) : null
         const showReinvite = onReinvite && staff.email && 
           (authStatus?.status === 'pending' || authStatus?.status === 'not_linked')
         

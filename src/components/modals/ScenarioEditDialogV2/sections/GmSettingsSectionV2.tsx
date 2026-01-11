@@ -149,7 +149,7 @@ export function GmSettingsSectionV2({
               <MultiSelect
                 options={gmOptions}
                 selectedValues={selectedStaffIds}
-                onSelectionChange={onStaffSelectionChange}
+                onSelectionChange={onStaffSelectionChange || (() => {})}
                 placeholder="担当GMを選択"
                 showBadges={true}
                 useIdAsValue={true}

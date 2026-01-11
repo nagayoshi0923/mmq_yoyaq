@@ -405,8 +405,8 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     let allowedSlots: ('morning' | 'afternoon' | 'evening')[] = getDefaultAvailableSlots(dayOfWeek)
     
     if (businessHoursCache.size > 0) {
-      const firstStoreId = businessHoursCache.keys().next().value
-      const settings = businessHoursCache.get(firstStoreId)
+      const firstStoreId = businessHoursCache.keys().next().value as string | undefined
+      const settings = firstStoreId ? businessHoursCache.get(firstStoreId) : undefined
       if (settings?.opening_hours) {
         const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
         const dayName = dayNames[dayOfWeek]
@@ -490,7 +490,7 @@ export function usePrivateBooking({ events, stores, scenarioId, scenario, organi
     
     // 店舗未選択時、キャッシュに設定があれば最初の設定を使用
     if (!targetStoreId && businessHoursCache.size > 0) {
-      targetStoreId = businessHoursCache.keys().next().value
+      targetStoreId = (businessHoursCache.keys().next().value as string | undefined) ?? null
     }
     
     const settings = targetStoreId ? businessHoursCache.get(targetStoreId) : null

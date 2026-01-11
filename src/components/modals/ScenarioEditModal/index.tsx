@@ -838,8 +838,8 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
         required_props: formData.required_props, // Keep as object array with frequency
         license_amount: formData.license_amount || 0,
         gm_test_license_amount: formData.gm_test_license_amount || 0,
-        franchise_license_amount: formData.franchise_license_amount || null,
-        franchise_gm_test_license_amount: formData.franchise_gm_test_license_amount || null,
+        franchise_license_amount: formData.franchise_license_amount || undefined,
+        franchise_gm_test_license_amount: formData.franchise_gm_test_license_amount || undefined,
         license_rewards: [], // 空配列で保存（旧形式は使用しない）
         has_pre_reading: formData.has_pre_reading,
         gm_costs: formData.gm_assignments,

@@ -7,8 +7,9 @@ import { supabase } from '@/lib/supabase'
 import { saveEmptySlotMemo } from '@/components/schedule/SlotMemoInput'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
-import { getTimeSlot, TIME_SLOT_DEFAULTS } from '@/utils/scheduleUtils'
+import { getTimeSlot } from '@/utils/scheduleUtils'
 import { useOrganization } from '@/hooks/useOrganization'
+import { useTimeSlotSettings } from '@/hooks/useTimeSlotSettings'
 import type { ScheduleEvent } from '@/types/schedule'
 
 /**
@@ -161,6 +162,9 @@ export function useEventOperations({
   // 組織IDを取得（マルチテナント対応）
   const { organizationId } = useOrganization()
   
+  // 公演時間帯設定を取得（組織設定から）
+  const { getSlotDefaults } = useTimeSlotSettings()
+  
   // モーダル状態
   const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
@@ -227,8 +231,8 @@ export function useEventOperations({
       if (lastEndTime) {
         // 終了時間に1時間（標準準備時間）を加算
         const [endHour, endMinute] = lastEndTime.split(':').map(Number)
-        let newHour = endHour + 1 // 1時間の準備時間
-        let newMinute = endMinute
+        const newHour = endHour + 1 // 1時間の準備時間
+        const newMinute = endMinute
         
         // 24時を超える場合は調整しない（深夜公演は手動で）
         if (newHour < 24) {
@@ -318,8 +322,8 @@ export function useEventOperations({
         setEvents(prev => prev.filter(e => e.id !== conflict.id))
       }
 
-      // 移動先の時間を計算
-      const defaults = TIME_SLOT_DEFAULTS[dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening']
+      // 移動先の時間を計算（組織設定から取得）
+      const defaults = getSlotDefaults(dropTarget.date, dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening')
 
       // 元の公演を削除
       await scheduleApi.delete(draggedEvent.id)
@@ -371,7 +375,7 @@ export function useEventOperations({
       logger.error('公演移動エラー:', error)
       showToast.error('公演の移動に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId])
+  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId, getSlotDefaults])
 
   // 公演を複製
   const handleCopyEvent = useCallback(async () => {
@@ -398,8 +402,8 @@ export function useEventOperations({
         setEvents(prev => prev.filter(e => e.id !== conflict.id))
       }
 
-      // 移動先の時間を計算
-      const defaults = TIME_SLOT_DEFAULTS[dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening']
+      // 移動先の時間を計算（組織設定から取得）
+      const defaults = getSlotDefaults(dropTarget.date, dropTarget.timeSlot as 'morning' | 'afternoon' | 'evening')
 
       // シナリオIDを取得（元のイベントから、またはシナリオリストから検索）
       let scenarioId = draggedEvent.scenarios?.id || null
@@ -445,7 +449,7 @@ export function useEventOperations({
       logger.error('公演複製エラー:', error)
       showToast.error('公演の複製に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId])
+  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId, getSlotDefaults])
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能（タイムスロット + 実時間 + 準備時間）
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
@@ -622,7 +626,9 @@ export function useEventOperations({
         setEditingEvent(null)
         
         // スケジュールを再読み込み（fetchScheduleがsetEventsを行うので重複を避ける）
-        await fetchSchedule()
+        if (fetchSchedule) {
+          await fetchSchedule()
+        }
         return true
       }
       
@@ -684,7 +690,7 @@ export function useEventOperations({
             })
             return cleanedRoles
           })(),
-          notes: performanceData.notes || null,
+          notes: performanceData.notes || undefined,
           time_slot: performanceData.time_slot || null, // 時間帯（朝/昼/夜）
           venue_rental_fee: performanceData.venue_rental_fee, // 場所貸し公演料金
           is_reservation_enabled: false, // 最初は非公開、公開ボタンで公開
@@ -724,7 +730,7 @@ export function useEventOperations({
           scenarios: matchedScenario ? {
             id: matchedScenario.id,
             title: matchedScenario.title,
-            player_count_max: matchedScenario.player_count_max
+            player_count_max: matchedScenario.player_count_max ?? 8
           } : undefined,
           gms: savedEvent.gms || [],
           gm_roles: performanceData.gm_roles || {},
@@ -783,6 +789,12 @@ export function useEventOperations({
               : event
           ))
         } else {
+          // 編集モードでは必ずIDが存在するはず
+          if (!performanceData.id) {
+            throw new Error('公演IDが存在しません')
+          }
+          const eventId = performanceData.id
+          
           // シナリオIDを取得
           let scenarioId = null
           if (performanceData.scenario) {
@@ -860,7 +872,7 @@ export function useEventOperations({
             const { data: currentEvent } = await supabase
               .from('schedule_events')
               .select('reservation_name, is_reservation_name_overwritten')
-              .eq('id', performanceData.id)
+              .eq('id', eventId)
               .single()
             
             if (currentEvent) {
@@ -871,12 +883,12 @@ export function useEventOperations({
             }
           }
           
-          await scheduleApi.update(performanceData.id, {
+          await scheduleApi.update(eventId, {
             date: performanceData.date, // 日程移動用
             store_id: performanceData.venue, // 店舗移動用（store_id）
             venue: storeName, // 店舗名
             scenario: performanceData.scenario,
-            scenario_id: scenarioId,
+            scenario_id: scenarioId ?? undefined,
             category: performanceData.category,
             start_time: performanceData.start_time,
             end_time: performanceData.end_time,
@@ -1376,7 +1388,9 @@ export function useEventOperations({
       showToast.success('公演をメモに変換しました')
       
       // スケジュールを再読み込み
-      await fetchSchedule()
+      if (fetchSchedule) {
+        await fetchSchedule()
+      }
     } catch (error) {
       logger.error('メモ変換エラー:', error)
       showToast.error('メモへの変換に失敗しました')

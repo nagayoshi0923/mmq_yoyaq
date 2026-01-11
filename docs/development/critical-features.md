@@ -122,6 +122,15 @@ gmDateConflicts.add('gm-uuid-2025-10-15-夜')
 
 ## 📋 変更履歴
 
+### 2026-01-11
+- **修正**: `useConflictCheck.ts` に `reservations` テーブルのチェックを追加
+- **変更内容**:
+  - `loadConflictInfo` 関数に確定済み貸切予約（status='confirmed'）のチェックを追加
+  - `loadGMConflicts` 関数に確定済み貸切予約のGM競合チェックを追加
+  - 両関数に `🚨 CRITICAL` コメントを追加
+- **修正者**: AI Assistant
+- **理由**: ドキュメントに記載されていたTODO「reservationsテーブルのチェック欠落」を修正
+
 ### 2025-12-30
 - **更新**: ドキュメントを現在のコード構造に合わせて全面改訂
 - **変更内容**:
@@ -181,9 +190,9 @@ gmDateConflicts.add('gm-uuid-2025-10-15-夜')
 ## 🔴 要修正事項（TODO）
 
 ### 高優先度
-- [ ] `useConflictCheck.ts` に `reservations` テーブルのチェックを追加
-  - 現在 `schedule_events` のみチェック
-  - `reservations` テーブル（status='confirmed'）もチェック必須
+- [x] `useConflictCheck.ts` に `reservations` テーブルのチェックを追加 ✅ 2026-01-11 完了
+  - `schedule_events` と `reservations` テーブル（status='confirmed'）の両方をチェック
+  - `loadConflictInfo` と `loadGMConflicts` の両関数に実装済み
 
 ### 中優先度
 - [ ] 重要機能に対するユニットテストの追加

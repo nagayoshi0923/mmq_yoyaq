@@ -1,14 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
-import { logger } from '@/utils/logger'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cznpcewciwywcqcxktba.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6bnBjZXdjaXd5d2NxY3hrdGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzMyMjAsImV4cCI6MjA3NDIwOTIyMH0.GBR1kO877s6iy1WmVXL4xY8wpsyAdmgsXKEQbm0MNLo'
+// 環境変数のバリデーション
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// 開発環境では警告のみ表示
-if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-  logger.warn('⚠️ Supabase環境変数が設定されていません。デモモードで動作します。')
-  logger.warn('実際のSupabaseを使用する場合は、.env.localファイルを作成してください。')
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    '⚠️ Supabase環境変数が設定されていません。\n' +
+    'VITE_SUPABASE_URL と VITE_SUPABASE_ANON_KEY を .env.local ファイルに設定してください。\n' +
+    '詳細は env.example を参照してください。'
+  )
 }
+
+// 環境変数をエクスポート（他のモジュールでAPI呼び出しに使用）
+export const SUPABASE_URL = supabaseUrl
+export const SUPABASE_ANON_KEY = supabaseAnonKey
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

@@ -109,7 +109,7 @@ export function ReservationList({
               }
             } else {
               // 実IDの場合（schedule_event_idが紐付いている）、schedule_event_idで取得を試みる
-              let reservations = await reservationApi.getByScheduleEvent(event.id)
+              const reservations = await reservationApi.getByScheduleEvent(event.id)
               
               // schedule_event_idで取得できなかった場合、reservation_idで直接取得（フォールバック）
               if (reservations.length === 0) {
@@ -280,13 +280,13 @@ export function ReservationList({
         return
       }
 
-      let customerName = cancellingReservation.customer_name || 
+      const customerName = cancellingReservation.customer_name || 
         (cancellingReservation.customers ? 
           (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.name : cancellingReservation.customers?.name) : 
           null) || 
         cancellingReservation.customer_notes // 顧客名がない場合はcustomer_notesをフォールバックとして使用
 
-      let customerEmail = cancellingReservation.customer_email || 
+      const customerEmail = cancellingReservation.customer_email || 
         (cancellingReservation.customers ? 
           (Array.isArray(cancellingReservation.customers) ? cancellingReservation.customers[0]?.email : cancellingReservation.customers?.email) : 
           null)
@@ -335,7 +335,7 @@ export function ReservationList({
           eventDate: eventDate || '',
           startTime: startTime || '',
           endTime: endTime || '',
-          storeName,
+          storeName: storeName || '',
           participantCount: cancellingReservation.participant_count,
           totalPrice: cancellingReservation.total_price || cancellingReservation.final_price || 0,
           reservationNumber: cancellingReservation.reservation_number || '',

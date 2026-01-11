@@ -30,7 +30,7 @@ const calculateParticipationFee = async (scenarioId: string, startTime: string, 
     // 時間帯別料金設定をチェック
     if (scenario.participation_costs && scenario.participation_costs.length > 0) {
       const timeSlot = getTimeSlot(startTime)
-      const timeSlotCost = scenario.participation_costs.find(cost => 
+      const timeSlotCost = scenario.participation_costs.find((cost: { time_slot: string; status: string; type: string; amount: number }) => 
         cost.time_slot === timeSlot && cost.status === 'active'
       )
 

@@ -1,8 +1,6 @@
 // スタッフ招待API
-import { supabase } from './supabase'
+import { supabase, SUPABASE_URL } from './supabase'
 import { logger } from '@/utils/logger'
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 
 export interface InviteStaffRequest {
   email: string

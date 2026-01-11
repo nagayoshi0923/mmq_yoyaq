@@ -237,10 +237,9 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
 
     try {
       // staffテーブルのuser_idをNULLに設定
-      const updatedStaff = {
-        ...staff,
+      const updatedStaff: Partial<Staff> = {
         user_id: null,
-        email: staff.email || null // emailも保持（必要に応じて）
+        email: staff.email || undefined // emailも保持（必要に応じて）
       }
       
       await staffApi.update(staff.id, updatedStaff)
@@ -276,7 +275,7 @@ export function useStaffInvitation({ onSuccess, onError }: UseStaffInvitationPro
 
       // React Queryのキャッシュを更新
       queryClient.setQueryData<Staff[]>(staffKeys.all, (old = []) => {
-        return old.map(s => s.id === staff.id ? updatedStaff : s)
+        return old.map(s => s.id === staff.id ? { ...s, ...updatedStaff } : s)
       })
       
       // キャッシュを無効化して最新データを取得

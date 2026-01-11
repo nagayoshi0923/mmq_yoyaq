@@ -29,7 +29,7 @@ interface ImportScheduleModalProps {
 const sanitizeText = (text: string | null | undefined): string => {
   if (!text) return ''
   // サロゲートペアの壊れた文字を除去
-  // eslint-disable-next-line no-control-regex
+   
   return text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
 }
 

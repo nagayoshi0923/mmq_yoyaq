@@ -128,7 +128,7 @@ export function ScheduleTable({
                 const isFirstVenueOfDay = venueIndex === 0
                 
                 return (
-                <TableRow key={`${day.date}-${venue.id}`} className={`min-h-[80px] group bg-background hover:bg-muted/5 ${isFirstVenueOfDay ? 'border-t-2 border-t-gray-300' : ''}`}>
+                <TableRow key={`${day.date}-${venue.id}`} className={`min-h-[80px] group bg-background hover:bg-muted/5 ${isFirstVenueOfDay ? 'border-t-[3px] border-t-slate-400' : ''}`}>
                   {/* 日付・曜日統合セル (Sticky) */}
                   {venueIndex === 0 ? (() => {
                     const holiday = getJapaneseHoliday(day.date)

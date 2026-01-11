@@ -138,7 +138,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   // WebP のフォールバックとして picture タグを使用
   if (useWebP) {
     return <LazyPicture
-      webpSrcSet={srcSet || optimizedSrc}
+      webpSrcSet={srcSet || optimizedSrc || ''}
       fallbackSrcSet={
         responsive
           ? generateSrcSet(src, srcSetSizes, { quality, format: 'origin' })

@@ -777,8 +777,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (error) {
         logger.error('❌ ログインエラー:', error.message)
-        // ログイン失敗をログに記録
-        await logAuthEvent('login', data.user?.id ?? null, {
+        // ログイン失敗をログに記録（エラー時は user は null）
+        await logAuthEvent('login', null, {
           success: false,
           errorMessage: error.message,
         })

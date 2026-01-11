@@ -348,7 +348,7 @@ export const assignmentApi = {
     // staff_idからスタッフ名を取得するために、別途スタッフ情報を取得
     const staffIds = [...new Set(data?.map(a => a.staff_id).filter(Boolean) || [])]
     
-    let staffMap = new Map<string, string>()
+    const staffMap = new Map<string, string>()
     if (staffIds.length > 0) {
       const { data: staffData, error: staffError } = await supabase
         .from('staff')

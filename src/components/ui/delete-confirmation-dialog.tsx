@@ -207,7 +207,7 @@ export const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> =
             <Button
               variant={selectedAction === 'delete' ? 'destructive' : 'default'}
               onClick={handleConfirm}
-              disabled={requireScenarioNameConfirmation && scenarioName && scenarioNameInput !== scenarioName}
+              disabled={!!(requireScenarioNameConfirmation && scenarioName && scenarioNameInput !== scenarioName)}
             >
               {selectedAction === 'delete' ? '完全削除' : 'アーカイブ'}
             </Button>

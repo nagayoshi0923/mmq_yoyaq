@@ -63,7 +63,7 @@ export function StaffManagement() {
   } = useStoresAndScenarios()
 
   // スタッフの認証状態を取得
-  const staffUserIds = useMemo(() => staff.map(s => s.user_id), [staff])
+  const staffUserIds = useMemo(() => staff.map(s => s.user_id ?? null), [staff])
   const { getAuthStatus } = useStaffAuthStatus(staffUserIds)
 
   // フィルタ状態

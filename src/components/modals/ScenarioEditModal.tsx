@@ -164,7 +164,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
     // ファイルバリデーション
     const validation = validateImageFile(file, 5)
     if (!validation.valid) {
-      showToast.error(validation.error)
+      showToast.error(validation.error || 'ファイルバリデーションエラー')
       return
     }
 

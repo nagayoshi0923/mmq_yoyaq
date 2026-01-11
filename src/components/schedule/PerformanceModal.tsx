@@ -176,11 +176,13 @@ export function PerformanceModal({
       slotDefaults = DEFAULT_FALLBACK[slot]
     }
     
-    setFormData((prev: EventFormData) => ({
-      ...prev,
-      start_time: slotDefaults.start_time,
-      end_time: slotDefaults.end_time
-    }))
+    if (slotDefaults) {
+      setFormData((prev: EventFormData) => ({
+        ...prev,
+        start_time: slotDefaults.start_time,
+        end_time: slotDefaults.end_time
+      }))
+    }
   }
 
   // 店舗IDを取得（名前またはIDから）- useEffect内で使用するためにここで定義
@@ -396,7 +398,7 @@ export function PerformanceModal({
     const saveData = {
       ...formData,
       scenario,
-      scenario_id: isVenueRental ? null : formData.scenario_id, // 場所貸しはシナリオIDもクリア
+      scenario_id: isVenueRental ? undefined : formData.scenario_id, // 場所貸しはシナリオIDもクリア
       notes,
       venue_rental_fee: venueRentalFee,
       gms: formData.gms,

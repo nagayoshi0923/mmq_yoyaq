@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { ResetPassword } from '@/pages/ResetPassword'
@@ -153,15 +154,17 @@ function App() {
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <AppContent />
-          <Toaster 
-            position="top-center"
-            richColors
-            closeButton
-            duration={4000}
-          />
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <AppContent />
+            <Toaster 
+              position="top-center"
+              richColors
+              closeButton
+              duration={4000}
+            />
+          </AuthProvider>
+        </ErrorBoundary>
       </QueryClientProvider>
     </BrowserRouter>
   )

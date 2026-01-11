@@ -110,7 +110,7 @@ export const salesApi = {
           
           // 参加者名をチェックしてスタッフかどうか判定
           const participantNames = reservation.participant_names || []
-          const hasStaffParticipant = participantNames.some(name => staffNames.has(name))
+          const hasStaffParticipant = participantNames.some((name: string) => staffNames.has(name))
           
           if (hasStaffParticipant || reservation.payment_method === 'staff') {
             // スタッフ参加の場合は参加費0円

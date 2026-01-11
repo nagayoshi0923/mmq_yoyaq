@@ -31,7 +31,13 @@ export const useConflictCheck = () => {
   })
 
   /**
-   * 競合情報をロード
+   * 🚨 CRITICAL: 競合情報をロード
+   * 
+   * この関数は以下の2つのテーブルをチェックする必要があります：
+   * 1. schedule_events テーブル（手動追加・インポートされた全公演）
+   * 2. reservations テーブル（確定済み貸切予約）
+   * 
+   * どちらか一方だけのチェックでは不十分です！
    */
   const loadConflictInfo = useCallback(async (reservationId: string) => {
     logger.log('🔍 loadConflictInfo 開始:', reservationId)
@@ -74,7 +80,8 @@ export const useConflictCheck = () => {
         return
       }
       
-      // 候補日時の全店舗で既存イベントを一括取得
+      // 🚨 CRITICAL: 2つのテーブルから競合をチェック
+      // 1. schedule_events テーブル（手動追加・インポートされた全公演）
       const { data: allEvents, error: eventsError } = await supabase
         .from('schedule_events')
         .select('id, scenario, date, start_time, end_time, store_id')
@@ -99,6 +106,50 @@ export const useConflictCheck = () => {
       } else {
         logger.log('既存イベントなし')
       }
+
+      // 🚨 CRITICAL: 2. reservations テーブル（確定済み貸切予約）
+      // 自分自身の予約は除外する
+      const { data: confirmedReservations, error: reservationsError } = await supabase
+        .from('reservations')
+        .select('id, store_id, scenario_id, candidate_datetimes, event_datetime')
+        .eq('status', 'confirmed')
+        .neq('id', reservationId) // 自分自身は除外
+
+      if (reservationsError) {
+        logger.error('確定済み予約取得エラー:', reservationsError)
+      } else if (confirmedReservations && confirmedReservations.length > 0) {
+        logger.log(`確定済み貸切予約取得: ${confirmedReservations.length}件`, confirmedReservations)
+        
+        // 確定済み貸切予約をイベントリストに追加
+        confirmedReservations.forEach(reservation => {
+          // event_datetimeがある場合はそれを使用（確定日時）
+          if (reservation.event_datetime && reservation.store_id) {
+            const eventDate = new Date(reservation.event_datetime)
+            const dateStr = eventDate.toISOString().split('T')[0]
+            
+            // 候補日時に含まれる場合のみ追加
+            if (candidateDates.includes(dateStr)) {
+              const hours = eventDate.getHours().toString().padStart(2, '0')
+              const minutes = eventDate.getMinutes().toString().padStart(2, '0')
+              const startTime = `${hours}:${minutes}`
+              // デフォルトで3時間後を終了時間とする
+              const endHours = (eventDate.getHours() + 3).toString().padStart(2, '0')
+              const endTime = `${endHours}:${minutes}`
+              
+              existingEventsList.push({
+                id: reservation.id,
+                scenario: '貸切予約（確定済み）',
+                startTime: startTime,
+                endTime: endTime,
+                storeId: reservation.store_id,
+                date: dateStr
+              })
+            }
+          }
+        })
+      } else {
+        logger.log('確定済み貸切予約なし')
+      }
       
       for (const candidate of candidates) {
         const date = candidate.date
@@ -110,7 +161,7 @@ export const useConflictCheck = () => {
         for (const store of storesToCheck) {
           const storeId = store.storeId
 
-          // 既存イベントから競合をチェック
+          // 既存イベント（schedule_events + 確定済みreservations）から競合をチェック
           const conflictEvents = existingEventsList.filter(event => 
             event.storeId === storeId && 
             event.date === date &&
@@ -141,7 +192,11 @@ export const useConflictCheck = () => {
   }, [])
 
   /**
-   * 特定GMの競合をチェック
+   * 🚨 CRITICAL: 特定GMの競合をチェック
+   * 
+   * この関数は以下の2つのテーブルをチェックする必要があります：
+   * 1. schedule_events テーブル（手動追加・インポートされた全公演）
+   * 2. reservations テーブル（確定済み貸切予約でGMが割り当てられているもの）
    */
   const loadGMConflicts = useCallback(async (
     gmId: string,
@@ -155,7 +210,7 @@ export const useConflictCheck = () => {
         const startTime = candidate.startTime
         const endTime = candidate.endTime
 
-        // このGMがこの日時に既に出勤予定があるかチェック
+        // 🚨 CRITICAL: 1. schedule_eventsからGMの競合をチェック
         const { data: conflictEvents, error: conflictError } = await supabase
           .from('schedule_events')
           .select('id, gms')
@@ -168,16 +223,51 @@ export const useConflictCheck = () => {
           continue
         }
 
+        let hasConflict = false
+
         if (conflictEvents && conflictEvents.length > 0) {
           // GMリストに含まれているかチェック
-          const hasConflict = conflictEvents.some(event => 
+          hasConflict = conflictEvents.some(event => 
             event.gms && Array.isArray(event.gms) && event.gms.includes(gmId)
           )
-          
-          if (hasConflict) {
-            const conflictKey = `${gmId}-${date}-${candidate.timeSlot}`
-            gmDateConflictsSet.add(conflictKey)
+        }
+
+        // 🚨 CRITICAL: 2. reservationsからGMの競合をチェック（確定済み貸切予約）
+        if (!hasConflict) {
+          const { data: conflictReservations, error: reservationError } = await supabase
+            .from('reservations')
+            .select('id, gm_staff, event_datetime')
+            .eq('status', 'confirmed')
+            .eq('gm_staff', gmId)
+
+          if (reservationError) {
+            logger.error('GM予約競合チェックエラー:', reservationError)
+          } else if (conflictReservations && conflictReservations.length > 0) {
+            // 日付と時間が競合するかチェック
+            hasConflict = conflictReservations.some(reservation => {
+              if (!reservation.event_datetime) return false
+              
+              const eventDate = new Date(reservation.event_datetime)
+              const reservationDateStr = eventDate.toISOString().split('T')[0]
+              
+              if (reservationDateStr !== date) return false
+              
+              const hours = eventDate.getHours().toString().padStart(2, '0')
+              const minutes = eventDate.getMinutes().toString().padStart(2, '0')
+              const reservationStartTime = `${hours}:${minutes}`
+              // デフォルトで3時間後を終了時間とする
+              const endHours = (eventDate.getHours() + 3).toString().padStart(2, '0')
+              const reservationEndTime = `${endHours}:${minutes}`
+              
+              // 時間の重複チェック
+              return startTime < reservationEndTime && endTime > reservationStartTime
+            })
           }
+        }
+          
+        if (hasConflict) {
+          const conflictKey = `${gmId}-${date}-${candidate.timeSlot}`
+          gmDateConflictsSet.add(conflictKey)
         }
       }
 

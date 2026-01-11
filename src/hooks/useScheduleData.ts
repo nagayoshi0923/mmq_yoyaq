@@ -233,7 +233,7 @@ async function addDemoParticipantsToFullEvents(events: ScheduleEvent[]): Promise
         // デモ参加者が既に存在するかチェック
         const hasDemoParticipant = reservations?.some(r => 
           r.participant_names?.includes('デモ参加者') || 
-          r.participant_names?.some(name => name.includes('デモ'))
+          r.participant_names?.some((name: string) => name.includes('デモ'))
         )
         
         if (!hasDemoParticipant) {
@@ -757,8 +757,8 @@ export function useScheduleData(currentDate: Date) {
                     venue: venueId,
                     scenario: request.scenarios?.title || request.title,
                     gms: gmNames,
-                    start_time: candidate.startTime,
-                    end_time: candidate.endTime,
+                    start_time: candidate.startTime || '',
+                    end_time: candidate.endTime || '',
                     category: 'private', // 貸切
                     is_cancelled: false,
                     current_participants: request.participant_count || 0, // Reservationのparticipant_countをScheduleEventのcurrent_participantsに変換
@@ -1094,8 +1094,8 @@ export function useScheduleData(currentDate: Date) {
                   venue: venueId,
                   scenario: request.scenarios?.title || request.title,
                   gms: gmNames,
-                  start_time: candidate.startTime,
-                  end_time: candidate.endTime,
+                  start_time: candidate.startTime || '',
+                  end_time: candidate.endTime || '',
                   category: 'private',
                   is_cancelled: false,
                   current_participants: request.participant_count || 0, // Reservationのparticipant_countをScheduleEventのcurrent_participantsに変換

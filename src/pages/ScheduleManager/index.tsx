@@ -737,7 +737,7 @@ export function ScheduleManager() {
         eventInfo={modals.moveOrCopyDialog.selectedEvent ? {
           scenario: modals.moveOrCopyDialog.selectedEvent.scenario || '',
           date: modals.moveOrCopyDialog.selectedEvent.date || '',
-          storeName: modals.moveOrCopyDialog.stores.find(s => s.id === modals.moveOrCopyDialog.selectedEvent?.venue)?.name || '',
+          storeName: modals.moveOrCopyDialog.stores.find((s: { id: string; name: string }) => s.id === modals.moveOrCopyDialog.selectedEvent?.venue)?.name || '',
           timeSlot: (() => {
             const hour = parseInt(modals.moveOrCopyDialog.selectedEvent.start_time.split(':')[0])
             if (hour < 12) return 'morning'

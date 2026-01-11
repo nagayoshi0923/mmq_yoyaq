@@ -37,9 +37,9 @@ export function useScenarioDetail(scenarioId: string, organizationSlug?: string)
           .eq('is_active', true)
           .single()
         
-        if (orgData) {
+        if (orgData?.id) {
           orgId = orgData.id
-          setOrganizationId(orgId)
+          setOrganizationId(orgId ?? null)
         }
       }
       

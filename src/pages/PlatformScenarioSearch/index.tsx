@@ -55,7 +55,7 @@ export function PlatformScenarioSearch() {
       if (error) throw error
 
       const formattedScenarios = (data || []).map(s => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const org = s.organizations as any
         return {
           ...s,

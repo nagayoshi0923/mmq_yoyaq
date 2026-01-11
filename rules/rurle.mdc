@@ -49,21 +49,19 @@ PRテンプレートを必ず使用する。
 
 ## ■ 4. テスト方針（テストピラミッド）
 
-**注意**: 現在、テストツールは未実装です。将来的な方針として以下を想定しています。
+| 層 | 内容 | ツール | 状態 |
+|----|------|--------|------|
+| ユニット | ロジック・小コンポーネント | Vitest / RTL | 未実装 |
+| 結合 | API・DB契約の整合性 | Zod / Supabase型 | 部分実装 |
+| E2E | 主要導線（予約・キャンセルなど） | **Playwright** | ✅ **設定済み** |
 
-| 層 | 内容 | ツール（予定） |
-|----|------|--------|
-| ユニット | ロジック・小コンポーネント | Vitest / RTL（未実装） |
-| 結合 | API・DB契約の整合性 | Zod / Supabase型（部分実装） |
-| E2E | 主要導線（予約・キャンセルなど） | Playwright（未実装） |
-
-**現状**: 手動テストと `npm run verify`（typecheck / lint / build）による品質担保を行っています。
+**E2Eテストの実行**: `npm run test:e2e` または `npm run test:e2e:ui`（UI付き）
 
 ## ■ 5. 型・品質ルール
 
-**現状**: TypeScriptのstrictモードは無効化されています（`tsconfig.json`で`"strict": false`）。
-将来的には以下の設定を有効化することを推奨します：
-- `strict: true`
+✅ **strictモード有効**: `tsconfig.json`で`"strict": true`が設定されています。
+
+将来的には以下の追加設定も推奨：
 - `exactOptionalPropertyTypes: true`
 - `noUncheckedIndexedAccess: true`
 
@@ -141,13 +139,14 @@ package.jsonの主要スクリプト
 
 ## ■ 10. CI設定
 
-**注意**: GitHub ActionsのCI設定は未実装です。
+✅ **GitHub Actions CI 設定済み**
 
-将来的な方針：
-- verifyワークフローでtypecheck, lint, buildを自動検証する。
-- e2eワークフローでPlaywrightテストを自動実行する（テスト実装後）。
+| ワークフロー | ファイル | 内容 |
+|------------|----------|------|
+| CI | `.github/workflows/ci.yml` | typecheck, lint, build の自動検証 |
+| E2E | `.github/workflows/e2e.yml` | Playwright テストの自動実行 |
 
-**現状**: 手動で`npm run verify`を実行して品質を担保しています。
+**トリガー**: main, staging, develop ブランチへの push / PR
 
 ## ■ 11. Pull Requestテンプレート
 

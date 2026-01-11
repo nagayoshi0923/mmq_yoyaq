@@ -141,7 +141,7 @@ export default function MyPage() {
       if (reservationData && reservationData.length > 0) {
         // 組織slugを取得
         const orgIds = [...new Set(reservationData.map(r => r.organization_id).filter(Boolean))]
-        let orgSlugMap: Record<string, string> = {}
+        const orgSlugMap: Record<string, string> = {}
         if (orgIds.length > 0) {
           const { data: orgs } = await supabase
             .from('organizations')
@@ -215,7 +215,7 @@ export default function MyPage() {
           .map(r => r.scenario_id)
           .filter((id): id is string => id !== null && id !== undefined)
         
-        let additionalScenarioData: Record<string, { key_visual_url?: string, slug?: string }> = {}
+        const additionalScenarioData: Record<string, { key_visual_url?: string, slug?: string }> = {}
         if (pastScenarioIds.length > 0) {
           const { data: pastScenarios } = await supabase
             .from('scenarios')

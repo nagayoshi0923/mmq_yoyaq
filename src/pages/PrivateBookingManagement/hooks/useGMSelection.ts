@@ -87,7 +87,7 @@ export const useGMSelection = (allGMs: Staff[]) => {
         gm_name?: string
       }
 
-      ;(filteredAvailableData || []).forEach((a: AvailabilityResponse) => {
+      (filteredAvailableData || []).forEach((a: AvailabilityResponse) => {
         if (a.staff_id) {
           // 通常のstaff_id経由の回答
           availableGMMap.set(a.staff_id, {

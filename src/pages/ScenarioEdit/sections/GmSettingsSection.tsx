@@ -170,7 +170,7 @@ export function GmSettingsSection({
               <MultiSelect
                 options={gmOptions}
                 selectedValues={selectedStaffIds}
-                onSelectionChange={onStaffSelectionChange}
+                onSelectionChange={onStaffSelectionChange || (() => {})}
                 placeholder="担当GMを選択してください"
                 showBadges={true}
                 useIdAsValue={true}
@@ -185,7 +185,7 @@ export function GmSettingsSection({
                 {selectedStaffIds.map(staffId => {
                   const staffMember = staff.find(s => s.id === staffId)
                   // 現在のアサインメント情報を探す
-                  const assignment = currentAssignments.find(a => a.staff_id === staffId) || {
+                  const assignment = currentAssignments?.find(a => a.staff_id === staffId) || {
                     can_main_gm: true,
                     can_sub_gm: true,
                     status: 'can_gm'

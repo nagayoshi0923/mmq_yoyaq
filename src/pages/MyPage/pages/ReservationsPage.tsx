@@ -976,7 +976,7 @@ export function ReservationsPage() {
             </Button>
             <Button
               onClick={handleEditConfirm}
-              disabled={updating || (editTarget && newParticipantCount === editTarget.participant_count)}
+              disabled={updating || !!(editTarget && newParticipantCount === editTarget.participant_count)}
             >
               {updating ? '変更中...' : '変更を保存'}
             </Button>

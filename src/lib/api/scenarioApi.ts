@@ -618,9 +618,9 @@ export const scenarioApi = {
 
     // 各イベントの予約情報を取得（実際の予約から参加者数を計算）
     const eventIds = events?.map(e => e.id) || []
-    let demoParticipantsMap: Record<string, number> = {}
-    let actualParticipantsMap: Record<string, number> = {}
-    let staffParticipantsMap: Record<string, number> = {}
+    const demoParticipantsMap: Record<string, number> = {}
+    const actualParticipantsMap: Record<string, number> = {}
+    const staffParticipantsMap: Record<string, number> = {}
     
     if (eventIds.length > 0) {
       // 全予約を取得（確定済みのみ）

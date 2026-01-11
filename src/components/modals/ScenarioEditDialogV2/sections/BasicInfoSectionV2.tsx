@@ -94,7 +94,7 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
 
     const validation = validateImageFile(file, 5)
     if (!validation.valid) {
-      showToast.error(validation.error)
+      showToast.error(validation.error || 'ファイルバリデーションエラー')
       return
     }
 

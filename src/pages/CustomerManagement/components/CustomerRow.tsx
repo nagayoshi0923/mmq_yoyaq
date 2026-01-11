@@ -90,7 +90,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
           {formatCurrency(customer.total_spent)}
         </div>
         <div className="col-span-2 text-xs text-muted-foreground truncate">
-          {formatDate(customer.last_visit)}
+          {formatDate(customer.last_visit ?? null)}
         </div>
         <div className="col-span-1 flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
@@ -130,7 +130,7 @@ export function CustomerRow({ customer, isExpanded, onToggleExpand, onEdit }: Cu
         <div className="flex justify-between items-center text-sm pt-2 border-t border-dashed">
           <div className="font-bold">{formatCurrency(customer.total_spent)}</div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{formatDate(customer.last_visit)}</span>
+            <span className="text-xs text-muted-foreground">{formatDate(customer.last_visit ?? null)}</span>
             <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
               <Edit2 className="h-3 w-3 mr-1" />
               編集
