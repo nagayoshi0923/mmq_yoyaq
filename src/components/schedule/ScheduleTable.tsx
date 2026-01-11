@@ -99,16 +99,22 @@ export function ScheduleTable({
     
     // テーブルヘッダーの高さ
     const headerHeight = 40
-    const stickyTop = toolbarBottom + headerHeight
     
     // テーブルヘッダーの位置を確認して固定表示を切り替え
     const thead = theadRef.current
+    let headerBottom = toolbarBottom + headerHeight // デフォルト
+    
     if (thead) {
       const theadRect = thead.getBoundingClientRect()
       const shouldShow = theadRect.top < toolbarBottom
       setShowFixedHeader(shouldShow)
       if (shouldShow) {
         setFixedHeaderTop(toolbarBottom)
+        // 固定ヘッダー表示時はその下端を基準に
+        headerBottom = toolbarBottom + headerHeight
+      } else {
+        // 通常時はテーブルヘッダーの下端を基準に
+        headerBottom = theadRect.bottom
       }
     }
     
@@ -125,9 +131,9 @@ export function ScheduleTable({
       const cellBottom = cellRect.bottom
       
       // セルの上端がヘッダー下端より上にある（セルがヘッダーの下に隠れ始めている）
-      if (cellTop < stickyTop && cellBottom > stickyTop + dateTextHeight) {
+      if (cellTop < headerBottom && cellBottom > headerBottom + dateTextHeight) {
         // 日付テキストをヘッダー下端の位置まで下に移動
-        const offset = stickyTop - cellTop
+        const offset = headerBottom - cellTop
         const maxOffset = cellRect.height - dateTextHeight - 8
         dateText.style.transform = `translateY(${Math.max(0, Math.min(offset, maxOffset))}px)`
       } else {
