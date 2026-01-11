@@ -148,20 +148,13 @@ export function ScheduleTable({
   const isHolidayOrSunday = currentHoliday || currentDayInfo?.dayOfWeek === '日'
   const dateTextColor = isHolidayOrSunday ? 'text-red-600' : currentDayInfo?.dayOfWeek === '土' ? 'text-blue-600' : 'text-foreground'
 
+  // テーブルヘッダーの高さ（約40px）
+  const tableHeaderHeight = 40
+  // スティッキー日付バーのtop位置（操作行 + テーブルヘッダーの下）
+  const stickyDateBarTop = stickyHeaderHeight + tableHeaderHeight
+
   return (
     <div ref={tableRef} className="overflow-x-auto -mx-2 sm:mx-0 relative">
-      {/* スティッキー日付バー（操作行の下に表示） */}
-      {showStickyDate && currentDayInfo && (
-        <div 
-          className="sticky z-50 h-[30px] bg-slate-700 text-white flex items-center px-3 text-sm font-medium shadow-md"
-          style={{ top: `${stickyHeaderHeight}px`, marginBottom: '-30px' }}
-        >
-          <span className={dateTextColor === 'text-red-600' ? 'text-red-300' : dateTextColor === 'text-blue-600' ? 'text-blue-300' : ''}>
-            {currentDayInfo.displayDate}（{currentDayInfo.dayOfWeek}）
-            {currentHoliday && <span className="ml-2 text-red-300 text-xs">{currentHoliday}</span>}
-          </span>
-        </div>
-      )}
       {/* 
         モバイル(375px)の場合の計算:
         日付(32) + 会場(24) + 時間枠(106*3=318) = 374px (画面内に収まる)
@@ -177,7 +170,7 @@ export function ScheduleTable({
               <col />
               <col className="w-[160px]" />
             </colgroup>
-            <TableHeader className="md:sticky md:top-0 z-40">
+            <TableHeader className="md:sticky z-40" style={{ top: `${stickyHeaderHeight}px` }}>
               <TableRow className="bg-muted h-10">
                 <TableHead className="sticky left-0 z-50 bg-muted border-r text-xs sm:text-sm font-bold !p-0 !h-auto text-center">
                   <span className="hidden sm:inline">日付</span>
@@ -333,6 +326,19 @@ export function ScheduleTable({
             })}
           </TableBody>
         </Table>
+      
+      {/* スティッキー日付バー（テーブルヘッダーの下に固定表示） */}
+      {showStickyDate && currentDayInfo && (
+        <div 
+          className="fixed left-0 right-0 z-30 h-[30px] bg-slate-700 text-white flex items-center px-3 text-sm font-medium shadow-md"
+          style={{ top: `${stickyDateBarTop}px` }}
+        >
+          <span className={dateTextColor === 'text-red-600' ? 'text-red-300' : dateTextColor === 'text-blue-600' ? 'text-blue-300' : ''}>
+            {currentDayInfo.displayDate}（{currentDayInfo.dayOfWeek}）
+            {currentHoliday && <span className="ml-2 text-red-300 text-xs">{currentHoliday}</span>}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
