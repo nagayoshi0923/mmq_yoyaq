@@ -87,6 +87,10 @@ export function ScheduleTable({
   const updateDatePositions = useCallback(() => {
     if (!tableRef.current) return
     
+    // テーブルヘッダーの位置を基準にする（スティッキーヘッダーの下端）
+    const tableHeader = tableRef.current.querySelector('thead')
+    const headerBottom = tableHeader ? tableHeader.getBoundingClientRect().bottom : 120
+    
     // 全ての日付セルを取得
     const dateCells = tableRef.current.querySelectorAll('[data-date-cell]')
     
@@ -95,16 +99,15 @@ export function ScheduleTable({
       const dateText = cell.querySelector('[data-date-text]') as HTMLElement
       if (!dateText) return
       
-      // セルの上端が画面上部（ヘッダー下）より上にある場合
-      const headerOffset = 0 // セル内での相対位置なので0
+      const dateTextHeight = dateText.offsetHeight
       const cellTop = cellRect.top
       const cellBottom = cellRect.bottom
-      const dateTextHeight = dateText.offsetHeight
       
-      if (cellTop < headerOffset && cellBottom > headerOffset + dateTextHeight) {
-        // セルが画面上部で切れている → 日付テキストを下に移動
-        const offset = Math.min(headerOffset - cellTop, cellRect.height - dateTextHeight - 8)
-        dateText.style.transform = `translateY(${Math.max(0, offset)}px)`
+      // セルの上端がヘッダー下端より上にある場合（セルが隠れ始めている）
+      if (cellTop < headerBottom && cellBottom > headerBottom + dateTextHeight) {
+        // 日付テキストをヘッダー下端の位置に移動
+        const offset = headerBottom - cellTop
+        dateText.style.transform = `translateY(${Math.max(0, Math.min(offset, cellRect.height - dateTextHeight - 8))}px)`
       } else {
         // 通常位置
         dateText.style.transform = 'translateY(0)'
