@@ -97,8 +97,8 @@ export function ScheduleTable({
 
     for (const row of dateRows) {
       const rect = row.getBoundingClientRect()
-      // 行が画面上部（カテゴリタブ下端 約210px）より上にある場合
-      if (rect.top <= 210) {
+      // 行が画面上部（カテゴリタブ下端 約175px）より上にある場合
+      if (rect.top <= 175) {
         foundDate = row.getAttribute('data-date')
         shouldShow = true
       } else {
@@ -303,16 +303,16 @@ export function ScheduleTable({
           </TableBody>
         </Table>
       
-      {/* スティッキー日付バー（カテゴリタブの下に固定表示） */}
+      {/* スティッキー日付バー（左側の日付セル幅で固定表示） */}
       {showStickyDate && currentDayInfo && (
         <div 
-          className="fixed left-0 right-0 z-[45] h-[30px] bg-slate-700/95 text-white flex items-center px-4 text-sm font-medium shadow-md backdrop-blur-sm"
-          style={{ top: '210px' }}
+          className="fixed left-[10px] z-[45] w-[32px] sm:w-[40px] md:w-[48px] h-[30px] bg-slate-700/95 text-white flex items-center justify-center text-xs font-bold shadow-md backdrop-blur-sm rounded-sm"
+          style={{ top: '175px' }}
         >
-          <span className={dateTextColor === 'text-red-600' ? 'text-red-300' : dateTextColor === 'text-blue-600' ? 'text-blue-300' : ''}>
-            📅 {currentDayInfo.displayDate}（{currentDayInfo.dayOfWeek}）
-            {currentHoliday && <span className="ml-2 text-red-300 text-xs">{currentHoliday}</span>}
-          </span>
+          <div className={`flex flex-col items-center leading-tight ${dateTextColor === 'text-red-600' ? 'text-red-300' : dateTextColor === 'text-blue-600' ? 'text-blue-300' : ''}`}>
+            <span>{currentDayInfo.displayDate.replace(/月/g,'')}</span>
+            <span className="text-[10px]">({currentDayInfo.dayOfWeek})</span>
+          </div>
         </div>
       )}
     </div>
