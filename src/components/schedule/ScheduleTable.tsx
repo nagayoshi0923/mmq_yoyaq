@@ -97,8 +97,8 @@ export function ScheduleTable({
 
     for (const row of dateRows) {
       const rect = row.getBoundingClientRect()
-      // 行が画面上部（カテゴリタブ下端 約175px）より上にある場合
-      if (rect.top <= 175) {
+      // 行が画面上部（カテゴリタブ下端 約195px）より上にある場合
+      if (rect.top <= 195) {
         foundDate = row.getAttribute('data-date')
         shouldShow = true
       } else {
@@ -307,7 +307,7 @@ export function ScheduleTable({
       {showStickyDate && currentDayInfo && (
         <div 
           className="fixed left-[10px] z-[45] w-[32px] sm:w-[40px] md:w-[48px] h-[30px] bg-slate-700/95 text-white flex items-center justify-center text-xs font-bold shadow-md backdrop-blur-sm rounded-sm"
-          style={{ top: '175px' }}
+          style={{ top: '195px' }}
         >
           <div className={`flex flex-col items-center leading-tight ${dateTextColor === 'text-red-600' ? 'text-red-300' : dateTextColor === 'text-blue-600' ? 'text-blue-300' : ''}`}>
             <span>{currentDayInfo.displayDate.replace(/月/g,'')}</span>
