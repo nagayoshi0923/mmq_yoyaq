@@ -211,29 +211,27 @@ export function ScheduleTable({
                 <TableRow 
                   key={`${day.date}-${venue.id}`} 
                   className={`min-h-[80px] group bg-background hover:bg-muted/5 ${isFirstVenueOfDay ? 'border-t-[3px] border-t-slate-400' : ''}`}
+                  data-date={day.date}
                 >
-                  {/* 日付・曜日セル - rowSpanで結合、日付テキストがスクロールに追従 */}
-                  {venueIndex === 0 ? (() => {
+                  {/* 日付・曜日セル (縦横両方Sticky) - 各行に同じ日付を表示 */}
+                  {(() => {
                     const holiday = getJapaneseHoliday(day.date)
                     const isHolidayOrSunday = holiday || day.dayOfWeek === '日'
                     const textColor = isHolidayOrSunday ? 'text-red-600' : day.dayOfWeek === '土' ? 'text-blue-600' : ''
                     
                     return (
                       <TableCell 
-                        className={`sticky left-0 z-20 bg-background schedule-table-cell border-r text-sm !p-0 leading-none text-center align-top ${textColor}`}
-                        rowSpan={allVenues.length}
-                        data-date-cell={day.date}
+                        className={`sticky left-0 top-[40px] z-30 bg-background group-hover:bg-muted/5 schedule-table-cell border-r text-sm !p-0 leading-none text-center align-middle ${textColor} ${!isFirstVenueOfDay ? 'border-t-0' : ''}`}
                       >
-                        {/* 日付テキスト - スクロール時にセル表示領域の上端に追従 */}
+                        {/* 日付テキスト */}
                         <div 
-                          data-date-text={day.date}
-                          className="flex flex-col items-center justify-center py-2 gap-0.5 sm:gap-1 bg-background transition-transform duration-75"
+                          className="flex flex-col items-center justify-center py-2 gap-0.5 sm:gap-1 bg-background"
                         >
                           <span className="font-bold text-xs sm:text-base">{day.displayDate.replace(/月/g,'')}</span>
                           <span className={`text-[10px] sm:text-xs scale-90 sm:scale-100 origin-center ${isHolidayOrSunday ? 'text-red-500' : 'text-muted-foreground'}`}>
                             ({day.dayOfWeek})
                           </span>
-                          {holiday && (
+                          {holiday && isFirstVenueOfDay && (
                             <span className="text-[8px] sm:text-[10px] text-red-500 leading-tight break-all text-center px-0.5">
                               {holiday}
                             </span>
@@ -241,7 +239,7 @@ export function ScheduleTable({
                         </div>
                       </TableCell>
                     )
-                  })() : null}
+                  })()}
                   
                   {/* 店舗セル (Sticky on Mobile) */}
                   <TableCell className="sticky left-[32px] sm:static z-20 sm:z-auto bg-background group-hover:bg-muted/5 schedule-table-cell border-r venue-cell text-xs sm:text-sm font-medium !p-0 leading-none text-center">
