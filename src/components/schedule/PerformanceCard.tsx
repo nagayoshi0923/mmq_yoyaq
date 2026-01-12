@@ -91,8 +91,12 @@ function PerformanceCardBase({
   const staffGms = event.gms.filter(gm => gmRoles[gm] === 'staff')
   const observerGms = event.gms.filter(gm => gmRoles[gm] === 'observer')
   
-  // 表示用GMリスト（メインとサブと受付）
-  const displayGms = [...mainGms, ...subGms.map(gm => `${gm}(サブ)`), ...receptionGms.map(gm => `${gm}(受付)`)]
+  // 表示用GMリスト（メインとサブと受付）- 短縮表示
+  const displayGms = [
+    ...mainGms.map(gm => gm.slice(0, 3)), // 3文字に省略
+    ...subGms.map(gm => `${gm.slice(0, 2)}(S)`),
+    ...receptionGms.map(gm => `${gm.slice(0, 2)}(受)`)
+  ]
   
   // シナリオマスタ未登録チェック、または正式名称と異なる場合
   // scenariosがない、またはシナリオ名が正式名称と一致しない場合に警告
@@ -176,7 +180,7 @@ function PerformanceCardBase({
       }}
       onContextMenu={handleContextMenu}
       {...longPressHandlers}
-      className={`p-1.5 border-l-4 ${leftBorderColor} hover:bg-gray-50/80 transition-colors relative ${
+      className={`p-1 border-l-2 ${leftBorderColor} hover:bg-gray-50/80 transition-colors relative ${
         event.is_cancelled 
           ? 'bg-gray-100 opacity-75 cursor-not-allowed' 
           : 'cursor-move'
@@ -185,9 +189,9 @@ function PerformanceCardBase({
       onClick={handleClick}
     >
       {/* ヘッダー行：時間 + バッジ群 */}
-      <div className="flex items-center justify-between mb-0.5 gap-1">
+      <div className="flex items-center justify-between gap-0.5">
         <span 
-          className={`font-mono text-xs leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
+          className={`font-mono text-[10px] leading-none flex-shrink-0 ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
           {...devDb('schedule_events.start_time/end_time')}
         >
           {event.start_time.slice(0, 5)}-{event.end_time.slice(0, 5)}
@@ -241,7 +245,7 @@ function PerformanceCardBase({
       
       {/* シナリオタイトル */}
       <div 
-        className={`font-bold line-clamp-2 mb-0.5 text-xs leading-tight text-left ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
+        className={`font-bold line-clamp-1 text-[11px] leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
         {...devDb('schedule_events.scenario')}
       >
         {event.scenario ? (
@@ -268,17 +272,17 @@ function PerformanceCardBase({
       
       {/* GM情報 */}
       <div 
-        className={`text-xs mb-0 leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
+        className={`text-[10px] leading-tight text-left truncate ${event.is_cancelled ? 'line-through text-gray-500' : badgeTextColor}`}
         {...devDb('schedule_events.gms')}
       >
         {displayGms.length > 0 ? (
-          <span className="flex items-center gap-1">
-            <span className="font-bold opacity-70 text-[10px]">GM:</span>
-            {displayGms.join(', ')}
+          <span className="truncate">
+            <span className="font-bold opacity-70">GM:</span>
+            {displayGms.join(',')}
           </span>
         ) : (
-          <span className="text-red-500 font-bold flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+          <span className="text-red-500 font-bold flex items-center gap-0.5">
+            <AlertTriangle className="w-2.5 h-2.5 flex-shrink-0" />
             GM未定
           </span>
         )}
@@ -321,15 +325,15 @@ function PerformanceCardBase({
 
       {/* 右下：予約者数バッジ（中止でも表示） */}
       {!event.is_private_request && (
-        <div className="absolute bottom-0.5 right-0.5">
-          <Badge size="sm" className={`font-normal text-xs px-1 py-0 h-4 whitespace-nowrap ${
+        <div className="absolute bottom-0 right-0">
+          <Badge size="sm" className={`font-normal text-[9px] px-0.5 py-0 h-3.5 whitespace-nowrap ${
             event.is_cancelled
-              ? 'bg-gray-200 text-gray-500'  // 中止の場合はグレー
+              ? 'bg-gray-200 text-gray-500'
               : reservationCount >= maxCapacity 
-                ? fullBadgeColors[effectiveCategory] || 'bg-gray-800 text-gray-100'  // 満席の場合は反転色
+                ? fullBadgeColors[effectiveCategory] || 'bg-gray-800 text-gray-100'
                 : categoryConfig[effectiveCategory as keyof typeof categoryConfig]?.badgeColor || 'bg-gray-100 text-gray-800'
           }`}>
-            <Users className="w-3 h-3 mr-0.5 flex-shrink-0" />
+            <Users className="w-2.5 h-2.5 mr-0.5 flex-shrink-0" />
             <span>{reservationCount}/{maxCapacity}</span>
           </Badge>
         </div>

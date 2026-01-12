@@ -27,20 +27,20 @@ export const CategoryTabs = memo(function CategoryTabs({
   compact = false
 }: CategoryTabsProps) {
   if (compact) {
-    // コンパクトモード：1行表示
+    // コンパクトモード：1行表示（横スクロール可能）
     return (
-      <div className="flex items-center gap-2 py-1">
-        <span className="text-xs font-medium text-muted-foreground shrink-0">カテゴリ:</span>
-        <div className="flex flex-wrap gap-1">
+      <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+        <span className="text-[10px] font-medium text-muted-foreground shrink-0">カテゴリ:</span>
+        <div className="flex gap-0.5 shrink-0">
           {categories.map(category => (
             <button
               key={category.id}
               onClick={() => onCategoryChange(category.id)}
               className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-all",
+                "inline-flex items-center gap-0.5 px-1 py-0 rounded text-[10px] font-medium transition-all whitespace-nowrap",
                 category.color,
                 selectedCategory === category.id 
-                  ? "ring-2 ring-primary ring-offset-1" 
+                  ? "ring-1 ring-primary ring-offset-0" 
                   : "opacity-70 hover:opacity-100"
               )}
             >
@@ -49,8 +49,8 @@ export const CategoryTabs = memo(function CategoryTabs({
             </button>
           ))}
         </div>
-        <span className="text-xs text-muted-foreground ml-auto shrink-0">
-          中止: {categoryCounts.cancelled} / 警告: {categoryCounts.alerts}
+        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+          中止:{categoryCounts.cancelled}/警告:{categoryCounts.alerts}
         </span>
       </div>
     )
