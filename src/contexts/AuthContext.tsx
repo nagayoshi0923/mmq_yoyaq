@@ -3,6 +3,7 @@ import { supabase, type AuthUser } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
 import type { User } from '@supabase/supabase-js'
 import { determineUserRole } from '@/utils/authUtils'
+import { maskEmail } from '@/utils/security'
 
 /**
  * 現在のURLからorganizationSlugを抽出するヘルパー関数
@@ -166,7 +167,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         const eventStartTime = performance.now()
-        logger.log('🔄 認証状態変更:', event, session?.user?.email, `(経過時間: ${((eventStartTime - authStartTime) / 1000).toFixed(2)}秒)`)
+        logger.log('🔄 認証状態変更:', event, session?.user?.email ? maskEmail(session.user.email) : 'N/A', `(経過時間: ${((eventStartTime - authStartTime) / 1000).toFixed(2)}秒)`)
         
         // 処理中の場合はスキップ（重複実行防止）
         if (isProcessingRef.current) {
@@ -312,7 +313,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       if (session?.user) {
-        logger.log('👤 セッションユーザー発見:', session.user.email)
+        logger.log('👤 セッションユーザー発見:', maskEmail(session.user.email))
         await setUserFromSession(session.user)
       } else {
         logger.log('👤 セッションユーザーなし')
@@ -331,14 +332,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // 既に処理中の場合はスキップ（重複呼び出し防止）
     // ただし、userがまだセットされていない場合は処理を続行する（初期化時の競合対策）
     if (isProcessingRef.current && userRef.current) {
-      logger.log('⏭️ 処理中のためスキップ:', supabaseUser.email)
+      logger.log('⏭️ 処理中のためスキップ:', maskEmail(supabaseUser.email))
       return
     }
     
     const startTime = performance.now()
     isProcessingRef.current = true
-    logger.log('🔐 ユーザーセッション設定開始:', supabaseUser.email)
-    logger.log(`⏱️ setUserFromSession 開始: ${supabaseUser.email} (${new Date().toISOString()})`)
+    logger.log('🔐 ユーザーセッション設定開始:', maskEmail(supabaseUser.email))
+    logger.log(`⏱️ setUserFromSession 開始: ${maskEmail(supabaseUser.email)} (${new Date().toISOString()})`)
     
     // 既存のユーザー情報を保持（エラー時のフォールバック用）
     // useStateのクロージャー問題を回避するため、refから取得
@@ -654,7 +655,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 setUser(prev => prev ? { ...prev, staffName: data.name } : prev)
               } else {
                 // user_idで見つからない場合、メールアドレスで検索して自動紐付け
-                logger.log('📋 user_idで見つからないため、メールアドレスで検索:', supabaseUser.email)
+                logger.log('📋 user_idで見つからないため、メールアドレスで検索:', maskEmail(supabaseUser.email))
                 const { data: staffByEmail } = await supabase
                   .from('staff')
                   .select('id, name, user_id')
@@ -763,7 +764,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       const endTime = performance.now()
       isProcessingRef.current = false
-      logger.log(`⏱️ setUserFromSession 完了: ${supabaseUser.email} (${((endTime - startTime) / 1000).toFixed(2)}秒)`)
+      logger.log(`⏱️ setUserFromSession 完了: ${maskEmail(supabaseUser.email)} (${((endTime - startTime) / 1000).toFixed(2)}秒)`)
     }
   }
 
@@ -796,7 +797,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw error
       }
       
-      logger.log('✅ ログイン成功:', data.user?.email)
+      logger.log('✅ ログイン成功:', data.user?.email ? maskEmail(data.user.email) : 'N/A')
       
       // ログイン成功をログに記録
       if (data.user) {
