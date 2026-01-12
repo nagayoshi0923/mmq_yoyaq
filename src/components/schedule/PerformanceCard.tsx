@@ -288,7 +288,6 @@ function PerformanceCardBase({
       {(event.category === 'private' || event.is_private_request) && event.reservation_name && (() => {
         // 手動上書きされたかどうかを判定（display_customer_name が設定されている場合）
         const isManuallyOverwritten = event.is_reservation_name_overwritten === true
-        console.log(`🔴 予約者名判定: name=${event.reservation_name}, overwritten=${event.is_reservation_name_overwritten}, result=${isManuallyOverwritten}`)
         
         return (
           <div className={`text-xs mt-0.5 truncate text-left leading-tight ${event.is_cancelled ? 'line-through text-gray-500' : isManuallyOverwritten ? 'text-red-700' : 'text-purple-700'}`}>
