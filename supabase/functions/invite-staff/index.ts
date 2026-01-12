@@ -4,22 +4,21 @@ import { getEmailSettings } from '../_shared/organization-settings.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SITE_URL = (Deno.env.get('SITE_URL') || 'https://mmq-yoyaq.vercel.app').replace(/\/$/, '')
 const SET_PASSWORD_REDIRECT = `${SITE_URL}/#/set-password`
 const RESET_PASSWORD_REDIRECT = `${SITE_URL}/#/reset-password`
 
+// 許可するオリジン（本番環境用）
+const ALLOWED_ORIGINS = [
+  'https://mmq-yoyaq.vercel.app',
+  'https://mmq-yoyaq-git-main-nagayoshi0923s-projects.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+]
+
+// サービスロールクライアント（管理操作用）
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
-const baseHeaders = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-}
-
-const corsHeaders = {
-  ...baseHeaders,
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 interface InviteStaffRequest {
   email: string
@@ -34,12 +33,96 @@ interface InviteStaffRequest {
   organization_id?: string  // マルチテナント対応
 }
 
+// メールアドレスをマスキングするヘルパー関数
+function maskEmail(email: string): string {
+  if (!email || !email.includes('@')) return '***'
+  const [local, domain] = email.split('@')
+  const maskedLocal = local.length > 2 ? local.slice(0, 2) + '***' : '***'
+  return `${maskedLocal}@${domain}`
+}
+
+// 名前をマスキングするヘルパー関数
+function maskName(name: string): string {
+  if (!name || name.length === 0) return '***'
+  return name.slice(0, 1) + '***'
+}
+
+// CORSヘッダーを生成
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
+}
+
 serve(async (req) => {
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    // ============================================
+    // 認証チェック: 呼び出し元が管理者かどうか確認
+    // ============================================
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      console.warn('⚠️ 認証ヘッダーがありません')
+      return new Response(
+        JSON.stringify({ success: false, error: '認証が必要です' }),
+        { status: 401, headers: corsHeaders }
+      )
+    }
+
+    // 呼び出し元ユーザーの認証を検証
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    })
+    
+    const { data: { user: callerUser }, error: authError } = await userClient.auth.getUser()
+    
+    if (authError || !callerUser) {
+      console.warn('⚠️ 認証エラー:', authError?.message)
+      return new Response(
+        JSON.stringify({ success: false, error: '認証に失敗しました' }),
+        { status: 401, headers: corsHeaders }
+      )
+    }
+
+    // 呼び出し元ユーザーのロールを確認
+    const { data: callerData, error: callerError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', callerUser.id)
+      .single()
+
+    if (callerError || !callerData) {
+      console.warn('⚠️ ユーザーロール取得エラー:', callerError?.message)
+      return new Response(
+        JSON.stringify({ success: false, error: 'ユーザー情報の取得に失敗しました' }),
+        { status: 403, headers: corsHeaders }
+      )
+    }
+
+    // 管理者またはライセンス管理者のみ許可
+    if (callerData.role !== 'admin' && callerData.role !== 'license_admin') {
+      console.warn('⚠️ 権限エラー: ユーザー', maskEmail(callerUser.email || ''), 'は管理者ではありません')
+      return new Response(
+        JSON.stringify({ success: false, error: '管理者権限が必要です' }),
+        { status: 403, headers: corsHeaders }
+      )
+    }
+
+    console.log('✅ 認証成功: 管理者', maskEmail(callerUser.email || ''))
+
+    // ============================================
+    // ここから既存のスタッフ招待処理
+    // ============================================
     const payload: InviteStaffRequest = await req.json()
     const email = payload.email?.trim()
     const name = payload.name?.trim()
@@ -47,11 +130,12 @@ serve(async (req) => {
     if (!email || !name) {
       return new Response(
         JSON.stringify({ success: false, error: 'email と name は必須です' }),
-        { status: 400, headers: baseHeaders }
+        { status: 400, headers: corsHeaders }
       )
     }
 
-    console.log('📨 Staff invitation request:', { email, name })
+    // ログにはマスキングした情報のみ出力
+    console.log('📨 Staff invitation request:', { email: maskEmail(email), name: maskName(name) })
 
     const normalizedEmail = email.toLowerCase()
     const { data: userList, error: listError } = await supabase.auth.admin.listUsers()
@@ -80,7 +164,7 @@ serve(async (req) => {
         console.log('ℹ️ User is admin, keeping admin role')
       }
     } else {
-      console.log('🆕 Creating auth user:', email)
+      console.log('🆕 Creating auth user:', maskEmail(email))
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email,
         email_confirm: false,
@@ -163,8 +247,6 @@ serve(async (req) => {
     }
 
     let staffId: string
-    // デフォルト organization_id: クインズワルツ
-    const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000001'
     const organizationId = payload.organization_id || DEFAULT_ORG_ID
     
     const staffPayload = {
@@ -381,7 +463,7 @@ serve(async (req) => {
           console.error('❌ Resend error:', emailError, errorBody)
         } else {
           emailSent = true
-          console.log('✅ Invitation email sent')
+          console.log('✅ Invitation email sent to:', maskEmail(email))
         }
       } catch (err: any) {
         emailError = err?.message || 'メール送信中に予期しないエラーが発生しました'
@@ -396,14 +478,14 @@ serve(async (req) => {
         data: {
           user_id: userId,
           staff_id: staffId,
-          email,
-          name,
+          email: maskEmail(email),  // レスポンスにはマスキングしたメールを返す
+          name: maskName(name),     // レスポンスにはマスキングした名前を返す
           invite_link: inviteLink,
           email_sent: emailSent,
           email_error: emailError,
         },
       }),
-      { status: 200, headers: baseHeaders }
+      { status: 200, headers: corsHeaders }
     )
   } catch (error: any) {
     console.error('❌ invite-staff error:', error)
@@ -412,7 +494,7 @@ serve(async (req) => {
         success: false,
         error: error?.message || String(error),
       }),
-      { status: 500, headers: baseHeaders }
+      { status: 500, headers: corsHeaders }
     )
   }
 })
