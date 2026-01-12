@@ -696,12 +696,14 @@ export function ScheduleManager() {
           </div>
 
         {/* カテゴリータブ（コンパクト） */}
-        <CategoryTabs
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          categoryCounts={categoryCounts}
-          compact
-        />
+        <div className="py-1 border-t border-muted">
+          <CategoryTabs
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+            categoryCounts={categoryCounts}
+            compact
+          />
+        </div>
         
         {/* テーブルヘッダー行（操作行に統合してstickyに） */}
         <div className="flex bg-muted border-t -mx-[10px] px-[10px]">
