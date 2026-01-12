@@ -695,24 +695,24 @@ export function ScheduleManager() {
         />
         
         {/* テーブルヘッダー行（操作行に統合してstickyに） */}
-        <div className="flex bg-muted border-t mt-1 -mx-[10px] px-[10px]">
-          <div className="w-[32px] sm:w-[40px] md:w-[48px] shrink-0 border-r text-xs sm:text-sm font-bold py-1 text-center">
+        <div className="flex bg-muted border-t -mx-[10px] px-[10px]">
+          <div className="w-[32px] sm:w-[40px] md:w-[48px] shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
             <span className="hidden sm:inline">日付</span>
             <span className="sm:hidden">日</span>
           </div>
-          <div className="w-[24px] sm:w-[28px] md:w-[32px] shrink-0 border-r text-xs sm:text-sm font-bold py-1 text-center">
+          <div className="w-[24px] sm:w-[28px] md:w-[32px] shrink-0 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">
             <span className="hidden sm:inline">会場</span>
             <span className="sm:hidden">店</span>
           </div>
-          <div className="flex-1 border-r text-xs sm:text-sm font-bold py-1 text-center">午前</div>
-          <div className="flex-1 border-r text-xs sm:text-sm font-bold py-1 text-center">午後</div>
-          <div className="flex-1 border-r text-xs sm:text-sm font-bold py-1 text-center">夜間</div>
-          <div className="w-[160px] shrink-0 text-sm font-bold py-1 text-center">メモ</div>
+          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午前</div>
+          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">午後</div>
+          <div className="flex-1 border-r text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">夜間</div>
+          <div className="w-[160px] shrink-0 text-[10px] sm:text-xs font-bold py-0.5 text-center leading-tight">メモ</div>
         </div>
         
         {/* スティッキー日付バー（スクロール時に現在の日付を表示） */}
         {showDateBar && currentDayInfo && (
-          <div className="h-[22px] bg-slate-700 text-white flex items-center px-3 text-xs font-medium -mx-[10px] px-[10px]">
+          <div className="h-[18px] bg-slate-700 text-white flex items-center px-2 text-[11px] font-medium -mx-[10px] px-[10px]">
             <span className={
               currentHoliday || currentDayInfo.dayOfWeek === '日' 
                 ? 'text-red-300' 
