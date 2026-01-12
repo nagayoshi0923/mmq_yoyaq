@@ -637,10 +637,26 @@ export function ScheduleManager() {
           categoryCounts={categoryCounts}
           compact
         />
+        
+        {/* テーブルヘッダー行（操作行に統合してstickyに） */}
+        <div className="flex bg-muted border-t mt-2 -mx-[10px] px-[10px]">
+          <div className="w-[32px] sm:w-[40px] md:w-[48px] shrink-0 border-r text-xs sm:text-sm font-bold py-2 text-center">
+            <span className="hidden sm:inline">日付</span>
+            <span className="sm:hidden">日</span>
+          </div>
+          <div className="w-[24px] sm:w-[28px] md:w-[32px] shrink-0 border-r text-xs sm:text-sm font-bold py-2 text-center">
+            <span className="hidden sm:inline">会場</span>
+            <span className="sm:hidden">店</span>
+          </div>
+          <div className="flex-1 border-r text-xs sm:text-sm font-bold py-2 text-center">午前</div>
+          <div className="flex-1 border-r text-xs sm:text-sm font-bold py-2 text-center">午後</div>
+          <div className="flex-1 border-r text-xs sm:text-sm font-bold py-2 text-center">夜間</div>
+          <div className="w-[160px] shrink-0 text-sm font-bold py-2 text-center">メモ</div>
+        </div>
       </div>
 
       {/* スケジュールテーブル */}
-      <ScheduleTable {...filteredScheduleTableProps} />
+      <ScheduleTable {...filteredScheduleTableProps} hideHeader />
 
       {/* 下部の月切り替え */}
       <div className="flex justify-center py-4">
