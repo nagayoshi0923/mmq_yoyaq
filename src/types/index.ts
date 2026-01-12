@@ -291,7 +291,6 @@ export interface Scenario {
   available_stores?: string[] // 公演可能店舗ID
   gm_assignments?: Array<{ role: string; staff_id?: string; reward?: number }> // GM配置情報
   extra_preparation_time?: number // 追加準備時間（分）。通常の60分に加算される
-  scenario_master_id?: string | null // シナリオマスタID（managed シナリオ用）
 }
 
 // 顧客向け公演情報（予約サイト用）

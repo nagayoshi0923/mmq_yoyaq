@@ -360,7 +360,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
       </div>
 
       {/* フッター */}
-      <Footer organizationSlug={organizationSlug} organizationName={organizationName} />
+      <Footer organizationSlug={organizationSlug} organizationName={organizationName ?? undefined} />
     </div>
   )
 }
