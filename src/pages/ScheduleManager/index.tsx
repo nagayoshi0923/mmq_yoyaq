@@ -564,16 +564,12 @@ export function ScheduleManager() {
       stickyLayout
     >
       {/* 操作行（PC:sticky、モバイル:通常） */}
-      <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b py-2 -mx-[10px] px-[10px]">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between mb-2">
+      <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b py-1 -mx-[10px] px-[10px]">
+        {/* ヘッダー + 月切り替え */}
+        <div className="flex items-center justify-between gap-2 mb-1">
           <div className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary" />
-            <span className="text-lg font-bold">スケジュール管理</span>
-          </div>
-          <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-primary" />
+            <span className="text-base font-bold">スケジュール管理</span>
             <MonthSwitcher
               value={currentDate}
               onChange={setCurrentDate}
@@ -581,10 +577,14 @@ export function ScheduleManager() {
               quickJump
               enableKeyboard
             />
-            
+          </div>
+          <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
+        </div>
+        {/* フィルター行 */}
+        <div className="flex flex-wrap items-center gap-1.5">
             {/* スタッフフィルター（シフト提出済みを上に、バッジ付き、複数選択対応） */}
             {gmList.length > 0 && (
-              <div className="w-36 sm:w-52">
+              <div className="w-32 sm:w-44">
                 <MultiSelect
                   options={(() => {
                     // シフトデータからシフト提出済みのスタッフIDを抽出
@@ -628,7 +628,7 @@ export function ScheduleManager() {
             
             {/* 店舗フィルター（複数選択対応） */}
             {scheduleTableProps.viewConfig.stores.length > 0 && (
-              <div className="w-40 sm:w-48">
+              <div className="w-32 sm:w-40">
                 <StoreMultiSelect
                   stores={scheduleTableProps.viewConfig.stores}
                   selectedStoreIds={selectedStores}
@@ -642,7 +642,7 @@ export function ScheduleManager() {
             
             {/* シフト提出者フィルター（空スロットの提出者表示を絞り込む） */}
             {shiftStaffOptions.length > 0 && (
-              <div className="w-36 sm:w-52">
+              <div className="w-32 sm:w-44">
                 <MultiSelect
                   options={shiftStaffOptions}
                   selectedValues={selectedShiftStaff}
@@ -659,9 +659,9 @@ export function ScheduleManager() {
               size="icon"
               onClick={() => setIsImportModalOpen(true)}
               title="インポート"
-              className="h-9 w-9"
+              className="h-8 w-8"
             >
-              <Upload className="h-4 w-4" />
+              <Upload className="h-3.5 w-3.5" />
             </Button>
             
             <Button 
@@ -670,19 +670,9 @@ export function ScheduleManager() {
               onClick={handleFillAllSeats}
               disabled={isFillingSeats}
               title="中止以外を満席にする"
-              className="h-9 text-xs"
+              className="h-8 text-xs px-2"
             >
               {isFillingSeats ? '処理中...' : '全満席'}
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleFixAllData}
-              disabled={isFixingData}
-              title="予約レコードがない公演にデモ参加者を追加"
-              className="h-9 text-xs"
-            >
-              {isFixingData ? '処理中...' : 'データ修復'}
             </Button>
           </div>
 
