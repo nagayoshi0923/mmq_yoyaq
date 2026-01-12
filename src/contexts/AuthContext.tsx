@@ -857,7 +857,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // 予約サイトにリダイレクト（現在の組織を維持）
       const slug = getOrganizationSlugFromUrl()
-      window.location.href = `/#booking/${slug}`
+      window.location.href = `/${slug}`
     } catch (error) {
       setLoading(false)
       throw error

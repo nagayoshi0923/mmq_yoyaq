@@ -546,7 +546,7 @@ export function ScheduleManager() {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
       if (hash && hash !== 'schedule') {
-        window.location.href = '/#' + hash
+        window.location.href = '/' + hash
       } else if (!hash) {
         window.location.href = '/'
       }

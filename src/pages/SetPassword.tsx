@@ -166,7 +166,7 @@ export function SetPassword() {
 
       setTimeout(() => {
         supabase.auth.signOut().then(() => {
-          window.location.href = '/#login'
+          window.location.href = '/login'
         })
       }, 3000)
 

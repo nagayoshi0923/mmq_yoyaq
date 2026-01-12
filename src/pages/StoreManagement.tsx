@@ -43,7 +43,7 @@ export function StoreManagement() {
       const hash = window.location.hash.slice(1)
       if (hash && hash !== 'stores') {
         // 他のページに切り替わった場合、AdminDashboardに戻る
-        window.location.href = '/#' + hash
+        window.location.href = '/' + hash
       } else if (!hash) {
         // ダッシュボードに戻る
         window.location.href = '/'

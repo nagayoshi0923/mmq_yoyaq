@@ -225,7 +225,7 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
               <button 
                 className="inline-flex items-center gap-1 h-8 px-3 text-xs bg-white text-[#E60012] hover:bg-white/90 font-medium transition-colors"
                 onClick={() => {
-                  window.location.href = '/#login'
+                  window.location.href = '/login'
                 }}
               >
                 <User className="h-3.5 w-3.5" />
