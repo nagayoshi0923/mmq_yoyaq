@@ -503,27 +503,20 @@ export function ScheduleManager() {
     <AppLayout
       currentPage="schedule" 
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
+      containerPadding="px-[10px] py-0"
       className="mx-auto"
       stickyLayout
     >
-      {/* ヘッダー（スクロールで消える） */}
-      <div className="space-y-3 sm:space-y-4 md:space-y-6">
-        <PageHeader
-          title={
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold">スケジュール管理</span>
-            </div>
-          }
-          description="月ごとの公演スケジュールとGM配置を管理します"
-        >
-          <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
-        </PageHeader>
-      </div>
-
       {/* 操作行（PC:sticky、モバイル:通常） */}
-      <div data-schedule-toolbar className="md:sticky md:top-0 z-40 bg-background border-b py-2 -mx-[10px] px-[10px]">
+      <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b py-2 -mx-[10px] px-[10px]">
+        {/* ヘッダー */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-primary" />
+            <span className="text-lg font-bold">スケジュール管理</span>
+          </div>
+          <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
+        </div>
         <div className="flex flex-wrap items-center gap-2">
             <MonthSwitcher
               value={currentDate}

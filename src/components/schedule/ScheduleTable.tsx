@@ -88,24 +88,46 @@ export function ScheduleTable({
 
   // 操作行の高さを取得（動的に計算）
   const [toolbarHeight, setToolbarHeight] = useState(0)
+  const toolbarRef = useRef<HTMLElement | null>(null)
   
+  // 操作行の高さを監視
   useEffect(() => {
-    // 操作行の高さを計算（data-schedule-toolbar属性を持つ要素）
     const updateToolbarHeight = () => {
       const toolbar = document.querySelector('[data-schedule-toolbar]')
       if (toolbar) {
-        setToolbarHeight(toolbar.getBoundingClientRect().height)
+        toolbarRef.current = toolbar as HTMLElement
+        const height = toolbar.getBoundingClientRect().height
+        if (height > 0) {
+          setToolbarHeight(height)
+        }
       }
     }
     
-    // 初回計算とリサイズ時に再計算
+    // 初回計算
     updateToolbarHeight()
+    
+    // リサイズ時に再計算
     window.addEventListener('resize', updateToolbarHeight)
-    const timeoutId = setTimeout(updateToolbarHeight, 100)
+    
+    // 少し遅延して再計算（レイアウト確定後）
+    const timeoutId = setTimeout(updateToolbarHeight, 200)
+    const timeoutId2 = setTimeout(updateToolbarHeight, 500)
+    
+    // ResizeObserverで操作行の高さ変更を監視
+    let resizeObserver: ResizeObserver | null = null
+    const toolbar = document.querySelector('[data-schedule-toolbar]')
+    if (toolbar && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        updateToolbarHeight()
+      })
+      resizeObserver.observe(toolbar)
+    }
     
     return () => {
       window.removeEventListener('resize', updateToolbarHeight)
       clearTimeout(timeoutId)
+      clearTimeout(timeoutId2)
+      resizeObserver?.disconnect()
     }
   }, [])
 
@@ -113,7 +135,7 @@ export function ScheduleTable({
   const handleScroll = useCallback(() => {
     if (!tableRef.current) return
 
-    const toolbar = document.querySelector('[data-schedule-toolbar]')
+    const toolbar = toolbarRef.current || document.querySelector('[data-schedule-toolbar]')
     if (!toolbar) return
     
     const toolbarRect = toolbar.getBoundingClientRect()
@@ -124,8 +146,8 @@ export function ScheduleTable({
     // テーブルの位置を取得
     const tableRect = tableRef.current.getBoundingClientRect()
     
-    // テーブルヘッダーが操作行の下に隠れたらスティッキーバーを表示
-    const shouldShow = tableRect.top < toolbarRect.bottom - tableHeaderHeight
+    // テーブルが操作行の下端を超えたらスティッキーバーを表示
+    const shouldShow = tableRect.top < toolbarRect.bottom
 
     // 各日付行を走査して現在表示されている日付を特定
     const dateRows = tableRef.current.querySelectorAll('[data-date]')
