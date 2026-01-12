@@ -36,6 +36,8 @@ const PrivateBookingScenarioSelect = lazy(() => import('./PrivateBookingScenario
 const PrivateBookingRequestPage = lazy(() => import('./PrivateBookingRequestPage').then(m => ({ default: m.PrivateBookingRequestPage })))
 const PrivateBookingManagement = lazy(() => import('./PrivateBookingManagement').then(m => ({ default: m.PrivateBookingManagement })))
 const AccountManagement = lazy(() => import('./AccountManagement').then(m => ({ default: m.AccountManagement })))
+const CustomerManagement = lazy(() => import('./CustomerManagement'))
+const UserManagement = lazy(() => import('./UserManagement').then(m => ({ default: m.UserManagement })))
 const MyPage = lazy(() => import('./MyPage'))
 const ReservationDetailPage = lazy(() => import('./MyPage/pages/ReservationDetailPage').then(m => ({ default: m.ReservationDetailPage })))
 const SettingsPage = lazy(() => import('./Settings'))
@@ -80,7 +82,8 @@ const ADMIN_PATHS = [
   'dashboard', 'stores', 'staff', 'staff-profile', 'scenarios', 'scenarios-edit',
   'schedule', 'shift-submission', 'gm-availability', 'private-booking-management',
   'reservations', 'accounts', 'sales', 'settings', 'manual', 'add-demo-participants',
-  'scenario-matcher', 'organizations', 'external-reports', 'license-reports', 'license-management'
+  'scenario-matcher', 'organizations', 'external-reports', 'license-reports', 'license-management',
+  'customer-management', 'user-management'
 ]
 
 // パスを解析してページ情報を返す
@@ -427,6 +430,22 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="アカウント管理を読み込み中..." />}>
         <AccountManagement />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'customer-management') {
+    return (
+      <Suspense fallback={<LoadingScreen message="顧客管理を読み込み中..." />}>
+        <CustomerManagement />
+      </Suspense>
+    )
+  }
+
+  if (currentPage === 'user-management') {
+    return (
+      <Suspense fallback={<LoadingScreen message="ユーザー管理を読み込み中..." />}>
+        <UserManagement />
       </Suspense>
     )
   }
