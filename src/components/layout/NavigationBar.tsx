@@ -37,11 +37,6 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
   // 組織のslugを取得（デフォルトはqueens-waltz）
   const bookingSlug = organization?.slug || 'queens-waltz'
   
-  // 顧客の場合はナビゲーションを表示しない
-  if (user?.role === 'customer') {
-    return null
-  }
-  
   // 管理サイトのパス一覧
   const adminPaths = [
     '/dashboard', '/stores', '/staff', '/scenarios', '/schedule', 
@@ -51,11 +46,8 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     '/admin/scenario-masters'
   ]
   
-  // 管理サイト以外ではナビゲーションを非表示
+  // 管理サイト以外かどうか判定
   const isAdminPage = adminPaths.some(path => location.pathname.includes(path))
-  if (!isAdminPage) {
-    return null
-  }
   
   // 全タブ定義（全て組織スラッグ付き）
   // license_admin は admin と同じ権限 + マスタ管理
@@ -117,6 +109,16 @@ export const NavigationBar = memo(function NavigationBar({ currentPage, onPageCh
     // Linkコンポーネントのパスを使用するため、onPageChangeは使わない
     // onPageChangeが渡されていても、Linkの遷移に任せる
   }, [])
+
+  // 顧客の場合はナビゲーションを表示しない
+  if (user?.role === 'customer') {
+    return null
+  }
+  
+  // 管理サイト以外ではナビゲーションを非表示
+  if (!isAdminPage) {
+    return null
+  }
 
   return (
     <nav className="border-b border-border bg-muted/30">
