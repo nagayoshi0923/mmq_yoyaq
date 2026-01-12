@@ -331,7 +331,7 @@ export default function OrganizationRegister() {
               メール認証後、以下のURLからログインできます：
             </p>
             <code className="block text-center text-xs bg-muted p-2 rounded">
-              {window.location.origin}/#booking/{orgData.slug}
+              {window.location.origin}/{orgData.slug}
             </code>
             <Button 
               className="w-full" 
@@ -539,9 +539,9 @@ export default function OrganizationRegister() {
                   onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
                 />
                 <Label htmlFor="terms" className="text-sm leading-relaxed">
-                  <a href="#terms" className="text-primary hover:underline">利用規約</a>
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">利用規約</a>
                   と
-                  <a href="#privacy" className="text-primary hover:underline">プライバシーポリシー</a>
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">プライバシーポリシー</a>
                   に同意します
                 </Label>
               </div>

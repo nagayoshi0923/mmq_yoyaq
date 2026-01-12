@@ -732,7 +732,7 @@ export default function MyPage() {
           style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = THEME.primaryHover}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = THEME.primary}
-          onClick={() => navigate('/booking')}
+          onClick={() => navigate('/')}
         >
           <Sparkles className="w-6 h-6" />
         </Button>

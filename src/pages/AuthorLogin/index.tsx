@@ -58,7 +58,7 @@ export default function AuthorLogin() {
       const { error: authError } = await supabase.auth.signInWithOtp({
         email: trimmedEmail,
         options: {
-          emailRedirectTo: `${window.location.origin}/#author-dashboard`
+          emailRedirectTo: `${window.location.origin}/author-dashboard`
         }
       })
 
