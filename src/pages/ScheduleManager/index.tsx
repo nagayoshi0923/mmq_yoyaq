@@ -1,5 +1,5 @@
 // React
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 
@@ -23,7 +23,6 @@ import type { Staff } from '@/types'
 
 // Layout Components
 import { AppLayout } from '@/components/layout/AppLayout'
-import { PageHeader } from '@/components/layout/PageHeader'
 
 // UI Components
 import { Button } from '@/components/ui/button'
@@ -44,6 +43,9 @@ import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // Icons
 import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye } from 'lucide-react'
+
+// Utils
+import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
 
 // Types
 export type { ScheduleEvent } from '@/types/schedule'
@@ -70,6 +72,60 @@ export function ScheduleManager() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isFillingSeats, setIsFillingSeats] = useState(false)
   const [isFixingData, setIsFixingData] = useState(false)
+  
+  // 現在表示中の日付（スクロール追跡用）
+  const [currentVisibleDate, setCurrentVisibleDate] = useState<string | null>(null)
+  const [showDateBar, setShowDateBar] = useState(false)
+  
+  // スクロール時に現在表示されている日付を追跡
+  const handleScroll = useCallback(() => {
+    const toolbar = document.querySelector('[data-schedule-toolbar]')
+    if (!toolbar) return
+    
+    const toolbarRect = toolbar.getBoundingClientRect()
+    
+    // テーブル内の日付行を走査
+    const dateRows = document.querySelectorAll('[data-date]')
+    let foundDate: string | null = null
+    
+    for (const row of dateRows) {
+      const rect = row.getBoundingClientRect()
+      // 行が操作行の下端より上にある場合
+      if (rect.top <= toolbarRect.bottom + 50) {
+        foundDate = row.getAttribute('data-date')
+      } else {
+        break
+      }
+    }
+    
+    // 最初の日付行がまだ見えている場合は日付バーを非表示
+    const firstDateRow = dateRows[0]
+    const shouldShow = firstDateRow && firstDateRow.getBoundingClientRect().top < toolbarRect.bottom
+    
+    setShowDateBar(shouldShow && foundDate !== null)
+    if (foundDate) {
+      setCurrentVisibleDate(foundDate)
+    }
+  }, [])
+  
+  // スクロールイベントリスナーを設定
+  useEffect(() => {
+    const scrollContainer = document.querySelector('.overflow-y-auto') || window
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
+    
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll)
+    }
+  }, [handleScroll])
+  
+  // 現在表示されている日付の情報
+  const currentDayInfo = useMemo(() => {
+    if (!currentVisibleDate) return null
+    return monthDays.find(d => d.date === currentVisibleDate)
+  }, [currentVisibleDate, monthDays])
+  
+  const currentHoliday = currentVisibleDate ? getJapaneseHoliday(currentVisibleDate) : null
 
   // 中止以外を満席にする処理（参加者数を定員に合わせる）
   const handleFillAllSeats = async () => {
@@ -653,6 +709,22 @@ export function ScheduleManager() {
           <div className="flex-1 border-r text-xs sm:text-sm font-bold py-2 text-center">夜間</div>
           <div className="w-[160px] shrink-0 text-sm font-bold py-2 text-center">メモ</div>
         </div>
+        
+        {/* スティッキー日付バー（スクロール時に現在の日付を表示） */}
+        {showDateBar && currentDayInfo && (
+          <div className="h-[30px] bg-slate-700 text-white flex items-center px-3 text-sm font-medium -mx-[10px] px-[10px]">
+            <span className={
+              currentHoliday || currentDayInfo.dayOfWeek === '日' 
+                ? 'text-red-300' 
+                : currentDayInfo.dayOfWeek === '土' 
+                  ? 'text-blue-300' 
+                  : ''
+            }>
+              {currentDayInfo.displayDate}（{currentDayInfo.dayOfWeek}）
+              {currentHoliday && <span className="ml-2 text-red-300 text-xs">{currentHoliday}</span>}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* スケジュールテーブル */}
