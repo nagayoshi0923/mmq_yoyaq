@@ -87,14 +87,28 @@ export function ScheduleTable({
   const tableRef = useRef<HTMLDivElement>(null)
 
   // 操作行の高さを取得（動的に計算）
-  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(80)
+  const [toolbarHeight, setToolbarHeight] = useState(0)
   
   useEffect(() => {
-    // 操作行の高さを計算（md:sticky md:top-0 の要素）
-    const stickyHeader = document.querySelector('.md\\:sticky.md\\:top-0.z-40')
-    if (stickyHeader) {
-      const rect = stickyHeader.getBoundingClientRect()
-      setStickyHeaderHeight(rect.height)
+    // 操作行の高さを計算（data-schedule-toolbar属性を持つ要素）
+    const updateToolbarHeight = () => {
+      const toolbar = document.querySelector('[data-schedule-toolbar]')
+      if (toolbar) {
+        const rect = toolbar.getBoundingClientRect()
+        setToolbarHeight(rect.height)
+      }
+    }
+    
+    // 初回計算とリサイズ時に再計算
+    updateToolbarHeight()
+    window.addEventListener('resize', updateToolbarHeight)
+    
+    // 少し遅延して再計算（レイアウトが安定した後）
+    const timeoutId = setTimeout(updateToolbarHeight, 100)
+    
+    return () => {
+      window.removeEventListener('resize', updateToolbarHeight)
+      clearTimeout(timeoutId)
     }
   }, [])
 
@@ -102,13 +116,18 @@ export function ScheduleTable({
   const handleScroll = useCallback(() => {
     if (!tableRef.current) return
 
+    // 操作行の現在の位置を取得
+    const toolbar = document.querySelector('[data-schedule-toolbar]')
+    if (!toolbar) return
+    
+    const toolbarRect = toolbar.getBoundingClientRect()
     const stickyBarHeight = 30 // スティッキーバーの高さ
     
     // テーブルの位置を取得
     const tableRect = tableRef.current.getBoundingClientRect()
     
     // テーブルが操作行の下端を超えたらスティッキーバーを表示
-    const shouldShow = tableRect.top < stickyHeaderHeight + stickyBarHeight
+    const shouldShow = tableRect.top < toolbarRect.bottom + stickyBarHeight
 
     // 各日付行を走査して現在表示されている日付を特定
     const dateRows = tableRef.current.querySelectorAll('[data-date]')
@@ -117,7 +136,7 @@ export function ScheduleTable({
     for (const row of dateRows) {
       const rect = row.getBoundingClientRect()
       // 行が操作行の下端付近にある場合
-      if (rect.top <= stickyHeaderHeight + stickyBarHeight + 30) {
+      if (rect.top <= toolbarRect.bottom + stickyBarHeight + 30) {
         foundDate = row.getAttribute('data-date')
       } else {
         break
@@ -128,7 +147,7 @@ export function ScheduleTable({
     if (foundDate) {
       setCurrentVisibleDate(foundDate)
     }
-  }, [stickyHeaderHeight])
+  }, [])
 
   // スクロールイベントリスナーを設定
   useEffect(() => {
@@ -154,7 +173,7 @@ export function ScheduleTable({
       {showStickyDate && currentDayInfo && (
         <div 
           className="sticky z-50 h-[30px] bg-slate-700 text-white flex items-center px-3 text-sm font-medium shadow-md"
-          style={{ top: `${stickyHeaderHeight}px`, marginBottom: '-30px' }}
+          style={{ top: `${toolbarHeight}px`, marginBottom: '-30px' }}
         >
           <span className={dateTextColor === 'text-red-600' ? 'text-red-300' : dateTextColor === 'text-blue-600' ? 'text-blue-300' : ''}>
             {currentDayInfo.displayDate}（{currentDayInfo.dayOfWeek}）

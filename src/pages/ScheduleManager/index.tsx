@@ -503,12 +503,12 @@ export function ScheduleManager() {
     <AppLayout
       currentPage="schedule" 
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-0"
+      containerPadding="px-[10px] py-3 sm:py-4 md:py-6"
       className="mx-auto"
       stickyLayout
     >
       {/* ヘッダー（スクロールで消える） */}
-      <div className="py-3">
+      <div className="space-y-3 sm:space-y-4 md:space-y-6">
         <PageHeader
           title={
             <div className="flex items-center gap-2">
