@@ -199,8 +199,8 @@ function TimeSlotCellBase({
               onAddPerformance={onAddPerformance}
             />
             {availableStaff.length > 0 && (
-              <div className="flex flex-wrap gap-0.5 justify-center items-center mt-0.5">
-                {availableStaff.map((staff) => {
+              <div className="flex flex-wrap gap-px justify-center items-center mt-0.5 max-w-full overflow-hidden">
+                {availableStaff.slice(0, 8).map((staff) => {
                   const { bgColor, textColor } = getStaffAvatarColors(staff)
                   return (
                     <Badge
@@ -212,12 +212,17 @@ function TimeSlotCellBase({
                         color: textColor as string,
                         borderColor: (textColor as string) + '40'
                       }}
-                      className="text-xs px-0.5 py-0 h-3 sm:h-3.5 font-normal border"
+                      className="text-[9px] px-0.5 py-0 h-3 font-normal border leading-none"
                     >
                       {staff.name.slice(0, 2)}
                     </Badge>
                   )
                 })}
+                {availableStaff.length > 8 && (
+                  <span className="text-[8px] text-muted-foreground" title={availableStaff.slice(8).map(s => s.name).join(', ')}>
+                    +{availableStaff.length - 8}
+                  </span>
+                )}
               </div>
             )}
           </div>
