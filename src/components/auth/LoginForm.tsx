@@ -86,6 +86,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         provider,
         options: {
           redirectTo: `${window.location.origin}/`,
+          // Googleの場合、毎回アカウント選択画面を表示
+          queryParams: provider === 'google' ? {
+            prompt: 'select_account',
+          } : undefined,
         },
       })
       if (error) throw error
