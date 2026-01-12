@@ -1,11 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { getCorsHeaders, maskEmail, maskName } from '../_shared/security.ts'
 
 interface BookingConfirmationRequest {
   reservationId: string
@@ -24,6 +20,9 @@ interface BookingConfirmationRequest {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+
   // CORSプリフライトリクエストの処理
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -42,6 +41,16 @@ serve(async (req) => {
 
     // リクエストボディを取得
     const bookingData: BookingConfirmationRequest = await req.json()
+
+    // ログにはマスキングした情報のみ出力
+    console.log('📧 Sending booking confirmation:', {
+      reservationId: bookingData.reservationId,
+      reservationNumber: bookingData.reservationNumber,
+      customerEmail: maskEmail(bookingData.customerEmail),
+      customerName: maskName(bookingData.customerName),
+      scenarioTitle: bookingData.scenarioTitle,
+      eventDate: bookingData.eventDate,
+    })
 
     // 組織設定からメール設定を取得
     const serviceClient = createClient(
@@ -218,7 +227,7 @@ Murder Mystery Queue (MMQ)
     }
 
     const result = await resendResponse.json()
-    console.log('Email sent successfully:', result)
+    console.log('✅ Email sent successfully to:', maskEmail(bookingData.customerEmail))
 
     return new Response(
       JSON.stringify({ 
@@ -226,24 +235,17 @@ Murder Mystery Queue (MMQ)
         message: 'メールを送信しました',
         emailId: result.id 
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: corsHeaders, status: 200 }
     )
 
-  } catch (error) {
-    console.error('Error:', error)
+  } catch (error: any) {
+    console.error('❌ Error:', error?.message || error)
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'メール送信に失敗しました' 
+        error: error?.message || 'メール送信に失敗しました' 
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      }
+      { headers: corsHeaders, status: 400 }
     )
   }
 })
-
