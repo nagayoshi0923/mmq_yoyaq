@@ -45,6 +45,7 @@ export interface CellInfo {
 export const FIELD_LABELS: Record<string, string> = {
   date: '日付',
   venue: '店舗',
+  store_id: '店舗',
   scenario: 'シナリオ',
   scenario_id: 'シナリオID',
   gms: 'GM',
@@ -52,7 +53,7 @@ export const FIELD_LABELS: Record<string, string> = {
   start_time: '開始時間',
   end_time: '終了時間',
   category: 'カテゴリ',
-  max_participants: '最大参加者数',
+  capacity: '最大参加者数',
   notes: '備考',
   is_cancelled: '中止状態',
   is_tentative: '仮状態',
@@ -83,10 +84,11 @@ function calculateChanges(
   const changes: Record<string, { old: unknown; new: unknown }> = {}
   
   // 比較対象のフィールド（重要なフィールドのみ）
+  // DBカラム名と一致させること（capacity, store_idなど）
   const fieldsToCompare = [
-    'date', 'venue', 'scenario', 'scenario_id',
+    'date', 'venue', 'store_id', 'scenario', 'scenario_id',
     'gms', 'gm_roles', 'start_time', 'end_time',
-    'category', 'max_participants', 'notes',
+    'category', 'capacity', 'notes',
     'is_cancelled', 'is_tentative', 'is_reservation_enabled',
     'reservation_name', 'time_slot', 'venue_rental_fee'
   ]
@@ -172,16 +174,50 @@ export async function createEventHistory(
 }
 
 /**
- * イベントの履歴を取得（現在のイベント + 同じセルの過去の履歴）
+ * イベントの履歴を取得
+ * セルベースで全履歴を取得（現在の公演 + 過去に削除された公演すべて）
  */
 export async function getEventHistory(
   scheduleEventId: string | undefined,
   cellInfo?: CellInfo,
   organizationId?: string
 ): Promise<EventHistory[]> {
-  // イベントIDがある場合は、まずそのイベントの情報を取得
+  const allHistory: EventHistory[] = []
+  const seenIds = new Set<string>()
+  
+  // 1. セル情報がある場合、そのセルの全履歴を取得（メイン）
+  if (cellInfo && organizationId) {
+    // time_slotがnullの場合は.is()を使う、それ以外は.eq()を使う
+    let query = supabase
+      .from('schedule_event_history')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .eq('event_date', cellInfo.date)
+      .eq('store_id', cellInfo.storeId)
+    
+    if (cellInfo.timeSlot === null) {
+      query = query.is('time_slot', null)
+    } else {
+      query = query.eq('time_slot', cellInfo.timeSlot)
+    }
+    
+    const { data: cellHistory, error: cellError } = await query.order('created_at', { ascending: false })
+    
+    if (cellError) {
+      logger.error('セル履歴取得エラー:', cellError)
+    } else if (cellHistory) {
+      for (const h of cellHistory) {
+        if (!seenIds.has(h.id)) {
+          seenIds.add(h.id)
+          allHistory.push(h as EventHistory)
+        }
+      }
+    }
+  }
+  
+  // 2. 現在の公演IDがある場合、その公演の履歴も取得（重複を防ぐ）
+  //    ※セル情報が古い形式で保存されていない場合に備えて
   if (scheduleEventId) {
-    // 現在のイベントに紐づく履歴を取得
     const { data: eventHistory, error: eventError } = await supabase
       .from('schedule_event_history')
       .select('*')
@@ -189,55 +225,21 @@ export async function getEventHistory(
       .order('created_at', { ascending: false })
     
     if (eventError) {
-      logger.error('履歴取得エラー:', eventError)
-    }
-    
-    // セル情報がある場合は、同じセルの削除された公演の履歴も取得
-    if (cellInfo && organizationId) {
-      const { data: cellHistory, error: cellError } = await supabase
-        .from('schedule_event_history')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .eq('event_date', cellInfo.date)
-        .eq('store_id', cellInfo.storeId)
-        .eq('time_slot', cellInfo.timeSlot)
-        .is('schedule_event_id', null)  // 削除されたイベントの履歴のみ
-        .order('created_at', { ascending: false })
-      
-      if (cellError) {
-        logger.error('セル履歴取得エラー:', cellError)
+      logger.error('公演履歴取得エラー:', eventError)
+    } else if (eventHistory) {
+      for (const h of eventHistory) {
+        if (!seenIds.has(h.id)) {
+          seenIds.add(h.id)
+          allHistory.push(h as EventHistory)
+        }
       }
-      
-      // 両方の履歴を結合して日時順にソート
-      const allHistory = [...(eventHistory || []), ...(cellHistory || [])]
-      allHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      
-      return allHistory as EventHistory[]
     }
-    
-    return (eventHistory || []) as EventHistory[]
   }
   
-  // イベントIDがない場合（新規作成時など）はセル情報から取得
-  if (cellInfo && organizationId) {
-    const { data, error } = await supabase
-      .from('schedule_event_history')
-      .select('*')
-      .eq('organization_id', organizationId)
-      .eq('event_date', cellInfo.date)
-      .eq('store_id', cellInfo.storeId)
-      .eq('time_slot', cellInfo.timeSlot)
-      .order('created_at', { ascending: false })
-    
-    if (error) {
-      logger.error('セル履歴取得エラー:', error)
-      return []
-    }
-    
-    return data as EventHistory[]
-  }
+  // 日時順にソート（新しい順）
+  allHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   
-  return []
+  return allHistory
 }
 
 // GM役割の日本語ラベル

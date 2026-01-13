@@ -13,6 +13,7 @@ import { getCurrentOrganizationId, QUEENS_WALTZ_ORG_ID } from '@/lib/organizatio
 import { useScrollRestoration } from '@/hooks/useScrollRestoration'
 import { useScheduleTable } from '@/hooks/useScheduleTable'
 import { useTemporaryVenues } from '@/hooks/useTemporaryVenues'
+import { useOrganization } from '@/hooks/useOrganization'
 
 // Custom Hooks (ScheduleManager専用)
 import { useCategoryFilter } from './hooks/useCategoryFilter'
@@ -37,12 +38,13 @@ import { ContextMenu, Copy, Clipboard } from '@/components/schedule/ContextMenu'
 import { ImportScheduleModal } from '@/components/schedule/ImportScheduleModal'
 import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
+import { HistoryModal } from '@/components/schedule/modal/HistoryModal'
 import { CategoryTabs } from '@/components/schedule/CategoryTabs'
 import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
 // Icons
-import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react'
+import { Ban, Edit, RotateCcw, Trash2, Plus, CalendarDays, Upload, FileText, EyeOff, Eye, SlidersHorizontal, ChevronDown, ChevronUp, Clock } from 'lucide-react'
 
 // Utils
 import { getJapaneseHoliday } from '@/utils/japaneseHolidays'
@@ -57,6 +59,9 @@ export function ScheduleManager() {
 
   // 臨時会場管理
   const { temporaryVenues, availableVenues, getVenueNameForDate, addTemporaryVenue, updateVenueName, removeTemporaryVenue } = useTemporaryVenues(currentDate)
+  
+  // 組織ID（履歴モーダル用）
+  const { organizationId } = useOrganization()
 
   // GMリスト
   const [gmList, setGmList] = useState<Staff[]>([])
@@ -73,6 +78,14 @@ export function ScheduleManager() {
   const [isFillingSeats, setIsFillingSeats] = useState(false)
   const [isFixingData, setIsFixingData] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
+  
+  // 履歴モーダル
+  const [historyModal, setHistoryModal] = useState<{
+    isOpen: boolean
+    eventId?: string
+    cellInfo?: { date: string; storeId: string; timeSlot: string | null }
+    title?: string
+  }>({ isOpen: false })
   
   // 現在表示中の日付（スクロール追跡用）
   const [currentVisibleDate, setCurrentVisibleDate] = useState<string | null>(null)
@@ -879,6 +892,26 @@ export function ScheduleManager() {
                     navigator.clipboard.writeText(scenarioText)
                     showToast.success('公演名をコピーしました')
                     modals.contextMenu.setContextMenu(null)
+                  }
+                },
+                {
+                  label: '履歴を表示',
+                  icon: <Clock className="w-4 h-4" />,
+                  onClick: () => {
+                    const timeSlotMap: Record<string, string> = { 'morning': '朝', 'afternoon': '昼', 'evening': '夜' }
+                    const hour = parseInt(event.start_time?.split(':')[0] || '12')
+                    const slot = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
+                    setHistoryModal({
+                      isOpen: true,
+                      eventId: event.id,
+                      cellInfo: {
+                        date: event.date,
+                        storeId: event.venue,
+                        timeSlot: timeSlotMap[slot] || null
+                      },
+                      title: `${event.scenario || '公演'} の更新履歴`
+                    })
+                    modals.contextMenu.setContextMenu(null)
                   },
                   separator: true
                 },
@@ -1051,12 +1084,42 @@ export function ScheduleManager() {
                     const { date, venue, timeSlot } = modals.contextMenu.contextMenu!.cellInfo!
                     modals.contextMenu.handlePasteFromClipboard(date, venue, timeSlot)
                   },
-                disabled: !modals.contextMenu.clipboardEvent || venue === ''
-              }
-            ]
-          })() : []}
+                  disabled: !modals.contextMenu.clipboardEvent || venue === '',
+                  separator: true
+                },
+                {
+                  label: '履歴を表示',
+                  icon: <Clock className="w-4 h-4" />,
+                  onClick: () => {
+                    const timeSlotMap: Record<string, string> = { 'morning': '朝', 'afternoon': '昼', 'evening': '夜' }
+                    setHistoryModal({
+                      isOpen: true,
+                      eventId: undefined,
+                      cellInfo: {
+                        date,
+                        storeId: venue,
+                        timeSlot: timeSlotMap[timeSlot] || null
+                      },
+                      title: 'このセルの履歴'
+                    })
+                    modals.contextMenu.setContextMenu(null)
+                  },
+                  disabled: venue === ''
+                }
+              ]
+            })() : []}
         />
       )}
+
+      {/* 履歴モーダル */}
+      <HistoryModal
+        isOpen={historyModal.isOpen}
+        onClose={() => setHistoryModal({ isOpen: false })}
+        eventId={historyModal.eventId}
+        cellInfo={historyModal.cellInfo}
+        organizationId={organizationId || undefined}
+        title={historyModal.title}
+      />
     </AppLayout>
   )
 }
