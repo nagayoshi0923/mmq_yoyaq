@@ -1,6 +1,7 @@
 // Discord インタラクション処理（署名検証付き + Deferred Response対応）
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders } from '../_shared/security.ts'
 
 const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -54,11 +55,8 @@ function hexToUint8Array(hex: string): Uint8Array {
   return new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)))
 }
 
-// CORS ヘッダー
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-signature-ed25519, x-signature-timestamp',
-}
+// Note: Discord署名検証リクエストはDiscordサーバーから来るため、
+// CORS制限を適用しつつDiscord署名ヘッダーも許可
 
 // 全て不可処理をバックグラウンドで実行
 async function processUnavailable(interaction: any, requestId: string) {
@@ -406,6 +404,11 @@ async function processDateSelection(interaction: any, dateIndex: number, request
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+  // Discord署名ヘッダーを追加
+  corsHeaders['Access-Control-Allow-Headers'] = 'authorization, x-client-info, apikey, content-type, x-signature-ed25519, x-signature-timestamp'
+
   console.log('🚀 Discord interactions function called!')
   
   if (req.method === 'OPTIONS') {
