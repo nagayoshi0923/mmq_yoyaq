@@ -1,12 +1,8 @@
 // 超シンプルなテスト用エンドポイント
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { getCorsHeaders } from '../_shared/security.ts'
 
 const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY')!
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-signature-ed25519, x-signature-timestamp',
-}
 
 // Discord署名検証（ライブラリ使用版）
 async function verifySignature(
@@ -67,6 +63,11 @@ function hexToUint8Array(hex: string): Uint8Array {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+  // Discord署名ヘッダーを追加
+  corsHeaders['Access-Control-Allow-Headers'] = 'authorization, x-client-info, apikey, content-type, x-signature-ed25519, x-signature-timestamp'
+
   console.log('🔥 Function invoked!')
   
   // OPTIONSリクエスト（プリフライト）の処理
