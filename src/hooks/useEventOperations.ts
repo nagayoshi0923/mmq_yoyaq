@@ -1036,6 +1036,13 @@ export function useEventOperations({
         
         // schedule_event_idが紐付いている場合、schedule_eventsも削除
         if (reservation?.schedule_event_id) {
+          // 削除前にイベント情報を取得（履歴用）
+          const { data: eventToDelete } = await supabase
+            .from('schedule_events')
+            .select('*')
+            .eq('id', reservation.schedule_event_id)
+            .single()
+          
           const { error: scheduleError } = await supabase
             .from('schedule_events')
             .delete()
@@ -1044,6 +1051,29 @@ export function useEventOperations({
           if (scheduleError) {
             logger.error('schedule_events削除エラー:', scheduleError)
             // エラーでも処理は続行（予約は削除済み）
+          }
+          
+          // 履歴を記録（貸切予約削除）
+          if (organizationId && eventToDelete) {
+            try {
+              await createEventHistory(
+                null,  // 削除後なのでnull
+                organizationId,
+                'delete',
+                eventToDelete,
+                {},
+                {
+                  date: eventToDelete.date,
+                  storeId: eventToDelete.store_id || deletingEvent.venue,
+                  timeSlot: eventToDelete.time_slot || null
+                },
+                {
+                  deletedEventScenario: eventToDelete.scenario || deletingEvent.scenario
+                }
+              )
+            } catch (historyError) {
+              logger.error('履歴記録エラー（貸切予約削除）:', historyError)
+            }
           }
         }
         
@@ -1130,7 +1160,7 @@ export function useEventOperations({
       setIsDeleteDialogOpen(false)
       setDeletingEvent(null)
     }
-  }, [deletingEvent, setEvents])
+  }, [deletingEvent, setEvents, organizationId])
 
   // 中止確認ダイアログを開く
   const handleCancelConfirmPerformance = useCallback((event: ScheduleEvent) => {
