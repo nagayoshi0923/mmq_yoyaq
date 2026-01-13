@@ -47,49 +47,20 @@ export function ContactPage() {
     setIsSubmitting(true)
     
     try {
-      // お問い合わせ種別のラベルを取得
-      const inquiryTypeLabel = INQUIRY_TYPES.find(t => t.value === formData.type)?.label || formData.type
-      
-      // Edge Function でお問い合わせメールを送信
-      const { error } = await supabase.functions.invoke('send-email', {
+      // お問い合わせ専用のEdge Functionを呼び出し（認証不要）
+      const { data, error } = await supabase.functions.invoke('send-contact-inquiry', {
         body: {
-          to: 'info@queens-waltz.jp', // システム管理者宛
-          subject: `【お問い合わせ】${inquiryTypeLabel}${formData.subject ? `: ${formData.subject}` : ''}`,
-          html: `
-            <h2>お問い合わせが届きました</h2>
-            <table style="border-collapse: collapse; width: 100%;">
-              <tr>
-                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd; width: 120px;">お名前</th>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${formData.name}</td>
-              </tr>
-              <tr>
-                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">メールアドレス</th>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd;"><a href="mailto:${formData.email}">${formData.email}</a></td>
-              </tr>
-              <tr>
-                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">種別</th>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${inquiryTypeLabel}</td>
-              </tr>
-              ${formData.subject ? `
-              <tr>
-                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">件名</th>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${formData.subject}</td>
-              </tr>
-              ` : ''}
-              <tr>
-                <th style="text-align: left; padding: 8px; vertical-align: top;">内容</th>
-                <td style="padding: 8px; white-space: pre-wrap;">${formData.message}</td>
-              </tr>
-            </table>
-          `,
-          // 送信者への自動返信
-          replyTo: formData.email
+          name: formData.name,
+          email: formData.email,
+          type: formData.type,
+          subject: formData.subject,
+          message: formData.message,
         }
       })
 
-      if (error) {
-        logger.error('お問い合わせ送信エラー:', error)
-        throw new Error('送信に失敗しました')
+      if (error || (data && !data.success)) {
+        logger.error('お問い合わせ送信エラー:', error || data?.error)
+        throw new Error(data?.error || '送信に失敗しました')
       }
 
       setIsSubmitted(true)
