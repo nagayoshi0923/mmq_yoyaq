@@ -1,11 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getEmailSettings } from '../_shared/organization-settings.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { getCorsHeaders, verifyAuth, errorResponse, maskEmail } from '../_shared/security.ts'
 
 interface EmailRequest {
   organizationId?: string  // マルチテナント対応
@@ -15,12 +11,24 @@ interface EmailRequest {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+
   // CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    // 🔒 認証チェック: admin または staff のみ許可
+    const authResult = await verifyAuth(req, ['admin', 'staff'])
+    if (!authResult.success) {
+      console.warn('⚠️ 認証失敗: send-email への不正アクセス試行')
+      return errorResponse(authResult.error!, authResult.statusCode!, corsHeaders)
+    }
+
+    console.log('✅ 認証成功:', maskEmail(authResult.user?.email || ''))
+
     const { organizationId, to, subject, body }: EmailRequest = await req.json()
 
     // 組織設定からメール設定を取得
@@ -50,6 +58,14 @@ serve(async (req) => {
     // 送信先の配列化
     const recipients = Array.isArray(to) ? to : [to]
 
+    // ログにはマスキングした情報のみ出力
+    console.log('📧 Sending email:', {
+      recipientCount: recipients.length,
+      recipients: recipients.map(r => maskEmail(r)),
+      subject: subject.substring(0, 50) + (subject.length > 50 ? '...' : ''),
+      requestedBy: maskEmail(authResult.user?.email || ''),
+    })
+
     // Resend APIを使ってメール送信
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -72,7 +88,7 @@ serve(async (req) => {
     }
 
     const result = await resendResponse.json()
-    console.log('Email sent successfully via Resend:', {
+    console.log('✅ Email sent successfully via Resend:', {
       messageId: result.id,
       recipients: recipients.length,
     })
@@ -103,4 +119,3 @@ serve(async (req) => {
     )
   }
 })
-
