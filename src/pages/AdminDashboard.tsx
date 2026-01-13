@@ -69,6 +69,7 @@ const TermsPage = lazy(() => import('./static').then(m => ({ default: m.TermsPag
 const PrivacyPage = lazy(() => import('./static').then(m => ({ default: m.PrivacyPage })))
 const LegalPage = lazy(() => import('./static').then(m => ({ default: m.LegalPage })))
 const ContactPage = lazy(() => import('./static').then(m => ({ default: m.ContactPage })))
+const OrganizationContactPage = lazy(() => import('./org/ContactPage').then(m => ({ default: m.OrganizationContactPage })))
 const FAQPage = lazy(() => import('./static').then(m => ({ default: m.FAQPage })))
 const GuidePage = lazy(() => import('./static').then(m => ({ default: m.GuidePage })))
 const CancelPolicyPage = lazy(() => import('./static').then(m => ({ default: m.CancelPolicyPage })))
@@ -134,6 +135,11 @@ function parsePath(pathname: string): { page: string, scenarioId: string | null,
       return { page: 'scenario-master-edit', scenarioId: segments[2], organizationSlug: null }
     }
     return { page: 'scenario-master-admin', scenarioId: null, organizationSlug: null }
+  }
+  
+  // /org/{slug}/contact - 組織別お問い合わせページ
+  if (segments[0] === 'org' && segments[1] && segments[2] === 'contact') {
+    return { page: 'org-contact', scenarioId: null, organizationSlug: segments[1] }
   }
   
   // 2セグメント以上の場合、最初のセグメントを組織スラッグとして扱う
@@ -567,6 +573,15 @@ export function AdminDashboard() {
     return (
       <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
         <ContactPage />
+      </Suspense>
+    )
+  }
+
+  // 組織別お問い合わせページ（/org/{slug}/contact）
+  if (currentPage === 'org-contact') {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <OrganizationContactPage />
       </Suspense>
     )
   }

@@ -119,11 +119,35 @@ export function Footer({ organizationSlug, organizationName, minimal = false }: 
                   無料で始める
                 </Link>
               </li>
-              <li>
-                <Link to="/contact" className="text-sm hover:text-white transition-colors">
-                  お問い合わせ
-                </Link>
-              </li>
+            </ul>
+          </div>
+
+          {/* サポート */}
+          <div>
+            <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">
+              サポート
+            </h3>
+            <ul className="space-y-3">
+              {organizationSlug ? (
+                <>
+                  <li>
+                    <Link to={`/org/${organizationSlug}/contact`} className="text-sm hover:text-white transition-colors">
+                      {organizationName || '店舗'}へお問い合わせ
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/contact" className="text-sm hover:text-white transition-colors">
+                      MMQへお問い合わせ
+                    </Link>
+                  </li>
+                </>
+              ) : (
+                <li>
+                  <Link to="/contact" className="text-sm hover:text-white transition-colors">
+                    お問い合わせ
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
 
@@ -169,7 +193,12 @@ export function Footer({ organizationSlug, organizationName, minimal = false }: 
             <div className="flex items-center gap-6 text-sm text-gray-500">
               <Link to="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>
               <Link to="/privacy" className="hover:text-gray-300 transition-colors">プライバシー</Link>
-              <Link to="/contact" className="hover:text-gray-300 transition-colors">お問い合わせ</Link>
+              <Link 
+                to={organizationSlug ? `/org/${organizationSlug}/contact` : '/contact'} 
+                className="hover:text-gray-300 transition-colors"
+              >
+                お問い合わせ
+              </Link>
             </div>
           </div>
         </div>
