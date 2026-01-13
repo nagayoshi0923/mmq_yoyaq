@@ -36,6 +36,107 @@ export function Footer({ organizationSlug, organizationName, minimal = false }: 
     )
   }
 
+  // 組織ページ用フッター
+  if (organizationSlug) {
+    return (
+      <footer className="bg-gray-900 text-gray-300">
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* 組織情報 */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xl font-bold text-white">
+                  {organizationName || organizationSlug}
+                </span>
+              </div>
+              <p className="text-sm text-gray-400 leading-relaxed mb-4">
+                マーダーミステリー専門店
+              </p>
+              <p className="text-xs text-gray-500">
+                Powered by{' '}
+                <Link to="/" className="hover:text-white transition-colors" style={{ color: THEME.primary }}>
+                  MMQ
+                </Link>
+              </p>
+            </div>
+
+            {/* ご利用案内 */}
+            <div>
+              <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">
+                ご利用案内
+              </h3>
+              <ul className="space-y-3">
+                <li>
+                  <Link to={`/${organizationSlug}`} className="text-sm hover:text-white transition-colors">
+                    シナリオを探す
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/guide" className="text-sm hover:text-white transition-colors">
+                    初めての方へ
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/faq" className="text-sm hover:text-white transition-colors">
+                    よくある質問
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/cancel-policy" className="text-sm hover:text-white transition-colors">
+                    キャンセルポリシー
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* お問い合わせ・法的情報 */}
+            <div>
+              <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">
+                サポート
+              </h3>
+              <ul className="space-y-3">
+                <li>
+                  <Link to={`/org/${organizationSlug}/contact`} className="text-sm hover:text-white transition-colors">
+                    {organizationName || '店舗'}へお問い合わせ
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/terms" className="text-sm hover:text-white transition-colors">
+                    利用規約
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/privacy" className="text-sm hover:text-white transition-colors">
+                    プライバシーポリシー
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 区切り線 */}
+        <div className="border-t border-gray-800">
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-gray-500">
+                © {currentYear} {organizationName || organizationSlug}. All rights reserved.
+              </p>
+              <div className="flex items-center gap-6 text-sm text-gray-500">
+                <Link to="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>
+                <Link to="/privacy" className="hover:text-gray-300 transition-colors">プライバシー</Link>
+                <Link to={`/org/${organizationSlug}/contact`} className="hover:text-gray-300 transition-colors">
+                  お問い合わせ
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
+    )
+  }
+
+  // プラットフォーム用フッター（organizationSlugがない場合）
   return (
     <footer className="bg-gray-900 text-gray-300">
       {/* メインフッター */}
@@ -50,18 +151,11 @@ export function Footer({ organizationSlug, organizationName, minimal = false }: 
               >
                 MMQ
               </span>
-              {organizationName && (
-                <>
-                  <span className="text-gray-600">×</span>
-                  <span className="text-white font-medium">{organizationName}</span>
-                </>
-              )}
             </div>
             <p className="text-sm text-gray-400 leading-relaxed mb-4">
               マーダーミステリー専門の予約プラットフォーム。<br />
               様々な店舗のシナリオを検索・予約できます。
             </p>
-            {/* SNS links could go here */}
           </div>
 
           {/* プレイヤー向け */}
@@ -90,11 +184,6 @@ export function Footer({ organizationSlug, organizationName, minimal = false }: 
                   よくある質問
                 </Link>
               </li>
-              <li>
-                <Link to="/cancel-policy" className="text-sm hover:text-white transition-colors">
-                  キャンセルポリシー
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -119,35 +208,11 @@ export function Footer({ organizationSlug, organizationName, minimal = false }: 
                   無料で始める
                 </Link>
               </li>
-            </ul>
-          </div>
-
-          {/* サポート */}
-          <div>
-            <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">
-              サポート
-            </h3>
-            <ul className="space-y-3">
-              {organizationSlug ? (
-                <>
-                  <li>
-                    <Link to={`/org/${organizationSlug}/contact`} className="text-sm hover:text-white transition-colors">
-                      {organizationName || '店舗'}へお問い合わせ
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/contact" className="text-sm hover:text-white transition-colors">
-                      MMQへお問い合わせ
-                    </Link>
-                  </li>
-                </>
-              ) : (
-                <li>
-                  <Link to="/contact" className="text-sm hover:text-white transition-colors">
-                    お問い合わせ
-                  </Link>
-                </li>
-              )}
+              <li>
+                <Link to="/contact" className="text-sm hover:text-white transition-colors">
+                  お問い合わせ
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -193,12 +258,7 @@ export function Footer({ organizationSlug, organizationName, minimal = false }: 
             <div className="flex items-center gap-6 text-sm text-gray-500">
               <Link to="/terms" className="hover:text-gray-300 transition-colors">利用規約</Link>
               <Link to="/privacy" className="hover:text-gray-300 transition-colors">プライバシー</Link>
-              <Link 
-                to={organizationSlug ? `/org/${organizationSlug}/contact` : '/contact'} 
-                className="hover:text-gray-300 transition-colors"
-              >
-                お問い合わせ
-              </Link>
+              <Link to="/contact" className="hover:text-gray-300 transition-colors">お問い合わせ</Link>
             </div>
           </div>
         </div>
