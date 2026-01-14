@@ -19,6 +19,7 @@ import { LineupView } from './components/LineupView'
 import { CalendarView } from './components/CalendarView'
 import { ListView } from './components/ListView'
 import { Footer } from '@/components/layout/Footer'
+import { HowToUseGuide, HowToUseButton, useHowToUseGuide } from './components/HowToUseGuide'
 
 interface PublicBookingTopProps {
   onScenarioSelect?: (scenarioId: string) => void
@@ -30,6 +31,9 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
   const navigate = useNavigate()
   const location = useLocation()
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
+  
+  // 使い方ガイド
+  const { isGuideOpen, openGuide, closeGuide } = useHowToUseGuide()
   
   // タブ状態（URLパスと連携）
   const [activeTab, setActiveTab] = useState(() => {
@@ -288,9 +292,21 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
       {/* 検索バー - スクロール時に固定 */}
       <div className="bg-white border-b sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-2">
-          <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} organizationSlug={organizationSlug} />
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} organizationSlug={organizationSlug} />
+            </div>
+            <HowToUseButton onClick={openGuide} />
+          </div>
         </div>
       </div>
+
+      {/* 使い方ガイド */}
+      <HowToUseGuide 
+        organizationName={organizationName}
+        isOpen={isGuideOpen}
+        onClose={closeGuide}
+      />
 
       <div className="container mx-auto max-w-7xl px-4 md:px-6 py-4">
         {/* パフォーマンス最適化: ローディング中でもUIを即座に表示 */}

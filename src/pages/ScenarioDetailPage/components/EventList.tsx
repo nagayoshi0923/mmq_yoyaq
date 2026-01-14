@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Bell } from 'lucide-react'
 import type { EventSchedule } from '../utils/types'
 import { formatTime } from '../utils/formatters'
 
@@ -44,16 +45,17 @@ export const EventList = memo(function EventList({
         const weekdayColor = dayOfWeek === 0 ? 'text-red-500' : dayOfWeek === 6 ? 'text-blue-500' : 'text-gray-500'
         const storeColor = event.store_color || '#6B7280'
         
+        const isSoldOut = event.available_seats === 0
+        
         return (
           <Card 
             key={event.event_id}
-            className={`transition-all ${
-              event.available_seats === 0
-                ? 'opacity-50 cursor-not-allowed bg-gray-50'
-                : `cursor-pointer ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'border border-gray-200 hover:bg-accent'}`
+            className={`transition-all cursor-pointer ${
+              isSoldOut
+                ? `${isSelected ? 'border-2 border-amber-500 bg-amber-50' : 'opacity-70 bg-gray-50 hover:bg-gray-100'}`
+                : `${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'border border-gray-200 hover:bg-accent'}`
             }`}
             onClick={() => {
-              if (event.available_seats === 0) return
               onEventSelect(isSelected ? null : event.event_id)
             }}
           >
@@ -87,10 +89,22 @@ export const EventList = memo(function EventList({
               
               {/* 右：残り人数 + ボタン */}
               <div className="flex-shrink-0 flex items-center gap-3">
-                {event.available_seats === 0 ? (
-                  <Badge variant="secondary" className="text-xs">
-                    満席
-                  </Badge>
+                {isSoldOut ? (
+                  <>
+                    <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 border-red-200">
+                      満席
+                    </Badge>
+                    <Button
+                      variant={isSelected ? "default" : "outline"}
+                      size="sm"
+                      className={`h-8 px-3 text-xs touch-manipulation gap-1 ${
+                        isSelected ? "bg-amber-500 hover:bg-amber-600" : "border-amber-300 text-amber-700 hover:bg-amber-50"
+                      }`}
+                    >
+                      <Bell className="w-3 h-3" />
+                      {isSelected ? '選択中' : 'キャンセル待ち'}
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <div className="text-sm text-muted-foreground whitespace-nowrap">

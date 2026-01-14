@@ -60,6 +60,44 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { signIn, loading } = useAuth()
+  
+  // フィールド別のインラインエラー
+  const [emailError, setEmailError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [confirmPasswordError, setConfirmPasswordError] = useState('')
+  
+  // メールアドレスのリアルタイムバリデーション
+  const validateEmail = (value: string) => {
+    if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setEmailError('有効なメールアドレスを入力してください')
+    } else {
+      setEmailError('')
+    }
+  }
+  
+  // パスワードのリアルタイムバリデーション
+  const validatePassword = (value: string) => {
+    if (mode === 'signup' && value && value.length < 6) {
+      setPasswordError('6文字以上で入力してください')
+    } else {
+      setPasswordError('')
+    }
+    // 確認用パスワードとの一致チェック
+    if (confirmPassword && value !== confirmPassword) {
+      setConfirmPasswordError('パスワードが一致しません')
+    } else if (confirmPassword) {
+      setConfirmPasswordError('')
+    }
+  }
+  
+  // パスワード確認のリアルタイムバリデーション
+  const validateConfirmPassword = (value: string) => {
+    if (value && value !== password) {
+      setConfirmPasswordError('パスワードが一致しません')
+    } else {
+      setConfirmPasswordError('')
+    }
+  }
 
   // URLパラメータから初期モードを設定
   useEffect(() => {
@@ -76,6 +114,9 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     setMessage('')
     setPassword('')
     setConfirmPassword('')
+    setEmailError('')
+    setPasswordError('')
+    setConfirmPasswordError('')
   }
 
   // ソーシャルログイン
@@ -390,14 +431,24 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                       id="email"
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value)
+                        validateEmail(e.target.value)
+                      }}
+                      onBlur={(e) => validateEmail(e.target.value)}
                       required
                       autoComplete="email"
                       placeholder="your@email.com"
-                      className="pl-10 h-12"
+                      className={`pl-10 h-12 ${emailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                       style={{ borderRadius: 0 }}
                     />
                   </div>
+                  {emailError && (
+                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {emailError}
+                    </p>
+                  )}
                 </div>
 
                 {/* パスワード */}
@@ -412,12 +463,16 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                         id="password"
                         type={showPassword ? 'text' : 'password'}
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e) => {
+                          setPassword(e.target.value)
+                          validatePassword(e.target.value)
+                        }}
+                        onBlur={(e) => validatePassword(e.target.value)}
                         required
                         minLength={6}
                         autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                         placeholder={mode === 'signup' ? '6文字以上' : 'パスワード'}
-                        className="pl-10 pr-10 h-12"
+                        className={`pl-10 pr-10 h-12 ${passwordError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                         style={{ borderRadius: 0 }}
                       />
                       <button
@@ -428,6 +483,17 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
+                    {mode === 'signup' && !passwordError && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        6文字以上で入力してください
+                      </p>
+                    )}
+                    {passwordError && (
+                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {passwordError}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -443,15 +509,31 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                         id="confirmPassword"
                         type={showPassword ? 'text' : 'password'}
                         value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onChange={(e) => {
+                          setConfirmPassword(e.target.value)
+                          validateConfirmPassword(e.target.value)
+                        }}
+                        onBlur={(e) => validateConfirmPassword(e.target.value)}
                         required
                         minLength={6}
                         autoComplete="new-password"
                         placeholder="パスワードを再入力"
-                        className="pl-10 h-12"
+                        className={`pl-10 h-12 ${confirmPasswordError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                         style={{ borderRadius: 0 }}
                       />
                     </div>
+                    {confirmPasswordError && (
+                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {confirmPasswordError}
+                      </p>
+                    )}
+                    {!confirmPasswordError && confirmPassword && password === confirmPassword && (
+                      <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        パスワードが一致しています
+                      </p>
+                    )}
                   </div>
                 )}
 

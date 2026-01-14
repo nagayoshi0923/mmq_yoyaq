@@ -2,6 +2,8 @@ import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { VenueAccess } from './VenueAccess'
+import { Calendar, ArrowDown } from 'lucide-react'
+import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import type { EventSchedule } from '../utils/types'
 
 interface BookingPanelProps {
@@ -27,6 +29,63 @@ export const BookingPanel = memo(function BookingPanel({
 }: BookingPanelProps) {
   return (
     <div className="space-y-3">
+      {/* 日付未選択時のガイダンス */}
+      {!selectedEventId && (
+        <div 
+          className="p-3 border-2 border-dashed flex items-center gap-3"
+          style={{ borderColor: THEME.primary, backgroundColor: `${THEME.primary}08` }}
+        >
+          <div 
+            className="flex-shrink-0 w-10 h-10 flex items-center justify-center animate-bounce"
+            style={{ backgroundColor: THEME.accentLight, color: THEME.primary }}
+          >
+            <ArrowDown className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="font-medium text-sm" style={{ color: THEME.primary }}>
+              まず日程を選択してください
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              下の「公演日程」から参加したい日を選んでください
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 選択中の日程表示 */}
+      {selectedEventId && (() => {
+        const selectedEvent = events.find(e => e.event_id === selectedEventId)
+        if (!selectedEvent) return null
+        return (
+          <div 
+            className="p-3 border-2 flex items-center gap-3"
+            style={{ borderColor: THEME.primary, backgroundColor: `${THEME.primary}08` }}
+          >
+            <div 
+              className="flex-shrink-0 w-10 h-10 flex items-center justify-center"
+              style={{ backgroundColor: THEME.accentLight, color: THEME.primary }}
+            >
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-sm" style={{ color: THEME.primary }}>
+                選択中の日程
+              </p>
+              <p className="text-sm text-gray-700 mt-0.5">
+                {new Date(selectedEvent.date).toLocaleDateString('ja-JP', { 
+                  month: 'long', 
+                  day: 'numeric',
+                  weekday: 'short'
+                })} {selectedEvent.start_time?.slice(0, 5)}〜
+              </p>
+              <p className="text-xs text-gray-500">
+                {selectedEvent.store_name}
+              </p>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* 人数を選択 */}
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-2">人数を選択</h3>
@@ -96,9 +155,17 @@ export const BookingPanel = memo(function BookingPanel({
           onBooking()
         }}
         disabled={!selectedEventId}
+        style={selectedEventId ? { backgroundColor: THEME.primary } : {}}
       >
-        {!isLoggedIn ? 'ログインして予約する' : !selectedEventId ? '日付を選択してください' : '予約確認へ進む'}
+        {!isLoggedIn ? 'ログインして予約する' : !selectedEventId ? '↓ 日程を選択してください' : '予約確認へ進む'}
       </Button>
+
+      {/* 未ログイン時の追加案内 */}
+      {!isLoggedIn && selectedEventId && (
+        <p className="text-xs text-center text-gray-500">
+          予約にはログインが必要です。<a href="/signup" className="text-primary underline">新規登録はこちら</a>
+        </p>
+      )}
     </div>
   )
 })
