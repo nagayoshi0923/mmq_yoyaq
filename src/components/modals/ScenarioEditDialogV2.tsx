@@ -223,10 +223,11 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
     cancelledCount: 0,
     totalRevenue: 0,
     totalParticipants: 0,
+    totalStaffParticipants: 0,
     totalGmCost: 0,
     totalLicenseCost: 0,
     firstPerformanceDate: null as string | null,
-    performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null }>
+    performanceDates: [] as Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null; isCancelled: boolean }>
   })
 
   // 担当GMのメイン/サブ設定を更新するハンドラ
@@ -303,6 +304,7 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           cancelledCount: 0,
           totalRevenue: 0,
           totalParticipants: 0,
+          totalStaffParticipants: 0,
           totalGmCost: 0,
           totalLicenseCost: 0,
           firstPerformanceDate: null,
@@ -746,6 +748,9 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
             performanceDates={scenarioStats.performanceDates}
             participationCosts={formData.participation_costs || []}
             scenarioParticipationFee={formData.participation_fee || 0}
+            totalParticipants={scenarioStats.totalParticipants}
+            totalStaffParticipants={scenarioStats.totalStaffParticipants}
+            totalRevenue={scenarioStats.totalRevenue}
           />
         )
       default:

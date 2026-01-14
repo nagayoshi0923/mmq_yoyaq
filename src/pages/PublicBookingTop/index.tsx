@@ -78,12 +78,10 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
           setSelectedStoreIds(validIds)
         }
       }
-      // 保存がない場合はデフォルト（馬場）を選択
+      // 保存がない場合はデフォルトで全店舗選択（臨時会場を除く）
       if (selectedStoreIds.length === 0) {
-        const babaStore = stores.find(s => s.name?.includes('馬場') || s.short_name?.includes('馬場'))
-        if (babaStore) {
-          setSelectedStoreIds([babaStore.id])
-        }
+        const regularStores = stores.filter(s => !s.is_temporary)
+        setSelectedStoreIds(regularStores.map(s => s.id))
       }
       setIsStoreFilterInitialized(true)
     }
@@ -278,7 +276,7 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
             </div>
             
             <h1 className="text-lg md:text-xl font-bold tracking-tight">
-              {organizationName || 'Murder Mystery Quest'}
+              {organizationName || 'MMQ'}
             </h1>
             <p className="text-sm text-white/80">
               リアルな謎解き体験。あなたは事件の真相を暴けるか？
@@ -315,6 +313,9 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
                 searchTerm={searchTerm}
                 organizationSlug={organizationSlug}
                 organizationName={organizationName}
+                selectedStoreIds={selectedStoreIds}
+                onStoreIdsChange={handleStoreIdsChange}
+                stores={stores}
               />
             </TabsContent>
 

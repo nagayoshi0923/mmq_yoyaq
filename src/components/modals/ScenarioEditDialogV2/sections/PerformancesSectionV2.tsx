@@ -14,6 +14,7 @@ interface PerformanceDate {
   revenue: number
   startTime: string
   storeId: string | null
+  isCancelled: boolean
 }
 
 interface ParticipationCost {
@@ -27,6 +28,9 @@ interface PerformancesSectionV2Props {
   participationCosts: ParticipationCost[]
   gmTestParticipationFee?: number
   scenarioParticipationFee?: number  // シナリオの基本参加費（フォールバック用）
+  totalParticipants?: number  // API側で計算された累計参加者数（スタッフ除外）
+  totalStaffParticipants?: number  // 累計スタッフ参加者数
+  totalRevenue?: number  // 累計売上（API側で計算）
 }
 
 // カテゴリの日本語表示
@@ -58,7 +62,10 @@ export function PerformancesSectionV2({
   performanceDates, 
   participationCosts,
   gmTestParticipationFee = 0,
-  scenarioParticipationFee = 0
+  scenarioParticipationFee = 0,
+  totalParticipants: apiTotalParticipants = 0,
+  totalStaffParticipants: apiTotalStaffParticipants = 0,
+  totalRevenue: apiTotalRevenue = 0
 }: PerformancesSectionV2Props) {
   const [stores, setStores] = useState<Store[]>([])
 
@@ -80,32 +87,6 @@ export function PerformancesSectionV2({
     if (!storeId) return '-'
     const store = stores.find(s => s.id === storeId)
     return store?.short_name || store?.name || '-'
-  }
-
-  // 時間帯別の参加費を取得
-  const getParticipationFee = (timeSlot: string, category: string): number => {
-    // GMテストの場合は専用料金
-    if (category === 'gm_test') {
-      return gmTestParticipationFee
-    }
-    
-    // 時間帯に対応する参加費を検索
-    const cost = participationCosts.find(c => c.time_slot === timeSlot)
-    // 見つからない場合はシナリオの基本参加費をフォールバック
-    return cost?.amount || scenarioParticipationFee
-  }
-
-  // 売上を計算（参加人数 × 参加費）
-  // ※ perf.participants には既にデモ参加者も含まれている
-  const calculateRevenue = (perf: PerformanceDate): number => {
-    const timeSlot = getTimeSlot(perf.startTime)
-    const fee = getParticipationFee(timeSlot, perf.category)
-    return perf.participants * fee
-  }
-
-  // 合計参加者数（通常 + デモ）
-  const getTotalParticipants = (perf: PerformanceDate): number => {
-    return perf.participants + perf.demoParticipants
   }
 
   // 日付をフォーマット
@@ -132,8 +113,8 @@ export function PerformancesSectionV2({
   // 年を降順でソート
   const sortedYears = Object.keys(groupedByYear).map(Number).sort((a, b) => b - a)
 
-  // 累計売上を計算
-  const totalCalculatedRevenue = performanceDates.reduce((sum, p) => sum + calculateRevenue(p), 0)
+  // 有効な公演（中止を除外）
+  const activePerformances = performanceDates.filter(p => !p.isCancelled)
 
   if (performanceDates.length === 0) {
     return (
@@ -153,27 +134,37 @@ export function PerformancesSectionV2({
 
   return (
     <div className="space-y-4">
-      {/* サマリー */}
+      {/* サマリー（中止公演を除外） */}
       <Card>
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-6 text-sm flex-wrap">
             <div className="flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-muted-foreground" />
               <span className="font-medium">公演回数:</span>
-              <span className="text-lg font-bold">{performanceDates.length}回</span>
+              <span className="text-lg font-bold">{activePerformances.length}回</span>
+              {performanceDates.length !== activePerformances.length && (
+                <span className="text-xs text-muted-foreground">
+                  （中止{performanceDates.length - activePerformances.length}回）
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-muted-foreground" />
               <span className="font-medium">累計参加者:</span>
               <span className="text-lg font-bold">
-                {performanceDates.reduce((sum, p) => sum + getTotalParticipants(p), 0)}名
+                {apiTotalParticipants.toLocaleString()}名
               </span>
+              {apiTotalStaffParticipants > 0 && (
+                <span className="text-xs text-blue-600">
+                  （+{apiTotalStaffParticipants}スタッフ）
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Coins className="w-4 h-4 text-muted-foreground" />
               <span className="font-medium">累計売上:</span>
               <span className="text-lg font-bold">
-                ¥{totalCalculatedRevenue.toLocaleString()}
+                ¥{apiTotalRevenue.toLocaleString()}
               </span>
             </div>
           </div>
@@ -195,21 +186,36 @@ export function PerformancesSectionV2({
                 const categoryInfo = CATEGORY_LABELS[perf.category] || CATEGORY_LABELS.open
                 const timeSlot = getTimeSlot(perf.startTime)
                 const timeSlotInfo = TIME_SLOT_LABELS[timeSlot] || TIME_SLOT_LABELS['昼']
-                const calculatedRevenue = calculateRevenue(perf)
+                // perf.revenue にはDBに保存されている実際の売上が入っている
+                const displayRevenue = perf.revenue || 0
                 
                 return (
                   <div 
                     key={`${perf.date}-${index}`}
-                    className="flex items-center gap-3 py-2 px-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors"
+                    className={`flex items-center gap-3 py-2 px-3 rounded-md transition-colors ${
+                      perf.isCancelled 
+                        ? 'bg-red-50 hover:bg-red-100 opacity-70' 
+                        : 'bg-muted/30 hover:bg-muted/50'
+                    }`}
                   >
                     {/* 日付 */}
                     <div className="flex items-center gap-1.5 min-w-[80px]">
                       <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="font-mono text-sm">
+                      <span className={`font-mono text-sm ${perf.isCancelled ? 'line-through text-muted-foreground' : ''}`}>
                         {month}/{day}
                         <span className="text-muted-foreground ml-0.5">({weekday})</span>
                       </span>
                     </div>
+                    
+                    {/* 中止バッジ */}
+                    {perf.isCancelled && (
+                      <Badge 
+                        variant="destructive" 
+                        className="text-xs min-w-[40px] justify-center"
+                      >
+                        中止
+                      </Badge>
+                    )}
                     
                     {/* 時間帯 */}
                     <Badge 
@@ -233,24 +239,28 @@ export function PerformancesSectionV2({
                       <span className="truncate">{getStoreName(perf.storeId)}</span>
                     </div>
                     
-                    {/* 参加者 */}
-                    <div className="flex items-center gap-1 min-w-[70px] text-sm">
-                      <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span>
-                        {perf.participants}名
-                        {perf.staffParticipants > 0 && (
-                          <span className="text-blue-600 text-xs ml-0.5">
-                            (+{perf.staffParticipants}スタッフ)
-                          </span>
-                        )}
-                      </span>
-                    </div>
+                    {/* 参加者（中止の場合は非表示） */}
+                    {!perf.isCancelled && (
+                      <div className="flex items-center gap-1 min-w-[70px] text-sm">
+                        <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span>
+                          {perf.participants}名
+                          {perf.staffParticipants > 0 && (
+                            <span className="text-blue-600 text-xs ml-0.5">
+                              (+{perf.staffParticipants}スタッフ)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
                     
-                    {/* 売上 */}
-                    <div className="flex items-center gap-1 min-w-[80px] text-sm">
-                      <Coins className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span>¥{calculatedRevenue.toLocaleString()}</span>
-                    </div>
+                    {/* 売上（中止の場合は非表示） */}
+                    {!perf.isCancelled && (
+                      <div className="flex items-center gap-1 min-w-[80px] text-sm">
+                        <Coins className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span>¥{displayRevenue.toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                 )
               })}

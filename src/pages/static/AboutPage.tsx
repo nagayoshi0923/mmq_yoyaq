@@ -46,7 +46,7 @@ export function AboutPage() {
                   サービス名
                 </th>
                 <td className="px-6 py-4 text-sm text-gray-700">
-                  MMQ（Murder Mystery Quest）
+                  MMQ
                 </td>
               </tr>
               <tr>

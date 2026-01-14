@@ -40,6 +40,16 @@ interface Organization {
   logo_url?: string
 }
 
+interface StoreWithOrg {
+  id: string
+  name: string
+  short_name: string
+  region?: string
+  organization_id: string
+  organization_slug?: string
+  organization_name?: string
+}
+
 // 地域リスト
 const REGIONS = [
   { value: 'all', label: '全国' },
@@ -58,6 +68,7 @@ export function PlatformTop() {
   const { favorites, toggleFavorite } = useFavorites()
   const [scenariosWithEvents, setScenariosWithEvents] = useState<ScenarioWithEvents[]>([])
   const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [stores, setStores] = useState<StoreWithOrg[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRegion, setSelectedRegion] = useState('all')
   const [isExpanded, setIsExpanded] = useState(false)
@@ -93,6 +104,33 @@ export function PlatformTop() {
           logo_url: o.logo_url || undefined
         })))
         console.log('🏢 組織データ:', orgData.length, '件')
+      }
+
+      // 店舗一覧を取得（全組織、臨時会場とオフィスを除く）
+      const { data: storeData, error: storeError } = await supabase
+        .from('stores')
+        .select('id, name, short_name, region, organization_id')
+        .eq('status', 'active')
+        .or('is_temporary.is.null,is_temporary.eq.false')
+        .neq('ownership_type', 'office')
+        .order('region', { ascending: true })
+        .order('name', { ascending: true })
+      
+      if (storeError) {
+        console.error('店舗取得エラー:', storeError)
+      }
+      
+      if (storeData) {
+        // 組織情報を紐づけ
+        const storesWithOrg = storeData
+          .filter(s => s.organization_id && orgMap[s.organization_id]) // アクティブな組織の店舗のみ
+          .map(s => ({
+            ...s,
+            organization_slug: orgMap[s.organization_id!]?.slug,
+            organization_name: orgMap[s.organization_id!]?.name
+          }))
+        setStores(storesWithOrg)
+        console.log('🏪 店舗データ:', storesWithOrg.length, '件')
       }
 
       // 今日以降のイベントを取得（店舗の地域情報も含む）
@@ -235,6 +273,25 @@ export function PlatformTop() {
     
     return { within7Days: within, after7Days: after }
   }, [filteredScenarios])
+
+  // 店舗を地域ごとにグルーピング
+  const storesByRegion = useMemo(() => {
+    const grouped: Record<string, StoreWithOrg[]> = {}
+    stores.forEach(store => {
+      const region = store.region || 'その他'
+      if (!grouped[region]) {
+        grouped[region] = []
+      }
+      grouped[region].push(store)
+    })
+    // 地域名でソート（「その他」は最後）
+    const sortedRegions = Object.keys(grouped).sort((a, b) => {
+      if (a === 'その他') return 1
+      if (b === 'その他') return -1
+      return a.localeCompare(b, 'ja')
+    })
+    return { grouped, sortedRegions }
+  }, [stores])
 
   const handleFavoriteClick = (e: React.MouseEvent, scenarioId: string) => {
     e.stopPropagation()
@@ -453,8 +510,8 @@ export function PlatformTop() {
 
       </section>
 
-      {/* 参加店舗 */}
-      {organizations.length > 0 && (
+      {/* 参加店舗（地域別） */}
+      {stores.length > 0 && (
         <section className="bg-white py-8 md:py-12">
           <div className="max-w-7xl mx-auto px-4">
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
@@ -464,39 +521,51 @@ export function PlatformTop() {
                 className="w-12 h-1 ml-2"
                 style={{ backgroundColor: THEME.accent }}
               />
+              <span className="text-sm font-normal text-gray-500 ml-2">
+                {stores.length}店舗
+              </span>
             </h2>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {organizations.map(org => (
-                <div
-                  key={org.id}
-                  className="bg-gray-50 p-4 hover:shadow-md transition-all cursor-pointer group border border-gray-100 hover:scale-[1.02]"
-                  style={{ borderRadius: 0 }}
-                  onClick={() => navigate(`/${org.slug}`)}
-                >
-                  <div className="flex items-center gap-4">
-                    {org.logo_url ? (
-                      <img
-                        src={org.logo_url}
-                        alt={org.display_name}
-                        className="w-14 h-14 object-cover"
+            <div className="space-y-6">
+              {storesByRegion.sortedRegions.map(region => (
+                <div key={region}>
+                  <h3 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-2">
+                    <span 
+                      className="w-1 h-4"
+                      style={{ backgroundColor: THEME.primary }}
+                    />
+                    {region}
+                    <span className="text-gray-400 font-normal">
+                      （{storesByRegion.grouped[region].length}店舗）
+                    </span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {storesByRegion.grouped[region].map(store => (
+                      <div
+                        key={store.id}
+                        className="bg-gray-50 p-3 hover:shadow-md transition-all cursor-pointer group border border-gray-100 hover:scale-[1.01]"
                         style={{ borderRadius: 0 }}
-                      />
-                    ) : (
-                      <div 
-                        className="w-14 h-14 flex items-center justify-center"
-                        style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
+                        onClick={() => store.organization_slug && navigate(`/${store.organization_slug}`)}
                       >
-                        <Building2 className="w-7 h-7" style={{ color: THEME.primary }} />
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-10 h-10 flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: THEME.primaryLight, borderRadius: 0 }}
+                          >
+                            <Building2 className="w-5 h-5" style={{ color: THEME.primary }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-gray-900 truncate text-sm group-hover:text-primary transition-colors">
+                              {store.name}
+                            </h4>
+                            <p className="text-xs text-gray-500 truncate">
+                              {store.organization_name}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors flex-shrink-0" />
+                        </div>
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate group-hover:text-primary transition-colors">
-                        {org.display_name}
-                      </h3>
-                      <p className="text-sm text-gray-500">予約サイトを見る →</p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-gray-500 transition-colors" />
+                    ))}
                   </div>
                 </div>
               ))}

@@ -4,6 +4,7 @@ import { ScenarioCard } from './ScenarioCard'
 import { memo, useState, useMemo } from 'react'
 import { BookOpen, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
+import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import type { ScenarioCard as ScenarioCardType } from '../hooks/useBookingData'
 
 interface LineupViewProps {
@@ -16,6 +17,9 @@ interface LineupViewProps {
   searchTerm?: string
   organizationSlug?: string
   organizationName?: string | null
+  selectedStoreIds?: string[]
+  onStoreIdsChange?: (storeIds: string[]) => void
+  stores?: any[]
 }
 
 /**
@@ -32,7 +36,10 @@ export const LineupView = memo(function LineupView({
   onToggleFavorite,
   searchTerm = '',
   organizationSlug,
-  organizationName
+  organizationName,
+  selectedStoreIds = [],
+  onStoreIdsChange,
+  stores = []
 }: LineupViewProps) {
   // 検索中かどうか
   const isSearching = searchTerm.length > 0
@@ -40,10 +47,46 @@ export const LineupView = memo(function LineupView({
   // 「もっと見る」の展開状態
   const [isExpanded, setIsExpanded] = useState(false)
   
+  // 臨時会場を除外した店舗リスト
+  const filteredStores = useMemo(() => stores.filter(store => !store.is_temporary), [stores])
+  
+  // 店舗フィルターが有効かどうか（選択されていれば適用）
+  const hasStoreFilter = selectedStoreIds.length > 0 && selectedStoreIds.length < filteredStores.length
+  
+  // 選択された店舗IDから店舗名のセットを作成
+  const selectedStoreNames = useMemo(() => {
+    const names = new Set<string>()
+    selectedStoreIds.forEach(id => {
+      const store = stores.find(s => s.id === id)
+      if (store) {
+        if (store.name) names.add(store.name)
+        if (store.short_name) names.add(store.short_name)
+      }
+    })
+    return names
+  }, [selectedStoreIds, stores])
+  
+  // 店舗フィルターを適用したシナリオ（イベントの店舗名でフィルタリング）
+  const filteredUpcomingScenarios = useMemo(() => {
+    if (!hasStoreFilter) return upcomingScenarios
+    return upcomingScenarios.filter(scenario => 
+      scenario.next_events?.some(event => 
+        selectedStoreNames.has(event.store_name || '') || 
+        selectedStoreNames.has(event.store_short_name || '')
+      )
+    ).map(scenario => ({
+      ...scenario,
+      next_events: scenario.next_events?.filter(event => 
+        selectedStoreNames.has(event.store_name || '') || 
+        selectedStoreNames.has(event.store_short_name || '')
+      )
+    }))
+  }, [upcomingScenarios, selectedStoreNames, hasStoreFilter])
+  
   // 新着は10件まで
   const displayedNewScenarios = newScenarios.slice(0, 10)
   
-  // 直近7日以内の公演とそれ以降を分離
+  // 直近7日以内の公演とそれ以降を分離（フィルタリング済みシナリオを使用）
   const { within7Days, after7Days } = useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -53,7 +96,7 @@ export const LineupView = memo(function LineupView({
     const within: ScenarioCardType[] = []
     const after: ScenarioCardType[] = []
     
-    upcomingScenarios.forEach(scenario => {
+    filteredUpcomingScenarios.forEach(scenario => {
       const nextEventDate = scenario.next_events?.[0]?.date
       if (nextEventDate) {
         // YYYY-MM-DD形式の日付を比較
@@ -67,7 +110,7 @@ export const LineupView = memo(function LineupView({
     })
     
     return { within7Days: within, after7Days: after }
-  }, [upcomingScenarios])
+  }, [filteredUpcomingScenarios])
   
   const handleCatalogClick = () => {
     const catalogPath = organizationSlug ? `/${organizationSlug}/catalog` : '/catalog'
@@ -151,17 +194,36 @@ export const LineupView = memo(function LineupView({
       {/* 直近公演セクション（7日以内を常時表示、それ以降は「もっと見る」） */}
       {upcomingScenarios.length > 0 && (
         <section>
-          <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-3 md:mb-4 flex items-center gap-2">
-            <Calendar className="w-5 h-5" style={{ color: THEME.primary }} />
-            <span>直近公演</span>
-            <span 
-              className="w-8 h-1 ml-1"
-              style={{ backgroundColor: THEME.accent }}
-            />
-            <span className="text-xs font-normal text-gray-500 ml-1">
-              (7日以内: {within7Days.length}件)
-            </span>
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 md:mb-4">
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Calendar className="w-5 h-5" style={{ color: THEME.primary }} />
+              <span>直近公演</span>
+              <span 
+                className="w-8 h-1 ml-1"
+                style={{ backgroundColor: THEME.accent }}
+              />
+              <span className="text-xs font-normal text-gray-500 ml-1">
+                (7日以内: {within7Days.length}件)
+              </span>
+            </h2>
+            
+            {/* 店舗フィルター */}
+            {filteredStores.length > 0 && onStoreIdsChange && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs sm:text-sm whitespace-nowrap text-gray-600">店舗:</label>
+                <div className="w-48 sm:w-52">
+                  <StoreMultiSelect
+                    stores={filteredStores}
+                    selectedStoreIds={selectedStoreIds}
+                    onStoreIdsChange={onStoreIdsChange}
+                    hideLabel={true}
+                    placeholder="すべて"
+                    emptyText=""
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* 7日以内の公演 */}
           {within7Days.length > 0 ? (

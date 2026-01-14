@@ -894,7 +894,7 @@ export function ComponentGallery() {
                         <Sparkles className="w-2.5 h-2.5" />
                         MURDER MYSTERY QUEST
                       </div>
-                      <h1 className="text-base font-medium mb-0.5">Murder Mystery Quest</h1>
+                      <h1 className="text-base font-medium mb-0.5">MMQ</h1>
                       <p className="text-sm text-white/80">
                         リアルな謎解き体験。あなたは事件の真相を暴けるか？
                       </p>

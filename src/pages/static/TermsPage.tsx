@@ -49,7 +49,7 @@ export function TermsPage() {
               </h2>
               <div className="text-gray-700 space-y-3">
                 <p>
-                  本利用規約（以下「本規約」）は、Murder Mystery Quest（以下「当サービス」）の利用に関する条件を定めるものです。
+                  本利用規約（以下「本規約」）は、MMQ（以下「当サービス」）の利用に関する条件を定めるものです。
                 </p>
                 <p>
                   ユーザーは本規約に同意の上、当サービスを利用するものとします。

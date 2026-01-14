@@ -28,7 +28,7 @@ const STEPS = [
   {
     number: 3,
     title: '当日、店舗へ',
-    description: '開始10分前に到着。スタッフがルールを丁寧に説明しますので、初めてでも安心です。',
+    description: '予約時の注意事項を確認し、指定の時間に到着。スタッフがルールを丁寧に説明しますので、初めてでも安心です。',
     icon: UserCheck,
   },
   {
@@ -170,16 +170,31 @@ export function GuidePage() {
         <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
           当日のご案内
         </h2>
+        
+        {/* 予約時の注意事項を確認 */}
+        <div className="mb-8 bg-blue-50 border border-blue-200 p-6">
+          <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
+            予約時の注意事項を必ずご確認ください
+          </h3>
+          <p className="text-blue-800 text-sm mb-3">
+            開始時刻・到着時間・持ち物・アクセス方法などは<strong>店舗・シナリオによって異なります</strong>。
+          </p>
+          <p className="text-blue-800 text-sm">
+            予約完了時に送信されるメール、または予約詳細ページに記載されている<strong>「注意事項」を必ずご確認</strong>の上、当日お越しください。
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-white p-6 border border-gray-200">
             <h3 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
               <CheckCircle className="w-5 h-5" style={{ color: THEME.accent }} />
-              持ち物
+              持ち物（一般的な例）
             </h3>
             <ul className="space-y-3 text-gray-600">
               <li className="flex items-start gap-2">
                 <span className="text-green-500 mt-1">✓</span>
-                <span>特に必要なものはありません！筆記用具は店舗でご用意しています。</span>
+                <span>基本的には手ぶらでOKなことが多いですが、店舗によって異なります。</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-500 mt-1">✓</span>
@@ -190,12 +205,12 @@ export function GuidePage() {
           <div className="bg-white p-6 border border-gray-200">
             <h3 className="font-bold text-lg text-gray-900 mb-4 flex items-center gap-2">
               <Clock className="w-5 h-5" style={{ color: THEME.primary }} />
-              到着時刻
+              到着時刻（一般的な例）
             </h3>
             <ul className="space-y-3 text-gray-600">
               <li className="flex items-start gap-2">
                 <span className="text-red-500 mt-1">●</span>
-                <span>開始時刻の<strong>10〜15分前</strong>にご到着ください。</span>
+                <span>開始時刻の<strong>10〜15分前</strong>到着が目安ですが、店舗の指示に従ってください。</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-red-500 mt-1">●</span>

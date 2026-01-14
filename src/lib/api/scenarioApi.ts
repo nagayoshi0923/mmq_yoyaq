@@ -560,13 +560,22 @@ export const scenarioApi = {
     cancelledCount: number
     totalRevenue: number
     totalParticipants: number
+    totalStaffParticipants: number
     totalGmCost: number
     totalLicenseCost: number
     firstPerformanceDate: string | null
-    performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null }>
+    performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null; isCancelled: boolean }>
   }> {
     // 今日の日付（YYYY-MM-DD形式）
     const today = new Date().toISOString().split('T')[0]
+
+    // シナリオの最大参加者数を取得（参加者数の上限チェック用）
+    const { data: scenarioData } = await supabase
+      .from('scenarios')
+      .select('player_count_max')
+      .eq('id', scenarioId)
+      .single()
+    const maxParticipants = scenarioData?.player_count_max || 99
 
     // 公演回数（中止以外、今日まで、出張公演除外）
     const { count: performanceCount, error: perfError } = await supabase
@@ -604,14 +613,14 @@ export const scenarioApi = {
     
     const firstPerformanceDate = firstError ? null : firstEvent?.date || null
 
-    // 公演イベントを取得して売上・コストを集計（中止以外、今日まで、出張公演除外）
+    // 公演イベントを取得して売上・コストを集計（今日まで、出張公演除外）
+    // ※ 中止公演もリスト表示のため取得（サマリー計算からは除外）
     const { data: events, error: eventsError } = await supabase
       .from('schedule_events')
-      .select('id, date, category, current_participants, total_revenue, gm_cost, license_cost, start_time, store_id')
+      .select('id, date, category, current_participants, total_revenue, gm_cost, license_cost, start_time, store_id, is_cancelled')
       .eq('scenario_id', scenarioId)
       .lte('date', today)
       .neq('category', 'offsite')
-      .neq('is_cancelled', true)
       .order('date', { ascending: false })
     
     if (eventsError) throw eventsError
@@ -660,33 +669,57 @@ export const scenarioApi = {
     // 集計
     let totalRevenue = 0
     let totalParticipants = 0
+    let totalStaffParticipants = 0
     let totalGmCost = 0
     let totalLicenseCost = 0
-    const performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null }> = []
+    const performanceDates: Array<{ date: string; category: string; participants: number; demoParticipants: number; staffParticipants: number; revenue: number; startTime: string; storeId: string | null; isCancelled: boolean }> = []
 
     events?.forEach(event => {
+      const isCancelled = event.is_cancelled === true
       const demoCount = demoParticipantsMap[event.id] || 0
       const staffCount = staffParticipantsMap[event.id] || 0
       const actualCount = actualParticipantsMap[event.id] || 0
-      // スタッフ参加は無料なので売上からは除外、参加者数は別表示
       
-      // 有料参加者 = 有料予約 + デモ（スタッフ除外）
-      const paidParticipants = actualCount + demoCount
+      // 参加者数: 予約データがあればそれを使用、なければ current_participants を使用
+      // （予約データがない過去の公演では current_participants に直接入力されている）
+      // ※ スタッフ参加は有料参加者に含めない（actualCount + demoCount のみ）
+      const reservationParticipants = actualCount + demoCount
+      const rawParticipants = reservationParticipants > 0 
+        ? reservationParticipants 
+        : (event.current_participants || 0)
       
-      totalParticipants += paidParticipants
-      totalRevenue += event.total_revenue || 0
-      totalGmCost += event.gm_cost || 0
-      totalLicenseCost += event.license_cost || 0
+      // 最大参加者数を超えないように制限
+      const participants = Math.min(rawParticipants, maxParticipants)
+      
+      // サマリー計算は中止公演を除外
+      if (!isCancelled) {
+        totalParticipants += participants
+        totalStaffParticipants += staffCount
+        totalRevenue += event.total_revenue || 0
+        totalGmCost += event.gm_cost || 0
+        totalLicenseCost += event.license_cost || 0
+      }
+      
+      // リスト表示用には中止公演も含める
       performanceDates.push({
         date: event.date,
         category: event.category || 'open',
-        participants: paidParticipants,  // 有料参加者（スタッフ除外）
+        participants,  // 参加者数
         demoParticipants: demoCount,  // 内訳用に保持
         staffParticipants: staffCount,  // スタッフ参加者数
         revenue: event.total_revenue || 0,
         startTime: event.start_time || '',
-        storeId: event.store_id || null
+        storeId: event.store_id || null,
+        isCancelled
       })
+    })
+
+    // デバッグログ（本番では削除可）
+    console.log('📊 シナリオ統計:', {
+      scenarioId,
+      maxParticipants,
+      performanceCount: performanceCount || 0,
+      totalParticipants,
     })
 
     return {
@@ -694,6 +727,7 @@ export const scenarioApi = {
       cancelledCount: cancelledCount || 0,
       totalRevenue,
       totalParticipants,
+      totalStaffParticipants,
       totalGmCost,
       totalLicenseCost,
       firstPerformanceDate,
