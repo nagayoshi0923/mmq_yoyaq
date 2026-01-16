@@ -162,19 +162,14 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-3 py-2 border bg-white hover:bg-gray-50 transition-colors text-left ${isOpen ? 'border-b-0' : ''}`}
+        className={`w-full h-full flex items-center justify-between px-2 py-1.5 border rounded-md bg-white hover:bg-gray-50 transition-colors text-left ${isOpen ? 'ring-1 ring-primary' : ''}`}
       >
-        <span className="text-sm">
+        <span className="truncate">
           {selectedStoreIds.length === 0 
             ? placeholder 
-            : `${selectedStoreIds.length}店舗を選択中`}
-          {selectedRegionSummary && (
-            <span className="text-xs text-gray-500 ml-1">
-              ({selectedRegionSummary})
-            </span>
-          )}
+            : `${selectedStoreIds.length}店舗`}
         </span>
-        <span className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+        <span className={`text-gray-400 transition-transform text-[10px] ml-1 ${isOpen ? 'rotate-180' : ''}`}>
           ▼
         </span>
       </button>

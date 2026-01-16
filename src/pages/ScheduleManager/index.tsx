@@ -639,90 +639,83 @@ export function ScheduleManager() {
         </div>
         
         {/* 2行目: フィルター（PCは常に表示、モバイルはトグル） */}
-        <div className={`flex items-center gap-1.5 py-1 border-t border-muted/50 ${showMobileFilters ? 'flex-wrap' : 'hidden sm:flex'}`}>
+        <div className={`flex items-center gap-1 py-1 border-t border-muted/50 ${showMobileFilters ? 'flex-wrap' : 'hidden sm:flex'}`}>
           {/* スタッフフィルター */}
           {gmList.length > 0 && (
-            <div className="w-full sm:w-[140px]">
-              <MultiSelect
-                options={(() => {
-                  const shiftData = scheduleTableProps.dataProvider.shiftData || {}
-                  const staffWithShift = new Set<string>()
-                  Object.values(shiftData).forEach((staffList: Staff[]) => {
-                    staffList.forEach(s => staffWithShift.add(s.id))
+            <MultiSelect
+              options={(() => {
+                const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+                const staffWithShift = new Set<string>()
+                Object.values(shiftData).forEach((staffList: Staff[]) => {
+                  staffList.forEach(s => staffWithShift.add(s.id))
+                })
+                return [...gmList]
+                  .sort((a, b) => {
+                    const aHasShift = staffWithShift.has(a.id)
+                    const bHasShift = staffWithShift.has(b.id)
+                    if (aHasShift && !bHasShift) return -1
+                    if (!aHasShift && bHasShift) return 1
+                    return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
                   })
-                  return [...gmList]
-                    .sort((a, b) => {
-                      const aHasShift = staffWithShift.has(a.id)
-                      const bHasShift = staffWithShift.has(b.id)
-                      if (aHasShift && !bHasShift) return -1
-                      if (!aHasShift && bHasShift) return 1
-                      return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
-                    })
-                    .map((staff) => {
-                      const hasShift = staffWithShift.has(staff.id)
-                      return {
-                        id: staff.id,
-                        name: staff.display_name || staff.name,
-                        displayInfo: hasShift ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700 border border-green-200">
-                            提出済
-                          </span>
-                        ) : undefined,
-                        displayInfoSearchText: hasShift ? '提出済' : undefined
-                      }
-                    })
-                })()}
-                selectedValues={selectedGMs}
-                onSelectionChange={setSelectedGMs}
-                placeholder="スタッフ"
-                closeOnSelect={false}
-                useIdAsValue={true}
-              />
-            </div>
+                  .map((staff) => {
+                    const hasShift = staffWithShift.has(staff.id)
+                    return {
+                      id: staff.id,
+                      name: staff.display_name || staff.name,
+                      displayInfo: hasShift ? (
+                        <span className="text-[9px] text-green-600">●</span>
+                      ) : undefined,
+                      displayInfoSearchText: hasShift ? '提出済' : undefined
+                    }
+                  })
+              })()}
+              selectedValues={selectedGMs}
+              onSelectionChange={setSelectedGMs}
+              placeholder="スタッフ"
+              closeOnSelect={false}
+              useIdAsValue={true}
+              className="h-7 text-xs w-full sm:w-[110px] px-2 bg-white"
+            />
           )}
           
           {/* 店舗フィルター */}
           {scheduleTableProps.viewConfig.stores.length > 0 && (
-            <div className="w-full sm:w-[120px]">
-              <StoreMultiSelect
-                stores={scheduleTableProps.viewConfig.stores}
-                selectedStoreIds={selectedStores}
-                onStoreIdsChange={setSelectedStores}
-                hideLabel={true}
-                placeholder="店舗"
-                emptyText=""
-              />
-            </div>
+            <StoreMultiSelect
+              stores={scheduleTableProps.viewConfig.stores}
+              selectedStoreIds={selectedStores}
+              onStoreIdsChange={setSelectedStores}
+              hideLabel={true}
+              placeholder="店舗"
+              emptyText=""
+              className="h-7 text-xs w-full sm:w-[100px] px-2 bg-white"
+            />
           )}
           
           {/* シフト提出者フィルター */}
           {shiftStaffOptions.length > 0 && (
-            <div className="w-full sm:w-[140px]">
-              <MultiSelect
-                options={shiftStaffOptions}
-                selectedValues={selectedShiftStaff}
-                onSelectionChange={setSelectedShiftStaff}
-                placeholder="出勤者"
-                closeOnSelect={false}
-                useIdAsValue={true}
-              />
-            </div>
+            <MultiSelect
+              options={shiftStaffOptions}
+              selectedValues={selectedShiftStaff}
+              onSelectionChange={setSelectedShiftStaff}
+              placeholder="出勤者"
+              closeOnSelect={false}
+              useIdAsValue={true}
+              className="h-7 text-xs w-full sm:w-[110px] px-2 bg-white"
+            />
           )}
           
           {/* フィルタークリアボタン（選択時のみ表示） */}
           {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedShiftStaff.length > 0) && (
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => {
                 setSelectedGMs([])
                 setSelectedStores([])
                 setSelectedShiftStaff([])
               }}
-              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
             >
-              クリア
-            </Button>
+              ✕ クリア
+            </button>
           )}
         </div>
 
