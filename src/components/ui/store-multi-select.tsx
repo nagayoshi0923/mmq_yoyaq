@@ -1,4 +1,7 @@
 import { memo, useState, useMemo, useRef, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { ChevronDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 // 都道府県の表示順序（47都道府県 + 未分類）
 const REGION_ORDER = [
@@ -158,21 +161,20 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
         </label>
       )}
       
-      {/* ドロップダウントリガー - MultiSelectのButtonと完全に同じスタイル */}
-      <button
+      {/* ドロップダウントリガー - MultiSelectと完全に同じButtonコンポーネント */}
+      <Button
         type="button"
+        variant="outline"
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center justify-between w-full h-8 px-3 text-xs font-normal bg-white border border-input rounded-md shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className={cn("w-full justify-between font-normal bg-white", className)}
       >
         <span className="truncate">
           {selectedStoreIds.length === 0 
             ? placeholder 
             : `${selectedStoreIds.length}店舗`}
         </span>
-        <svg className="ml-1 h-3 w-3 shrink-0 opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m6 9 6 6 6-6"/>
-        </svg>
-      </button>
+        <ChevronDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+      </Button>
       
       {/* 展開時のチェックリスト */}
       {isOpen && (

@@ -718,16 +718,15 @@ export function ScheduleManager() {
           
           {/* 店舗フィルター */}
           {scheduleTableProps.viewConfig.stores.length > 0 && (
-            <div className="w-[100px]">
-              <StoreMultiSelect
-                stores={scheduleTableProps.viewConfig.stores}
-                selectedStoreIds={selectedStores}
-                onStoreIdsChange={setSelectedStores}
-                hideLabel={true}
-                placeholder="店舗"
-                emptyText=""
-              />
-            </div>
+            <StoreMultiSelect
+              stores={scheduleTableProps.viewConfig.stores}
+              selectedStoreIds={selectedStores}
+              onStoreIdsChange={setSelectedStores}
+              hideLabel={true}
+              placeholder="店舗"
+              emptyText=""
+              className="h-8 text-xs w-[100px]"
+            />
           )}
           
           {/* 出勤者フィルター */}
@@ -745,16 +744,17 @@ export function ScheduleManager() {
           
           {/* フィルタークリア */}
           {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedShiftStaff.length > 0) && (
-            <button
+            <Button
+              variant="outline"
               onClick={() => {
                 setSelectedGMs([])
                 setSelectedStores([])
                 setSelectedShiftStaff([])
               }}
-              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-md border bg-white transition-colors"
+              className="h-8 px-3 text-xs"
             >
               クリア
-            </button>
+            </Button>
           )}
         </div>
 
