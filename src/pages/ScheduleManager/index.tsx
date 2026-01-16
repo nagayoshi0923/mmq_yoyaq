@@ -584,17 +584,27 @@ export function ScheduleManager() {
       className="mx-auto"
       stickyLayout
     >
-      {/* 操作行（PC:sticky、モバイル:通常） */}
-      <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b -mx-[10px] px-[10px]">
-        {/* 1行目: タイトル + 月切り替え + フィルター + アクション */}
-        <div className="flex items-center h-12 gap-4">
-          {/* タイトル */}
-          <div className="flex items-center gap-2 shrink-0">
-            <CalendarDays className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-bold hidden md:block">スケジュール管理</h1>
-            <h1 className="text-base font-bold md:hidden">スケジュール</h1>
+      {/* ページヘッダー（他のページと同じ構成） */}
+      <div className="mb-4">
+        <div className="flex flex-row items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              スケジュール管理
+            </h1>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月のスケジュールを管理
+            </p>
           </div>
-          
+          <div className="flex gap-2 flex-shrink-0 items-start">
+            <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
+          </div>
+        </div>
+      </div>
+
+      {/* ツールバー（sticky） */}
+      <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b -mx-[10px] px-[10px]">
+        <div className="flex items-center h-11 gap-3">
           {/* 月切り替え */}
           <div className="flex items-center shrink-0">
             <Button
@@ -651,7 +661,7 @@ export function ScheduleManager() {
             </Button>
           </div>
           
-          {/* フィルター（PCのみ） */}
+          {/* フィルター */}
           <div className="hidden sm:flex items-center gap-2 flex-1">
             {gmList.length > 0 && (
               <MultiSelect
@@ -750,7 +760,6 @@ export function ScheduleManager() {
             >
               {isFillingSeats ? '処理中...' : '全満席'}
             </Button>
-            <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
           </div>
         </div>
 
