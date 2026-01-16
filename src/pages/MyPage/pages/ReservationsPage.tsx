@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
 import { recalculateCurrentParticipants } from '@/lib/participantUtils'
+import { parseIntSafe } from '@/utils/number'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import {
   AlertDialog,

@@ -10,6 +10,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import type { Staff } from '@/types'
 import { useSalarySettings } from '@/hooks/useSalarySettings'
+import { parseIntSafe } from '@/utils/number'
 
 // 統一スタイル
 const labelStyle = "text-sm font-medium mb-1 block"
@@ -121,7 +122,7 @@ export function GmSettingsSectionV2({
                   min="1"
                   max="10"
                   value={formData.gm_count}
-                  onChange={(e) => setFormData(prev => ({ ...prev, gm_count: parseInt(e.target.value) || 1 }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, gm_count: parseIntSafe(e.target.value, 1) }))}
                   className={`${inputStyle} pr-8`}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">人</span>
@@ -299,7 +300,7 @@ export function GmSettingsSectionV2({
                     <Input
                       type="number"
                       value={assignment.reward}
-                      onChange={(e) => handleUpdateGmReward(index, 'reward', parseInt(e.target.value) || 0)}
+                      onChange={(e) => handleUpdateGmReward(index, 'reward', parseIntSafe(e.target.value, 0))}
                       className={`${inputStyle} !pl-7`}
                     />
                   </div>

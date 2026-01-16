@@ -391,6 +391,8 @@ export function ScenarioEditDialogV2({ isOpen, onClose, scenarioId, onSaved, onS
           scenario_type: scenario.scenario_type || 'normal',
           franchise_license_amount: scenario.franchise_license_amount,
           franchise_gm_test_license_amount: scenario.franchise_gm_test_license_amount,
+          external_license_amount: scenario.external_license_amount,
+          external_gm_test_license_amount: scenario.external_gm_test_license_amount,
           // franchise_license_rewards は DB に存在しないため、常に franchise_license_amount から生成
           // 0円でも表示する（null/undefinedの場合は0円）
           franchise_license_rewards: [

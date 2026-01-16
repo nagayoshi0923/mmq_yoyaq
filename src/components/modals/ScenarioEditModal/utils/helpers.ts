@@ -2,6 +2,8 @@
  * ScenarioEditModal で使用するヘルパー関数
  */
 
+import { parseIntSafe } from '@/utils/number'
+
 /**
  * 全角数字を半角数字に変換
  */
@@ -22,7 +24,7 @@ export const handleNumericInput = (
   const converted = convertFullWidthToHalfWidth(value)
   setFormData(prev => ({
     ...prev,
-    [field]: converted === '' ? 0 : parseInt(converted) || 0
+    [field]: parseIntSafe(converted, 0)
   }))
 }
 

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Trash2 } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
+import { parseIntSafe } from '@/utils/number'
 
 // 統一スタイル
 const labelStyle = "text-sm font-medium mb-1 block"
@@ -339,7 +340,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
                         <Input
                           type="number"
                           value={cost.amount}
-                          onChange={(e) => handleUpdateProductionCost(index, 'amount', parseInt(e.target.value) || 0)}
+                          onChange={(e) => handleUpdateProductionCost(index, 'amount', parseIntSafe(e.target.value, 0))}
                           className={`${inputStyle} !pl-7`}
                         />
                       </div>
@@ -450,7 +451,7 @@ export function CostsPropsSectionV2({ formData, setFormData, scenarioStats }: Co
                 <Input
                   type="number"
                   value={prop.amount}
-                  onChange={(e) => handleUpdateRequiredProp(index, 'amount', parseInt(e.target.value) || 0)}
+                  onChange={(e) => handleUpdateRequiredProp(index, 'amount', parseIntSafe(e.target.value, 0))}
                   placeholder="数量"
                   className={`${inputStyle} w-16 shrink-0`}
                 />

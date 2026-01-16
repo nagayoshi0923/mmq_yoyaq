@@ -14,9 +14,15 @@ interface AuthorReportRequest {
   scenarios: Array<{
     title: string
     events: number
-    licenseAmountPerEvent: number
+    internalEvents?: number
+    externalEvents?: number
+    internalLicenseAmount?: number
+    externalLicenseAmount?: number
+    internalLicenseCost?: number
+    externalLicenseCost?: number
+    licenseAmountPerEvent?: number  // 後方互換性
     licenseCost: number
-    isGMTest: boolean
+    isGMTest?: boolean
   }>
 }
 
@@ -30,7 +36,10 @@ serve(async (req) => {
   }
 
   try {
-    const { organizationId, to, authorName, year, month, totalEvents, totalLicenseCost, scenarios }: AuthorReportRequest = await req.json()
+    const body = await req.json()
+    console.log('Received body:', JSON.stringify(body, null, 2))
+    const { organizationId, to, authorName, year, month, totalEvents, totalLicenseCost, scenarios }: AuthorReportRequest = body
+    console.log('scenarios:', JSON.stringify(scenarios, null, 2))
 
     // Supabase Admin クライアントを作成
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -79,6 +88,11 @@ serve(async (req) => {
       // マジックリンク生成に失敗しても、メールは送信する
     }
 
+    const formatYen = (value?: number) => {
+      const amount = typeof value === 'number' && !Number.isNaN(value) ? value : 0
+      return amount.toLocaleString()
+    }
+
     // 振込予定日を計算（翌月20日）
     const nextMonth = month === 12 ? 1 : month + 1
     const nextYear = month === 12 ? year + 1 : year
@@ -87,16 +101,44 @@ serve(async (req) => {
     // シナリオ詳細のHTML生成
     const scenariosHtml = scenarios.map(scenario => {
       const gmTestLabel = scenario.isGMTest ? '<span style="color: #dc2626; font-size: 12px;">（GMテスト）</span>' : ''
-      const licenseInfo = `@¥${scenario.licenseAmountPerEvent.toLocaleString()}/回`
+      
+      // 新しいデータ構造と後方互換性の両方に対応
+      const hasBreakdown = scenario.internalEvents !== undefined && scenario.externalEvents !== undefined
+      
+      let detailHtml = ''
+      if (hasBreakdown) {
+        const parts = []
+        if (scenario.internalEvents && scenario.internalEvents > 0) {
+          const amount = scenario.internalLicenseAmount || 0
+          const cost = scenario.internalLicenseCost || 0
+          parts.push(`自社: ${scenario.internalEvents}回 × @¥${formatYen(amount)} = ¥${formatYen(cost)}`)
+        }
+        if (scenario.externalEvents && scenario.externalEvents > 0) {
+          const amount = scenario.externalLicenseAmount || 0
+          const cost = scenario.externalLicenseCost || 0
+          parts.push(`他社: ${scenario.externalEvents}回 × @¥${formatYen(amount)} = ¥${formatYen(cost)}`)
+        }
+        detailHtml = parts.length > 0 
+          ? parts.map(p => `<div style="font-size: 13px; color: #6b7280; margin-left: 8px;">${p}</div>`).join('')
+          : `<div style="font-size: 13px; color: #6b7280; margin-left: 8px;">0回</div>`
+      } else {
+        // 後方互換性: 旧フォーマット
+        const licenseAmount = scenario.licenseAmountPerEvent || 0
+        detailHtml = `
+          <div style="font-size: 13px; color: #6b7280; margin-left: 8px;">
+            ${scenario.events || 0}回 × @¥${formatYen(licenseAmount)}/回 = ¥${formatYen(scenario.licenseCost || 0)}
+          </div>
+        `
+      }
+      
       return `
         <tr>
           <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">
             <div style="font-weight: 500; color: #1f2937; margin-bottom: 4px;">
               ${scenario.title}${gmTestLabel}
+              <span style="float: right; font-weight: bold; color: #1f2937;">¥${formatYen(scenario.licenseCost || 0)}</span>
             </div>
-            <div style="font-size: 13px; color: #6b7280; margin-left: 8px;">
-              ${scenario.events}回 × ${licenseInfo} = ¥${scenario.licenseCost.toLocaleString()}
-            </div>
+            ${detailHtml}
           </td>
         </tr>
       `
@@ -162,7 +204,7 @@ serve(async (req) => {
         <tr>
           <td style="padding: 10px 0; font-weight: 500; color: #374151;">総ライセンス料</td>
           <td style="padding: 10px 0; color: #1f2937; text-align: right; font-size: 18px; font-weight: bold;">
-            ¥${totalLicenseCost.toLocaleString()}
+            ¥${formatYen(totalLicenseCost)}
           </td>
         </tr>
       </table>
@@ -228,13 +270,34 @@ ${year}年${month}月のライセンス料をご報告いたします。
 
 ■ 概要
 総公演数: ${totalEvents}回
-総ライセンス料: ¥${totalLicenseCost.toLocaleString()}
+総ライセンス料: ¥${formatYen(totalLicenseCost)}
 
 ■ 詳細
 ${scenarios.map(scenario => {
   const gmTestLabel = scenario.isGMTest ? '（GMテスト）' : ''
-  const licenseInfo = `@¥${scenario.licenseAmountPerEvent.toLocaleString()}/回`
-  return `・${scenario.title}${gmTestLabel}: ${scenario.events}回 × ${licenseInfo} = ¥${scenario.licenseCost.toLocaleString()}`
+  const hasBreakdown = scenario.internalEvents !== undefined && scenario.externalEvents !== undefined
+
+  if (hasBreakdown) {
+    const parts: string[] = []
+    if (scenario.internalEvents && scenario.internalEvents > 0) {
+      const amount = scenario.internalLicenseAmount || 0
+      const cost = scenario.internalLicenseCost || 0
+      parts.push(`自社: ${scenario.internalEvents}回 × @¥${formatYen(amount)} = ¥${formatYen(cost)}`)
+    }
+    if (scenario.externalEvents && scenario.externalEvents > 0) {
+      const amount = scenario.externalLicenseAmount || 0
+      const cost = scenario.externalLicenseCost || 0
+      parts.push(`他社: ${scenario.externalEvents}回 × @¥${formatYen(amount)} = ¥${formatYen(cost)}`)
+    }
+    const detail = parts.length > 0 ? parts.join(' / ') : '0回'
+    return `・${scenario.title}${gmTestLabel}: ${detail}（合計 ¥${formatYen(scenario.licenseCost || 0)}）`
+  }
+
+  // 後方互換性: 旧フォーマット
+  const licenseAmount = scenario.licenseAmountPerEvent || 0
+  const events = scenario.events || 0
+  const cost = scenario.licenseCost || 0
+  return `・${scenario.title}${gmTestLabel}: ${events}回 × @¥${formatYen(licenseAmount)}/回 = ¥${formatYen(cost)}`
 }).join('\n')}
 ${magicLinkText}
 ■ お支払いについて
@@ -260,8 +323,10 @@ Murder Mystery Queue (MMQ)
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'MMQ予約システム <noreply@mmq.game>',
+        from: 'MMQ ライセンス管理 <noreply@mmq.game>',
+        reply_to: 'queens.waltz@gmail.com',
         to: [to],
+        bcc: ['queens.waltz@gmail.com'],
         subject: `【${year}年${month}月】ライセンス料レポート - ${authorName}`,
         html: emailHtml,
         text: emailText,

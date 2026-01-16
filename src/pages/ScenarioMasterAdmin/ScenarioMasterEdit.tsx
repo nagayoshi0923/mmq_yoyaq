@@ -21,6 +21,7 @@ import {
   ArrowLeft, Save, Plus, Trash2, GripVertical, CheckCircle, XCircle,
   Image as ImageIcon
 } from 'lucide-react'
+import { parseIntSafe } from '@/utils/number'
 
 interface ScenarioMaster {
   id: string
@@ -549,7 +550,7 @@ export function ScenarioMasterEdit() {
                       id="player_count_min"
                       type="number"
                       value={master.player_count_min}
-                      onChange={(e) => setMaster({ ...master, player_count_min: parseInt(e.target.value) || 1 })}
+                      onChange={(e) => setMaster({ ...master, player_count_min: parseIntSafe(e.target.value, 1) })}
                     />
                   </div>
                   <div>
@@ -558,7 +559,7 @@ export function ScenarioMasterEdit() {
                       id="player_count_max"
                       type="number"
                       value={master.player_count_max}
-                      onChange={(e) => setMaster({ ...master, player_count_max: parseInt(e.target.value) || 1 })}
+                      onChange={(e) => setMaster({ ...master, player_count_max: parseIntSafe(e.target.value, 1) })}
                     />
                   </div>
                 </div>
@@ -570,7 +571,7 @@ export function ScenarioMasterEdit() {
                       id="official_duration"
                       type="number"
                       value={master.official_duration}
-                      onChange={(e) => setMaster({ ...master, official_duration: parseInt(e.target.value) || 180 })}
+                      onChange={(e) => setMaster({ ...master, official_duration: parseIntSafe(e.target.value, 180) })}
                     />
                     <p className="text-xs text-muted-foreground mt-1">平日の公演時間</p>
                   </div>

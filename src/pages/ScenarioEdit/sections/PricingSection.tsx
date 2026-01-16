@@ -163,10 +163,10 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
           />
         </div>
 
-        {/* 他店用（フランチャイズ）ライセンス料設定 */}
+        {/* 他社公演時：作者への支払い */}
         <div className="pt-6 border-t">
           <ItemizedListWithDates
-            title="ライセンス料設定（他店用・フランチャイズ）"
+            title="他社公演時（作者への支払い）"
             addButtonLabel="ライセンス料を追加"
             emptyMessage="ライセンス料設定がありません"
             items={formData.franchise_license_rewards || []}
@@ -205,9 +205,10 @@ export function PricingSection({ formData, setFormData }: PricingSectionProps) {
             enableStatusChange={true}
           />
           <p className="text-xs text-muted-foreground mt-2">
-            フランチャイズ店で使用する際のライセンス金額を設定します。未設定の場合は自店用ライセンス金額が使用されます。
+            他社が公演した際に作者に支払う金額を設定します。未設定の場合は自店用と同じ金額が適用されます。
           </p>
         </div>
+
       </div>
     </div>
   )

@@ -5,6 +5,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -176,6 +178,26 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
 
             {/* タイトル・作者・メール */}
             <div className="flex-1 space-y-3">
+              {/* 管理作品トグル */}
+              <div className="flex items-center justify-between pb-2 border-b">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="scenario_type"
+                    checked={formData.scenario_type === 'managed'}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      scenario_type: checked ? 'managed' : 'normal' 
+                    }))}
+                  />
+                  <Label htmlFor="scenario_type" className="text-sm font-medium cursor-pointer">
+                    管理作品
+                  </Label>
+                </div>
+                {formData.scenario_type === 'managed' && (
+                  <Badge className="bg-blue-100 text-blue-800">ライセンス管理</Badge>
+                )}
+              </div>
+              
               {/* タイトル・Slug（横並び） */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -281,23 +303,8 @@ export function BasicInfoSectionV2({ formData, setFormData, scenarioId, onDelete
       {/* 設定 */}
       <Card>
         <CardContent className="p-5 space-y-4">
-          {/* 上段：タイプ・キット数 */}
+          {/* キット数・店舗設定 */}
           <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <Label className={labelStyle}>シナリオタイプ</Label>
-              <Select
-                value={formData.scenario_type || 'normal'}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, scenario_type: value as 'normal' | 'managed' }))}
-              >
-                <SelectTrigger className={inputStyle}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="normal">通常</SelectItem>
-                  <SelectItem value="managed">管理（自団体がライセンス管理）</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="w-32">
               <Label className={labelStyle}>キット数</Label>
               <Select

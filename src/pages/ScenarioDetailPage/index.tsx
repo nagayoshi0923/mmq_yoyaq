@@ -365,6 +365,21 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
                       label="店舗で絞り込み"
                       placeholder="全店舗"
                     />
+                    
+                    {/* 日程未選択時のガイダンス（選択後と同じスタイル） */}
+                    {!selectedEventId && (
+                      <div 
+                        className="mb-3 px-3 py-2 border-l-4 text-sm"
+                        style={{ 
+                          borderColor: THEME.primary,
+                          backgroundColor: THEME.primaryLight,
+                          color: THEME.primary
+                        }}
+                      >
+                        参加したい日程を選択してください
+                      </div>
+                    )}
+                    
                     <h3 className="mb-2 text-sm font-medium text-muted-foreground">日付を選択</h3>
                     <EventList
                       events={scheduleStoreFilter.length > 0 

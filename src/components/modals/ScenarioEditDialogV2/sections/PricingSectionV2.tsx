@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { DateRangePopover } from '@/components/ui/date-range-popover'
 import { Plus, Trash2 } from 'lucide-react'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
+import { parseIntSafe } from '@/utils/number'
 
 interface PricingSectionV2Props {
   formData: ScenarioFormData
@@ -131,7 +132,7 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
                       <Input
                         type="number"
                         value={cost.amount}
-                        onChange={(e) => handleUpdateParticipationCost(index, 'amount', parseInt(e.target.value) || 0)}
+                        onChange={(e) => handleUpdateParticipationCost(index, 'amount', parseIntSafe(e.target.value, 0))}
                         className={`${inputStyle} !pl-7`}
                       />
                     </div>
@@ -205,7 +206,7 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
                       <Input
                         type="number"
                         value={reward.amount}
-                        onChange={(e) => handleUpdateLicenseReward(index, 'amount', parseInt(e.target.value) || 0)}
+                        onChange={(e) => handleUpdateLicenseReward(index, 'amount', parseIntSafe(e.target.value, 0))}
                         className={`${inputStyle} !pl-7`}
                       />
                     </div>
@@ -214,9 +215,10 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
               </div>
             </div>
 
-            {/* 他店用（フランチャイズ） */}
+            {/* 他店用（フランチャイズ）= 作者への支払い（管理作品のみ） */}
+            {formData.scenario_type === 'managed' && (
             <div>
-              <div className="text-sm font-medium mb-3 pb-2 border-b">他店用</div>
+              <div className="text-sm font-medium mb-3 pb-2 border-b">他社公演時（作者への支払い）</div>
               <div className="space-y-3">
                 {(formData.franchise_license_rewards || []).map((reward, index) => (
                   <div key={index} className={rowStyle}>
@@ -228,7 +230,7 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
                       <Input
                         type="number"
                         value={reward.amount}
-                        onChange={(e) => handleUpdateFranchiseLicenseReward(index, 'amount', parseInt(e.target.value) || 0)}
+                        onChange={(e) => handleUpdateFranchiseLicenseReward(index, 'amount', parseIntSafe(e.target.value, 0))}
                         placeholder="未設定"
                         className={`${inputStyle} !pl-7`}
                       />
@@ -237,12 +239,74 @@ export function PricingSectionV2({ formData, setFormData }: PricingSectionV2Prop
                 ))}
               </div>
             </div>
+            )}
           </div>
+          {formData.scenario_type === 'managed' && (
           <p className={`${hintStyle} mt-4 pt-3 border-t`}>
-            他店用が未設定の場合は自店用が適用されます
+            他社公演時の金額が未設定の場合は自店用が適用されます
           </p>
+          )}
         </CardContent>
       </Card>
+
+      {/* 他社からの公演料（管理作品のみ表示） */}
+      {formData.scenario_type === 'managed' && (
+      <Card>
+        <CardContent className="p-5">
+          <Label className={labelStyle}>他社からの公演料</Label>
+          <p className={hintStyle}>他社がMMQ（管理店舗）に支払う金額。マージン = 他社公演料 − 作者への支払い</p>
+          <div className="grid grid-cols-2 gap-5 mt-3">
+            <div>
+              <div className="text-sm text-muted-foreground mb-2">通常公演</div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={formData.external_license_amount || 0}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    external_license_amount: parseIntSafe(e.target.value, 0)
+                  }))}
+                  className={`${inputStyle} !pl-7`}
+                />
+              </div>
+              {/* マージン表示 */}
+              {(formData.external_license_amount || 0) > 0 && (
+                <p className="text-xs text-green-600 mt-1">
+                  マージン: ¥{((formData.external_license_amount || 0) - (formData.franchise_license_rewards?.find(r => r.item === 'normal')?.amount || formData.franchise_license_amount || 0)).toLocaleString()}
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <div className="text-sm text-muted-foreground mb-2">GMテスト</div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">¥</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={formData.external_gm_test_license_amount || 0}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    external_gm_test_license_amount: parseIntSafe(e.target.value, 0)
+                  }))}
+                  className={`${inputStyle} !pl-7`}
+                />
+              </div>
+              {/* マージン表示 */}
+              {(formData.external_gm_test_license_amount || 0) > 0 && (
+                <p className="text-xs text-green-600 mt-1">
+                  マージン: ¥{((formData.external_gm_test_license_amount || 0) - (formData.franchise_license_rewards?.find(r => r.item === 'gmtest')?.amount || formData.franchise_gm_test_license_amount || 0)).toLocaleString()}
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      )}
     </div>
   )
 }

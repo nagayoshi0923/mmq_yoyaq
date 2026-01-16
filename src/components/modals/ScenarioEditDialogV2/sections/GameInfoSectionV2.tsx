@@ -11,6 +11,7 @@ import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/typ
 import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
 import { showToast } from '@/utils/toast'
+import { parseIntSafe } from '@/utils/number'
 
 interface GameInfoSectionV2Props {
   formData: ScenarioFormData
@@ -76,11 +77,13 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
               <div className="relative mt-1.5">
                 <Input
                   id="duration"
-                  type="number"
-                  min="30"
-                  max="480"
-                  value={formData.duration}
-                  onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 120 }))}
+                  type="text"
+                  inputMode="numeric"
+                  value={formData.duration === 0 ? '' : String(formData.duration ?? '')}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, '')
+                    setFormData(prev => ({ ...prev, duration: val === '' ? 0 : parseInt(val, 10) }))
+                  }}
                   className={`${inputStyle} pr-8`}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">分</span>
@@ -115,11 +118,13 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
               <div className="relative mt-1.5">
                 <Input
                   id="extra_preparation_time"
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={formData.extra_preparation_time || 0}
-                  onChange={(e) => setFormData(prev => ({ ...prev, extra_preparation_time: parseInt(e.target.value) || 0 }))}
+                  type="text"
+                  inputMode="numeric"
+                  value={formData.extra_preparation_time === 0 ? '' : String(formData.extra_preparation_time ?? '')}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, '')
+                    setFormData(prev => ({ ...prev, extra_preparation_time: val === '' ? 0 : parseInt(val, 10) }))
+                  }}
                   className={`${inputStyle} pr-8`}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">分</span>
@@ -137,7 +142,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
                   min="1"
                   max="20"
                   value={formData.player_count_min}
-                  onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseInt(e.target.value) || 4 }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseIntSafe(e.target.value, 4) }))}
                   className={inputStyle}
                 />
                 <span className="text-muted-foreground shrink-0">〜</span>
@@ -147,7 +152,7 @@ export function GameInfoSectionV2({ formData, setFormData }: GameInfoSectionV2Pr
                   min="1"
                   max="20"
                   value={formData.player_count_max}
-                  onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseInt(e.target.value) || 8 }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseIntSafe(e.target.value, 8) }))}
                   className={inputStyle}
                 />
                 <span className="text-sm text-muted-foreground shrink-0">人</span>

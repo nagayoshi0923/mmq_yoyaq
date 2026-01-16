@@ -233,6 +233,7 @@ export interface Scenario {
   description?: string
   author: string
   author_email?: string | null  // 作者メールアドレス（作者ポータル連携用）
+  report_display_name?: string | null  // 報告用表示名（NULLの場合はauthorを使用）
   duration: number
   weekend_duration?: number | null  // 土日・祝日の公演時間（分）。未設定の場合はdurationを使用
   player_count_min: number
@@ -248,10 +249,14 @@ export interface Scenario {
   license_amount?: number
   // データベースカラム（GMテストライセンス料）
   gm_test_license_amount?: number
-  // データベースカラム（他店用/フランチャイズ通常ライセンス料）
+  // データベースカラム（他店用/フランチャイズ通常ライセンス料：作者への支払い）
   franchise_license_amount?: number
-  // データベースカラム（他店用/フランチャイズGMテストライセンス料）
+  // データベースカラム（他店用/フランチャイズGMテストライセンス料：作者への支払い）
   franchise_gm_test_license_amount?: number
+  // データベースカラム（他社公演料：他社がMMQに支払う金額）
+  external_license_amount?: number
+  // データベースカラム（他社GMテスト公演料：他社がMMQに支払う金額）
+  external_gm_test_license_amount?: number
   // 旧形式（互換性のため保持）
   license_rewards: Array<{ item: string; amount: number; status?: 'active' | 'legacy' | 'unused' | 'ready'; usageCount?: number; startDate?: string; endDate?: string }>
   props?: Array<{

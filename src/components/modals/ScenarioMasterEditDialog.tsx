@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { uploadImage, validateMediaFile, uploadMedia } from '@/lib/uploadImage'
 import { showToast } from '@/utils/toast'
+import { parseIntSafe } from '@/utils/number'
 
 interface ScenarioMaster {
   id: string
@@ -514,7 +515,7 @@ export function ScenarioMasterEditDialog({
                   id="player_count_min"
                   type="number"
                   value={master.player_count_min}
-                  onChange={(e) => setMaster({ ...master, player_count_min: parseInt(e.target.value) || 1 })}
+                  onChange={(e) => setMaster({ ...master, player_count_min: parseIntSafe(e.target.value, 1) })}
                 />
               </div>
               <div>
@@ -523,7 +524,7 @@ export function ScenarioMasterEditDialog({
                   id="player_count_max"
                   type="number"
                   value={master.player_count_max}
-                  onChange={(e) => setMaster({ ...master, player_count_max: parseInt(e.target.value) || 1 })}
+                  onChange={(e) => setMaster({ ...master, player_count_max: parseIntSafe(e.target.value, 1) })}
                 />
               </div>
               <div>
@@ -532,7 +533,7 @@ export function ScenarioMasterEditDialog({
                   id="official_duration"
                   type="number"
                   value={master.official_duration}
-                  onChange={(e) => setMaster({ ...master, official_duration: parseInt(e.target.value) || 180 })}
+                  onChange={(e) => setMaster({ ...master, official_duration: parseIntSafe(e.target.value, 180) })}
                 />
               </div>
             </div>

@@ -70,9 +70,12 @@ export interface ScenarioFormData {
   gm_test_license_amount?: number
   // シナリオタイプ
   scenario_type?: 'normal' | 'managed'
-  // 他店用（フランチャイズ）ライセンス金額
+  // 他店用（フランチャイズ）ライセンス金額（作者への支払い）
   franchise_license_amount?: number
   franchise_gm_test_license_amount?: number
+  // 他社公演料（他社がMMQに支払う金額）
+  external_license_amount?: number
+  external_gm_test_license_amount?: number
   // 他店用（フランチャイズ）ライセンス報酬（UI用配列）
   franchise_license_rewards?: {
     item: string

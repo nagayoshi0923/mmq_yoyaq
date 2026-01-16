@@ -7,6 +7,7 @@ import { MultiSelect } from '@/components/ui/multi-select'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import type { Staff } from '@/types'
+import { parseIntSafe } from '@/utils/number'
 
 interface GmSettingsSectionProps {
   formData: ScenarioFormData
@@ -109,7 +110,7 @@ export function GmSettingsSection({
                 min="1"
                 max="10"
                 value={formData.gm_count}
-                onChange={(e) => setFormData(prev => ({ ...prev, gm_count: parseInt(e.target.value) || 1 }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, gm_count: parseIntSafe(e.target.value, 1) }))}
               />
               <p className="text-xs text-muted-foreground mt-1">
                 この公演に必要なGMの人数

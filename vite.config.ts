@@ -54,7 +54,7 @@ export default defineConfig({
     // ローカルネットワークからのアクセスを許可（スマホからもアクセス可能）
     host: '0.0.0.0',
     port: 5173,
-    strictPort: false, // ポートが使用中の場合、別のポートを自動選択
+    strictPort: true, // 5173固定（別ポートに逃がさない）
     // CORS設定（ネットワーク経由アクセス対応）
     cors: true,
     // タイムアウト設定（応答時間の改善）

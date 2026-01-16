@@ -20,6 +20,7 @@ import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { uploadImage, validateImageFile } from '@/lib/uploadImage'
 import { OptimizedImage } from '@/components/ui/optimized-image'
+import { parseIntSafe } from '@/utils/number'
 
 // 型定義
 import type { ScenarioEditModalProps, ScenarioFormData } from './ScenarioEditModal/types'
@@ -955,7 +956,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     id="duration"
                     type="number"
                     value={formData.duration}
-                    onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, duration: parseIntSafe(e.target.value, 0) }))}
                     min="30"
                     max="480"
                   />
@@ -966,7 +967,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     id="player_count_min"
                     type="number"
                     value={formData.player_count_min}
-                    onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseInt(e.target.value) || 1 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseIntSafe(e.target.value, 1) }))}
                     min="1"
                     max="20"
                   />
@@ -977,7 +978,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     id="player_count_max"
                     type="number"
                     value={formData.player_count_max}
-                    onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseInt(e.target.value) || 1 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseIntSafe(e.target.value, 1) }))}
                     min="1"
                     max="20"
                   />
@@ -991,7 +992,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                     id="difficulty"
                     type="number"
                     value={formData.difficulty}
-                    onChange={(e) => setFormData(prev => ({ ...prev, difficulty: parseInt(e.target.value) || 1 }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, difficulty: parseIntSafe(e.target.value, 1) }))}
                     min="1"
                     max="5"
                   />
@@ -1248,7 +1249,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                           value={formData.license_amount || 0}
                           onChange={(e) => setFormData(prev => ({ 
                             ...prev, 
-                            license_amount: parseInt(e.target.value) || 0 
+                            license_amount: parseIntSafe(e.target.value, 0) 
                           }))}
                           className="pr-8"
                         />
@@ -1268,7 +1269,7 @@ export function ScenarioEditModal({ scenario, isOpen, onClose, onSave }: Scenari
                           value={formData.gm_test_license_amount || 0}
                           onChange={(e) => setFormData(prev => ({ 
                             ...prev, 
-                            gm_test_license_amount: parseInt(e.target.value) || 0 
+                            gm_test_license_amount: parseIntSafe(e.target.value, 0) 
                           }))}
                           className="pr-8"
                         />

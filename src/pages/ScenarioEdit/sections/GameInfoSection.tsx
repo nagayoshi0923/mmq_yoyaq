@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { statusOptions, genreOptions } from '@/components/modals/ScenarioEditModal/utils/constants'
 import { useScenariosQuery } from '@/pages/ScenarioManagement/hooks/useScenarioQuery'
+import { parseIntSafe } from '@/utils/number'
 
 interface GameInfoSectionProps {
   formData: ScenarioFormData
@@ -95,7 +96,7 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
                 min="30"
                 max="480"
                 value={formData.duration}
-                onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 120 }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, duration: parseIntSafe(e.target.value, 120) }))}
               />
               <p className="text-xs text-muted-foreground mt-1">平日の公演時間</p>
             </div>
@@ -123,7 +124,7 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
                 min="1"
                 max="20"
                 value={formData.player_count_min}
-                onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseInt(e.target.value) || 4 }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, player_count_min: parseIntSafe(e.target.value, 4) }))}
               />
             </div>
             <div>
@@ -134,7 +135,7 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
                 min="1"
                 max="20"
                 value={formData.player_count_max}
-                onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseInt(e.target.value) || 8 }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, player_count_max: parseIntSafe(e.target.value, 8) }))}
               />
             </div>
           </div>
@@ -148,7 +149,7 @@ export function GameInfoSection({ formData, setFormData }: GameInfoSectionProps)
                 min="1"
                 max="5"
                 value={formData.difficulty}
-                onChange={(e) => setFormData(prev => ({ ...prev, difficulty: parseInt(e.target.value) || 3 }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, difficulty: parseIntSafe(e.target.value, 3) }))}
               />
               <p className="text-xs text-muted-foreground mt-1">
                 1: 初心者向け / 5: 上級者向け
