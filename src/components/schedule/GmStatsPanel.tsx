@@ -8,6 +8,8 @@ import type { GmStatsData, GmStatsItem } from '@/pages/ScheduleManager/hooks/use
 interface GmStatsPanelProps {
   data: GmStatsData
   compact?: boolean
+  selectedStaffIds?: string[]
+  onStaffClick?: (staffId: string) => void
 }
 
 // 統計カテゴリの定義
@@ -20,7 +22,9 @@ const statCategories = [
 
 export const GmStatsPanel = memo(function GmStatsPanel({
   data,
-  compact = false
+  compact = false,
+  selectedStaffIds = [],
+  onStaffClick
 }: GmStatsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   
@@ -65,33 +69,54 @@ export const GmStatsPanel = memo(function GmStatsPanel({
           </span>
         </button>
         
-        {/* 展開時：スタッフ別出勤回数リスト */}
+        {/* 展開時：スタッフ別出勤回数リスト（クリックでフィルター） */}
         {isExpanded && (
-          <div className="bg-muted/30 rounded px-1 py-0.5 max-h-[150px] overflow-y-auto">
-            <div className="flex flex-wrap gap-x-2 gap-y-0">
-              {data.byGm.map(gm => (
-                <div
-                  key={gm.staffId}
-                  className="flex items-center gap-0.5 text-[10px] leading-tight"
-                >
-                  <span className="font-medium">{gm.staffName}</span>
-                  <div className="flex items-center shrink-0">
-                    {gm.working > 0 && (
-                      <span className="text-blue-700 font-medium">{gm.working}</span>
+          <div className="bg-muted/30 rounded px-1 py-0.5 max-h-[120px] overflow-y-auto">
+            <div className="flex flex-wrap gap-0.5">
+              {data.byGm.map(gm => {
+                const isSelected = selectedStaffIds.includes(gm.staffId)
+                return (
+                  <button
+                    key={gm.staffId}
+                    onClick={() => onStaffClick?.(gm.staffId)}
+                    className={cn(
+                      "inline-flex items-center gap-0.5 px-1 py-0 rounded text-[10px] font-medium transition-all",
+                      isSelected
+                        ? "bg-primary text-primary-foreground ring-1 ring-primary"
+                        : "bg-background hover:bg-muted border border-border"
                     )}
+                  >
+                    <span className="truncate max-w-[60px]">{gm.staffName}</span>
+                    <span className={cn(
+                      "px-0.5 rounded text-[9px]",
+                      isSelected ? "bg-primary-foreground/20" : "bg-blue-100 text-blue-700"
+                    )}>
+                      {gm.working}
+                    </span>
                     {gm.cancelled > 0 && (
-                      <span className="text-gray-400 line-through ml-0.5">{gm.cancelled}</span>
+                      <span className="px-0.5 rounded text-[9px] bg-gray-100 text-gray-500 line-through">
+                        {gm.cancelled}
+                      </span>
                     )}
                     {gm.participant > 0 && (
-                      <span className="text-green-700 ml-0.5">{gm.participant}</span>
+                      <span className="px-0.5 rounded text-[9px] bg-green-100 text-green-700">
+                        {gm.participant}
+                      </span>
                     )}
                     {gm.observer > 0 && (
-                      <span className="text-orange-600 ml-0.5">{gm.observer}</span>
+                      <span className="px-0.5 rounded text-[9px] bg-orange-100 text-orange-700">
+                        {gm.observer}
+                      </span>
                     )}
-                  </div>
-                </div>
-              ))}
+                  </button>
+                )
+              })}
             </div>
+            {selectedStaffIds.length > 0 && (
+              <div className="mt-0.5 text-[9px] text-muted-foreground text-center">
+                クリックで解除 / 複数選択可
+              </div>
+            )}
           </div>
         )}
       </div>

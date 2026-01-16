@@ -723,7 +723,18 @@ export function ScheduleManager() {
             categoryCounts={categoryCounts}
             compact
           />
-          <GmStatsPanel data={gmStats} compact />
+          <GmStatsPanel
+            data={gmStats}
+            compact
+            selectedStaffIds={selectedGMs}
+            onStaffClick={(staffId) => {
+              setSelectedGMs(prev => 
+                prev.includes(staffId)
+                  ? prev.filter(id => id !== staffId)
+                  : [...prev, staffId]
+              )
+            }}
+          />
         </div>
         
         {/* テーブルヘッダー行（操作行に統合してstickyに） */}
