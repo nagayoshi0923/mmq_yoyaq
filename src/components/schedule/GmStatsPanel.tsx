@@ -33,30 +33,67 @@ export const GmStatsPanel = memo(function GmStatsPanel({
   }
   
   if (compact) {
-    // コンパクトモード：1行表示（横スクロール可能）
+    // コンパクトモード：クリックで展開可能
     return (
-      <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-        <span className="text-[10px] font-medium text-muted-foreground shrink-0 flex items-center gap-0.5">
-          <Users className="h-3 w-3" />
-          GM:
-        </span>
-        <div className="flex gap-0.5 shrink-0">
-          {statCategories.map(cat => (
-            <span
-              key={cat.key}
-              className={cn(
-                "inline-flex items-center gap-0.5 px-1 py-0 rounded text-[10px] font-medium whitespace-nowrap",
-                cat.bgColor, cat.color
-              )}
-            >
-              {cat.label}
-              <span className="opacity-70">{data.totals[cat.key]}</span>
-            </span>
-          ))}
-        </div>
-        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-          {data.byGm.length}名
-        </span>
+      <div className="space-y-1">
+        {/* ヘッダー行（クリックで展開） */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center gap-1 overflow-x-auto scrollbar-hide hover:bg-muted/50 rounded transition-colors"
+        >
+          <span className="text-[10px] font-medium text-muted-foreground shrink-0 flex items-center gap-0.5">
+            <Users className="h-3 w-3" />
+            GM:
+          </span>
+          <div className="flex gap-0.5 shrink-0">
+            {statCategories.map(cat => (
+              <span
+                key={cat.key}
+                className={cn(
+                  "inline-flex items-center gap-0.5 px-1 py-0 rounded text-[10px] font-medium whitespace-nowrap",
+                  cat.bgColor, cat.color
+                )}
+              >
+                {cat.label}
+                <span className="opacity-70">{data.totals[cat.key]}</span>
+              </span>
+            ))}
+          </div>
+          <span className="text-[10px] text-muted-foreground ml-auto shrink-0 flex items-center gap-0.5">
+            {data.byGm.length}名
+            {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </span>
+        </button>
+        
+        {/* 展開時：スタッフ別出勤回数リスト */}
+        {isExpanded && (
+          <div className="bg-muted/30 rounded-md p-1.5 max-h-[200px] overflow-y-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1">
+              {data.byGm.map(gm => (
+                <div
+                  key={gm.staffId}
+                  className="flex items-center justify-between gap-1 bg-background rounded px-1.5 py-0.5 text-[10px]"
+                >
+                  <span className="truncate font-medium">{gm.staffName}</span>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    {gm.working > 0 && (
+                      <span className="px-1 rounded bg-blue-100 text-blue-700">{gm.working}</span>
+                    )}
+                    {gm.cancelled > 0 && (
+                      <span className="px-1 rounded bg-gray-100 text-gray-500 line-through">{gm.cancelled}</span>
+                    )}
+                    {gm.participant > 0 && (
+                      <span className="px-1 rounded bg-green-100 text-green-700">{gm.participant}</span>
+                    )}
+                    {gm.observer > 0 && (
+                      <span className="px-1 rounded bg-orange-100 text-orange-700">{gm.observer}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
