@@ -584,15 +584,15 @@ export function ScheduleManager() {
       className="mx-auto"
       stickyLayout
     >
-      {/* ページヘッダー（他のページと同じ構成） */}
-      <div className="mb-4">
+      {/* ページヘッダー（PageHeaderコンポーネントと完全に同じスタイル） */}
+      <div className="mb-6">
         <div className="flex flex-row items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight break-words flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-primary" />
               スケジュール管理
             </h1>
-            <p className="text-xs text-muted-foreground mt-1.5">
+            <p className="text-xs text-muted-foreground mt-1.5 break-words leading-normal">
               {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月のスケジュールを管理
             </p>
           </div>
@@ -604,18 +604,17 @@ export function ScheduleManager() {
 
       {/* ツールバー（sticky） */}
       <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b -mx-[10px] px-[10px]">
-        <div className="flex items-center h-11 gap-3">
+        <div className="flex items-center h-12 gap-2">
           {/* 月切り替え */}
           <div className="flex items-center shrink-0">
             <Button
               variant="outline"
-              size="icon"
               onClick={() => {
                 const newDate = new Date(currentDate)
                 newDate.setMonth(newDate.getMonth() - 1)
                 setCurrentDate(newDate)
               }}
-              className="h-9 w-9 rounded-r-none border-r-0"
+              className="h-8 w-8 p-0 rounded-md"
               title="前月"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -627,7 +626,7 @@ export function ScheduleManager() {
                 newDate.setFullYear(parseInt(e.target.value))
                 setCurrentDate(newDate)
               }}
-              className="h-9 w-[72px] px-2 text-sm font-medium border-y border-input bg-background hover:bg-accent transition-colors cursor-pointer"
+              className="h-8 w-16 px-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer mx-1"
             >
               {Array.from({ length: 10 }, (_, i) => 2021 + i).map(y => (
                 <option key={y} value={y}>{y}年</option>
@@ -640,7 +639,7 @@ export function ScheduleManager() {
                 newDate.setMonth(parseInt(e.target.value) - 1)
                 setCurrentDate(newDate)
               }}
-              className="h-9 w-[56px] px-2 text-sm font-medium border-y border-input bg-background hover:bg-accent transition-colors cursor-pointer"
+              className="h-8 w-14 px-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                 <option key={m} value={m}>{m}月</option>
@@ -648,21 +647,23 @@ export function ScheduleManager() {
             </select>
             <Button
               variant="outline"
-              size="icon"
               onClick={() => {
                 const newDate = new Date(currentDate)
                 newDate.setMonth(newDate.getMonth() + 1)
                 setCurrentDate(newDate)
               }}
-              className="h-9 w-9 rounded-l-none border-l-0"
+              className="h-8 w-8 p-0 rounded-md ml-1"
               title="次月"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
           
+          {/* 区切り線 */}
+          <div className="hidden sm:block h-6 w-px bg-border mx-1" />
+          
           {/* フィルター */}
-          <div className="hidden sm:flex items-center gap-2 flex-1">
+          <div className="hidden sm:flex items-center gap-1.5 flex-1">
             {gmList.length > 0 && (
               <MultiSelect
                 options={(() => {
@@ -696,7 +697,7 @@ export function ScheduleManager() {
                 placeholder="スタッフ"
                 closeOnSelect={false}
                 useIdAsValue={true}
-                className="h-9 text-sm w-[110px]"
+                className="h-8 text-sm w-24"
               />
             )}
             
@@ -708,7 +709,7 @@ export function ScheduleManager() {
                 hideLabel={true}
                 placeholder="店舗"
                 emptyText=""
-                className="h-9 text-sm w-[110px]"
+                className="h-8 text-sm w-20"
               />
             )}
             
@@ -720,20 +721,19 @@ export function ScheduleManager() {
                 placeholder="出勤者"
                 closeOnSelect={false}
                 useIdAsValue={true}
-                className="h-9 text-sm w-[110px]"
+                className="h-8 text-sm w-20"
               />
             )}
             
             {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedShiftStaff.length > 0) && (
               <Button
                 variant="ghost"
-                size="sm"
                 onClick={() => {
                   setSelectedGMs([])
                   setSelectedStores([])
                   setSelectedShiftStaff([])
                 }}
-                className="h-9 px-3 text-sm text-muted-foreground"
+                className="h-8 px-2 text-sm text-muted-foreground"
               >
                 クリア
               </Button>
@@ -741,13 +741,12 @@ export function ScheduleManager() {
           </div>
           
           {/* アクションボタン */}
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
             <Button 
               variant="outline" 
-              size="icon"
               onClick={() => setIsImportModalOpen(true)}
               title="インポート"
-              className="h-9 w-9"
+              className="h-8 w-8 p-0"
             >
               <Upload className="h-4 w-4" />
             </Button>
@@ -756,7 +755,7 @@ export function ScheduleManager() {
               onClick={handleFillAllSeats}
               disabled={isFillingSeats}
               title="中止以外を満席にする"
-              className="h-9 px-3 text-sm hidden sm:inline-flex"
+              className="h-8 px-2 text-sm hidden sm:inline-flex"
             >
               {isFillingSeats ? '処理中...' : '全満席'}
             </Button>
