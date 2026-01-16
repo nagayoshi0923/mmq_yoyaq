@@ -37,13 +37,13 @@ export const GmStatsPanel = memo(function GmStatsPanel({
   }
   
   if (compact) {
-    // コンパクトモード：クリックで展開可能
+    // コンパクトモード：PCは常時展開、モバイルは折りたたみ可能
     return (
       <div className="space-y-1">
-        {/* ヘッダー行（クリックで展開） */}
-        <button
+        {/* ヘッダー行（モバイルのみクリックで展開） */}
+        <div
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center gap-1 overflow-x-auto scrollbar-hide hover:bg-muted/50 rounded transition-colors"
+          className="w-full flex items-center gap-1 overflow-x-auto scrollbar-hide sm:cursor-default cursor-pointer hover:bg-muted/50 sm:hover:bg-transparent rounded transition-colors"
         >
           <span className="text-[10px] font-medium text-muted-foreground shrink-0 flex items-center gap-0.5">
             <Users className="h-3 w-3" />
@@ -65,12 +65,14 @@ export const GmStatsPanel = memo(function GmStatsPanel({
           </div>
           <span className="text-[10px] text-muted-foreground ml-auto shrink-0 flex items-center gap-0.5">
             {data.byGm.length}名
-            {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            <span className="sm:hidden">
+              {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </span>
           </span>
-        </button>
+        </div>
         
-        {/* 展開時：スタッフ別出勤回数リスト（クリックでフィルター） */}
-        {isExpanded && (
+        {/* 展開時：スタッフ別出勤回数リスト（クリックでフィルター） - PCは常時表示 */}
+        <div className={cn("sm:block", isExpanded ? "block" : "hidden")}>
           <div className="bg-muted/30 rounded px-1 py-0.5 max-h-[120px] overflow-y-auto">
             <div className="flex flex-wrap gap-0.5">
               {data.byGm.map(gm => {
@@ -118,7 +120,7 @@ export const GmStatsPanel = memo(function GmStatsPanel({
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
     )
   }
