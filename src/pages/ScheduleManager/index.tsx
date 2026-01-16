@@ -25,6 +25,7 @@ import type { Staff } from '@/types'
 
 // Layout Components
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 // UI Components
 import { Button } from '@/components/ui/button'
@@ -584,23 +585,17 @@ export function ScheduleManager() {
       className="mx-auto"
       stickyLayout
     >
-      {/* ページヘッダー（PageHeaderコンポーネントと完全に同じスタイル） */}
-      <div className="mb-6">
-        <div className="flex flex-row items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold tracking-tight break-words flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              スケジュール管理
-            </h1>
-            <p className="text-xs text-muted-foreground mt-1.5 break-words leading-normal">
-              {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月のスケジュールを管理
-            </p>
+      <PageHeader
+        title={
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-primary" />
+            スケジュール管理
           </div>
-          <div className="flex gap-2 flex-shrink-0 items-start">
-            <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
-          </div>
-        </div>
-      </div>
+        }
+        description={`${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月のスケジュールを管理`}
+      >
+        <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
+      </PageHeader>
 
       {/* ツールバー（sticky） */}
       <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b -mx-[10px] px-[10px]">
