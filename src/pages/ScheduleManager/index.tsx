@@ -586,176 +586,172 @@ export function ScheduleManager() {
     >
       {/* 操作行（PC:sticky、モバイル:通常） */}
       <div data-schedule-toolbar className="sticky top-0 z-40 bg-background border-b -mx-[10px] px-[10px]">
-        {/* 1行目: タイトル + 月切り替え + アクション */}
-        <div className="flex items-center justify-between h-11 gap-3">
-          {/* 左: タイトル + 月切り替え */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              <h1 className="text-lg font-bold hidden sm:block">スケジュール管理</h1>
-              <h1 className="text-base font-bold sm:hidden">スケジュール</h1>
-            </div>
-            
-            {/* 月切り替え - コンパクト版 */}
-            <div className="flex items-center">
-              <button
-                onClick={() => {
-                  const newDate = new Date(currentDate)
-                  newDate.setMonth(newDate.getMonth() - 1)
-                  setCurrentDate(newDate)
-                }}
-                className="h-8 w-8 flex items-center justify-center rounded-md border bg-white hover:bg-muted transition-colors"
-                title="前月"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <div className="flex items-center gap-0.5 mx-1">
-                <select
-                  value={currentDate.getFullYear()}
-                  onChange={(e) => {
-                    const newDate = new Date(currentDate)
-                    newDate.setFullYear(parseInt(e.target.value))
-                    setCurrentDate(newDate)
-                  }}
-                  className="h-8 px-2 text-sm font-medium border rounded-md bg-white hover:bg-muted transition-colors cursor-pointer appearance-none"
-                >
-                  {Array.from({ length: 10 }, (_, i) => 2021 + i).map(y => (
-                    <option key={y} value={y}>{y}年</option>
-                  ))}
-                </select>
-                <select
-                  value={currentDate.getMonth() + 1}
-                  onChange={(e) => {
-                    const newDate = new Date(currentDate)
-                    newDate.setMonth(parseInt(e.target.value) - 1)
-                    setCurrentDate(newDate)
-                  }}
-                  className="h-8 px-2 text-sm font-medium border rounded-md bg-white hover:bg-muted transition-colors cursor-pointer appearance-none"
-                >
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                    <option key={m} value={m}>{m}月</option>
-                  ))}
-                </select>
-              </div>
-              <button
-                onClick={() => {
-                  const newDate = new Date(currentDate)
-                  newDate.setMonth(newDate.getMonth() + 1)
-                  setCurrentDate(newDate)
-                }}
-                className="h-8 w-8 flex items-center justify-center rounded-md border bg-white hover:bg-muted transition-colors"
-                title="次月"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+        {/* 1行目: タイトル + 月切り替え + フィルター + アクション */}
+        <div className="flex items-center h-12 gap-4">
+          {/* タイトル */}
+          <div className="flex items-center gap-2 shrink-0">
+            <CalendarDays className="h-5 w-5 text-primary" />
+            <h1 className="text-lg font-bold hidden md:block">スケジュール管理</h1>
+            <h1 className="text-base font-bold md:hidden">スケジュール</h1>
           </div>
           
-          {/* 右: アクションボタン */}
-          <div className="flex items-center gap-1.5">
+          {/* 月切り替え */}
+          <div className="flex items-center shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                const newDate = new Date(currentDate)
+                newDate.setMonth(newDate.getMonth() - 1)
+                setCurrentDate(newDate)
+              }}
+              className="h-9 w-9 rounded-r-none border-r-0"
+              title="前月"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <select
+              value={currentDate.getFullYear()}
+              onChange={(e) => {
+                const newDate = new Date(currentDate)
+                newDate.setFullYear(parseInt(e.target.value))
+                setCurrentDate(newDate)
+              }}
+              className="h-9 w-[72px] px-2 text-sm font-medium border-y border-input bg-background hover:bg-accent transition-colors cursor-pointer"
+            >
+              {Array.from({ length: 10 }, (_, i) => 2021 + i).map(y => (
+                <option key={y} value={y}>{y}年</option>
+              ))}
+            </select>
+            <select
+              value={currentDate.getMonth() + 1}
+              onChange={(e) => {
+                const newDate = new Date(currentDate)
+                newDate.setMonth(parseInt(e.target.value) - 1)
+                setCurrentDate(newDate)
+              }}
+              className="h-9 w-[56px] px-2 text-sm font-medium border-y border-input bg-background hover:bg-accent transition-colors cursor-pointer"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                <option key={m} value={m}>{m}月</option>
+              ))}
+            </select>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                const newDate = new Date(currentDate)
+                newDate.setMonth(newDate.getMonth() + 1)
+                setCurrentDate(newDate)
+              }}
+              className="h-9 w-9 rounded-l-none border-l-0"
+              title="次月"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {/* フィルター（PCのみ） */}
+          <div className="hidden sm:flex items-center gap-2 flex-1">
+            {gmList.length > 0 && (
+              <MultiSelect
+                options={(() => {
+                  const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+                  const staffWithShift = new Set<string>()
+                  Object.values(shiftData).forEach((staffList: Staff[]) => {
+                    staffList.forEach(s => staffWithShift.add(s.id))
+                  })
+                  return [...gmList]
+                    .sort((a, b) => {
+                      const aHasShift = staffWithShift.has(a.id)
+                      const bHasShift = staffWithShift.has(b.id)
+                      if (aHasShift && !bHasShift) return -1
+                      if (!aHasShift && bHasShift) return 1
+                      return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
+                    })
+                    .map((staff) => {
+                      const hasShift = staffWithShift.has(staff.id)
+                      return {
+                        id: staff.id,
+                        name: staff.display_name || staff.name,
+                        displayInfo: hasShift ? (
+                          <span className="text-[9px] text-green-600">●</span>
+                        ) : undefined,
+                        displayInfoSearchText: hasShift ? '提出済' : undefined
+                      }
+                    })
+                })()}
+                selectedValues={selectedGMs}
+                onSelectionChange={setSelectedGMs}
+                placeholder="スタッフ"
+                closeOnSelect={false}
+                useIdAsValue={true}
+                className="h-9 text-sm w-[110px]"
+              />
+            )}
+            
+            {scheduleTableProps.viewConfig.stores.length > 0 && (
+              <StoreMultiSelect
+                stores={scheduleTableProps.viewConfig.stores}
+                selectedStoreIds={selectedStores}
+                onStoreIdsChange={setSelectedStores}
+                hideLabel={true}
+                placeholder="店舗"
+                emptyText=""
+                className="h-9 text-sm w-[110px]"
+              />
+            )}
+            
+            {shiftStaffOptions.length > 0 && (
+              <MultiSelect
+                options={shiftStaffOptions}
+                selectedValues={selectedShiftStaff}
+                onSelectionChange={setSelectedShiftStaff}
+                placeholder="出勤者"
+                closeOnSelect={false}
+                useIdAsValue={true}
+                className="h-9 text-sm w-[110px]"
+              />
+            )}
+            
+            {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedShiftStaff.length > 0) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedGMs([])
+                  setSelectedStores([])
+                  setSelectedShiftStaff([])
+                }}
+                className="h-9 px-3 text-sm text-muted-foreground"
+              >
+                クリア
+              </Button>
+            )}
+          </div>
+          
+          {/* アクションボタン */}
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
             <Button 
               variant="outline" 
               size="icon"
               onClick={() => setIsImportModalOpen(true)}
               title="インポート"
-              className="h-8 w-8"
+              className="h-9 w-9"
             >
               <Upload className="h-4 w-4" />
             </Button>
             <Button 
               variant="outline" 
-              size="sm"
               onClick={handleFillAllSeats}
               disabled={isFillingSeats}
               title="中止以外を満席にする"
-              className="h-8 text-xs px-3 hidden sm:inline-flex"
+              className="h-9 px-3 text-sm hidden sm:inline-flex"
             >
               {isFillingSeats ? '処理中...' : '全満席'}
             </Button>
             <HelpButton topic="schedule" label="スケジュール管理マニュアル" />
           </div>
-        </div>
-        
-        {/* 2行目: フィルター（検索機能付きMultiSelect） */}
-        <div className="flex items-center gap-1.5 h-9 border-t border-muted/50">
-          {/* スタッフフィルター */}
-          {gmList.length > 0 && (
-            <MultiSelect
-              options={(() => {
-                const shiftData = scheduleTableProps.dataProvider.shiftData || {}
-                const staffWithShift = new Set<string>()
-                Object.values(shiftData).forEach((staffList: Staff[]) => {
-                  staffList.forEach(s => staffWithShift.add(s.id))
-                })
-                return [...gmList]
-                  .sort((a, b) => {
-                    const aHasShift = staffWithShift.has(a.id)
-                    const bHasShift = staffWithShift.has(b.id)
-                    if (aHasShift && !bHasShift) return -1
-                    if (!aHasShift && bHasShift) return 1
-                    return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
-                  })
-                  .map((staff) => {
-                    const hasShift = staffWithShift.has(staff.id)
-                    return {
-                      id: staff.id,
-                      name: staff.display_name || staff.name,
-                      displayInfo: hasShift ? (
-                        <span className="text-[9px] text-green-600">●</span>
-                      ) : undefined,
-                      displayInfoSearchText: hasShift ? '提出済' : undefined
-                    }
-                  })
-              })()}
-              selectedValues={selectedGMs}
-              onSelectionChange={setSelectedGMs}
-              placeholder="スタッフ"
-              closeOnSelect={false}
-              useIdAsValue={true}
-              className="h-8 text-xs w-[100px]"
-            />
-          )}
-          
-          {/* 店舗フィルター */}
-          {scheduleTableProps.viewConfig.stores.length > 0 && (
-            <StoreMultiSelect
-              stores={scheduleTableProps.viewConfig.stores}
-              selectedStoreIds={selectedStores}
-              onStoreIdsChange={setSelectedStores}
-              hideLabel={true}
-              placeholder="店舗"
-              emptyText=""
-              className="h-8 text-xs w-[100px]"
-            />
-          )}
-          
-          {/* 出勤者フィルター */}
-          {shiftStaffOptions.length > 0 && (
-            <MultiSelect
-              options={shiftStaffOptions}
-              selectedValues={selectedShiftStaff}
-              onSelectionChange={setSelectedShiftStaff}
-              placeholder="出勤者"
-              closeOnSelect={false}
-              useIdAsValue={true}
-              className="h-8 text-xs w-[100px]"
-            />
-          )}
-          
-          {/* フィルタークリア */}
-          {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedShiftStaff.length > 0) && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSelectedGMs([])
-                setSelectedStores([])
-                setSelectedShiftStaff([])
-              }}
-              className="h-8 px-3 text-xs"
-            >
-              クリア
-            </Button>
-          )}
         </div>
 
         {/* カテゴリータブ + GM統計（コンパクト） */}
