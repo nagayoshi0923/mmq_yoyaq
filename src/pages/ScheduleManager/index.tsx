@@ -18,6 +18,7 @@ import { useOrganization } from '@/hooks/useOrganization'
 // Custom Hooks (ScheduleManager専用)
 import { useCategoryFilter } from './hooks/useCategoryFilter'
 import { useMonthNavigation } from './hooks/useMonthNavigation'
+import { useGmStats } from './hooks/useGmStats'
 
 // Types
 import type { Staff } from '@/types'
@@ -40,6 +41,7 @@ import { MoveOrCopyDialog } from '@/components/schedule/MoveOrCopyDialog'
 import { PerformanceModal } from '@/components/schedule/PerformanceModal'
 import { HistoryModal } from '@/components/schedule/modal/HistoryModal'
 import { CategoryTabs } from '@/components/schedule/CategoryTabs'
+import { GmStatsPanel } from '@/components/schedule/GmStatsPanel'
 import { ScheduleTable } from '@/components/schedule/ScheduleTable'
 import { ScheduleDialogs } from '@/components/schedule/ScheduleDialogs'
 
@@ -418,15 +420,20 @@ export function ScheduleManager() {
 
   // カテゴリーフィルター（ScheduleManager独自機能）
   const timeSlots = ['morning', 'afternoon', 'evening'] as const
-  const { selectedCategory, setSelectedCategory, categoryCounts } = useCategoryFilter(
+  const allEventsForMonth = useMemo(() => 
     scheduleTableProps.viewConfig.stores.flatMap(store => 
       timeSlots.flatMap(timeSlot => 
         monthDays.flatMap(day => 
           scheduleTableProps.dataProvider.getEventsForSlot(day.date, store.id, timeSlot)
         )
       )
-    )
+    ),
+    [scheduleTableProps.viewConfig.stores, scheduleTableProps.dataProvider.getEventsForSlot, monthDays]
   )
+  const { selectedCategory, setSelectedCategory, categoryCounts } = useCategoryFilter(allEventsForMonth)
+  
+  // GM出勤統計（ScheduleManager独自機能）
+  const gmStats = useGmStats(allEventsForMonth, gmList)
 
   // スタッフリスト取得
   useEffect(() => {
@@ -708,14 +715,15 @@ export function ScheduleManager() {
             </div>
           </div>
 
-        {/* カテゴリータブ（コンパクト） */}
-        <div className="py-1 border-t border-muted">
+        {/* カテゴリータブ + GM統計（コンパクト） */}
+        <div className="py-1 border-t border-muted space-y-0.5">
           <CategoryTabs
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
             categoryCounts={categoryCounts}
             compact
           />
+          <GmStatsPanel data={gmStats} compact />
         </div>
         
         {/* テーブルヘッダー行（操作行に統合してstickyに） */}
