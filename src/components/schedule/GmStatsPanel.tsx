@@ -67,26 +67,26 @@ export const GmStatsPanel = memo(function GmStatsPanel({
         
         {/* 展開時：スタッフ別出勤回数リスト */}
         {isExpanded && (
-          <div className="bg-muted/30 rounded-md p-1.5 max-h-[200px] overflow-y-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1">
+          <div className="bg-muted/30 rounded px-1 py-0.5 max-h-[150px] overflow-y-auto">
+            <div className="flex flex-wrap gap-x-2 gap-y-0">
               {data.byGm.map(gm => (
                 <div
                   key={gm.staffId}
-                  className="flex items-center justify-between gap-1 bg-background rounded px-1.5 py-0.5 text-[10px]"
+                  className="flex items-center gap-0.5 text-[10px] leading-tight"
                 >
-                  <span className="truncate font-medium">{gm.staffName}</span>
-                  <div className="flex items-center gap-0.5 shrink-0">
+                  <span className="font-medium">{gm.staffName}</span>
+                  <div className="flex items-center shrink-0">
                     {gm.working > 0 && (
-                      <span className="px-1 rounded bg-blue-100 text-blue-700">{gm.working}</span>
+                      <span className="text-blue-700 font-medium">{gm.working}</span>
                     )}
                     {gm.cancelled > 0 && (
-                      <span className="px-1 rounded bg-gray-100 text-gray-500 line-through">{gm.cancelled}</span>
+                      <span className="text-gray-400 line-through ml-0.5">{gm.cancelled}</span>
                     )}
                     {gm.participant > 0 && (
-                      <span className="px-1 rounded bg-green-100 text-green-700">{gm.participant}</span>
+                      <span className="text-green-700 ml-0.5">{gm.participant}</span>
                     )}
                     {gm.observer > 0 && (
-                      <span className="px-1 rounded bg-orange-100 text-orange-700">{gm.observer}</span>
+                      <span className="text-orange-600 ml-0.5">{gm.observer}</span>
                     )}
                   </div>
                 </div>
