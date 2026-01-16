@@ -162,7 +162,7 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-7 flex items-center justify-between px-2 text-xs border rounded-md bg-white hover:bg-accent hover:text-accent-foreground transition-colors text-left"
+        className="w-full h-8 flex items-center justify-between px-2 text-xs border rounded-md bg-white hover:bg-accent hover:text-accent-foreground transition-colors text-left"
       >
         <span className="truncate">
           {selectedStoreIds.length === 0 
