@@ -158,11 +158,11 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
         </label>
       )}
       
-      {/* ドロップダウントリガー - MultiSelectと同じスタイル */}
+      {/* ドロップダウントリガー - MultiSelectのButtonと完全に同じスタイル */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-8 flex items-center justify-between px-2 text-xs border rounded-md bg-white hover:bg-accent hover:text-accent-foreground transition-colors text-left"
+        className="inline-flex items-center justify-between w-full h-8 px-3 text-xs font-normal bg-white border border-input rounded-md shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <span className="truncate">
           {selectedStoreIds.length === 0 

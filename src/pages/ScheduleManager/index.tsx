@@ -712,13 +712,13 @@ export function ScheduleManager() {
               placeholder="スタッフ"
               closeOnSelect={false}
               useIdAsValue={true}
-              className="h-8 text-xs w-[90px]"
+              className="h-8 text-xs w-[100px]"
             />
           )}
           
           {/* 店舗フィルター */}
           {scheduleTableProps.viewConfig.stores.length > 0 && (
-            <div className="w-[80px]">
+            <div className="w-[100px]">
               <StoreMultiSelect
                 stores={scheduleTableProps.viewConfig.stores}
                 selectedStoreIds={selectedStores}
@@ -739,7 +739,7 @@ export function ScheduleManager() {
               placeholder="出勤者"
               closeOnSelect={false}
               useIdAsValue={true}
-              className="h-8 text-xs w-[90px]"
+              className="h-8 text-xs w-[100px]"
             />
           )}
           
