@@ -580,7 +580,7 @@ export function ScheduleManager() {
     <AppLayout
       currentPage="schedule" 
       maxWidth="max-w-[1440px]"
-      containerPadding="px-[10px] py-0"
+      containerPadding="px-[10px] py-4"
       className="mx-auto"
       stickyLayout
     >
@@ -626,7 +626,7 @@ export function ScheduleManager() {
                 newDate.setFullYear(parseInt(e.target.value))
                 setCurrentDate(newDate)
               }}
-              className="h-8 w-16 px-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer mx-1"
+              className="h-8 w-[76px] px-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer mx-1"
             >
               {Array.from({ length: 10 }, (_, i) => 2021 + i).map(y => (
                 <option key={y} value={y}>{y}年</option>
@@ -697,7 +697,7 @@ export function ScheduleManager() {
                 placeholder="スタッフ"
                 closeOnSelect={false}
                 useIdAsValue={true}
-                className="h-8 text-sm w-24"
+                className="h-8 text-sm w-[88px]"
               />
             )}
             
@@ -709,7 +709,7 @@ export function ScheduleManager() {
                 hideLabel={true}
                 placeholder="店舗"
                 emptyText=""
-                className="h-8 text-sm w-20"
+                className="h-8 text-sm w-[72px]"
               />
             )}
             
@@ -721,7 +721,7 @@ export function ScheduleManager() {
                 placeholder="出勤者"
                 closeOnSelect={false}
                 useIdAsValue={true}
-                className="h-8 text-sm w-20"
+                className="h-8 text-sm w-[88px]"
               />
             )}
             
@@ -741,7 +741,7 @@ export function ScheduleManager() {
           </div>
           
           {/* アクションボタン */}
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
             <Button 
               variant="outline" 
               onClick={() => setIsImportModalOpen(true)}
@@ -755,7 +755,7 @@ export function ScheduleManager() {
               onClick={handleFillAllSeats}
               disabled={isFillingSeats}
               title="中止以外を満席にする"
-              className="h-8 px-2 text-sm hidden sm:inline-flex"
+              className="h-8 px-3 text-sm hidden sm:inline-flex whitespace-nowrap"
             >
               {isFillingSeats ? '処理中...' : '全満席'}
             </Button>
