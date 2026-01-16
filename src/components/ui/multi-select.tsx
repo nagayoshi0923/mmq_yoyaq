@@ -131,7 +131,7 @@ export function MultiSelect({
   }
 
   return (
-    <div className="space-y-2">
+    <div>
       <Popover open={open} onOpenChange={setOpen} modal={true}>
         <PopoverTrigger asChild>
           <Button
@@ -139,7 +139,7 @@ export function MultiSelect({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "w-full justify-between font-normal",
+              "w-full justify-between font-normal bg-white",
               className
             )}
             disabled={disabled}

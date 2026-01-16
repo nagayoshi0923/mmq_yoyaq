@@ -158,20 +158,20 @@ export const StoreMultiSelect = memo(function StoreMultiSelect({
         </label>
       )}
       
-      {/* ドロップダウントリガー */}
+      {/* ドロップダウントリガー - MultiSelectと同じスタイル */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-full flex items-center justify-between px-2 py-1.5 border rounded-md bg-white hover:bg-gray-50 transition-colors text-left ${isOpen ? 'ring-1 ring-primary' : ''}`}
+        className="w-full h-7 flex items-center justify-between px-2 text-xs border rounded-md bg-white hover:bg-accent hover:text-accent-foreground transition-colors text-left"
       >
         <span className="truncate">
           {selectedStoreIds.length === 0 
             ? placeholder 
             : `${selectedStoreIds.length}店舗`}
         </span>
-        <span className={`text-gray-400 transition-transform text-[10px] ml-1 ${isOpen ? 'rotate-180' : ''}`}>
-          ▼
-        </span>
+        <svg className="ml-1 h-3 w-3 shrink-0 opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
       </button>
       
       {/* 展開時のチェックリスト */}

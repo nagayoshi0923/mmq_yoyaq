@@ -639,69 +639,74 @@ export function ScheduleManager() {
         </div>
         
         {/* 2行目: フィルター（PCは常に表示、モバイルはトグル） */}
-        <div className={`flex items-center gap-1 py-1 border-t border-muted/50 ${showMobileFilters ? 'flex-wrap' : 'hidden sm:flex'}`}>
+        <div className={`flex items-center gap-1.5 py-1 border-t border-muted/50 ${showMobileFilters ? 'flex-wrap' : 'hidden sm:flex'}`}>
           {/* スタッフフィルター */}
           {gmList.length > 0 && (
-            <MultiSelect
-              options={(() => {
-                const shiftData = scheduleTableProps.dataProvider.shiftData || {}
-                const staffWithShift = new Set<string>()
-                Object.values(shiftData).forEach((staffList: Staff[]) => {
-                  staffList.forEach(s => staffWithShift.add(s.id))
-                })
-                return [...gmList]
-                  .sort((a, b) => {
-                    const aHasShift = staffWithShift.has(a.id)
-                    const bHasShift = staffWithShift.has(b.id)
-                    if (aHasShift && !bHasShift) return -1
-                    if (!aHasShift && bHasShift) return 1
-                    return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
+            <div className="w-full sm:w-24">
+              <MultiSelect
+                options={(() => {
+                  const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+                  const staffWithShift = new Set<string>()
+                  Object.values(shiftData).forEach((staffList: Staff[]) => {
+                    staffList.forEach(s => staffWithShift.add(s.id))
                   })
-                  .map((staff) => {
-                    const hasShift = staffWithShift.has(staff.id)
-                    return {
-                      id: staff.id,
-                      name: staff.display_name || staff.name,
-                      displayInfo: hasShift ? (
-                        <span className="text-[9px] text-green-600">●</span>
-                      ) : undefined,
-                      displayInfoSearchText: hasShift ? '提出済' : undefined
-                    }
-                  })
-              })()}
-              selectedValues={selectedGMs}
-              onSelectionChange={setSelectedGMs}
-              placeholder="スタッフ"
-              closeOnSelect={false}
-              useIdAsValue={true}
-              className="h-7 text-xs w-full sm:w-[110px] px-2 bg-white"
-            />
+                  return [...gmList]
+                    .sort((a, b) => {
+                      const aHasShift = staffWithShift.has(a.id)
+                      const bHasShift = staffWithShift.has(b.id)
+                      if (aHasShift && !bHasShift) return -1
+                      if (!aHasShift && bHasShift) return 1
+                      return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
+                    })
+                    .map((staff) => {
+                      const hasShift = staffWithShift.has(staff.id)
+                      return {
+                        id: staff.id,
+                        name: staff.display_name || staff.name,
+                        displayInfo: hasShift ? (
+                          <span className="text-[9px] text-green-600">●</span>
+                        ) : undefined,
+                        displayInfoSearchText: hasShift ? '提出済' : undefined
+                      }
+                    })
+                })()}
+                selectedValues={selectedGMs}
+                onSelectionChange={setSelectedGMs}
+                placeholder="スタッフ"
+                closeOnSelect={false}
+                useIdAsValue={true}
+                className="h-7 text-xs"
+              />
+            </div>
           )}
           
           {/* 店舗フィルター */}
           {scheduleTableProps.viewConfig.stores.length > 0 && (
-            <StoreMultiSelect
-              stores={scheduleTableProps.viewConfig.stores}
-              selectedStoreIds={selectedStores}
-              onStoreIdsChange={setSelectedStores}
-              hideLabel={true}
-              placeholder="店舗"
-              emptyText=""
-              className="h-7 text-xs w-full sm:w-[100px] px-2 bg-white"
-            />
+            <div className="w-full sm:w-20">
+              <StoreMultiSelect
+                stores={scheduleTableProps.viewConfig.stores}
+                selectedStoreIds={selectedStores}
+                onStoreIdsChange={setSelectedStores}
+                hideLabel={true}
+                placeholder="店舗"
+                emptyText=""
+              />
+            </div>
           )}
           
           {/* シフト提出者フィルター */}
           {shiftStaffOptions.length > 0 && (
-            <MultiSelect
-              options={shiftStaffOptions}
-              selectedValues={selectedShiftStaff}
-              onSelectionChange={setSelectedShiftStaff}
-              placeholder="出勤者"
-              closeOnSelect={false}
-              useIdAsValue={true}
-              className="h-7 text-xs w-full sm:w-[110px] px-2 bg-white"
-            />
+            <div className="w-full sm:w-24">
+              <MultiSelect
+                options={shiftStaffOptions}
+                selectedValues={selectedShiftStaff}
+                onSelectionChange={setSelectedShiftStaff}
+                placeholder="出勤者"
+                closeOnSelect={false}
+                useIdAsValue={true}
+                className="h-7 text-xs"
+              />
+            </div>
           )}
           
           {/* フィルタークリアボタン（選択時のみ表示） */}
@@ -712,9 +717,9 @@ export function ScheduleManager() {
                 setSelectedStores([])
                 setSelectedShiftStaff([])
               }}
-              className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-md border transition-colors"
             >
-              ✕ クリア
+              クリア
             </button>
           )}
         </div>
