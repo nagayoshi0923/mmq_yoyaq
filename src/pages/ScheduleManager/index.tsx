@@ -676,87 +676,86 @@ export function ScheduleManager() {
           </div>
         </div>
         
-        {/* 2行目: フィルター */}
+        {/* 2行目: フィルター（検索機能付きMultiSelect） */}
         <div className="flex items-center gap-1.5 h-9 border-t border-muted/50">
-          {/* フィルター */}
-          <div className="flex items-center gap-1.5">
-            {gmList.length > 0 && (
-              <select
-                value={selectedGMs.length === 1 ? selectedGMs[0] : ''}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSelectedGMs([e.target.value])
-                  } else {
-                    setSelectedGMs([])
-                  }
-                }}
-                className="h-7 px-2 text-xs border rounded-md bg-white hover:bg-muted transition-colors cursor-pointer min-w-[80px]"
-              >
-                <option value="">スタッフ</option>
-                {gmList.map(staff => (
-                  <option key={staff.id} value={staff.id}>
-                    {staff.display_name || staff.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            
-            {scheduleTableProps.viewConfig.stores.length > 0 && (
-              <select
-                value={selectedStores.length === 1 ? selectedStores[0] : ''}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSelectedStores([e.target.value])
-                  } else {
-                    setSelectedStores([])
-                  }
-                }}
-                className="h-7 px-2 text-xs border rounded-md bg-white hover:bg-muted transition-colors cursor-pointer min-w-[70px]"
-              >
-                <option value="">店舗</option>
-                {scheduleTableProps.viewConfig.stores.map(store => (
-                  <option key={store.id} value={store.id}>
-                    {store.short_name || store.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            
-            {shiftStaffOptions.length > 0 && (
-              <select
-                value={selectedShiftStaff.length === 1 ? selectedShiftStaff[0] : ''}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSelectedShiftStaff([e.target.value])
-                  } else {
-                    setSelectedShiftStaff([])
-                  }
-                }}
-                className="h-7 px-2 text-xs border rounded-md bg-white hover:bg-muted transition-colors cursor-pointer min-w-[80px]"
-              >
-                <option value="">出勤者</option>
-                {shiftStaffOptions.map(staff => (
-                  <option key={staff.id} value={staff.id}>
-                    {staff.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            
-            {/* フィルタークリア */}
-            {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedShiftStaff.length > 0) && (
-              <button
-                onClick={() => {
-                  setSelectedGMs([])
-                  setSelectedStores([])
-                  setSelectedShiftStaff([])
-                }}
-                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-md border transition-colors"
-              >
-                クリア
-              </button>
-            )}
-          </div>
+          {/* スタッフフィルター */}
+          {gmList.length > 0 && (
+            <MultiSelect
+              options={(() => {
+                const shiftData = scheduleTableProps.dataProvider.shiftData || {}
+                const staffWithShift = new Set<string>()
+                Object.values(shiftData).forEach((staffList: Staff[]) => {
+                  staffList.forEach(s => staffWithShift.add(s.id))
+                })
+                return [...gmList]
+                  .sort((a, b) => {
+                    const aHasShift = staffWithShift.has(a.id)
+                    const bHasShift = staffWithShift.has(b.id)
+                    if (aHasShift && !bHasShift) return -1
+                    if (!aHasShift && bHasShift) return 1
+                    return (a.display_name || a.name).localeCompare(b.display_name || b.name, 'ja')
+                  })
+                  .map((staff) => {
+                    const hasShift = staffWithShift.has(staff.id)
+                    return {
+                      id: staff.id,
+                      name: staff.display_name || staff.name,
+                      displayInfo: hasShift ? (
+                        <span className="text-[9px] text-green-600">●</span>
+                      ) : undefined,
+                      displayInfoSearchText: hasShift ? '提出済' : undefined
+                    }
+                  })
+              })()}
+              selectedValues={selectedGMs}
+              onSelectionChange={setSelectedGMs}
+              placeholder="スタッフ"
+              closeOnSelect={false}
+              useIdAsValue={true}
+              className="h-8 text-xs w-[90px]"
+            />
+          )}
+          
+          {/* 店舗フィルター */}
+          {scheduleTableProps.viewConfig.stores.length > 0 && (
+            <div className="w-[80px]">
+              <StoreMultiSelect
+                stores={scheduleTableProps.viewConfig.stores}
+                selectedStoreIds={selectedStores}
+                onStoreIdsChange={setSelectedStores}
+                hideLabel={true}
+                placeholder="店舗"
+                emptyText=""
+              />
+            </div>
+          )}
+          
+          {/* 出勤者フィルター */}
+          {shiftStaffOptions.length > 0 && (
+            <MultiSelect
+              options={shiftStaffOptions}
+              selectedValues={selectedShiftStaff}
+              onSelectionChange={setSelectedShiftStaff}
+              placeholder="出勤者"
+              closeOnSelect={false}
+              useIdAsValue={true}
+              className="h-8 text-xs w-[90px]"
+            />
+          )}
+          
+          {/* フィルタークリア */}
+          {(selectedGMs.length > 0 || selectedStores.length > 0 || selectedShiftStaff.length > 0) && (
+            <button
+              onClick={() => {
+                setSelectedGMs([])
+                setSelectedStores([])
+                setSelectedShiftStaff([])
+              }}
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-md border bg-white transition-colors"
+            >
+              クリア
+            </button>
+          )}
         </div>
 
         {/* カテゴリータブ + GM統計（コンパクト） */}
