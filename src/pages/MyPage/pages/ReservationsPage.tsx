@@ -537,8 +537,8 @@ export function ReservationsPage() {
           end_time: e.end_time,
           max_participants: e.max_participants || 0,
           current_participants: e.current_participants || 0,
-          store_name: (e.stores as any)?.name || '未定',
-          store_id: (e.stores as any)?.id || ''
+          store_name: (e.stores as { name?: string } | null)?.name || '未定',
+          store_id: (e.stores as { id?: string } | null)?.id || ''
         }))
 
       setAvailableEvents(availableEventsData)

@@ -159,8 +159,8 @@ export function PlatformTop() {
         const scenarioMap: Record<string, ScenarioWithEvents> = {}
         
         eventData.forEach(e => {
-          const scenario = e.scenarios as any
-          const store = e.stores as any
+          const scenario = e.scenarios as { id: string; title: string; status: string; organization_id: string; key_visual_url?: string | null; genre?: string[] } | null
+          const store = e.stores as { id: string; name: string } | null
           
           // 基本チェック
           if (!scenario || !store || scenario.status !== 'available') return

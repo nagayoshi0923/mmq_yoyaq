@@ -88,7 +88,7 @@ export function PlatformScenarioSearch() {
         if (error) throw error
         
         const formattedScenarios = (data || []).map(s => {
-          const org = s.organizations as any
+          const org = s.organizations as { slug?: string; name?: string } | null
           return {
             ...s,
             genre: s.genre || [],

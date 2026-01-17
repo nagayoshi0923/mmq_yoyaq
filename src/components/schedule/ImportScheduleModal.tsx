@@ -294,6 +294,23 @@ interface PreviewEvent {
   notes?: string  // メモ/備考
 }
 
+// インポート処理用の拡張型（内部フラグを含む）
+interface ParsedImportEvent {
+  date: string
+  venue: string
+  store_id?: string
+  scenario: string
+  start_time: string
+  end_time: string
+  gms: string[]
+  category: string
+  notes?: string
+  // 内部フラグ（プレビュー・インポート処理用）
+  isMemo?: boolean
+  _isMemo?: boolean
+  _memoText?: string
+}
+
 // GM役割オプション（公演ダイアログと色を統一）
 const GM_ROLE_OPTIONS = [
   { value: 'main', label: 'メインGM', color: 'bg-gray-100 text-gray-800' },
@@ -319,7 +336,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewEvents, setPreviewEvents] = useState<PreviewEvent[]>([])
   const [previewErrors, setPreviewErrors] = useState<string[]>([])
-  const [parsedEvents, setParsedEvents] = useState<any[]>([])
+  const [parsedEvents, setParsedEvents] = useState<ParsedImportEvent[]>([])
   const [existingEventMap, setExistingEventMap] = useState<Map<string, any>>(new Map())
   const [importTargetMonth, setImportTargetMonth] = useState<{ year: number; month: number } | null>(null)
   const tableContainerRef = useRef<HTMLDivElement>(null)
@@ -1006,8 +1023,8 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         // 内部用フィールドを除去してDBに保存するデータを作成
         // 必要なフィールドのみを明示的に抽出（文字列はサニタイズ）
         // isMemo はプレビューでカテゴリを「メモ」に変更した場合に true になる
-        const isMemo = (event as any).isMemo || (event as any)._isMemo
-        const memoText = sanitizeText((event as any)._memoText || event.notes || event.scenario)
+        const isMemo = event.isMemo || event._isMemo
+        const memoText = sanitizeText(event._memoText || event.notes || event.scenario)
         
         // DBで許可されているカテゴリのみを使用
         // memo と mtg は open にマッピング（DBに存在しないため）

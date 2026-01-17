@@ -49,12 +49,72 @@ export interface ScheduleTableDisplayConfig {
   getReservationBadgeClass: (current: number, max: number) => string
 }
 
+// モーダル関連の型定義
+export interface ScheduleTableModals {
+  performanceModal: {
+    isOpen: boolean
+    onClose: () => void
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onSave: (eventData: any) => Promise<boolean>
+    mode: 'add' | 'edit'
+    event: ScheduleEvent | null
+    initialData?: { date: string; venue: string; time_slot: string; suggestedStartTime?: string }
+    stores: Store[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    scenarios: any[]
+    staff: Staff[]
+    availableStaffByScenario?: Record<string, Staff[]>
+    allAvailableStaff?: Staff[]
+    onParticipantChange?: (eventId: string, newCount: number) => void
+  }
+  performance: {
+    handleOpenPerformanceModal: (date: string, storeId: string, timeSlot: string) => void
+  }
+  conflictWarning: {
+    isOpen: boolean
+    onClose: () => void
+    onContinue: () => void
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    conflictInfo: any
+  }
+  scheduleDialogs: {
+    isDeleteDialogOpen: boolean
+    onCloseDeleteDialog: () => void
+    onConfirmDelete: () => void
+    isCancelDialogOpen: boolean
+    onCloseCancelDialog: () => void
+    onConfirmCancel: () => void
+    isRestoreDialogOpen: boolean
+    onCloseRestoreDialog: () => void
+    onConfirmRestore: () => void
+  }
+  moveOrCopyDialog: {
+    isOpen: boolean
+    onClose: () => void
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onMove: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onCopy: any
+    selectedEvent: ScheduleEvent | null
+    stores: Store[]
+  }
+  contextMenu: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    contextMenu: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setContextMenu: (menu: any) => void
+    clipboardEvent: ScheduleEvent | null
+    handleCopyToClipboard: (event: ScheduleEvent) => void
+    handlePasteFromClipboard: (date: string, storeId: string, timeSlot: string) => void
+  }
+}
+
 export interface ScheduleTableProps {
   viewConfig: ScheduleTableViewConfig
   dataProvider: ScheduleTableDataProvider
   eventHandlers: ScheduleTableEventHandlers
   displayConfig: ScheduleTableDisplayConfig
-  modals?: any  // オプション: モーダル関連の情報
+  modals?: ScheduleTableModals  // オプション: モーダル関連の情報
   fetchSchedule?: () => void  // オプション: スケジュール再取得関数
   events?: ScheduleEvent[]  // オプション: イベント一覧
   hideHeader?: boolean  // テーブルヘッダーを非表示（外部でヘッダーを表示する場合）

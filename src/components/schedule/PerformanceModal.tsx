@@ -35,7 +35,7 @@ interface PerformanceModalProps {
   onSave: (eventData: EventFormData) => Promise<boolean>
   mode: 'add' | 'edit'
   event?: ScheduleEvent | null  // 編集時のみ
-  initialData?: { date: string, venue: string, time_slot: string }  // 追加時のみ（DBカラム名に統一）
+  initialData?: { date: string, venue: string, time_slot: string, suggestedStartTime?: string }  // 追加時のみ（DBカラム名に統一）
   stores: Store[]
   scenarios: Scenario[]
   staff: StaffType[]
@@ -357,7 +357,7 @@ export function PerformanceModal({
       const slotMemo = getEmptySlotMemo(initialData.date, initialData.venue, slot)
       
       // 前の公演がある場合は推奨開始時間を使用、なければスロットのデフォルトを使用
-      const startTime = (initialData as any).suggestedStartTime || slotDefaults.start_time
+      const startTime = initialData.suggestedStartTime || slotDefaults.start_time
       
       // 終了時間を計算：開始時間 + 4時間（デフォルト公演時間）
       // ただし、スロットのデフォルト終了時間が開始時間より後ならそちらを使用
@@ -488,7 +488,9 @@ export function PerformanceModal({
   const handleCreateStaff = async (newStaff: StaffType) => {
     try {
       // データベースに送信する前に不要なフィールドを除外
-      const { id, created_at, updated_at, ...staffForDB } = newStaff as any
+      // StaffTypeにはcreated_at/updated_atがないが、フォームから渡される可能性があるため除外
+      const staffWithTimestamps = newStaff as StaffType & { id?: string; created_at?: string; updated_at?: string }
+      const { id, created_at, updated_at, ...staffForDB } = staffWithTimestamps
       
       logger.log('スタッフ作成リクエスト:', staffForDB)
       const createdStaff = await staffApi.create(staffForDB)
@@ -1263,7 +1265,7 @@ export function PerformanceModal({
         onClose={() => setIsStaffModalOpen(false)}
         onSave={handleCreateStaff}
         stores={stores}
-        scenarios={scenarios as any}
+        scenarios={scenarios}
       />
     </Dialog>
   )

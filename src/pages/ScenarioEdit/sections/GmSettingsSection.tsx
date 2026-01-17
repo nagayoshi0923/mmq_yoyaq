@@ -1,7 +1,7 @@
 import React from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ItemizedListWithDates, type ItemizedListColumn } from '@/components/ui/itemized-list-with-dates'
+import { ItemizedListWithDates, type ItemizedListColumn, type ItemizedListItem } from '@/components/ui/itemized-list-with-dates'
 import type { ScenarioFormData } from '@/components/modals/ScenarioEditModal/types'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -225,14 +225,14 @@ export function GmSettingsSection({
             title="GM報酬設定"
             addButtonLabel="GM報酬を追加"
             emptyMessage="GM報酬設定がありません"
-            items={(formData.gm_assignments || []) as any[]}
+            items={(formData.gm_assignments || []) as ItemizedListItem[]}
             columns={gmRewardColumns}
-            defaultNewItem={() => ({
+            defaultNewItem={(): ItemizedListItem => ({
               role: 'main',
               reward: 2000,
               amount: 2000, // 型定義の互換性のため追加（実態はrewardを使用）
               category: 'normal' as const
-            } as any)}
+            })}
             onAdd={handleAddGmReward}
             onRemove={handleRemoveGmReward}
             onUpdate={handleUpdateGmReward}

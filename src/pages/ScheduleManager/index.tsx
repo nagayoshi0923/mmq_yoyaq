@@ -417,7 +417,7 @@ export function ScheduleManager() {
 
   // スケジュールテーブルの共通フック
   const scheduleTableProps = useScheduleTable({ currentDate })
-  const modals = scheduleTableProps.modals
+  const modals = scheduleTableProps.modals!
 
   // カテゴリーフィルター（ScheduleManager独自機能）
   const timeSlots = ['morning', 'afternoon', 'evening'] as const
@@ -848,12 +848,12 @@ export function ScheduleManager() {
       <PerformanceModal
         isOpen={modals.performanceModal.isOpen}
         onClose={modals.performanceModal.onClose}
-        onSave={modals.performanceModal.onSave as any}
+        onSave={modals.performanceModal.onSave}
         mode={modals.performanceModal.mode}
         event={modals.performanceModal.event}
         initialData={modals.performanceModal.initialData}
-        stores={modals.performanceModal.stores as any}
-        scenarios={modals.performanceModal.scenarios as any}
+        stores={modals.performanceModal.stores}
+        scenarios={modals.performanceModal.scenarios}
         staff={modals.performanceModal.staff}
         events={scheduleTableProps.events}
         availableStaffByScenario={modals.performanceModal.availableStaffByScenario}

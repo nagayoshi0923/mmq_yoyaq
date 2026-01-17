@@ -195,14 +195,15 @@ export function ScenarioDetailGlobal({ scenarioSlug, onClose }: ScenarioDetailGl
           official_duration: legacyData.duration,
           player_count_min: legacyData.player_count_min,
           player_count_max: legacyData.player_count_max,
-          author: (legacyData.authors as any)?.name || '不明',
+          author: (legacyData.authors as { name?: string } | null)?.name || '不明',
           organization_id: legacyData.organization_id,
           genre: legacyData.genre || [],
           participation_fee: legacyData.participation_fee,
           synopsis: legacyData.synopsis,
-          difficulty: (legacyData as any).difficulty || null,
-          has_pre_reading: (legacyData as any).has_pre_reading || false,
-          gm_comment: (legacyData as any).gm_comment || null
+          // 以下はselectに含まれていないため、デフォルト値を使用
+          difficulty: null,
+          has_pre_reading: false,
+          gm_comment: null
         }
         useLegacyTable = true
       }
