@@ -305,6 +305,11 @@ interface ParsedImportEvent {
   gms: string[]
   category: string
   notes?: string
+  is_cancelled?: boolean
+  organization_id?: string
+  reservation_info?: string
+  gmRoles?: Record<string, string>
+  gm_roles?: Record<string, string>
   // 内部フラグ（プレビュー・インポート処理用）
   isMemo?: boolean
   _isMemo?: boolean
@@ -878,7 +883,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         const event = mergedEvents[i]
         if (!event.date || event.is_cancelled) continue
         
-        const key = cellKey(event.date, event.store_id, event.start_time)
+        const key = cellKey(event.date, event.store_id ?? null, event.start_time)
         const existing = importCellMap.get(key)
         
         if (existing) {
@@ -1010,7 +1015,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           continue
         }
 
-        const eventCellKey = cellKey(event.date, event.store_id, event.start_time)
+        const eventCellKey = cellKey(event.date, event.store_id ?? null, event.start_time)
         
         // 今回のインポート内で既に同じセルを処理済みの場合はスキップ
         if (processedCells.has(eventCellKey)) {
@@ -1079,7 +1084,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           // daily_memosに追加するためのデータを記録
           const memoKey = `${event.date}_${event.store_id}`
           if (!dailyMemoMap.has(memoKey)) {
-            dailyMemoMap.set(memoKey, { date: event.date, storeId: event.store_id, venue: event.venue, texts: [] })
+            dailyMemoMap.set(memoKey, { date: event.date, storeId: event.store_id ?? '', venue: event.venue, texts: [] })
           }
           if (memoText) {
             dailyMemoMap.get(memoKey)!.texts.push(memoText)

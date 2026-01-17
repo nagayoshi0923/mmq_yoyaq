@@ -232,9 +232,9 @@ export const scheduleApi = {
     const { data: staffReservations, error: resError } = await resQuery
     
     // スタッフ参加の公演を抽出（日付フィルタリング）
-    type JoinedScheduleEvent = { id: string; date: string; is_cancelled: boolean; [key: string]: unknown }
+    type JoinedScheduleEvent = { id: string; date: string; start_time: string; is_cancelled: boolean; scenarios?: unknown; max_participants?: number; capacity?: number; [key: string]: unknown }
     const staffEvents = (staffReservations || [])
-      .map(r => r.schedule_events as JoinedScheduleEvent)
+      .map(r => r.schedule_events as unknown as JoinedScheduleEvent)
       .filter((event): event is JoinedScheduleEvent => 
         event !== null && 
         event.date >= startDate && 
@@ -244,7 +244,7 @@ export const scheduleApi = {
     
     // 3. 重複を除去してマージ（GMとスタッフ参加の両方に含まれる場合）
     const eventMap = new Map<string, JoinedScheduleEvent>()
-    gmEvents.forEach(event => eventMap.set(event.id, event))
+    gmEvents.forEach(event => eventMap.set(event.id, event as unknown as JoinedScheduleEvent))
     staffEvents.forEach(event => {
       if (event && !eventMap.has(event.id)) {
         eventMap.set(event.id, event)

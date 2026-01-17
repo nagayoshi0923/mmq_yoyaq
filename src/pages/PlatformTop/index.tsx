@@ -159,8 +159,13 @@ export function PlatformTop() {
         const scenarioMap: Record<string, ScenarioWithEvents> = {}
         
         eventData.forEach(e => {
-          const scenario = e.scenarios as { id: string; title: string; status: string; organization_id: string; key_visual_url?: string | null; genre?: string[] } | null
-          const store = e.stores as { id: string; name: string } | null
+          const scenario = e.scenarios as unknown as { 
+            id: string; title: string; status: string; organization_id: string; 
+            key_visual_url?: string | null; genre?: string[]; slug?: string;
+            author?: string; player_count_min: number; player_count_max: number;
+            duration: number; scenario_type?: string 
+          } | null
+          const store = e.stores as unknown as { id: string; name: string; short_name?: string; color?: string; region?: string } | null
           
           // 基本チェック
           if (!scenario || !store || scenario.status !== 'available') return

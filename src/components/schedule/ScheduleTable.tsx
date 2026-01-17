@@ -59,7 +59,8 @@ export interface ScheduleTableModals {
     mode: 'add' | 'edit'
     event: ScheduleEvent | null
     initialData?: { date: string; venue: string; time_slot: string; suggestedStartTime?: string }
-    stores: Store[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    stores: any[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     scenarios: any[]
     staff: Staff[]
@@ -68,7 +69,8 @@ export interface ScheduleTableModals {
     onParticipantChange?: (eventId: string, newCount: number) => void
   }
   performance: {
-    handleOpenPerformanceModal: (date: string, storeId: string, timeSlot: string) => void
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handleOpenPerformanceModal: any
   }
   conflictWarning: {
     isOpen: boolean
@@ -84,9 +86,9 @@ export interface ScheduleTableModals {
     isCancelDialogOpen: boolean
     onCloseCancelDialog: () => void
     onConfirmCancel: () => void
-    isRestoreDialogOpen: boolean
-    onCloseRestoreDialog: () => void
-    onConfirmRestore: () => void
+    isRestoreDialogOpen?: boolean
+    onCloseRestoreDialog?: () => void
+    onConfirmRestore?: () => void
   }
   moveOrCopyDialog: {
     isOpen: boolean
@@ -96,7 +98,8 @@ export interface ScheduleTableModals {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onCopy: any
     selectedEvent: ScheduleEvent | null
-    stores: Store[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    stores: any[]
   }
   contextMenu: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,7 +108,8 @@ export interface ScheduleTableModals {
     setContextMenu: (menu: any) => void
     clipboardEvent: ScheduleEvent | null
     handleCopyToClipboard: (event: ScheduleEvent) => void
-    handlePasteFromClipboard: (date: string, storeId: string, timeSlot: string) => void
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handlePasteFromClipboard: any
   }
 }
 

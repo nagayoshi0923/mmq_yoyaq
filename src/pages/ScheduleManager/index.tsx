@@ -890,9 +890,9 @@ export function ScheduleManager() {
         isCancelDialogOpen={modals.scheduleDialogs.isCancelDialogOpen}
         onCloseCancelDialog={modals.scheduleDialogs.onCloseCancelDialog}
         onConfirmCancel={modals.scheduleDialogs.onConfirmCancel}
-        isRestoreDialogOpen={modals.scheduleDialogs.isRestoreDialogOpen}
-        onCloseRestoreDialog={modals.scheduleDialogs.onCloseRestoreDialog}
-        onConfirmRestore={modals.scheduleDialogs.onConfirmRestore}
+        isRestoreDialogOpen={modals.scheduleDialogs.isRestoreDialogOpen ?? false}
+        onCloseRestoreDialog={modals.scheduleDialogs.onCloseRestoreDialog ?? (() => {})}
+        onConfirmRestore={modals.scheduleDialogs.onConfirmRestore ?? (() => {})}
       />
 
       <MoveOrCopyDialog

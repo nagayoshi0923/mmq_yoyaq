@@ -225,7 +225,7 @@ export function GmSettingsSection({
             title="GM報酬設定"
             addButtonLabel="GM報酬を追加"
             emptyMessage="GM報酬設定がありません"
-            items={(formData.gm_assignments || []) as ItemizedListItem[]}
+            items={(formData.gm_assignments || []).map(a => ({ ...a, amount: a.reward || 0 })) as ItemizedListItem[]}
             columns={gmRewardColumns}
             defaultNewItem={(): ItemizedListItem => ({
               role: 'main',

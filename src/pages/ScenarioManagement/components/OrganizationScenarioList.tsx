@@ -232,8 +232,8 @@ export function OrganizationScenarioList({ onEdit, refreshKey }: OrganizationSce
             bVal = b.org_status
             break
           default:
-            aVal = (a as Record<string, unknown>)[sortState.field]
-            bVal = (b as Record<string, unknown>)[sortState.field]
+            aVal = (a as unknown as Record<string, unknown>)[sortState.field]
+            bVal = (b as unknown as Record<string, unknown>)[sortState.field]
         }
         if (aVal == null) return 1
         if (bVal == null) return -1
