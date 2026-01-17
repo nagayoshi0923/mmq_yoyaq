@@ -497,8 +497,8 @@ export function ScheduleManager() {
     
     // GMフィルターが選択されている場合、そのGMの公演がある店舗だけに絞る
     if (selectedGMs.length > 0) {
-      // 選択されたGMが担当する公演の店舗を抽出
-      const storesWithSelectedGM = new Set<string>()
+      // 選択されたGMが担当する公演の店舗を抽出（venue名で格納）
+      const venueNamesWithSelectedGM = new Set<string>()
       
       // 今月の全イベントをチェック
       allEventsForMonth.forEach(event => {
@@ -516,12 +516,17 @@ export function ScheduleManager() {
         })
         
         if (hasSelectedGM && event.venue) {
-          storesWithSelectedGM.add(event.venue)
+          venueNamesWithSelectedGM.add(event.venue)
         }
       })
       
       // 該当するGMの公演がある店舗だけに絞る
-      stores = stores.filter(store => storesWithSelectedGM.has(store.id))
+      // event.venueは店舗名なので、store.name/short_name/idと比較
+      stores = stores.filter(store => 
+        venueNamesWithSelectedGM.has(store.id) ||
+        venueNamesWithSelectedGM.has(store.name) ||
+        venueNamesWithSelectedGM.has(store.short_name || '')
+      )
     }
     
     return stores
