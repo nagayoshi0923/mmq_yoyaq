@@ -52,8 +52,8 @@ export function ReportsReceived({ staffId }: ReportsReceivedProps) {
   }
 
   const filteredReports = reports.filter(report => {
-    const scenarioTitle = (report.scenarios as any)?.title || ''
-    const orgName = (report.organizations as any)?.name || ''
+    const scenarioTitle = report.scenarios?.title || ''
+    const orgName = report.organizations?.name || ''
     const search = searchTerm.toLowerCase()
     return scenarioTitle.toLowerCase().includes(search) || 
            orgName.toLowerCase().includes(search)
@@ -146,14 +146,14 @@ export function ReportsReceived({ staffId }: ReportsReceivedProps) {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold">
-                        {(report.scenarios as any)?.title || '不明なシナリオ'}
+                        {report.scenarios?.title || '不明なシナリオ'}
                       </span>
                       {getStatusBadge(report.status)}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <Building2 className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm">
-                        {(report.organizations as any)?.name || '不明な組織'}
+                        {report.organizations?.name || '不明な組織'}
                       </span>
                     </div>
                     <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">

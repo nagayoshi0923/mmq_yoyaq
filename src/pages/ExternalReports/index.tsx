@@ -134,7 +134,7 @@ export default function ExternalReports() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold">
-                        {(report.scenarios as any)?.title || '不明なシナリオ'}
+                        {report.scenarios?.title || '不明なシナリオ'}
                       </span>
                       {getStatusBadge(report.status)}
                     </div>

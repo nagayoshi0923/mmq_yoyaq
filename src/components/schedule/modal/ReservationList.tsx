@@ -849,7 +849,7 @@ export function ReservationList({
                                 const newCount = parseInt(value)
                                 
                                 // 予約時の1人あたり料金を取得（unit_price優先、なければbase_priceから計算）
-                                const unitPrice = (reservation as any).unit_price 
+                                const unitPrice = reservation.unit_price 
                                   || Math.round((reservation.base_price || 0) / (reservation.participant_count || 1))
                                 
                                 // 料金を再計算
@@ -960,7 +960,7 @@ export function ReservationList({
                                       if (newCount < 1 || newCount > 20) return
                                       
                                       // 予約時の1人あたり料金を取得（unit_price優先、なければbase_priceから計算）
-                                      const unitPrice = (reservation as any).unit_price 
+                                      const unitPrice = reservation.unit_price 
                                         || Math.round((reservation.base_price || 0) / (reservation.participant_count || 1))
                                       
                                       // 料金を再計算

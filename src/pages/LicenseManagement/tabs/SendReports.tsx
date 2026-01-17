@@ -286,10 +286,10 @@ ${scenariosText}
         if (error) {
           // 409 (unique violation) の場合、既存行がある前提でUPDATEにフォールバック
           console.error('Failed to insert manual_external_performances:', {
-            code: (error as any).code,
-            message: (error as any).message,
-            details: (error as any).details,
-            hint: (error as any).hint,
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
             scenarioId,
             organizationId,
             year: selectedYear,
@@ -297,9 +297,9 @@ ${scenariosText}
             count,
           })
           const maybeConflict =
-            (error as any).code === '23505' ||
-            String((error as any).message || '').includes('duplicate') ||
-            String((error as any).details || '').includes('duplicate')
+            error.code === '23505' ||
+            String(error.message || '').includes('duplicate') ||
+            String(error.details || '').includes('duplicate')
 
           if (maybeConflict) {
             const { error: updateError } = await supabase
@@ -315,10 +315,10 @@ ${scenariosText}
 
             if (updateError) {
               console.error('Fallback update failed:', {
-                code: (updateError as any).code,
-                message: (updateError as any).message,
-                details: (updateError as any).details,
-                hint: (updateError as any).hint,
+                code: updateError.code,
+                message: updateError.message,
+                details: updateError.details,
+                hint: updateError.hint,
               })
             }
           }

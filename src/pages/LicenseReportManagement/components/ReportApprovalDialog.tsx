@@ -39,8 +39,8 @@ export function ReportApprovalDialog({
   const [rejectionReason, setRejectionReason] = useState('')
 
   const isApprove = action === 'approve'
-  const scenarioTitle = (report.scenarios as any)?.title || '不明なシナリオ'
-  const orgName = (report.organizations as any)?.name || '不明な組織'
+  const scenarioTitle = report.scenarios?.title || '不明なシナリオ'
+  const orgName = report.organizations?.name || '不明な組織'
 
   const handleSubmit = async () => {
     if (!isApprove && !rejectionReason.trim()) {
