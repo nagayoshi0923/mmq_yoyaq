@@ -552,7 +552,7 @@ export function StaffManagement() {
             <StaffEditForm
               staff={editingStaff}
               stores={stores}
-              scenarios={scenarios as any}
+              scenarios={scenarios}
               onSave={handleSaveStaff}
               onCancel={closeEditModal}
               onLink={editingStaff && !editingStaff.user_id ? () => { closeEditModal(); openLinkModal(editingStaff); } : undefined}

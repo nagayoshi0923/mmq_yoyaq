@@ -559,7 +559,7 @@ export function ScenarioMasterEditDialog({
                 <Label htmlFor="master_status">ステータス</Label>
                 <Select
                   value={master.master_status}
-                  onValueChange={(v) => setMaster({ ...master, master_status: v as any })}
+                  onValueChange={(v) => setMaster({ ...master, master_status: v as 'draft' | 'pending' | 'approved' | 'rejected' })}
                 >
                   <SelectTrigger>
                     <SelectValue />

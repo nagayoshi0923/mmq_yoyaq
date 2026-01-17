@@ -736,7 +736,7 @@ export function ScenarioMasterEdit() {
               <h2 className="font-semibold text-gray-900 mb-4">ステータス</h2>
               <select
                 value={master.master_status}
-                onChange={(e) => setMaster({ ...master, master_status: e.target.value as any })}
+                onChange={(e) => setMaster({ ...master, master_status: e.target.value as 'draft' | 'pending' | 'approved' | 'rejected' })}
                 className="w-full border rounded-md p-2"
               >
                 <option value="draft">下書き</option>

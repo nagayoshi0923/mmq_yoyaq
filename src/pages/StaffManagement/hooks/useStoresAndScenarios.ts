@@ -1,13 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { storeApi, scenarioApi } from '@/lib/api'
-import type { Store } from '@/types'
+import type { Store, Scenario } from '@/types'
 import { logger } from '@/utils/logger'
-
-interface Scenario {
-  id: string
-  title: string
-  [key: string]: any
-}
 
 /**
  * 店舗とシナリオデータを管理するフック

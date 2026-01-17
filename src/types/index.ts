@@ -343,6 +343,7 @@ export interface ScheduleEvent {
   gms: string[]
   start_time: string
   end_time: string
+  time_slot?: string | null  // 時間帯（morning/afternoon/evening）
   category: 'open' | 'private' | 'gmtest' | 'testplay' | 'offsite' | 'venue_rental' | 'venue_rental_free' | 'package' | 'mtg'
   reservation_info?: string
   notes?: string

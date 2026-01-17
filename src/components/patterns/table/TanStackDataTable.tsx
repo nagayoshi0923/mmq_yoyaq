@@ -10,6 +10,14 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { HelpCircle } from 'lucide-react'
 
+// TanStack Table のカスタム meta 型
+interface ColumnMetaCustom {
+  width?: string
+  align?: 'left' | 'center' | 'right'
+  headerClassName?: string
+  cellClassName?: string
+}
+
 export interface Column<T> {
   /**
    * 列のキー
@@ -281,7 +289,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
           <div className="flex items-stretch min-h-[40px] sm:min-h-[45px] md:min-h-[50px] bg-gray-100 border-b border-gray-200 min-w-max">
             {table.getHeaderGroups().map((headerGroup) =>
               headerGroup.headers.map((header, headerIndex) => {
-                const meta = header.column.columnDef.meta as any
+                const meta = header.column.columnDef.meta as ColumnMetaCustom | undefined
                 const isSortable = header.column.getCanSort()
                 const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
                 const widthClass = getWidthClass(meta)
@@ -328,7 +336,7 @@ export const TanStackDataTable = memo(function TanStackDataTable<T>({
                 }`}
               >
                 {row.getVisibleCells().map((cell, cellIndex) => {
-                  const meta = cell.column.columnDef.meta as any
+                  const meta = cell.column.columnDef.meta as ColumnMetaCustom | undefined
                   const alignClass = meta?.align === 'center' ? 'text-center' : meta?.align === 'right' ? 'text-right' : 'text-left'
                   const widthClass = getWidthClass(meta)
                   const isLastCell = cellIndex === row.getVisibleCells().length - 1

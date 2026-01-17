@@ -31,7 +31,9 @@ function convertTimeSlot(timeSlot: string | undefined | null): 'morning' | 'afte
  * イベントの時間帯を取得（保存された枠を優先）
  */
 function getEventTimeSlot(event: ScheduleEvent | { start_time: string; timeSlot?: string; time_slot?: string | null }): 'morning' | 'afternoon' | 'evening' {
-  const savedSlot = convertTimeSlot((event as any).timeSlot || (event as any).time_slot)
+  // ScheduleEvent.time_slot または ローカル型の timeSlot を参照
+  const timeSlotValue = 'timeSlot' in event ? event.timeSlot : event.time_slot
+  const savedSlot = convertTimeSlot(timeSlotValue)
   if (savedSlot) return savedSlot
   return getTimeSlot(event.start_time)
 }
@@ -1242,7 +1244,7 @@ export function useEventOperations({
               {
                 date: cancellingEvent.date,
                 storeId: cancellingEvent.venue,
-                timeSlot: (cancellingEvent as any).time_slot || null
+                timeSlot: cancellingEvent.time_slot || null
               }
             )
           } catch (historyError) {
@@ -1335,7 +1337,7 @@ export function useEventOperations({
               {
                 date: event.date,
                 storeId: event.venue,
-                timeSlot: (event as any).time_slot || null
+                timeSlot: event.time_slot || null
               }
             )
           } catch (historyError) {
