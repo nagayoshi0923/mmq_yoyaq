@@ -57,14 +57,58 @@ export default function MyPage() {
     fileInputRef.current?.click()
   }
   
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
+    if (!file || !user?.email) return
+
+    try {
+      // ファイルサイズチェック（2MB以下）
+      if (file.size > 2 * 1024 * 1024) {
+        alert('画像サイズは2MB以下にしてください')
+        return
+      }
+
+      // 即座にプレビュー表示
       const reader = new FileReader()
       reader.onload = (event) => {
         setAvatarUrl(event.target?.result as string)
       }
       reader.readAsDataURL(file)
+
+      // Supabase Storageにアップロード
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`
+      const filePath = `avatars/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('customer-avatars')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) {
+        logger.error('アバターアップロードエラー:', uploadError)
+        // Storageが設定されていない場合はローカルプレビューのみで続行
+        return
+      }
+
+      // 公開URLを取得
+      const { data: { publicUrl } } = supabase.storage
+        .from('customer-avatars')
+        .getPublicUrl(filePath)
+
+      // customersテーブルを更新
+      const { error: updateError } = await supabase
+        .from('customers')
+        .update({ avatar_url: publicUrl })
+        .eq('email', user.email)
+
+      if (updateError) {
+        logger.error('アバターURL更新エラー:', updateError)
+      } else {
+        setAvatarUrl(publicUrl)
+        logger.log('アバター画像を保存しました')
+      }
+    } catch (error) {
+      logger.error('アバター処理エラー:', error)
     }
   }
 
@@ -83,7 +127,7 @@ export default function MyPage() {
       // 顧客情報を取得
       const { data: customer, error: customerError } = await supabase
         .from('customers')
-        .select('id, name, nickname')
+        .select('id, name, nickname, avatar_url')
         .eq('email', user.email)
         .maybeSingle()
 
@@ -97,6 +141,10 @@ export default function MyPage() {
       
       // 顧客情報をセット
       setCustomerInfo({ name: customer.name, nickname: customer.nickname })
+      // アバター画像をセット
+      if (customer.avatar_url) {
+        setAvatarUrl(customer.avatar_url)
+      }
 
       // 予約を取得
       const { data: reservationData, error: reservationError } = await supabase

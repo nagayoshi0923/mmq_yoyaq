@@ -147,7 +147,8 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
                 <ChevronRight className="h-3 w-3 text-white/50 hidden sm:block" />
                 <button
                   onClick={handleOrgClick}
-                  className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 hover:bg-white/10 transition-colors cursor-pointer"
+                  className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 hover:bg-white/10 transition-colors cursor-pointer rounded"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
                   title={`${displayOrganization.name}の予約サイトへ`}
                 >
                   <Building2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
@@ -161,11 +162,14 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
               </>
             )}
             
-            {/* 組織がない場合のみサブタイトルを表示 */}
+            {/* 組織がない場合はプラットフォーム全体であることを示す */}
             {!displayOrganization && (
-              <p className="hidden sm:inline text-xs sm:text-xs text-white/70 leading-none whitespace-nowrap">
-                マーダーミステリー店舗管理
-              </p>
+              <div className="hidden sm:flex items-center gap-1.5">
+                <ChevronRight className="h-3 w-3 text-white/50" />
+                <span className="text-xs text-white/80 bg-white/10 px-2 py-0.5 rounded">
+                  全店舗を探す
+                </span>
+              </div>
             )}
           </div>
           

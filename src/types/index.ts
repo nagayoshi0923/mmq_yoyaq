@@ -502,6 +502,7 @@ export interface Customer {
   address?: string | null  // 住所
   line_id?: string | null
   notes?: string | null
+  avatar_url?: string | null  // アバター画像URL（Supabase Storage）
   visit_count: number
   total_spent: number
   last_visit?: string | null
