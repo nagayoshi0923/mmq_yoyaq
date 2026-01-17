@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Calendar, Clock, CheckCircle, MapPin, X, Users, AlertTriangle, CalendarDays, ArrowRight } from 'lucide-react'
+import { Calendar, Clock, CheckCircle, MapPin, X, Users, AlertTriangle, CalendarDays, ArrowRight, Bell } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/utils/logger'
@@ -30,7 +30,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import type { Reservation } from '@/types'
+import type { Reservation, Waitlist } from '@/types'
 import type { Store } from '@/types'
 
 // デフォルトのキャンセル期限（設定がない場合）
@@ -46,6 +46,7 @@ interface CancellationPolicy {
 export function ReservationsPage() {
   const { user } = useAuth()
   const [reservations, setReservations] = useState<Reservation[]>([])
+  const [waitlist, setWaitlist] = useState<Waitlist[]>([])
   const [loading, setLoading] = useState(true)
   const [scenarioImages, setScenarioImages] = useState<Record<string, string>>({})
   const [stores, setStores] = useState<Record<string, Store>>({})
@@ -105,7 +106,25 @@ export function ReservationsPage() {
       if (customerError) throw customerError
       if (!customer) {
         setReservations([])
+        setWaitlist([])
         return
+      }
+
+      // キャンセル待ちを取得
+      const { data: waitlistData, error: waitlistError } = await supabase
+        .from('waitlist')
+        .select(`
+          *,
+          schedule_events(id, date, start_time, end_time, venue, scenario)
+        `)
+        .eq('customer_email', user.email)
+        .in('status', ['waiting', 'notified'])
+        .order('created_at', { ascending: false })
+
+      if (waitlistError) {
+        logger.error('キャンセル待ち取得エラー:', waitlistError)
+      } else {
+        setWaitlist(waitlistData || [])
       }
 
       // 予約を取得（決済方法も含む）
@@ -907,6 +926,97 @@ export function ReservationsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* キャンセル待ち */}
+      {waitlist.length > 0 && (
+        <Card className="shadow-none border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
+              キャンセル待ち ({waitlist.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {waitlist.map((entry) => {
+                const event = entry.schedule_events as unknown as { 
+                  id: string
+                  date: string 
+                  start_time: string
+                  end_time: string
+                  venue: string
+                  scenario: string
+                } | null
+                return (
+                  <div
+                    key={entry.id}
+                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors bg-amber-50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant={entry.status === 'notified' ? 'default' : 'secondary'}>
+                            {entry.status === 'notified' ? '空席通知済み' : '待機中'}
+                          </Badge>
+                        </div>
+                        <h3 className="font-medium text-sm truncate">
+                          {event?.scenario || 'シナリオ名取得中'}
+                        </h3>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {event ? new Date(event.date).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' }) : '-'}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {event?.start_time?.slice(0, 5) || '-'}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {event?.venue || '-'}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {entry.participant_count}名
+                          </div>
+                        </div>
+                        {entry.status === 'notified' && entry.expires_at && (
+                          <div className="mt-2 text-xs text-amber-700 font-medium">
+                            ⏰ {new Date(entry.expires_at).toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} まで有効
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-red-600"
+                        onClick={async () => {
+                          if (confirm('キャンセル待ちを解除しますか？')) {
+                            try {
+                              const { error } = await supabase
+                                .from('waitlist')
+                                .delete()
+                                .eq('id', entry.id)
+                              if (error) throw error
+                              setWaitlist(prev => prev.filter(w => w.id !== entry.id))
+                              toast.success('キャンセル待ちを解除しました')
+                            } catch (e) {
+                              logger.error('キャンセル待ち解除エラー:', e)
+                              toast.error('キャンセル待ちの解除に失敗しました')
+                            }
+                          }
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* キャンセル済みの予約 */}
       {cancelledReservations.length > 0 && (

@@ -341,6 +341,39 @@ export const reservationApi = {
           }
         })
         logger.log('キャンセル確認メール送信成功')
+
+        // キャンセル待ち通知を送信
+        if (reservation.schedule_event_id && reservation.organization_id) {
+          try {
+            // 組織のslugを取得
+            const { data: org } = await supabase
+              .from('organizations')
+              .select('slug')
+              .eq('id', reservation.organization_id)
+              .single()
+            
+            const orgSlug = org?.slug || 'queens-waltz'
+            const bookingUrl = `${window.location.origin}/${orgSlug}`
+            
+            await supabase.functions.invoke('notify-waitlist', {
+              body: {
+                organizationId: reservation.organization_id,
+                scheduleEventId: reservation.schedule_event_id,
+                freedSeats: reservation.participant_count,
+                scenarioTitle: reservation.scenario_title || scheduleEvent?.scenario,
+                eventDate: scheduleEvent?.date,
+                startTime: scheduleEvent?.start_time,
+                endTime: scheduleEvent?.end_time,
+                storeName,
+                bookingUrl
+              }
+            })
+            logger.log('キャンセル待ち通知送信成功')
+          } catch (waitlistError) {
+            logger.error('キャンセル待ち通知エラー:', waitlistError)
+            // キャンセル待ち通知失敗してもキャンセル処理は続行
+          }
+        }
       } catch (emailError) {
         logger.error('キャンセル確認メール送信エラー:', emailError)
         // メール送信失敗してもキャンセル処理は続行
