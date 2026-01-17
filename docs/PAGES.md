@@ -339,6 +339,7 @@ parseHash(hash: string): {
 | **PrivateBookingRequest** | (コンポーネント) | 貸切申込 | ログイン必須 | ✅ |
 | **ScenarioCatalog** | `#catalog` | 全シナリオカタログ | 全員 | ✅ |
 | **ExternalReportForm** | `#report-form` | 外部からの公演報告フォーム | 全員 | ❌ |
+| **NotFoundPage** | `/*` (存在しないパス) | 404エラーページ | 全員 | ❌ |
 
 #### PublicBookingTop 詳細
 
@@ -682,6 +683,7 @@ parseHash(hash: string): {
 
 | 日付 | 変更内容 | 担当 |
 |------|---------|------|
+| 2026-01-18 | NotFoundPage（404エラーページ）追加。存在しないパスへのアクセス時に表示 | AI |
 | 2026-01-03 | ReservationsPage（マイページ/予約履歴）にキャンセル・人数変更機能追加。重複予約警告機能を予約確認画面に追加 | AI |
 | 2026-01-02 | ユーザー管理・顧客管理をアカウント管理に統合（#accounts）。サイドバーで切り替え | AI |
 | 2026-01-02 | 組織情報・テナント管理を設定ページに統合。#organizations, #organization-settingsは#settingsにリダイレクト | AI |
