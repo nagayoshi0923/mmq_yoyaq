@@ -621,7 +621,7 @@ export function ScheduleManager() {
                 newDate.setFullYear(parseInt(e.target.value))
                 setCurrentDate(newDate)
               }}
-              className="h-8 w-[76px] px-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer mx-1"
+              className="h-8 w-[84px] px-2 text-sm font-medium border border-input rounded-md bg-background hover:bg-accent transition-colors cursor-pointer mx-1"
             >
               {Array.from({ length: 10 }, (_, i) => 2021 + i).map(y => (
                 <option key={y} value={y}>{y}年</option>
@@ -692,7 +692,7 @@ export function ScheduleManager() {
                 placeholder="スタッフ"
                 closeOnSelect={false}
                 useIdAsValue={true}
-                className="h-8 text-sm w-[88px]"
+                className="h-8 text-sm w-[100px]"
               />
             )}
             
@@ -704,7 +704,7 @@ export function ScheduleManager() {
                 hideLabel={true}
                 placeholder="店舗"
                 emptyText=""
-                className="h-8 text-sm w-[72px]"
+                className="h-8 text-sm w-[80px]"
               />
             )}
             
@@ -716,7 +716,7 @@ export function ScheduleManager() {
                 placeholder="出勤者"
                 closeOnSelect={false}
                 useIdAsValue={true}
-                className="h-8 text-sm w-[88px]"
+                className="h-8 text-sm w-[100px]"
               />
             )}
             
