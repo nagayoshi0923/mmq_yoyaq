@@ -178,14 +178,6 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
           <NavigationBar currentPage={organizationSlug ? `booking/${organizationSlug}` : 'customer-booking'} />
         )}
         <div className="text-white relative overflow-hidden" style={{ backgroundColor: THEME.primary }}>
-          {/* アクセント装飾 */}
-          <div 
-            className="absolute top-0 right-0 w-24 h-24 opacity-20"
-            style={{ 
-              background: `radial-gradient(circle at center, ${THEME.accent} 0%, transparent 70%)`,
-              transform: 'translate(30%, -30%)'
-            }}
-          />
           <div className="container mx-auto max-w-7xl px-4 py-2 relative">
             <div className="flex items-center gap-3">
               <Button
@@ -199,8 +191,46 @@ export function ScenarioDetailPage({ scenarioId, onClose, organizationSlug }: Sc
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-center py-20">
-          <p className="text-muted-foreground text-lg">読み込み中...</p>
+        {/* スケルトンUI */}
+        <div className="container mx-auto max-w-7xl px-4 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            {/* 左側：キービジュアルスケルトン */}
+            <div className="md:col-span-5">
+              <div className="aspect-[3/4] bg-gray-200 animate-pulse rounded-lg" />
+            </div>
+            {/* 右側：情報スケルトン */}
+            <div className="md:col-span-7 space-y-4">
+              {/* タイトル */}
+              <div className="h-8 bg-gray-200 animate-pulse rounded w-3/4" />
+              {/* サブタイトル */}
+              <div className="h-4 bg-gray-200 animate-pulse rounded w-1/2" />
+              {/* バッジ */}
+              <div className="flex gap-2">
+                <div className="h-6 w-16 bg-gray-200 animate-pulse rounded-full" />
+                <div className="h-6 w-20 bg-gray-200 animate-pulse rounded-full" />
+                <div className="h-6 w-14 bg-gray-200 animate-pulse rounded-full" />
+              </div>
+              {/* 説明文 */}
+              <div className="space-y-2 pt-4">
+                <div className="h-4 bg-gray-200 animate-pulse rounded w-full" />
+                <div className="h-4 bg-gray-200 animate-pulse rounded w-full" />
+                <div className="h-4 bg-gray-200 animate-pulse rounded w-2/3" />
+              </div>
+              {/* 料金 */}
+              <div className="pt-4">
+                <div className="h-10 bg-gray-200 animate-pulse rounded w-1/3" />
+              </div>
+            </div>
+          </div>
+          {/* 公演日程スケルトン */}
+          <div className="mt-8">
+            <div className="h-6 bg-gray-200 animate-pulse rounded w-32 mb-4" />
+            <div className="space-y-3">
+              <div className="h-16 bg-gray-200 animate-pulse rounded" />
+              <div className="h-16 bg-gray-200 animate-pulse rounded" />
+              <div className="h-16 bg-gray-200 animate-pulse rounded" />
+            </div>
+          </div>
         </div>
       </div>
     )

@@ -285,7 +285,10 @@ export function BookingConfirmation({
               <h2 className="text-lg text-green-800">予約が完了しました！</h2>
               <p className="text-sm text-green-700 leading-relaxed">
                 ご予約ありがとうございます。<br />
-                確認メールを {customerEmail} に送信しました。
+                確認メールを <span className="font-medium">{customerEmail}</span> に送信しました。
+              </p>
+              <p className="text-xs text-green-600">
+                メールが届かない場合は、迷惑メールフォルダもご確認ください。
               </p>
               <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
@@ -496,6 +499,22 @@ export function BookingConfirmation({
                       <span className="text-base font-bold text-primary">¥{formatPrice(totalPrice)}</span>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* お支払い方法 */}
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">お支払い方法</h3>
+              <Card>
+                <CardContent className="p-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span className="font-medium">当日現金払い</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ご来店時に現金でお支払いください
+                  </p>
                 </CardContent>
               </Card>
             </div>

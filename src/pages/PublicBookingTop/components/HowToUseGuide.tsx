@@ -48,29 +48,30 @@ export function HowToUseGuide({ organizationName, isOpen, onClose }: HowToUseGui
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <Card className="w-full max-w-lg bg-white shadow-2xl border-0 overflow-hidden">
-        {/* ヘッダー */}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <Card className="w-full max-w-lg bg-white shadow-2xl border-0 overflow-hidden max-h-[90vh] flex flex-col">
+        {/* ヘッダー（固定） */}
         <div 
-          className="px-6 py-4 text-white flex items-center justify-between"
+          className="px-4 sm:px-6 py-3 sm:py-4 text-white flex items-center justify-between flex-shrink-0"
           style={{ backgroundColor: THEME.primary }}
         >
           <div className="flex items-center gap-2">
-            <HelpCircle className="w-5 h-5" />
-            <h2 className="text-lg font-bold">予約の仕方</h2>
+            <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+            <h2 className="text-base sm:text-lg font-bold">予約の仕方</h2>
           </div>
           <button 
             onClick={handleClose}
-            className="p-1 hover:bg-white/20 transition-colors"
+            className="p-1.5 hover:bg-white/20 transition-colors rounded"
+            aria-label="閉じる"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6 overflow-y-auto flex-1">
           {/* ウェルカムメッセージ */}
-          <div className="text-center mb-6">
-            <p className="text-gray-600">
+          <div className="text-center mb-4 sm:mb-6">
+            <p className="text-sm sm:text-base text-gray-600">
               {organizationName || 'MMQ'}へようこそ！
               <br />
               <span className="font-medium text-gray-900">3ステップで簡単に予約できます。</span>
@@ -78,53 +79,53 @@ export function HowToUseGuide({ organizationName, isOpen, onClose }: HowToUseGui
           </div>
 
           {/* ステップ説明 */}
-          <div className="space-y-4">
+          <div className="space-y-2 sm:space-y-4">
             {steps.map((step, index) => {
               const Icon = step.icon
               return (
                 <div 
                   key={index}
-                  className="flex items-start gap-4 p-4 bg-gray-50 border border-gray-100"
+                  className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 border border-gray-100"
                 >
                   <div 
-                    className="flex-shrink-0 w-10 h-10 flex items-center justify-center"
+                    className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center"
                     style={{ backgroundColor: THEME.accentLight, color: THEME.primary }}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900">{step.title}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{step.description}</p>
+                  <div className="min-w-0">
+                    <h3 className="font-medium text-sm sm:text-base text-gray-900">{step.title}</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">{step.description}</p>
                   </div>
                 </div>
               )
             })}
           </div>
 
-          {/* 追加情報 */}
-          <div className="mt-6 p-4 bg-amber-50 border border-amber-200">
-            <h4 className="font-medium text-amber-800 mb-2">💡 知っておくと便利</h4>
-            <ul className="text-sm text-amber-700 space-y-1.5">
+          {/* 追加情報（モバイルではコンパクト） */}
+          <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-amber-50 border border-amber-200">
+            <h4 className="font-medium text-amber-800 mb-1.5 sm:mb-2 text-sm sm:text-base">💡 知っておくと便利</h4>
+            <ul className="text-xs sm:text-sm text-amber-700 space-y-1">
               <li className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 flex-shrink-0" />
+                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span>「カレンダー」タブで日程から探せます</span>
               </li>
               <li className="flex items-center gap-2">
-                <Clock className="w-4 h-4 flex-shrink-0" />
-                <span>満席の場合はキャンセル待ちに登録できます</span>
+                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span>満席時はキャンセル待ち登録可能</span>
               </li>
               <li className="flex items-center gap-2">
-                <Users className="w-4 h-4 flex-shrink-0" />
-                <span>貸切予約も可能です（要事前リクエスト）</span>
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span>貸切予約も可能（要事前リクエスト）</span>
               </li>
             </ul>
           </div>
 
           {/* 閉じるボタン */}
-          <div className="mt-6 flex justify-center">
+          <div className="mt-4 sm:mt-6 flex justify-center">
             <Button 
               onClick={handleClose}
-              className="px-8"
+              className="px-6 sm:px-8 text-sm sm:text-base"
               style={{ backgroundColor: THEME.primary, borderRadius: 0 }}
             >
               予約を始める
@@ -132,8 +133,8 @@ export function HowToUseGuide({ organizationName, isOpen, onClose }: HowToUseGui
             </Button>
           </div>
 
-          <p className="text-center text-xs text-gray-400 mt-4">
-            いつでも「?」ボタンからこのガイドを再表示できます
+          <p className="text-center text-[10px] sm:text-xs text-gray-400 mt-3 sm:mt-4">
+            いつでも「?」ボタンから再表示できます
           </p>
         </CardContent>
       </Card>

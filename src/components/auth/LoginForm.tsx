@@ -13,7 +13,7 @@ import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { Link } from 'react-router-dom'
 import { 
   Mail, Lock, ArrowRight, Eye, EyeOff, 
-  Sparkles, AlertCircle, CheckCircle, Loader2
+  Sparkles, AlertCircle, CheckCircle, Loader2, User, Phone
 } from 'lucide-react'
 
 // ソーシャルログインアイコン
@@ -61,10 +61,16 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { signIn, loading } = useAuth()
   
+  // 新規登録用の追加フィールド
+  const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  
   // フィールド別のインラインエラー
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [confirmPasswordError, setConfirmPasswordError] = useState('')
+  const [nameError, setNameError] = useState('')
+  const [phoneError, setPhoneError] = useState('')
   
   // メールアドレスのリアルタイムバリデーション
   const validateEmail = (value: string) => {
@@ -114,9 +120,13 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
     setMessage('')
     setPassword('')
     setConfirmPassword('')
+    setCustomerName('')
+    setCustomerPhone('')
     setEmailError('')
     setPasswordError('')
     setConfirmPasswordError('')
+    setNameError('')
+    setPhoneError('')
   }
 
   // ソーシャルログイン
@@ -159,6 +169,18 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         
       } else if (mode === 'signup') {
         // 新規登録
+        // 名前のバリデーション
+        if (!customerName.trim()) {
+          setNameError('お名前を入力してください')
+          setIsSubmitting(false)
+          return
+        }
+        // 電話番号のバリデーション
+        if (!customerPhone.trim()) {
+          setPhoneError('電話番号を入力してください（当日連絡用）')
+          setIsSubmitting(false)
+          return
+        }
         if (password !== confirmPassword) {
           setError('パスワードが一致しません')
           setIsSubmitting(false)
@@ -188,6 +210,20 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             }, { onConflict: 'id' })
+          
+          // customersテーブルにも登録（予約時に使用）
+          await supabase
+            .from('customers')
+            .upsert({
+              user_id: signUpData.user.id,
+              name: customerName.trim(),
+              email: email,
+              phone: customerPhone.trim(),
+              visit_count: 0,
+              total_spent: 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'email' })
         }
         
         setMessage('確認メールを送信しました。メールのリンクをクリックしてアカウントを有効化してください。')
@@ -420,6 +456,71 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
 
               {/* フォーム */}
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* 新規登録時のみ：お名前 */}
+                {mode === 'signup' && (
+                  <div>
+                    <label htmlFor="customerName" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      お名前 <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Input
+                        id="customerName"
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => {
+                          setCustomerName(e.target.value)
+                          if (e.target.value.trim()) setNameError('')
+                        }}
+                        required
+                        autoComplete="name"
+                        placeholder="山田 太郎"
+                        className={`pl-10 h-12 ${nameError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                        style={{ borderRadius: 0 }}
+                      />
+                    </div>
+                    {nameError && (
+                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {nameError}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* 新規登録時のみ：電話番号 */}
+                {mode === 'signup' && (
+                  <div>
+                    <label htmlFor="customerPhone" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      電話番号 <span className="text-red-500">*</span>
+                      <span className="text-xs text-gray-500 ml-2">（当日連絡用）</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Input
+                        id="customerPhone"
+                        type="tel"
+                        value={customerPhone}
+                        onChange={(e) => {
+                          setCustomerPhone(e.target.value)
+                          if (e.target.value.trim()) setPhoneError('')
+                        }}
+                        required
+                        autoComplete="tel"
+                        placeholder="090-1234-5678"
+                        className={`pl-10 h-12 ${phoneError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                        style={{ borderRadius: 0 }}
+                      />
+                    </div>
+                    {phoneError && (
+                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {phoneError}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* メールアドレス */}
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">

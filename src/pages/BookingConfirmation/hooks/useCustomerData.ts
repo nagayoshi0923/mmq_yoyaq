@@ -16,27 +16,47 @@ export function useCustomerData({ userId, userEmail }: UseCustomerDataProps) {
 
   /**
    * 顧客情報を読み込み
+   * user_idで検索し、見つからなければemailでも検索
    */
   const loadCustomerInfo = async () => {
-    if (!userId) return
+    if (!userId && !userEmail) return
     
     try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('name, email, phone')
-        .eq('user_id', userId)
-        .single()
+      let data = null
       
-      if (error) {
-        // customersテーブルにデータがない場合はログインユーザーのメールのみ設定
-        setCustomerEmail(userEmail || '')
-        return
+      // まずuser_idで検索
+      if (userId) {
+        const { data: userIdData, error } = await supabase
+          .from('customers')
+          .select('name, email, phone')
+          .eq('user_id', userId)
+          .maybeSingle()
+        
+        if (!error && userIdData) {
+          data = userIdData
+        }
+      }
+      
+      // user_idで見つからなければemailで検索
+      if (!data && userEmail) {
+        const { data: emailData, error } = await supabase
+          .from('customers')
+          .select('name, email, phone')
+          .eq('email', userEmail)
+          .maybeSingle()
+        
+        if (!error && emailData) {
+          data = emailData
+        }
       }
       
       if (data) {
         setCustomerName(data.name || '')
         setCustomerEmail(data.email || userEmail || '')
         setCustomerPhone(data.phone || '')
+      } else {
+        // customersテーブルにデータがない場合はログインユーザーのメールのみ設定
+        setCustomerEmail(userEmail || '')
       }
     } catch (error) {
       // エラーの場合もログインユーザーのメールを設定
@@ -45,10 +65,10 @@ export function useCustomerData({ userId, userEmail }: UseCustomerDataProps) {
   }
 
   useEffect(() => {
-    if (userId) {
+    if (userId || userEmail) {
       loadCustomerInfo()
     }
-  }, [userId])
+  }, [userId, userEmail])
 
   return {
     customerName,
