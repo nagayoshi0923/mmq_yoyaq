@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScenarioCard } from './ScenarioCard'
 import { memo, useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BookOpen, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { StoreMultiSelect } from '@/components/ui/store-multi-select'
@@ -112,9 +113,11 @@ export const LineupView = memo(function LineupView({
     return { within7Days: within, after7Days: after }
   }, [filteredUpcomingScenarios])
   
+  const navigate = useNavigate()
+  
   const handleCatalogClick = () => {
     const catalogPath = organizationSlug ? `/${organizationSlug}/catalog` : '/catalog'
-    window.location.href = catalogPath
+    navigate(catalogPath)
   }
   
   // 検索中は全シナリオから検索結果を表示

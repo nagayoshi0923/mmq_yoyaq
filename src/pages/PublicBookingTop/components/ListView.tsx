@@ -1,6 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { memo, useMemo, useCallback } from 'react'
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BookingFilters } from './BookingFilters'
 import { OptimizedImage } from '@/components/ui/optimized-image'
 import { formatDateJST } from '@/utils/dateUtils'
@@ -44,6 +45,8 @@ export const ListView = memo(function ListView({
   privateBookingDeadlineDays = 7,
   organizationSlug
 }: ListViewProps) {
+  const navigate = useNavigate()
+  
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
     const map = new Map<string, any>()
@@ -113,7 +116,7 @@ export const ListView = memo(function ListView({
             className="w-full text-xs py-1 sm:py-1.5 px-1 sm:px-2 border border-dashed border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
             onClick={() => {
               const basePath = organizationSlug ? `/${organizationSlug}` : ''
-              window.location.href = `${basePath}/private-booking-select?date=${dateStr}&store=${store.id}&slot=${timeSlot}`
+              navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${store.id}&slot=${timeSlot}`)
             }}
           >
             貸切申込

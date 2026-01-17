@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { VenueAccess } from './VenueAccess'
@@ -26,6 +27,16 @@ export const BookingPanel = memo(function BookingPanel({
   onParticipantCountChange,
   onBooking
 }: BookingPanelProps) {
+  const navigate = useNavigate()
+  
+  // 選択した公演の残席数を取得
+  const selectedEvent = selectedEventId ? events.find(e => e.event_id === selectedEventId) : null
+  const availableSeats = selectedEvent 
+    ? (selectedEvent.max_participants || maxParticipants) - (selectedEvent.current_participants || 0)
+    : maxParticipants
+  // 選択可能な最大人数（残席数とシナリオ最大人数の小さい方）
+  const selectableMax = Math.min(availableSeats, maxParticipants)
+
   return (
     <div className="space-y-3">
       {/* 人数を選択 */}
@@ -40,13 +51,23 @@ export const BookingPanel = memo(function BookingPanel({
                 value={participantCount}
                 onChange={(e) => onParticipantCountChange(Number(e.target.value))}
               >
-                {Array.from({ length: maxParticipants }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {i + 1}名
-                  </option>
-                ))}
+                {selectableMax > 0 ? (
+                  Array.from({ length: selectableMax }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      {i + 1}名
+                    </option>
+                  ))
+                ) : (
+                  <option value={0}>満席</option>
+                )}
               </select>
             </div>
+            {/* 残席表示 */}
+            {selectedEventId && availableSeats > 0 && (
+              <p className="text-xs text-muted-foreground mt-1.5">
+                残り{availableSeats}席
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -90,8 +111,8 @@ export const BookingPanel = memo(function BookingPanel({
         className="w-full h-10 text-base"
         onClick={() => {
           if (!isLoggedIn) {
-            // 未ログイン時はログインページへ遷移
-            window.location.href = '/login'
+            // 未ログイン時はログインページへ遷移（SPA遷移）
+            navigate('/login')
             return
           }
           onBooking()
@@ -105,7 +126,7 @@ export const BookingPanel = memo(function BookingPanel({
       {/* 未ログイン時の追加案内 */}
       {!isLoggedIn && selectedEventId && (
         <p className="text-xs text-center text-gray-500">
-          予約にはログインが必要です。<a href="/signup" className="text-primary underline">新規登録はこちら</a>
+          予約にはログインが必要です。<Link to="/signup" className="text-primary underline">新規登録はこちら</Link>
         </p>
       )}
     </div>

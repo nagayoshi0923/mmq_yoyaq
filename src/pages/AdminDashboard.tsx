@@ -63,6 +63,7 @@ const PlatformScenarioSearch = lazy(() => import('./PlatformScenarioSearch').the
 const PlatformTop = lazy(() => import('./PlatformTop').then(m => ({ default: m.PlatformTop })))
 const DesignPreview = lazy(() => import('./dev/DesignPreview').then(m => ({ default: m.DesignPreview })))
 const ComponentGallery = lazy(() => import('./dev/ComponentGallery').then(m => ({ default: m.ComponentGallery })))
+const NotFoundPage = lazy(() => import('./NotFoundPage').then(m => ({ default: m.NotFoundPage })))
 
 // 静的ページ（公開ページ）
 const TermsPage = lazy(() => import('./static').then(m => ({ default: m.TermsPage })))
@@ -726,6 +727,17 @@ export function AdminDashboard() {
 
   // ナビゲーション表示判定
   const shouldShowNavigation = user && user.role !== 'customer' && user.role !== undefined
+  
+  // スタッフ/管理者でない場合で、認識されないページの場合は404を表示
+  const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin' || user?.role === 'license_admin'
+  const knownPages = ['dashboard', 'report-form']
+  if (!isStaffOrAdmin && !knownPages.includes(currentPage)) {
+    return (
+      <Suspense fallback={<LoadingScreen message="読み込み中..." />}>
+        <NotFoundPage />
+      </Suspense>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">

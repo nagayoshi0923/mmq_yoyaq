@@ -7,6 +7,7 @@
  * @organization なし（新規組織作成）
  */
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -333,12 +334,11 @@ export default function OrganizationRegister() {
             <code className="block text-center text-xs bg-muted p-2 rounded">
               {window.location.origin}/{orgData.slug}
             </code>
-            <Button 
-              className="w-full" 
-              onClick={() => window.location.href = '/login'}
-            >
-              ログインページへ
-            </Button>
+            <Link to="/login" className="block w-full">
+              <Button className="w-full">
+                ログインページへ
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>

@@ -1,5 +1,6 @@
 import { showToast } from '@/utils/toast'
 import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getCurrentParticipantsCount } from '@/lib/participantUtils'
 import type { EventSchedule } from '../utils/types'
 
@@ -12,6 +13,7 @@ interface UseBookingActionsProps {
  * 予約・貸切リクエストのアクションを管理するフック
  */
 export function useBookingActions({ events, onReload }: UseBookingActionsProps) {
+  const navigate = useNavigate()
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<EventSchedule | null>(null)
   const [participantCount, setParticipantCount] = useState(1)
@@ -73,11 +75,11 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
   // 貸切リクエスト開始
   const handlePrivateBookingRequest = useCallback((isLoggedIn: boolean) => {
     if (!isLoggedIn) {
-      window.location.href = '/login'
+      navigate('/login')
       return
     }
     setShowPrivateBookingRequest(true)
-  }, [])
+  }, [navigate])
 
   // 貸切リクエスト完了
   const handlePrivateBookingComplete = useCallback(() => {

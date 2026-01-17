@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,6 +48,7 @@ export function BookingConfirmation({
   onBack,
   onComplete
 }: BookingConfirmationProps) {
+  const navigate = useNavigate()
   // 予約サイトのベースパス
   const bookingBasePath = organizationSlug ? `/${organizationSlug}` : '/queens-waltz'
   const { user } = useAuth()
@@ -285,12 +287,19 @@ export function BookingConfirmation({
                 ご予約ありがとうございます。<br />
                 確認メールを {customerEmail} に送信しました。
               </p>
-              <div className="pt-4">
+              <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
-                  onClick={() => window.location.href = bookingBasePath}
+                  onClick={() => navigate('/mypage')}
                   className="bg-green-600 hover:bg-green-700"
                 >
-                  予約サイトトップに戻る
+                  マイページで予約を確認
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(bookingBasePath)}
+                  className="border-green-600 text-green-700 hover:bg-green-50"
+                >
+                  他のシナリオを見る
                 </Button>
               </div>
             </CardContent>
@@ -342,7 +351,7 @@ export function BookingConfirmation({
                   参加人数: {duplicateWarning.existingReservation.participant_count}名
                 </p>
                 <p className="text-xs mt-2">
-                  人数を増やす場合は、<a href="/mypage" className="underline font-medium">マイページ</a>から変更できます。
+                  人数を変更したい場合は、<Link to="/mypage" className="underline font-medium">マイページ</Link>から既存の予約を編集してください。
                 </p>
               </div>
             </CardContent>
@@ -600,15 +609,15 @@ export function BookingConfirmation({
                   </div>
                 )}
                 <p className="text-sm text-muted-foreground">
-                  人数を増やしたい場合は、キャンセルして<a href="/mypage" className="underline">マイページ</a>から既存の予約を変更してください。
+                  人数を変更したい場合は、<Link to="/mypage" className="underline">マイページ</Link>から既存の予約を編集してください。
                 </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogCancel>戻る</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDuplicate} className="bg-amber-600 hover:bg-amber-700">
-              それでも予約する
+              新規予約を追加する
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

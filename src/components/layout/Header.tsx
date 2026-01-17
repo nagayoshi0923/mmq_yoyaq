@@ -1,5 +1,5 @@
 import { useCallback, memo, useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/hooks/useOrganization'
 import { Button } from '@/components/ui/button'
@@ -37,6 +37,7 @@ interface HeaderProps {
 }
 
 export const Header = memo(function Header({ onPageChange }: HeaderProps) {
+  const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { organization: staffOrganization } = useOrganization()
   const location = useLocation()
@@ -93,32 +94,32 @@ export const Header = memo(function Header({ onPageChange }: HeaderProps) {
 
   // プラットフォームトップへ
   const handlePlatformClick = useCallback(() => {
-    window.location.href = '/'
-  }, [])
+    navigate('/')
+  }, [navigate])
 
   // 組織の予約サイトトップへ
   const handleOrgClick = useCallback(() => {
     if (slug) {
-      window.location.href = `/${slug}`
+      navigate(`/${slug}`)
     }
-  }, [slug])
+  }, [navigate, slug])
 
   const handleMyPageClick = useCallback(() => {
     if (onPageChange) {
       onPageChange('my-page')
     } else {
-      window.location.href = '/mypage'
+      navigate('/mypage')
     }
-  }, [onPageChange])
+  }, [onPageChange, navigate])
 
   // 管理サイト（ダッシュボード）へ
   const handleDashboardClick = useCallback(() => {
     if (slug) {
-      window.location.href = `/${slug}/dashboard`
+      navigate(`/${slug}/dashboard`)
     } else {
-      window.location.href = '/dashboard'
+      navigate('/dashboard')
     }
-  }, [slug])
+  }, [navigate, slug])
   
   // スタッフまたは管理者かどうか（MMQ運営も含む）
   const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin' || user?.role === 'license_admin'

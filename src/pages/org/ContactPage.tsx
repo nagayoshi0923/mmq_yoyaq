@@ -162,9 +162,16 @@ export function OrganizationContactPage() {
           <AlertCircle className="h-16 w-16 text-muted-foreground mb-4" />
           <h1 className="text-2xl font-bold mb-2">お問い合わせページが見つかりません</h1>
           <p className="text-muted-foreground mb-6">{error}</p>
-          <Link to="/">
-            <Button>トップページへ戻る</Button>
-          </Link>
+          <div className="flex gap-3">
+            {slug && (
+              <Link to={`/${slug}`}>
+                <Button variant="outline">予約サイトへ戻る</Button>
+              </Link>
+            )}
+            <Link to="/">
+              <Button>MMQトップへ</Button>
+            </Link>
+          </div>
         </div>
       </PublicLayout>
     )
@@ -173,7 +180,7 @@ export function OrganizationContactPage() {
   // 送信完了
   if (isSubmitted) {
     return (
-      <PublicLayout>
+      <PublicLayout organizationSlug={slug} organizationName={organization.name}>
         <div className="max-w-2xl mx-auto px-4 py-12">
           <div className="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
             <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
@@ -182,8 +189,8 @@ export function OrganizationContactPage() {
               お問い合わせを受け付けました。<br />
               {organization.name}より返信いたしますので、しばらくお待ちください。
             </p>
-            <Link to="/">
-              <Button variant="outline">トップページへ戻る</Button>
+            <Link to={`/${slug}`}>
+              <Button variant="outline">{organization.name}のトップへ戻る</Button>
             </Link>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { formatDateJST } from '@/utils/dateUtils'
 import { BookingFilters } from './BookingFilters'
 import { OptimizedImage } from '@/components/ui/optimized-image'
@@ -44,6 +45,8 @@ export const CalendarView = memo(function CalendarView({
   privateBookingDeadlineDays = 7,
   organizationSlug
 }: CalendarViewProps) {
+  const navigate = useNavigate()
+  
   // 最適化: シナリオをMapでインデックス化（O(1)アクセス）
   const scenarioMap = useMemo(() => {
     const map = new Map<string, any>()
@@ -308,7 +311,7 @@ export const CalendarView = memo(function CalendarView({
                               className="w-full text-xs py-1 px-1 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-colors touch-manipulation"
                               onClick={() => {
                                 const basePath = organizationSlug ? `/${organizationSlug}` : ''
-                                window.location.href = `${basePath}/private-booking-select?date=${dateStr}&store=${selectedStore.id}&slot=${slot}`
+                                navigate(`${basePath}/private-booking-select?date=${dateStr}&store=${selectedStore.id}&slot=${slot}`)
                               }}
                             >
                               {label} 貸切申込

@@ -11,6 +11,7 @@
  */
 
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -191,12 +192,12 @@ export default function AuthorLogin() {
 
       {/* フッターリンク */}
       <div className="fixed bottom-4 left-0 right-0 text-center">
-        <button
-          onClick={() => window.location.href = '/about'}
+        <Link
+          to="/about"
           className="text-sm text-muted-foreground hover:text-foreground"
         >
           MMQについて
-        </button>
+        </Link>
       </div>
     </div>
   )

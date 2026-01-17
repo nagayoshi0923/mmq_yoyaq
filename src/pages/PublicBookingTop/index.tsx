@@ -227,15 +227,15 @@ export function PublicBookingTop({ onScenarioSelect, organizationSlug }: PublicB
         <Header />
         <div className="container mx-auto max-w-7xl px-4 md:px-6 py-16">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">組織が見つかりません</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">ページが見つかりません</h1>
             <p className="text-gray-600 mb-8">
-              指定された組織「{organizationSlug}」は存在しないか、現在利用できません。
+              指定されたページは存在しないか、現在利用できません。
             </p>
             <a 
-              href="/queens-waltz" 
+              href="/" 
               className={`inline-flex items-center justify-center px-6 py-3 transition-colors ${BOOKING_THEME.classes.button}`}
             >
-              トップページへ戻る
+              MMQトップページへ
             </a>
           </div>
         </div>
