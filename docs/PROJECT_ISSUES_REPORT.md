@@ -62,28 +62,20 @@
 | ✅ apiErrorHandlerの型問題 | 確認済み | 既に型定義で対応済み |
 | ✅ Edge Functionsの型なしエラー | 確認済み | 既に修正済み |
 | ✅ 未使用import（部分） | 2026-01-18 | 主要ファイルの未使用import削除 |
+| ✅ Supabase認証情報のハードコード | 確認済み | 既に対応済み（フォールバック削除、エラー表示実装） |
 
 ---
 
 ## 1. セキュリティの問題
 
-### 🔴 1.1 Supabase認証情報のハードコード
+### ✅ 1.1 Supabase認証情報のハードコード （対応完了）
 
-**ファイル**: `src/lib/supabase.ts` (4-5行目)
+**確認日**: 2026-01-18
 
-```typescript
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cznpcewciwywcqcxktba.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6...'
-```
-
-**問題点**:
-- 本番環境のSupabase URLとAnon Keyがコードにハードコードされている
-- 環境変数が設定されていない場合、自動的に本番環境に接続してしまう
-- Anon Keyはpublicですが、URLの露出はセキュリティリスクになりうる
-
-**推奨対応**:
-- フォールバック値を削除し、環境変数が未設定の場合はエラーを投げる
-- 本番URLは環境変数からのみ取得するように変更
+**対応内容**:
+- 確認済み：フォールバック値は既に削除されている
+- 環境変数が未設定の場合はエラーをスロー
+- 日本語で明確なエラーメッセージを表示
 
 ---
 
