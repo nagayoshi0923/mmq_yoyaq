@@ -48,6 +48,8 @@
 | ✅ 重複予約の案内文言が一貫しない | 2026-01-18 | 「人数を変更したい場合は〜編集してください」で統一、ダイアログボタン改善 |
 | ✅ E2Eテストが旧ハッシュURL前提 | 2026-01-18 | パスベースURL(`/queens-waltz`,`/login`)に更新、存在しない組織テスト追加 |
 | ✅ 予約完了後の導線が弱い | 2026-01-18 | 「マイページで予約を確認」を目立たせ「他のシナリオを見る」ボタン追加 |
+| ✅ `as any` の過剰使用 | 2026-01-18 | 56箇所すべて削除、適切な型定義に置換 |
+| ✅ `strict: false` | 確認済み | 既に `strict: true` が有効（レポート情報が古かった） |
 
 ---
 
@@ -92,41 +94,28 @@ if ((window as any).__PASSWORD_RESET_IN_PROGRESS__) {
 
 ## 2. 型安全性の問題
 
-### 🔴 2.1 `as any` の過剰使用
+### ✅ 2.1 `as any` の過剰使用 （対応完了）
 
-**該当箇所**: 53箇所（25ファイル）
+**対応日**: 2026-01-18
 
-**主な問題ファイル**:
-- `src/pages/SalesManagement/hooks/useSalesData.ts` - 6箇所
-- `src/components/schedule/TimeSlotCell.tsx` - 4箇所
-- `src/pages/ScheduleManager/index.tsx` - 4箇所
-- `src/components/modals/ScenarioEditDialog.tsx` - 4箇所
-
-**問題点**:
-- 型チェックを回避しているため、ランタイムエラーのリスクが増加
-- TypeScriptの恩恵を受けられない
-
-**推奨対応**:
-- 適切な型定義を追加
-- unknown型を使用して明示的に型を絞り込む
+**対応内容**:
+- 56箇所すべての `as any` を削除
+- 適切な型定義（`ColumnMeta`, `ParsedImportEvent`, `ScheduleTableModals`, `JoinedScheduleEvent` など）を追加
+- Supabase join結果の型を明示的に定義
 
 ---
 
-### 🟡 2.2 tsconfig.jsonでstrict: false
+### ✅ 2.2 tsconfig.jsonでstrict: false （対応済み確認）
 
-**ファイル**: `tsconfig.json` (18行目)
+**確認日**: 2026-01-18
+
+**現状**: `strict: true` が既に有効
 
 ```json
-"strict": false,
+"strict": true,
 ```
 
-**問題点**:
-- TypeScriptの厳格な型チェックが無効
-- null/undefinedの潜在的な問題を見逃しやすい
-
-**推奨対応**:
-- 段階的に `strict: true` に移行
-- 最低限 `strictNullChecks: true` を有効化
+このイシューは既に対応済みでした（レポート作成時の情報が古かった）。
 
 ---
 
