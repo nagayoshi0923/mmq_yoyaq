@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,7 @@ import { showToast } from '@/utils/toast'
 
 interface PublicEvent {
   id: string
+  scenario_id: string
   date: string
   start_time: string
   end_time: string
@@ -130,6 +132,7 @@ const isWithinBusinessHours = async (date: string, startTime: string, storeId: s
 }
 
 export function CustomerBookingPage() {
+  const navigate = useNavigate()
   const { organization } = useOrganization()
   const [events, setEvents] = useState<PublicEvent[]>([])
   const [filteredEvents, setFilteredEvents] = useState<PublicEvent[]>([])
@@ -192,22 +195,23 @@ export function CustomerBookingPage() {
           const isWithinHours = await isWithinBusinessHours(event.date, event.start_time, event.store_id)
           if (isWithinHours) {
             publicEvents.push({
-            id: event.id,
-            date: event.date,
-            start_time: event.start_time,
-            end_time: event.end_time,
-            scenario_title: event.scenario || event.scenarios?.title || '未定',
-            scenario_description: event.scenarios?.description,
-            store_name: event.stores?.name || '',
-            store_short_name: event.stores?.short_name || '',
-            store_color: event.stores?.color,
-            duration: calculateDuration(event.start_time, event.end_time),
-            max_participants: event.max_participants || event.capacity || 8,
-            current_participants: event.current_participants || 0,
-            available_seats: (event.max_participants || event.capacity || 8) - (event.current_participants || 0),
-            participation_fee: await calculateParticipationFee(event.scenario_id, event.start_time, event.date), // 料金設定から計算
-            is_reservation_enabled: event.is_reservation_enabled,
-            reservation_deadline_hours: event.reservation_deadline_hours || 24
+              id: event.id,
+              scenario_id: event.scenario_id,
+              date: event.date,
+              start_time: event.start_time,
+              end_time: event.end_time,
+              scenario_title: event.scenario || event.scenarios?.title || '未定',
+              scenario_description: event.scenarios?.description,
+              store_name: event.stores?.name || '',
+              store_short_name: event.stores?.short_name || '',
+              store_color: event.stores?.color,
+              duration: calculateDuration(event.start_time, event.end_time),
+              max_participants: event.max_participants || event.capacity || 8,
+              current_participants: event.current_participants || 0,
+              available_seats: (event.max_participants || event.capacity || 8) - (event.current_participants || 0),
+              participation_fee: await calculateParticipationFee(event.scenario_id, event.start_time, event.date),
+              is_reservation_enabled: event.is_reservation_enabled,
+              reservation_deadline_hours: event.reservation_deadline_hours || 24
             })
           }
         }
@@ -289,9 +293,9 @@ export function CustomerBookingPage() {
   }
 
   const handleBooking = (event: PublicEvent) => {
-    // TODO: 予約フォームへ遷移
-    logger.log('予約:', event)
-    showToast.info(`「${event.scenario_title}」の予約機能は実装中です`)
+    // シナリオ詳細ページに遷移（イベントIDをクエリパラメータで渡す）
+    const scenarioPath = `${bookingBasePath}/scenario/${event.scenario_id}?event=${event.id}`
+    navigate(scenarioPath)
   }
 
   return (
