@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
+import { toast } from 'sonner'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
 import { SettingsPage } from './pages/SettingsPage'
 import { WantToPlayPage } from './pages/LikedScenariosPage'
@@ -64,7 +65,7 @@ export default function MyPage() {
     try {
       // ファイルサイズチェック（2MB以下）
       if (file.size > 2 * 1024 * 1024) {
-        alert('画像サイズは2MB以下にしてください')
+        toast.error('画像サイズは2MB以下にしてください')
         return
       }
 
