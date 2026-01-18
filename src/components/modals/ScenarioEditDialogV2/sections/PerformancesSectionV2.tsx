@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -76,7 +77,7 @@ export function PerformancesSectionV2({
         const data = await storeApi.getAll()
         setStores(data)
       } catch (error) {
-        console.error('Failed to fetch stores:', error)
+        logger.error('Failed to fetch stores:', error)
       }
     }
     fetchStores()

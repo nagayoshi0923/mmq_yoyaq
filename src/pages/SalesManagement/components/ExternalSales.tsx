@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -104,7 +105,7 @@ export const ExternalSales: React.FC = () => {
       if (error) {
         // テーブルがない場合はエラーを表示しない
         if (error.code !== '42P01') {
-          console.error('外部売上データ取得エラー:', error)
+          logger.error('外部売上データ取得エラー:', error)
         }
         setSales([])
       } else {
@@ -209,7 +210,7 @@ export const ExternalSales: React.FC = () => {
         .order('date', { ascending: false })
       setSales(data || [])
     } catch (error) {
-      console.error('保存エラー:', error)
+      logger.error('保存エラー:', error)
       showToast.error('保存に失敗しました')
     }
   }
@@ -229,7 +230,7 @@ export const ExternalSales: React.FC = () => {
       setSales(prev => prev.filter(s => s.id !== id))
       showToast.success('削除しました')
     } catch (error) {
-      console.error('削除エラー:', error)
+      logger.error('削除エラー:', error)
       showToast.error('削除に失敗しました')
     }
   }

@@ -145,7 +145,7 @@ function getAvailabilityStatus(max: number, current: number): 'available' | 'few
         (async () => {
           try {
             const result = await storeQuery
-            console.log('📍 店舗取得結果 詳細:', {
+            logger.log('📍 店舗取得結果 詳細:', {
               count: result.data?.length,
               error: result.error,
               temporary: result.data?.filter((s: any) => s.is_temporary).length,

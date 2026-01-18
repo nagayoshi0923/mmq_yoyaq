@@ -53,14 +53,14 @@ export function WantToPlayPage() {
     setLoading(true)
     try {
       // 顧客情報を取得（user_idで検索）
-      console.log('[WantToPlayPage] Looking for customer with user_id:', user.id)
+      logger.log('[WantToPlayPage] Looking for customer with user_id:', user.id)
       const { data: customer, error: customerError } = await supabase
         .from('customers')
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle()
       
-      console.log('[WantToPlayPage] Customer search result:', customer, 'error:', customerError)
+      logger.log('[WantToPlayPage] Customer search result:', customer, 'error:', customerError)
 
       if (customerError) throw customerError
       if (!customer) {
@@ -70,17 +70,17 @@ export function WantToPlayPage() {
       }
 
       // 遊びたいシナリオを取得
-      console.log('[WantToPlayPage] Fetching scenario_likes for customer_id:', customer.id)
+      logger.log('[WantToPlayPage] Fetching scenario_likes for customer_id:', customer.id)
       const { data: likesData, error: likesError } = await supabase
         .from('scenario_likes')
         .select('id, scenario_id, created_at')
         .eq('customer_id', customer.id)
         .order('created_at', { ascending: false })
 
-      console.log('[WantToPlayPage] Likes data:', likesData, 'error:', likesError)
+      logger.log('[WantToPlayPage] Likes data:', likesData, 'error:', likesError)
       if (likesError) throw likesError
       if (!likesData || likesData.length === 0) {
-        console.log('[WantToPlayPage] No likes found')
+        logger.log('[WantToPlayPage] No likes found')
         setWantToPlayScenarios([])
         return
       }

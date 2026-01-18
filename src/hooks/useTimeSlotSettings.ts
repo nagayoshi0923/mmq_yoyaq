@@ -2,6 +2,7 @@
  * 公演時間帯設定を取得するhooks
  * 平日/休日・祝日に応じたデフォルト時間を提供
  */
+import { logger } from '@/utils/logger'
 import { useState, useEffect, useCallback } from 'react'
 import { organizationSettingsApi, type TimeSlotSettings, type DayTypeTimeSlots } from '@/lib/api/organizationSettingsApi'
 
@@ -65,7 +66,7 @@ export function useTimeSlotSettings() {
         const data = await organizationSettingsApi.getTimeSlotSettings()
         setSettings(data)
       } catch (error) {
-        console.error('Failed to load time slot settings:', error)
+        logger.error('Failed to load time slot settings:', error)
         // エラー時はデフォルト設定を使用
       } finally {
         setIsLoading(false)

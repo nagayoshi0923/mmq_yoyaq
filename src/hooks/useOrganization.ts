@@ -3,6 +3,7 @@
  * 
  * React Queryでキャッシュし、ページ遷移で再取得しないよう最適化
  */
+import { logger } from '@/utils/logger'
 import { useCallback, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -58,7 +59,7 @@ async function fetchOrganizationData(): Promise<{ organization: Organization | n
     .maybeSingle()
 
   if (orgError && orgError.code !== 'PGRST116') {
-    console.warn('Organization not found:', orgId, orgError)
+    logger.warn('Organization not found:', orgId, orgError)
   }
 
   return {
@@ -130,7 +131,7 @@ export function useOrganizations(): UseOrganizationsResult {
       if (fetchError) throw fetchError
       setOrganizations(data as Organization[])
     } catch (err) {
-      console.error('Failed to fetch organizations:', err)
+      logger.error('Failed to fetch organizations:', err)
       setError(err instanceof Error ? err : new Error('Unknown error'))
     } finally {
       setIsLoading(false)

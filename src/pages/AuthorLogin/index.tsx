@@ -10,6 +10,7 @@
  * - ログイン後は #author-dashboard へ遷移
  */
 
+import { logger } from '@/utils/logger'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -69,7 +70,7 @@ export default function AuthorLogin() {
 
       setSent(true)
     } catch (err: any) {
-      console.error('Failed to send magic link:', err)
+      logger.error('Failed to send magic link:', err)
       setError(err.message || 'マジックリンクの送信に失敗しました')
     } finally {
       setLoading(false)

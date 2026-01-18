@@ -615,7 +615,7 @@ export function useEventOperations({
         else if (ts === '夜' || ts === 'evening') timeSlotKey = 'evening'
         
         saveEmptySlotMemo(performanceData.date, storeId, timeSlotKey, memoText)
-        console.log('✅ スロットメモ保存成功:', performanceData.date, storeId, timeSlotKey, memoText.substring(0, 50))
+        logger.log('✅ スロットメモ保存成功:', performanceData.date, storeId, timeSlotKey, memoText.substring(0, 50))
         
         // 編集モードの場合、元の公演を削除
         if (modalMode === 'edit' && performanceData.id) {
@@ -771,7 +771,7 @@ export function useEventOperations({
         // 編集更新
         
         // 貸切リクエストの場合は reservations テーブルを更新
-        console.log('🔍 貸切判定:', { 
+        logger.log('🔍 貸切判定:', { 
           is_private_request: performanceData.is_private_request, 
           reservation_id: performanceData.reservation_id,
           reservation_name: performanceData.reservation_name 
@@ -799,11 +799,11 @@ export function useEventOperations({
             .eq('id', performanceData.reservation_id)
           
           if (reservationError) {
-            console.error('❌ reservations更新エラー:', reservationError)
+            logger.error('❌ reservations更新エラー:', reservationError)
             throw new Error('貸切リクエストの更新に失敗しました')
           }
           
-          console.log('✅ reservations更新成功:', { reservation_id: performanceData.reservation_id })
+          logger.log('✅ reservations更新成功:', { reservation_id: performanceData.reservation_id })
           
           // ローカル状態を更新（店舗と予約者名）
           setEvents(prev => prev.map(event => 
@@ -1528,7 +1528,7 @@ export function useEventOperations({
       
       // スロットメモとして保存
       saveEmptySlotMemo(event.date, storeId, timeSlotKey, memoText)
-      console.log('✅ スロットメモ保存成功:', event.date, storeId, timeSlotKey, memoText.substring(0, 50))
+      logger.log('✅ スロットメモ保存成功:', event.date, storeId, timeSlotKey, memoText.substring(0, 50))
       
       // 公演を削除
       await scheduleApi.delete(event.id)

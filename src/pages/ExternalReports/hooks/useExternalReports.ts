@@ -1,6 +1,7 @@
 /**
  * 外部公演報告を取得するフック
  */
+import { logger } from '@/utils/logger'
 import { useState, useEffect, useCallback } from 'react'
 import { getMyExternalReports } from '@/lib/api/externalReportsApi'
 import type { ExternalPerformanceReport } from '@/types'
@@ -17,7 +18,7 @@ export function useExternalReports() {
       const data = await getMyExternalReports()
       setReports(data)
     } catch (err) {
-      console.error('Failed to fetch external reports:', err)
+      logger.error('Failed to fetch external reports:', err)
       setError(err instanceof Error ? err : new Error('Unknown error'))
     } finally {
       setIsLoading(false)

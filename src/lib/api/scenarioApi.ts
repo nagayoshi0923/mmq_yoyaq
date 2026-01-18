@@ -718,7 +718,7 @@ export const scenarioApi = {
     })
 
     // デバッグログ（本番では削除可）
-    console.log('📊 シナリオ統計:', {
+    logger.log('📊 シナリオ統計:', {
       scenarioId,
       maxParticipants,
       performanceCount: performanceCount || 0,

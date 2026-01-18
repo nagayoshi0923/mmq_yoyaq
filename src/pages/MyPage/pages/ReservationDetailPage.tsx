@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
@@ -65,7 +66,7 @@ export function ReservationDetailPage() {
   }, [reservationId])
 
   const fetchReservation = async () => {
-    console.log('Fetching reservation with ID:', reservationId)
+    logger.log('Fetching reservation with ID:', reservationId)
     try {
       // 予約データを取得
       const { data: resData, error: resError } = await supabase
@@ -78,7 +79,7 @@ export function ReservationDetailPage() {
         .eq('id', reservationId)
         .single()
       
-      console.log('Reservation data:', resData, 'Error:', resError)
+      logger.log('Reservation data:', resData, 'Error:', resError)
       
       if (resError) throw resError
       
@@ -90,7 +91,7 @@ export function ReservationDetailPage() {
           .select('date, start_time, category')
           .eq('id', resData.schedule_event_id)
           .single()
-        console.log('Schedule event data:', eventData, 'Error:', eventError)
+        logger.log('Schedule event data:', eventData, 'Error:', eventError)
         if (eventData) {
           scheduleEvent = {
             date: eventData.date,
@@ -99,7 +100,7 @@ export function ReservationDetailPage() {
           }
         }
       } else {
-        console.log('No schedule_event_id found')
+        logger.log('No schedule_event_id found')
       }
       
       setReservation({
@@ -129,7 +130,7 @@ export function ReservationDetailPage() {
         if (scenarioData) setScenario(scenarioData)
       }
     } catch (error) {
-      console.error('Failed to fetch reservation:', error)
+      logger.error('Failed to fetch reservation:', error)
     } finally {
       setLoading(false)
     }

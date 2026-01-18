@@ -10,6 +10,7 @@
  * - 同じメールアドレス宛の全報告が一覧で見れる
  */
 
+import { logger } from '@/utils/logger'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -57,7 +58,7 @@ export default function AuthorDashboard() {
       setReports(data.reports)
       setScenarios(data.scenarios)
     } catch (err) {
-      console.error('Failed to load author data:', err)
+      logger.error('Failed to load author data:', err)
       setError('データの読み込みに失敗しました')
     } finally {
       setLoading(false)

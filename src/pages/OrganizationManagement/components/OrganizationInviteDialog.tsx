@@ -1,6 +1,7 @@
 /**
  * 組織ユーザー招待ダイアログ
  */
+import { logger } from '@/utils/logger'
 import { useState } from 'react'
 import {
   Dialog,
@@ -100,7 +101,7 @@ export function OrganizationInviteDialog({
         role: ['スタッフ'],
       })
     } catch (error) {
-      console.error('Failed to invite user:', error)
+      logger.error('Failed to invite user:', error)
       toast.error('招待に失敗しました')
     } finally {
       setIsLoading(false)

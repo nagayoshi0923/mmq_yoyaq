@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -41,7 +42,7 @@ export function useUserPreference<T>(
         return parsed
       }
     } catch (error) {
-      console.error('useUserPreference: 読み込みエラー', error)
+      logger.error('useUserPreference: 読み込みエラー', error)
     }
     return defaultValueRef.current
   }, [getStorageKey, key])
@@ -60,7 +61,7 @@ export function useUserPreference<T>(
       localStorage.setItem(storageKey, JSON.stringify(newValue))
       setValue(newValue)
     } catch (error) {
-      console.error('useUserPreference: 保存エラー', error)
+      logger.error('useUserPreference: 保存エラー', error)
     }
   }, [getStorageKey, user?.id])
   

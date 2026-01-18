@@ -287,7 +287,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
       let customerId: string | null = null
       
       // #region agent log
-      console.log('[DEBUG-E] 顧客レコード処理開始', {userId:props.userId,customerEmail});
+      logger.log('[DEBUG-E] 顧客レコード処理開始', {userId:props.userId,customerEmail});
       fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBookingSubmit.ts:customerStart',message:'顧客レコード処理開始',data:{userId:props.userId,customerEmail},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
       // #endregion
       
@@ -299,7 +299,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
           .single()
         
         // #region agent log
-        console.log('[DEBUG-E] 既存顧客チェック結果', {hasExisting:!!existingCustomer,existingId:existingCustomer?.id});
+        logger.log('[DEBUG-E] 既存顧客チェック結果', {hasExisting:!!existingCustomer,existingId:existingCustomer?.id});
         fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBookingSubmit.ts:customerCheck',message:'既存顧客チェック結果',data:{hasExisting:!!existingCustomer,existingId:existingCustomer?.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
         // #endregion
         
@@ -333,7 +333,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
             .single()
           
           // #region agent log
-          console.log('[DEBUG-E] 新規顧客作成結果', {success:!customerError,newCustomerId:newCustomer?.id,error:customerError?.message,organizationId});
+          logger.log('[DEBUG-E] 新規顧客作成結果', {success:!customerError,newCustomerId:newCustomer?.id,error:customerError?.message,organizationId});
           fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBookingSubmit.ts:customerCreate',message:'新規顧客作成結果',data:{success:!customerError,newCustomerId:newCustomer?.id,error:customerError?.message,organizationId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
           // #endregion
           
@@ -343,7 +343,7 @@ export function useBookingSubmit(props: UseBookingSubmitProps) {
         }
       } catch (error) {
         // #region agent log
-        console.log('[DEBUG-E] 顧客処理で例外発生', {error:String(error)});
+        logger.log('[DEBUG-E] 顧客処理で例外発生', {error:String(error)});
         fetch('http://127.0.0.1:7242/ingest/652dea74-319d-4149-8f63-f971b06e1aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBookingSubmit.ts:customerError',message:'顧客処理で例外発生',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
         // #endregion
         logger.error('顧客レコードの作成/更新エラー:', error)

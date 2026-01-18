@@ -321,7 +321,7 @@ export function PerformanceModal({
       }
       setTimeSlot(slot)
       
-      console.log('📋 編集イベントデータ:', JSON.stringify({
+      logger.log('📋 編集イベントデータ:', JSON.stringify({
         is_private_request: event.is_private_request,
         reservation_id: event.reservation_id,
         reservation_name: event.reservation_name,
@@ -457,7 +457,7 @@ export function PerformanceModal({
       is_private_request: formData.is_private_request, // 貸切リクエストフラグを明示的に含める
       reservation_id: formData.reservation_id // 予約IDを明示的に含める
     }
-    console.log('🔍 保存データ:', JSON.stringify({ 
+    logger.log('🔍 保存データ:', JSON.stringify({ 
       is_private_request: saveData.is_private_request,
       reservation_id: saveData.reservation_id,
       reservation_name: saveData.reservation_name,

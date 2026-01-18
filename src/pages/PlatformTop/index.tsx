@@ -89,7 +89,7 @@ export function PlatformTop() {
         .order('name')
       
       if (orgError) {
-        console.error('組織取得エラー:', orgError)
+        logger.error('組織取得エラー:', orgError)
       }
 
       const orgMap: Record<string, { slug: string, name: string }> = {}
@@ -103,7 +103,7 @@ export function PlatformTop() {
           display_name: o.name,
           logo_url: o.logo_url || undefined
         })))
-        console.log('🏢 組織データ:', orgData.length, '件')
+        logger.log('🏢 組織データ:', orgData.length, '件')
       }
 
       // 店舗一覧を取得（全組織、臨時会場とオフィスを除く）
@@ -117,7 +117,7 @@ export function PlatformTop() {
         .order('name', { ascending: true })
       
       if (storeError) {
-        console.error('店舗取得エラー:', storeError)
+        logger.error('店舗取得エラー:', storeError)
       }
       
       if (storeData) {
@@ -130,7 +130,7 @@ export function PlatformTop() {
             organization_name: orgMap[s.organization_id!]?.name
           }))
         setStores(storesWithOrg)
-        console.log('🏪 店舗データ:', storesWithOrg.length, '件')
+        logger.log('🏪 店舗データ:', storesWithOrg.length, '件')
       }
 
       // 今日以降のイベントを取得（店舗の地域情報も含む）
@@ -149,9 +149,9 @@ export function PlatformTop() {
         .order('date', { ascending: true })
         .limit(500)
 
-      console.log('📆 イベントデータ:', eventData?.length, '件', eventError ? `エラー: ${JSON.stringify(eventError)}` : '')
+      logger.log('📆 イベントデータ:', eventData?.length, '件', eventError ? `エラー: ${JSON.stringify(eventError)}` : '')
       if (eventData && eventData.length > 0) {
-        console.log('📆 最初のイベント:', JSON.stringify(eventData[0], null, 2))
+        logger.log('📆 最初のイベント:', JSON.stringify(eventData[0], null, 2))
       }
 
       if (eventData) {
@@ -227,10 +227,10 @@ export function PlatformTop() {
           })
         
         setScenariosWithEvents(scenarioList)
-        console.log('🎭 シナリオ（イベント付き）:', scenarioList.length, '件')
+        logger.log('🎭 シナリオ（イベント付き）:', scenarioList.length, '件')
         // デバッグ: 最初のシナリオのイベントを表示
         if (scenarioList.length > 0) {
-          console.log('🎭 最初のシナリオのイベント:', scenarioList[0].scenario_title, scenarioList[0].next_events)
+          logger.log('🎭 最初のシナリオのイベント:', scenarioList[0].scenario_title, scenarioList[0].next_events)
         }
       }
 

@@ -908,7 +908,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         const lastDay = new Date(importTargetMonth.year, importTargetMonth.month, 0).getDate()
         const endDate = `${importTargetMonth.year}-${String(importTargetMonth.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
         
-        console.log(`🗑️ 削除対象期間: ${startDate} 〜 ${endDate}`)
+        logger.log(`🗑️ 削除対象期間: ${startDate} 〜 ${endDate}`)
         
         // まず対象月のschedule_eventsのIDを取得（組織フィルタ付き）
         let deleteQuery = supabase
@@ -929,7 +929,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           return
         }
         
-        console.log(`🗑️ 削除対象イベント数: ${eventsToDelete?.length || 0}件`)
+        logger.log(`🗑️ 削除対象イベント数: ${eventsToDelete?.length || 0}件`)
         
         if (eventsToDelete && eventsToDelete.length > 0) {
           const eventIds = eventsToDelete.map(e => e.id)
@@ -946,7 +946,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
               .in('schedule_event_id', batchIds)
             
             if (resDeleteError) {
-              console.warn('予約削除警告:', resDeleteError.message)
+              logger.warn('予約削除警告:', resDeleteError.message)
             }
           }
           
@@ -966,7 +966,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           }
           
           deletedCount = eventIds.length
-          console.log(`✅ ${deletedCount}件の既存イベントを削除しました`)
+          logger.log(`✅ ${deletedCount}件の既存イベントを削除しました`)
         }
       }
 
@@ -1051,7 +1051,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         const shouldBeMemo = isMemo || event.category === 'memo'
         
         if (!matchedScenario && scenarioName && scenarioName.length > 0) {
-          console.log(`⚠️ シナリオ未マッピング（公演として作成）: ${scenarioName}`)
+          logger.log(`⚠️ シナリオ未マッピング（公演として作成）: ${scenarioName}`)
         }
         
         const eventData: any = {
@@ -1089,7 +1089,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           if (memoText) {
             dailyMemoMap.get(memoKey)!.texts.push(memoText)
           }
-          console.log(`📝 MEMO: ${event.date} ${event.venue} - ${memoText}`)
+          logger.log(`📝 MEMO: ${event.date} ${event.venue} - ${memoText}`)
           continue
         }
         
@@ -1128,7 +1128,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       }
       
       // デバッグログ
-      console.log('📊 インポート分類結果:', {
+      logger.log('📊 インポート分類結果:', {
         newInserts: newInserts.length,
         updates: updates.length,
         memoUpdates: memoUpdates.length,
@@ -1137,7 +1137,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       })
       
       if (newInserts.length > 0) {
-        console.log('📝 新規挿入データサンプル:', newInserts[0])
+        logger.log('📝 新規挿入データサンプル:', newInserts[0])
       }
       
       // 1. 新規挿入（バッチ）
@@ -1150,11 +1150,11 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           .insert(newInserts)
           .select()
         
-        console.log('📥 新規挿入結果:', { error, insertedCount: data?.length })
+        logger.log('📥 新規挿入結果:', { error, insertedCount: data?.length })
         
         if (error) {
-          console.error('❌ 新規挿入エラー詳細:', JSON.stringify(error, null, 2))
-          console.error('❌ 挿入しようとしたデータ (最初の3件):', newInserts.slice(0, 3))
+          logger.error('❌ 新規挿入エラー詳細:', JSON.stringify(error, null, 2))
+          logger.error('❌ 挿入しようとしたデータ (最初の3件):', newInserts.slice(0, 3))
           failedCount += newInserts.length
           errors.push(`新規挿入エラー: ${error.message}`)
         } else {
@@ -1217,7 +1217,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       // 5. daily_memosテーブルにメモを保存
       let dailyMemoSavedCount = 0
       if (dailyMemoMap.size > 0) {
-        console.log(`📝 daily_memos保存: ${dailyMemoMap.size}件`)
+        logger.log(`📝 daily_memos保存: ${dailyMemoMap.size}件`)
         
         for (const [key, memoData] of dailyMemoMap.entries()) {
           try {
@@ -1238,9 +1238,9 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
             
             await memoApi.save(memoData.date, memoData.storeId, combinedText)
             dailyMemoSavedCount++
-            console.log(`✅ MEMO保存: ${memoData.date} ${memoData.venue} - ${newText.substring(0, 30)}...`)
+            logger.log(`✅ MEMO保存: ${memoData.date} ${memoData.venue} - ${newText.substring(0, 30)}...`)
           } catch (error) {
-            console.error(`❌ MEMO保存エラー: ${key}`, error)
+            logger.error(`❌ MEMO保存エラー: ${key}`, error)
             errors.push(`メモ保存エラー (${memoData.date} ${memoData.venue}): ${error instanceof Error ? error.message : String(error)}`)
           }
         }
@@ -1264,7 +1264,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         resultErrors.unshift(`ℹ️ ${memoCount}件のメモを処理しました`)
       }
       
-      console.log('✅ インポート完了:', { totalSuccess, failedCount, errorsCount: resultErrors.length })
+      logger.log('✅ インポート完了:', { totalSuccess, failedCount, errorsCount: resultErrors.length })
       setResult({ success: totalSuccess, failed: failedCount, errors: resultErrors })
       // プレビューを非表示にして結果を見やすくする
       setShowPreview(false)
@@ -1394,7 +1394,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         }
       }
       
-      console.log(`📋 行結合: ${rawLines.length}行 → ${lines.length}行`)
+      logger.log(`📋 行結合: ${rawLines.length}行 → ${lines.length}行`)
       const events: any[] = []
       const errors: string[] = []
       let currentDate = ''
@@ -1470,8 +1470,8 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       
       // 店舗名のリスト
       const validVenues = Object.keys(STORE_MAPPING)
-      console.log('📋 有効な店舗リスト:', validVenues.join(', '))
-      console.log(`📋 パース対象: ${lines.length}行`)
+      logger.log('📋 有効な店舗リスト:', validVenues.join(', '))
+      logger.log(`📋 パース対象: ${lines.length}行`)
       
       // パース処理（UIスレッドをブロックしないようにチャンク分割）
       let lineCount = 0
@@ -1511,7 +1511,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
           const col2 = parts[2] || ''
           const col3 = parts[3] || ''
           if (col2.length > 0 && col2.length < 30 && !col2.includes('タイトル') && !col2.includes('時間帯')) {
-            console.log(`⏭️ スキップ: 列2="${col2.substring(0, 20)}", 列3="${col3.substring(0, 20)}"`)
+            logger.log(`⏭️ スキップ: 列2="${col2.substring(0, 20)}", 列3="${col3.substring(0, 20)}"`)
             skippedRows++
           }
           continue
@@ -1632,35 +1632,35 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
         acc[e.date] = (acc[e.date] || 0) + 1
         return acc
       }, {})
-      console.log(`📊 インポート解析結果: 総行数=${lines.length}, 処理行=${processedRows}, スキップ行=${skippedRows}, イベント数=${events.length}`)
-      console.log('📊 店舗別:', JSON.stringify(venueCount))
-      console.log('📊 日付別:', JSON.stringify(dateCount))
+      logger.log(`📊 インポート解析結果: 総行数=${lines.length}, 処理行=${processedRows}, スキップ行=${skippedRows}, イベント数=${events.length}`)
+      logger.log('📊 店舗別:', JSON.stringify(venueCount))
+      logger.log('📊 日付別:', JSON.stringify(dateCount))
       
       // 最初の10行の構造をデバッグ表示
-      console.log('📋 最初の10行の構造:')
+      logger.log('📋 最初の10行の構造:')
       for (let i = 0; i < Math.min(10, lines.length); i++) {
         const parts = parseTsvCells(lines[i])
-        console.log(`  行${i}: 列数=${parts.length}, 列0="${(parts[0] || '').substring(0, 10)}", 列2="${(parts[2] || '').substring(0, 15)}"`)
+        logger.log(`  行${i}: 列数=${parts.length}, 列0="${(parts[0] || '').substring(0, 10)}", 列2="${(parts[2] || '').substring(0, 15)}"`)
       }
       
       // 11/9を含む行を探す
       const line9 = lines.findIndex(l => l.includes('11/9'))
       if (line9 >= 0) {
-        console.log(`📋 11/9が見つかった行: ${line9}`)
+        logger.log(`📋 11/9が見つかった行: ${line9}`)
         const parts = parseTsvCells(lines[line9])
-        console.log(`  列数=${parts.length}, 列0="${parts[0]}", 列2="${parts[2]}"`)
-        console.log(`  全列: ${JSON.stringify(parts.map((p, i) => `${i}:${p.substring(0, 30)}`).slice(0, 9))}`)
+        logger.log(`  列数=${parts.length}, 列0="${parts[0]}", 列2="${parts[2]}"`)
+        logger.log(`  全列: ${JSON.stringify(parts.map((p, i) => `${i}:${p.substring(0, 30)}`).slice(0, 9))}`)
         // 前後の行も表示
         if (line9 > 0) {
           const prevParts = parseTsvCells(lines[line9 - 1])
-          console.log(`  前行(${line9-1}): 列数=${prevParts.length}, 列2="${(prevParts[2] || '').substring(0, 20)}"`)
+          logger.log(`  前行(${line9-1}): 列数=${prevParts.length}, 列2="${(prevParts[2] || '').substring(0, 20)}"`)
         }
         if (line9 < lines.length - 1) {
           const nextParts = parseTsvCells(lines[line9 + 1])
-          console.log(`  次行(${line9+1}): 列数=${nextParts.length}, 列2="${(nextParts[2] || '').substring(0, 20)}"`)
+          logger.log(`  次行(${line9+1}): 列数=${nextParts.length}, 列2="${(nextParts[2] || '').substring(0, 20)}"`)
         }
       } else {
-        console.log('⚠️ 11/9が見つかりません - データが途中で切れている可能性')
+        logger.log('⚠️ 11/9が見つかりません - データが途中で切れている可能性')
       }
       
       // 11/10以降があるか確認
@@ -1668,7 +1668,7 @@ export function ImportScheduleModal({ isOpen, onClose, currentDisplayDate, onImp
       const line15 = lines.findIndex(l => l.includes('11/15'))
       const line20 = lines.findIndex(l => l.includes('11/20'))
       const line30 = lines.findIndex(l => l.includes('11/30'))
-      console.log(`📋 日付存在チェック: 11/10=${line10}, 11/15=${line15}, 11/20=${line20}, 11/30=${line30}`)
+      logger.log(`📋 日付存在チェック: 11/10=${line10}, 11/15=${line15}, 11/20=${line20}, 11/30=${line30}`)
       
       setParsedEvents(events)
       setPreviewEvents(preview)

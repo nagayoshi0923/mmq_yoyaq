@@ -1,6 +1,7 @@
 /**
  * ライセンス報告を取得するフック（ライセンス管理組織用）
  */
+import { logger } from '@/utils/logger'
 import { useState, useEffect, useCallback } from 'react'
 import { getAllExternalReports, getLicensePerformanceSummary } from '@/lib/api/externalReportsApi'
 import type { ExternalPerformanceReport, LicensePerformanceSummary } from '@/types'
@@ -25,7 +26,7 @@ export function useLicenseReports(statusFilter: 'all' | 'pending' | 'approved' |
       setReports(reportsData)
       setSummary(summaryData)
     } catch (err) {
-      console.error('Failed to fetch license reports:', err)
+      logger.error('Failed to fetch license reports:', err)
       setError(err instanceof Error ? err : new Error('Unknown error'))
     } finally {
       setIsLoading(false)

@@ -132,7 +132,7 @@ export function DashboardHome({ onPageChange }: DashboardHomeProps) {
         const stores = await storeApi.getAll()
         setStoreCount(stores.length)
       } catch (error) {
-        console.error('Failed to fetch store count:', error)
+        logger.error('Failed to fetch store count:', error)
       }
     }
     fetchStoreCount()

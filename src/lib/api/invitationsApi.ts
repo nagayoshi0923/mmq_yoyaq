@@ -1,6 +1,7 @@
 /**
  * 組織招待 API
  */
+import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 import type { OrganizationInvitation } from '@/types'
 
@@ -42,7 +43,7 @@ export async function createInvitation(params: {
     if (error) throw error
     return { data: data as OrganizationInvitation, error: null }
   } catch (error) {
-    console.error('Failed to create invitation:', error)
+    logger.error('Failed to create invitation:', error)
     return { data: null, error: error as Error }
   }
 }
@@ -66,7 +67,7 @@ export async function getInvitationByToken(
     if (error) throw error
     return { data: data as OrganizationInvitation, error: null }
   } catch (error) {
-    console.error('Failed to get invitation:', error)
+    logger.error('Failed to get invitation:', error)
     return { data: null, error: error as Error }
   }
 }
@@ -127,7 +128,7 @@ export async function acceptInvitation(params: {
       }, { onConflict: 'id' })
 
     if (userError) {
-      console.error('Failed to create user record:', userError)
+      logger.error('Failed to create user record:', userError)
     }
 
     // 6. staff テーブルにレコードを作成
@@ -152,7 +153,7 @@ export async function acceptInvitation(params: {
       .single()
 
     if (staffError) {
-      console.error('Failed to create staff record:', staffError)
+      logger.error('Failed to create staff record:', staffError)
       // スタッフ作成に失敗しても続行（後で修正可能）
     }
 
@@ -166,12 +167,12 @@ export async function acceptInvitation(params: {
       .eq('id', invitation.id)
 
     if (updateError) {
-      console.error('Failed to update invitation:', updateError)
+      logger.error('Failed to update invitation:', updateError)
     }
 
     return { success: true, error: null }
   } catch (error) {
-    console.error('Failed to accept invitation:', error)
+    logger.error('Failed to accept invitation:', error)
     return { success: false, error: (error as Error).message }
   }
 }
@@ -195,7 +196,7 @@ export async function getInvitationsByOrganization(
     if (error) throw error
     return { data: data as OrganizationInvitation[], error: null }
   } catch (error) {
-    console.error('Failed to get invitations:', error)
+    logger.error('Failed to get invitations:', error)
     return { data: [], error: error as Error }
   }
 }
@@ -215,7 +216,7 @@ export async function deleteInvitation(
     if (error) throw error
     return { success: true, error: null }
   } catch (error) {
-    console.error('Failed to delete invitation:', error)
+    logger.error('Failed to delete invitation:', error)
     return { success: false, error: error as Error }
   }
 }
@@ -247,7 +248,7 @@ export async function resendInvitation(
     if (error) throw error
     return { data: data as OrganizationInvitation, error: null }
   } catch (error) {
-    console.error('Failed to resend invitation:', error)
+    logger.error('Failed to resend invitation:', error)
     return { data: null, error: error as Error }
   }
 }

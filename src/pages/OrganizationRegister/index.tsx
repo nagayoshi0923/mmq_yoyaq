@@ -6,6 +6,7 @@
  * @access 未ログインユーザー
  * @organization なし（新規組織作成）
  */
+import { logger } from '@/utils/logger'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -147,12 +148,12 @@ export default function OrganizationRegister() {
         .eq('id', orgId)
       
       if (error) {
-        console.error('組織のロールバックに失敗:', error)
+        logger.error('組織のロールバックに失敗:', error)
       } else {
-        console.log('組織をロールバックしました:', orgId)
+        logger.log('組織をロールバックしました:', orgId)
       }
     } catch (e) {
-      console.error('組織のロールバック中にエラー:', e)
+      logger.error('組織のロールバック中にエラー:', e)
     }
   }
 
@@ -216,7 +217,7 @@ export default function OrganizationRegister() {
         }, { onConflict: 'id' })
 
       if (userError) {
-        console.error('Failed to create user record:', userError)
+        logger.error('Failed to create user record:', userError)
       }
 
       // 4. staff テーブルにレコードを作成
@@ -239,14 +240,14 @@ export default function OrganizationRegister() {
         })
 
       if (staffError) {
-        console.error('Failed to create staff record:', staffError)
+        logger.error('Failed to create staff record:', staffError)
       }
 
       // 成功
       setCurrentStep('complete')
       toast.success('組織を登録しました')
     } catch (error: unknown) {
-      console.error('Registration failed:', error)
+      logger.error('Registration failed:', error)
       
       // エラー時に組織をロールバック
       if (createdOrgId) {

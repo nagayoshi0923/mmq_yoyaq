@@ -2,6 +2,7 @@
  * 参加団体一覧ページ
  * @path /stores
  */
+import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
 import { PublicLayout } from '@/components/layout/PublicLayout'
 import { MYPAGE_THEME as THEME } from '@/lib/theme'
@@ -36,17 +37,17 @@ export function StoreListPage() {
         .eq('is_active', true)
         .order('name')
 
-      console.log('🏢 組織取得結果:', orgData?.length, '件', error ? `エラー: ${JSON.stringify(error)}` : '')
+      logger.log('🏢 組織取得結果:', orgData?.length, '件', error ? `エラー: ${JSON.stringify(error)}` : '')
 
       if (error) {
-        console.error('組織取得エラー:', error)
+        logger.error('組織取得エラー:', error)
       }
 
       if (orgData) {
         setOrganizations(orgData)
       }
     } catch (error) {
-      console.error('データ取得エラー:', error)
+      logger.error('データ取得エラー:', error)
     } finally {
       setLoading(false)
     }

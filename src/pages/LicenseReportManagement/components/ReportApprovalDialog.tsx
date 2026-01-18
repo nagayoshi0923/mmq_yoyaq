@@ -1,6 +1,7 @@
 /**
  * 報告承認/却下ダイアログ
  */
+import { logger } from '@/utils/logger'
 import { useState } from 'react'
 import {
   Dialog,
@@ -59,7 +60,7 @@ export function ReportApprovalDialog({
       }
       onSuccess()
     } catch (error) {
-      console.error('Failed to process report:', error)
+      logger.error('Failed to process report:', error)
       toast.error(isApprove ? '承認に失敗しました' : '却下に失敗しました')
     } finally {
       setIsLoading(false)

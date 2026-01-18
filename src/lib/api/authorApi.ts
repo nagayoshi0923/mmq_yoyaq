@@ -6,6 +6,7 @@
  * - ログイン中のユーザーのメールアドレスに紐づく報告を取得
  * - 同じメールアドレス宛の全報告が見れる
  */
+import { logger } from '@/utils/logger'
 import { supabase } from '../supabase'
 import type { Author, AuthorPerformanceReport, AuthorSummary } from '@/types'
 
@@ -122,7 +123,7 @@ export const authorApi = {
     if (error) {
       // author_email カラムが存在しない場合は空配列を返す
       if (error.code === 'PGRST204' || error.message?.includes('author_email')) {
-        console.warn('author_email カラムが存在しません。マイグレーション007を実行してください。')
+        logger.warn('author_email カラムが存在しません。マイグレーション007を実行してください。')
         return []
       }
       throw error
@@ -225,14 +226,14 @@ export const authorApi = {
       // summary の total_scenarios を更新
       summary.total_scenarios = scenarios.length
     } catch (e) {
-      console.warn('シナリオ取得エラー:', e)
+      logger.warn('シナリオ取得エラー:', e)
     }
 
     // 報告一覧（ビューが必要）
     try {
       reports = await this.getReportsByEmail(email)
     } catch (e) {
-      console.warn('報告取得エラー (ビュー未作成の可能性):', e)
+      logger.warn('報告取得エラー (ビュー未作成の可能性):', e)
     }
 
     // サマリー（ビューが必要）
@@ -240,7 +241,7 @@ export const authorApi = {
       const summaryData = await this.getSummaryByEmail(email)
       summary = summaryData
     } catch (e) {
-      console.warn('サマリー取得エラー (ビュー未作成の可能性):', e)
+      logger.warn('サマリー取得エラー (ビュー未作成の可能性):', e)
     }
 
     return { email, summary, reports, scenarios }

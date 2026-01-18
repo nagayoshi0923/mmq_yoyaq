@@ -211,7 +211,7 @@ ${scenariosText}
       setTimeout(() => setCopiedAuthor(null), 2000)
       showToast.success('メール本文をコピーしました')
     } catch (error) {
-      console.error('Failed to copy:', error)
+      logger.error('Failed to copy:', error)
       showToast.error('コピーに失敗しました')
     }
   }
@@ -248,7 +248,7 @@ ${scenariosText}
         .maybeSingle()
       
       if (selectError) {
-        console.error('Failed to check existing record:', selectError)
+        logger.error('Failed to check existing record:', selectError)
         return
       }
       
@@ -259,7 +259,7 @@ ${scenariosText}
             .from('manual_external_performances')
             .delete()
             .eq('id', existing.id)
-          if (error) console.error('Failed to delete:', error)
+          if (error) logger.error('Failed to delete:', error)
         }
       } else if (existing?.id) {
         // 既存レコードがあれば更新
@@ -270,7 +270,7 @@ ${scenariosText}
             updated_by: staffId
           })
           .eq('id', existing.id)
-        if (error) console.error('Failed to update:', error)
+        if (error) logger.error('Failed to update:', error)
       } else {
         // なければ挿入
         const { error } = await supabase
@@ -285,7 +285,7 @@ ${scenariosText}
           })
         if (error) {
           // 409 (unique violation) の場合、既存行がある前提でUPDATEにフォールバック
-          console.error('Failed to insert manual_external_performances:', {
+          logger.error('Failed to insert manual_external_performances:', {
             code: error.code,
             message: error.message,
             details: error.details,
@@ -314,7 +314,7 @@ ${scenariosText}
               .eq('month', selectedMonth)
 
             if (updateError) {
-              console.error('Fallback update failed:', {
+              logger.error('Fallback update failed:', {
                 code: updateError.code,
                 message: updateError.message,
                 details: updateError.details,
@@ -325,7 +325,7 @@ ${scenariosText}
         }
       }
     } catch (error) {
-      console.error('Failed to save external input:', error)
+      logger.error('Failed to save external input:', error)
     } finally {
       savingScenarios.current.delete(scenarioId)
       // 他に保存中がなければフラグをオフ

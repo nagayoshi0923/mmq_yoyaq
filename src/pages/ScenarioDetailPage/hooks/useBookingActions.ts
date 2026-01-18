@@ -1,3 +1,4 @@
+import { logger } from '@/utils/logger'
 import { showToast } from '@/utils/toast'
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -51,7 +52,7 @@ export function useBookingActions({ events, onReload }: UseBookingActionsProps) 
       }
     } catch (error) {
       // エラーの場合は続行（予約確定時に再チェックされる）
-      console.error('空席チェックエラー:', error)
+      logger.error('空席チェックエラー:', error)
     }
     
     setSelectedEvent(event)

@@ -810,7 +810,7 @@ export const scheduleApi = {
       .eq('schedule_event_id', id)
     
     if (reservationError) {
-      console.warn('予約削除エラー（続行）:', reservationError)
+      logger.warn('予約削除エラー（続行）:', reservationError)
       // エラーでも続行（予約がない場合もある）
     }
     

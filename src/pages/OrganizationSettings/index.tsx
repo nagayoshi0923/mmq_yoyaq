@@ -6,6 +6,7 @@
  * @access 管理者のみ
  * @organization 自組織のみ
  */
+import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -92,7 +93,7 @@ export default function OrganizationSettings() {
         toast.error('更新に失敗しました')
       }
     } catch (error) {
-      console.error('Failed to update organization:', error)
+      logger.error('Failed to update organization:', error)
       toast.error('更新に失敗しました')
     } finally {
       setIsSubmitting(false)

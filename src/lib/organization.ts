@@ -1,6 +1,7 @@
 /**
  * 組織（マルチテナント）関連のヘルパー関数
  */
+import { logger } from '@/utils/logger'
 import { supabase } from './supabase'
 import type { Organization, Staff } from '@/types'
 
@@ -74,7 +75,7 @@ export async function getOrganizations(): Promise<Organization[]> {
     .order('name')
 
   if (error) {
-    console.error('Failed to fetch organizations:', error)
+    logger.error('Failed to fetch organizations:', error)
     return []
   }
 
@@ -102,7 +103,7 @@ export async function createOrganization(org: Partial<Organization>): Promise<Or
     .single()
 
   if (error) {
-    console.error('Failed to create organization:', error)
+    logger.error('Failed to create organization:', error)
     return null
   }
 
@@ -124,7 +125,7 @@ export async function updateOrganization(
     .single()
 
   if (error) {
-    console.error('Failed to update organization:', error)
+    logger.error('Failed to update organization:', error)
     return null
   }
 
@@ -142,7 +143,7 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
     .maybeSingle()
 
   if (error) {
-    console.error('Failed to fetch organization by slug:', error)
+    logger.error('Failed to fetch organization by slug:', error)
     return null
   }
 

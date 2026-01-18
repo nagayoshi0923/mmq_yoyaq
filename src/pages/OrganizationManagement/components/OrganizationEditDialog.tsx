@@ -1,6 +1,7 @@
 /**
  * 組織編集ダイアログ
  */
+import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
 import {
   Dialog,
@@ -92,7 +93,7 @@ export function OrganizationEditDialog({
         toast.error('更新に失敗しました')
       }
     } catch (error) {
-      console.error('Failed to update organization:', error)
+      logger.error('Failed to update organization:', error)
       toast.error('更新に失敗しました')
     } finally {
       setIsLoading(false)

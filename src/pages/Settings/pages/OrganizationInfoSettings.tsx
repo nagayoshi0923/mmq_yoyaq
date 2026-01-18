@@ -2,6 +2,7 @@
  * 組織情報設定（会社情報）
  * 自組織の基本情報と管理者招待を管理
  */
+import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -85,7 +86,7 @@ export function OrganizationInfoSettings() {
         toast.error('更新に失敗しました')
       }
     } catch (error) {
-      console.error('Failed to update organization:', error)
+      logger.error('Failed to update organization:', error)
       toast.error('更新に失敗しました')
     } finally {
       setIsSubmitting(false)

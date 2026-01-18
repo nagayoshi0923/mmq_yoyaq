@@ -1,6 +1,7 @@
 /**
  * 公演報告作成ダイアログ
  */
+import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
 import {
   Dialog,
@@ -68,7 +69,7 @@ export function ReportCreateDialog({
         const data = await getManagedScenarios()
         setScenarios(data)
       } catch (error) {
-        console.error('Failed to fetch managed scenarios:', error)
+        logger.error('Failed to fetch managed scenarios:', error)
         toast.error('シナリオ一覧の取得に失敗しました')
       } finally {
         setIsScenariosLoading(false)
@@ -120,7 +121,7 @@ export function ReportCreateDialog({
         notes: '',
       })
     } catch (error) {
-      console.error('Failed to create report:', error)
+      logger.error('Failed to create report:', error)
       toast.error('公演報告の送信に失敗しました')
     } finally {
       setIsLoading(false)

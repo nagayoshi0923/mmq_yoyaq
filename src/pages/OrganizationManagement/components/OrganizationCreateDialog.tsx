@@ -1,6 +1,7 @@
 /**
  * 組織作成ダイアログ
  */
+import { logger } from '@/utils/logger'
 import { useState } from 'react'
 import {
   Dialog,
@@ -103,7 +104,7 @@ export function OrganizationCreateDialog({
         toast.error('組織の作成に失敗しました')
       }
     } catch (error) {
-      console.error('Failed to create organization:', error)
+      logger.error('Failed to create organization:', error)
       toast.error('組織の作成に失敗しました')
     } finally {
       setIsLoading(false)

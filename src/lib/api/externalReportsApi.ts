@@ -1,6 +1,7 @@
 /**
  * 外部公演報告 API
  */
+import { logger } from '@/utils/logger'
 import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/organization'
 import type { ExternalPerformanceReport, LicensePerformanceSummary } from '@/types'
@@ -28,7 +29,7 @@ export async function createExternalReport(
     .single()
 
   if (error) {
-    console.error('Failed to create external report:', error)
+    logger.error('Failed to create external report:', error)
     throw error
   }
 
@@ -58,7 +59,7 @@ export async function getMyExternalReports(): Promise<ExternalPerformanceReport[
   const { data, error } = await query
 
   if (error) {
-    console.error('Failed to fetch external reports:', error)
+    logger.error('Failed to fetch external reports:', error)
     throw error
   }
 
@@ -107,7 +108,7 @@ export async function getAllExternalReports(
   const { data, error } = await query
 
   if (error) {
-    console.error('Failed to fetch all external reports:', error)
+    logger.error('Failed to fetch all external reports:', error)
     throw error
   }
 
@@ -134,7 +135,7 @@ export async function approveExternalReport(
     .single()
 
   if (error) {
-    console.error('Failed to approve external report:', error)
+    logger.error('Failed to approve external report:', error)
     throw error
   }
 
@@ -162,7 +163,7 @@ export async function rejectExternalReport(
     .single()
 
   if (error) {
-    console.error('Failed to reject external report:', error)
+    logger.error('Failed to reject external report:', error)
     throw error
   }
 
@@ -185,7 +186,7 @@ export async function updateExternalReport(
     .single()
 
   if (error) {
-    console.error('Failed to update external report:', error)
+    logger.error('Failed to update external report:', error)
     throw error
   }
 
@@ -203,7 +204,7 @@ export async function deleteExternalReport(reportId: string): Promise<boolean> {
     .eq('status', 'pending')  // pending のみ削除可能
 
   if (error) {
-    console.error('Failed to delete external report:', error)
+    logger.error('Failed to delete external report:', error)
     throw error
   }
 
@@ -226,7 +227,7 @@ export async function getLicensePerformanceSummary(
     .select('*')
 
   if (error) {
-    console.error('Failed to fetch license performance summary:', error)
+    logger.error('Failed to fetch license performance summary:', error)
     throw error
   }
 
@@ -252,7 +253,7 @@ export async function getManagedScenarios(): Promise<Array<{ id: string; title: 
     .order('title')
 
   if (error) {
-    console.error('Failed to fetch managed scenarios:', error)
+    logger.error('Failed to fetch managed scenarios:', error)
     throw error
   }
 

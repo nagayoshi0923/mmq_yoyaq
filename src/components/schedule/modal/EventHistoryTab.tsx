@@ -1,5 +1,6 @@
 // 公演の更新履歴を表示するタブコンポーネント
 
+import { logger } from '@/utils/logger'
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -267,7 +268,7 @@ export function EventHistoryTab({ eventId, cellInfo, organizationId }: EventHist
         const data = await getEventHistory(eventId, cellInfo, organizationId)
         setHistory(data)
       } catch (err) {
-        console.error('履歴取得エラー:', err)
+        logger.error('履歴取得エラー:', err)
         setError('履歴の取得に失敗しました')
       } finally {
         setIsLoading(false)
