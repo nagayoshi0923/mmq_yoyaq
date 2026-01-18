@@ -379,7 +379,7 @@ export function useEventOperations({
       logger.error('公演移動エラー:', error)
       showToast.error('公演の移動に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId, getSlotDefaults])
+  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId, getSlotDefaults, scenarios])
 
   // 公演を複製
   const handleCopyEvent = useCallback(async () => {
@@ -453,7 +453,7 @@ export function useEventOperations({
       logger.error('公演複製エラー:', error)
       showToast.error('公演の複製に失敗しました')
     }
-  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId, getSlotDefaults])
+  }, [draggedEvent, dropTarget, stores, setEvents, checkConflict, organizationId, getSlotDefaults, scenarios])
 
   // 🚨 CRITICAL: 公演保存時の重複チェック機能（タイムスロット + 実時間 + 準備時間）
   const handleSavePerformance = useCallback(async (performanceData: PerformanceData): Promise<boolean> => {
@@ -580,6 +580,7 @@ export function useEventOperations({
     
     // 重複がない場合は直接保存
     return await doSavePerformance(performanceData)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- doSavePerformanceは後で定義されるため意図的に省略
   }, [events, stores, scenarios, modalMode])
 
   // 実際の保存処理（重複チェックなし）
@@ -982,7 +983,7 @@ export function useEventOperations({
       showToast.error(modalMode === 'add' ? '公演の追加に失敗しました' : '公演の更新に失敗しました')
       return false
     }
-  }, [modalMode, stores, scenarios, setEvents, handleCloseModal, organizationId])
+  }, [modalMode, stores, scenarios, setEvents, organizationId, fetchSchedule])
 
   // 削除確認ダイアログを開く
   const handleDeletePerformance = useCallback((event: ScheduleEvent) => {
