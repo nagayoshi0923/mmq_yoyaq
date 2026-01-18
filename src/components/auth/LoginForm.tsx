@@ -232,6 +232,10 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
         // ログイン
         await signIn(email, password)
         
+        // ログイン成功メッセージを表示
+        setMessage('ログイン成功！リダイレクト中...')
+        setError('') // エラーをクリア
+        
         // ログイン成功後のリダイレクト
         // AuthContextがユーザー情報を更新するのを少し待ってからリダイレクト
         setTimeout(async () => {
@@ -440,13 +444,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                 </>
               )}
 
-              {/* メッセージ表示 */}
-              {error && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700">{error}</p>
-                </div>
-              )}
+              {/* メッセージ表示（エラーはボタン直前に表示するのでここでは除外） */}
               {message && (
                 <div className="mb-4 p-4 bg-green-50 border border-green-200 flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
@@ -652,7 +650,7 @@ export function LoginForm({ signup = false }: LoginFormProps = {}) {
                   </div>
                 )}
 
-                {/* エラー表示（ボタン直前にも表示して見逃し防止） */}
+                {/* エラー表示（ボタン直前に表示して見逃し防止） */}
                 {error && (
                   <div className="p-3 bg-red-50 border border-red-300 rounded flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />

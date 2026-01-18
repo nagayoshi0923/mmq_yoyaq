@@ -109,6 +109,16 @@ function AppRoutes() {
     return <ResetPassword />
   }
 
+  // ログインページ（loadingに関係なく表示 - エラー表示が消えるのを防ぐ）
+  if (location.pathname === '/login') {
+    return <LoginForm />
+  }
+
+  // 新規登録ページ（loadingに関係なく表示）
+  if (location.pathname === '/signup') {
+    return <LoginForm signup={true} />
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -121,16 +131,6 @@ function AppRoutes() {
         </div>
       </div>
     )
-  }
-
-  // ログインページ
-  if (location.pathname === '/login') {
-    return <LoginForm />
-  }
-
-  // 新規登録ページ
-  if (location.pathname === '/signup') {
-    return <LoginForm signup={true} />
   }
 
   // 未ログインまたは顧客アカウントの場合は予約サイトを表示
