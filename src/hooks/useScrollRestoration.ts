@@ -36,6 +36,7 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
     
     return () => {
       window.removeEventListener('scroll', handleScroll)
+      clearTimeout(scrollTimer)
       // scrollRestorationはmanualのままにしておく
     }
   }, [scrollYKey, scrollTimeKey])
@@ -44,21 +45,26 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
   useEffect(() => {
     const savedY = sessionStorage.getItem(scrollYKey)
     const savedTime = sessionStorage.getItem(scrollTimeKey)
+    let restoreTimer: NodeJS.Timeout
     
     if (savedY && savedTime) {
       const timeSinceScroll = Date.now() - parseInt(savedTime, 10)
       // 10秒以内のスクロール位置のみ復元（リロード直後と判定）
       if (timeSinceScroll < 10000) {
         // 少し待ってからスクロール位置を復元
-        setTimeout(() => {
+        restoreTimer = setTimeout(() => {
           window.scrollTo(0, parseInt(savedY, 10))
         }, 100)
       }
     }
+    
+    return () => clearTimeout(restoreTimer)
   }, [scrollYKey, scrollTimeKey]) // マウント時のみ実行
 
   // データ読み込み完了後に再度復元
   useEffect(() => {
+    let restoreTimer: NodeJS.Timeout
+    
     if (!isLoading) {
       const savedY = sessionStorage.getItem(scrollYKey)
       const savedTime = sessionStorage.getItem(scrollTimeKey)
@@ -68,12 +74,14 @@ export function useScrollRestoration(options: UseScrollRestorationOptions = {}) 
         // 10秒以内のスクロール位置のみ復元（リロード直後と判定）
         if (timeSinceScroll < 10000) {
           // データ読み込み後にスクロール復元
-          setTimeout(() => {
+          restoreTimer = setTimeout(() => {
             window.scrollTo(0, parseInt(savedY, 10))
           }, 200)
         }
       }
     }
+    
+    return () => clearTimeout(restoreTimer)
   }, [isLoading, scrollYKey, scrollTimeKey])
 
   // スクロール位置をクリアする関数を返す
