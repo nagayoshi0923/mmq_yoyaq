@@ -59,6 +59,8 @@
 | ✅ 顧客情報表示 | 確認済み | 既に実装済み（レポート情報が古かった） |
 | ✅ 営業時間制限 | 確認済み | 既に実装済み（レポート情報が古かった） |
 | ✅ catchでのエラー無視 | 確認済み | 既に修正済み（レポート情報が古かった） |
+| ✅ apiErrorHandlerの型問題 | 確認済み | 既に型定義で対応済み |
+| ✅ Edge Functionsの型なしエラー | 確認済み | 既に修正済み |
 
 ---
 
@@ -122,20 +124,12 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIU
 
 ---
 
-### 🟡 2.3 apiErrorHandlerの型問題
+### ✅ 2.3 apiErrorHandlerの型問題 （対応完了）
 
-**ファイル**: `src/lib/apiErrorHandler.ts` (65-66行目)
+**確認日**: 2026-01-18
 
-```typescript
-const code = error.code || error.status
-const message = error.message || 'エラーが発生しました'
-```
-
-**問題点**:
-- `error` が `any` として扱われている（パラメータ型は `unknown` だが、プロパティアクセスで型チェック無視）
-
-**推奨対応**:
-- 型ガードを追加して安全にプロパティアクセス
+**対応内容**:
+- 確認済み：65行目で `const errorObj = error as { code?: string | number; status?: string | number; message?: string }` として安全に型定義されている
 
 ---
 
@@ -298,19 +292,12 @@ useEffect(() => {
 
 ---
 
-### 🟢 6.3 Edge Functionsでの型なしエラー
+### ✅ 6.3 Edge Functionsでの型なしエラー （対応完了）
 
-**ファイル**: `supabase/functions/invite-staff/index.ts` (382行目)
+**確認日**: 2026-01-18
 
-```typescript
-} catch (error: any) {
-```
-
-**問題点**:
-- エラーを `any` として扱っている
-
-**推奨対応**:
-- `unknown` を使用して型ガードを追加
+**対応内容**:
+- 確認済み：`catch (error: any)` は既に修正済み（レポート情報が古かった）
 
 ---
 
