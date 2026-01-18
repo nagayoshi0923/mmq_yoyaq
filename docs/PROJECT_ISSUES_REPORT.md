@@ -61,6 +61,7 @@
 | ✅ catchでのエラー無視 | 確認済み | 既に修正済み（レポート情報が古かった） |
 | ✅ apiErrorHandlerの型問題 | 確認済み | 既に型定義で対応済み |
 | ✅ Edge Functionsの型なしエラー | 確認済み | 既に修正済み |
+| ✅ 未使用import（部分） | 2026-01-18 | 主要ファイルの未使用import削除 |
 
 ---
 
@@ -221,15 +222,13 @@ useEffect(() => {
 
 ---
 
-### 🟢 4.4 大量のimportが未使用
+### ✅ 4.4 未使用import （部分対応）
 
-**問題点**:
-- 一部のファイルで未使用のimportが存在する可能性
-- バンドルサイズに影響
+**対応日**: 2026-01-18
 
-**推奨対応**:
-- ESLintの `no-unused-vars` ルールを有効化
-- `eslint-plugin-unused-imports` の導入
+**対応内容**:
+- 主要ファイルの未使用importを削除（App.tsx, Footer.tsx, Header.tsx, MasterSelectDialog.tsx等）
+- 残りはESLintで自動修正可能
 
 ---
 
