@@ -4,12 +4,11 @@
  */
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
 import { logger } from '@/utils/logger'
-import { Search, BookOpen, Check } from 'lucide-react'
+import { Search, BookOpen } from 'lucide-react'
 
 interface ScenarioMaster {
   id: string

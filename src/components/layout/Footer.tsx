@@ -16,9 +16,6 @@ interface FooterProps {
 
 export function Footer({ organizationSlug, organizationName, minimal = false }: FooterProps) {
   const currentYear = new Date().getFullYear()
-  
-  // リンクのベースパス
-  const basePath = organizationSlug ? `/${organizationSlug}` : ''
 
   if (minimal) {
     return (

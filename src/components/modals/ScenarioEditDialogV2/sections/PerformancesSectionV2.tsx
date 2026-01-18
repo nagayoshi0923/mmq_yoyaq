@@ -2,7 +2,7 @@ import { logger } from '@/utils/logger'
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { CalendarDays, Users, Coins, AlertCircle, MapPin, Clock } from 'lucide-react'
+import { CalendarDays, Users, Coins, AlertCircle, MapPin } from 'lucide-react'
 import { storeApi } from '@/lib/api'
 import type { Store } from '@/types'
 
