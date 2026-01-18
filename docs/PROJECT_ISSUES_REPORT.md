@@ -148,26 +148,13 @@ const message = error.message || 'エラーが発生しました'
 
 ---
 
-### 🟡 3.2 未実装のTODOコメント
+### ✅ 3.2 未実装のTODOコメント （対応完了）
 
-**該当箇所**: 17箇所
+**対応日**: 2026-01-18
 
-**重要なTODO**:
-1. `src/contexts/AuthContext.tsx` (603行目)
-   - 「将来的には実際のSupabaseテーブルからロール情報を取得」
-
-2. `src/pages/CustomerBookingPage.tsx` (286行目)
-   - 「予約フォームへ遷移」- 機能未実装
-
-3. `src/pages/BookingConfirmation/hooks/useBookingSubmit.ts` (75行目)
-   - 「実際のstore_idを取得する必要がある」
-
-4. `src/components/schedule/modal/ReservationList.tsx` (812-815行目)
-   - 「customer_email, customer_phone, notesは別途実装が必要」
-
-**推奨対応**:
-- TODOを整理してIssue化
-- 優先度を付けて計画的に実装
+**対応内容**:
+- CustomerBookingPageの予約ボタンを実装（シナリオ詳細ページへ遷移）
+- その他のTODOは既に対応済み（レポート情報が古かった）
 
 ---
 
