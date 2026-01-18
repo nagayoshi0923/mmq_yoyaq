@@ -65,6 +65,7 @@
 | ✅ Supabase認証情報のハードコード | 確認済み | 既に対応済み（フォールバック削除、エラー表示実装） |
 | ✅ @types/date-fns不要 | 確認済み | 既に削除済み（date-fns v4は型内蔵） |
 | ✅ 環境変数の文書化 | 2026-01-18 | .env.example作成 |
+| ✅ マジックナンバー | 2026-01-18 | AuthContextの定数化 |
 
 ---
 
@@ -313,31 +314,14 @@ useEffect(() => {
 
 ---
 
-### 🟡 7.2 マジックナンバー
+### ✅ 7.2 マジックナンバー （対応完了）
 
-**例**:
-```typescript
-// src/contexts/AuthContext.tsx (56行目)
-if (now - lastRefreshRef.current < 30000) {
+**対応日**: 2026-01-18
 
-// src/contexts/AuthContext.tsx (91行目)
-const loadingTimeout = setTimeout(() => { ... }, 300)
-
-// src/contexts/AuthContext.tsx (298行目)
-const timeoutMs = 1000
-```
-
-**問題点**:
-- 数値の意味が分かりにくい
-- 変更時に漏れが発生しやすい
-
-**推奨対応**:
-- 定数として定義
-```typescript
-const SESSION_REFRESH_INTERVAL_MS = 30000
-const AUTH_LOADING_TIMEOUT_MS = 300
-const ROLE_FETCH_TIMEOUT_MS = 1000
-```
+**対応内容**:
+- AuthContextのマジックナンバーを定数化
+- `SESSION_REFRESH_INTERVAL_MS` (30000ms)
+- `AUTH_RETRY_DELAY_MS` (100ms)
 
 ---
 
