@@ -50,6 +50,7 @@
 | ✅ 予約完了後の導線が弱い | 2026-01-18 | 「マイページで予約を確認」を目立たせ「他のシナリオを見る」ボタン追加 |
 | ✅ `as any` の過剰使用 | 2026-01-18 | 56箇所すべて削除、適切な型定義に置換 |
 | ✅ `strict: false` | 確認済み | 既に `strict: true` が有効（レポート情報が古かった） |
+| ✅ グローバル変数`__PASSWORD_RESET_IN_PROGRESS__` | 2026-01-18 | sessionStorageに置換（XSS対策） |
 
 ---
 
@@ -75,20 +76,14 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIU
 
 ---
 
-### 🟢 1.2 パスワードリセット中のグローバルフラグ
+### ✅ 1.2 パスワードリセット中のグローバルフラグ （対応完了）
 
-**ファイル**: `src/contexts/AuthContext.tsx` (124行目)
+**対応日**: 2026-01-18
 
-```typescript
-if ((window as any).__PASSWORD_RESET_IN_PROGRESS__) {
-```
-
-**問題点**:
-- グローバル変数を使用してパスワードリセット状態を管理
-- XSSなどで操作される可能性がある
-
-**推奨対応**:
-- Reactのコンテキストまたは状態管理を使用
+**対応内容**:
+- `window.__PASSWORD_RESET_IN_PROGRESS__` を `sessionStorage` に置換
+- グローバル変数のXSS操作リスクを軽減
+- `sessionStorage` はタブを閉じるとクリアされるため安全性向上
 
 ---
 
